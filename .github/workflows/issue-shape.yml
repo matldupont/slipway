@@ -1,0 +1,39 @@
+name: issue-shape
+
+# The web form enforces shape; issues created through the API (gh issue create, agents)
+# bypass it. This labels them instead of letting them in silently.
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  shape:
+    name: shape
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check the issue body
+        id: shape
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/issue"
+          printf '%s\n' "$ISSUE_BODY" > "$RUNNER_TEMP/issue/body.md"
+          node ci/checks/meta/i1-issue-shape.mjs "$RUNNER_TEMP/issue"
+      - name: Label an issue that fails
+        if: failure() && steps.shape.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label needs-shape
+      - name: Clear the label once it passes
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --remove-label needs-shape || true

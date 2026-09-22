@@ -1,0 +1,10 @@
+{
+  "_note": "good.md and none-link.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count.",
+  "exit": 1,
+  "findings": [
+    "missing-verification.md#verification/missing",
+    "placeholder.md#verification/empty",
+    "placeholder.md#links/missing",
+    "prose-only.md#verification/prose-only"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "g",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "check": "tsc --noEmit"
+  }
+}

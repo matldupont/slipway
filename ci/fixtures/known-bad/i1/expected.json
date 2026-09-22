@@ -1,0 +1,14 @@
+{
+  "_note": "good.md and fenced-gwt.md pass (fence lines are not items). adjective-ac.md item 3, 'Returns HTTP 200', PASSES on purpose: it records the stated residual \u2014 I1 catches adjectives, not criteria that cannot fail.",
+  "exit": 1,
+  "findings": [
+    "adjective-ac.md#ac/unfalsifiable/1",
+    "adjective-ac.md#ac/unfalsifiable/2",
+    "no-response.md#acceptance/missing",
+    "no-response.md#seams/unanswered",
+    "api-created.md#acceptance/missing",
+    "api-created.md#seams/unanswered",
+    "none-without-reason.md#seams/none-without-reason",
+    "unenumerated.md#seams/unenumerated"
+  ]
+}

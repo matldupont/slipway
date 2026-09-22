@@ -1,0 +1,20 @@
+{
+  "name": "create-slipway",
+  "version": "0.1.0",
+  "description": "A path from a loose idea to a shipped, measured product with coding agents \u2014 and the checks that keep it honest.",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "create-slipway": "scripts/new-project.mjs"
+  },
+  "packageManager": "pnpm@10.25.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "meta": "node ci/checks/meta/m6-positive-control.mjs && node ci/checks/meta/m1-declared-vs-invoked.mjs . && node ci/checks/meta/m3-fail-open.mjs . && node ci/checks/meta/r1-review-provenance.mjs . && node ci/checks/meta/l1-lessons.mjs . && node ci/checks/meta/ms1-milestones.mjs . && node ci/checks/meta/k1-frame.mjs .",
+    "verify": "node ci/verify.mjs",
+    "verify:fast": "node ci/verify.mjs --fast",
+    "status": "node ci/status.mjs --write"
+  }
+}

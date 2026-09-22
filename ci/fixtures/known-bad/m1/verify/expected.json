@@ -1,0 +1,8 @@
+{
+  "_note": "pnpm verify covers the bare tasks (f:test, g:test, g:check). Traps: verify does not run test:unit; the root script `nightly` would, but no workflow calls it.",
+  "exit": 1,
+  "findings": [
+    "f:test:unit"
+  ],
+  "exempted": []
+}

@@ -1,0 +1,12 @@
+{
+  "_note": "Covered: a (exact filter), h (-F + run), e (-r), x1 (root script called by CI). Traps: b never invoked; c only in a shell comment; d only via a filtered turbo run; k only via pnpm exec, which bypasses the script; x2 a check nothing runs; z's dev script is not a gate.",
+  "exit": 1,
+  "findings": [
+    "b:test",
+    "c:check",
+    "d:lint",
+    "k:test",
+    "check:x2-orphan.mjs"
+  ],
+  "exempted": []
+}

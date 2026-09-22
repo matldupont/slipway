@@ -1,0 +1,10 @@
+{
+  "_note": "No decisions.md and no TEMPLATE.md: neither may crash the check. a's appetite ends today \u2014 the last day is inclusive, so it is not overrun.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "b-empty-nogos.md#section/No-gos"
+  ]
+}

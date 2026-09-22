@@ -1,0 +1,11 @@
+{
+  "_note": "good.md and TEMPLATE.md pass. from-memory.md paraphrases the version line ('v1.2.0') instead of copying it \u2014 the failure R1 exists for.",
+  "exit": 1,
+  "findings": [
+    "docs/reviews/from-memory.md#provenance/stale",
+    "docs/reviews/no-provenance.md#provenance/missing",
+    "docs/reviews/no-provenance.md#provenance/no-version-line",
+    "docs/reviews/stale.md#provenance/stale",
+    "docs/reviews/wrong-target.md#provenance/target-missing"
+  ]
+}

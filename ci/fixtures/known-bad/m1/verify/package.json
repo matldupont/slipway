@@ -1,0 +1,8 @@
+{
+  "name": "fixture-verify",
+  "private": true,
+  "scripts": {
+    "verify": "node ci/verify.mjs",
+    "nightly": "pnpm --filter f test:unit"
+  }
+}

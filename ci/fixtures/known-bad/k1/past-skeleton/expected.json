@@ -1,0 +1,9 @@
+{
+  "_note": "Framed and complete; the clarification marker is inside an HTML comment and must not count. RISK-1 is met, RISK-3 is not a value risk, RISK-4 is overridden by a decision. RISK-6 has neither threshold nor result.",
+  "exit": 1,
+  "findings": [
+    "RISK-2#risk/unresolved",
+    "RISK-5#risk/no-threshold",
+    "RISK-6#risk/unresolved"
+  ]
+}

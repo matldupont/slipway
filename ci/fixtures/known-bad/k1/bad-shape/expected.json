@@ -1,0 +1,9 @@
+{
+  "_note": "A feature wish, not a job story; the question section is gone; a TBD survives in Non-users.",
+  "exit": 1,
+  "findings": [
+    "FRAME.md#job/shape",
+    "FRAME.md#placeholder/present",
+    "FRAME.md#section/The question it answers"
+  ]
+}
