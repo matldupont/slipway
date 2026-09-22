@@ -22,7 +22,8 @@ npx github:matldupont/slipway acme              # create ./acme and the GitHub r
 ```
 
 That creates `./acme` and a **private** GitHub repository named after the folder, under your account. Then
-`cd acme`, follow [`BOOTSTRAP.md`](BOOTSTRAP.md), and run `pnpm status`.
+`cd acme`, open Claude Code and run **`/bootstrap`**: it scaffolds the app, opens the first PR and runs the
+acceptance probes ([`BOOTSTRAP.md`](BOOTSTRAP.md) is the reference).
 
 | Option | Effect |
 |---|---|
