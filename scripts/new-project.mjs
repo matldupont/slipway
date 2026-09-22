@@ -28,6 +28,10 @@ const SELF = relative(SRC, fileURLToPath(import.meta.url));
 const SKIP = new Set(['.git', 'node_modules', 'STATE.md', '.DS_Store', dirname(SELF)]);
 const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
 const REQUIRED_CHECKS = ['meta', 'verify', 'pr-body'];
+// Written, not copied: npm never packs .gitignore, so under `npx github:…` there is none to copy.
+const GITIGNORE = existsSync(join(SRC, '.gitignore'))
+  ? readFileSync(join(SRC, '.gitignore'), 'utf8')
+  : 'node_modules/\n.DS_Store\nSTATE.md\n';
 
 // ---- arguments
 const USAGE = 'usage: new-project <dir> [--name "Acme"] [--repo owner/name] [--public] [--no-github] [--dry-run]';
@@ -110,6 +114,7 @@ if (!opts.dryRun) {
     return JSON.stringify(pkg, null, 2) + '\n';
   });
   writeFileSync(join(dest, 'process', 'anchor'), today + '\n');
+  writeFileSync(join(dest, '.gitignore'), GITIGNORE);
   writeFileSync(join(dest, 'README.md'), `# ${name}
 
 <!-- One paragraph: what this is and who it is for — FRAME.md's question, once it is framed. -->
@@ -122,7 +127,7 @@ pnpm status
 `);
 }
 note(`<Product> → ${name}${repo ? `, <owner/repo> → ${repo}` : ''} in ${PLACEHOLDER_FILES.join(', ')}`);
-note(`package.json name → ${slug}; process/anchor → ${today}; README.md → product stub`);
+note(`package.json name → ${slug}; process/anchor → ${today}; README.md → product stub; .gitignore written`);
 
 // ---- 3. git
 step(3, 'Initialise git on main and commit');
