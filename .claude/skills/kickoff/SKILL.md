@@ -107,9 +107,18 @@ anyway with a decision in `decisions.md` that says why.
 ## Hand-off
 
 1. Bump the PRD `Version:` and add a change-log line.
-2. Tell the user to get the adversarial review **from a fresh session** — not this one:
-   `docs/reviews/TEMPLATE.md`, pinned to the PRD version line (R1 checks it). The author's
-   context is the thing a reviewer must not share.
+2. **Set up the adversarial review, then stop.** Copy `docs/reviews/TEMPLATE.md` to
+   `docs/reviews/<YYYY-MM-DD>-prd-<version>.md` with the two provenance lines already filled in —
+   `Reviewed: docs/PRD.md @ <short sha>` and the `Version line:` copied from the PRD — and leave the
+   register empty. Commit it with the rest. Then tell the user, in these words:
+
+   > Open a **new** session and run `/review-doc docs/PRD.md`. It fills
+   > `docs/reviews/<file>`. This is the document review, not a code review of the PR — `/pr-review`
+   > reads a diff and writes nothing here. R1 turns red once the PRD leaves draft with no review
+   > naming its current version.
+
+   Do not run it yourself: this session wrote the PRD, and a reviewer must not share the author's
+   context.
 3. Run `pnpm meta` and `pnpm status`; paste both. `status` should now point at step 4 or at
    the risk test.
 4. Commit on a branch and open a PR whose `## Verification` shows those two outputs.
