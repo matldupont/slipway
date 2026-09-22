@@ -20,14 +20,14 @@ cannot carry the skeleton is cheap to change now and expensive in month three.
 ## Contents
 
 1. Scaffold the app (BOOTSTRAP §1) and deploy it through CI, `pnpm verify` on the exact tree
-   that ships.
+   that ships. (no feature: infrastructure)
 2. Sign in, then the one core action of the product, thinnest possible: <…the smallest
-   version of the answer to the question in FRAME.md…>
+   version of the answer to the question in FRAME.md…> (F-<…>)
 3. Persist it and read it back, with the data model's one-way doors decided (IDs, money and
-   time types, owner/tenant key).
+   time types, owner/tenant key). (F-<…>)
 4. Error tracking and analytics wired, with consent: the events in `docs/product/metrics.md`
-   for this path fire in production.
-5. One end-to-end test of that path, run by CI against the deployed tree.
+   for this path fire in production. (no feature: instrumentation)
+5. One end-to-end test of that path, run by CI against the deployed tree. (no feature: gate)
 
 ## No-gos
 

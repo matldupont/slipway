@@ -24,9 +24,10 @@ The problem this milestone solves, citing FRAME and PRD IDs (F-01, RISK-2, OD-3)
 ## Contents
 
 Vertical slices — each touches every layer it needs and can be demonstrated on its own. In
-order. Each becomes one feature doc or one issue.
+order. Each becomes one feature doc or one issue, and cites the PRD feature it builds (`F-01`)
+or says `(no feature: <reason>)` — F1 checks this for active and closed milestones.
 
-1. <…>
+1. <…> (F-<…>)
 
 ## No-gos
 

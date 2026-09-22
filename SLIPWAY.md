@@ -62,7 +62,8 @@ after it can start until the value risks have Results.
 `/kickoff` continues: a PRD with stable IDs (features that do not serve the question go to *Out,
 explicitly*); the **week-1 decisions** in `decisions.md` — framework, data model, money and time types,
 identity and tenancy, i18n plumbing, analytics and consent, deploy — the choices that cost a migration if
-made late; and 3–5 **milestones**. Each milestone is a bet: an appetite (how long it is worth, not a
+made late; and 3–5 **milestones**, cut from a **story map**: the user's journey left to right, features underneath,
+slice lines across, ranked riskiest-assumption first, then dependencies, then value. Each milestone is a bet: an appetite (how long it is worth, not a
 guess at how long it takes), vertical slices, no-gos, rabbit holes, a gate that can go red, and kill
 criteria written before starting. A readiness gate then asks of every slice: can it be built without
 inventing a decision nobody recorded? Finally, get the adversarial review from a **fresh** session.
@@ -116,7 +117,7 @@ instead of rewriting the Contract.
 | `pnpm status` | where the project is and the next step; also writes `STATE.md` (gitignored) |
 | `pnpm verify` | the gate: `check`, `lint`, `test`, `build` in every package — CI, agents and humans run the same thing |
 | `pnpm verify:fast` | `verify` without `build`; the inner loop and the Stop hook |
-| `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 |
+| `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 F1 |
 | `/kickoff` | steps 1–3: frame, risk test plan, PRD, week-1 decisions, milestones, readiness gate |
 | `/close-milestone` | step 6: gate evidence, retro, close out, next bet |
 | `/log-feature` `/log-bug` `/log-followup` `/work-ticket` | intake and execution skills (user-level), configured by [`AGENT.md`](AGENT.md) |
@@ -141,14 +142,14 @@ docs/features/TEMPLATE.md           feature doc: Contract, Seams, Verify, Build 
 docs/domain-invariants.md           invariants, each citing the test that enforces it
 docs/testing-strategy.md            test layers, and what makes a test able to fail
 docs/qa/ · docs/reviews/            QA plans · adversarial reviews with provenance lines
-process/lessons/                    58 lessons, each stating where it lives (L1 checks it)
+process/lessons/                    59 lessons, each stating where it lives (L1 checks it)
 process/cold-review.md              the cold-review checklist, one line per lesson
 process/designation.md              which model and effort, by whether an oracle exists
 process/harness/                    permissions and hooks — installed by the owner
 .claude/skills/                     /kickoff and /close-milestone
 .github/                            CI (meta · verify · pr-body), issue-shape, issue forms, PR template
 ci/verify.mjs · ci/status.mjs       the gate · the state
-ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1
+ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1 F1
 ci/fixtures/known-bad/              known-bad fixtures, one expected.json per case
 ci/exceptions.yaml                  expiring, structurally keyed exceptions
 ```
@@ -168,6 +169,7 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 | R1 | each review names the file it read and a version line still verbatim in it | a review written from memory cites a document version that no longer exists |
 | L1 | every lesson points at a home that exists, and none is past its review date | lessons enforced by nothing get re-learned |
 | MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro | milestones left open after their work ends, and new surfaces started before launch |
+| F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
 | K1 | no milestone starts before the frame is finished; nothing past the skeleton before each value risk is tested against a bar set first | building before anyone names the question the product answers or tests whether people want it |
 | Stop hook | an agent turn does not end while `verify:fast` is red | agents declaring done work that was never run |
 
@@ -176,11 +178,11 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 
 ### Lessons, and where each one lives
 
-58 lessons in `process/lessons/`. The **status** says honestly what fires:
+59 lessons in `process/lessons/`. The **status** says honestly what fires:
 
 | status | count | meaning |
 |---|---|---|
-| `check` | 9 | a check or harness rule fires on violation |
+| `check` | 10 | a check or harness rule fires on violation |
 | `structural` | 2 | cannot happen once `main` is protected |
 | `artifact` | 1 | a template slot a check requires filled |
 | `prose` | 32 | judgment, written where it is used — the cold-review checklist, `CLAUDE.md`, the testing strategy — on a 90-day review clock |
@@ -221,8 +223,8 @@ M3 turns red on an exception that is undated, expired, stale, or keyed to a posi
 
 ### Validation
 
-**Harness.** M6 green over 8 checks and 15 fixture cases. On the template itself M1, M3, R1, L1 (58
-lessons), MS1 and K1 are green, and `pnpm meta` is green with nothing installed. The PR template is
+**Harness.** M6 green over 9 checks and 17 fixture cases. On the template itself M1, M3, R1, L1 (59
+lessons), MS1, K1 and F1 are green, and `pnpm meta` is green with nothing installed. The PR template is
 byte-identical to P1's `placeholder.md` fixture and the FRAME template to K1's `draft-underway` fixture, so
 an unfilled template is proven to fail.
 
@@ -260,6 +262,8 @@ blocks on a failing test, lets the second stop through, and skips a tree it alre
 | MS1 with the last appetite day made exclusive | M6 red — flagged an on-time milestone |
 | MS1 allowing two active milestones | M6 red — missed `wip/exceeded` |
 | K1 reading placeholders inside HTML comments | M6 red — flagged unexpected |
+| F1 counting killed milestones as scheduling a feature | M6 red — missed `feature/unscheduled` |
+| F1 ignoring a citation on a continuation line | M6 red — flagged two unexpected |
 | zero workflow files | M3 exit 2 |
 | a YAML anchor inside `jobs` | M3 exit 2 — refuses to guess |
 
