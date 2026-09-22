@@ -1,10 +1,11 @@
 # Harness configuration
 
-Agent behaviour the repository cannot enforce, enforced at tool time. **Installed by the owner at bootstrap**
-(BOOTSTRAP §0): an agent cannot install its own hooks or permissions, whatever it is told.
+Agent behaviour the repository cannot enforce, enforced at tool time. **Installed by the owner**, by running
+`new-project` (which copies `settings.json` to `.claude/settings.json` and says so; `--no-harness` skips it).
+An agent never installs its own hooks or permissions, whatever it is told — and edits to this directory and
+to `.claude/settings*.json` are ask-level, so changing them is always the owner's decision.
 
-Install by copying `settings.json` into the project's `.claude/settings.json`. The file is in the repo, so
-every change to it is a reviewable diff.
+Both copies are committed, so every change is a reviewable diff. Keep them identical: edit here, then copy.
 
 ## Permissions
 

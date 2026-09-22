@@ -5,14 +5,15 @@
 // ("decide by attempting it").
 //
 //   node scripts/new-project.mjs <dir> [--name "Acme"] [--repo owner/name] [--public]
-//                                      [--keep-email] [--no-github] [--dry-run]
+//                                      [--keep-email] [--no-harness] [--no-github] [--dry-run]
 //   npx github:<owner>/slipway <dir> …        once slipway is on GitHub
 //   npm create slipway@latest <dir> …         once published as create-slipway
 //
-// Deliberately NOT done here, because each is a decision or an owner-only act:
-//   - scaffolding the app (the framework is decision D-005) — BOOTSTRAP §1
-//   - installing the agent harness (.claude/settings.json) — an agent must never install
-//     its own hooks or permissions, so the owner copies it by hand — BOOTSTRAP §0
+// It also installs the agent harness (.claude/settings.json: hooks and permissions). An agent must
+// never install its own hooks; the owner running this script is the one installing them, and the
+// output says so as it happens. --no-harness skips it.
+//
+// Deliberately NOT done here: scaffolding the app — the framework is decision D-005 (BOOTSTRAP §1).
 //
 // Commits in the new repository use your GitHub noreply identity (<id>+<login>@users.noreply.github.com),
 // set as that repository's local git config, so a personal email is never published — and a push
@@ -22,7 +23,7 @@
 // the first error and says which step; everything before it is left in place to inspect.
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,14 +39,15 @@ const GITIGNORE = existsSync(join(SRC, '.gitignore'))
   : 'node_modules/\n.DS_Store\nSTATE.md\n';
 
 // ---- arguments
-const USAGE = 'usage: new-project <dir> [--name "Acme"] [--repo owner/name] [--public] [--keep-email] [--no-github] [--dry-run]';
+const USAGE = 'usage: new-project <dir> [--name "Acme"] [--repo owner/name] [--public] [--keep-email] [--no-harness] [--no-github] [--dry-run]';
 const argv = process.argv.slice(2);
-const opts = { public: false, github: true, dryRun: false, keepEmail: false, name: null, repo: null, dir: null };
+const opts = { public: false, github: true, dryRun: false, keepEmail: false, harness: true, name: null, repo: null, dir: null };
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--public') opts.public = true;
   else if (a === '--no-github') opts.github = false;
   else if (a === '--keep-email') opts.keepEmail = true;
+  else if (a === '--no-harness') opts.harness = false;
   else if (a === '--dry-run') opts.dryRun = true;
   else if (a === '--name' || a === '--repo') opts[a.slice(2)] = argv[++i];
   else if (a === '-h' || a === '--help') { console.log(USAGE); process.exit(0); }
@@ -142,6 +144,22 @@ pnpm status
 note(`<Product> → ${name}${repo ? `, <owner/repo> → ${repo}` : ''} in ${PLACEHOLDER_FILES.join(', ')}`);
 note(`package.json name → ${slug}; process/anchor → ${today}; README.md → product stub; .gitignore written`);
 
+// ---- 2b. harness
+step('2b', opts.harness ? 'Install the agent harness' : 'Agent harness — skipped (--no-harness)');
+if (opts.harness) {
+  if (!opts.dryRun) {
+    mkdirSync(join(dest, '.claude'), { recursive: true });
+    copyFileSync(join(dest, 'process', 'harness', 'settings.json'), join(dest, '.claude', 'settings.json'));
+  }
+  note('process/harness/settings.json → .claude/settings.json (committed with the project). In Claude Code');
+  note('sessions opened in this project it: asks before any git push, stash pop/drop, checkout --, reset --hard,');
+  note('and before edits to lint/type/test configs, workflows, ci/ and the harness itself; injects `pnpm status`');
+  note('at session start; blocks a turn from ending while `pnpm verify:fast` is red. Your personal');
+  note('~/.claude settings are untouched and still apply. See process/harness/README.md.');
+} else {
+  note('install later with: mkdir -p .claude && cp process/harness/settings.json .claude/settings.json');
+}
+
 // ---- 3. git
 step(3, 'Initialise git on main and commit');
 run('git', ['init', '-q', '-b', 'main'], { cwd: dest });
@@ -209,8 +227,7 @@ Done${opts.dryRun ? ' (dry run — nothing was written)' : ''}. ${dest}
 
 Next (BOOTSTRAP.md):
   cd ${rel}
-${outcome ? `  git status             # decisions.md carries D-001 — commit it in the bootstrap PR, not to main\n` : ''}  cp process/harness/settings.json .claude/settings.json      # owner-only: installs hooks and permissions
-  # §1 scaffold the app (D-005), then: pnpm install && pnpm verify && pnpm meta && pnpm status
+${outcome ? `  git status             # decisions.md carries D-001 — commit it in the bootstrap PR, not to main\n` : ''}${opts.harness ? '' : '  mkdir -p .claude && cp process/harness/settings.json .claude/settings.json   # harness, if wanted\n'}  # §1 scaffold the app (D-005), then: pnpm install && pnpm verify && pnpm meta && pnpm status
   # §3 acceptance run — every probe seen failing once
 `);
 }
