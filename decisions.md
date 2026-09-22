@@ -67,6 +67,15 @@ to retrofit. Translations can wait for demand.
 
 Which tools, where data is stored, and how consent is asked. Events: `docs/product/metrics.md`.
 
+## D-014 — Code health: dead code, duplication, boundaries *(open — week 1)*
+
+Agents duplicate by default and rarely refactor unasked, so cohesion needs something that fires.
+Template defaults, installed in M1 and run in CI as `check:*` scripts (M1 fails one no workflow
+runs): **knip** (unused files, exports, dependencies) and **jscpd** (duplicated blocks), each
+through `ci/ratchet.mjs` so existing debt never blocks work but new debt fails; and
+**dependency-cruiser** for boundaries (packages never import apps, features do not reach into
+each other's internals, one data layer). Recurring choices go in `docs/conventions.md`.
+
 ## D-013 — Deploy and promotion *(open — week 1)*
 
 Build once, promote the same artifact; the deploy runs `pnpm verify` on the exact tree it ships.

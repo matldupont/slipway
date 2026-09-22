@@ -72,7 +72,8 @@ inventing a decision nobody recorded? Finally, get the adversarial review from a
 
 Set M1 to `active` with real dates. Build the thinnest version of the core path end to end — sign in, the
 one core action, stored and read back — deployed to production through CI, with analytics and error
-tracking firing. This is where the week-1 decisions stop being opinions: a stack that cannot carry the
+tracking firing, and the code-health gates (dead code, duplication, boundaries) running from the first commit
+of product code. This is where the week-1 decisions stop being opinions: a stack that cannot carry the
 skeleton is cheap to change now and expensive in month three.
 
 ### 5 · Build loop — the rest of the milestone
@@ -81,6 +82,11 @@ One milestone active at a time (MS1). Take the next slice from its Contents, pic
 fresh agent session, prove it, merge it. The Stop hook will not let an agent end a turn while
 `pnpm verify:fast` is red. Anything that is not in the milestone goes to its no-gos or a later one, not into
 the diff.
+
+Cohesion is checked three ways: the code-health ratchets fail a PR that adds dead code or duplication;
+`docs/conventions.md` names the one way to do each recurring thing, and agents search for an existing
+helper before writing a new one; review treats a duplicate or a convention break as a `[FIX]`. Debt that
+does accumulate shows up in the milestone retro and is paid down in the cool-down.
 
 ### 6 · Close the milestone
 
@@ -117,6 +123,7 @@ instead of rewriting the Contract.
 | `pnpm status` | where the project is and the next step; also writes `STATE.md` (gitignored) |
 | `pnpm verify` | the gate: `check`, `lint`, `test`, `build` in every package — CI, agents and humans run the same thing |
 | `pnpm verify:fast` | `verify` without `build`; the inner loop and the Stop hook |
+| `node ci/ratchet.mjs <name> <report> <path>` | a code-health number may go down, never up (D-014); `--update` locks in an improvement |
 | `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 F1 |
 | `/kickoff` | steps 1–3: frame, risk test plan, PRD, week-1 decisions, milestones, readiness gate |
 | `/close-milestone` | step 6: gate evidence, retro, close out, next bet |
@@ -149,6 +156,8 @@ process/harness/                    permissions and hooks — installed by the o
 .claude/skills/                     /kickoff and /close-milestone
 .github/                            CI (meta · verify · pr-body), issue-shape, issue forms, PR template
 ci/verify.mjs · ci/status.mjs       the gate · the state
+ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
+docs/conventions.md                 the one way to do each recurring thing, with its canonical example
 ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1 F1
 ci/fixtures/known-bad/              known-bad fixtures, one expected.json per case
 ci/exceptions.yaml                  expiring, structurally keyed exceptions
@@ -240,6 +249,9 @@ an unfilled template is proven to fail.
 **`scripts/new-project.mjs`** with `--no-github` produced a history-free copy on `main`, placeholders filled,
 `pnpm meta` green inside it; `--dry-run` printed every GitHub step; bad arguments, a non-empty destination and a
 destination inside slipway are refused. The D-001 rewrite was matched against the real `decisions.md`.
+
+**`ci/ratchet.mjs`**: no baseline, a missing report, a wrong path and bad usage are each BROKEN; a higher number
+fails; `--update` records, tightens, and refuses to raise a baseline.
 
 **`pnpm status`** walked through a scratch copy: bootstrap → frame → risk test → shape → skeleton, with the
 right next step at each, and K1 red when M1 went active over an unfinished frame.

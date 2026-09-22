@@ -44,6 +44,9 @@ Fill `## Retro` in the milestone file:
   <first-sha>..HEAD`, look for revert, fix-of-fix, follow-ups merged the same day). Name the
   cause.
 - **Appetite.** Planned days vs actual.
+- **Code health.** Each ratchet in `ci/baselines.json` (dead code, duplication) at the start and end
+  of the milestone, from `git log -p ci/baselines.json`. A number that went up means a baseline was
+  raised: name the decision that did it. Consolidation work goes in the cool-down, not the next bet.
 - **Lessons.** Anything that cost real time and could recur becomes a file in
   `process/lessons/` with an honest enforcement status (L1 checks it). Search existing lessons
   first; extend one rather than duplicating it.

@@ -28,6 +28,9 @@ cannot carry the skeleton is cheap to change now and expensive in month three.
 4. Error tracking and analytics wired, with consent: the events in `docs/product/metrics.md`
    for this path fire in production. (no feature: instrumentation)
 5. One end-to-end test of that path, run by CI against the deployed tree. (no feature: gate)
+6. Code-health gates (D-014): knip and jscpd through `ci/ratchet.mjs` with baselines recorded,
+   dependency boundaries, all run by CI; first rows of `docs/conventions.md` from the skeleton's
+   own code. (no feature: gate)
 
 ## No-gos
 
