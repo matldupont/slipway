@@ -51,6 +51,8 @@ Never call work done without fresh output from the commands that prove it. The S
 
 Each rule below is a lesson in `process/lessons/`, which records where it fires.
 
+- Before writing a new helper, component, hook or type, search for an existing one by behaviour and follow
+  `docs/conventions.md`; cite what you found, or that you searched and found nothing, in the PR.
 - Search open PRs and issues for the same files before filing or starting work (L-19).
 - A follow-up question asks for an explanation, not a change. Separate hard constraints from preferences;
   when something does change, say so (L-39).

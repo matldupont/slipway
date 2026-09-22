@@ -19,6 +19,7 @@ Without values those skills fall back to another product's defaults — its repo
 | Change lanes | `CLAUDE.md#Lanes` — trivial, bounded, feature |
 | Marketing context | none |
 | Domain invariants doc | `docs/domain-invariants.md` — set none if the product has no money or other correctness-critical math; the skills treat a path here as a financial-invariant domain and require property tests on that math |
+| Conventions doc | `docs/conventions.md` — the one way to do each recurring thing; duplicates and violations are `[FIX]` in review |
 | Testing strategy doc | `docs/testing-strategy.md` |
 | Effort decision-tree | `process/designation.md` |
 | Quality gate | `pnpm verify && pnpm meta` |
