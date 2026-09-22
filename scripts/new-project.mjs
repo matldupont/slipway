@@ -5,7 +5,7 @@
 // ("decide by attempting it").
 //
 //   node scripts/new-project.mjs <dir> [--name "Acme"] [--repo owner/name] [--public]
-//                                      [--no-github] [--dry-run]
+//                                      [--keep-email] [--no-github] [--dry-run]
 //   npx github:<owner>/slipway <dir> …        once slipway is on GitHub
 //   npm create slipway@latest <dir> …         once published as create-slipway
 //
@@ -13,6 +13,10 @@
 //   - scaffolding the app (the framework is decision D-005) — BOOTSTRAP §1
 //   - installing the agent harness (.claude/settings.json) — an agent must never install
 //     its own hooks or permissions, so the owner copies it by hand — BOOTSTRAP §0
+//
+// Commits in the new repository use your GitHub noreply identity (<id>+<login>@users.noreply.github.com),
+// set as that repository's local git config, so a personal email is never published — and a push
+// is not rejected by GitHub's "block pushes that expose my email" setting. --keep-email opts out.
 //
 // Zero dependencies (D-004): Node stdlib, `git`, and `gh` for the GitHub steps. Fails at
 // the first error and says which step; everything before it is left in place to inspect.
@@ -34,13 +38,14 @@ const GITIGNORE = existsSync(join(SRC, '.gitignore'))
   : 'node_modules/\n.DS_Store\nSTATE.md\n';
 
 // ---- arguments
-const USAGE = 'usage: new-project <dir> [--name "Acme"] [--repo owner/name] [--public] [--no-github] [--dry-run]';
+const USAGE = 'usage: new-project <dir> [--name "Acme"] [--repo owner/name] [--public] [--keep-email] [--no-github] [--dry-run]';
 const argv = process.argv.slice(2);
-const opts = { public: false, github: true, dryRun: false, name: null, repo: null, dir: null };
+const opts = { public: false, github: true, dryRun: false, keepEmail: false, name: null, repo: null, dir: null };
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--public') opts.public = true;
   else if (a === '--no-github') opts.github = false;
+  else if (a === '--keep-email') opts.keepEmail = true;
   else if (a === '--dry-run') opts.dryRun = true;
   else if (a === '--name' || a === '--repo') opts[a.slice(2)] = argv[++i];
   else if (a === '-h' || a === '--help') { console.log(USAGE); process.exit(0); }
@@ -79,10 +84,13 @@ function edit(rel, fn) {
 
 // ---- preflight
 let repo = opts.repo;
+let identity = null;
 if (opts.github) {
   if (spawnSync('gh', ['--version']).error) die('`gh` is not installed; install it or pass --no-github');
   if (run('gh', ['auth', 'status'], { read: true, allowFail: true }) === null) die('`gh` is not authenticated: run `gh auth login`');
-  if (!repo) repo = `${run('gh', ['api', 'user', '-q', '.login'], { read: true }).trim()}/${slug}`;
+  const [id, login] = run('gh', ['api', 'user', '-q', '.id,.login'], { read: true }).trim().split('\n');
+  if (!opts.keepEmail) identity = { name: login, email: `${id}+${login}@users.noreply.github.com` };
+  if (!repo) repo = `${login}/${slug}`;
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) die(`--repo must be owner/name, got "${repo}"`);
   if (run('gh', ['repo', 'view', repo], { read: true, allowFail: true }) !== null) die(`GitHub repository ${repo} already exists`);
 }
@@ -90,7 +98,7 @@ const sha = run('git', ['-C', SRC, 'rev-parse', '--short', 'HEAD'], { read: true
 const dirty = sha && run('git', ['-C', SRC, 'status', '--porcelain'], { read: true, allowFail: true })?.trim();
 const version = sha ? `${sha}${dirty ? '-dirty' : ''}` : JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).version ?? 'unknown';
 
-process.stdout.write(`slipway ${version} → ${dest}\n  product: ${name}\n  repo:    ${opts.github ? `${repo} (${opts.public ? 'public' : 'private'})` : 'none (--no-github)'}\n`);
+process.stdout.write(`slipway ${version} → ${dest}\n  product: ${name}\n  repo:    ${opts.github ? `${repo} (${opts.public ? 'public' : 'private'})` : 'none (--no-github)'}\n  commits: ${identity ? `${identity.name} <${identity.email}>` : 'your git config'}\n`);
 
 // ---- 1. copy
 step(1, 'Copy the template');
@@ -132,6 +140,10 @@ note(`package.json name → ${slug}; process/anchor → ${today}; README.md → 
 // ---- 3. git
 step(3, 'Initialise git on main and commit');
 run('git', ['init', '-q', '-b', 'main'], { cwd: dest });
+if (identity) {
+  run('git', ['config', 'user.name', identity.name], { cwd: dest });
+  run('git', ['config', 'user.email', identity.email], { cwd: dest });
+}
 run('git', ['add', '-A'], { cwd: dest });
 run('git', ['commit', '-q', '-m', `chore: start from slipway ${version}`], { cwd: dest });
 

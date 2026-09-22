@@ -22,7 +22,9 @@ to exempt. The cheapest moment to install the spine is before there is anything 
 
    - copies the template without its history, fills `<Product>` and `<owner/repo>`, starts the lessons
      clock (`process/anchor`), and replaces the README with a product stub (`SLIPWAY.md` stays as the guide);
-   - initialises git on **`main`** — CI triggers on pushes to `main`, so a `master` branch would run none of it;
+   - initialises git on **`main`** — CI triggers on pushes to `main`, so a `master` branch would run none of it —
+     committing as your GitHub noreply identity (set in the repo's local git config) so no personal email is
+     published; `--keep-email` uses your own git config instead;
    - creates the GitHub repository and pushes;
    - creates the `needs-shape` label that `.github/workflows/issue-shape.yml` applies;
    - **attempts** to protect `main` — pull request required; required checks `meta`, `verify`, `pr-body`;
