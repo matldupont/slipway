@@ -41,6 +41,10 @@ and commits as your **GitHub noreply address**, so no personal email is publishe
 creates the `needs-shape` label; **attempts** to protect `main` and writes the outcome into `decisions.md`
 as D-001. That edit is left uncommitted — `main` may now refuse direct pushes — so it goes in your first PR.
 
+**The first CI run on `main` is red, on purpose:** `verify` has no app to check yet, and a gate that could
+not have proven anything never reports green. It says so ("no workspace packages — add an app") and turns
+green once BOOTSTRAP §1 adds one.
+
 **Branch protection on a private repository** needs a paid GitHub plan. On a free plan GitHub refuses, and
 D-001 records the accepted risk and the fallback: CI still runs on every push to `main`, so a direct push
 turns it red rather than being blocked.

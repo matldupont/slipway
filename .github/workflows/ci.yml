@@ -36,6 +36,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Before any install: with no app there is nothing to verify, and this says so (BROKEN, pointing at
+      # BOOTSTRAP §1) instead of failing later on a missing lockfile. Needs no dependencies.
+      - name: Require an app
+        run: node ci/verify.mjs --plan
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
