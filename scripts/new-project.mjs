@@ -225,9 +225,9 @@ function finish(outcome) {
   process.stdout.write(`
 Done${opts.dryRun ? ' (dry run — nothing was written)' : ''}. ${dest}
 
-Next (BOOTSTRAP.md):
+Next: open Claude Code in the project and run /bootstrap — it scaffolds the app, opens the bootstrap PR
+and runs the acceptance probes (BOOTSTRAP.md is the reference for each step).
   cd ${rel}
-${outcome ? `  git status             # decisions.md carries D-001 — commit it in the bootstrap PR, not to main\n` : ''}${opts.harness ? '' : '  mkdir -p .claude && cp process/harness/settings.json .claude/settings.json   # harness, if wanted\n'}  # §1 scaffold the app (D-005), then: pnpm install && pnpm verify && pnpm meta && pnpm status
-  # §3 acceptance run — every probe seen failing once
+${outcome ? `  git status             # decisions.md carries D-001 — commit it in the bootstrap PR, not to main\n` : ''}${opts.harness ? '' : '  mkdir -p .claude && cp process/harness/settings.json .claude/settings.json   # harness, if wanted\n'}  claude                 # then: /bootstrap
 `);
 }

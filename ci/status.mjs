@@ -84,7 +84,7 @@ const dueSoon = existsSync(lessonsDir)
 function next() {
   if (!bootstrapped || packages === 0) {
     const missing = [!bootstrapped && 'AGENT.md still has placeholders', packages === 0 && 'no app package yet (§1)'].filter(Boolean);
-    return `Step 0 — Bootstrap: follow BOOTSTRAP.md (${missing.join('; ')}).`;
+    return `Step 0 — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
   if (frame !== 'framed') return 'Step 1 — Frame: finish docs/product/FRAME.md (run /kickoff), then set status: framed.';
   if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) {

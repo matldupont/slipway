@@ -18,7 +18,7 @@ sessions get the same output automatically when they start.
 
 | Step | You | Produces | Done when (what fires) |
 |---|---|---|---|
-| **0 · Bootstrap** | `scripts/new-project.mjs` (repo, harness, label, protection), scaffold the app | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
+| **0 · Bootstrap** | `new-project` (repo, harness, label, protection), then `/bootstrap` (app, PR, probes) | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
 | **1 · Frame** | run `/kickoff` and answer one question at a time | [`docs/product/FRAME.md`](docs/product/FRAME.md) — job story, the question the product answers, risks | `status: framed`; **K1** blocks any milestone until then |
 | **2 · Test the risk** | talk to people or run the job by hand, against a bar written first | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result |
 | **3 · Shape** | finish `/kickoff`: PRD, week-1 decisions, milestones; review from a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green on the review |
@@ -30,7 +30,7 @@ sessions get the same output automatically when they start.
 ### 0 · Bootstrap — about an hour
 
 Follow [`BOOTSTRAP.md`](BOOTSTRAP.md): one script creates the project and its GitHub repository, pushes `main`,
-installs the agent harness, attempts protection and records the outcome; then scaffold the app, fill `AGENT.md`, set the lessons clock, then run the acceptance
+installs the agent harness, attempts protection and records the outcome; then `/bootstrap` scaffolds the app, fill `AGENT.md`, set the lessons clock, then run the acceptance
 probes. A gate that has never refused anything cannot be told apart from one that is not installed, so each
 probe must be *seen* failing.
 
@@ -124,6 +124,7 @@ instead of rewriting the Contract.
 | `pnpm verify:fast` | `verify` without `build`; the inner loop and the Stop hook |
 | `node ci/ratchet.mjs <name> <report> <path>` | a code-health number may go down, never up (D-014); `--update` locks in an improvement |
 | `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 F1 |
+| `/bootstrap` | step 0, after `new-project`: scaffold the app, bootstrap PR, acceptance probes |
 | `/kickoff` | steps 1–3: frame, risk test plan, PRD, week-1 decisions, milestones, readiness gate |
 | `/close-milestone` | step 6: gate evidence, retro, close out, next bet |
 | `/log-feature` `/log-bug` `/log-followup` `/work-ticket` | intake and execution skills (user-level), configured by [`AGENT.md`](AGENT.md) |
@@ -152,8 +153,8 @@ process/lessons/                    59 lessons, each stating where it lives (L1 
 process/cold-review.md              the cold-review checklist, one line per lesson
 process/designation.md              which model and effort, by whether an oracle exists
 process/harness/                    permissions and hooks — installed into .claude/ by new-project
-.claude/skills/                     /kickoff and /close-milestone
-.github/                            CI (meta · verify · pr-body), issue-shape, issue forms, PR template
+.claude/skills/                     /bootstrap, /kickoff and /close-milestone
+.github/                            CI (meta · verify), pr-body (re-runs on description edits), issue-shape, issue forms, PR template
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
 docs/conventions.md                 the one way to do each recurring thing, with its canonical example

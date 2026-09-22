@@ -1,7 +1,8 @@
 # Bootstrap — starting a project on this template
 
-Step 0 of the path in `SLIPWAY.md`. About an hour or two, mostly owner-only clicks. When the acceptance run in
-§3 is done, go to step 1 (`/kickoff`).
+Step 0 of the path in `SLIPWAY.md`. §0 is done by `new-project`. **Run `/bootstrap` for §1 and §3**: it scaffolds the
+app, opens the bootstrap PR and runs every acceptance probe an agent can, listing the rest for you. This file is
+the reference for what it does. When the PR is merged, go to step 1 (`/kickoff`).
 
 **Requires:** Node 24 + pnpm, GitHub, Claude Code. **Defaults**, decided in week 1 (D-005–D-008): TypeScript,
 React + Vite, Cloudflare.
