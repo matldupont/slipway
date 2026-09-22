@@ -18,7 +18,7 @@ sessions get the same output automatically when they start.
 
 | Step | You | Produces | Done when (what fires) |
 |---|---|---|---|
-| **0 · Bootstrap** | `scripts/new-project.mjs` (repo, label, protection), install the harness, scaffold the app | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
+| **0 · Bootstrap** | `scripts/new-project.mjs` (repo, harness, label, protection), scaffold the app | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
 | **1 · Frame** | run `/kickoff` and answer one question at a time | [`docs/product/FRAME.md`](docs/product/FRAME.md) — job story, the question the product answers, risks | `status: framed`; **K1** blocks any milestone until then |
 | **2 · Test the risk** | talk to people or run the job by hand, against a bar written first | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result |
 | **3 · Shape** | finish `/kickoff`: PRD, week-1 decisions, milestones; review from a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green on the review |
@@ -30,8 +30,7 @@ sessions get the same output automatically when they start.
 ### 0 · Bootstrap — about an hour
 
 Follow [`BOOTSTRAP.md`](BOOTSTRAP.md): one script creates the project and its GitHub repository, pushes `main`,
-attempts protection and records the outcome; then copy the harness into
-`.claude/settings.json`, scaffold the app, fill `AGENT.md`, set the lessons clock, then run the acceptance
+installs the agent harness, attempts protection and records the outcome; then scaffold the app, fill `AGENT.md`, set the lessons clock, then run the acceptance
 probes. A gate that has never refused anything cannot be told apart from one that is not installed, so each
 probe must be *seen* failing.
 
@@ -152,7 +151,7 @@ docs/qa/ · docs/reviews/            QA plans · adversarial reviews with proven
 process/lessons/                    59 lessons, each stating where it lives (L1 checks it)
 process/cold-review.md              the cold-review checklist, one line per lesson
 process/designation.md              which model and effort, by whether an oracle exists
-process/harness/                    permissions and hooks — installed by the owner
+process/harness/                    permissions and hooks — installed into .claude/ by new-project
 .claude/skills/                     /kickoff and /close-milestone
 .github/                            CI (meta · verify · pr-body), issue-shape, issue forms, PR template
 ci/verify.mjs · ci/status.mjs       the gate · the state

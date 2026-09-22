@@ -25,6 +25,7 @@ to exempt. The cheapest moment to install the spine is before there is anything 
    - initialises git on **`main`** — CI triggers on pushes to `main`, so a `master` branch would run none of it —
      committing as your GitHub noreply identity (set in the repo's local git config) so no personal email is
      published; `--keep-email` uses your own git config instead;
+   - installs the agent harness (`.claude/settings.json`), and prints what it does as it goes;
    - creates the GitHub repository and pushes;
    - creates the `needs-shape` label that `.github/workflows/issue-shape.yml` applies;
    - **attempts** to protect `main` — pull request required; required checks `meta`, `verify`, `pr-body`;
@@ -36,10 +37,11 @@ to exempt. The cheapest moment to install the spine is before there is anything 
    Without `gh`, pass `--no-github` and do the last three by hand in the repository settings. If a run fails
    partway, the README's *If a run fails partway* says how to finish from where it stopped.
 
-2. Install the harness: copy `process/harness/settings.json` to `.claude/settings.json`. It makes destructive
-   git operations and edits to gate configuration ask-level, injects `pnpm status` at session start, blocks
-   a turn from ending while `verify:fast` is red, and adds three advisory hooks
-   (`process/harness/README.md`). An agent cannot install its own hooks or permissions.
+2. The harness is already installed: the script copied `process/harness/settings.json` to
+   `.claude/settings.json` and said so. It makes destructive git operations and edits to gate configuration
+   ask-level, injects `pnpm status` at session start, blocks a turn from ending while `verify:fast` is red,
+   and adds three advisory hooks (`process/harness/README.md`). You installed it by running the script; an
+   agent never installs its own hooks or permissions. Skipped with `--no-harness`? Copy it by hand.
 
 ## 1. Add the app
 

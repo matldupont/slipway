@@ -30,13 +30,16 @@ That creates `./acme` and a **private** GitHub repository named after the folder
 | `--repo owner/name` | GitHub repository (default: your login / the folder name) |
 | `--public` | create a public repository instead of a private one |
 | `--keep-email` | commit with your own git identity instead of your GitHub noreply address |
+| `--no-harness` | don't install the agent harness into `.claude/settings.json` |
 | `--no-github` | local only: copy, fill placeholders and commit; create nothing on GitHub |
 | `--dry-run` | print every step without writing anything |
 
 From a clone instead of npx: `node slipway/scripts/new-project.mjs acme` takes the same options.
 
 **What it does:** copies the template without its history; fills the placeholders; initialises git on `main`
-and commits as your **GitHub noreply address**, so no personal email is published (and GitHub's
+installs the **agent harness** (`.claude/settings.json`: approval prompts for risky git and config edits, the
+session-start status, the Stop gate — see `process/harness/README.md`; `--no-harness` skips it); commits as your
+**GitHub noreply address**, so no personal email is published (and GitHub's
 "block pushes that expose my email" setting does not reject the push); creates the repository and pushes;
 creates the `needs-shape` label; **attempts** to protect `main` and writes the outcome into `decisions.md`
 as D-001. That edit is left uncommitted — `main` may now refuse direct pushes — so it goes in your first PR.
