@@ -79,13 +79,21 @@ anyway with a decision in `decisions.md` that says why.
    with the user, or defer with the event that reopens it. These are the expensive-to-reverse
    choices; do not let one slide into month three. Once D-005–D-008 are decided, rewrite the
    `Stack:` line at the top of `CLAUDE.md` to state the decided stack — agents read it first.
-3. **Milestones (`docs/milestones/`).** M1 is always the walking skeleton — fill its
-   placeholders with this product's thinnest core path. Then 2–4 more from the template:
-   typically an MVP that answers the question for a handful of real users, then what it takes
-   to charge or launch. Each gets an appetite (days or weeks, not a date guess), vertical
+3. **Story map (PRD §10).** Lay the user's journey left to right as 3–6 activities, taken from
+   FRAME's job story; put the §5 features under the activity each serves. Draw slice lines
+   across: the first is the walking skeleton (the thinnest path across the *whole* journey, not
+   one activity done fully), the next answers FRAME's question for a handful of real users, the
+   next is what it takes to charge or launch. Rank with the written rule — riskiest open
+   assumption first, then dependencies, then value — and record why each feature sits on its
+   line. Show the map to the user and let them move features between lines before going on;
+   anything below the last line moves to §4 *Out, explicitly*.
+4. **Milestones (`docs/milestones/`).** One per slice line. M1 is always the walking skeleton —
+   fill its placeholders with this product's thinnest core path. Every Contents item cites the
+   F-IDs it builds, or says `(no feature: <reason>)`; every §5 feature is cited by some
+   milestone (F1 enforces both once the PRD leaves draft). Each milestone gets an appetite (days or weeks, not a date guess), vertical
    slices, no-gos (move most of the loose PRD here), rabbit holes, a gate that can go red, and
    kill criteria written now. All stay `status: shaping`.
-4. **Readiness gate.** Re-read M1 and M2 as the engineer who must build them. For each slice
+5. **Readiness gate.** Re-read M1 and M2 as the engineer who must build them. For each slice
    ask: can it be built without inventing a decision nobody recorded? Report:
 
    ```

@@ -92,10 +92,31 @@ Show the arithmetic: hours available per week × weeks, against the scope listed
 defensible, say so here and list the options: re-baseline, cut, or cut something else and name it. Never
 rewrite it silently.
 
-## 10. Milestones
+## 10. Story map and milestones
+
+### Story map
+
+The user's journey left to right (activities, from FRAME's job story), the features that serve
+each activity underneath, and slice lines across. Each slice line is a milestone: the first is
+the walking skeleton — the thinnest path across the *whole* journey — the next answers FRAME's
+question for real users, the next is what it takes to charge or launch.
+
+| Slice | <…activity 1…> | <…activity 2…> | <…activity 3…> |
+|---|---|---|---|
+| M1 skeleton | F-01 (thinnest) | … | … |
+| M2 MVP | … | … | … |
+| M3 launch | … | … | … |
+
+**Ranking rule, in order:** (1) the slice that tests the riskiest open assumption (FRAME
+Risks); (2) what later slices depend on; (3) value to the user. Write down why each feature sits
+on its line; a feature below the last line is §4 *Out, explicitly*.
+
+### Milestones
 
 Milestones are files in `docs/milestones/`, one per bet, each with an appetite, no-gos, a gate
-and kill criteria (MS1 checks them). List them here by ID only, in order.
+and kill criteria (MS1 checks them). Each milestone's Contents cite the F-IDs they build, and
+every §5 feature is cited by some milestone (F1 checks both once the PRD leaves draft). List
+them here by ID only, in order.
 
 | Milestone | Kind | One line |
 |---|---|---|

@@ -1,0 +1,9 @@
+{
+  "_note": "F-01 is cited as F-1 on a continuation line: same feature, scheduled. F-02 is scheduled by a shaping milestone, whose uncited item 2 is not checked. F-03 is cited only by a killed milestone. F-04 is the template placeholder, not a feature. TEMPLATE.md is not a milestone.",
+  "exit": 1,
+  "findings": [
+    "F-03#feature/unscheduled",
+    "M0-closed.md#contents/uncited/2",
+    "M1-active.md#contents/unknown/F-09"
+  ]
+}
