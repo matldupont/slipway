@@ -62,7 +62,12 @@ if (dest === SRC || dest.startsWith(SRC + sep)) die(`destination ${dest} is insi
 if (existsSync(dest) && readdirSync(dest).length) die(`destination ${dest} exists and is not empty`);
 
 // ---- helpers
-function die(msg) { process.stderr.write(`new-project: ${msg}\n`); process.exit(1); }
+let onGitHub = false; // set once step 4 starts: from then on, re-running fails on the existing repository
+function die(msg) {
+  process.stderr.write(`new-project: ${msg}\n`);
+  if (onGitHub) process.stderr.write(`\nThe GitHub repository may already exist, so re-running will fail. Finish from this step instead:\nsee "If a run fails partway" in the slipway README (https://github.com/matldupont/slipway#start-a-project).\n`);
+  process.exit(1);
+}
 const step = (n, msg) => process.stdout.write(`\n[${n}] ${msg}${opts.dryRun ? '  (dry run)' : ''}\n`);
 const note = (msg) => process.stdout.write(`    ${msg}\n`);
 function run(cmd, args, o = {}) {
@@ -154,6 +159,7 @@ if (!opts.github) {
 
 // ---- 4. GitHub repository
 step(4, `Create ${repo} and push main`);
+onGitHub = true;
 run('gh', ['repo', 'create', repo, opts.public ? '--public' : '--private', '--source', dest, '--remote', 'origin', '--push']);
 
 // ---- 5. label

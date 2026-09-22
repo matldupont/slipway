@@ -11,14 +11,14 @@ to exempt. The cheapest moment to install the spine is before there is anything 
 
 ## 0. Owner-only
 
-1. **Create the project** — from a slipway checkout (you need `git`, and `gh` logged in):
+1. **Create the project** (you need Node 24+, pnpm, git, and `gh` logged in):
 
    ```bash
-   node scripts/new-project.mjs ~/code/acme --repo you/acme          # add --public, or --dry-run first
+   npx github:matldupont/slipway acme --dry-run     # from the folder you keep projects in
+   npx github:matldupont/slipway acme               # --public, --repo, --name: see the README
    ```
 
-   Once slipway is on GitHub, `npx github:<owner>/slipway ~/code/acme …` does the same without a checkout.
-   The script:
+   From a slipway clone, `node scripts/new-project.mjs acme` takes the same options. The script:
 
    - copies the template without its history, fills `<Product>` and `<owner/repo>`, starts the lessons
      clock (`process/anchor`), and replaces the README with a product stub (`SLIPWAY.md` stays as the guide);
@@ -33,7 +33,8 @@ to exempt. The cheapest moment to install the spine is before there is anything 
      free plans may refuse; the entry then records the accepted risk and the fallback.
 
    D-001 is left uncommitted: `main` may now refuse direct pushes, so it lands with the bootstrap PR.
-   Without `gh`, pass `--no-github` and do the last three by hand in the repository settings.
+   Without `gh`, pass `--no-github` and do the last three by hand in the repository settings. If a run fails
+   partway, the README's *If a run fails partway* says how to finish from where it stopped.
 
 2. Install the harness: copy `process/harness/settings.json` to `.claude/settings.json`. It makes destructive
    git operations and edits to gate configuration ask-level, injects `pnpm status` at session start, blocks
