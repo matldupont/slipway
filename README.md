@@ -12,15 +12,45 @@ React + Vite, Cloudflare.
 
 ## Start a project
 
+**You need:** Node 24+, pnpm 10, git, and the GitHub CLI logged in (`gh auth login`).
+
+From the folder you keep projects in, pass the new project's folder name:
+
 ```bash
-git clone <this repository> slipway
-node slipway/scripts/new-project.mjs ~/code/acme --repo you/acme --dry-run   # see what it will do
-node slipway/scripts/new-project.mjs ~/code/acme --repo you/acme             # --public for a public repo
+npx github:matldupont/slipway acme --dry-run    # print the plan, change nothing
+npx github:matldupont/slipway acme              # create ./acme and the GitHub repo
 ```
 
-It copies the template without its history, fills the placeholders, creates the GitHub repository on `main`,
-creates the label the issue workflow needs, attempts branch protection and records the outcome. Then, in the
-new project, follow [`BOOTSTRAP.md`](BOOTSTRAP.md) and run `pnpm status`.
+That creates `./acme` and a **private** GitHub repository named after the folder, under your account. Then
+`cd acme`, follow [`BOOTSTRAP.md`](BOOTSTRAP.md), and run `pnpm status`.
+
+| Option | Effect |
+|---|---|
+| `--name "Acme Walks"` | product name used in the docs (default: the folder name, title-cased) |
+| `--repo owner/name` | GitHub repository (default: your login / the folder name) |
+| `--public` | create a public repository instead of a private one |
+| `--keep-email` | commit with your own git identity instead of your GitHub noreply address |
+| `--no-github` | local only: copy, fill placeholders and commit; create nothing on GitHub |
+| `--dry-run` | print every step without writing anything |
+
+From a clone instead of npx: `node slipway/scripts/new-project.mjs acme` takes the same options.
+
+**What it does:** copies the template without its history; fills the placeholders; initialises git on `main`
+and commits as your **GitHub noreply address**, so no personal email is published (and GitHub's
+"block pushes that expose my email" setting does not reject the push); creates the repository and pushes;
+creates the `needs-shape` label; **attempts** to protect `main` and writes the outcome into `decisions.md`
+as D-001. That edit is left uncommitted — `main` may now refuse direct pushes — so it goes in your first PR.
+
+**Branch protection on a private repository** needs a paid GitHub plan. On a free plan GitHub refuses, and
+D-001 records the accepted risk and the fallback: CI still runs on every push to `main`, so a direct push
+turns it red rather than being blocked.
+
+**If a run fails partway,** it stops at the failing step and says which one, leaving everything before it in
+place. Re-running fails once the GitHub repository exists, so finish from where it stopped instead:
+- **Failed pushing:** fix the cause, then `git push -u origin main` in the new folder.
+- **Label or protection step:** do it in the repository's settings, using the list in BOOTSTRAP §0.
+- **To start over:** `gh repo delete owner/name` (needs `gh auth refresh -s delete_repo` once), remove the
+  folder, and run the script again.
 
 ## Then follow the path
 
