@@ -21,7 +21,7 @@ sessions get the same output automatically when they start.
 | **0 · Bootstrap** | `new-project` (repo, harness, label, protection), then `/bootstrap` (app, PR, probes) | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
 | **1 · Frame** | run `/kickoff` and answer one question at a time | [`docs/product/FRAME.md`](docs/product/FRAME.md) — job story, the question the product answers, risks | `status: framed`; **K1** blocks any milestone until then |
 | **2 · Test the risk** | talk to people or run the job by hand, against a bar written first | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result |
-| **3 · Shape** | finish `/kickoff`: PRD, week-1 decisions, milestones; review from a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green on the review |
+| **3 · Shape** | finish `/kickoff`: PRD, week-1 decisions, milestones; then `/review-doc` in a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green: the PRD's current version has a review |
 | **4 · Walking skeleton** | activate [M1](docs/milestones/M1-walking-skeleton.md): thinnest core path, deployed by CI | a live URL, analytics and errors wired | its gate: an end-to-end test against production |
 | **5 · Build loop** | one active milestone; every change through its lane | small PRs with evidence | `verify` · `meta` · `pr-body` per PR; the Stop hook per agent turn; **MS1** |
 | **6 · Close the milestone** | run `/close-milestone` | a retro from the record, closed GitHub milestone, next bet chosen | **MS1**: closed means retro written; overrun means a decision |
@@ -65,7 +65,11 @@ made late; and 3–5 **milestones**, cut from a **story map**: the user's journe
 slice lines across, ranked riskiest-assumption first, then dependencies, then value. Each milestone is a bet: an appetite (how long it is worth, not a
 guess at how long it takes), vertical slices, no-gos, rabbit holes, a gate that can go red, and kill
 criteria written before starting. A readiness gate then asks of every slice: can it be built without
-inventing a decision nobody recorded? Finally, get the adversarial review from a **fresh** session.
+inventing a decision nobody recorded? Finally, run **`/review-doc docs/PRD.md` in a fresh session**: the
+adversarial review of the *document*. It argues with the plan — criteria that cannot fail, assumptions stated
+as facts, contradictions, sequencing — and writes `docs/reviews/<date>-prd-<version>.md`, which R1 checks.
+This is not `/pr-review`, which reads a code diff on a pull request and writes nothing here; you want both, at
+different moments. A substantive revision bumps the PRD version, so it needs a fresh review.
 
 ### 4 · Walking skeleton — days
 
@@ -125,6 +129,7 @@ instead of rewriting the Contract.
 | `node ci/ratchet.mjs <name> <report> <path>` | a code-health number may go down, never up (D-014); `--update` locks in an improvement |
 | `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 F1 |
 | `/bootstrap` | step 0, after `new-project`: scaffold the app, bootstrap PR, acceptance probes |
+| `/review-doc <path>` | step 3, fresh session: adversarial review of a document into `docs/reviews/` — not a code diff |
 | `/kickoff` | steps 1–3: frame, risk test plan, PRD, week-1 decisions, milestones, readiness gate |
 | `/close-milestone` | step 6: gate evidence, retro, close out, next bet |
 | `/log-feature` `/log-bug` `/log-followup` `/work-ticket` | intake and execution skills (user-level), configured by [`AGENT.md`](AGENT.md) |
@@ -149,11 +154,11 @@ docs/features/TEMPLATE.md           feature doc: Contract, Seams, Verify, Build 
 docs/domain-invariants.md           invariants, each citing the test that enforces it
 docs/testing-strategy.md            test layers, and what makes a test able to fail
 docs/qa/ · docs/reviews/            QA plans · adversarial reviews with provenance lines
-process/lessons/                    59 lessons, each stating where it lives (L1 checks it)
+process/lessons/                    60 lessons, each stating where it lives (L1 checks it)
 process/cold-review.md              the cold-review checklist, one line per lesson
 process/designation.md              which model and effort, by whether an oracle exists
 process/harness/                    permissions and hooks — installed into .claude/ by new-project
-.claude/skills/                     /bootstrap, /kickoff and /close-milestone
+.claude/skills/                     /bootstrap, /kickoff, /review-doc and /close-milestone
 .github/                            CI (meta · verify), pr-body (re-runs on description edits), issue-shape, issue forms, PR template
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
@@ -175,7 +180,7 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 | M3 | every `continue-on-error` is excused by an unexpired, structurally keyed exception | a fail-open step reports success while proving nothing; line-keyed exceptions break on ordinary edits |
 | P1 | the PR body names verification evidence and links its issue | PRs merge with no record of what was run, and same-day follow-ups repair them |
 | I1 | issue acceptance criteria are not bare adjectives; the seams question is answered | adjective criteria that any change satisfies; a conditional question silently skipped |
-| R1 | each review names the file it read and a version line still verbatim in it | a review written from memory cites a document version that no longer exists |
+| R1 | each review names the file it read and a version line still verbatim in it, and the PRD has one once it leaves draft | a review written from memory cites a version that no longer exists; a plan nobody argued with |
 | L1 | every lesson points at a home that exists, and none is past its review date | lessons enforced by nothing get re-learned |
 | MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro | milestones left open after their work ends, and new surfaces started before launch |
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
@@ -187,11 +192,11 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 
 ### Lessons, and where each one lives
 
-59 lessons in `process/lessons/`. The **status** says honestly what fires:
+60 lessons in `process/lessons/`. The **status** says honestly what fires:
 
 | status | count | meaning |
 |---|---|---|
-| `check` | 10 | a check or harness rule fires on violation |
+| `check` | 11 | a check or harness rule fires on violation |
 | `structural` | 2 | cannot happen once `main` is protected |
 | `artifact` | 1 | a template slot a check requires filled |
 | `prose` | 32 | judgment, written where it is used — the cold-review checklist, `CLAUDE.md`, the testing strategy — on a 90-day review clock |
@@ -232,7 +237,7 @@ M3 turns red on an exception that is undated, expired, stale, or keyed to a posi
 
 ### Validation
 
-**Harness.** M6 green over 9 checks and 17 fixture cases. On the template itself M1, M3, R1, L1 (59
+**Harness.** M6 green over 9 checks and 18 fixture cases. On the template itself M1, M3, R1, L1 (60
 lessons), MS1, K1 and F1 are green, and `pnpm meta` is green with nothing installed. The PR template is
 byte-identical to P1's `placeholder.md` fixture and the FRAME template to K1's `draft-underway` fixture, so
 an unfilled template is proven to fail.

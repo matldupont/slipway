@@ -1,0 +1,8 @@
+{
+  "_note": "The PRD left draft at 0.3.0; the only review names 0.2.0, which is no longer in the file \u2014 so it is stale AND the current version is unreviewed. A review of an older version must not satisfy the rule.",
+  "exit": 1,
+  "findings": [
+    "docs/PRD.md#review/missing",
+    "docs/reviews/old-version.md#provenance/stale"
+  ]
+}
