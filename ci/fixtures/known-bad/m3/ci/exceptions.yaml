@@ -1,0 +1,18 @@
+# Registry traps for M3's fixture. CHECK_TODAY is pinned to 2026-09-10 by expected.json.
+exceptions:
+  - id: .github/workflows/bad.yml#build/tolerated
+    reason: fixture - a live, valid exemption (trap I)
+    owner: fixture
+    expires: 2099-01-01
+  - id: .github/workflows/bad.yml#build/long-gone
+    reason: fixture - the step it excused no longer exists
+    owner: fixture
+    expires: 2099-01-01
+  - id: .github/workflows/bad.yml#fail-open-job
+    reason: fixture - expired, so the job must be reported again (trap D)
+    owner: fixture
+    expires: 2026-01-01
+  - id: .github/workflows/bad.yml#build/step[3]
+    reason: fixture - positional ids move on any edit and must be refused (trap B)
+    owner: fixture
+    expires: 2099-01-01

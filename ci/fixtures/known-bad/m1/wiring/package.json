@@ -1,0 +1,7 @@
+{
+  "name": "fixture-wiring",
+  "private": true,
+  "scripts": {
+    "meta": "node ci/checks/meta/x1-invoked.mjs ."
+  }
+}

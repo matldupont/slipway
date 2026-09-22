@@ -1,0 +1,54 @@
+name: Feature
+description: A change with a stated problem, checkable acceptance, and an answered seams question.
+labels: [feature]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is wrong or wanted, and the observation that shows it. Cite PRD IDs (F-01, OD-3).
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: >-
+        One per line. Each must be checkable — a number, a command, a comparison, an issue ref,
+        or Given/When/Then. "Faster" and "clearer" are adjectives, not tests; I1 flags them.
+      placeholder: |
+        - p95 < 400 ms on GET /walks
+        - `pnpm --filter web test` exits 0
+        - Given two bookings for the same slot within 100 ms, then exactly one is confirmed
+    validations:
+      required: true
+  - type: dropdown
+    id: seams
+    attributes:
+      label: Seams
+      description: Does this add a person, a channel, or a promise? Always answer — `none` is an answer, silence is not.
+      multiple: true
+      options:
+        - none
+        - adds a person
+        - adds a channel
+        - adds a promise
+    validations:
+      required: true
+  - type: textarea
+    id: seams-detail
+    attributes:
+      label: Seams detail
+      description: For `none`, one line of why. Otherwise — who pays, who is counted, who is told, what is promised.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What is deliberately deferred, and where it goes.
+  - type: textarea
+    id: links
+    attributes:
+      label: Links
+      description: "Part of: #N · Follows: #N · Supersedes: #N · Decision: D-nnn"

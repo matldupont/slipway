@@ -1,0 +1,97 @@
+#!/usr/bin/env node
+// K1 — frame before build.
+//
+// docs/product/FRAME.md says whose job the product does, the one question it answers, and
+// what could kill it. K1 makes the frame a precondition of building, in two tiers:
+//
+// Once any milestone is active or closed, the frame must be finished:
+//   status/unknown         `status` is not draft or framed
+//   status/draft           a milestone is underway but FRAME.md is still `status: draft`
+//   section/<Name>         Job story, The question it answers, or Risks is missing or empty
+//   job/shape              the job story is not "When …, I want to …, so I can …"
+//   placeholder/present    a template placeholder or [NEEDS CLARIFICATION] is still in the text
+//
+// Once a milestone that is not the walking skeleton (kind other than `skeleton`) is active
+// or closed, every value risk must have been tested:
+//   risk/unresolved        a risk tagged value has no Result (a D-nnn override counts)
+//   risk/no-threshold      a risk has a Result but no Threshold — the bar was set after the
+//                          test, so the test could not fail
+//
+// WHY: when no document names the question the product answers, scope follows the
+// loudest idea, the primary user drifts between PRD revisions, and the feature that
+// justified the work waits behind everything else. Agents make building cheap; they do not make it
+// right. The riskiest assumption is tested before production code, against a bar written
+// down first.
+
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
+import { section } from '../lib/markdown.mjs';
+import { readMilestones } from '../lib/milestones.mjs';
+import { report } from '../lib/report.mjs';
+
+const root = process.argv[2] ?? '.';
+const rel = 'docs/product/FRAME.md';
+const path = join(root, rel);
+const UNIT = 'frame document';
+
+if (!existsSync(path)) {
+  process.exit(report({ id: 'K1', claim: '', scanned: 0, unit: UNIT, broken: `${rel} does not exist` }));
+}
+
+const md = readFileSync(path, 'utf8');
+const text = md.replace(/<!--[\s\S]*?-->/g, '');
+const fm = frontmatter(md) ?? {};
+const { milestones } = readMilestones(root);
+const underway = milestones.filter((m) => m.fm && (m.fm.status === 'active' || m.fm.status === 'closed'));
+const pastSkeleton = underway.filter((m) => m.fm.kind !== 'skeleton');
+
+const findings = [];
+const add = (where, detail) => findings.push({ where, detail });
+
+if (fm.status !== 'draft' && fm.status !== 'framed') {
+  add('FRAME.md#status/unknown', `status "${fm.status ?? ''}" is not draft or framed`);
+}
+
+if (underway.length) {
+  const names = underway.map((m) => m.fm.id).join(', ');
+  if (fm.status === 'draft') add('FRAME.md#status/draft', `${names} underway while the frame is still a draft`);
+  for (const s of ['Job story', 'The question it answers', 'Risks']) {
+    const body = section(md, s, 2);
+    if (body === null || body === '') add(`FRAME.md#section/${s}`, `## ${s} is missing or empty`);
+  }
+  const job = section(md, 'Job story', 2);
+  if (job && !/\bwhen\b[\s\S]*\bwant\b[\s\S]*\bso\b/i.test(job)) {
+    add('FRAME.md#job/shape', 'the job story must read "When …, I want to …, so I can …"');
+  }
+  const open = text.split(/\r?\n/).filter((l) => PLACEHOLDER.test(l)).length;
+  if (open) add('FRAME.md#placeholder/present', `${open} line(s) still hold a placeholder or [NEEDS CLARIFICATION]`);
+}
+
+// Risk table rows: | RISK-n | Assumption | Category | Impact | Cheapest test | Threshold | Result |
+const risks = (section(md, 'Risks', 2) ?? '')
+  .split(/\r?\n/)
+  .filter((l) => /^\|\s*RISK-\d+\s*\|/.test(l))
+  .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
+const filled = (c) => !!c && !PLACEHOLDER.test(c);
+
+for (const [id, , category = '', , , threshold = '', result = ''] of risks) {
+  if (filled(result) && !filled(threshold)) {
+    add(`${id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test');
+  }
+  if (pastSkeleton.length && /\bvalue\b/i.test(category) && !filled(result)) {
+    add(`${id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record a Result or a D-nnn override`);
+  }
+}
+
+process.exit(
+  report({
+    id: 'K1',
+    claim: underway.length
+      ? `the frame is finished${pastSkeleton.length ? ' and every value risk was tested against a bar set first' : ''} (${risks.length} risks)`
+      : `no milestone is underway, so only the frame's shape is checked (${risks.length} risks)`,
+    scanned: 1,
+    unit: `${UNIT} (${milestones.length} milestones read)`,
+    findings,
+  })
+);

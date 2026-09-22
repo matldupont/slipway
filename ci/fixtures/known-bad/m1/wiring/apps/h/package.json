@@ -1,0 +1,7 @@
+{
+  "name": "h",
+  "private": true,
+  "scripts": {
+    "lint": "biome check ."
+  }
+}

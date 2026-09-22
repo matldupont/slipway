@@ -1,0 +1,66 @@
+name: Bug
+description: Something broken, with a reproduction, checkable acceptance, and the test that should have caught it.
+labels: [bug]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed
+      description: What happened. Paste the exact output, value or screenshot.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+      description: What should have happened, citing the PRD or feature doc ID if one says so.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Steps or a command that shows it on demand.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: >-
+        One per line, each checkable — a number, a command, a comparison, an issue ref, or
+        Given/When/Then. I1 flags adjectives.
+    validations:
+      required: true
+  - type: dropdown
+    id: seams
+    attributes:
+      label: Seams
+      description: Does the fix add or change a person, a channel, or a promise? Always answer.
+      multiple: true
+      options:
+        - none
+        - adds a person
+        - adds a channel
+        - adds a promise
+    validations:
+      required: true
+  - type: textarea
+    id: seams-detail
+    attributes:
+      label: Seams detail
+      description: For `none`, one line of why. Otherwise — who pays, who is counted, who is told, what is promised.
+    validations:
+      required: true
+  - type: textarea
+    id: missing-test
+    attributes:
+      label: Missing test
+      description: The test that would have failed before this bug shipped. It lands with the fix.
+    validations:
+      required: true
+  - type: textarea
+    id: links
+    attributes:
+      label: Links
+      description: "Part of: #N · Regression of: #N · Decision: D-nnn"

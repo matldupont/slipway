@@ -1,0 +1,11 @@
+{
+  "_note": "a is active past its appetite but extended by a decision that exists, so no overrun. b cites a decision that does not. TEMPLATE.md renamed Retro.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "TEMPLATE.md#template/fields",
+    "b-closed-bad-ext.md#extended/unresolved"
+  ]
+}

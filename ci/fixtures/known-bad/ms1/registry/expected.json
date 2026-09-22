@@ -1,0 +1,21 @@
+{
+  "_note": "a (shaping, placeholders allowed), b (closed, complete), c (active, within appetite) and README.md pass; TEMPLATE.md intact. o's Gate exists only inside an HTML comment. c and d are both active, so wip fires once.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "d-active-overrun.md#appetite/overrun",
+    "docs/milestones#wip/exceeded",
+    "f-no-fm.md#frontmatter/missing",
+    "g-bad-status.md#status/unknown",
+    "h-closed-no-retro.md#retro/missing",
+    "i-killed-gate-placeholder.md#section/Gate",
+    "j-bad-appetite.md#appetite/invalid",
+    "k-dup.md#id/duplicate",
+    "l-no-status.md#field/missing",
+    "m-bad-kind.md#kind/unknown",
+    "n-no-appetite.md#appetite/missing",
+    "o-comment-gate.md#section/Gate"
+  ]
+}

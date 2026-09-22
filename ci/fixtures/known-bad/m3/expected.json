@@ -1,0 +1,15 @@
+{
+  "_note": "M6 asserts M3 goes red on this fixture for exactly these reasons. Exit code alone cannot catch a check that flags everything.",
+  "exit": 1,
+  "env": { "CHECK_TODAY": "2026-09-10" },
+  "findings": [
+    ".github/workflows/bad.yml#build/flaky",
+    ".github/workflows/bad.yml#build/step[3]",
+    ".github/workflows/bad.yml#build/name=Named only",
+    ".github/workflows/bad.yml#fail-open-job",
+    "registry:.github/workflows/bad.yml#build/long-gone",
+    "registry:.github/workflows/bad.yml#fail-open-job",
+    "registry:.github/workflows/bad.yml#build/step[3]"
+  ],
+  "exempted": [".github/workflows/bad.yml#build/tolerated"]
+}

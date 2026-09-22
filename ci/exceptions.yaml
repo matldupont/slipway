@@ -1,0 +1,16 @@
+# Exception registry.
+#
+# Every entry MUST carry an expiry. `expires` is the first day the exception no
+# longer applies. Expired, undated, stale and positional entries all turn M3 red:
+# "temporary" becomes a clock instead of a permanent state.
+#
+# Ids are STRUCTURAL, never line numbers:
+#   <workflow path>#<job id>              a job-level continue-on-error
+#   <workflow path>#<job id>/<step id>    a step — give fail-open steps an `id:`
+#
+# exceptions:
+#   - id: .github/workflows/ci.yml#detect/filter
+#     reason: detection must fail open or the whole matrix is skipped
+#     owner: build lead
+#     expires: 2026-12-31
+exceptions: []

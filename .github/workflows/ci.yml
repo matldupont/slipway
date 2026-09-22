@@ -1,0 +1,62 @@
+name: ci
+
+# Both triggers, always. CI on pull_request only means a direct push to the deploy branch
+# runs none of it.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Zero-dependency checks: no install step, so a dependency can never break the harness
+  # that proves the other gates.
+  meta:
+    name: meta
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: pnpm meta
+
+  verify:
+    name: verify
+    # slipway itself has no app, so verify is BROKEN there by design. Skip only on a repository marked as
+    # a template; every project created from it is not one, and runs verify.
+    if: ${{ !github.event.repository.is_template }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm verify
+
+  pr-body:
+    name: pr-body
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Check the PR body
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/pr"
+          printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr/body.md"
+          node ci/checks/meta/p1-pr-body.mjs "$RUNNER_TEMP/pr"

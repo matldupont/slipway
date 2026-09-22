@@ -1,0 +1,15 @@
+name: fixture
+on: [pull_request]
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm --filter a test
+      - run: pnpm -F h run lint
+      - name: meta
+        run: |
+          # pnpm --filter c check   <- a command in a comment is not an invocation
+          pnpm meta
+      - run: turbo run lint --filter=d
+      - run: pnpm -r --workspace-concurrency=1 run build
+      - run: pnpm --filter k exec vitest run

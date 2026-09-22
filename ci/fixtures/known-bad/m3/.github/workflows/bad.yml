@@ -1,0 +1,50 @@
+# Known-bad fixture for M3. Every trap is a way a line-matching check gets it wrong.
+#
+# MUST be reported:
+#   A. a step with an id                              -> #build/flaky
+#   B. a step with no id and no name                  -> #build/step[3]  (positional: cannot be excused)
+#   C. a named step whose flag is an expression       -> #build/name=Named only
+#   D. a job-level flag whose exemption has expired   -> #fail-open-job
+#
+# MUST NOT be reported:
+#   E. this comment block, which says continue-on-error: true
+#   F. the flag's text inside a `run: |` script, at two indents
+#   G. continue-on-error: false
+#   H. an env value containing the text
+#   I. a step excused by a live exception             -> exempted, not a finding
+name: bad
+on: [pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: flaky
+        run: echo flaky
+        continue-on-error: true
+      - name: prints the flag in a script
+        run: |
+          echo "continue-on-error: true"
+          cat <<'EOF'
+            continue-on-error: true
+          EOF
+      - run: echo positional
+        continue-on-error: true
+      - name: explicitly fail-closed
+        run: echo strict
+        continue-on-error: false
+      - name: env value trap
+        env:
+          NOTE: "continue-on-error: true"
+        run: echo env
+      - id: tolerated
+        run: echo tolerated
+        continue-on-error: true
+      - name: Named only
+        run: echo matrix
+        continue-on-error: ${{ matrix.experimental }}
+  fail-open-job:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - run: echo job

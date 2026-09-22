@@ -1,0 +1,10 @@
+{
+  "_note": "A relative review date with no process/anchor cannot be evaluated; that is a finding, not a pass.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "relative.md#anchor/missing"
+  ]
+}
