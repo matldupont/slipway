@@ -2,10 +2,13 @@
 // M1 — declared vs invoked.
 //
 // A gate that exists but never runs is worse than no gate: it reads as coverage.
-// M1 proves two things from the repository alone:
+// M1 proves three things from the repository alone:
 //   1. every gated script (check, lint, test, build, typecheck, and their `:sub` forms)
 //      declared by any workspace package is invoked by a CI workflow;
-//   2. every check in ci/checks/meta/ is run by a CI workflow.
+//   2. every check in ci/checks/meta/ is run by a CI workflow;
+//   3. in slipway itself (lib/manifest.mjs TEMPLATE_MARKERS), every `scripts/**/*.test.mjs` is run
+//      by a CI workflow — they prove new-project and sync, and never ship. A project's own scripts/
+//      is not read: its tests usually run through a runner M1 cannot see into.
 //
 // WHY: a package's `test` script that no workflow runs reads as coverage for as long as
 // nobody looks. So do gates on disk wired to nothing: a hook manager never installed, a
@@ -19,6 +22,7 @@
 //   node ci/verify.mjs                          every package, for check/lint/test/build
 //   pnpm [run] <root script>                    the root script and what it calls
 //   node ci/checks/meta/<check>.mjs             that check
+//   node scripts/<…>.test.mjs                   that test (slipway only)
 //
 // Not invocations — each is a trap in the fixture: a command in a shell comment; a
 // filter M1 cannot resolve to one package (`...`, globs, `[ref]`); `pnpm exec <tool>`,
@@ -27,15 +31,16 @@
 // invisible by design: call gates from the workflow or a root script, where the wiring
 // stays legible.
 
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseCommand, workflowCommands } from '../lib/commands.mjs';
+import { isTemplate } from '../lib/manifest.mjs';
 import { report } from '../lib/report.mjs';
 import { GATED, VERIFY_TASKS } from '../lib/tasks.mjs';
 import { discoverWorkspace } from '../lib/workspace.mjs';
 
 const root = process.argv[2] ?? '.';
-const UNIT = 'gated scripts and check files';
+const UNIT = 'gated scripts, check files and slipway tests';
 
 let ws;
 try {
@@ -47,6 +52,7 @@ try {
 const members = ws.packages;
 const covered = new Set();
 const invokedChecks = new Set();
+const invokedPaths = new Set();
 const key = (p, script) => `${p.name}:${script}`;
 
 function resolveFilter(f) {
@@ -77,6 +83,7 @@ function apply(cmd, depth) {
       }
       const m = inv.path.match(/^ci\/checks\/meta\/([\w.-]+\.mjs)$/);
       if (m) invokedChecks.add(m[1]);
+      invokedPaths.add(inv.path);
     }
   }
 }
@@ -104,11 +111,26 @@ for (const f of checkFiles) {
   }
 }
 
+// scripts/**/*.test.mjs, slipway only.
+const tests = [];
+const walkTests = (rel) => {
+  for (const e of readdirSync(join(root, rel)).sort()) {
+    const p = `${rel}/${e}`;
+    const st = lstatSync(join(root, p));
+    if (st.isDirectory() && e !== 'node_modules') walkTests(p);
+    else if (st.isFile() && e.endsWith('.test.mjs')) tests.push(p);
+  }
+};
+if (isTemplate(root)) walkTests('scripts');
+for (const t of tests) {
+  if (!invokedPaths.has(t)) findings.push({ where: `test:${t}`, detail: 'a slipway test no CI workflow runs — it proves nothing while it sits there' });
+}
+
 process.exit(
   report({
     id: 'M1',
-    claim: 'every gated script and every check is invoked by a CI workflow',
-    scanned: gated + checkFiles.length,
+    claim: `every gated script and every check${isTemplate(root) ? ', and every scripts/**/*.test.mjs,' : ''} is invoked by a CI workflow`,
+    scanned: gated + checkFiles.length + tests.length,
     unit: `${UNIT} (${commands.length} workflow commands read)`,
     findings,
   })

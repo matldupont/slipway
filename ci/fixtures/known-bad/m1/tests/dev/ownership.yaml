@@ -1,0 +1,3 @@
+paths:
+  - glob: scripts/**
+    class: internal

@@ -1,0 +1,9 @@
+{
+  "_note": "Slipway itself (dev/ownership.yaml and scripts/new-project.mjs present). Covered: scripts/run.test.mjs, called by the root meta script CI runs. Traps: scripts/lib/orphan.test.mjs nothing runs; scripts/commented.test.mjs only in a shell comment.",
+  "exit": 1,
+  "findings": [
+    "test:scripts/commented.test.mjs",
+    "test:scripts/lib/orphan.test.mjs"
+  ],
+  "exempted": []
+}

@@ -1,0 +1,10 @@
+name: fixture
+on: [pull_request]
+jobs:
+  meta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: meta
+        run: |
+          # node scripts/commented.test.mjs   <- a command in a comment is not an invocation
+          pnpm meta
