@@ -22,3 +22,23 @@ export function section(md, title, level) {
 
 // GitHub renders an empty issue-form field as `_No response_`.
 export const isNoResponse = (s) => s === null || s.trim() === '' || /^_No response_$/i.test(s.trim());
+
+// The cells of a table row `| a | b |`, trimmed.
+export const cells = (line) => line.split('|').slice(1, -1).map((c) => c.trim());
+
+// A cell without emphasis or code marks: `**M1**` reads as `M1`.
+export const plain = (c) => c.replace(/[*_`]/g, '').trim();
+
+// The first table in a block of text: its header cells (plain) and its body rows (cells). null when
+// the text holds no table with a |---| separator under a header.
+export function table(text) {
+  const lines = (text ?? '').split(/\r?\n/);
+  const at = lines.findIndex((l, i) => l.trim().startsWith('|') && /^\|[\s:|-]+\|$/.test((lines[i + 1] ?? '').trim()));
+  if (at < 0) return null;
+  const rows = [];
+  for (const l of lines.slice(at + 2)) {
+    if (!l.trim().startsWith('|')) break;
+    rows.push(cells(l.trim()));
+  }
+  return { header: cells(lines[at].trim()).map(plain), rows };
+}

@@ -1,0 +1,10 @@
+{
+  "_note": "M1 declares summary: but the Milestones table has no One line column. §9 estimates hours with no Capacity line.",
+  "exit": 1,
+  "findings": [
+    "docs/PRD.md#milestones/header"
+  ],
+  "warnings": [
+    "docs/PRD.md#estimate/capacity"
+  ]
+}

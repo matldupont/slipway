@@ -13,6 +13,11 @@ version line still in the target.
 plan: contradictions, gaps, assumptions stated as facts, things that cannot fail. A pull request
 is reviewed by a code-review skill instead.
 
+**Designation: the strongest model available, effort high, no fan-out.** A document review has
+no oracle — there is no answer to check it against — so `process/designation.md` gives the same
+answer every time (L-31). Splitting the document across agents loses the contradictions between
+its sections, which are most of what this review finds.
+
 **Run it in a session that did not write the document.** If this session drafted or edited the
 target (the `/kickoff` session, most often), stop and say so: the author's context is exactly
 what a reviewer must not share. The user opens a new session and runs the skill there.
@@ -26,6 +31,8 @@ git rev-parse --short HEAD        # the sha you are reviewing at
 Read the document in full. Then read what it depends on, to check it against something:
 `docs/product/FRAME.md` (does every feature serve the question?), `decisions.md`, the
 milestones it schedules, `docs/domain-invariants.md`, and the lessons in `process/lessons/`.
+If the document was derived from a source document (its *Source coverage* table names one, or
+its divergences cite one), read the source in full too.
 Do not read the codebase unless a claim is about the code — then verify that claim, and say how.
 
 ## 2 — Refute by default
@@ -41,10 +48,15 @@ Every claim is wrong until the document or a command shows otherwise. Work throu
 4. **Contradictions.** Between sections, between this document and FRAME, decisions, invariants
    or the milestones — including a feature scheduled nowhere, and a slice building something the
    milestone's no-gos exclude.
-5. **Scope.** What is in that should be out, and what is out that the question needs.
-6. **Sequencing.** Does the order test the riskiest assumption first? Is machinery before
+5. **Source coverage.** Diff the source-coverage table against the source: walk the source's
+   risks, spikes, invariants and blocking decisions and find each one's row. Any source item
+   missing from the table is a finding, and so is a row whose `Here` names no ID ("handled by
+   the features above") or whose DIV-n does not say where the item went. No table, when a source
+   exists, is one finding for the whole document.
+6. **Scope.** What is in that should be out, and what is out that the question needs.
+7. **Sequencing.** Does the order test the riskiest assumption first? Is machinery before
    surface? Does any milestone depend on one later than itself?
-7. **What is missing.** Failure, empty and abuse cases; the unhappy path; who pays, who is
+8. **What is missing.** Failure, empty and abuse cases; the unhappy path; who pays, who is
    counted, who is told; what happens at the boundary.
 
 Severity is in the template: S0 can invalidate the business or the build, S1 loses money or

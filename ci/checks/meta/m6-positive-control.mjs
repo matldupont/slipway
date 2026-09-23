@@ -3,8 +3,8 @@
 //
 // Runs every registered check against its known-bad fixture and asserts it goes red
 // FOR EXACTLY THE EXPECTED REASONS: expected.json names the exit code, every finding
-// id, and every exempted id. A fixture is either one case (expected.json at its top)
-// or several (each subdirectory with its own expected.json).
+// id, every exempted id and every warning id. A fixture is either one case (expected.json
+// at its top) or several (each subdirectory with its own expected.json).
 //
 // v1 asserted only "exit code is 1". That cannot tell a precise check from one that
 // flags everything: a check regressed to matching every line still goes red on its
@@ -66,11 +66,15 @@ function runCase(check, name, dir) {
   }
   const f = setDiff(expected.findings ?? [], got.findings.map((x) => x.where));
   const x = setDiff(expected.exempted ?? [], got.exempted ?? []);
+  const w = setDiff(expected.warnings ?? [], (got.warnings ?? []).map((x) => x.where));
   const wrong = [];
   if (f.missing.length) wrong.push(`missed ${JSON.stringify(f.missing)}`);
   if (f.unexpected.length) wrong.push(`flagged unexpected ${JSON.stringify(f.unexpected)}`);
   if (x.missing.length || x.unexpected.length) {
     wrong.push(`exemptions differ: missing ${JSON.stringify(x.missing)}, unexpected ${JSON.stringify(x.unexpected)}`);
+  }
+  if (w.missing.length || w.unexpected.length) {
+    wrong.push(`warnings differ: missing ${JSON.stringify(w.missing)}, unexpected ${JSON.stringify(w.unexpected)}`);
   }
   if (wrong.length) findings.push({ where: name, detail: `red for the wrong reasons — ${wrong.join('; ')}` });
 }

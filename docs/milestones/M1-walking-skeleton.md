@@ -3,6 +3,7 @@ id: M1
 status: shaping
 kind: skeleton
 appetite: 2026-01-01..2026-01-07
+summary: walking skeleton — thinnest core path, deployed through CI
 ---
 
 # M1 — Walking skeleton

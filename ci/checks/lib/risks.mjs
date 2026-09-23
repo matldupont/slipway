@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PLACEHOLDER } from './frontmatter.mjs';
-import { section } from './markdown.mjs';
+import { cells, plain, section } from './markdown.mjs';
 import { parseAppetite } from './milestones.mjs';
 
 // Where the real answer is being chased: an issue (#14, owner/repo#14), a PRD open decision (OD-3)
@@ -32,9 +32,6 @@ const COLUMNS = [
 
 // The columns a check reads; the others only help a person.
 const REQUIRED = ['id', 'category', 'threshold', 'result'];
-
-const cells = (line) => line.split('|').slice(1, -1).map((c) => c.trim());
-const plain = (c) => c.replace(/[*_`]/g, '').trim();
 
 // docs/product/evidence/*.md, README.md excluded. A file named `RISK-n-…` or a `RISK-n` heading opens
 // that risk, until a heading at the same or a higher level closes it; `Tracked: #n` and
