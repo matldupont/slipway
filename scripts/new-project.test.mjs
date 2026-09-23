@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -112,6 +112,12 @@ test('the manifest lists every shipped path with its class and the hash as writt
   assert.equal(r.status, 1, r.stderr);
   assert.match(r.stdout, /drift\/BOOTSTRAP\.md: replaced by a non-file/);
   rmSync(join(dest, 'BOOTSTRAP.md'), { recursive: true });
+  git(dest, 'checkout', '--', 'BOOTSTRAP.md');
+  // A symlink is never followed out of the project.
+  rmSync(join(dest, 'BOOTSTRAP.md'));
+  symlinkSync(join(SRC, 'BOOTSTRAP.md'), join(dest, 'BOOTSTRAP.md'));
+  assert.match(check(dest, 'd1-drift.mjs').stdout, /drift\/BOOTSTRAP\.md: replaced by a non-file/);
+  rmSync(join(dest, 'BOOTSTRAP.md'));
   git(dest, 'checkout', '--', 'BOOTSTRAP.md');
 
   writeFileSync(join(dest, '.slipway', 'overrides.yaml'), 'overrides:\n  - path: SLIPWAY.md\n    reason: a local note\n');

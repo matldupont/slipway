@@ -20,7 +20,7 @@
 // that and exits green. What proves D1 against a real install is slipway's own
 // scripts/new-project.test.mjs, which creates a project and runs D1 in it.
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MANIFEST, OVERRIDES, readManifest, readOverrides, sha256 } from '../lib/manifest.mjs';
 import { report } from '../lib/report.mjs';
@@ -64,12 +64,18 @@ const hashes = new Map(managed.map(([p, f]) => [p, f.sha256]));
 const findings = [];
 const excused = new Set();
 
-// null when deleted; a directory or other non-file in its place is drift too, never a crash.
+// null when deleted. A directory, symlink or other non-file in its place is drift too: never a crash,
+// and never a read outside the project.
 const NOT_A_FILE = 'not a file';
 const current = (p) => {
   const abs = join(root, p);
-  if (!existsSync(abs)) return null;
-  return statSync(abs).isFile() ? sha256(readFileSync(abs)) : NOT_A_FILE;
+  let st;
+  try {
+    st = lstatSync(abs);
+  } catch {
+    return null;
+  }
+  return st.isFile() ? sha256(readFileSync(abs)) : NOT_A_FILE;
 };
 
 for (const o of overrides) {

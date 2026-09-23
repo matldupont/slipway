@@ -51,8 +51,27 @@ export function derivePackageJson(template, { name, rules }) {
 export const blobSha = (buf) => createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex');
 
 // Never a credential prompt (git reads /dev/tty, not stdin), and never an unbounded wait on the network.
+// ssh gets BatchMode only when the owner has configured no ssh of their own (GIT_SSH_COMMAND, GIT_SSH,
+// core.sshCommand), which the variable would otherwise override.
+let quiet;
+function quietEnv() {
+  if (!quiet) {
+    quiet = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+    if (!ownSsh()) quiet.GIT_SSH_COMMAND = 'ssh -o BatchMode=yes';
+  }
+  return quiet;
+}
 const git = (args, o = {}) =>
-  execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes' }, timeout: 60_000, ...o });
+  execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: quietEnv(), timeout: 60_000, ...o });
+function ownSsh() {
+  if (process.env.GIT_SSH_COMMAND || process.env.GIT_SSH) return true;
+  try {
+    const v = execFileSync('git', ['config', '--get', 'core.sshCommand'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return v.trim() !== '';
+  } catch {
+    return false;
+  }
+}
 
 // `path → blob id` for every file in a commit's tree.
 function lsTree(gitDir, sha) {
