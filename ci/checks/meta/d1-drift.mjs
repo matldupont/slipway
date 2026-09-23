@@ -20,9 +20,7 @@
 // that and exits green. What proves D1 against a real install is slipway's own
 // scripts/new-project.test.mjs, which creates a project and runs D1 in it.
 
-import { lstatSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { isTemplate, MANIFEST, OVERRIDES, readManifest, readOverrides, sha256, TEMPLATE_MARKERS } from '../lib/manifest.mjs';
+import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256, TEMPLATE_MARKERS } from '../lib/manifest.mjs';
 import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
@@ -64,22 +62,13 @@ const findings = [];
 const excused = new Set();
 
 // null when deleted. A directory, symlink or other non-file in its place is drift too, never a crash.
-// Symlinks are checked on the last path component only: a symlinked parent directory is still followed
-// (a known limitation, dev/features/template-sync.md).
-const NOT_A_FILE = 'not a file';
 const current = (p) => {
-  const abs = join(root, p);
-  let st;
-  try {
-    st = lstatSync(abs);
-  } catch {
-    return null;
-  }
-  return st.isFile() ? sha256(readFileSync(abs)) : NOT_A_FILE;
+  const buf = readProjectFile(root, p);
+  return Buffer.isBuffer(buf) ? sha256(buf) : buf;
 };
 
 for (const o of overrides) {
-  if (!o.reason?.trim()) {
+  if (!hasReason(o)) {
     findings.push({ where: `override/reason/${o.path}`, detail: `override in ${OVERRIDES}:${o.line} has no reason — it excuses nothing until it says why` });
   } else if (!hashes.has(o.path)) {
     findings.push({ where: `override/stale/${o.path}`, detail: `override in ${OVERRIDES}:${o.line} names no managed file in ${MANIFEST} — remove it` });

@@ -10,7 +10,7 @@
 //       reason: our FRAME.md has no metrics section
 
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readList } from './yaml-list.mjs';
 
@@ -59,3 +59,21 @@ export function readOverrides(root) {
     throw new Error(`${OVERRIDES}: ${e.message}`);
   }
 }
+
+// A project file's bytes as D1 and sync read them: null when absent; NOT_A_FILE for a directory,
+// symlink or other non-file in its place, which is never followed. Symlinks are checked on the last
+// path component only: a symlinked parent directory is still followed (a known limitation, F-01).
+export const NOT_A_FILE = Symbol('not a file');
+export function readProjectFile(root, p) {
+  const abs = join(root, p);
+  let st;
+  try {
+    st = lstatSync(abs);
+  } catch {
+    return null;
+  }
+  return st.isFile() ? readFileSync(abs) : NOT_A_FILE;
+}
+
+// An override excuses its file only with a reason; a whitespace-only one is empty.
+export const hasReason = (o) => Boolean(o.reason?.trim());

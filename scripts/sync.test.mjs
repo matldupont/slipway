@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -85,7 +85,8 @@ const MAP_YAML = `paths:
 `;
 const pkg = (scripts) => `${JSON.stringify({ name: 'create-slipway', version: '0.0.0-fixture', bin: { 'create-slipway': 'scripts/new-project.mjs' }, scripts }, null, 2)}\n`;
 
-// slipway: A (base) → A1 (adds one managed file, nothing else) → B (target).
+// slipway: A (base) → A0 (seeded and scripts only: the same managed blobs as A) → A1 (adds one managed
+// file, nothing else) → B (target).
 const slip = join(root, 'slipway');
 mkdirSync(slip);
 git(slip, 'init', '-q', '-b', 'main');
@@ -95,20 +96,23 @@ put(slip, {
   '.gitignore': 'node_modules/\n',
   '.gitattributes': '* text=auto eol=lf\n',
   'README.md': '# slipway\n',
-  'package.json': pkg({ a: 'echo a', b: 'echo b', d: 'echo d', gone: 'node scripts/x.mjs' }),
+  'package.json': pkg({ a: 'echo a', b: 'echo b', d: 'echo d', drop: 'echo drop', gone: 'node scripts/x.mjs' }),
   'process/replace.md': 'v1\n',
   'process/same.md': 'same\n',
   'process/merge.md': 'one\ntwo\n',
   'process/delete.md': 'delete me\n',
   'process/kept.md': 'kept\n',
+  'process/ours.md': 'ours\n',
   'docs/PRD.md': '# PRD v1\n',
   'docs/same.md': 'seeded, never changed\n',
 });
 const A = commit(slip, 'A');
+put(slip, { 'docs/PRD.md': '# PRD v1.1\n', 'package.json': pkg({ a: 'echo a1', b: 'echo b', d: 'echo d', drop: 'echo drop', gone: 'node scripts/x.mjs' }) });
+const A0 = commit(slip, 'A0: seeded and scripts only');
 put(slip, { 'process/new.md': 'new\n' });
 const A1 = commit(slip, 'A1: one managed file added');
 put(slip, {
-  'package.json': pkg({ a: 'echo a2', b: 'echo b2', c: 'echo c', d: 'echo d' }),
+  'package.json': pkg({ a: 'echo a2', b: 'echo b2', c: 'echo c', d: 'echo d', gone: 'node scripts/y.mjs' }),
   'process/replace.md': 'v2\n',
   'process/merge.md': 'one\ntwo, upstream\n',
   'process/delete.md': null,
@@ -135,8 +139,9 @@ put(base, {
   'package.json': `${JSON.stringify(projPkg, null, 2)}\n`,
   'process/merge.md': 'one\ntwo\nthree, ours\n',
   'process/kept.md': 'kept, edited\n',
+  'process/ours.md': 'ours, edited\n',
   'process/clash.md': 'our own file\n',
-  '.slipway/overrides.yaml': 'overrides:\n  - path: process/merge.md\n    reason: our third line\n  - path: process/kept.md\n    reason: we still use it\n',
+  '.slipway/overrides.yaml': 'overrides:\n  - path: process/merge.md\n    reason: our third line\n  - path: process/kept.md\n    reason: we still use it\n  - path: process/ours.md\n    reason: our wording\n',
 });
 commit(base, 'owner edits');
 
@@ -171,13 +176,14 @@ function treeHash(dir) {
 
 test('the plan from base A to target B equals the checked-in plan, and writes nothing', () => {
   const dir = project();
-  // The test's own status runs first and last: it may refresh the index, which sync must not.
-  const statusBefore = git(dir, 'status', '--porcelain');
+  // A tracked file newer than the index: a plain `git status` would rewrite the index to refresh it.
+  const later = new Date(Date.now() + 60_000);
+  utimesSync(join(dir, 'process/same.md'), later, later);
   const before = treeHash(dir);
   const r = sync(dir);
   assert.equal(r.status, 0, r.stderr);
   assert.equal(treeHash(dir), before, 'sync wrote to the project');
-  assert.equal(git(dir, 'status', '--porcelain'), statusBefore);
+  assert.equal(git(dir, 'status', '--porcelain'), '');
   assert.equal(normalise(r.stdout), readFileSync(EXPECTED, 'utf8'));
 });
 
@@ -192,15 +198,17 @@ const KIND_CASES = [
   ['seeded: upstream changed', 'docs/PRD.md', 'seeded, slipway changed its copy'],
   ['merged: key updated', 'package.json scripts.a', 'the project still has the base value'],
   ['merged: key updated', 'package.json scripts.c', 'a key new upstream'],
+  ['merged: key updated', 'package.json scripts.drop', 'a key removed upstream, still at its base value'],
   ['merged: key reported', 'package.json scripts.b', 'the project changed the value'],
   ['unchanged', 'process/same.md', 'managed, same on both sides'],
+  ['unchanged', 'process/ours.md', 'managed, overridden, unchanged upstream: nothing to merge'],
   ['unchanged', 'docs/same.md', 'seeded, same on both sides'],
 ];
 const planned = rows(sync(project()).stdout);
 for (const [kind, path, why] of KIND_CASES) {
   test(`row ${kind}: ${path} — ${why}`, () => assert.equal(planned[path], kind));
 }
-test('a key the target derivation drops (calls an internal path) and an unchanged key make no row', () => {
+test('a key that calls an internal path on both sides (changed upstream) and an unchanged key make no row', () => {
   assert.equal(planned['package.json scripts.gone'], undefined);
   assert.equal(planned['package.json scripts.d'], undefined);
 });
@@ -223,7 +231,7 @@ test('refuses a dirty tree, a detached HEAD, D1 red and a missing manifest — e
   }
 });
 
-test('with "slipway": null the base is found by blobs alone — A, not A1, which ships one managed file more', () => {
+test('with "slipway": null the base is found by blobs alone — A, not A1 (one managed file more) nor A0 (same managed blobs)', () => {
   const dir = project((d) => {
     const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
     m.slipway = null;
@@ -246,17 +254,46 @@ test('a manifest whose blobs match no commit exactly stops, naming the closest c
   const total = Object.values(baseManifest.files).filter((f) => f.class === 'managed').length;
   const r = sync(dir);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, new RegExp(`no slipway commit holds exactly the manifest's ${total} managed files; closest ${A.slice(0, 12)} \\(${total - 1} of ${total} managed files at their blob\\), then ${A1.slice(0, 12)} \\(${total - 1} of ${total} managed files at their blob, 1 more it ships\\)`));
+  assert.match(r.stderr, new RegExp(`no slipway commit holds exactly the manifest's ${total} managed files; closest ${A.slice(0, 12)} \\(${total - 1} of ${total} managed files at their blob\\), then ${A0.slice(0, 12)} \\(${total - 1} of ${total} managed files at their blob\\)`));
 });
 
 test('resolveBase: closest-match mode ranks every commit and names the runner-up', () => {
   const gitDir = sourceClone(slip);
   const blobs = new Map([['process/replace.md', git(slip, 'rev-parse', `${A}:process/replace.md`)]]);
   const r = resolveBase(gitDir, blobs);
-  assert.equal(r.exact, null);
+  assert.deepEqual(r.exact, []);
   assert.equal(r.total, 1);
-  assert.deepEqual(r.best, { sha: A, matched: 1, extra: 5 });
-  assert.deepEqual(r.runnerUp, { sha: A1, matched: 1, extra: 6 });
+  assert.deepEqual(r.best, { sha: A0, matched: 1, extra: 6 });
+  assert.deepEqual(r.runnerUp, { sha: A, matched: 1, extra: 6 });
+});
+
+test('several exact commits the manifest cannot tell apart stop, naming each', () => {
+  const dir = project((d) => {
+    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+    m.slipway = null;
+    for (const p of ['docs/PRD.md', 'package.json']) m.files[p].blob = '0'.repeat(40);
+    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+    commit(d, 'blobs that settle nothing');
+  });
+  const r = sync(dir);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stderr, new RegExp(`2 slipway commits hold the manifest's managed files and its other files do not tell them apart: ${A0.slice(0, 12)}, ${A.slice(0, 12)} — set "slipway"`));
+});
+
+test('an empty source is a named refusal, not a stack trace', () => {
+  const empty = join(root, 'empty-slipway');
+  mkdirSync(empty);
+  git(empty, 'init', '-q', '-b', 'main');
+  const dir = project((d) => {
+    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+    m.source = empty;
+    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+    commit(d, 'an empty source');
+  });
+  const r = sync(dir);
+  assert.equal(r.status, 1, r.stderr);
+  assert.match(r.stderr, /^sync: (cannot read slipway's history from|could not fetch slipway from) /);
+  assert.doesNotMatch(r.stderr, /\n\s+at /);
 });
 
 test('the bin dispatches sync; --apply and --adopt are refused until their steps land; a sync source that reads as an option is refused', () => {
@@ -264,4 +301,8 @@ test('the bin dispatches sync; --apply and --adopt are refused until their steps
   assert.match(sync(project(), '--apply').stderr, /--apply arrives in F-01 step 4/);
   assert.match(sync(project(), '--adopt').stderr, /--adopt arrives in F-01 step 5/);
   assert.throws(() => sourceClone('--upload-pack=touch x'), /reads as a git option/);
+  // A transport prefix would carry a token past the redaction into the header and the manifest.
+  assert.throws(() => sourceClone('https::https://u:TOKEN@example.invalid/r.git'), (e) => /names a git transport helper/.test(e.message) && !e.message.includes('TOKEN'));
+  // git's own failure message quotes the URL; the error does not carry the token.
+  assert.throws(() => sourceClone('https://u:TOKEN@unreachable.invalid/r.git'), (e) => /could not fetch slipway from https:\/\/unreachable\.invalid\/r\.git/.test(e.message) && !e.message.includes('TOKEN'));
 });
