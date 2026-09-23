@@ -22,6 +22,10 @@ what you are assuming, what it costs if you are wrong, and where the real answer
 `pnpm status` lists every open question as `file:line — question`. Read each one in place: the
 sentence around it says what depends on the answer. Group questions that share an answer; ask once.
 
+Before asking, look for a tracker that already exists (`gh issue list --search "<key words>"`, the
+PRD's `OD-` list, `decisions.md`). A question someone already filed an issue for is being chased: it
+is parked, not open, and its marker is wrong until you convert it.
+
 ## 2 — One at a time
 
 For each question, in the order they block things (frame before PRD before evidence):
@@ -38,9 +42,14 @@ For each question, in the order they block things (frame before PRD before evide
      strangers, so the threshold means nothing"), not "we might have to change it".
    - **Blocking** → leave it as `NEEDS CLARIFICATION` and say plainly that the frame cannot be
      finished until someone answers it. Do not invent an assumption to unblock the check.
-4. **Every parked question gets a tracker before you move on**: an existing issue, a new one
-   (`/log-followup` with the parent, or the repo's intake skill), or a PRD `OD-` / `decisions.md`
-   `D-` entry when it is a decision rather than a task. `untracked` in `pnpm status` means it will be
+4. **Every parked question gets a tracker before you move on**: an existing issue, a new one, or a
+   PRD `OD-` / `decisions.md` `D-` entry when it is a decision rather than a task. With no existing
+   one, offer to file it now — the repo's intake skill (`/log-followup` with the parent, where it
+   is installed), or `gh issue create --title "<question>" --body "<file:line, the assumption, the
+   cost if wrong, what it blocks>"` — and on a yes, write
+   the number it returns into the `[PARKED: … · #n]` marker **in the same step**. Filing the issue
+   and converting the marker are one act: an issue filed while the marker still says
+   `NEEDS CLARIFICATION` is the failure L-67 names. `untracked` in `pnpm status` means it will be
    forgotten.
 
 ## 3 — Close out
