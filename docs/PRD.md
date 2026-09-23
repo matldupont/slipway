@@ -86,6 +86,11 @@ gets no working assumption (none would be honest), and names an owner.
 An unknown with no spike is a hope. Put non-engineering unknowns (legal, commercial, third-party access)
 first: their lead times are longest, and they change scope rather than size.
 
+Write Resolves by as `before Mn`. Once Mn is active or closed, K1 fails the risk (`risk/overdue`) unless
+FRAME's Risks table records its Result or a D-nnn override. Any other wording — `with RISK-1`, `before first
+live charge` — is not checked, and `pnpm status` warns when that leaves an existential risk (FRAME's Impact
+says so) untested past the first milestone after the skeleton. IDs are FRAME's.
+
 ## 9. Estimate
 
 Show the arithmetic: hours available per week × weeks, against the scope listed. If the number is not

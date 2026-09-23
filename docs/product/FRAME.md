@@ -71,8 +71,10 @@ it), **usability** (can they use it), **feasibility** (can we build it), **viabi
 it work as a business), **ethical** (could it do harm). Test the riskiest first, as cheaply
 as possible — interviews, a concierge run done by hand, a fake door — before building.
 
-Write the Threshold **before** the test. K1 fails a Result with no Threshold. A Result may be
-a decision override (`D-nnn`) when you proceed despite the evidence. Tracker names where the test
+Write the Threshold **before** the test. K1 fails a Result with no Threshold. To build ahead of the
+evidence, record a D-nnn override (cost if wrong, and what reopens it) in `decisions.md` and put its
+id in Result — K1 counts it as one. The PRD's Resolves by column says when each risk is due; once
+that milestone is underway, K1 fails a risk of any category that has neither. Tracker names where the test
 is being run — an issue (`#14`), or an `OD-`/`D-` id — so `pnpm status` can tell a scheduled test
 from one nobody has started, and K1 requires it for every untested value risk once a milestone is
 underway.

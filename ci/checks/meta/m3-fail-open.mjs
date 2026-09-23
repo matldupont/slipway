@@ -27,6 +27,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { today as localToday } from '../lib/clock.mjs';
 import { report } from '../lib/report.mjs';
 
 const KEY = /^([A-Za-z0-9_.-]+|"[^"]*"|'[^']*')\s*:(?:\s+(.*))?$/;
@@ -175,7 +176,7 @@ function workflowFiles(dir) {
 }
 
 const root = process.argv[2] ?? '.';
-const today = process.env.CHECK_TODAY ?? new Date().toISOString().slice(0, 10);
+const today = localToday(root);
 const files = workflowFiles(join(root, '.github', 'workflows'));
 
 const sites = [];

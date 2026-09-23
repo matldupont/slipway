@@ -1,0 +1,10 @@
+{
+  "_note": "Right clock, right Next and Frame; the expected Needs attention list is what status printed with the existential warning switched off.",
+  "today": "2026-03-10",
+  "now": "2026-03-10T23:30:00-04:00",
+  "next": "Step 4 (agent) — Walking skeleton: Walking skeleton. Next slice from its Contents; pick the lane (CLAUDE.md#Lanes). Meanwhile (yours): RISK-2 scheduled (#9, window 2026-03-01..2026-03-10) · blocks M2, M4 activation (K1).",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (#9, window 2026-03-01..2026-03-10), RISK-3 untested, RISK-4 untested, RISK-5 untested, RISK-6 tested, RISK-7 untested, RISK-8 untested · blocks M2, M4 activation (K1)",
+  "attention": [
+    "PRD 0.2.0 has no adversarial review — run /review-doc docs/PRD.md in a fresh session (R1 requires one once Status leaves draft)"
+  ]
+}

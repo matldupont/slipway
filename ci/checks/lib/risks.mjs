@@ -1,5 +1,5 @@
-// The FRAME Risks table and the evidence files behind it. Shared by K1 and `pnpm status`, so the
-// two can never disagree about whether a risk is tested, scheduled or untested.
+// The FRAME Risks table, the evidence files behind it, and the PRD's deadlines for it. Shared by K1 and
+// `pnpm status`, so the two can never disagree about whether a risk is tested, scheduled or untested.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -108,3 +108,30 @@ export function readRisks(root, frameMd) {
     });
   return { rows, missing };
 }
+
+// The PRD's risk table (§8), read only where it has a `Resolves by` column: when each risk must be settled.
+// `before M4` and `before M4 starts` read as milestone M4; any other deadline (`with RISK-1`, `before
+// first live charge`) is kept as text and names no milestone. Rows share FRAME's RISK-n ids. Returns null
+// when no table has the column, so a PRD written before the column existed is not read at all.
+export function readDeadlines(prdMd) {
+  const lines = prdMd.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+  const isSep = (l) => /^\|[\s:|-]+\|$/.test((l ?? '').trim());
+  const h = lines.findIndex((l, i) => l.trim().startsWith('|') && isSep(lines[i + 1]) && cells(l).some((c) => /^resolves by/i.test(plain(c))));
+  if (h < 0) return null;
+  const header = cells(lines[h]).map(plain);
+  const by = header.findIndex((c) => /^resolves by/i.test(c));
+  const idAt = Math.max(0, header.findIndex((c) => /^id$/i.test(c)));
+  const out = new Map();
+  for (const l of lines.slice(h + 2)) {
+    if (!l.trim().startsWith('|')) break;
+    const c = cells(l);
+    const id = plain(c[idAt] ?? '').toUpperCase();
+    if (!/^RISK-\d+$/.test(id)) continue;
+    const cell = plain(c[by] ?? '');
+    out.set(id, { cell, before: cell.match(/\bbefore\s+(M\d+)\b/i)?.[1].toUpperCase() ?? null });
+  }
+  return out;
+}
+
+// Milestone ids compare by number: M10 comes after M9.
+export const milestoneNumber = (id) => Number(String(id).match(/^M(\d+)$/i)?.[1] ?? NaN);
