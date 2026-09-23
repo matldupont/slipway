@@ -96,7 +96,12 @@ try {
 } catch (e) {
   die(`${e.message} — cannot tell which files ship`);
 }
-const shipped = shippedPaths(SRC);
+let shipped;
+try {
+  shipped = shippedPaths(SRC);
+} catch (e) {
+  die(e.message);
+}
 const unclassified = shipped.filter((p) => !classify(rules, p));
 if (unclassified.length) {
   die(`${unclassified.length} path(s) match no glob in ${MAP}; give each a class first (O1):\n  ${unclassified.join('\n  ')}`);
@@ -104,6 +109,7 @@ if (unclassified.length) {
 const internal = shipped.filter((p) => classify(rules, p) === 'internal');
 // .gitignore is written in step 2, not copied.
 const COPY = shipped.filter((p) => classify(rules, p) !== 'internal' && p !== '.gitignore');
+if (COPY.length === 0) die(`found nothing to copy in ${SRC} — is this a slipway checkout or package?`);
 
 // ---- preflight
 let repo = opts.repo;
@@ -131,7 +137,7 @@ if (!opts.dryRun) {
     copyFileSync(join(SRC, p), join(dest, p));
   }
 }
-note(`copied ${COPY.length} paths by class (${MAP}); left out ${internal.length} internal`);
+note(`${opts.dryRun ? 'would copy' : 'copied'} ${COPY.length} paths by class (${MAP}); left out ${internal.length} internal`);
 
 // ---- 2. fill placeholders
 step(2, 'Fill placeholders and start the lessons clock');
@@ -147,7 +153,8 @@ if (!opts.dryRun) {
     delete pkg.version;
     // Drop every command that calls an internal path (O1): the project never receives it.
     for (const [k, v] of Object.entries(pkg.scripts ?? {})) {
-      const kept = v.split(' && ').filter((c) => !c.trim().split(/\s+/).some((t) => classify(rules, t) === 'internal'));
+      const calls = (c) => c.split(/[\s;|&'"]+/).some((t) => t && classify(rules, t.replace(/^\.\//, '')) === 'internal');
+      const kept = v.split(/\s*&&\s*/).filter((c) => !calls(c));
       if (kept.length) pkg.scripts[k] = kept.join(' && ');
       else delete pkg.scripts[k];
     }

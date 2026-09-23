@@ -204,7 +204,7 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 | `check` | 12 | a check or harness rule fires on violation |
 | `structural` | 2 | cannot happen once `main` is protected |
 | `artifact` | 1 | a template slot a check requires filled |
-| `prose` | 32 | judgment, written where it is used — the cold-review checklist, `CLAUDE.md`, the testing strategy — on a 90-day review clock |
+| `prose` | 32 | judgment, written where it is used — the cold-review checklist, `process/slipway-rules.md`, the testing strategy — on a 90-day review clock |
 | `declined` | 14 | not built yet: deferred components and conditional rules, each naming the event that should reopen it, on a 60-day clock |
 
 Most lessons are judgment, and saying so is the point. Each has a home L1 proves exists and a date L1
