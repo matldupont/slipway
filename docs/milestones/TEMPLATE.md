@@ -17,7 +17,8 @@ summary: <…one line: what this bet delivers…>
 >   or gets an extension recorded in decisions.md (`extended: D-nnn`). By default it does
 >   not get more time.
 > - `summary`: the one line the PRD's milestones table (§10) shows for this milestone. The table
->   is generated from these fields, never hand-written; MS1 flags a row that differs. No `|`.
+>   is generated from these fields, never hand-written; MS1 flags a row that differs. A `|` in it
+>   is written `\|` in the row.
 > - Shaping milestones may hold placeholders. Active, closed and killed ones may not.
 
 ## Why

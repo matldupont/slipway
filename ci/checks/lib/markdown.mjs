@@ -4,11 +4,13 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // The text under a heading with this exact title (case-insensitive), up to the next
 // heading of the same or a higher level, with HTML comments removed. null if absent.
+// A RegExp title matches the whole heading text: /9\.\s+Estimates?/ for a renamed one.
 // Comments are removed first, so a heading or an example inside a template comment
 // never counts as content.
 export function section(md, title, level) {
   const lines = md.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
-  const heading = new RegExp(`^#{${level}}\\s+${escapeRe(title)}\\s*$`, 'i');
+  const text = title instanceof RegExp ? title.source : escapeRe(title);
+  const heading = new RegExp(`^#{${level}}\\s+(?:${text})\\s*$`, 'i');
   const start = lines.findIndex((l) => heading.test(l.trim()));
   if (start < 0) return null;
   const body = [];
@@ -34,7 +36,7 @@ export const cells = (line) =>
     .map((c) => c.replace(/\\\|/g, '|').trim());
 
 // A cell without emphasis, code marks or link syntax: `**M1**` and `[M1](M1.md)` read as `M1`.
-export const plain = (c) => c.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`]/g, '').trim();
+export const plain = (c) => c.replace(/\[([^\][]*)\]\([^()]*\)/g, '$1').replace(/[*_`]/g, '').trim();
 
 // A table's |---|---| line, outer pipes optional.
 const SEPARATOR = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;

@@ -3,7 +3,7 @@
 Version: 0.2.0
 Status: draft
 
-## 9. Estimate
+## 9. Estimates
 
 Ten hours a week, give or take.
 

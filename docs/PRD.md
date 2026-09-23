@@ -111,14 +111,16 @@ Show the arithmetic: hours available per week × weeks, against the scope listed
 defensible, say so here and list the options: re-baseline, cut, or cut something else and name it. Never
 rewrite it silently.
 
-Capacity: <…n–m…> h/week
+Capacity: <…n–m…> h/week  <!-- total for everyone building, not per person -->
 
 | Milestone | Hours | Basis |
 |---|---|---|
 | M1 | <…n–m…> | <…what the hours are made of…> |
 
-MS1 warns when a milestone's midpoint here is more than its appetite holds (appetite days ÷ 7 × the
-top of Capacity). A warning, not a failure: cut scope, lengthen the appetite, or re-estimate.
+One row per milestone; the first column is its id. Hours read as `n`, `n–m` or `n to m`. MS1 warns
+when a milestone's midpoint here is more than its appetite holds (appetite days ÷ 7 × the top of
+Capacity), when a row names no milestone, and when hours cannot be read. A warning, not a failure:
+cut scope, lengthen the appetite, or re-estimate.
 
 ## 10. Story map and milestones
 
