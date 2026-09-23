@@ -98,7 +98,7 @@ try {
 }
 let shipped;
 try {
-  shipped = shippedPaths(SRC);
+  shipped = shippedPaths(SRC, rules);
 } catch (e) {
   die(e.message);
 }
@@ -153,7 +153,7 @@ if (!opts.dryRun) {
     delete pkg.version;
     // Drop every command that calls an internal path (O1): the project never receives it.
     for (const [k, v] of Object.entries(pkg.scripts ?? {})) {
-      const calls = (c) => c.split(/[\s;|&'"]+/).some((t) => t && classify(rules, t.replace(/^\.\//, '')) === 'internal');
+      const calls = (c) => c.split(/[\s;|&'"=]+/).some((t) => t && classify(rules, t.replace(/^\.\//, '')) === 'internal');
       const kept = v.split(/\s*&&\s*/).filter((c) => !calls(c));
       if (kept.length) pkg.scripts[k] = kept.join(' && ');
       else delete pkg.scripts[k];
