@@ -74,7 +74,10 @@ test('the manifest lists every shipped path with its class and the hash as writt
   }
   assert.deepEqual(manifest.answers, { name: 'Probe', repo: null });
   assert.equal(manifest.source, 'github:matldupont/slipway');
-  if (manifest.slipway !== null) {
+  // Branch on the checkout's real state, never on the value under test.
+  const edited = git(SRC, 'status', '--porcelain', '--', ...want.filter((p) => p !== '.gitignore')) !== '';
+  assert.equal(manifest.slipway === null, edited, `slipway ${manifest.slipway} but the checkout is ${edited ? 'edited' : 'clean'}`);
+  if (!edited) {
     // A clean checkout: the full sha, everywhere it is recorded.
     assert.match(manifest.slipway, /^[0-9a-f]{40}$/);
     assert.equal(manifest.slipway, git(SRC, 'rev-parse', 'HEAD'));
@@ -95,6 +98,21 @@ test('the manifest lists every shipped path with its class and the hash as writt
   let r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 1);
   assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: edited/);
+
+  // A whitespace-only reason is empty: it excuses nothing.
+  writeFileSync(join(dest, '.slipway', 'overrides.yaml'), 'overrides:\n  - path: SLIPWAY.md\n    reason: "  "\n');
+  r = check(dest, 'd1-drift.mjs');
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /override\/reason\/SLIPWAY\.md[\s\S]*drift\/SLIPWAY\.md/);
+
+  // A directory where a managed file was is drift, reported, not a crash.
+  rmSync(join(dest, 'BOOTSTRAP.md'));
+  mkdirSync(join(dest, 'BOOTSTRAP.md'));
+  r = check(dest, 'd1-drift.mjs');
+  assert.equal(r.status, 1, r.stderr);
+  assert.match(r.stdout, /drift\/BOOTSTRAP\.md: replaced by a non-file/);
+  rmSync(join(dest, 'BOOTSTRAP.md'), { recursive: true });
+  git(dest, 'checkout', '--', 'BOOTSTRAP.md');
 
   writeFileSync(join(dest, '.slipway', 'overrides.yaml'), 'overrides:\n  - path: SLIPWAY.md\n    reason: a local note\n');
   assert.equal(check(dest, 'd1-drift.mjs').status, 0);
@@ -166,7 +184,7 @@ test('resolveSlipway: an unreachable source resolves to null, and an edited or t
   writeFileSync(join(walked, 'a.md'), 'a\n');
   const offline = resolveSlipway(walked, ['a.md'], {
     rules,
-    remote: () => { throw Object.assign(new Error('x'), { stderr: 'fatal: unable to access https://me:ghp_secret@github.com/me/slipway.git/' }); },
+    remote: () => { throw Object.assign(new Error('x'), { stderr: 'fatal: unable to access https://me:p@ss@github.com/me/slipway.git/?private_token=x' }); },
   });
   assert.deepEqual(offline, { sha: null, candidate: null, why: 'could not read a candidate sha: fatal: unable to access https://github.com/me/slipway.git/' });
 
@@ -194,6 +212,7 @@ test('resolveSlipway: an unreachable source resolves to null, and an edited or t
 test('publicSource: credentials never reach the manifest, and an option-shaped source is refused', () => {
   assert.equal(publicSource('github:matldupont/slipway'), 'github:matldupont/slipway');
   assert.equal(publicSource('https://x-access-token:ghp_secret@github.com/me/slipway.git'), 'https://github.com/me/slipway.git');
+  assert.equal(publicSource('https://host/r.git?private_token=x#y'), 'https://host/r.git');
   assert.equal(publicSource('/tmp/slipway'), '/tmp/slipway');
   assert.throws(() => publicSource('--upload-pack=touch x'), /reads as a git option/);
 });
@@ -212,7 +231,8 @@ test('readManifest refuses a manifest it cannot trust', () => {
   for (const p of ['/etc/passwd', '../x', 'a/../../x', 'a//b', './a', 'a\\..\\x', 'C:x']) {
     assert.throws(() => readManifest(put({ files: { [p]: file } })), /not a plain relative path/, p);
   }
-  assert.throws(() => readManifest(put({ files: { 'a.md': { class: 'managed', sha256: 'short' } } })), /needs a class and a sha256/);
+  assert.throws(() => readManifest(put({ files: { 'a.md': { class: 'managed', sha256: 'short' } } })), /needs a class .* and a sha256/);
+  assert.throws(() => readManifest(put({ files: { 'a.md': { class: 'Managed', sha256: 'a'.repeat(64) } } })), /needs a class .* and a sha256/);
   assert.equal(readManifest(put({ files: { 'a/b.md': file } })).files['a/b.md'].class, 'managed');
 });
 

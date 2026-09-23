@@ -17,13 +17,15 @@ export const SOURCE = 'github:matldupont/slipway';
 const sourceUrl = (source) => (source.startsWith('github:') ? `https://github.com/${source.slice('github:'.length)}.git` : source);
 
 // The source as the manifest and the output may show it: a token in `https://user:token@host/…` is
-// committed and pushed with the manifest otherwise. A value git would read as an option is refused.
+// committed and pushed with the manifest otherwise, and so is a `?token=` query. A value git would read as an option is refused.
 export function publicSource(source) {
   if (source.startsWith('-')) throw new Error(`source "${source}" reads as a git option`);
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(source)) return source;
   const u = new URL(source);
   u.username = '';
   u.password = '';
+  u.search = '';
+  u.hash = '';
   return u.toString();
 }
 
@@ -50,7 +52,7 @@ export const blobSha = (buf) => createHash('sha1').update(`blob ${buf.length}\0`
 
 // Never a credential prompt (git reads /dev/tty, not stdin), and never an unbounded wait on the network.
 const git = (args, o = {}) =>
-  execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_TERMINAL_PROMPT: '0' }, timeout: 60_000, ...o });
+  execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_SSH_COMMAND: process.env.GIT_SSH_COMMAND ?? 'ssh -o BatchMode=yes' }, timeout: 60_000, ...o });
 
 // `path → blob id` for every file in a commit's tree.
 function lsTree(gitDir, sha) {
@@ -103,7 +105,7 @@ export function resolveSlipway(src, paths, { rules, source = SOURCE, remote = re
   try {
     c = listSource(src) === 'git' ? localCandidate(src) : remote(source);
   } catch (e) {
-    const why = (e.stderr || e.message).toString().trim().split('\n')[0].replace(/\/\/[^/@\s]*@/g, '//');
+    const why = (e.stderr || e.message).toString().trim().split('\n')[0].replace(/\/\/[^/\s]*@/g, '//').replace(/(:\/\/[^\s?#]*)[?#]\S*/g, '$1');
     return { sha: null, candidate: null, why: `could not read a candidate sha: ${why}` };
   }
   const taken = new Set(paths);

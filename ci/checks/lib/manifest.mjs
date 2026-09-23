@@ -16,6 +16,8 @@ import { readList } from './yaml-list.mjs';
 
 export const MANIFEST = '.slipway/manifest.json';
 export const OVERRIDES = '.slipway/overrides.yaml';
+// The classes a manifest can record: `internal` never ships, so it is never in one.
+export const RECORDED = ['managed', 'seeded', 'merged'];
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
@@ -35,8 +37,8 @@ export function readManifest(root) {
     if (/[\\:]/.test(path) || path.startsWith('/') || path.split('/').some((s) => s === '..' || s === '' || s === '.')) {
       throw new Error(`${MANIFEST}: "${path}" is not a plain relative path`);
     }
-    if (typeof f?.class !== 'string' || !/^[0-9a-f]{64}$/.test(f?.sha256 ?? '')) {
-      throw new Error(`${MANIFEST}: "${path}" needs a class and a sha256`);
+    if (!RECORDED.includes(f?.class) || !/^[0-9a-f]{64}$/.test(f?.sha256 ?? '')) {
+      throw new Error(`${MANIFEST}: "${path}" needs a class (${RECORDED.join(', ')}) and a sha256`);
     }
   }
   return m;

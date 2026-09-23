@@ -20,7 +20,7 @@
 // that and exits green. What proves D1 against a real install is slipway's own
 // scripts/new-project.test.mjs, which creates a project and runs D1 in it.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { MANIFEST, OVERRIDES, readManifest, readOverrides, sha256 } from '../lib/manifest.mjs';
 import { report } from '../lib/report.mjs';
@@ -64,13 +64,16 @@ const hashes = new Map(managed.map(([p, f]) => [p, f.sha256]));
 const findings = [];
 const excused = new Set();
 
+// null when deleted; a directory or other non-file in its place is drift too, never a crash.
+const NOT_A_FILE = 'not a file';
 const current = (p) => {
   const abs = join(root, p);
-  return existsSync(abs) ? sha256(readFileSync(abs)) : null;
+  if (!existsSync(abs)) return null;
+  return statSync(abs).isFile() ? sha256(readFileSync(abs)) : NOT_A_FILE;
 };
 
 for (const o of overrides) {
-  if (!o.reason) {
+  if (!o.reason?.trim()) {
     findings.push({ where: `override/reason/${o.path}`, detail: `override in ${OVERRIDES}:${o.line} has no reason — it excuses nothing until it says why` });
   } else if (!hashes.has(o.path)) {
     findings.push({ where: `override/stale/${o.path}`, detail: `override in ${OVERRIDES}:${o.line} names no managed file in ${MANIFEST} — remove it` });
@@ -91,7 +94,7 @@ for (const [p, want] of hashes) {
   }
   findings.push({
     where: `drift/${p}`,
-    detail: `${got === null ? 'deleted' : 'edited'} since install, and not in ${OVERRIDES} — revert it, or add an override with the reason`,
+    detail: `${got === null ? 'deleted' : got === NOT_A_FILE ? 'replaced by a non-file' : 'edited'} since install, and not in ${OVERRIDES} — revert it, or add an override with the reason`,
   });
 }
 
