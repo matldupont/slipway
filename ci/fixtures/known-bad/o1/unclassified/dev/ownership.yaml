@@ -9,6 +9,8 @@ paths:
     class: internal
   - glob: expected.json
     class: internal
+  - glob: '**/.DS_Store'
+    class: internal
   - glob: ci/**
     class: managed
   - glob: docs/**/TEMPLATE.md
