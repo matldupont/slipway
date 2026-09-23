@@ -30,8 +30,8 @@ import { today as localToday } from '../ci/checks/lib/clock.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SELF = relative(SRC, fileURLToPath(import.meta.url));
-// `scripts/` holds only this tool, which a new project has no use for.
-const SKIP = new Set(['.git', 'node_modules', 'STATE.md', '.DS_Store', dirname(SELF)]);
+// `scripts/` holds only this tool, which a new project has no use for; `dev/` is slipway's own planning.
+const SKIP = new Set(['.git', 'node_modules', 'STATE.md', '.DS_Store', 'dev', dirname(SELF)]);
 const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
 const REQUIRED_CHECKS = ['meta', 'verify', 'pr-body'];
 // Written, not copied: npm never packs .gitignore, so under `npx github:…` there is none to copy.
