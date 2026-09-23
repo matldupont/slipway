@@ -10,12 +10,22 @@
 //   section/<Name>         Job story, The question it answers, or Risks is missing or empty
 //   job/shape              the job story is not "When …, I want to …, so I can …"
 //   placeholder/present    a template placeholder or [NEEDS CLARIFICATION] is still in the text
+//   parked/incomplete      a [PARKED: …] question is missing its working assumption, the cost if it
+//                          is wrong, or where it is tracked (#12, OD-3, D-7)
 //
 // Once a milestone that is not the walking skeleton (kind other than `skeleton`) is active
 // or closed, every value risk must have been tested:
 //   risk/unresolved        a risk tagged value has no Result (a D-nnn override counts)
 //   risk/no-threshold      a risk has a Result but no Threshold — the bar was set after the
 //                          test, so the test could not fail
+//
+// A question you can build without is parked, not unresolved:
+//
+//   [PARKED: which channels? · assume: SDLA network only · if wrong: the sample is not strangers · #12]
+//
+// Parked questions do not block the frame. The working assumption, the cost and the tracker are what
+// make that honest, so K1 requires all three. A question with no honest working assumption stays
+// [NEEDS CLARIFICATION] and blocks — that is the point of the distinction.
 //
 // WHY: when no document names the question the product answers, scope follows the
 // loudest idea, the primary user drifts between PRD revisions, and the feature that
@@ -48,6 +58,16 @@ const pastSkeleton = underway.filter((m) => m.fm.kind !== 'skeleton');
 
 const findings = [];
 const add = (where, detail) => findings.push({ where, detail });
+
+// A parked question carries its working assumption, the cost if it is wrong, and a tracker.
+for (const [, body] of text.matchAll(/\[PARKED:([^\]]*)\]/g)) {
+  const missing = [
+    !/\bassume:\s*\S/i.test(body) && 'assume: <what you build on>',
+    !/\bif wrong:\s*\S/i.test(body) && 'if wrong: <the cost>',
+    !/(#\d+|\b(OD|D)-\d+\b)/.test(body) && 'a tracker (#12, OD-3, D-7)',
+  ].filter(Boolean);
+  if (missing.length) add('FRAME.md#parked/incomplete', `parked question "${body.trim().slice(0, 60)}" is missing ${missing.join(', ')}`);
+}
 
 if (fm.status !== 'draft' && fm.status !== 'framed') {
   add('FRAME.md#status/unknown', `status "${fm.status ?? ''}" is not draft or framed`);
