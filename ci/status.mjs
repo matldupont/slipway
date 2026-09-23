@@ -40,6 +40,17 @@ const prdStatus = (prd.match(/^Status:\s*(.+)$/m) ?? [])[1]?.trim() ?? 'missing'
 const ods = [...prd.matchAll(/^###\s+(OD-\d+)\s+—\s+(.+)$/gm)]
   .map((m) => ({ id: m[1], title: m[2].trim(), blocking: /BLOCKING/.test(section(prd, `${m[1]} — ${m[2].trim()}`, 3) ?? '') }))
   .filter((o) => !o.title.startsWith('<'));
+const prdVersion = (prd.match(/^Version:\s*(.+)$/m) ?? [])[1]?.trim() ?? null;
+// A review of the PRD's current version, the way R1 counts one.
+const reviewsDir = join(root, 'docs', 'reviews');
+const prdReviews = existsSync(reviewsDir)
+  ? readdirSync(reviewsDir).filter((f) => f.endsWith('.md') && f !== 'TEMPLATE.md').filter((f) => {
+      const lines = readFileSync(join(reviewsDir, f), 'utf8').split(/\r?\n/).map((l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim());
+      const target = lines.find((l) => /^Reviewed:\s*\S+\s+@\s+\S+/.test(l));
+      const version = lines.find((l) => /^Version line:/.test(l));
+      return !!target && target.includes('docs/PRD.md') && !!prdVersion && !!version && version.includes(prdVersion);
+    })
+  : [];
 const decisions = read('decisions.md') ?? '';
 const openDecisions = [...decisions.matchAll(/^##\s+(D-\d+)\s+—\s+(.+?)\s*\*\((open[^)]*)\)\*/gm)].map((m) => `${m[1]} ${m[2]} (${m[3]})`);
 
@@ -91,7 +102,9 @@ function next() {
     return `Step 2 — Test the risk: ${untestedValue.join(', ')} has no Result. Write the threshold first, then test (docs/product/evidence/).`;
   }
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
-    return 'Step 3 — Shape: PRD with IDs, week-1 decisions in decisions.md, milestone pitches, fresh-context review; then set PRD Status: approved.';
+    return prdReviews.length
+      ? `Step 3 — Shape: ${prdVersion} is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.`
+      : `Step 3 — Shape: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not /pr-review — and only then set Status: approved (R1 turns red otherwise).`;
   }
   if (active.length > 1) return `Fix: ${active.length} milestones are active (${active.map((m) => m.id).join(', ')}). One at a time — MS1 is red.`;
   if (cur && curAppetite && curAppetite.end < today && !cur.extended) {
@@ -114,7 +127,7 @@ L.push(`**Next:** ${next()}`, '');
 L.push('## Where things stand', '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
 L.push(`- Frame: ${frame}${risks.length ? ` · ${risks.length} risk(s), untested value risks: ${untestedValue.join(', ') || 'none'}` : ''}`);
-L.push(`- PRD: ${prdStatus}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
+L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
 if (cur) {
   const a = curAppetite;
   const clock = a ? `day ${days(a.start, today) + 1} of ${days(a.start, a.end) + 1}, last day ${a.end}${a.end < today ? ' — OVERRUN' : ''}` : 'no appetite';
@@ -127,6 +140,7 @@ if (ms.length) {
   L.push('');
 }
 const attention = [
+  ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (R1 requires one once Status leaves draft)`] : []),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...clarifications.map((c) => `${c.n} [NEEDS CLARIFICATION] in ${c.p}`),
   ...dueSoon.map((d) => `Lesson review: ${d}`),
