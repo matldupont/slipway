@@ -75,6 +75,10 @@ files it describes:
 `answers` records the placeholder values, so a sync can reproduce what `new-project` wrote from any
 slipway version, the way Copier keeps its answers file.
 
+Under `npx github:…` the package has no `.git`, so `new-project` resolves the sha with `git ls-remote`
+and confirms it by comparing every shipped file's hash with that commit's tree. If they don't match, it
+records `"slipway": null` with the version, and sync resolves the base by closest match, as adopt does.
+
 `.slipway/overrides.yaml` lists the managed files the project changed on purpose: `path` and `reason`.
 Both files are `seeded`.
 
@@ -130,8 +134,11 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
 because the owner ran it, and it prints that it did, the way `new-project` step 2b does. The skill never
 does this step: an agent never installs its own hooks.
 
-**Adopt.** For a project with no manifest, the base comes from the `chore: start from slipway <sha>`
-commit, then the README line. With neither, sync stops and asks for `--base <sha>`. Every current file is
+**Adopt.** For a project with no manifest, the base comes from `--base`, else from a sha in the
+`chore: start from slipway <x>` commit or the README line. Under `npx` that `<x>` is `package.json`'s
+version, not a sha (the project's says `0.1.0`), so adopt then proposes the **closest match**: the slipway
+commit whose tree matches the most of the project's shipped files, with the runner-up's count, for the
+owner to confirm. Every current file is
 hashed against the base. Pristine files enter the manifest as they are; differing managed files are
 listed for the owner to override or revert. Nothing is written until the owner re-runs with
 `--adopt --apply`.
@@ -220,16 +227,16 @@ Plus one real run: adopt, then sync, on a throwaway copy of a private project, w
 
 Machinery before surface. Each step merges with `pnpm meta` green.
 
-1. **Ownership map and O1**: `dev/ownership.yaml`, O1 with its fixture, and `new-project` taking its skip
+1. **Ownership map and O1** (#14): `dev/ownership.yaml`, O1 with its fixture, and `new-project` taking its skip
    list from the map. Move the working rules to `process/slipway-rules.md` behind a `CLAUDE.md` import.
    Layer: template + check. ~M.
-2. **Manifest and D1**: `new-project` writes `.slipway/manifest.json`; D1 with its fixtures; the shared
+2. **Manifest and D1** (#15): `new-project` writes `.slipway/manifest.json`; D1 with its fixtures; the shared
    `package.json` derivation. ~M.
-3. **Sync plan (read-only)**: the bin subcommand, preflight, resolve, classify and print. It writes
+3. **Sync plan (read-only)** (#16): the bin subcommand, preflight, resolve, classify and print. It writes
    nothing, so it can run against a private project safely. ~M.
-4. **Sync apply**: per-class writes, merge-file, deletes, seeded diffs, manifest rewrite, the harness step.
+4. **Sync apply** (#17): per-class writes, merge-file, deletes, seeded diffs, manifest rewrite, the harness step.
    Temp-repo tests for every guarantee. Cold review: it writes and deletes. ~L.
-5. **`/sync-slipway` and adopt**: the skill, `--adopt`, `PL-`/`PD-` in L1 and in the templates, and
+5. **`/sync-slipway` and adopt** (#18): the skill, `--adopt`, `PL-`/`PD-` in L1 and in the templates, and
    `SLIPWAY.md`/`BOOTSTRAP.md` text. First real run: a private project. ~M.
 
 ## Out of scope
