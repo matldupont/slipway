@@ -5,7 +5,7 @@ rule: Before trusting a workflow resume, confirm it resumes in the same transcri
 failure: Resuming a workflow from a moved session silently re-runs completed work.
 enforcement:
   status: prose
-  pointer: CLAUDE.md#Agents
+  pointer: process/slipway-rules.md#Agents
   review-by: +90d
 ---
 

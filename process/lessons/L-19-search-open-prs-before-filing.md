@@ -5,7 +5,7 @@ rule: Search open PRs before filing or starting work, and read the timeline rath
 failure: Work is filed or started while an open PR already addresses it.
 enforcement:
   status: prose
-  pointer: CLAUDE.md#Working rules
+  pointer: process/slipway-rules.md#Working rules
   review-by: +90d
 ---
 

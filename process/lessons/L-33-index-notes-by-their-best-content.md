@@ -5,7 +5,7 @@ rule: Index a note by its most valuable content, and split a file that grows a s
 failure: A note indexed by its title topic is unreachable when its real content is needed.
 enforcement:
   status: prose
-  pointer: CLAUDE.md#Notes
+  pointer: process/slipway-rules.md#Notes
   review-by: +90d
 ---
 

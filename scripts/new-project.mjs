@@ -23,15 +23,13 @@
 // the first error and says which step; everything before it is left in place to inspect.
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from '../ci/checks/lib/clock.mjs';
+import { classify, loadOwnership, MAP, shippedPaths } from '../ci/checks/lib/ownership.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SELF = relative(SRC, fileURLToPath(import.meta.url));
-// `scripts/` holds only this tool, which a new project has no use for; `dev/` is slipway's own planning.
-const SKIP = new Set(['.git', 'node_modules', 'STATE.md', '.DS_Store', 'dev', dirname(SELF)]);
 const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
 const REQUIRED_CHECKS = ['meta', 'verify', 'pr-body'];
 // Written, not copied: npm never packs .gitignore, so under `npx github:…` there is none to copy.
@@ -90,6 +88,23 @@ function edit(rel, fn) {
   if (after !== before) writeFileSync(p, after);
 }
 
+// ---- what ships: every path by its class in dev/ownership.yaml, the classification O1 checks.
+// An unclassified path has no safe sync action, so nothing is copied until it has one.
+let rules;
+try {
+  rules = loadOwnership(SRC);
+} catch (e) {
+  die(`${e.message} — cannot tell which files ship`);
+}
+const shipped = shippedPaths(SRC);
+const unclassified = shipped.filter((p) => !classify(rules, p));
+if (unclassified.length) {
+  die(`${unclassified.length} path(s) match no glob in ${MAP}; give each a class first (O1):\n  ${unclassified.join('\n  ')}`);
+}
+const internal = shipped.filter((p) => classify(rules, p) === 'internal');
+// .gitignore is written in step 2, not copied.
+const COPY = shipped.filter((p) => classify(rules, p) !== 'internal' && p !== '.gitignore');
+
 // ---- preflight
 let repo = opts.repo;
 let identity = null;
@@ -111,9 +126,12 @@ process.stdout.write(`slipway ${version} → ${dest}\n  product: ${name}\n  repo
 // ---- 1. copy
 step(1, 'Copy the template');
 if (!opts.dryRun) {
-  cpSync(SRC, dest, { recursive: true, filter: (p) => !SKIP.has(relative(SRC, p)) && !SKIP.has(basename(p)) });
+  for (const p of COPY) {
+    mkdirSync(dirname(join(dest, p)), { recursive: true });
+    copyFileSync(join(SRC, p), join(dest, p));
+  }
 }
-note(`skipped: ${[...SKIP].join(', ')}`);
+note(`copied ${COPY.length} paths by class (${MAP}); left out ${internal.length} internal`);
 
 // ---- 2. fill placeholders
 step(2, 'Fill placeholders and start the lessons clock');
@@ -127,6 +145,12 @@ if (!opts.dryRun) {
     delete pkg.bin;
     delete pkg.description;
     delete pkg.version;
+    // Drop every command that calls an internal path (O1): the project never receives it.
+    for (const [k, v] of Object.entries(pkg.scripts ?? {})) {
+      const kept = v.split(' && ').filter((c) => !c.trim().split(/\s+/).some((t) => classify(rules, t) === 'internal'));
+      if (kept.length) pkg.scripts[k] = kept.join(' && ');
+      else delete pkg.scripts[k];
+    }
     return JSON.stringify(pkg, null, 2) + '\n';
   });
   writeFileSync(join(dest, 'process', 'anchor'), today + '\n');

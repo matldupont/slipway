@@ -1,0 +1,4 @@
+# A misspelled class must stop O1 (BROKEN), not leave the path silently unowned.
+paths:
+  - glob: '**'
+    class: manged

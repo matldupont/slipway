@@ -5,7 +5,7 @@ rule: State the absolute working path in every spawned-agent prompt, twice, and 
 failure: A spawned agent given a relative working path acts in the wrong repository.
 enforcement:
   status: prose
-  pointer: CLAUDE.md#Agents
+  pointer: process/slipway-rules.md#Agents
   review-by: +90d
 ---
 

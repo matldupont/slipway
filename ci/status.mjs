@@ -164,7 +164,7 @@ function next() {
   }
   if (cur) {
     const risk = untestedValue.length ? ` Meanwhile (yours): ${riskLine}.${riskFile}` : '';
-    return `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${cur.title}. Next slice from its Contents; pick the lane (CLAUDE.md#Lanes).${risk}`;
+    return `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${cur.title}. Next slice from its Contents; pick the lane (process/slipway-rules.md#Lanes).${risk}`;
   }
   const shaping = ms.filter((m) => m.status === 'shaping');
   if (shaping.some((m) => m.kind === 'skeleton')) {

@@ -29,19 +29,13 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { today as localToday } from '../lib/clock.mjs';
 import { report } from '../lib/report.mjs';
+import { readList, scalar, skippable } from '../lib/yaml-list.mjs';
 
 const KEY = /^([A-Za-z0-9_.-]+|"[^"]*"|'[^']*')\s*:(?:\s+(.*))?$/;
 const indentOf = (s) => s.length - s.trimStart().length;
-const skippable = (s) => /^\s*(#.*)?$/.test(s);
 const opensBlockScalar = (v = '') => /^[|>][+-]?[0-9]?[+-]?\s*(#.*)?$/.test(v.trim());
 const unsupported = (t) =>
   /(^|:\s|-\s)[&*][A-Za-z0-9_-]+(\s|$)/.test(t) || /^<<\s*:/.test(t) || /^-\s*[{[]/.test(t) || /^steps\s*:\s*\[/.test(t);
-
-function scalar(v = '') {
-  let s = String(v).replace(/\s+#.*$/, '').trim();
-  if (s.length > 1 && ((s[0] === '"' && s.at(-1) === '"') || (s[0] === "'" && s.at(-1) === "'"))) s = s.slice(1, -1);
-  return s;
-}
 
 function scanWorkflow(src, rel) {
   const lines = src.split(/\r?\n/);
@@ -154,16 +148,7 @@ function siteId(rel, s) {
 
 function loadRegistry(path) {
   if (!existsSync(path)) return [];
-  const out = [];
-  let cur = null;
-  for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
-    if (skippable(line)) continue;
-    const id = line.match(/^\s*-\s*id:\s*(.+?)\s*$/);
-    if (id) { cur = { id: scalar(id[1]), expires: null }; out.push(cur); continue; }
-    const kv = line.match(/^\s+(expires|reason|owner):\s*(.*?)\s*$/);
-    if (kv && cur) cur[kv[1]] = scalar(kv[2]);
-  }
-  return out;
+  return readList(readFileSync(path, 'utf8'), ['id', 'expires', 'reason', 'owner']);
 }
 
 function workflowFiles(dir) {
