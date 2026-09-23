@@ -5,19 +5,16 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseCommand } from '../../ci/checks/lib/commands.mjs';
 import { sha256 } from '../../ci/checks/lib/manifest.mjs';
 import { classify, listSource } from '../../ci/checks/lib/ownership.mjs';
 
 export const SOURCE = 'github:matldupont/slipway';
-// `github:owner/name`, or any URL or path git can fetch from (SLIPWAY_SOURCE, e.g. a fork or a test repository).
-const sourceUrl = (source) => (source.startsWith('github:') ? `https://github.com/${source.slice('github:'.length)}.git` : source);
-
 // The source as the manifest and the output may show it: a token in `https://user:token@host/…` is
-// committed and pushed with the manifest otherwise, and so is a `?token=` query. A value git would read as an option is refused.
+// committed and pushed with the manifest otherwise, and so is a `?token=` query. Sync fetches from
+// `source` later (through the helper below), so a value git would read as an option is refused now.
 export function publicSource(source) {
   if (source.startsWith('-')) throw new Error(`source "${source}" reads as a git option`);
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(source)) return source;
@@ -50,18 +47,19 @@ export function derivePackageJson(template, { name, rules }) {
 // The git blob id of a file's bytes: what `git ls-tree` lists, computed without a repository.
 export const blobSha = (buf) => createHash('sha1').update(`blob ${buf.length}\0`).update(buf).digest('hex');
 
-// Never a credential prompt (git reads /dev/tty, not stdin), and never an unbounded wait on the network.
-// ssh gets BatchMode only when the owner has configured no ssh of their own (GIT_SSH_COMMAND, GIT_SSH,
-// core.sshCommand), which the variable would otherwise override.
+// The one git helper: new-project calls it on the local checkout only, and sync (F-01 steps 3–4) fetches
+// through it. No prompt of any kind (the terminal, an askpass helper, Git Credential Manager), and a
+// timeout. ssh gets BatchMode only when the owner has configured no ssh of their own (GIT_SSH_COMMAND,
+// GIT_SSH, core.sshCommand), which the variable would otherwise override.
 let quiet;
 function quietEnv() {
   if (!quiet) {
-    quiet = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
+    quiet = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS: '', GCM_INTERACTIVE: 'never' };
     if (!ownSsh()) quiet.GIT_SSH_COMMAND = 'ssh -o BatchMode=yes';
   }
   return quiet;
 }
-const git = (args, o = {}) =>
+export const git = (args, o = {}) =>
   execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: quietEnv(), timeout: 60_000, ...o });
 function ownSsh() {
   if (process.env.GIT_SSH_COMMAND || process.env.GIT_SSH) return true;
@@ -89,43 +87,26 @@ function localCandidate(src) {
   return { sha, tree: lsTree(git(['-C', src, 'rev-parse', '--absolute-git-dir']).trim(), sha) };
 }
 
-// Anywhere else — under `npx github:…` there is no .git, and a template sitting untracked inside
-// another repository must never read that repository's HEAD: the source's HEAD by `git ls-remote`,
-// and its tree by a shallow, blobless fetch into a throwaway repository.
-export function remoteCandidate(source) {
-  const url = sourceUrl(source);
-  if (url.startsWith('-')) throw new Error(`source "${source}" reads as a git option`);
-  const sha = git(['ls-remote', url, 'HEAD']).split(/\s/)[0];
-  if (!/^[0-9a-f]{40}$/.test(sha)) throw new Error(`git ls-remote ${publicSource(source)} HEAD returned no sha`);
-  const dir = mkdtempSync(join(tmpdir(), 'slipway-sha-'));
-  try {
-    git(['init', '-q', '--bare', dir]);
-    git(['--git-dir', dir, 'fetch', '-q', '--depth', '1', '--filter=blob:none', url, sha]);
-    return { sha, tree: lsTree(dir, sha) };
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
-
 /**
- * The slipway sha `src` holds, confirmed file by file: a candidate sha counts only when every shipped
- * path's bytes equal that commit's blob, and every path that commit ships is among them (a deleted
- * file is a difference too). Otherwise — a push landed between npx's download and
- * ls-remote, a dirty checkout, no network — `sha` is null and sync resolves the base by closest match.
+ * A hint at the slipway sha `src` holds, with no network call. Only slipway's own checkout offers one:
+ * HEAD, when every copied path's bytes equal that commit's blob and every path the commit ships was
+ * copied (a deleted file is a difference too). Anywhere else — under `npx github:…` there is no .git,
+ * and a template untracked inside another repository must never read that repository's HEAD — and in
+ * an edited checkout, `sha` is null. Sync finds the base by the manifest's blob ids either way.
  *
  * @param {string} src     the template root
  * @param {string[]} paths every path the install takes from `src`
- * @param {{ rules: object[], source?: string, remote?: (source: string) => { sha: string, tree: Map<string,string> } }} o
- *   `rules` from loadOwnership: which of the commit's paths ship (all but internal, and .gitignore, which is written)
+ * @param {{ rules: object[] }} o  `rules` from loadOwnership: which of HEAD's paths ship (all but
+ *   internal, and .gitignore, which is written)
  * @returns {{ sha: string|null, candidate: string|null, why: string|null }}
  */
-export function resolveSlipway(src, paths, { rules, source = SOURCE, remote = remoteCandidate }) {
+export function resolveSlipway(src, paths, { rules }) {
+  if (listSource(src) !== 'git') return { sha: null, candidate: null, why: 'not a slipway checkout (no .git at the template top)' };
   let c;
   try {
-    c = listSource(src) === 'git' ? localCandidate(src) : remote(source);
+    c = localCandidate(src);
   } catch (e) {
-    const why = (e.stderr || e.message).toString().trim().split('\n')[0].replace(/\/\/[^/\s]*@/g, '//').replace(/(:\/\/[^\s?#]*)[?#]\S*/g, '$1');
-    return { sha: null, candidate: null, why: `could not read a candidate sha: ${why}` };
+    return { sha: null, candidate: null, why: `could not read HEAD: ${String(e.stderr || e.message).trim().split(/\r?\n/).at(-1)}` };
   }
   const taken = new Set(paths);
   const missing = [...c.tree.keys()].filter((p) => !taken.has(p) && p !== '.gitignore' && classify(rules, p) !== 'internal');
@@ -138,8 +119,13 @@ export function resolveSlipway(src, paths, { rules, source = SOURCE, remote = re
 }
 
 // The manifest for files already written under `dest`: each path's class and the sha256 of its bytes.
+// `blob` is the git blob id of the same bytes: sync finds the base as the slipway commit whose tree
+// holds exactly these blobs (#16), so the `slipway` sha is only where it starts looking.
 export function buildManifest(dest, paths, { rules, slipway, version, source = SOURCE, answers }) {
   const files = {};
-  for (const p of [...paths].sort()) files[p] = { class: classify(rules, p), sha256: sha256(readFileSync(join(dest, p))) };
-  return { slipway, ...(slipway ? {} : { version }), source, answers, files };
+  for (const p of [...paths].sort()) {
+    const buf = readFileSync(join(dest, p));
+    files[p] = { class: classify(rules, p), sha256: sha256(buf), blob: blobSha(buf) };
+  }
+  return { slipway, version, source, answers, files };
 }

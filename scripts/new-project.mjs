@@ -9,9 +9,10 @@
 //   npx github:<owner>/slipway <dir> …        once slipway is on GitHub
 //   npm create slipway@latest <dir> …         once published as create-slipway
 //
-// It records what it wrote in .slipway/manifest.json: the slipway sha, confirmed file by file against
-// that commit (git ls-remote on the source when there is no slipway checkout — SLIPWAY_SOURCE overrides
-// github:matldupont/slipway), and each file's class and sha256. D1 checks the managed ones.
+// It records what it wrote in .slipway/manifest.json: each file's class, sha256 and git blob id — sync
+// finds the slipway base by those blobs — plus package.json's version and, only from a clean slipway
+// checkout, HEAD's sha as a hint. No network call. SLIPWAY_SOURCE overrides the recorded source
+// (github:matldupont/slipway), redacted of credentials. D1 checks the managed files' sha256.
 //
 // It also installs the agent harness (.claude/settings.json: hooks and permissions). An agent must
 // never install its own hooks; the owner running this script is the one installing them, and the
@@ -133,10 +134,8 @@ if (opts.github) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) die(`--repo must be owner/name, got "${repo}"`);
   if (run('gh', ['repo', 'view', repo], { read: true, allowFail: true }) !== null) die(`GitHub repository ${repo} already exists`);
 }
-// The full sha, confirmed against every file copied (scripts/lib/install.mjs): HEAD in slipway's own
-// checkout; anywhere else — npx, or untracked inside another repository — git ls-remote on the source.
-// Unconfirmed, the manifest records null plus package.json's version; the commit and README say
-// `<sha>-dirty` in an edited checkout, the version anywhere else.
+// A sha hint only from slipway's own clean checkout (scripts/lib/install.mjs); null anywhere else. The
+// commit and README say the sha, `<sha>-dirty` in an edited checkout, the version anywhere else.
 const pkgVersion = JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).version ?? 'unknown';
 const origin = process.env.SLIPWAY_SOURCE || SOURCE;
 let shownOrigin;
@@ -145,11 +144,11 @@ try {
 } catch (e) {
   die(`SLIPWAY_SOURCE: ${e.message}`);
 }
-const resolved = resolveSlipway(SRC, COPY, { rules, source: origin });
+const resolved = resolveSlipway(SRC, COPY, { rules });
 const version = resolved.sha ?? (resolved.candidate && listSource(SRC) === 'git' ? `${resolved.candidate}-dirty` : pkgVersion);
 
 process.stdout.write(`slipway ${version} → ${dest}\n  product: ${name}\n  repo:    ${opts.github ? `${repo} (${opts.public ? 'public' : 'private'})` : 'none (--no-github)'}\n  commits: ${identity ? `${identity.name} <${identity.email}>` : 'your git config'}\n`);
-if (!resolved.sha) process.stdout.write(`  sha:     unresolved — ${resolved.why}; the manifest records null and ${pkgVersion}\n`);
+if (!resolved.sha) process.stdout.write(`  sha:     no hint — ${resolved.why}; the manifest records null, version ${pkgVersion} and every file's blob id\n`);
 
 // ---- 1. copy
 step(1, 'Copy the template');
@@ -213,7 +212,7 @@ if (!opts.dryRun) {
   mkdirSync(join(dest, '.slipway'), { recursive: true });
   writeFileSync(join(dest, MANIFEST), JSON.stringify(manifest, null, 2) + '\n');
 }
-note(`${recorded.length} paths with class and sha256, as written; slipway ${resolved.sha ?? `null (version ${pkgVersion})`}. D1 checks the managed ones.`);
+note(`${recorded.length} paths with class, sha256 and blob id, as written; slipway ${resolved.sha ?? `null (version ${pkgVersion})`}. D1 checks the managed ones.`);
 
 // ---- 3. git
 step(3, 'Initialise git on main and commit');

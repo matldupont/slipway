@@ -64,8 +64,9 @@ const hashes = new Map(managed.map(([p, f]) => [p, f.sha256]));
 const findings = [];
 const excused = new Set();
 
-// null when deleted. A directory, symlink or other non-file in its place is drift too: never a crash,
-// and never a read outside the project.
+// null when deleted. A directory, symlink or other non-file in its place is drift too, never a crash.
+// Symlinks are checked on the last path component only: a symlinked parent directory is still followed
+// (a known limitation, dev/features/template-sync.md).
 const NOT_A_FILE = 'not a file';
 const current = (p) => {
   const abs = join(root, p);
