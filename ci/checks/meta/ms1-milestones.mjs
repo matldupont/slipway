@@ -20,11 +20,12 @@
 //   extended/unresolved    `extended: D-nnn` names a decision decisions.md does not hold
 //   wip/exceeded           more than one milestone is active
 //   template/fields        TEMPLATE.md lost a field or section MS1 reads
-//   summary/drift          a milestone's `summary:` differs from its row in the PRD's
-//                          ### Milestones table, or has no row there. Only milestones that
-//                          declare `summary:` are compared, so a repo without the field stays green
-//   milestones/header      a milestone declares `summary:` but the PRD's ### Milestones table has
-//                          no readable Milestone and One line columns to compare it with
+//   summary/drift          a milestone's `summary:` differs from its row in the table under
+//                          PRD `## 10. …` › `### Milestones`, or has no row there. Only milestones
+//                          that declare a non-empty `summary:` are compared, so a repo without the
+//                          field stays green
+//   milestones/header      a milestone declares `summary:` but that table has no readable
+//                          Milestone and One line columns to compare it with
 //
 // Warnings — printed, never red:
 //
@@ -33,6 +34,9 @@
 //                          §9's `Capacity: <n>–<m> h/week`
 //   estimate/capacity      §9's estimate table has hours but no readable Capacity line
 //   estimate/header        §9 has a table with no readable Milestone and Hours columns
+//   estimate/unreadable/<id> an Hours cell that is neither a placeholder nor `n`, `n–m`, `n to m`
+//
+// A PRD with no §9 table compares nothing and says nothing: the table is optional.
 //
 // WHY: milestones left open after their work ends, and new surfaces started while a launch
 // gate sits open, are how scope creeps when building is cheap. An open milestone nobody is
@@ -110,21 +114,26 @@ const prd = existsSync(prdPath) ? readFileSync(prdPath, 'utf8') : null;
 const warnings = [];
 const squash = (s) => s.replace(/\s+/g, ' ').trim();
 const column = (header, re) => header.findIndex((h) => re.test(h));
-// `40–60`, `40-60 h`, `50`: the low and high end of a range of hours.
-const range = (s) => {
-  const m = plain(s ?? '').match(/^(\d+(?:\.\d+)?)(?:\s*[–-]\s*(\d+(?:\.\d+)?))?/);
-  return m ? { low: Number(m[1]), high: Number(m[2] ?? m[1]) } : null;
-};
+// Hours as a range: `50`, `~50 h`, `40–60`, `40-60h`, `40 to 60 hours`, `1,200`. The whole cell
+// must read, so `40 to 60` is never taken as 40. Whitespace is squashed first so no pattern
+// below can backtrack over a run of it.
+const N = '(\\d+(?:\\.\\d+)?)';
+const H = '(?: ?(?:h|hrs?|hours?))?';
+const HOURS = new RegExp(`^~? ?${N}${H}(?: ?(?:[–-]|to) ?~? ?${N}${H})?$`, 'i');
+const CAPACITY = new RegExp(`${N}(?: ?(?:[–-]|to) ?${N})? ?(?:h|hrs?|hours?) ?(?:/|per|a) ?w(?:ee)?k`, 'i');
+const toRange = (m) => (m ? { low: Number(m[1]), high: Number(m[2] ?? m[1]) } : null);
+const hoursIn = (cell) => toRange(squash(plain(cell ?? '').replace(/,/g, '')).match(HOURS));
 const round = (n) => Math.round(n * 10) / 10;
 const named = new Map(milestones.filter((m) => m.fm?.id).map((m) => [m.fm.id, m]));
-const withSummary = [...named.values()].filter((m) => typeof m.fm.summary === 'string');
+const withSummary = [...named.values()].filter((m) => typeof m.fm.summary === 'string' && m.fm.summary.trim());
 
 if (prd && withSummary.length) {
-  const t = table(section(prd, 'Milestones', 3));
+  // Scoped to §10: another `### Milestones` elsewhere in the PRD is not this table.
+  const t = table(section(section(prd, '10. Story map and milestones', 2) ?? '', 'Milestones', 3));
   const idAt = t ? column(t.header, /^(milestone|id)$/i) : -1;
   const lineAt = t ? column(t.header, /^(one line|summary)$/i) : -1;
   if (idAt < 0 || lineAt < 0) {
-    findings.push({ where: 'docs/PRD.md#milestones/header', detail: 'no table under ### Milestones with Milestone and One line columns, so no summary: can be compared' });
+    findings.push({ where: 'docs/PRD.md#milestones/header', detail: 'no table under ## 10. Story map and milestones › ### Milestones with Milestone and One line columns, so no summary: can be compared' });
   } else {
     const rows = new Map(t.rows.map((c) => [plain(c[idAt] ?? ''), c[lineAt] ?? '']));
     for (const { file, fm } of withSummary) {
@@ -142,11 +151,17 @@ if (prd) {
   const t = table(estimate);
   const idAt = t ? column(t.header, /^(milestone|id)$/i) : -1;
   const hoursAt = t ? column(t.header, /hours|estimate/i) : -1;
-  const capacity = range((estimate ?? '').match(/^\s*\**Capacity:?\**:?\s*(.+)$/im)?.[1]);
+  // Read from one line, capped, so a pathological line costs nothing.
+  const capacityLine = (estimate ?? '').split(/\r?\n/).find((l) => /^[ \t>*_-]*Capacity\b/i.test(l));
+  const capacity = toRange(squash(plain(capacityLine ?? '').slice(0, 200).replace(/,/g, '')).match(CAPACITY));
   if (t && (idAt < 0 || hoursAt < 0)) {
     warnings.push({ where: 'docs/PRD.md#estimate/header', detail: 'the §9 table has no Milestone and Hours columns, so no estimate is compared with its appetite' });
   } else if (t) {
-    const estimated = t.rows.map((c) => ({ id: plain(c[idAt] ?? ''), hours: range(c[hoursAt]) })).filter((r) => r.hours);
+    const rows = t.rows.map((c) => ({ id: plain(c[idAt] ?? ''), cell: c[hoursAt] ?? '', hours: hoursIn(c[hoursAt]) }));
+    for (const r of rows.filter((r) => !r.hours && r.cell && !PLACEHOLDER.test(r.cell))) {
+      warnings.push({ where: `docs/PRD.md#estimate/unreadable/${r.id}`, detail: `cannot read hours "${r.cell.slice(0, 60)}" — write n, n–m or n to m` });
+    }
+    const estimated = rows.filter((r) => r.hours);
     if (estimated.length && !capacity) {
       warnings.push({ where: 'docs/PRD.md#estimate/capacity', detail: '§9 estimates hours but has no `Capacity: <n>–<m> h/week` line, so no estimate is compared with its appetite' });
     }
@@ -155,7 +170,7 @@ if (prd) {
       const appetite = parseAppetite(m?.fm.appetite);
       if (!appetite || !['shaping', 'active'].includes(m.fm.status)) continue;
       const days = (Date.parse(appetite.end) - Date.parse(appetite.start)) / 86_400_000 + 1;
-      const holds = (days / 7) * capacity.high;
+      const holds = (days * capacity.high) / 7;
       const mid = (hours.low + hours.high) / 2;
       if (mid > holds) {
         warnings.push({
