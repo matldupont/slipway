@@ -19,7 +19,7 @@ const findings = [];
 const counts = {};
 try {
   const rules = loadOwnership(root);
-  paths = shippedPaths(root);
+  paths = shippedPaths(root, rules);
   for (const p of paths) {
     const c = classify(rules, p);
     if (c) counts[c] = (counts[c] ?? 0) + 1;

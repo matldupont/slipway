@@ -61,11 +61,11 @@ export function classify(rules, path) {
 // Every file `new-project` would take from `root`, sorted. When `root` is the top of a git checkout:
 // git's tracked files that still exist. Otherwise — under `npx github:…` the package has no .git, and
 // may sit untracked inside someone else's repository — every file on disk. `.gitignore` is always in
-// the list: new-project writes it even when npm did not pack one. Throws on a symlink, which a copy
-// would either dereference (shipping a file from outside the template) or break.
-export function shippedPaths(root) {
-  const files = gitTop(root) === realpathSync(root) ? tracked(root) : walk(root, root);
-  const links = files.filter((f) => lstatSync(join(root, f)).isSymbolicLink());
+// the list: new-project writes it even when npm did not pack one. Throws on a symlink that is not
+// internal, which a copy would either dereference (shipping a file from outside the template) or break.
+export function shippedPaths(root, rules) {
+  const files = gitTop(root) === realpathSync.native(root) ? tracked(root) : walk(root, root);
+  const links = files.filter((f) => classify(rules, f) !== 'internal' && lstatSync(join(root, f)).isSymbolicLink());
   if (links.length) throw new Error(`symlinks are never shipped: ${links.join(', ')}`);
   return [...new Set([...files, '.gitignore'])].sort();
 }
@@ -73,7 +73,7 @@ export function shippedPaths(root) {
 function gitTop(root) {
   try {
     const top = execFileSync('git', ['-C', root, 'rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    return realpathSync(top.trim());
+    return realpathSync.native(top.trim());
   } catch {
     return null;
   }
@@ -82,8 +82,16 @@ function gitTop(root) {
 function tracked(root) {
   return execFileSync('git', ['-C', root, 'ls-files', '-z'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
     .split('\0')
-    .filter((f) => f && existsSync(join(root, f)));
+    .filter((f) => f && lexists(join(root, f)));
 }
+
+const lexists = (p) => {
+  try {
+    return !!lstatSync(p);
+  } catch {
+    return false;
+  }
+};
 
 function walk(root, dir) {
   return readdirSync(dir).flatMap((e) => {
