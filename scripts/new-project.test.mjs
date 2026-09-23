@@ -241,3 +241,30 @@ test('derivePackageJson: the project gets its own name and no command that calls
   );
   assert.deepEqual(pkg, { name: 'acme', private: true, scripts: { meta: 'node ci/checks/meta/d1-drift.mjs .' } });
 });
+
+test('.gitattributes ships as managed, under a checkout and a packed install; a CRLF re-checkout stays LF and D1-green; raw CRLF is drift', () => {
+  assert.equal(classify(rules, '.gitattributes'), 'managed');
+
+  // Packed install: no .git at the template top, the file arrives like any other shipped path.
+  const root = tmp();
+  const pkg = join(root, 'pkg');
+  copyTemplate(pkg);
+  assert.equal(readFileSync(join(pkg, '.gitattributes'), 'utf8'), '* text=auto eol=lf\n');
+  const { manifest } = newProject(pkg, join(root, 'project'), { SLIPWAY_SOURCE: '' });
+  assert.equal(manifest.files['.gitattributes'].class, 'managed');
+  assert.equal(readFileSync(join(root, 'project', '.gitattributes'), 'utf8'), '* text=auto eol=lf\n');
+
+  // Re-checkout the committed project the way a Windows clone would.
+  const clone = join(root, 'clone');
+  git(root, '-c', 'core.autocrlf=true', 'clone', '-q', join(root, 'project'), clone);
+  for (const p of Object.keys(manifest.files)) {
+    assert.ok(!readFileSync(join(clone, p)).includes(0x0d), `${p} has CR bytes after an autocrlf checkout`);
+  }
+  assert.equal(check(clone, 'd1-drift.mjs').status, 0);
+
+  // D1 still hashes raw bytes: CRLF written into the working tree is drift.
+  writeFileSync(join(clone, 'SLIPWAY.md'), readFileSync(join(clone, 'SLIPWAY.md'), 'utf8').replaceAll('\n', '\r\n'));
+  const r = check(clone, 'd1-drift.mjs');
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: edited/);
+});
