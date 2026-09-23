@@ -1,0 +1,7 @@
+{
+  "_note": "No milestones: only the frame's shape is checked. Result was renamed to Outcome and an unrecognised Owner column sits at Result's template position. More unrecognised headers than renamed columns means positions cannot be trusted, so K1 must say it cannot read Result rather than read the Owner cell.",
+  "exit": 1,
+  "findings": [
+    "FRAME.md#risk/header"
+  ]
+}

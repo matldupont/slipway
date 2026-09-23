@@ -1,5 +1,5 @@
 {
-  "_note": "No milestones: only the frame's shape is checked. The Risks table's Result column was renamed and its template position is held by Threshold, so K1 must say it cannot read Result rather than read the Threshold cell. The bold Category header and the aligned separator must still parse.",
+  "_note": "No milestones: only the frame's shape is checked. The Risks table's Result column was renamed and its template position is held by Threshold, so K1 must say it cannot read Result rather than read the Threshold cell. The aligned separator must still parse. RISK-1 is an untested value risk with no tracker, and risk/untracked must NOT fire while no milestone is underway.",
   "exit": 1,
   "findings": [
     "FRAME.md#risk/header"
