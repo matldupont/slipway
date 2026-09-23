@@ -1,5 +1,5 @@
 {
-  "_note": "Covered: a (exact filter), h (-F + run), e (-r), x1 (root script called by CI). Traps: b never invoked; c only in a shell comment; d only via a filtered turbo run; k only via pnpm exec, which bypasses the script; x2 a check nothing runs; z's dev script is not a gate.",
+  "_note": "Covered: a (exact filter), h (-F + run), e (-r), x1 (root script called by CI). Traps: b never invoked; c only in a shell comment; d only via a filtered turbo run; k only via pnpm exec, which bypasses the script; x2 a check nothing runs; z's dev script is not a gate. Not slipway (dev/ownership.yaml without scripts/new-project.mjs), so scripts/own.test.mjs is not M1's to judge.",
   "exit": 1,
   "findings": [
     "b:test",

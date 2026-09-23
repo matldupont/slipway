@@ -17,6 +17,8 @@ export const SOURCE = 'github:matldupont/slipway';
 // `source` later (through the helper below), so a value git would read as an option is refused now.
 export function publicSource(source) {
   if (source.startsWith('-')) throw new Error(`source "${source}" reads as a git option`);
+  // `<transport>::<address>` would carry its address past the URL redaction below.
+  if (/^[a-z][a-z0-9+.-]*::/i.test(source)) throw new Error(`source "${source.split('::')[0]}::…" names a git transport helper — give the URL itself`);
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(source)) return source;
   const u = new URL(source);
   u.username = '';
@@ -61,6 +63,22 @@ export function templateFiles(src) {
 export const gitignoreText = (src) =>
   existsSync(join(src, '.gitignore')) ? readFileSync(join(src, '.gitignore'), 'utf8') : 'node_modules/\n.DS_Store\nSTATE.md\n';
 
+// The files whose `<Product>` and `<owner/repo>` new-project fills from the manifest's `answers`; sync
+// fills a slipway commit's copy the same way to tell which commit a project was written from.
+export const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
+export const fillPlaceholders = (text, { name, repo }) => text.replaceAll('<Product>', name).replaceAll('<owner/repo>', repo ?? '<owner/repo>');
+
+// Every URL in `text` (a git message) as publicSource shows it: git drops userinfo from its own
+// messages but keeps a `?token=` query.
+export const redactUrls = (text) =>
+  text.replace(/[a-z][a-z0-9+.-]*:\/\/[^\s'"]+/gi, (u) => {
+    try {
+      return publicSource(u);
+    } catch {
+      return '<url>';
+    }
+  });
+
 // The project's package.json from the template's: its own name, private, no bin/description/version,
 // and no command that calls an internal path (O1) — the project never receives one.
 export function derivePackageJson(template, { name, rules }) {
@@ -85,7 +103,8 @@ export const blobSha = (buf) => createHash('sha1').update(`blob ${buf.length}\0`
 // The one git helper: new-project calls it on the local checkout only, and sync (F-01 steps 3–4) fetches
 // through it. No prompt of any kind (the terminal, an askpass helper, Git Credential Manager), and a
 // timeout. ssh gets BatchMode only when the owner has configured no ssh of their own (GIT_SSH_COMMAND,
-// GIT_SSH, core.sshCommand), which the variable would otherwise override.
+// GIT_SSH, a global or system core.sshCommand), which the variable would otherwise override. A
+// repository's own core.sshCommand is not read: the fetches run in sync's clone, which never sets one.
 let quiet;
 function quietEnv() {
   if (!quiet) {
@@ -100,12 +119,13 @@ export const git = (args, o = {}) =>
   execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: quietEnv(), timeout: 60_000, ...o });
 function ownSsh() {
   if (process.env.GIT_SSH_COMMAND || process.env.GIT_SSH) return true;
-  try {
-    const v = execFileSync('git', ['config', '--get', 'core.sshCommand'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    return v.trim() !== '';
-  } catch {
-    return false;
-  }
+  return ['--global', '--system'].some((scope) => {
+    try {
+      return execFileSync('git', ['config', scope, '--get', 'core.sshCommand'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
+    } catch {
+      return false;
+    }
+  });
 }
 
 // `path → blob id` for every file in a commit's tree.
