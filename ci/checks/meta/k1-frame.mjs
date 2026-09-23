@@ -12,10 +12,16 @@
 //   placeholder/present    a template placeholder or [NEEDS CLARIFICATION] is still in the text
 //   parked/incomplete      a [PARKED: …] question is missing its working assumption, the cost if it
 //                          is wrong, or where it is tracked (#12, OD-3, D-7)
+//   risk/untracked         a value risk has no Result and names no tracker: the issue, D- or OD- entry
+//                          where its test is being run (FRAME's Tracker column, or a `Tracked:` line in
+//                          its evidence file). Untested is fine while the skeleton is built; untested
+//                          with nobody running the test is how a risk is forgotten.
 //
 // Once a milestone that is not the walking skeleton (kind other than `skeleton`) is active
 // or closed, every value risk must have been tested:
 //   risk/unresolved        a risk tagged value has no Result (a D-nnn override counts)
+//   risk/header            the Risks table has no readable column for ID, Category, Threshold or Result:
+//                          a renamed header whose template position another column holds
 //   risk/no-threshold      a risk has a Result but no Threshold — the bar was set after the
 //                          test, so the test could not fail
 //
@@ -39,6 +45,7 @@ import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { section } from '../lib/markdown.mjs';
 import { readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
+import { filled, readRisks, TRACKER } from '../lib/risks.mjs';
 
 const root = process.argv[2] ?? '.';
 const rel = 'docs/product/FRAME.md';
@@ -64,7 +71,7 @@ for (const [, body] of text.matchAll(/\[PARKED:([^\]]*)\]/g)) {
   const missing = [
     !/\bassume:\s*\S/i.test(body) && 'assume: <what you build on>',
     !/\bif wrong:\s*\S/i.test(body) && 'if wrong: <the cost>',
-    !/(#\d+|\b(OD|D)-\d+\b)/.test(body) && 'a tracker (#12, OD-3, D-7)',
+    !TRACKER.test(body) && 'a tracker (#12, OD-3, D-7)',
   ].filter(Boolean);
   if (missing.length) add('FRAME.md#parked/incomplete', `parked question "${body.trim().slice(0, 60)}" is missing ${missing.join(', ')}`);
 }
@@ -88,19 +95,21 @@ if (underway.length) {
   if (open) add('FRAME.md#placeholder/present', `${open} line(s) still hold a placeholder or [NEEDS CLARIFICATION]`);
 }
 
-// Risk table rows: | RISK-n | Assumption | Category | Impact | Cheapest test | Threshold | Result |
-const risks = (section(md, 'Risks', 2) ?? '')
-  .split(/\r?\n/)
-  .filter((l) => /^\|\s*RISK-\d+\s*\|/.test(l))
-  .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
-const filled = (c) => !!c && !PLACEHOLDER.test(c);
+// Risk table rows, read by column header: | RISK-n | … | Category | … | Threshold | Result | Tracker |
+const { rows: risks, missing } = readRisks(root, md);
+if (missing.length) {
+  add('FRAME.md#risk/header', `the Risks table has no ${missing.join(', ')} column K1 can find: use the template's headers (ID … Category … Threshold … Result … Tracker)`);
+}
 
-for (const [id, , category = '', , , threshold = '', result = ''] of risks) {
-  if (filled(result) && !filled(threshold)) {
-    add(`${id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test');
+for (const r of risks) {
+  if (r.tested && !filled(r.threshold)) {
+    add(`${r.id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test');
   }
-  if (pastSkeleton.length && /\bvalue\b/i.test(category) && !filled(result)) {
-    add(`${id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record a Result or a D-nnn override`);
+  if (pastSkeleton.length && r.value && !r.tested) {
+    add(`${r.id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record a Result or a D-nnn override`);
+  }
+  if (underway.length && r.value && !r.tested && !r.tracker) {
+    add(`${r.id}#risk/untracked`, `value risk has no Result and no tracker while ${underway.map((m) => m.fm.id).join(', ')} ${underway.length > 1 ? 'are' : 'is'} underway: name the issue running its test (#n, D-n, OD-n) in FRAME's Tracker column, or in a Tracked: line in its evidence file`);
   }
 }
 
@@ -108,7 +117,7 @@ process.exit(
   report({
     id: 'K1',
     claim: underway.length
-      ? `the frame is finished${pastSkeleton.length ? ' and every value risk was tested against a bar set first' : ''} (${risks.length} risks)`
+      ? `the frame is finished, every untested value risk names a tracker${pastSkeleton.length ? ', and every value risk was tested against a bar set first' : ''} (${risks.length} risks)`
       : `no milestone is underway, so only the frame's shape is checked (${risks.length} risks)`,
     scanned: 1,
     unit: `${UNIT} (${milestones.length} milestones read)`,

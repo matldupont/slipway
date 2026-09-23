@@ -185,7 +185,7 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 | L1 | every lesson points at a home that exists, and none is past its review date | lessons enforced by nothing get re-learned |
 | MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro | milestones left open after their work ends, and new surfaces started before launch |
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
-| K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); nothing past the skeleton before each value risk is tested against a bar set first | building before anyone names the question the product answers or tests whether people want it |
+| K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); every untested value risk names a tracker once a milestone is underway; nothing past the skeleton before each value risk is tested against a bar set first | building before anyone names the question the product answers or tests whether people want it |
 | Stop hook | an agent turn does not end while `verify:fast` is red | agents declaring done work that was never run |
 
 `verify` exits BROKEN on an empty workspace and fails, before running anything, when no package declares
