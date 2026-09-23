@@ -1,5 +1,6 @@
 {
-  "_note": "No today: without a fixed clock the overran wording would change with the date the check runs.",
-  "next": "Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: RISK-1 scheduled (#8, window 2026-02-01..2026-02-28 — overran) · blocks every milestone past the skeleton (K1). An agent can prepare the materials; running the test with real people is yours. Thresholds and results: docs/product/evidence/.",
-  "frame": "framed · risks: RISK-1 scheduled (#8, window 2026-02-01..2026-02-28 — overran) · blocks every milestone past the skeleton (K1)"
+  "_note": "A blank today: status would fall back to no clock at all, and nothing could read as overran.",
+  "today": "",
+  "next": "unread",
+  "frame": "unread"
 }
