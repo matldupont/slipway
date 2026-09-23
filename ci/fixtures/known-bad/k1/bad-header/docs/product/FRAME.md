@@ -19,4 +19,4 @@ Threshold column, so reading it by position would count every risk as tested.
 
 | ID | Assumption | **Category** | Impact if wrong | Cheapest test | Tracker | Threshold (set before) | Outcome |
 |---|:---|---|---|---|---|---|---|
-| RISK-1 | Walkers will leave group texts | value | no product | concierge test | #9 | 3 of 5 re-engage | |
+| RISK-1 | Walkers will leave group texts | value | no product | concierge test | | 3 of 5 re-engage | |

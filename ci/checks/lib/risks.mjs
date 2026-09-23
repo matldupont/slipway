@@ -9,14 +9,16 @@ import { parseAppetite } from './milestones.mjs';
 
 // Where the real answer is being chased: an issue (#14, owner/repo#14), a PRD open decision (OD-3)
 // or a decision (D-7).
-export const TRACKER = /#\d+|\b(?:OD|D)-\d+\b/;
+export const TRACKER = /(?:[\w.-]+\/[\w.-]+)?#\d+|\b(?:OD|D)-\d+\b/;
 
 export const filled = (c) => !!c && !PLACEHOLDER.test(c);
 
 // Columns are found by their header, so a FRAME written before a column existed still parses. The
 // order here is the template's: a column whose header was renamed takes its template position, unless
-// another header already holds that position — then it is `missing`, and K1 says so rather than read the
-// wrong cell. Tracker has no position: a table without the header has no Tracker column.
+// another recognised header already holds that position, or the table has more unrecognised headers than
+// renamed columns (an added column shifts the positions, so none can be trusted). Then it is `missing`,
+// and K1 says so rather than read the wrong cell. Tracker has no position: a table without the header
+// has no Tracker column.
 const COLUMNS = [
   ['id', /^id$/i],
   ['assumption', /^assumption/i],
@@ -72,17 +74,21 @@ function readEvidence(root) {
 // `missing`: the columns a check reads that the table has no readable header for.
 export function readRisks(root, frameMd) {
   const lines = (section(frameMd, 'Risks', 2) ?? '').split(/\r?\n/).filter((l) => l.trim().startsWith('|'));
-  // The header is the row above the |---| separator.
-  const sep = lines.findIndex((l) => /^\|[\s:|-]+\|$/.test(l.trim()));
+  // The header is the row above the last |---| separator before the first RISK row, so another table
+  // above the risk table (a legend) is not read as its header.
+  const firstRow = lines.findIndex((l) => /^\|\s*RISK-\d+\s*\|/.test(l));
+  const sep = lines.slice(0, firstRow < 0 ? lines.length : firstRow).findLastIndex((l) => /^\|[\s:|-]+\|$/.test(l.trim()));
   const header = sep > 0 ? cells(lines[sep - 1]).map(plain) : null;
   const matched = Object.fromEntries(COLUMNS.map(([key, re]) => [key, header ? header.findIndex((h) => re.test(h)) : -1]));
   const claimed = new Set(Object.values(matched).filter((n) => n >= 0));
+  const unrecognised = header ? header.filter((_, n) => !claimed.has(n)).length : 0;
+  const renamed = COLUMNS.filter(([key]) => key !== 'tracker' && matched[key] < 0).length;
   const at = {};
   const missing = [];
   COLUMNS.forEach(([key], i) => {
     if (matched[key] >= 0) at[key] = matched[key];
     else if (key === 'tracker') return;
-    else if (!claimed.has(i)) at[key] = i;
+    else if (!claimed.has(i) && unrecognised <= renamed) at[key] = i;
     else if (REQUIRED.includes(key)) missing.push(key);
   });
   const evidence = readEvidence(root);

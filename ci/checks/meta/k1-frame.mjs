@@ -2,16 +2,24 @@
 // K1 — frame before build.
 //
 // docs/product/FRAME.md says whose job the product does, the one question it answers, and
-// what could kill it. K1 makes the frame a precondition of building, in two tiers:
+// what could kill it. K1 makes the frame a precondition of building, in three tiers:
+//
+// Always, milestone or not:
+//   status/unknown         `status` is not draft or framed
+//   parked/incomplete      a [PARKED: …] question is missing its working assumption, the cost if it
+//                          is wrong, or where it is tracked (#12, owner/repo#12, OD-3, D-7)
+//   risk/header            the Risks table has no readable column for ID, Category, Threshold or Result:
+//                          a renamed header whose template position another column holds, or whose
+//                          position an added column has shifted. Reported before any milestone, since
+//                          once one is underway the risk findings below would read the wrong cells.
+//   risk/no-threshold      a risk has a Result but no Threshold — the bar was set after the
+//                          test, so the test could not fail
 //
 // Once any milestone is active or closed, the frame must be finished:
-//   status/unknown         `status` is not draft or framed
 //   status/draft           a milestone is underway but FRAME.md is still `status: draft`
 //   section/<Name>         Job story, The question it answers, or Risks is missing or empty
 //   job/shape              the job story is not "When …, I want to …, so I can …"
 //   placeholder/present    a template placeholder or [NEEDS CLARIFICATION] is still in the text
-//   parked/incomplete      a [PARKED: …] question is missing its working assumption, the cost if it
-//                          is wrong, or where it is tracked (#12, OD-3, D-7)
 //   risk/untracked         a value risk has no Result and names no tracker: the issue, D- or OD- entry
 //                          where its test is being run (FRAME's Tracker column, or a `Tracked:` line in
 //                          its evidence file). Untested is fine while the skeleton is built; untested
@@ -20,10 +28,6 @@
 // Once a milestone that is not the walking skeleton (kind other than `skeleton`) is active
 // or closed, every value risk must have been tested:
 //   risk/unresolved        a risk tagged value has no Result (a D-nnn override counts)
-//   risk/header            the Risks table has no readable column for ID, Category, Threshold or Result:
-//                          a renamed header whose template position another column holds
-//   risk/no-threshold      a risk has a Result but no Threshold — the bar was set after the
-//                          test, so the test could not fail
 //
 // A question you can build without is parked, not unresolved:
 //
