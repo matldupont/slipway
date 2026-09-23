@@ -3,6 +3,7 @@ id: M0
 status: shaping
 kind: mvp
 appetite: 2026-01-01..2026-01-14
+summary: <…one line: what this bet delivers…>
 ---
 
 # M0 — <name>
@@ -15,6 +16,8 @@ appetite: 2026-01-01..2026-01-14
 > - `appetite`: first and last day, inclusive. When it ends the milestone closes, is killed,
 >   or gets an extension recorded in decisions.md (`extended: D-nnn`). By default it does
 >   not get more time.
+> - `summary`: the one line the PRD's milestones table (§10) shows for this milestone. The table
+>   is generated from these fields, never hand-written; MS1 flags a row that differs. No `|`.
 > - Shaping milestones may hold placeholders. Active, closed and killed ones may not.
 
 ## Why

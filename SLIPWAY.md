@@ -184,7 +184,7 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 | I1 | issue acceptance criteria are not bare adjectives; the seams question is answered | adjective criteria that any change satisfies; a conditional question silently skipped |
 | R1 | each review names the file it read and a version line still verbatim in it, and the PRD has one once it leaves draft | a review written from memory cites a version that no longer exists; a plan nobody argued with |
 | L1 | every lesson points at a home that exists, and none is past its review date | lessons enforced by nothing get re-learned |
-| MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro | milestones left open after their work ends, and new surfaces started before launch |
+| MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro; each `summary:` matches its PRD milestones row; warns when a PRD estimate is more than the appetite holds | milestones left open after their work ends, new surfaces started before launch, and the same fact drifting between the PRD and a milestone |
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
 | K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); every untested value risk names a tracker once a milestone is underway; nothing past the skeleton before each value risk is tested against a bar set first | building before anyone names the question the product answers or tests whether people want it |
 | S1 | `ci/status.mjs` prints the expected Next and Frame lines — each risk tested, scheduled, overran, window unreadable or untested — for its fixture roots | status telling the owner a risk is on schedule while its evidence is no longer read |
@@ -283,6 +283,11 @@ blocks on a failing test, lets the second stop through, and skips a tree it alre
 | L1 loosened so every pointer resolves | M6 red — missed three unresolved pointers |
 | MS1 with the last appetite day made exclusive | M6 red — flagged an on-time milestone |
 | MS1 allowing two active milestones | M6 red — missed `wip/exceeded` |
+| MS1 comparing summaries without collapsing whitespace, or matching a bold `**M1**` id literally | M6 red — flagged an on-time row |
+| MS1 ignoring a milestone with no PRD row | M6 red — missed `summary/drift` |
+| MS1 warning at an estimate equal to the appetite, at the bottom of Capacity, or with the last appetite day exclusive | M6 red — unexpected warning |
+| MS1 comparing a closed milestone's estimate | M6 red — unexpected warning |
+| MS1 dropping its warnings | M6 red — missed two warnings |
 | K1 reading placeholders inside HTML comments | M6 red — flagged unexpected |
 | S1 with evidence `Window:` lines no longer read | S1 red on `framed-no-milestone`; M6 red — missed both `window-ignored` findings, flagged `next-only#frame` |
 | S1 with an evidence heading no longer closing its risk | S1 red on `skeleton-active` |

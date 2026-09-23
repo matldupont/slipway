@@ -34,6 +34,17 @@ Where input documents disagree, this PRD decides and records the decision.
 |---|---|---|---|
 | DIV-1 | | | |
 
+### Source coverage
+
+When this PRD is derived from a source document, every risk, spike, invariant and blocking
+decision in the source gets one row here — including the ones this PRD drops. A source item with
+no row was lost silently; `/review-doc` diffs this table against the source. "Handled by the
+features above" is not a row: name the ID. With no source document, write `none: no source`.
+
+| Source item | Kind | Outcome | Here |
+|---|---|---|---|
+| <…source § or ID, quoted…> | risk · spike · invariant · decision | kept · moved · dropped | <…new ID, or DIV-n for moved and dropped…> |
+
 ## 4. Scope — the v1 boundary
 
 - **In:** …
@@ -98,6 +109,15 @@ Show the arithmetic: hours available per week × weeks, against the scope listed
 defensible, say so here and list the options: re-baseline, cut, or cut something else and name it. Never
 rewrite it silently.
 
+Capacity: <…n–m…> h/week
+
+| Milestone | Hours | Basis |
+|---|---|---|
+| M1 | <…n–m…> | <…what the hours are made of…> |
+
+MS1 warns when a milestone's midpoint here is more than its appetite holds (appetite days ÷ 7 × the
+top of Capacity). A warning, not a failure: cut scope, lengthen the appetite, or re-estimate.
+
 ## 10. Story map and milestones
 
 ### Story map
@@ -123,6 +143,10 @@ Milestones are files in `docs/milestones/`, one per bet, each with an appetite, 
 and kill criteria (MS1 checks them). Each milestone's Contents cite the F-IDs they build, and
 every §5 feature is cited by some milestone (F1 checks both once the PRD leaves draft). List
 them here by ID only, in order.
+
+This table is **generated** from each milestone file's frontmatter — `id`, `kind` and `summary` —
+by `/kickoff`, and regenerated whenever a milestone is added or its `summary:` changes. Do not
+edit a row by hand: change the milestone's `summary:` and regenerate. MS1 flags a row that differs.
 
 | Milestone | Kind | One line |
 |---|---|---|

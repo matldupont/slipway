@@ -20,10 +20,24 @@
 //   extended/unresolved    `extended: D-nnn` names a decision decisions.md does not hold
 //   wip/exceeded           more than one milestone is active
 //   template/fields        TEMPLATE.md lost a field or section MS1 reads
+//   summary/drift          a milestone's `summary:` differs from its row in the PRD's
+//                          ### Milestones table, or has no row there. Only milestones that
+//                          declare `summary:` are compared, so a repo without the field stays green
+//   milestones/header      a milestone declares `summary:` but the PRD's ### Milestones table has
+//                          no readable Milestone and One line columns to compare it with
+//
+// Warnings — printed, never red:
+//
+//   estimate/over-appetite the midpoint of a shaping or active milestone's hours in PRD §9 is
+//                          more than its appetite can hold: appetite days / 7 × the top of
+//                          §9's `Capacity: <n>–<m> h/week`
+//   estimate/capacity      §9's estimate table has hours but no readable Capacity line
+//   estimate/header        §9 has a table with no readable Milestone and Hours columns
 //
 // WHY: milestones left open after their work ends, and new surfaces started while a launch
 // gate sits open, are how scope creeps when building is cheap. An open milestone nobody is
-// working, or a bet that silently runs long, needs something that fires.
+// working, or a bet that silently runs long, needs something that fires. The PRD's milestone
+// one-liners and estimates restate what the milestone files say; restated facts drift apart.
 //
 // Shaping milestones are drafts: only frontmatter is checked. Dates are inclusive;
 // CHECK_TODAY overrides today for fixtures.
@@ -31,7 +45,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
-import { section } from '../lib/markdown.mjs';
+import { plain, section, table } from '../lib/markdown.mjs';
 import { MILESTONE_KINDS, MILESTONE_STATUSES, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
 import { report } from '../lib/report.mjs';
@@ -90,6 +104,69 @@ for (const { file: f, md, fm } of milestones) {
   }
 }
 
+// The PRD restates each milestone twice: a one-liner in §10 and an estimate in §9.
+const prdPath = join(root, 'docs', 'PRD.md');
+const prd = existsSync(prdPath) ? readFileSync(prdPath, 'utf8') : null;
+const warnings = [];
+const squash = (s) => s.replace(/\s+/g, ' ').trim();
+const column = (header, re) => header.findIndex((h) => re.test(h));
+// `40–60`, `40-60 h`, `50`: the low and high end of a range of hours.
+const range = (s) => {
+  const m = plain(s ?? '').match(/^(\d+(?:\.\d+)?)(?:\s*[–-]\s*(\d+(?:\.\d+)?))?/);
+  return m ? { low: Number(m[1]), high: Number(m[2] ?? m[1]) } : null;
+};
+const round = (n) => Math.round(n * 10) / 10;
+const named = new Map(milestones.filter((m) => m.fm?.id).map((m) => [m.fm.id, m]));
+const withSummary = [...named.values()].filter((m) => typeof m.fm.summary === 'string');
+
+if (prd && withSummary.length) {
+  const t = table(section(prd, 'Milestones', 3));
+  const idAt = t ? column(t.header, /^(milestone|id)$/i) : -1;
+  const lineAt = t ? column(t.header, /^(one line|summary)$/i) : -1;
+  if (idAt < 0 || lineAt < 0) {
+    findings.push({ where: 'docs/PRD.md#milestones/header', detail: 'no table under ### Milestones with Milestone and One line columns, so no summary: can be compared' });
+  } else {
+    const rows = new Map(t.rows.map((c) => [plain(c[idAt] ?? ''), c[lineAt] ?? '']));
+    for (const { file, fm } of withSummary) {
+      const add = (detail) => findings.push({ where: `${file}#summary/drift`, detail });
+      if (!rows.has(fm.id)) add(`the PRD's ### Milestones table has no ${fm.id} row — generate it from summary: "${fm.summary}"`);
+      else if (squash(rows.get(fm.id)) !== squash(fm.summary)) {
+        add(`the PRD says "${squash(rows.get(fm.id))}", summary: says "${squash(fm.summary)}" — correct the one that is wrong, then regenerate the row`);
+      }
+    }
+  }
+}
+
+if (prd) {
+  const estimate = section(prd, '9. Estimate', 2);
+  const t = table(estimate);
+  const idAt = t ? column(t.header, /^(milestone|id)$/i) : -1;
+  const hoursAt = t ? column(t.header, /hours|estimate/i) : -1;
+  const capacity = range((estimate ?? '').match(/^\s*\**Capacity:?\**:?\s*(.+)$/im)?.[1]);
+  if (t && (idAt < 0 || hoursAt < 0)) {
+    warnings.push({ where: 'docs/PRD.md#estimate/header', detail: 'the §9 table has no Milestone and Hours columns, so no estimate is compared with its appetite' });
+  } else if (t) {
+    const estimated = t.rows.map((c) => ({ id: plain(c[idAt] ?? ''), hours: range(c[hoursAt]) })).filter((r) => r.hours);
+    if (estimated.length && !capacity) {
+      warnings.push({ where: 'docs/PRD.md#estimate/capacity', detail: '§9 estimates hours but has no `Capacity: <n>–<m> h/week` line, so no estimate is compared with its appetite' });
+    }
+    for (const { id, hours } of capacity ? estimated : []) {
+      const m = named.get(id);
+      const appetite = parseAppetite(m?.fm.appetite);
+      if (!appetite || !['shaping', 'active'].includes(m.fm.status)) continue;
+      const days = (Date.parse(appetite.end) - Date.parse(appetite.start)) / 86_400_000 + 1;
+      const holds = (days / 7) * capacity.high;
+      const mid = (hours.low + hours.high) / 2;
+      if (mid > holds) {
+        warnings.push({
+          where: `${m.file}#estimate/over-appetite`,
+          detail: `PRD §9 estimates ${hours.low === hours.high ? hours.low : `${hours.low}–${hours.high}`} h (midpoint ${round(mid)}); the appetite holds at most ${round(holds)} h (${days} days at ${capacity.high} h/week) — cut scope, lengthen the appetite, or re-estimate`,
+        });
+      }
+    }
+  }
+}
+
 if (active.length > 1) {
   findings.push({ where: 'docs/milestones#wip/exceeded', detail: `${active.length} milestones are active (${active.join(', ')}); one at a time` });
 }
@@ -101,9 +178,10 @@ const byStatus = MILESTONE_STATUSES.map((s) => [s, milestones.filter((m) => m.fm
 process.exit(
   report({
     id: 'MS1',
-    claim: `every milestone is shaped, at most one is active, and none has outrun its appetite unextended (${byStatus || 'none'})`,
+    claim: `every milestone is shaped, at most one is active, none has outrun its appetite unextended, and every summary: matches the PRD (${byStatus || 'none'}; ${withSummary.length} with summary:)`,
     scanned: files.length,
     unit: 'milestone documents',
     findings,
+    warnings,
   })
 );
