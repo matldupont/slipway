@@ -1,0 +1,30 @@
+{
+  "slipway": "0000000000000000000000000000000000000000",
+  "source": "github:matldupont/slipway",
+  "answers": {
+    "name": "Fixture",
+    "repo": null
+  },
+  "files": {
+    "ci/kept.mjs": {
+      "class": "managed",
+      "sha256": "580a61a93ccd82f130f6a65309f107d1e8d0893cc7e3a255a59fbe661de24a8c"
+    },
+    "docs/PRD.md": {
+      "class": "seeded",
+      "sha256": "4a6689419b00b11700c9b6246bcfa8936c8f5e1e824db3a7e57030e2d1c1a684"
+    },
+    "package.json": {
+      "class": "merged",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    },
+    "SLIPWAY.md": {
+      "class": "managed",
+      "sha256": "b8c4467ac0284d600fa108119809491c83938e885f2c61ab8bdd1f96e898bfd8"
+    },
+    "BOOTSTRAP.md": {
+      "class": "managed",
+      "sha256": "25718360e05d3c2d0963d1381e9dd4dae5fca789244ee4b9f861adcc0cc96218"
+    }
+  }
+}

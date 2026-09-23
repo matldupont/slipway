@@ -1,0 +1,11 @@
+# stale: SLIPWAY.md matches its hash again; docs/PRD.md is seeded, not managed; nowhere.md is not in the manifest.
+# BOOTSTRAP.md drifted and says why: excused, not stale.
+overrides:
+  - path: SLIPWAY.md
+    reason: reverted since
+  - path: docs/PRD.md
+    reason: seeded files need no override
+  - path: nowhere.md
+    reason: never installed
+  - path: BOOTSTRAP.md
+    reason: our bootstrap skips the label step

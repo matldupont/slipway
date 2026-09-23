@@ -1,0 +1,7 @@
+{
+  "exit": 1,
+  "findings": [
+    "override/reason/process/designation.md",
+    "drift/process/designation.md"
+  ]
+}

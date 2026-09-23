@@ -1,0 +1,6 @@
+{
+  "exit": 1,
+  "findings": [
+    "drift/process/lessons/L-01.md"
+  ]
+}

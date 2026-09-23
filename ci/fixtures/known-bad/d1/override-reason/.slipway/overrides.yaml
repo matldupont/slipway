@@ -1,0 +1,4 @@
+# An empty reason excuses nothing: the drift is still reported.
+overrides:
+  - path: process/designation.md
+    reason: ""

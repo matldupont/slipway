@@ -116,9 +116,21 @@ starting another round:
 | finding | fires when |
 |---|---|
 | `drift/<path>` | a managed file's hash differs from the manifest, or it was deleted, and it is not in overrides |
-| `override/stale/<path>` | an override lists a path that matches its manifest hash again |
-| `override/reason/<path>` | an override has an empty reason |
+| `override/stale/<path>` | an override lists a path that matches its manifest hash again, or that is not a managed file in the manifest |
+| `override/reason/<path>` | an override has an empty reason; it excuses nothing, so the file's drift is reported too |
 | `manifest/missing` | no manifest (BROKEN, not green): the fix is `sync --adopt` |
+
+**In slipway itself** (settled in step 2, #15): template mode. With no manifest and both `dev/ownership.yaml`
+and `scripts/new-project.mjs` present — internal files `new-project` never copies, so a project's own
+`dev/` folder is not enough — D1 exits green with that exact claim. Adding `d1` to the
+project's `meta` only was the alternative, but M1 in slipway fails on a check file no workflow runs.
+What proves D1 on a real install is `scripts/new-project.test.mjs` (internal, in slipway's `meta`): it
+creates a project, runs D1 and M1 in it, then drifts a file and deletes the manifest.
+
+The `slipway` hint is recorded only from slipway's own checkout: `HEAD`, when its tree holds every
+copied file's blob and every path that commit ships was copied. Anywhere else, and in an edited
+checkout, it is null. `SLIPWAY_SOURCE` overrides the recorded `source` (a fork), redacted of any
+credential.
 
 ### O1 — ownership (slipway only)
 
@@ -286,20 +298,17 @@ Machinery before surface. Each step merges with `pnpm meta` green.
 
 ## Open questions
 
-- **How D1 behaves in slipway itself** (owner: step 2). Slipway has no manifest. M1 wants every check
-  invoked by CI, and a green result that scanned nothing is the fail-open L-56 warns about. The options
-  are a template mode that checks the ownership map instead, or the `package.json` derivation adding
-  `d1` to the project's `meta` script only. Settle it with M1 and M6 green in both repos.
+- ~~**How D1 behaves in slipway itself**~~ (settled in step 2, #15): template mode, with a test that runs
+  D1 in a created project. See D1 above.
 - ~~**Glob matching**~~ (settled in step 1, #14). `path.matchesGlob` is stable on Node 24.12 but never
   matches a dot-segment under `**` (`ci/**` misses `ci/fixtures/…/.github/…`), so
   `ci/checks/lib/ownership.mjs` has its own `*`/`?`/`**` matcher. Its tests are O1's fixture cases, which M6
   compares finding by finding.
 - **Does `CLAUDE.md`'s `@import` load in every surface slipway supports** (CLI, desktop, cloud)?
   (Owner: step 1.) Confirm with `/memory` before moving the rules.
-- **Project-written files under managed globs** (owner: step 2). `process/**` and `.claude/skills/**` are
-  managed, but a project adds its own lessons and skills there. No glob can tell them apart; the manifest
-  can, since it lists only what slipway wrote. (Step 1 already seeds `ci/exceptions.yaml`, the project's
-  own M3 registry.)
+- ~~**Project-written files under managed globs**~~ (settled in step 2, #15). D1 checks only the paths
+  the manifest lists, so a lesson or skill the project adds under `process/**` or `.claude/skills/**` is
+  never policed. (Step 1 already seeds `ci/exceptions.yaml`, the project's own M3 registry.)
 - **Line endings** (owner: #25, before #16). Hashes are of bytes, so a Windows clone with
   `core.autocrlf=true` shows every managed file as drift. Recommended: ship `.gitattributes` with
   `* text=auto eol=lf` as a managed file, so every platform checks out the bytes slipway hashed. The

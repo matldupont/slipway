@@ -12,7 +12,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "meta": "node ci/checks/meta/m6-positive-control.mjs && node ci/checks/meta/m1-declared-vs-invoked.mjs . && node ci/checks/meta/m3-fail-open.mjs . && node ci/checks/meta/r1-review-provenance.mjs . && node ci/checks/meta/l1-lessons.mjs . && node ci/checks/meta/ms1-milestones.mjs . && node ci/checks/meta/k1-frame.mjs . && node ci/checks/meta/s1-status.mjs ci/fixtures/status && node ci/checks/meta/f1-feature-coverage.mjs . && node ci/checks/meta/o1-ownership.mjs .",
+    "meta": "node ci/checks/meta/m6-positive-control.mjs && node ci/checks/meta/m1-declared-vs-invoked.mjs . && node ci/checks/meta/m3-fail-open.mjs . && node ci/checks/meta/r1-review-provenance.mjs . && node ci/checks/meta/l1-lessons.mjs . && node ci/checks/meta/ms1-milestones.mjs . && node ci/checks/meta/k1-frame.mjs . && node ci/checks/meta/s1-status.mjs ci/fixtures/status && node ci/checks/meta/f1-feature-coverage.mjs . && node ci/checks/meta/o1-ownership.mjs . && node ci/checks/meta/d1-drift.mjs . && node scripts/new-project.test.mjs",
     "verify": "node ci/verify.mjs",
     "verify:fast": "node ci/verify.mjs --fast",
     "status": "node ci/status.mjs --write"
