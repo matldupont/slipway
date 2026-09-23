@@ -39,7 +39,9 @@ Where input documents disagree, this PRD decides and records the decision.
 When this PRD is derived from a source document, every risk, spike, invariant and blocking
 decision in the source gets one row here — including the ones this PRD drops. A source item with
 no row was lost silently; `/review-doc` diffs this table against the source. "Handled by the
-features above" is not a row: name the ID. With no source document, write `none: no source`.
+features above" is not a row: name the ID. With no source document, write `Source: none`.
+
+Source: <…path or link to the source document, with its version…>
 
 | Source item | Kind | Outcome | Here |
 |---|---|---|---|
@@ -135,8 +137,8 @@ on its line; a feature below the last line is §4 *Out, explicitly*.
 
 Milestones are files in `docs/milestones/`, one per bet, each with an appetite, no-gos, a gate
 and kill criteria (MS1 checks them). Each milestone's Contents cite the F-IDs they build, and
-every §5 feature is cited by some milestone (F1 checks both once the PRD leaves draft). List
-them here by ID only, in order.
+every §5 feature is cited by some milestone (F1 checks both once the PRD leaves draft). One row
+per milestone, in order.
 
 This table is **generated** from each milestone file's frontmatter — `id`, `kind` and `summary` —
 by `/kickoff`, and regenerated whenever a milestone is added or its `summary:` changes. Do not

@@ -1,5 +1,5 @@
 {
-  "_note": "No decisions.md and no TEMPLATE.md: neither may crash the check. a's appetite ends today \u2014 the last day is inclusive, so it is not overrun.",
+  "_note": "No decisions.md and no TEMPLATE.md: neither may crash the check. a's appetite ends today — the last day is inclusive, so it is not overrun. The PRD is a synced repo's: no milestones table, no §9 table and no summary: anywhere, so MS1 compares nothing and says nothing.",
   "exit": 1,
   "env": {
     "CHECK_TODAY": "2026-09-21"

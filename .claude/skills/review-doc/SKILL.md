@@ -31,8 +31,9 @@ git rev-parse --short HEAD        # the sha you are reviewing at
 Read the document in full. Then read what it depends on, to check it against something:
 `docs/product/FRAME.md` (does every feature serve the question?), `decisions.md`, the
 milestones it schedules, `docs/domain-invariants.md`, and the lessons in `process/lessons/`.
-If the document was derived from a source document (its *Source coverage* table names one, or
-its divergences cite one), read the source in full too.
+If the document was derived from a source document (the `Source:` line above its *Source
+coverage* table names it, or its divergences cite one), read the source in full too. A source you
+cannot open is itself a finding: the coverage cannot be checked.
 Do not read the codebase unless a claim is about the code — then verify that claim, and say how.
 
 ## 2 — Refute by default

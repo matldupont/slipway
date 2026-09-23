@@ -23,22 +23,32 @@ export function section(md, title, level) {
 // GitHub renders an empty issue-form field as `_No response_`.
 export const isNoResponse = (s) => s === null || s.trim() === '' || /^_No response_$/i.test(s.trim());
 
-// The cells of a table row `| a | b |`, trimmed.
-export const cells = (line) => line.split('|').slice(1, -1).map((c) => c.trim());
+// The cells of a table row, trimmed: `| a | b |`, and also `a | b` with the outer pipes left off
+// (GitHub renders both). An escaped `\|` stays inside its cell, as `|`.
+export const cells = (line) =>
+  line
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/(?<!\\)\|$/, '')
+    .split(/(?<!\\)\|/)
+    .map((c) => c.replace(/\\\|/g, '|').trim());
 
-// A cell without emphasis or code marks: `**M1**` reads as `M1`.
-export const plain = (c) => c.replace(/[*_`]/g, '').trim();
+// A cell without emphasis, code marks or link syntax: `**M1**` and `[M1](M1.md)` read as `M1`.
+export const plain = (c) => c.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`]/g, '').trim();
+
+// A table's |---|---| line, outer pipes optional.
+const SEPARATOR = /^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/;
 
 // The first table in a block of text: its header cells (plain) and its body rows (cells). null when
-// the text holds no table with a |---| separator under a header.
+// the text holds no header row over a separator.
 export function table(text) {
-  const lines = (text ?? '').split(/\r?\n/);
-  const at = lines.findIndex((l, i) => l.trim().startsWith('|') && /^\|[\s:|-]+\|$/.test((lines[i + 1] ?? '').trim()));
+  const lines = (text ?? '').split(/\r?\n/).map((l) => l.trim());
+  const at = lines.findIndex((l, i) => l.includes('|') && (lines[i + 1] ?? '').includes('|') && SEPARATOR.test(lines[i + 1]));
   if (at < 0) return null;
   const rows = [];
   for (const l of lines.slice(at + 2)) {
-    if (!l.trim().startsWith('|')) break;
-    rows.push(cells(l.trim()));
+    if (!l.includes('|')) break;
+    rows.push(cells(l));
   }
-  return { header: cells(lines[at].trim()).map(plain), rows };
+  return { header: cells(lines[at]).map(plain), rows };
 }

@@ -283,10 +283,14 @@ blocks on a failing test, lets the second stop through, and skips a tree it alre
 | L1 loosened so every pointer resolves | M6 red — missed three unresolved pointers |
 | MS1 with the last appetite day made exclusive | M6 red — flagged an on-time milestone |
 | MS1 allowing two active milestones | M6 red — missed `wip/exceeded` |
-| MS1 comparing summaries without collapsing whitespace, or matching a bold `**M1**` id literally | M6 red — flagged an on-time row |
+| MS1 comparing summaries without collapsing whitespace, or reading `**M1**` or `[M7](…)` literally | M6 red — flagged unexpected `summary/drift` |
+| MS1 reading the first `### Milestones` in the PRD rather than §10's | M6 red — flagged `milestones/header` |
+| MS1 comparing when no milestone declares `summary:`, or comparing an empty one | M6 red — flagged unexpected (the synced-repo case) |
+| table cells split on an escaped `\|`, or the last cell dropped from a row with no closing pipe | M6 red — flagged unexpected `summary/drift` |
 | MS1 ignoring a milestone with no PRD row | M6 red — missed `summary/drift` |
-| MS1 warning at an estimate equal to the appetite, at the bottom of Capacity, or with the last appetite day exclusive | M6 red — unexpected warning |
-| MS1 comparing a closed milestone's estimate | M6 red — unexpected warning |
+| MS1 warning at an estimate equal to the appetite (`days / 7 × h` float error), at the bottom of Capacity, or with the last appetite day exclusive | M6 red — unexpected warning |
+| MS1 comparing a closed milestone's estimate, or calling a placeholder unreadable | M6 red — unexpected warning |
+| MS1 reading `40 to 60` as 40, keeping `1,200`'s comma, or staying silent on an unreadable cell | M6 red — missed warning |
 | MS1 dropping its warnings | M6 red — missed two warnings |
 | K1 reading placeholders inside HTML comments | M6 red — flagged unexpected |
 | S1 with evidence `Window:` lines no longer read | S1 red on `framed-no-milestone`; M6 red — missed both `window-ignored` findings, flagged `next-only#frame` |
