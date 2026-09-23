@@ -1,7 +1,8 @@
 # Traps, each a finding in expected.json or deliberately not one:
 #   ci/.hidden/kept.md   a dot-segment under `ci/**` — classified (path.matchesGlob would miss it)
-#   docs/TEMPLATE.md     `**` matching zero segments — classified
+#   tpl/TEMPLATE.md      `**` matching zero segments, the only glob that reaches it — classified
 #   docs/sub/nested.md   `*` never crosses `/` — unclassified
+#   nested/dev/kept.md   `dev/**` is anchored at the root: a nested dev/ is not internal — unclassified
 #   stray.md             no glob at all — unclassified
 #   .gitignore           not on disk here, but new-project always writes one — unclassified
 paths:
@@ -13,7 +14,7 @@ paths:
     class: internal
   - glob: ci/**
     class: managed
-  - glob: docs/**/TEMPLATE.md
+  - glob: tpl/**/TEMPLATE.md
     class: managed
   - glob: docs/*.md
     class: seeded

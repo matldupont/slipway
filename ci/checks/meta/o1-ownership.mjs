@@ -8,7 +8,7 @@
 // A path with no class has no safe action, so it must not ship. new-project runs the same
 // classification before copying and refuses on the same finding.
 
-import { classify, loadOwnership, MAP, shippedPaths } from '../lib/ownership.mjs';
+import { classify, listSource, loadOwnership, MAP, shippedPaths } from '../lib/ownership.mjs';
 import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
@@ -35,7 +35,7 @@ process.exit(
     id: 'O1',
     claim: `every path new-project would copy has an owner class in ${MAP} (${tally})`,
     scanned: paths.length,
-    unit: 'shipped paths',
+    unit: `shipped paths (${listSource(root) === 'git' ? 'git ls-files' : 'directory walk'})`,
     findings,
     broken,
   })
