@@ -83,7 +83,8 @@ for (const name of cases) {
     findings.push({ where: `${name}#expect`, detail: `expect.json has no ${absent.join(', ')}` });
     continue;
   }
-  const env = { ...process.env, CHECK_TODAY: undefined, CHECK_NOW: undefined };
+  // TZ is pinned, so a case proves the Timezone row is read even on a machine already in that zone.
+  const env = { ...process.env, CHECK_TODAY: undefined, CHECK_NOW: undefined, TZ: 'UTC' };
   if (expect.now) env.CHECK_NOW = expect.now;
   else env.CHECK_TODAY = expect.today;
   const r = spawnSync(process.execPath, [status, root], { encoding: 'utf8', env: Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined)) });

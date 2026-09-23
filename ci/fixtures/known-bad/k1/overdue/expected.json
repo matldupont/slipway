@@ -1,5 +1,5 @@
 {
-  "_note": "M1 (skeleton) closed, M2 (mvp) active, and the PRD's risk table has a Resolves by column; a table above it without that column must not be read. RISK-1 (feasibility) is due before M2 with no Result; RISK-4 is due before M1 and FRAME has no row for it; RISK-8 (ethical) is due before M2, written bold with 'starts'. RISK-2 is met, RISK-7 overridden by D-012, RISK-3 is due before M3, which is not underway, and RISK-5's deadline names no milestone. RISK-6 is a value risk due before M2: already risk/unresolved, so not reported twice.",
+  "_note": "M1 (skeleton) closed, M2 killed, M3 (mvp) active: a deadline before M2 fell due when M3 started, not never. The PRD risk table has a Resolves by column; a table above it without that column must not be read. RISK-1 (feasibility) is due before M2 with no Result; RISK-4 is due before M1 (with a note in brackets) and FRAME has no row for it; RISK-8 (ethical) is due before M2, written bold with starts. RISK-2 is met, RISK-7 overridden by D-012, RISK-3 is due before M4, which is not reached, RISK-5 deadline names no milestone, and RISK-9 resolves before M3 ends, which is not the before-a-start form and so names no milestone. RISK-6 is a value risk due before M2: already risk/unresolved, so not reported twice.",
   "exit": 1,
   "findings": [
     "RISK-1#risk/overdue",

@@ -19,7 +19,13 @@ import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
 const args = process.argv.slice(2);
 const root = args.find((a) => !a.startsWith('--')) ?? '.';
-const today = localToday(root);
+let today;
+try {
+  today = localToday(root);
+} catch (e) {
+  process.stderr.write(`status: ${e.message}\n`);
+  process.exit(2);
+}
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
@@ -80,13 +86,14 @@ const riskFile = untracked.length ? ' File the issue that runs each untested one
 // An existential risk — any category, so K1's value gate may not cover it — whose test the PRD schedules
 // after the first milestone past the skeleton starts, or at no milestone at all. A warning, not a K1
 // finding: "existential" is the owner's word, and building ahead of it on purpose is a D-nnn override.
+// The Impact cell must start with the word (`Existential: no lawful revenue`), so "not existential" is not.
 // Read only where the PRD's risk table has a Resolves by column.
 const deadlines = readDeadlines(prd);
 const skeletons = ms.filter((m) => m.kind === 'skeleton').map((m) => milestoneNumber(m.id)).filter((n) => n >= 0);
 const bets = ms.filter((m) => m.kind !== 'skeleton').map((m) => milestoneNumber(m.id)).filter((n) => n >= 0);
 const firstBet = bets.length ? Math.min(...bets) : skeletons.length ? Math.max(...skeletons) + 1 : null;
 const existential = deadlines && firstBet !== null
-  ? risks.filter((r) => !r.tested && /\bexistential\b/i.test(r.impact ?? '')).flatMap((r) => {
+  ? risks.filter((r) => !r.tested && /^\W*existential\b/i.test(r.impact ?? '')).flatMap((r) => {
       const d = deadlines.get((r.id ?? '').toUpperCase());
       if (d?.before && milestoneNumber(d.before) <= firstBet) return [];
       const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${d.cell}, after M${firstBet} starts` : `resolves "${d.cell || 'blank'}", which names no milestone`;

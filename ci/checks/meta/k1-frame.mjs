@@ -30,11 +30,12 @@
 //   risk/unresolved        a risk tagged value has no Result (a D-nnn override counts)
 //
 // Where the PRD's risk table has a `Resolves by` column, its deadlines hold too, for every category:
-//   risk/overdue           the PRD says `before Mn`, Mn is active or closed, and FRAME records no Result
-//                          (a D-nnn override counts) — or has no row for the risk at all. A value risk
-//                          already reported as risk/unresolved is not reported twice. Deadlines that name
-//                          no milestone (`with RISK-1`, `before first live charge`) are not checked here;
-//                          status warns when such a risk is existential.
+//   risk/overdue           the PRD says `before Mn`, Mn or a later milestone is active or closed, and
+//                          FRAME records no Result (a D-nnn override counts) — or has no row for the risk
+//                          at all. A value risk already reported as risk/unresolved is not reported twice.
+//                          Deadlines that name no milestone (`with RISK-1`, `before first live charge`)
+//                          are not checked here. Status warns about an untested existential risk due
+//                          after the first milestone past the skeleton, at no milestone, or not listed.
 //
 // A question you can build without is parked, not unresolved:
 //
@@ -56,7 +57,7 @@ import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { section } from '../lib/markdown.mjs';
 import { readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
-import { filled, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
+import { filled, milestoneNumber, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
 const root = process.argv[2] ?? '.';
 const rel = 'docs/product/FRAME.md';
@@ -124,11 +125,12 @@ for (const r of risks) {
   }
 }
 
-// PRD deadlines: `before Mn` is due once Mn is underway, whatever the risk's category.
+// PRD deadlines: `before Mn` is due once Mn, or any later milestone, is underway — a skipped or killed
+// Mn does not defer it — whatever the risk's category.
 const prdPath = join(root, 'docs', 'PRD.md');
 const deadlines = existsSync(prdPath) ? readDeadlines(readFileSync(prdPath, 'utf8')) : null;
 for (const [id, d] of deadlines ?? []) {
-  const due = underway.find((m) => String(m.fm.id).toUpperCase() === d.before);
+  const due = d.before && underway.find((m) => milestoneNumber(m.fm.id) >= milestoneNumber(d.before));
   if (!due) continue;
   const r = risks.find((x) => (x.id ?? '').toUpperCase() === id);
   if (r?.tested || (r?.value && pastSkeleton.length)) continue;
