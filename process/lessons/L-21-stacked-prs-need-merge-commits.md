@@ -5,7 +5,7 @@ rule: Rebase- or squash-merging a base PR invalidates anything stacked on it.
 failure: A misread `git cherry` result, pushed on, regresses the target branch.
 enforcement:
   status: prose
-  pointer: CLAUDE.md#Working rules
+  pointer: process/slipway-rules.md#Working rules
   review-by: +90d
 ---
 

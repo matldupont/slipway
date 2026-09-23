@@ -1,6 +1,6 @@
 ## What
 <!-- One or two sentences: what changes, and why now.
-Lane: trivial | bounded | feature (CLAUDE.md#Lanes). A trivial change links `none: trivial`. -->
+Lane: trivial | bounded | feature (process/slipway-rules.md#Lanes). A trivial change links `none: trivial`. -->
 
 ## Verification
 <!--

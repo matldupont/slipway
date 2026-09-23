@@ -144,7 +144,9 @@ instead of rewriting the Contract.
 ```
 README.md · SLIPWAY.md · BOOTSTRAP.md   what this is · the path · day 0
 scripts/new-project.mjs             start a project from this template (not copied into it)
-CLAUDE.md · AGENT.md                agent instructions (gates, lanes, planning flow) · skill configuration
+dev/ownership.yaml                  who owns each shipped path: managed · seeded · merged · internal (not copied)
+CLAUDE.md · AGENT.md                agent instructions: the project's own lines, importing the rules below · skill configuration
+process/slipway-rules.md            gates, planning flow, lanes, working rules, agents, notes — slipway's, replaced by a sync
 decisions.md                        decision log, including the week-1 one-way doors
 docs/product/FRAME.md               job story · the question answered · four forces · press release · risks
 docs/product/evidence/              interview logs and risk-test results
@@ -164,7 +166,7 @@ process/harness/                    permissions and hooks — installed into .cl
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
 docs/conventions.md                 the one way to do each recurring thing, with its canonical example
-ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1 S1 F1
+ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1 S1 F1 — and O1 in slipway itself, never copied
 ci/fixtures/known-bad/              known-bad fixtures, one expected.json per case
 ci/fixtures/status/                 fixture roots S1 runs `ci/status.mjs` against, one expect.json each
 ci/exceptions.yaml                  expiring, structurally keyed exceptions

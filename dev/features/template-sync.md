@@ -257,8 +257,10 @@ Machinery before surface. Each step merges with `pnpm meta` green.
   invoked by CI, and a green result that scanned nothing is the fail-open L-56 warns about. The options
   are a template mode that checks the ownership map instead, or the `package.json` derivation adding
   `d1` to the project's `meta` script only. Settle it with M1 and M6 green in both repos.
-- **Glob matching** (owner: step 1). Use Node 24's `path.matchesGlob` if it is stable there; otherwise a
-  small matcher with its own tests.
+- ~~**Glob matching**~~ (settled in step 1, #14). `path.matchesGlob` is stable on Node 24.12 but never
+  matches a dot-segment under `**` (`ci/**` misses `ci/fixtures/…/.github/…`), so
+  `ci/checks/lib/ownership.mjs` has its own `*`/`?`/`**` matcher. Its tests are O1's fixture cases, which M6
+  compares finding by finding.
 - **Does `CLAUDE.md`'s `@import` load in every surface slipway supports** (CLI, desktop, cloud)?
   (Owner: step 1.) Confirm with `/memory` before moving the rules.
 - **Review home.** `/review-doc` writes to `docs/reviews/`, which ships. A review of this doc should go

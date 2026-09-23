@@ -16,7 +16,7 @@ Without values those skills fall back to another product's defaults — its repo
 | Feature docs dir | `docs/features/` |
 | Milestone roadmap | `docs/milestones/` — one file per milestone; the active one is named by `pnpm status` |
 | Product frame | `docs/product/FRAME.md` — the question every feature must serve |
-| Change lanes | `CLAUDE.md#Lanes` — trivial, bounded, feature |
+| Change lanes | `process/slipway-rules.md#Lanes` — trivial, bounded, feature |
 | Marketing context | none |
 | Domain invariants doc | `docs/domain-invariants.md` — set none if the product has no money or other correctness-critical math; the skills treat a path here as a financial-invariant domain and require property tests on that math |
 | Conventions doc | `docs/conventions.md` — the one way to do each recurring thing; duplicates and violations are `[FIX]` in review |

@@ -1,0 +1,85 @@
+# Ownership map — who owns each path slipway ships (F-01, dev/features/template-sync.md).
+#
+# Ordered: the first matching glob wins, so an exception sits above the rule it narrows.
+# Globs: `*` and `?` within one segment, `**` for any number of segments (dot-segments included).
+# Quote a glob that starts with `*`, or YAML reads an alias.
+#
+#   managed   slipway's; a sync replaces it
+#   seeded    written once by new-project, then the project's
+#   merged    package.json scripts only
+#   internal  never shipped
+#
+# O1 (ci/checks/meta/o1-ownership.mjs) fails on a path new-project would copy that matches nothing,
+# and new-project refuses to copy until it has a class. Read by ci/checks/lib/ownership.mjs.
+paths:
+  # internal — slipway's own planning, tooling and the check that guards this map
+  - glob: dev/**
+    class: internal
+  - glob: scripts/**
+    class: internal
+  - glob: STATE.md
+    class: internal
+  - glob: .git/**
+    class: internal
+  - glob: '**/node_modules/**'
+    class: internal
+  - glob: '**/.DS_Store'
+    class: internal
+  - glob: ci/checks/meta/o1-ownership.mjs
+    class: internal
+  - glob: ci/checks/lib/ownership.mjs
+    class: internal
+  - glob: ci/fixtures/known-bad/o1/**
+    class: internal
+
+  # seeded exceptions inside managed trees
+  - glob: process/anchor
+    class: seeded
+
+  # managed
+  - glob: ci/**
+    class: managed
+  - glob: .github/**
+    class: managed
+  - glob: .claude/skills/**
+    class: managed
+  - glob: process/**
+    class: managed
+  - glob: SLIPWAY.md
+    class: managed
+  - glob: BOOTSTRAP.md
+    class: managed
+  - glob: docs/**/TEMPLATE.md
+    class: managed
+  - glob: docs/**/README.md
+    class: managed
+
+  # seeded
+  - glob: docs/PRD.md
+    class: seeded
+  - glob: docs/product/**
+    class: seeded
+  - glob: docs/milestones/**
+    class: seeded
+  - glob: docs/conventions.md
+    class: seeded
+  - glob: docs/domain-invariants.md
+    class: seeded
+  - glob: docs/testing-strategy.md
+    class: seeded
+  - glob: decisions.md
+    class: seeded
+  - glob: AGENT.md
+    class: seeded
+  - glob: CLAUDE.md
+    class: seeded
+  - glob: README.md
+    class: seeded
+  - glob: .gitignore
+    class: seeded
+  - glob: pnpm-workspace.yaml
+    class: seeded
+
+  # merged
+  - glob: package.json
+    class: merged
