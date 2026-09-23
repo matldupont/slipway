@@ -60,6 +60,8 @@ paths:
     class: managed
   - glob: BOOTSTRAP.md
     class: managed
+  - glob: .gitattributes
+    class: managed
   - glob: docs/**/TEMPLATE.md
     class: managed
 

@@ -108,7 +108,6 @@ What the lock defends, so a review has a bar to stop at (`process/cold-review.md
 **Known limitations.** These are accepted, not bugs; a review that finds one records it here instead of
 starting another round:
 - D1 checks the last path component for symlinks, so a symlinked parent directory is still followed.
-- A project cloned with `core.autocrlf=true` hashes CRLF bytes. Open question below (#25).
 - The owner can forge the manifest or overrides.
 
 ### D1 — drift (ships to projects)
@@ -309,11 +308,11 @@ Machinery before surface. Each step merges with `pnpm meta` green.
 - ~~**Project-written files under managed globs**~~ (settled in step 2, #15). D1 checks only the paths
   the manifest lists, so a lesson or skill the project adds under `process/**` or `.claude/skills/**` is
   never policed. (Step 1 already seeds `ci/exceptions.yaml`, the project's own M3 registry.)
-- **Line endings** (owner: #25, before #16). Hashes are of bytes, so a Windows clone with
-  `core.autocrlf=true` shows every managed file as drift. Recommended: ship `.gitattributes` with
-  `* text=auto eol=lf` as a managed file, so every platform checks out the bytes slipway hashed. The
-  alternatives are normalising before hashing (every hash consumer must agree, and merge-file then sees
-  different bytes) or a known limitation.
+- ~~**Line endings**~~ (settled, option a, #25). Slipway ships `.gitattributes` (`* text=auto eol=lf`) as a
+  managed file, so every platform checks out the bytes slipway hashed; D1 and `blob` ids stay raw-byte.
+  Normalising before hashing and accepting the limitation were both rejected. Sync notes: a working tree
+  checked out before this file arrived keeps its CRLF files until `git add --renormalize .`, so the first
+  sync PR that brings `.gitattributes` (via #18) must say so.
 - **Review home.** `/review-doc` writes to `docs/reviews/`, which ships. A review of this doc should go
   to `dev/reviews/` until the skill takes a destination.
 
