@@ -69,9 +69,21 @@ function walk(dir, out = []) {
   }
   return out;
 }
-const clarifications = walk(join(root, 'docs'))
-  .map((p) => ({ p: relative(root, p), n: (readFileSync(p, 'utf8').replace(/<!--[\s\S]*?-->/g, '').match(/\[NEEDS CLARIFICATION/g) ?? []).length }))
-  .filter((x) => x.n);
+// Open questions, with the question itself: a count tells nobody what to answer. Parked ones
+// (assumption + cost + tracker) are listed apart — they are decided-enough to build on.
+const open_ = [];
+const parked_ = [];
+for (const file of walk(join(root, 'docs'))) {
+  const rel_ = relative(root, file);
+  const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+  lines.forEach((line, i) => {
+    for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${body.trim().slice(0, 90) || 'no question written'}`);
+    for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
+      const ref = body.match(/#\d+|\b(?:OD|D)-\d+\b/)?.[0] ?? 'untracked';
+      parked_.push(`${rel_}:${i + 1} — ${body.split('·')[0].trim().slice(0, 70)} (${ref})`);
+    }
+  });
+}
 
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
@@ -95,35 +107,47 @@ const dueSoon = existsSync(lessonsDir)
 function next() {
   if (!bootstrapped || packages === 0) {
     const missing = [!bootstrapped && 'AGENT.md still has placeholders', packages === 0 && 'no app package yet (§1)'].filter(Boolean);
-    return `Step 0 — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
+    return `Step 0 (you + agent) — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
-  if (frame !== 'framed') return 'Step 1 — Frame: finish docs/product/FRAME.md (run /kickoff), then set status: framed.';
+  if (frame !== 'framed') return 'Step 1 (you, with /kickoff) — Frame: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.';
   if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) {
-    return `Step 2 — Test the risk: ${untestedValue.join(', ')} has no Result. Write the threshold first, then test (docs/product/evidence/).`;
+    return `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${untestedValue.join(', ')} has no Result. An agent can prepare the materials; running the test with real people is yours. Thresholds and results: docs/product/evidence/.`;
   }
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
     return prdReviews.length
-      ? `Step 3 — Shape: ${prdVersion} is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.`
-      : `Step 3 — Shape: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not /pr-review — and only then set Status: approved (R1 turns red otherwise).`;
+      ? `Step 3 (you) — Shape: ${prdVersion} is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.`
+      : `Step 3 (you, with /kickoff) — Shape: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not /pr-review — and only then set Status: approved (R1 turns red otherwise).`;
   }
   if (active.length > 1) return `Fix: ${active.length} milestones are active (${active.map((m) => m.id).join(', ')}). One at a time — MS1 is red.`;
   if (cur && curAppetite && curAppetite.end < today && !cur.extended) {
     return `Circuit breaker: ${cur.id}'s appetite ended ${curAppetite.end}. Cut scope and close it (/close-milestone), kill it, or record an extension.`;
   }
-  if (cur) return `${cur.kind === 'skeleton' ? 'Step 4 — Walking skeleton' : 'Step 5 — Build loop'}: ${cur.title}. Next slice from its Contents; pick the lane (CLAUDE.md#Lanes).`;
+  if (cur) return `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${cur.title}. Next slice from its Contents; pick the lane (CLAUDE.md#Lanes).`;
   const shaping = ms.filter((m) => m.status === 'shaping');
   if (shaping.some((m) => m.kind === 'skeleton')) {
-    return 'Step 4 — Walking skeleton: set M1 to active with real appetite dates and build its first slice.';
+    return 'Step 4 (agent) — Walking skeleton: activate the skeleton milestone (real appetite dates, status: active) and build its first slice.';
   }
   return shaping.length
-    ? `Step 6 — Choose the next bet: activate one of ${shaping.map((m) => m.id).join(', ')} (set appetite dates), or shape a new one.`
-    : 'Step 6/7 — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.';
+    ? `Step 6 (you) — Choose the next bet: activate one of ${shaping.map((m) => m.id).join(', ')} (set appetite dates), or shape a new one.`
+    : 'Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.';
 }
 
 // ---- render
 const L = [];
 L.push(`# STATE — generated by \`pnpm status\` on ${today}. Do not edit; regenerate.`, '');
 L.push(`**Next:** ${next()}`, '');
+// Work that is not the Next line but is not waiting on it either.
+const also = [];
+if (frame === 'framed' && !cur) {
+  const skel = ms.find((m) => m.kind === 'skeleton' && m.status === 'shaping');
+  if (skel && untestedValue.length) also.push(`(agent) ${skel.id} — the walking skeleton is not blocked by an untested value risk: activate it and build in parallel`);
+}
+if (prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft')) {
+  also.push(`(fresh session) /review-doc docs/PRD.md — the PRD at ${prdVersion ?? '?'} has no adversarial review; needed before Status: approved`);
+}
+if (open_.length) also.push(`(you) ${open_.length} open question(s) below — answer, or park with an assumption, the cost if wrong, and a tracker`);
+if (also.length) L.push('**Also unblocked:**', ...also.map((a) => `- ${a}`), '');
+
 L.push('## Where things stand', '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
 L.push(`- Frame: ${frame}${risks.length ? ` · ${risks.length} risk(s), untested value risks: ${untestedValue.join(', ') || 'none'}` : ''}`);
@@ -142,7 +166,8 @@ if (ms.length) {
 const attention = [
   ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (R1 requires one once Status leaves draft)`] : []),
   ...openDecisions.map((d) => `Open decision: ${d}`),
-  ...clarifications.map((c) => `${c.n} [NEEDS CLARIFICATION] in ${c.p}`),
+  ...open_.map((c) => `Open question: ${c}`),
+  ...parked_.map((c) => `Parked: ${c}`),
   ...dueSoon.map((d) => `Lesson review: ${d}`),
 ];
 L.push('## Needs attention', '', ...(attention.length ? attention.map((a) => `- ${a}`) : ['- nothing']), '');

@@ -16,6 +16,9 @@ Where do I need to be tomorrow, and who hasn't paid?
 
 Walking companies with dispatchers.
 
+Parked: [PARKED: do walkers want invoicing? · assume: no, defer to v2 · if wrong: churn at month 2 · #14]
+and [PARKED: which cities first? · assume: one city]
+
 <!-- [NEEDS CLARIFICATION: is this segment real?] -->
 
 ## Risks

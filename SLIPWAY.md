@@ -16,16 +16,16 @@ sessions get the same output automatically when they start.
 
 ## Start here — the path
 
-| Step | You | Produces | Done when (what fires) |
+| Step | Who, and how long | Produces | Done when (what fires) |
 |---|---|---|---|
-| **0 · Bootstrap** | `new-project` (repo, harness, label, protection), then `/bootstrap` (app, PR, probes) | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
-| **1 · Frame** | run `/kickoff` and answer one question at a time | [`docs/product/FRAME.md`](docs/product/FRAME.md) — job story, the question the product answers, risks | `status: framed`; **K1** blocks any milestone until then |
-| **2 · Test the risk** | talk to people or run the job by hand, against a bar written first | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result |
-| **3 · Shape** | finish `/kickoff`: PRD, week-1 decisions, milestones; then `/review-doc` in a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green: the PRD's current version has a review |
-| **4 · Walking skeleton** | activate [M1](docs/milestones/M1-walking-skeleton.md): thinnest core path, deployed by CI | a live URL, analytics and errors wired | its gate: an end-to-end test against production |
-| **5 · Build loop** | one active milestone; every change through its lane | small PRs with evidence | `verify` · `meta` · `pr-body` per PR; the Stop hook per agent turn; **MS1** |
-| **6 · Close the milestone** | run `/close-milestone` | a retro from the record, closed GitHub milestone, next bet chosen | **MS1**: closed means retro written; overrun means a decision |
-| **7 · Learn** | weekly metrics and user conversations; bets chosen from evidence | [`docs/product/metrics.md`](docs/product/metrics.md) | then back to 5 with the next milestone |
+| **0 · Bootstrap** · you + agent, ~1–2h | `new-project` (repo, harness, label, protection), then `/bootstrap` (app, PR, probes) | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
+| **1 · Frame** · you with `/kickoff`, an afternoon | answer one question at a time; park what you can build without | [`docs/product/FRAME.md`](docs/product/FRAME.md) — job story, the question the product answers, risks | `status: framed`; **K1** blocks any milestone until then |
+| **2 · Test the risk** · **yours**, days to weeks | talk to people or run the job by hand, against a bar written first — an agent prepares the materials, you run it | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result |
+| **3 · Shape** · you with `/kickoff`, 1–2 days | finish `/kickoff`: PRD, week-1 decisions, milestones; then `/review-doc` in a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green: the PRD's current version has a review |
+| **4 · Walking skeleton** · agent, days — **runs in parallel with step 2** | activate [M1](docs/milestones/M1-walking-skeleton.md): thinnest core path, deployed by CI | a live URL, analytics and errors wired | its gate: an end-to-end test against production |
+| **5 · Build loop** · agent | one active milestone; every change through its lane | small PRs with evidence | `verify` · `meta` · `pr-body` per PR; the Stop hook per agent turn; **MS1** |
+| **6 · Close the milestone** · you with `/close-milestone` | run `/close-milestone` | a retro from the record, closed GitHub milestone, next bet chosen | **MS1**: closed means retro written; overrun means a decision |
+| **7 · Learn** · you, weekly | weekly metrics and user conversations; bets chosen from evidence | [`docs/product/metrics.md`](docs/product/metrics.md) | then back to 5 with the next milestone |
 
 ### 0 · Bootstrap — about an hour
 
@@ -129,6 +129,7 @@ instead of rewriting the Contract.
 | `node ci/ratchet.mjs <name> <report> <path>` | a code-health number may go down, never up (D-014); `--update` locks in an improvement |
 | `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 F1 |
 | `/bootstrap` | step 0, after `new-project`: scaffold the app, bootstrap PR, acceptance probes |
+| `/clarify` | walk the open questions: answer in place, or park with an assumption, a cost and a tracker |
 | `/review-doc <path>` | step 3, fresh session: adversarial review of a document into `docs/reviews/` — not a code diff |
 | `/kickoff` | steps 1–3: frame, risk test plan, PRD, week-1 decisions, milestones, readiness gate |
 | `/close-milestone` | step 6: gate evidence, retro, close out, next bet |
@@ -154,11 +155,11 @@ docs/features/TEMPLATE.md           feature doc: Contract, Seams, Verify, Build 
 docs/domain-invariants.md           invariants, each citing the test that enforces it
 docs/testing-strategy.md            test layers, and what makes a test able to fail
 docs/qa/ · docs/reviews/            QA plans · adversarial reviews with provenance lines
-process/lessons/                    60 lessons, each stating where it lives (L1 checks it)
+process/lessons/                    61 lessons, each stating where it lives (L1 checks it)
 process/cold-review.md              the cold-review checklist, one line per lesson
 process/designation.md              which model and effort, by whether an oracle exists
 process/harness/                    permissions and hooks — installed into .claude/ by new-project
-.claude/skills/                     /bootstrap, /kickoff, /review-doc and /close-milestone
+.claude/skills/                     /bootstrap, /kickoff, /clarify, /review-doc and /close-milestone
 .github/                            CI (meta · verify), pr-body (re-runs on description edits), issue-shape, issue forms, PR template
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
@@ -184,7 +185,7 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 | L1 | every lesson points at a home that exists, and none is past its review date | lessons enforced by nothing get re-learned |
 | MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro | milestones left open after their work ends, and new surfaces started before launch |
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
-| K1 | no milestone starts before the frame is finished; nothing past the skeleton before each value risk is tested against a bar set first | building before anyone names the question the product answers or tests whether people want it |
+| K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); nothing past the skeleton before each value risk is tested against a bar set first | building before anyone names the question the product answers or tests whether people want it |
 | Stop hook | an agent turn does not end while `verify:fast` is red | agents declaring done work that was never run |
 
 `verify` exits BROKEN on an empty workspace and fails, before running anything, when no package declares
@@ -192,11 +193,11 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 
 ### Lessons, and where each one lives
 
-60 lessons in `process/lessons/`. The **status** says honestly what fires:
+61 lessons in `process/lessons/`. The **status** says honestly what fires:
 
 | status | count | meaning |
 |---|---|---|
-| `check` | 11 | a check or harness rule fires on violation |
+| `check` | 12 | a check or harness rule fires on violation |
 | `structural` | 2 | cannot happen once `main` is protected |
 | `artifact` | 1 | a template slot a check requires filled |
 | `prose` | 32 | judgment, written where it is used — the cold-review checklist, `CLAUDE.md`, the testing strategy — on a 90-day review clock |
@@ -258,7 +259,9 @@ destination inside slipway are refused. The D-001 rewrite was matched against th
 **`ci/ratchet.mjs`**: no baseline, a missing report, a wrong path and bad usage are each BROKEN; a higher number
 fails; `--update` records, tightens, and refuses to raise a baseline.
 
-**`pnpm status`** walked through a scratch copy: bootstrap → frame → risk test → shape → skeleton, with the
+**`pnpm status`** prints the next step with its owner and rough duration, the work that is *also* unblocked
+(the skeleton during a human-run risk test, a missing PRD review), and every open or parked question with its
+text and tracker. It walked through a scratch copy: bootstrap → frame → risk test → shape → skeleton, with the
 right next step at each, and K1 red when M1 went active over an unfinished frame.
 
 **Hooks**, run with an empty PATH as `/bin/sh` has: each advisory hook prints its reminder on a matching
