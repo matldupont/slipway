@@ -128,7 +128,11 @@ if (opts.github) {
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) die(`--repo must be owner/name, got "${repo}"`);
   if (run('gh', ['repo', 'view', repo], { read: true, allowFail: true }) !== null) die(`GitHub repository ${repo} already exists`);
 }
-const sha = run('git', ['-C', SRC, 'rev-parse', '--short', 'HEAD'], { read: true, allowFail: true })?.trim();
+// Only from slipway's own checkout: a template sitting untracked in another repo would report that
+// repo's HEAD and dirty state. Resolving the real sha there (git ls-remote) is #15's.
+const sha = listSource(SRC) === 'git'
+  ? run('git', ['-C', SRC, 'rev-parse', '--short', 'HEAD'], { read: true, allowFail: true })?.trim()
+  : null;
 const dirty = sha && run('git', ['-C', SRC, 'status', '--porcelain'], { read: true, allowFail: true })?.trim();
 const version = sha ? `${sha}${dirty ? '-dirty' : ''}` : JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).version ?? 'unknown';
 
