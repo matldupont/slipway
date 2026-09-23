@@ -1,11 +1,15 @@
 {
-  "_note": "Four case roots, each wrong in one way: status disagrees on both lines, on Next only, an expect.json with a blank clock, and a folder whose expect.json is misnamed.",
+  "_note": "Six case roots, each wrong in one way: status disagrees on both lines, on Next only, an expect.json with a blank clock, a folder whose expect.json is misnamed, a clock read in UTC instead of the configured Timezone, and a Needs attention list missing the existential warnings.",
   "exit": 1,
   "findings": [
     "bad-expect#expect",
+    "existential-ignored#attention",
     "misnamed#expect",
     "next-only#next",
     "window-ignored#frame",
-    "window-ignored#next"
+    "window-ignored#next",
+    "zone-ignored#frame",
+    "zone-ignored#next",
+    "zone-ignored#today"
   ]
 }

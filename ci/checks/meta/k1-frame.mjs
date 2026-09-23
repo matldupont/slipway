@@ -29,6 +29,13 @@
 // or closed, every value risk must have been tested:
 //   risk/unresolved        a risk tagged value has no Result (a D-nnn override counts)
 //
+// Where the PRD's risk table has a `Resolves by` column, its deadlines hold too, for every category:
+//   risk/overdue           the PRD says `before Mn`, Mn is active or closed, and FRAME records no Result
+//                          (a D-nnn override counts) — or has no row for the risk at all. A value risk
+//                          already reported as risk/unresolved is not reported twice. Deadlines that name
+//                          no milestone (`with RISK-1`, `before first live charge`) are not checked here;
+//                          status warns when such a risk is existential.
+//
 // A question you can build without is parked, not unresolved:
 //
 //   [PARKED: which channels? · assume: SDLA network only · if wrong: the sample is not strangers · #12]
@@ -49,7 +56,7 @@ import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { section } from '../lib/markdown.mjs';
 import { readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
-import { filled, readRisks, TRACKER } from '../lib/risks.mjs';
+import { filled, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
 const root = process.argv[2] ?? '.';
 const rel = 'docs/product/FRAME.md';
@@ -117,11 +124,24 @@ for (const r of risks) {
   }
 }
 
+// PRD deadlines: `before Mn` is due once Mn is underway, whatever the risk's category.
+const prdPath = join(root, 'docs', 'PRD.md');
+const deadlines = existsSync(prdPath) ? readDeadlines(readFileSync(prdPath, 'utf8')) : null;
+for (const [id, d] of deadlines ?? []) {
+  const due = underway.find((m) => String(m.fm.id).toUpperCase() === d.before);
+  if (!due) continue;
+  const r = risks.find((x) => (x.id ?? '').toUpperCase() === id);
+  if (r?.tested || (r?.value && pastSkeleton.length)) continue;
+  add(`${id}#risk/overdue`, r
+    ? `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}: record its Result in FRAME, or a D-nnn override (cost if wrong, and what reopens it)`
+    : `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}, but FRAME's Risks table has no ${id} row to hold its Threshold and Result`);
+}
+
 process.exit(
   report({
     id: 'K1',
     claim: underway.length
-      ? `the frame is finished, every untested value risk names a tracker${pastSkeleton.length ? ', and every value risk was tested against a bar set first' : ''} (${risks.length} risks)`
+      ? `the frame is finished, every untested value risk names a tracker${pastSkeleton.length ? ', every value risk was tested against a bar set first' : ''}${deadlines ? `, and every risk the PRD's Resolves by has made due has a Result` : ''} (${risks.length} risks)`
       : `no milestone is underway, so only the frame's shape is checked (${risks.length} risks)`,
     scanned: 1,
     unit: `${UNIT} (${milestones.length} milestones read)`,

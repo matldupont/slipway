@@ -1,6 +1,6 @@
 {
   "_note": "The expected text is what status printed with Window parsing switched off: RISK-1 reads as scheduled with no window. Status reads the evidence Window, so both lines differ.",
   "today": "2026-03-10",
-  "next": "Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: RISK-1 scheduled (#8) · blocks every milestone past the skeleton (K1). An agent can prepare the materials; running the test with real people is yours. Thresholds and results: docs/product/evidence/.",
+  "next": "Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: RISK-1 scheduled (#8) · blocks every milestone past the skeleton (K1). An agent can prepare the materials; running the test with real people is yours. Thresholds and results go in docs/product/evidence/ — or record a D-nnn override (cost if wrong, and what reopens it) to build ahead.",
   "frame": "framed · risks: RISK-1 scheduled (#8) · blocks every milestone past the skeleton (K1)"
 }
