@@ -66,8 +66,8 @@ as possible — interviews, a concierge run done by hand, a fake door — before
 Write the Threshold **before** the test. K1 fails a Result with no Threshold. A Result may be
 a decision override (`D-nnn`) when you proceed despite the evidence.
 
-| ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result |
-|---|---|---|---|---|---|---|
-| RISK-1 | <…> | value | <…> | <…> | <…> | |
+| ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result | Tracker |
+|---|---|---|---|---|---|---|---|
+| RISK-1 | <…> | value | <…> | <…> | <…> | | |
 
 Evidence — interview notes and test results — lives in `docs/product/evidence/`.

@@ -9,8 +9,9 @@ status: draft
 > `/kickoff` drafts it by asking one question at a time.
 >
 > K1 checks it. While `status: draft` it may hold placeholders and open questions. Set
-> `status: framed` when none remain; no milestone can start before that. No milestone past the
-> walking skeleton can start until every **value** risk has a Result.
+> `status: framed` when none remain; no milestone can start before that. Once a milestone is
+> underway, every untested **value** risk names a Tracker; no milestone past the walking skeleton
+> can start until every value risk has a Result.
 >
 > An open question is written `[NEEDS CLARIFICATION: <question>]` and **blocks**. A question you can
 > honestly build without is **parked** instead, and does not block:
@@ -71,10 +72,13 @@ it work as a business), **ethical** (could it do harm). Test the riskiest first,
 as possible — interviews, a concierge run done by hand, a fake door — before building.
 
 Write the Threshold **before** the test. K1 fails a Result with no Threshold. A Result may be
-a decision override (`D-nnn`) when you proceed despite the evidence.
+a decision override (`D-nnn`) when you proceed despite the evidence. Tracker names where the test
+is being run — an issue (`#14`), or an `OD-`/`D-` id — so `pnpm status` can tell a scheduled test
+from one nobody has started, and K1 requires it for every untested value risk once a milestone is
+underway.
 
-| ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result |
-|---|---|---|---|---|---|---|
-| RISK-1 | <…> | value | <…> | <…> | <…> | |
+| ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result | Tracker |
+|---|---|---|---|---|---|---|---|
+| RISK-1 | <…> | value | <…> | <…> | <…> | | |
 
 Evidence — interview notes and test results — lives in `docs/product/evidence/`.

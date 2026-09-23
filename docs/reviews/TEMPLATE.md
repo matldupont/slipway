@@ -20,9 +20,12 @@ Status: for argument — nothing here is a decision until the owners resolve it
 
 ## Register
 
-| ID | Finding | Sev | Owner | Blocks |
-|---|---|---|---|---|
-| AR-1 | | | | |
+| ID | Finding | Sev | Owner | Blocks | Tracker |
+|---|---|---|---|---|---|
+| AR-1 | | | | | |
+
+Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
+finding and the work that resolves it point at each other.
 
 ## Findings
 

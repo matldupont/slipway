@@ -61,7 +61,11 @@ You cannot run interviews; the user can. Produce what they need:
   time you…"), no pitching, no "would you use";
 - a results table and the threshold, copied from FRAME, dated today;
 - for a concierge test: exactly what the user will do by hand, for how many people, for how
-  long.
+  long;
+- the issue that runs the test, once the user agrees to run it: put its number in FRAME's Tracker
+  column and a `Tracked: #n` line (with `Window:`) in the evidence file. `pnpm status` then shows the
+  risk as scheduled, and K1 requires the tracker for every untested value risk once the skeleton is
+  active.
 
 Tell the user plainly: **no milestone past the walking skeleton can start (K1) until each value
 risk has a Result or a recorded override (`D-nnn`).** The skeleton may be built in parallel
