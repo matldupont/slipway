@@ -15,9 +15,10 @@ Version: 1.0.0
 |---|---|---|---|
 | RISK-1 | Slot conflicts (feasibility) | spike | before M2 |
 | RISK-2 | Group texts (value) | concierge | before M2 |
-| RISK-3 | Grant scope (viability) | call | before M3 |
-| RISK-4 | Payment processor approval (feasibility) | #21 | before M1 starts |
+| RISK-3 | Grant scope (viability) | call | before M4 |
+| RISK-4 | Payment processor approval (feasibility) | #21 | before M1 starts (processor lead time) |
 | RISK-5 | No choice of walker (usability) | exit question | with RISK-2 |
 | RISK-6 | Booking in the app (value) | diary study | before M2 |
 | RISK-7 | Fee split (viability) | counsel | before M1 |
 | RISK-8 | Location history (ethical) | design review | **before M2 starts** |
+| RISK-9 | Walker insurance (viability) | broker call | before M3 ends |

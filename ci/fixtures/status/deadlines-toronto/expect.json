@@ -1,5 +1,5 @@
 {
-  "_note": "Toronto at 23:30 on 2026-03-10 is 03:30 UTC on 2026-03-11. The clock is fixed as that instant, not as a date, so status must read AGENT.md Timezone to stamp 2026-03-10; read in UTC, RISK-2 window (last day 2026-03-10) would also read as overran. Existential warnings: RISK-3 resolves at no milestone, RISK-4 before M4 (after M2, the first milestone past the skeleton), RISK-7 has no PRD row. RISK-5 is due before M2 starts (bold) so it is on time; RISK-6 has a D-3 override; RISK-8 is not existential.",
+  "_note": "Toronto at 23:30 on 2026-03-10 is 03:30 UTC on 2026-03-11. The clock is fixed as that instant, not as a date, so status must read AGENT.md Timezone to stamp 2026-03-10; read in UTC, RISK-2 window (last day 2026-03-10) would also read as overran. Existential warnings: RISK-3 resolves at no milestone, RISK-4 before M4 (after M2, the first milestone past the skeleton), RISK-7 has no PRD row. RISK-5 is due before M2 starts (bold) so it is on time; RISK-6 has a D-3 override; RISK-8 Impact says not existential, which does not start with the word.",
   "today": "2026-03-10",
   "now": "2026-03-10T23:30:00-04:00",
   "next": "Step 4 (agent) — Walking skeleton: Walking skeleton. Next slice from its Contents; pick the lane (CLAUDE.md#Lanes). Meanwhile (yours): RISK-2 scheduled (#9, window 2026-03-01..2026-03-10) · blocks M2, M4 activation (K1).",

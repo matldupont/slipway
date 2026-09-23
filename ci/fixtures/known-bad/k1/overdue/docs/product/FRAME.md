@@ -23,3 +23,4 @@ Where do I need to be tomorrow, and who hasn't paid?
 | RISK-6 | Clients will book in the app | value | walkers re-key texts | diary study | 3 of 5 | | #14 |
 | RISK-7 | The fee split is not fee-sharing | viability | no revenue | counsel opinion | written opinion | D-012 | |
 | RISK-8 | Location history harms no one | ethical | harm to clients | design review | accepted in writing | | |
+| RISK-9 | Insurance covers group walks | viability | no cover | broker call | quote under $50 | | |
