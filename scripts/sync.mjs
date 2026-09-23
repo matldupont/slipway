@@ -15,13 +15,13 @@
 // Zero dependencies (D-004): Node stdlib and `git`, only through the helper in lib/install.mjs.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isTemplate, MANIFEST, readManifest, readOverrides, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { hasReason, isTemplate, MANIFEST, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { classify } from '../ci/checks/lib/ownership.mjs';
-import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
-import { blobSha, derivePackageJson, git, gitignoreText, publicSource, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
+import { commitFiles, readBlob, resolveBase, settleTie, sourceClone } from './lib/base.mjs';
+import { blobSha, derivePackageJson, fillPlaceholders, git, gitignoreText, PLACEHOLDER_FILES, publicSource, redactUrls, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: sync [--plan]   (run in the project; --apply arrives in F-01 step 4, --adopt in step 5)';
@@ -107,8 +107,41 @@ function preflight(cwd) {
   } catch (e) {
     throw new Refusal(e.message);
   }
-  const r = resolveBase(gitDir, managed, { start: manifest.slipway });
-  if (!r.exact) {
+  // Git failing on the clone's history (an empty source, a default branch gone) is a named refusal too.
+  const history = (fn) => {
+    try {
+      return fn();
+    } catch (e) {
+      if (e instanceof Refusal) throw e;
+      throw new Refusal(`cannot read slipway's history from ${publicSource(source)}: ${redactUrls(String(e.stderr || e.message).trim().split(/\r?\n/).at(-1))}`);
+    }
+  };
+
+  // The base: the commit holding the manifest's managed blobs. Several can (the commits between them
+  // touched only seeded or merged files); the manifest's other blobs, as written, tell them apart.
+  const projectName = (() => {
+    const buf = readProjectFile(root, 'package.json');
+    try {
+      return Buffer.isBuffer(buf) ? JSON.parse(buf.toString('utf8')).name : null;
+    } catch {
+      return null;
+    }
+  })();
+  const written = new Map(
+    Object.entries(manifest.files)
+      .filter(([, f]) => f.class !== 'managed' && /^[0-9a-f]{40}$/.test(f.blob ?? ''))
+      .map(([p, f]) => [p, f.blob]),
+  );
+  const asWritten = (p, buf, rules) => {
+    if (p === 'package.json') {
+      return projectName && rules ? Buffer.from(`${JSON.stringify(derivePackageJson(JSON.parse(buf.toString('utf8')), { name: projectName, rules }), null, 2)}\n`) : null;
+    }
+    if (p === 'README.md') return null; // written whole by new-project, never copied
+    if (PLACEHOLDER_FILES.includes(p)) return manifest.answers?.name ? Buffer.from(fillPlaceholders(buf.toString('utf8'), manifest.answers)) : null;
+    return buf;
+  };
+  const r = history(() => resolveBase(gitDir, managed, { start: manifest.slipway }));
+  if (!r.exact.length) {
     const c = (x) => `${x.sha.slice(0, 12)} (${x.matched} of ${r.total} managed files at their blob${x.extra ? `, ${x.extra} more it ships` : ''})`;
     throw new Refusal(
       r.best
@@ -116,30 +149,27 @@ function preflight(cwd) {
         : `${publicSource(source)} has no commits to compare the manifest with`,
     );
   }
-  const base = commitFiles(gitDir, r.exact);
+  const tie = r.exact.length === 1 ? { sha: r.exact[0] } : history(() => settleTie(gitDir, r.exact, written, asWritten));
+  if (!tie.sha) {
+    throw new Refusal(
+      `${tie.tied.length} slipway commits hold the manifest's managed files and its other files do not tell them apart: ${tie.tied.map((x) => x.slice(0, 12)).join(', ')} — set "slipway" in ${MANIFEST} to the one this project started from`,
+    );
+  }
+  const base = history(() => commitFiles(gitDir, tie.sha));
 
-  // The target's sha, for the header: this checkout's clean HEAD, else the commit holding its blobs.
-  const targetManaged = new Map(t.copy.filter((p) => classify(t.rules, p) === 'managed').map((p) => [p, blobSha(target.get(p))]));
-  const targetSha = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha ?? resolveBase(gitDir, targetManaged).exact;
+  // The target's sha, for the header: this checkout's clean HEAD, else the commit holding its files.
+  const targetSha = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha ?? history(() => {
+    const byClass = (want) => new Map(t.copy.filter((p) => (classify(t.rules, p) === 'managed') === want).map((p) => [p, blobSha(target.get(p))]));
+    const found = resolveBase(gitDir, byClass(true)).exact;
+    return found.length > 1 ? settleTie(gitDir, found, byClass(false), (p, buf) => buf).sha : found[0] ?? null;
+  });
   // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk.
   if (!existsSync(join(SRC, '.gitignore')) && targetSha) {
-    const id = commitFiles(gitDir, targetSha).tree.get('.gitignore');
-    if (id) target.set('.gitignore', readBlob(gitDir, id));
+    const id = history(() => commitFiles(gitDir, targetSha).tree.get('.gitignore'));
+    if (id) target.set('.gitignore', history(() => readBlob(gitDir, id)));
   }
 
-  return { root, branch, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
-}
-
-// The project's bytes at `p`: null when absent; a symlink or directory reads as an edit, never followed.
-const NOT_A_FILE = Symbol('not a file');
-function current(root, p) {
-  let st;
-  try {
-    st = lstatSync(join(root, p));
-  } catch {
-    return null;
-  }
-  return st.isFile() ? readFileSync(join(root, p)) : NOT_A_FILE;
+  return { root, branch, manifest, overrides, source, base: { sha: tie.sha, ...base }, gitDir, target, targetRules: t.rules, targetSha };
 }
 
 /**
@@ -147,7 +177,7 @@ function current(root, p) {
  * the project and the base commit.
  */
 export function plan({ root, manifest, overrides, base, gitDir, target, targetRules }) {
-  const overridden = new Set(overrides.filter((o) => o.reason?.trim()).map((o) => o.path));
+  const overridden = new Set(overrides.filter(hasReason).map((o) => o.path));
   const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
   const rows = [];
   const add = (kind, path) => rows.push({ kind, path });
@@ -156,7 +186,7 @@ export function plan({ root, manifest, overrides, base, gitDir, target, targetRu
     const m = manifest.files[p];
     const t = target.get(p);
     const cls = t ? classify(targetRules, p) : m.class;
-    const cur = current(root, p);
+    const cur = readProjectFile(root, p);
 
     if (cls === 'merged') {
       scriptRows(p, { base: baseBytes(p), target: t, cur, baseRules: base.rules, targetRules }).forEach((r) => rows.push(r));
