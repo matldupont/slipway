@@ -1,5 +1,5 @@
 {
-  "_note": "A ### Milestones under §8 is not the table; §10's is. M1's row matches despite a bold id and extra spaces, and its 60–80 h midpoint (70) is over the 63 h its 21 days hold at the top of '10 to 21 hours per week'. M7's row matches through a link, an escaped pipe and no outer pipes, and its ~1,200 hours is over 21 h. M2's row says something else; M4 has no row. M3 has no summary: and M8's is empty (a synced repo stays green); M3's 51 h equals what 17 days hold, exactly, not 50.999…. M5 is closed and M6's appetite is unreadable, so neither is compared. M8's '40 to 60' reads whole, so its midpoint 50 is over the 42 h its 14 days hold (read as 40, it would not be). M9's 'lots' cannot be read; M4's placeholder is skipped quietly.",
+  "_note": "A ### Milestones under §8 is not the table; §10's is. M1's row matches despite a bold id and extra spaces, and its 60–80 h midpoint (70) is over the 63 h its 21 days hold at the top of '10 to 21 hours per week'. M7's row matches through a link, an escaped pipe and no outer pipes, and its ~1,200 hours is over 21 h. M2's row says something else; M4 has no row. M3 has no summary: and M8's is empty (a synced repo stays green); M3's 51 h equals what 17 days hold, exactly, not 50.999…. M5 is closed and M6's appetite is unreadable, so neither is compared. M8's '40 to 60' reads whole, so its midpoint 50 is over the 42 h its 14 days hold (read as 40, it would not be). M9's 'lots' cannot be read; M4's placeholder is skipped quietly. Hours is read from the Hours column, not 'Estimate basis'. M10 names no milestone file; the Total row is not a milestone.",
   "exit": 1,
   "env": {
     "CHECK_TODAY": "2026-09-10"
@@ -12,6 +12,7 @@
     "M1.md#estimate/over-appetite",
     "M7.md#estimate/over-appetite",
     "M8.md#estimate/over-appetite",
-    "docs/PRD.md#estimate/unreadable/M9"
+    "docs/PRD.md#estimate/unreadable/M9",
+    "docs/PRD.md#estimate/unknown/M10"
   ]
 }

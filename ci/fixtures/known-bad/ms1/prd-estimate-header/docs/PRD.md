@@ -11,7 +11,7 @@ Capacity: 10 h/week
 |---|---|
 | M1 | 400 |
 
-## 10. Story map and milestones
+## 10. Milestones
 
 ### Milestones
 

@@ -34,9 +34,12 @@
 //                          §9's `Capacity: <n>–<m> h/week`
 //   estimate/capacity      §9's estimate table has hours but no readable Capacity line
 //   estimate/header        §9 has a table with no readable Milestone and Hours columns
-//   estimate/unreadable/<id> an Hours cell that is neither a placeholder nor `n`, `n–m`, `n to m`
+//   estimate/unreadable/<id> an Hours cell that is not empty, not a placeholder, and not `n`,
+//                          `n–m` or `n to m`
+//   estimate/unknown/<id>  a §9 row names no milestone file (a Total row excepted)
 //
-// A PRD with no §9 table compares nothing and says nothing: the table is optional.
+// A PRD with no §9 table compares nothing and says nothing: the table is optional. §9 and §10
+// are found by number, so `## 9. Estimates` and `## 10. Milestones` still read.
 //
 // WHY: milestones left open after their work ends, and new surfaces started while a launch
 // gate sits open, are how scope creeps when building is cheap. An open milestone nobody is
@@ -122,14 +125,15 @@ const H = '(?: ?(?:h|hrs?|hours?))?';
 const HOURS = new RegExp(`^~? ?${N}${H}(?: ?(?:[–-]|to) ?~? ?${N}${H})?$`, 'i');
 const CAPACITY = new RegExp(`${N}(?: ?(?:[–-]|to) ?${N})? ?(?:h|hrs?|hours?) ?(?:/|per|a) ?w(?:ee)?k`, 'i');
 const toRange = (m) => (m ? { low: Number(m[1]), high: Number(m[2] ?? m[1]) } : null);
-const hoursIn = (cell) => toRange(squash(plain(cell ?? '').replace(/,/g, '')).match(HOURS));
+// Cells and lines are capped before any regex runs, so a pathological one costs nothing.
+const hoursIn = (cell) => toRange(squash(plain((cell ?? '').slice(0, 100)).replace(/,/g, '')).match(HOURS));
 const round = (n) => Math.round(n * 10) / 10;
 const named = new Map(milestones.filter((m) => m.fm?.id).map((m) => [m.fm.id, m]));
 const withSummary = [...named.values()].filter((m) => typeof m.fm.summary === 'string' && m.fm.summary.trim());
 
 if (prd && withSummary.length) {
   // Scoped to §10: another `### Milestones` elsewhere in the PRD is not this table.
-  const t = table(section(section(prd, '10. Story map and milestones', 2) ?? '', 'Milestones', 3));
+  const t = table(section(section(prd, /10\.\s+.*milestones/, 2) ?? '', 'Milestones', 3));
   const idAt = t ? column(t.header, /^(milestone|id)$/i) : -1;
   const lineAt = t ? column(t.header, /^(one line|summary)$/i) : -1;
   if (idAt < 0 || lineAt < 0) {
@@ -147,19 +151,22 @@ if (prd && withSummary.length) {
 }
 
 if (prd) {
-  const estimate = section(prd, '9. Estimate', 2);
+  const estimate = section(prd, /9\.\s+Estimates?/, 2);
   const t = table(estimate);
   const idAt = t ? column(t.header, /^(milestone|id)$/i) : -1;
-  const hoursAt = t ? column(t.header, /hours|estimate/i) : -1;
-  // Read from one line, capped, so a pathological line costs nothing.
+  // `Hours` beats `Estimate`, which beats any header naming hours: `Estimate basis | Hours` reads Hours.
+  const hoursAt = t ? [/^hours?\b/i, /^estimate/i, /hours/i].map((re) => column(t.header, re)).find((n) => n >= 0) ?? -1 : -1;
   const capacityLine = (estimate ?? '').split(/\r?\n/).find((l) => /^[ \t>*_-]*Capacity\b/i.test(l));
-  const capacity = toRange(squash(plain(capacityLine ?? '').slice(0, 200).replace(/,/g, '')).match(CAPACITY));
+  const capacity = toRange(squash(plain((capacityLine ?? '').slice(0, 200)).replace(/,/g, '')).match(CAPACITY));
   if (t && (idAt < 0 || hoursAt < 0)) {
     warnings.push({ where: 'docs/PRD.md#estimate/header', detail: 'the §9 table has no Milestone and Hours columns, so no estimate is compared with its appetite' });
   } else if (t) {
     const rows = t.rows.map((c) => ({ id: plain(c[idAt] ?? ''), cell: c[hoursAt] ?? '', hours: hoursIn(c[hoursAt]) }));
     for (const r of rows.filter((r) => !r.hours && r.cell && !PLACEHOLDER.test(r.cell))) {
       warnings.push({ where: `docs/PRD.md#estimate/unreadable/${r.id}`, detail: `cannot read hours "${r.cell.slice(0, 60)}" — write n, n–m or n to m` });
+    }
+    for (const r of rows.filter((r) => r.id && !named.has(r.id) && !/^total\b/i.test(r.id))) {
+      warnings.push({ where: `docs/PRD.md#estimate/unknown/${r.id.slice(0, 40)}`, detail: `no milestone file has id: ${r.id.slice(0, 40)} — the first column must be the milestone's id` });
     }
     const estimated = rows.filter((r) => r.hours);
     if (estimated.length && !capacity) {

@@ -291,7 +291,9 @@ blocks on a failing test, lets the second stop through, and skips a tree it alre
 | MS1 warning at an estimate equal to the appetite (`days / 7 × h` float error), at the bottom of Capacity, or with the last appetite day exclusive | M6 red — unexpected warning |
 | MS1 comparing a closed milestone's estimate, or calling a placeholder unreadable | M6 red — unexpected warning |
 | MS1 reading `40 to 60` as 40, keeping `1,200`'s comma, or staying silent on an unreadable cell | M6 red — missed warning |
-| MS1 dropping its warnings | M6 red — missed two warnings |
+| MS1 reading `Estimate basis` as the hours column, or needing the exact §9 / §10 heading text | M6 red — missed warnings, or flagged `milestones/header` |
+| MS1 silent on a §9 row that names no milestone, or warning on a Total row | M6 red — missed or unexpected `estimate/unknown` |
+| MS1 dropping its warnings | M6 red — missed all seven, across three cases |
 | K1 reading placeholders inside HTML comments | M6 red — flagged unexpected |
 | S1 with evidence `Window:` lines no longer read | S1 red on `framed-no-milestone`; M6 red — missed both `window-ignored` findings, flagged `next-only#frame` |
 | S1 with an evidence heading no longer closing its risk | S1 red on `skeleton-active` |
