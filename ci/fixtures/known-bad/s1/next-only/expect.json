@@ -1,0 +1,6 @@
+{
+  "_note": "Frame is right; Next expects the walking-skeleton step, but no milestone exists. Each line is compared on its own.",
+  "today": "2026-03-10",
+  "next": "Step 4 (agent) — Walking skeleton: activate the skeleton milestone (real appetite dates, status: active) and build its first slice.",
+  "frame": "framed · risks: RISK-1 scheduled (#8, window 2026-02-01..2026-02-28 — overran) · blocks every milestone past the skeleton (K1)"
+}

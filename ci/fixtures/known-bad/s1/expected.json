@@ -1,0 +1,10 @@
+{
+  "_note": "Three case roots, each wrong in one way: status disagrees on both lines, on Next only, and an expect.json with no clock.",
+  "exit": 1,
+  "findings": [
+    "bad-expect#expect",
+    "next-only#next",
+    "window-ignored#frame",
+    "window-ignored#next"
+  ]
+}
