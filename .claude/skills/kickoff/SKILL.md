@@ -109,12 +109,13 @@ anyway with a decision in `decisions.md` that says why.
    `status: shaping`.
 
    Then **generate** PRD §10's milestones table from the files — one row per milestone, in
-   order, `| <id> | <kind> | <summary> |` copied from the frontmatter — rather than writing the
+   order, `| <id> | <kind> | <summary> |` copied from the frontmatter (a `|` in the summary is
+   written `\|`) — rather than writing the
    one-liners a second time. MS1 flags a row that differs from its `summary:`. When a one-liner
    needs to change, change the `summary:` and regenerate.
 
-   Fill PRD §9 the same way: a `Capacity: <n>–<m> h/week` line from the user (ask; never guess
-   it), and one row per milestone with its hours as a range and what they are made of. MS1 warns
+   Fill PRD §9 the same way: a `Capacity: <n>–<m> h/week` line from the user — the total for
+   everyone building, not per person (ask; never guess it) — and one row per milestone with its hours as a range and what they are made of. MS1 warns
    when a milestone's midpoint is more than its appetite holds (appetite days ÷ 7 × the top of
    Capacity). Show the user any warning and let them cut scope, lengthen the appetite or
    re-estimate — do not quietly shrink the estimate to fit.

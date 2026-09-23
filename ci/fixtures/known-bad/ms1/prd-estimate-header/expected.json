@@ -1,5 +1,5 @@
 {
-  "_note": "The §9 table has no Milestone or Hours header, so M1's 400 h is not read: a warning says so rather than staying silent. M1's summary: drifts from its row.",
+  "_note": "The §9 table has no Milestone or Hours header, so M1's 400 h is not read: a warning says so rather than staying silent. M1's summary: drifts from its row. §10 is headed '10. Milestones' and is still read.",
   "exit": 1,
   "findings": [
     "M1.md#summary/drift"
