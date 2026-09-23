@@ -1,0 +1,7 @@
+# A mistyped key must stop O1 (BROKEN). Read leniently, `class: managed` below would overwrite
+# dev/**'s class and ship all of dev/ while every path still had a class.
+paths:
+  - glob: dev/**
+    class: internal
+  - glb: ci/**
+    class: managed

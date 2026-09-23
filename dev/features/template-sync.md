@@ -263,6 +263,10 @@ Machinery before surface. Each step merges with `pnpm meta` green.
   compares finding by finding.
 - **Does `CLAUDE.md`'s `@import` load in every surface slipway supports** (CLI, desktop, cloud)?
   (Owner: step 1.) Confirm with `/memory` before moving the rules.
+- **Project-written files under managed globs** (owner: step 2). `process/**` and `.claude/skills/**` are
+  managed, but a project adds its own lessons and skills there. No glob can tell them apart; the manifest
+  can, since it lists only what slipway wrote. (Step 1 already seeds `ci/exceptions.yaml`, the project's
+  own M3 registry.)
 - **Review home.** `/review-doc` writes to `docs/reviews/`, which ships. A review of this doc should go
   to `dev/reviews/` until the skill takes a destination.
 
