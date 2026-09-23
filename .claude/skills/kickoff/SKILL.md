@@ -79,6 +79,14 @@ anyway with a decision in `decisions.md` that says why.
    F-, OD-, RISK- reused from FRAME). Features that do not serve the question in FRAME go to
    §4 *Out, explicitly* with where they go. Every open decision gets a working assumption and
    impact-if-wrong; only business-invalidating ones are BLOCKING.
+
+   **When the input is a source document** (a loose PRD, a brief, notes with their own risks),
+   fill §3 *Source coverage* before moving on: walk the source top to bottom and give every risk,
+   spike, invariant and blocking decision one row — **kept** (with the new ID), **moved** (with a
+   DIV-n saying where and why) or **dropped** (with a DIV-n saying why). A dropped item is fine; a
+   missing row is not, because nobody can tell it was dropped on purpose. Never write "handled by
+   the features above": name the ID that handles it. With no source document, write
+   `none: no source`.
 2. **Week-1 decisions (`decisions.md`).** Walk the entries marked *(week 1)*. For each: decide
    with the user, or defer with the event that reopens it. These are the expensive-to-reverse
    choices; do not let one slide into month three. Once D-005–D-008 are decided, rewrite the
@@ -96,7 +104,19 @@ anyway with a decision in `decisions.md` that says why.
    F-IDs it builds, or says `(no feature: <reason>)`; every §5 feature is cited by some
    milestone (F1 enforces both once the PRD leaves draft). Each milestone gets an appetite (days or weeks, not a date guess), vertical
    slices, no-gos (move most of the loose PRD here), rabbit holes, a gate that can go red, and
-   kill criteria written now. All stay `status: shaping`.
+   kill criteria written now, and a one-line `summary:` in its frontmatter. All stay
+   `status: shaping`.
+
+   Then **generate** PRD §10's milestones table from the files — one row per milestone, in
+   order, `| <id> | <kind> | <summary> |` copied from the frontmatter — rather than writing the
+   one-liners a second time. MS1 flags a row that differs from its `summary:`. When a one-liner
+   needs to change, change the `summary:` and regenerate.
+
+   Fill PRD §9 the same way: a `Capacity: <n>–<m> h/week` line from the user (ask; never guess
+   it), and one row per milestone with its hours as a range and what they are made of. MS1 warns
+   when a milestone's midpoint is more than its appetite holds (appetite days ÷ 7 × the top of
+   Capacity). Show the user any warning and let them cut scope, lengthen the appetite or
+   re-estimate — do not quietly shrink the estimate to fit.
 5. **Readiness gate.** Re-read M1 and M2 as the engineer who must build them. For each slice
    ask: can it be built without inventing a decision nobody recorded? Report:
 

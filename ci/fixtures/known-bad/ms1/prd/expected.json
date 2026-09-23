@@ -1,0 +1,14 @@
+{
+  "_note": "M1's row matches despite bold id and extra spaces; its 40–60 h midpoint (50) is over the 45 h its 21 days hold at 15 h/week. M2's row says something else; M4 has no row. M3 has no summary: (a synced repo stays green) and its 30 h equals what 14 days hold. M5 is closed and M6's appetite is unreadable, so neither is compared.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-10"
+  },
+  "findings": [
+    "M2.md#summary/drift",
+    "M4.md#summary/drift"
+  ],
+  "warnings": [
+    "M1.md#estimate/over-appetite"
+  ]
+}

@@ -11,6 +11,10 @@
 // `@@json `. M6 reads it to compare a check's findings with its fixture's
 // expected set — an exit code alone cannot tell "red for the right reason"
 // from "red for any reason".
+//
+// Warnings are printed and emitted but never change the exit code: something a person should
+// look at that is not wrong on its face (an estimate larger than its appetite). M6 still
+// compares them, so a warning that can no longer fire is caught like a finding.
 
 export const EXIT = { GREEN: 0, FINDINGS: 1, BROKEN: 2 };
 
@@ -22,9 +26,10 @@ export const EXIT = { GREEN: 0, FINDINGS: 1, BROKEN: 2 };
  * @param {string} o.unit      what a unit is ("workflow files", "docs")
  * @param {Array<{where:string, detail:string}>} [o.findings]
  * @param {string[]} [o.exempted] ids excused by the exception registry
+ * @param {Array<{where:string, detail:string}>} [o.warnings] printed, never fail the check
  * @param {string|null} [o.broken] set when the check could not run safely
  */
-export function report({ id, claim, scanned, unit, findings = [], exempted = [], broken = null }) {
+export function report({ id, claim, scanned, unit, findings = [], exempted = [], warnings = [], broken = null }) {
   const L = [`${id}: scanned ${scanned} ${unit}`];
   let exit;
 
@@ -37,19 +42,21 @@ export function report({ id, claim, scanned, unit, findings = [], exempted = [],
     exit = EXIT.BROKEN;
   } else {
     if (exempted.length) L.push(`${id}: ${exempted.length} exempted by registry: ${exempted.join(', ')}`);
+    for (const w of warnings) L.push(`${id}: warning: ${w.where}: ${w.detail}`);
     for (const f of findings) L.push(`${id}: ${f.where}: ${f.detail}`);
     if (findings.length) {
       L.push(`${id}: FAIL — ${findings.length} finding(s) across ${scanned} ${unit}`);
       exit = EXIT.FINDINGS;
     } else {
-      L.push(`${id}: PASS — green proves: ${claim}`);
+      const warned = warnings.length ? ` (${warnings.length} warning(s) above)` : '';
+      L.push(`${id}: PASS — green proves: ${claim}${warned}`);
       exit = EXIT.GREEN;
     }
   }
 
   if (process.env.CHECK_JSON === '1') {
-    const reported = exit === EXIT.BROKEN ? [] : findings;
-    L.push('@@json ' + JSON.stringify({ id, scanned, unit, exit, broken, findings: reported, exempted }));
+    const [reported, warned] = exit === EXIT.BROKEN ? [[], []] : [findings, warnings];
+    L.push('@@json ' + JSON.stringify({ id, scanned, unit, exit, broken, findings: reported, exempted, warnings: warned }));
   }
   process.stdout.write(L.join('\n') + '\n');
   return exit;
