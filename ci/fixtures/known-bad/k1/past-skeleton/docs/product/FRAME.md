@@ -23,11 +23,11 @@ and [PARKED: which cities first? · assume: one city]
 
 ## Risks
 
-| ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result |
-|---|---|---|---|---|---|---|
-| RISK-1 | Walkers will leave group texts | value | no product | concierge test | 3 of 5 re-engage | 4 of 5 — met |
-| RISK-2 | Clients will book in the app | Value | walkers re-key texts | diary study | 3 of 5 | |
-| RISK-3 | Slot conflicts resolve fast enough | feasibility | rewrite | spike | p95 < 200 ms | |
-| RISK-4 | Walkers will pay monthly | value | no business | fake door | 3% click | D-007 |
-| RISK-5 | The add flow is learnable | usability | support load | hallway test | | done |
-| RISK-6 | Two walkers share one client list | value, viability | wrong model | interviews | | |
+| ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result | **Tracker** |
+|---|---|---|---|---|---|---|---|
+| RISK-1 | Walkers will leave group texts | value | no product | concierge test | 3 of 5 re-engage | 4 of 5 — met | #9 |
+| RISK-2 | Clients will book in the app | Value | walkers re-key texts | diary study | 3 of 5 | | #14 |
+| RISK-3 | Slot conflicts resolve fast enough | feasibility | rewrite | spike | p95 < 200 ms | | |
+| RISK-4 | Walkers will pay monthly | value | no business | fake door | 3% click | D-007 | |
+| RISK-5 | The add flow is learnable | usability | support load | hallway test | | done | |
+| RISK-6 | Two walkers share one client list | value, viability | wrong model | interviews | | | Sam |

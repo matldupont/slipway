@@ -1,0 +1,7 @@
+{
+  "_note": "Framed and complete, skeleton active, FRAME written before the Tracker column and with Category renamed to Type (read by position). RISK-1 is tracked by its evidence file's name, even under a higher heading than the file's own RISK-1 heading, RISK-5 by a heading in a shared evidence file. RISK-2's Tracked line is empty; the #77 after it sits under a sibling heading that closes RISK-2's section, and the #99 is inside a comment. RISK-3 is not a value risk and RISK-4 has a Result. Only the skeleton is underway, so risk/unresolved must NOT fire.",
+  "exit": 1,
+  "findings": [
+    "RISK-2#risk/untracked"
+  ]
+}

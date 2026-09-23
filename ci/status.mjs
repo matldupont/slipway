@@ -10,9 +10,10 @@
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { frontmatter, PLACEHOLDER } from './checks/lib/frontmatter.mjs';
+import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { parseAppetite, readMilestones } from './checks/lib/milestones.mjs';
+import { readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
 const args = process.argv.slice(2);
@@ -29,11 +30,19 @@ try { packages = discoverWorkspace(root).packages.length; } catch { /* reported 
 
 const frameMd = read('docs/product/FRAME.md');
 const frame = frameMd ? frontmatter(frameMd)?.status ?? 'unknown' : 'missing';
-const risks = (frameMd ? section(frameMd, 'Risks', 2) ?? '' : '')
-  .split(/\r?\n/)
-  .filter((l) => /^\|\s*RISK-\d+\s*\|/.test(l))
-  .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
-const untestedValue = risks.filter((r) => /\bvalue\b/i.test(r[2] ?? '') && (!r[6] || PLACEHOLDER.test(r[6]))).map((r) => r[0]);
+const risks = frameMd ? readRisks(root, frameMd).rows : [];
+// A value risk with no Result is scheduled when a tracker names where its test is being run, untested
+// otherwise. K1 needs the tracker once any milestone is underway.
+const untestedValue = risks.filter((r) => r.value && !r.tested);
+const untracked = untestedValue.filter((r) => !r.tracker);
+const riskState = (r) => {
+  if (r.tested) return `${r.id} tested`;
+  if (!r.tracker) return r.value ? `${r.id} untested (no tracker)` : `${r.id} untested`;
+  const w = r.window === 'unreadable'
+    ? ', window unreadable — write yyyy-mm-dd..yyyy-mm-dd'
+    : r.window && `, window ${r.window.start}..${r.window.end}${r.window.end < today ? ' — overran' : ''}`;
+  return `${r.id} scheduled (${r.tracker}${w || ''})`;
+};
 
 const prd = read('docs/PRD.md') ?? '';
 const prdStatus = (prd.match(/^Status:\s*(.+)$/m) ?? [])[1]?.trim() ?? 'missing';
@@ -59,6 +68,14 @@ const ms = milestones.filter((m) => m.fm?.id).map((m) => ({ ...m.fm, file: m.fil
 const active = ms.filter((m) => m.status === 'active');
 const cur = active[0];
 const curAppetite = cur && parseAppetite(cur.appetite);
+// What an untested value risk holds back: K1 refuses any milestone past the skeleton until it has a Result.
+const pastSkeletonUnderway = ms.filter((m) => m.kind !== 'skeleton' && (m.status === 'active' || m.status === 'closed'));
+const blockedByRisk = ms.filter((m) => m.kind !== 'skeleton' && m.status === 'shaping').map((m) => m.id);
+const riskBlocks = pastSkeletonUnderway.length
+  ? `K1 is red: ${pastSkeletonUnderway.map((m) => m.id).join(', ')} underway`
+  : `blocks ${blockedByRisk.length ? `${blockedByRisk.join(', ')} activation` : 'every milestone past the skeleton'} (K1)`;
+const riskLine = untestedValue.length ? `${untestedValue.map(riskState).join(', ')} · ${riskBlocks}` : '';
+const riskFile = untracked.length ? ' File the issue that runs each untested one and name it in FRAME\'s Tracker column.' : '';
 
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
@@ -79,7 +96,7 @@ for (const file of walk(join(root, 'docs'))) {
   lines.forEach((line, i) => {
     for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${body.trim().slice(0, 90) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
-      const ref = body.match(/#\d+|\b(?:OD|D)-\d+\b/)?.[0] ?? 'untracked';
+      const ref = body.match(TRACKER)?.[0] ?? 'untracked';
       parked_.push(`${rel_}:${i + 1} — ${body.split('·')[0].trim().slice(0, 70)} (${ref})`);
     }
   });
@@ -110,9 +127,8 @@ function next() {
     return `Step 0 (you + agent) — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
   if (frame !== 'framed') return 'Step 1 (you, with /kickoff) — Frame: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.';
-  if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) {
-    return `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${untestedValue.join(', ')} has no Result. An agent can prepare the materials; running the test with real people is yours. Thresholds and results: docs/product/evidence/.`;
-  }
+  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results: docs/product/evidence/.`;
+  if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) return testTheRisk;
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
     return prdReviews.length
       ? `Step 3 (you) — Shape: ${prdVersion} is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.`
@@ -122,11 +138,15 @@ function next() {
   if (cur && curAppetite && curAppetite.end < today && !cur.extended) {
     return `Circuit breaker: ${cur.id}'s appetite ended ${curAppetite.end}. Cut scope and close it (/close-milestone), kill it, or record an extension.`;
   }
-  if (cur) return `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${cur.title}. Next slice from its Contents; pick the lane (CLAUDE.md#Lanes).`;
+  if (cur) {
+    const risk = untestedValue.length ? ` Meanwhile (yours): ${riskLine}.${riskFile}` : '';
+    return `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${cur.title}. Next slice from its Contents; pick the lane (CLAUDE.md#Lanes).${risk}`;
+  }
   const shaping = ms.filter((m) => m.status === 'shaping');
   if (shaping.some((m) => m.kind === 'skeleton')) {
     return 'Step 4 (agent) — Walking skeleton: activate the skeleton milestone (real appetite dates, status: active) and build its first slice.';
   }
+  if (untestedValue.length) return testTheRisk;
   return shaping.length
     ? `Step 6 (you) — Choose the next bet: activate one of ${shaping.map((m) => m.id).join(', ')} (set appetite dates), or shape a new one.`
     : 'Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.';
@@ -140,7 +160,10 @@ L.push(`**Next:** ${next()}`, '');
 const also = [];
 if (frame === 'framed' && !cur) {
   const skel = ms.find((m) => m.kind === 'skeleton' && m.status === 'shaping');
-  if (skel && untestedValue.length) also.push(`(agent) ${skel.id} — the walking skeleton is not blocked by an untested value risk: activate it and build in parallel`);
+  if (skel && untestedValue.length) {
+    const first = untracked.length ? ` — K1 then needs a tracker for ${untracked.map((r) => r.id).join(', ')}` : '';
+    also.push(`(agent) ${skel.id} — the walking skeleton is not blocked by an untested value risk: activate it and build in parallel${first}`);
+  }
 }
 if (prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft')) {
   also.push(`(fresh session) /review-doc docs/PRD.md — the PRD at ${prdVersion ?? '?'} has no adversarial review; needed before Status: approved`);
@@ -150,7 +173,7 @@ if (also.length) L.push('**Also unblocked:**', ...also.map((a) => `- ${a}`), '')
 
 L.push('## Where things stand', '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
-L.push(`- Frame: ${frame}${risks.length ? ` · ${risks.length} risk(s), untested value risks: ${untestedValue.join(', ') || 'none'}` : ''}`);
+L.push(`- Frame: ${frame}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · untested value risks: ${riskBlocks}` : ''}` : ''}`);
 L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
 if (cur) {
   const a = curAppetite;

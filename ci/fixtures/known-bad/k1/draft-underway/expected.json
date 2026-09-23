@@ -1,8 +1,9 @@
 {
-  "_note": "The shipped FRAME template, unfilled, with the skeleton active. Its RISK-1 is a value risk with no Result, but only the skeleton is underway, so risk/unresolved must NOT fire.",
+  "_note": "The shipped FRAME template, unfilled, with the skeleton active. Its RISK-1 is a value risk with no Result, but only the skeleton is underway, so risk/unresolved must NOT fire. It names no tracker, so risk/untracked must.",
   "exit": 1,
   "findings": [
     "FRAME.md#placeholder/present",
-    "FRAME.md#status/draft"
+    "FRAME.md#status/draft",
+    "RISK-1#risk/untracked"
   ]
 }
