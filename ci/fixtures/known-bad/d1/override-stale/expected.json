@@ -1,0 +1,11 @@
+{
+  "exit": 1,
+  "findings": [
+    "override/stale/SLIPWAY.md",
+    "override/stale/docs/PRD.md",
+    "override/stale/nowhere.md"
+  ],
+  "exempted": [
+    "BOOTSTRAP.md"
+  ]
+}

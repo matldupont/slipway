@@ -17,7 +17,9 @@
       "Edit(**/.github/workflows/**)",
       "Edit(**/ci/**)",
       "Edit(**/process/harness/**)",
-      "Edit(**/.claude/settings*.json)"
+      "Edit(**/.claude/settings*.json)",
+      "Edit(**/.slipway/**)",
+      "Write(**/.slipway/**)"
     ],
     "allow": [
       "Bash(git stash list:*)",
