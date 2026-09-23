@@ -4,10 +4,9 @@
 
 Threshold (written 2026-02-20, before the test): 3 of 5
 Tracked: acme/research#3
-Window: 2026-03-01..2026-03-31
 
 ## Notes
 
-A Window here belongs to no risk.
+A Window here belongs to no risk: the heading above closed RISK-2.
 
 Window: 2026-01-01..2026-01-02

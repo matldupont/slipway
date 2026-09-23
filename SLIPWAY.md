@@ -166,7 +166,7 @@ ci/ratchet.mjs                      code-health ratchets against ci/baselines.js
 docs/conventions.md                 the one way to do each recurring thing, with its canonical example
 ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1 S1 F1
 ci/fixtures/known-bad/              known-bad fixtures, one expected.json per case
-ci/fixtures/status/                 fixture roots S1 runs `pnpm status` against, one expect.json each
+ci/fixtures/status/                 fixture roots S1 runs `ci/status.mjs` against, one expect.json each
 ci/exceptions.yaml                  expiring, structurally keyed exceptions
 ```
 
@@ -187,7 +187,7 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 | MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro | milestones left open after their work ends, and new surfaces started before launch |
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
 | K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); every untested value risk names a tracker once a milestone is underway; nothing past the skeleton before each value risk is tested against a bar set first | building before anyone names the question the product answers or tests whether people want it |
-| S1 | `pnpm status` prints the expected Next and Frame lines — each risk tested, scheduled, overran, window unreadable or untested — for its fixture roots | status telling the owner a risk is on schedule while its evidence is no longer read |
+| S1 | `ci/status.mjs` prints the expected Next and Frame lines — each risk tested, scheduled, overran, window unreadable or untested — for its fixture roots | status telling the owner a risk is on schedule while its evidence is no longer read |
 | Stop hook | an agent turn does not end while `verify:fast` is red | agents declaring done work that was never run |
 
 `verify` exits BROKEN on an empty workspace and fails, before running anything, when no package declares
@@ -240,7 +240,7 @@ M3 turns red on an exception that is undated, expired, stale, or keyed to a posi
 
 ### Validation
 
-**Harness.** M6 green over 9 checks and 18 fixture cases. On the template itself M1, M3, R1, L1 (60
+**Harness.** M6 green over 10 checks and 22 fixture cases. On the template itself M1, M3, R1, L1 (60
 lessons), MS1, K1 and F1 are green, and `pnpm meta` is green with nothing installed. The PR template is
 byte-identical to P1's `placeholder.md` fixture and the FRAME template to K1's `draft-underway` fixture, so
 an unfilled template is proven to fail.
@@ -284,7 +284,8 @@ blocks on a failing test, lets the second stop through, and skips a tree it alre
 | MS1 with the last appetite day made exclusive | M6 red — flagged an on-time milestone |
 | MS1 allowing two active milestones | M6 red — missed `wip/exceeded` |
 | K1 reading placeholders inside HTML comments | M6 red — flagged unexpected |
-| S1 with evidence `Window:` lines no longer read | S1 red on both fixture roots' Next and Frame lines; M6 red — missed `window-ignored` |
+| S1 with evidence `Window:` lines no longer read | S1 red on `framed-no-milestone`; M6 red — missed both `window-ignored` findings, flagged `next-only#frame` |
+| S1 with an evidence heading no longer closing its risk | S1 red on `skeleton-active` |
 | F1 counting killed milestones as scheduling a feature | M6 red — missed `feature/unscheduled` |
 | F1 ignoring a citation on a continuation line | M6 red — flagged two unexpected |
 | zero workflow files | M3 exit 2 |

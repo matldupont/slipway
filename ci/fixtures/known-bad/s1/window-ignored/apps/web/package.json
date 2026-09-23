@@ -1,1 +1,1 @@
-{ "name": "web", "private": true, "scripts": { "check": "true", "test": "true" } }
+{ "name": "web", "private": true }

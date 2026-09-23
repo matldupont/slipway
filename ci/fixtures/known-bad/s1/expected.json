@@ -1,8 +1,9 @@
 {
-  "_note": "Three case roots, each wrong in one way: status disagrees on both lines, on Next only, and an expect.json with no clock.",
+  "_note": "Four case roots, each wrong in one way: status disagrees on both lines, on Next only, an expect.json with a blank clock, and a folder whose expect.json is misnamed.",
   "exit": 1,
   "findings": [
     "bad-expect#expect",
+    "misnamed#expect",
     "next-only#next",
     "window-ignored#frame",
     "window-ignored#next"
