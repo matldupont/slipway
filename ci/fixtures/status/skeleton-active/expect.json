@@ -1,6 +1,7 @@
 {
-  "_note": "Skeleton active, a shaping bet behind it: the risks ride on Next after Meanwhile. RISK-2 is tracked from a RISK-2 heading inside a shared evidence file, by a cross-repo issue, with no Window of its own; the Window under the Notes heading belongs to no risk, so a heading that failed to close RISK-2 would make it read as overran. RISK-3 has no tracker.",
-  "today": "2026-03-10",
+  "_note": "Skeleton active, a shaping bet behind it: the risks ride on Next after Meanwhile. RISK-2 is tracked from a RISK-2 heading inside a shared evidence file, by a cross-repo issue, with no Window of its own; the Window under the Notes heading belongs to no risk, so a heading that failed to close RISK-2 would make it read as overran. RISK-3 has no tracker. The clock is 22:00 on 2026-03-10 in Toronto, 02:00 UTC on 2026-03-11; with no Timezone row status reads the local zone, which S1 pins to UTC, so it stamps 2026-03-11.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
   "next": "Step 4 (agent) — Walking skeleton: Walking skeleton. Next slice from its Contents; pick the lane (CLAUDE.md#Lanes). Meanwhile (yours): RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation (K1). File the issue that runs each untested one and name it in FRAME's Tracker column.",
   "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation (K1)"
 }

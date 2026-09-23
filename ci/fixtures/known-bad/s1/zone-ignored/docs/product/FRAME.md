@@ -23,4 +23,4 @@ Where do I need to be tomorrow, and who hasn't paid?
 | RISK-5 | The city allows walkers to post rates | feasibility | Existential | ask the city | written yes | | |
 | RISK-6 | Insurance covers group walks | viability | existential | broker call | quote under $50 | D-3 | |
 | RISK-7 | Location history harms no one | ethical | existential: harm to clients | design review | accepted in writing | | |
-| RISK-8 | Slot conflicts resolve fast enough | feasibility | rewrite | spike | p95 < 200 ms | | |
+| RISK-8 | Slot conflicts resolve fast enough | feasibility | a rewrite, not existential | spike | p95 < 200 ms | | |

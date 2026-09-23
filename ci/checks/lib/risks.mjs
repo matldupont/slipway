@@ -110,9 +110,10 @@ export function readRisks(root, frameMd) {
 }
 
 // The PRD's risk table (§8), read only where it has a `Resolves by` column: when each risk must be settled.
-// `before M4` and `before M4 starts` read as milestone M4; any other deadline (`with RISK-1`, `before
-// first live charge`) is kept as text and names no milestone. Rows share FRAME's RISK-n ids. Returns null
-// when no table has the column, so a PRD written before the column existed is not read at all.
+// `before M4` and `before M4 starts`, optionally followed by a note in brackets or after a dash, read as
+// milestone M4; any other deadline (`with RISK-1`, `before first live charge`, `before M4 ends`) is kept as
+// text and names no milestone. Rows share FRAME's RISK-n ids. Returns null when no table has the column, so
+// a PRD written before the column existed is not read at all.
 export function readDeadlines(prdMd) {
   const lines = prdMd.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
   const isSep = (l) => /^\|[\s:|-]+\|$/.test((l ?? '').trim());
@@ -128,7 +129,7 @@ export function readDeadlines(prdMd) {
     const id = plain(c[idAt] ?? '').toUpperCase();
     if (!/^RISK-\d+$/.test(id)) continue;
     const cell = plain(c[by] ?? '');
-    out.set(id, { cell, before: cell.match(/\bbefore\s+(M\d+)\b/i)?.[1].toUpperCase() ?? null });
+    out.set(id, { cell, before: cell.match(/^before\s+(M\d+)(?:\s+starts)?(?:\s*[(—–:;,-].*)?$/i)?.[1].toUpperCase() ?? null });
   }
   return out;
 }

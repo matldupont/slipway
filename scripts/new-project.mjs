@@ -26,6 +26,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { today as localToday } from '../ci/checks/lib/clock.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SELF = relative(SRC, fileURLToPath(import.meta.url));
@@ -116,7 +117,7 @@ note(`skipped: ${[...SKIP].join(', ')}`);
 
 // ---- 2. fill placeholders
 step(2, 'Fill placeholders and start the lessons clock');
-const today = new Date().toISOString().slice(0, 10);
+const today = localToday(opts.dryRun ? SRC : dest);
 if (!opts.dryRun) {
   for (const f of PLACEHOLDER_FILES) edit(f, (s) => s.replaceAll('<Product>', name).replaceAll('<owner/repo>', repo ?? '<owner/repo>'));
   edit('package.json', (s) => {
