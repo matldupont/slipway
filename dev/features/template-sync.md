@@ -91,15 +91,17 @@ Both files are `seeded`.
 | `override/reason/<path>` | an override has an empty reason; it excuses nothing, so the file's drift is reported too |
 | `manifest/missing` | no manifest (BROKEN, not green): the fix is `sync --adopt` |
 
-**In slipway itself** (settled in step 2, #15): template mode. With no manifest and `dev/ownership.yaml`
-present — a file `new-project` never copies — D1 exits green with that exact claim. Adding `d1` to the
+**In slipway itself** (settled in step 2, #15): template mode. With no manifest and both `dev/ownership.yaml`
+and `scripts/new-project.mjs` present — internal files `new-project` never copies, so a project's own
+`dev/` folder is not enough — D1 exits green with that exact claim. Adding `d1` to the
 project's `meta` only was the alternative, but M1 in slipway fails on a check file no workflow runs.
 What proves D1 on a real install is `scripts/new-project.test.mjs` (internal, in slipway's `meta`): it
 creates a project, runs D1 and M1 in it, then drifts a file and deletes the manifest.
 
 The sha is confirmed the same way in both places it comes from: slipway's own checkout offers `HEAD`,
 anywhere else `git ls-remote <source> HEAD` plus a shallow blobless fetch of that commit's tree, and it
-counts only when every copied file's git blob id equals the tree's. `SLIPWAY_SOURCE` overrides the
+counts only when every copied file's git blob id equals the tree's and every path the commit ships was
+copied. A credential in the source URL is stripped before it reaches the manifest. `SLIPWAY_SOURCE` overrides the
 source (a fork, or the test's local repository).
 
 ### O1 — ownership (slipway only)

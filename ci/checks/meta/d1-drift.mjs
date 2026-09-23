@@ -15,7 +15,8 @@
 // not a promise the project made. A file the manifest does not list is the project's.
 //
 // TEMPLATE MODE. Slipway itself is the source, not an install, so it has no manifest. With no
-// manifest and `dev/ownership.yaml` present — a file new-project never copies — D1 claims exactly
+// manifest and both `dev/ownership.yaml` and `scripts/new-project.mjs` present — internal files
+// new-project never copies; a project's own `dev/` folder alone is not enough — D1 claims exactly
 // that and exits green. What proves D1 against a real install is slipway's own
 // scripts/new-project.test.mjs, which creates a project and runs D1 in it.
 
@@ -25,7 +26,7 @@ import { MANIFEST, OVERRIDES, readManifest, readOverrides, sha256 } from '../lib
 import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
-const TEMPLATE_MAP = 'dev/ownership.yaml';
+const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
 
 let manifest;
 let overrides;
@@ -36,13 +37,13 @@ try {
   process.exit(report({ id: 'D1', claim: '', scanned: 0, unit: 'managed files', broken: e.message }));
 }
 
-if (!manifest && existsSync(join(root, TEMPLATE_MAP))) {
+if (!manifest && TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)))) {
   process.exit(
     report({
       id: 'D1',
-      claim: `template mode — this is slipway itself (${TEMPLATE_MAP} present, no ${MANIFEST}), the source files are the base, so nothing can drift; every project new-project creates is checked against its own manifest`,
-      scanned: 1,
-      unit: 'ownership map (template mode)',
+      claim: `template mode — this is slipway itself (${TEMPLATE_MARKERS.join(' and ')} present, no ${MANIFEST}), the source files are the base, so nothing can drift; every project new-project creates is checked against its own manifest`,
+      scanned: TEMPLATE_MARKERS.length,
+      unit: 'template markers (template mode)',
     })
   );
 }

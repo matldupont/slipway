@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { today as localToday } from '../ci/checks/lib/clock.mjs';
 import { MANIFEST } from '../ci/checks/lib/manifest.mjs';
 import { classify, listSource, loadOwnership, MAP, shippedPaths } from '../ci/checks/lib/ownership.mjs';
-import { buildManifest, derivePackageJson, resolveSlipway, SOURCE } from './lib/install.mjs';
+import { buildManifest, derivePackageJson, publicSource, resolveSlipway, SOURCE } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
@@ -139,7 +139,13 @@ if (opts.github) {
 // `<sha>-dirty` in an edited checkout, the version anywhere else.
 const pkgVersion = JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).version ?? 'unknown';
 const origin = process.env.SLIPWAY_SOURCE || SOURCE;
-const resolved = resolveSlipway(SRC, COPY, { source: origin });
+let shownOrigin;
+try {
+  shownOrigin = publicSource(origin);
+} catch (e) {
+  die(`SLIPWAY_SOURCE: ${e.message}`);
+}
+const resolved = resolveSlipway(SRC, COPY, { rules, source: origin });
 const version = resolved.sha ?? (resolved.candidate && listSource(SRC) === 'git' ? `${resolved.candidate}-dirty` : pkgVersion);
 
 process.stdout.write(`slipway ${version} → ${dest}\n  product: ${name}\n  repo:    ${opts.github ? `${repo} (${opts.public ? 'public' : 'private'})` : 'none (--no-github)'}\n  commits: ${identity ? `${identity.name} <${identity.email}>` : 'your git config'}\n`);
@@ -201,7 +207,7 @@ if (!opts.dryRun) {
     rules,
     slipway: resolved.sha,
     version: pkgVersion,
-    source: origin,
+    source: shownOrigin,
     answers: { name, repo: repo ?? null },
   });
   mkdirSync(join(dest, '.slipway'), { recursive: true });

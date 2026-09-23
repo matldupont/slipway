@@ -32,7 +32,7 @@ export function readManifest(root) {
   }
   if (!m || typeof m.files !== 'object' || m.files === null || Array.isArray(m.files)) throw new Error(`${MANIFEST} has no files map`);
   for (const [path, f] of Object.entries(m.files)) {
-    if (path.startsWith('/') || path.split('/').some((s) => s === '..' || s === '' || s === '.')) {
+    if (/[\\:]/.test(path) || path.startsWith('/') || path.split('/').some((s) => s === '..' || s === '' || s === '.')) {
       throw new Error(`${MANIFEST}: "${path}" is not a plain relative path`);
     }
     if (typeof f?.class !== 'string' || !/^[0-9a-f]{64}$/.test(f?.sha256 ?? '')) {

@@ -12,9 +12,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { MANIFEST, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { MANIFEST, readManifest, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
-import { derivePackageJson, resolveSlipway } from './lib/install.mjs';
+import { derivePackageJson, publicSource, resolveSlipway } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const rules = loadOwnership(SRC);
@@ -64,7 +64,7 @@ function copyTemplate(to) {
 
 test('the manifest lists every shipped path with its class and the hash as written; D1 and M1 pass', () => {
   const dest = join(tmp(), 'probe');
-  const { manifest, subject, readme } = newProject(SRC, dest);
+  const { manifest, subject, readme } = newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
 
   const want = shippedPaths(SRC, rules).filter((p) => classify(rules, p) !== 'internal');
   assert.deepEqual(Object.keys(manifest.files), want);
@@ -140,11 +140,35 @@ test('under npx, untracked inside another repository: the source sha confirmed b
   assert.ok(differ.readme.includes(`Built on [slipway](SLIPWAY.md) ${PKG_VERSION}.`));
 });
 
-test('resolveSlipway: an unreachable source resolves to null, and an edited checkout names its candidate', () => {
+test('in an edited slipway checkout: no sha in the manifest, and the commit and README say <sha>-dirty', () => {
+  const root = tmp();
+  const checkout = join(root, 'slipway');
+  copyTemplate(checkout);
+  git(checkout, 'init', '-q', '-b', 'main');
+  git(checkout, 'add', '-A');
+  git(checkout, 'commit', '-q', '-m', 'slipway');
+  const head = git(checkout, 'rev-parse', 'HEAD');
+
+  const clean = newProject(checkout, join(root, 'clean'), { SLIPWAY_SOURCE: '' });
+  assert.equal(clean.manifest.slipway, head);
+  assert.equal(clean.subject, `chore: start from slipway ${head}`);
+
+  appendFileSync(join(checkout, 'SLIPWAY.md'), '\nuncommitted\n');
+  const edited = newProject(checkout, join(root, 'edited'), { SLIPWAY_SOURCE: '' });
+  assert.equal(edited.manifest.slipway, null);
+  assert.equal(edited.manifest.version, PKG_VERSION);
+  assert.equal(edited.subject, `chore: start from slipway ${head}-dirty`);
+  assert.ok(edited.readme.includes(`Built on [slipway](SLIPWAY.md) ${head}-dirty.`));
+});
+
+test('resolveSlipway: an unreachable source resolves to null, and an edited or thinned checkout names its candidate', () => {
   const walked = tmp();
   writeFileSync(join(walked, 'a.md'), 'a\n');
-  const offline = resolveSlipway(walked, ['a.md'], { remote: () => { throw new Error('could not resolve host'); } });
-  assert.deepEqual(offline, { sha: null, candidate: null, why: 'could not read a candidate sha: could not resolve host' });
+  const offline = resolveSlipway(walked, ['a.md'], {
+    rules,
+    remote: () => { throw Object.assign(new Error('x'), { stderr: 'fatal: unable to access https://me:ghp_secret@github.com/me/slipway.git/' }); },
+  });
+  assert.deepEqual(offline, { sha: null, candidate: null, why: 'could not read a candidate sha: fatal: unable to access https://github.com/me/slipway.git/' });
 
   const checkout = tmp();
   writeFileSync(join(checkout, 'a.md'), 'a\n');
@@ -152,12 +176,44 @@ test('resolveSlipway: an unreachable source resolves to null, and an edited chec
   git(checkout, 'add', '-A');
   git(checkout, 'commit', '-q', '-m', 'a');
   const head = git(checkout, 'rev-parse', 'HEAD');
-  assert.equal(resolveSlipway(checkout, ['a.md']).sha, head);
+  assert.equal(resolveSlipway(checkout, ['a.md'], { rules }).sha, head);
+  // A file the commit ships but the install did not take (deleted from the checkout) is a difference.
+  writeFileSync(join(checkout, 'b.md'), 'b\n');
+  git(checkout, 'add', '-A');
+  git(checkout, 'commit', '-q', '-m', 'b');
+  const thinned = resolveSlipway(checkout, ['a.md'], { rules });
+  assert.equal(thinned.sha, null);
+  assert.match(thinned.why, /1 file\(s\) differ from [0-9a-f]{12}: b\.md/);
   writeFileSync(join(checkout, 'a.md'), 'edited\n');
-  const dirty = resolveSlipway(checkout, ['a.md']);
+  const dirty = resolveSlipway(checkout, ['a.md', 'b.md'], { rules });
   assert.equal(dirty.sha, null);
-  assert.equal(dirty.candidate, head);
+  assert.equal(dirty.candidate, git(checkout, 'rev-parse', 'HEAD'));
   assert.match(dirty.why, /1 file\(s\) differ from [0-9a-f]{12}: a\.md/);
+});
+
+test('publicSource: credentials never reach the manifest, and an option-shaped source is refused', () => {
+  assert.equal(publicSource('github:matldupont/slipway'), 'github:matldupont/slipway');
+  assert.equal(publicSource('https://x-access-token:ghp_secret@github.com/me/slipway.git'), 'https://github.com/me/slipway.git');
+  assert.equal(publicSource('/tmp/slipway'), '/tmp/slipway');
+  assert.throws(() => publicSource('--upload-pack=touch x'), /reads as a git option/);
+});
+
+test('readManifest refuses a manifest it cannot trust', () => {
+  const put = (m) => {
+    const d = tmp();
+    mkdirSync(join(d, '.slipway'));
+    writeFileSync(join(d, MANIFEST), typeof m === 'string' ? m : JSON.stringify(m));
+    return d;
+  };
+  const file = { class: 'managed', sha256: 'a'.repeat(64) };
+  assert.equal(readManifest(tmp()), null);
+  assert.throws(() => readManifest(put('{')), /not valid JSON/);
+  assert.throws(() => readManifest(put({ slipway: null })), /no files map/);
+  for (const p of ['/etc/passwd', '../x', 'a/../../x', 'a//b', './a', 'a\\..\\x', 'C:x']) {
+    assert.throws(() => readManifest(put({ files: { [p]: file } })), /not a plain relative path/, p);
+  }
+  assert.throws(() => readManifest(put({ files: { 'a.md': { class: 'managed', sha256: 'short' } } })), /needs a class and a sha256/);
+  assert.equal(readManifest(put({ files: { 'a/b.md': file } })).files['a/b.md'].class, 'managed');
 });
 
 test('derivePackageJson: the project gets its own name and no command that calls an internal path', () => {
