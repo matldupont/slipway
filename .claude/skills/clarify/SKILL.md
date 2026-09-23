@@ -23,8 +23,10 @@ what you are assuming, what it costs if you are wrong, and where the real answer
 sentence around it says what depends on the answer. Group questions that share an answer; ask once.
 
 Before asking, look for a tracker that already exists (`gh issue list --search "<key words>"`, the
-PRD's `OD-` list, `decisions.md`). A question someone already filed an issue for is being chased: it
-is parked, not open, and its marker is wrong until you convert it.
+PRD's `OD-` list, `decisions.md`). A question someone already filed an issue for is being chased, and
+its tracker is that issue — but an issue is not an assumption. If the question can be parked (§2), convert
+the marker and cite the issue; if it is still blocking, leave `NEEDS CLARIFICATION` and name the issue
+beside it.
 
 ## 2 — One at a time
 
