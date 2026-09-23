@@ -81,12 +81,13 @@ anyway with a decision in `decisions.md` that says why.
    impact-if-wrong; only business-invalidating ones are BLOCKING.
 
    **When the input is a source document** (a loose PRD, a brief, notes with their own risks),
-   fill §3 *Source coverage* before moving on: walk the source top to bottom and give every risk,
+   fill §3 *Source coverage* before moving on: name it on the `Source:` line (path or link, and
+   its version), then walk the source top to bottom and give every risk,
    spike, invariant and blocking decision one row — **kept** (with the new ID), **moved** (with a
    DIV-n saying where and why) or **dropped** (with a DIV-n saying why). A dropped item is fine; a
    missing row is not, because nobody can tell it was dropped on purpose. Never write "handled by
    the features above": name the ID that handles it. With no source document, write
-   `none: no source`.
+   `Source: none`.
 2. **Week-1 decisions (`decisions.md`).** Walk the entries marked *(week 1)*. For each: decide
    with the user, or defer with the event that reopens it. These are the expensive-to-reverse
    choices; do not let one slide into month three. Once D-005–D-008 are decided, rewrite the
