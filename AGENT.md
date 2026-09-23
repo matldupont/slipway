@@ -23,6 +23,7 @@ Without values those skills fall back to another product's defaults — its repo
 | Testing strategy doc | `docs/testing-strategy.md` |
 | Effort decision-tree | `process/designation.md` |
 | Quality gate | `pnpm verify && pnpm meta` |
+| Timezone | `local` — or an IANA zone (`America/Toronto`); `pnpm status` and the date checks read "today" in it. Set it: CI runs in UTC |
 | Domain map | `apps/web/**` → frontend · `packages/**` → shared |
 | Stack constraints | `CLAUDE.md`, then the nearest `AGENT.md` walking up from the working directory |
 | Project field mapping | none — add board fields only when a check or a person actually reads them |

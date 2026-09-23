@@ -33,13 +33,14 @@ import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { section } from '../lib/markdown.mjs';
 import { MILESTONE_KINDS, MILESTONE_STATUSES, parseAppetite, readMilestones } from '../lib/milestones.mjs';
+import { today as localToday } from '../lib/clock.mjs';
 import { report } from '../lib/report.mjs';
 
 const REQUIRED_SECTIONS = ['No-gos', 'Gate', 'Kill criteria'];
 const TEMPLATE_KEYS = ['id', 'status', 'kind', 'appetite'];
 
 const root = process.argv[2] ?? '.';
-const today = process.env.CHECK_TODAY ?? new Date().toISOString().slice(0, 10);
+const today = localToday(root);
 const { dir, files, milestones } = readMilestones(root);
 const decisionsPath = join(root, 'decisions.md');
 const decisions = existsSync(decisionsPath) ? readFileSync(decisionsPath, 'utf8') : '';

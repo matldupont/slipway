@@ -28,6 +28,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter } from '../lib/frontmatter.mjs';
+import { today as localToday } from '../lib/clock.mjs';
 import { report } from '../lib/report.mjs';
 
 const STATUSES = new Set(['check', 'structural', 'artifact', 'prose', 'declined']);
@@ -58,7 +59,7 @@ function dueDate(value, anchor) {
 }
 
 const root = process.argv[2] ?? '.';
-const today = process.env.CHECK_TODAY ?? new Date().toISOString().slice(0, 10);
+const today = localToday(root);
 const dir = join(root, 'process', 'lessons');
 const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md').sort() : [];
 const anchorPath = join(root, 'process', 'anchor');

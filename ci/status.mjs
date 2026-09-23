@@ -10,15 +10,16 @@
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { parseAppetite, readMilestones } from './checks/lib/milestones.mjs';
-import { readRisks, TRACKER } from './checks/lib/risks.mjs';
+import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
 const args = process.argv.slice(2);
 const root = args.find((a) => !a.startsWith('--')) ?? '.';
-const today = process.env.CHECK_TODAY ?? new Date().toISOString().slice(0, 10);
+const today = localToday(root);
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
@@ -76,6 +77,22 @@ const riskBlocks = pastSkeletonUnderway.length
   : `blocks ${blockedByRisk.length ? `${blockedByRisk.join(', ')} activation` : 'every milestone past the skeleton'} (K1)`;
 const riskLine = untestedValue.length ? `${untestedValue.map(riskState).join(', ')} · ${riskBlocks}` : '';
 const riskFile = untracked.length ? ' File the issue that runs each untested one and name it in FRAME\'s Tracker column.' : '';
+// An existential risk — any category, so K1's value gate may not cover it — whose test the PRD schedules
+// after the first milestone past the skeleton starts, or at no milestone at all. A warning, not a K1
+// finding: "existential" is the owner's word, and building ahead of it on purpose is a D-nnn override.
+// Read only where the PRD's risk table has a Resolves by column.
+const deadlines = readDeadlines(prd);
+const skeletons = ms.filter((m) => m.kind === 'skeleton').map((m) => milestoneNumber(m.id)).filter((n) => n >= 0);
+const bets = ms.filter((m) => m.kind !== 'skeleton').map((m) => milestoneNumber(m.id)).filter((n) => n >= 0);
+const firstBet = bets.length ? Math.min(...bets) : skeletons.length ? Math.max(...skeletons) + 1 : null;
+const existential = deadlines && firstBet !== null
+  ? risks.filter((r) => !r.tested && /\bexistential\b/i.test(r.impact ?? '')).flatMap((r) => {
+      const d = deadlines.get((r.id ?? '').toUpperCase());
+      if (d?.before && milestoneNumber(d.before) <= firstBet) return [];
+      const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${d.cell}, after M${firstBet} starts` : `resolves "${d.cell || 'blank'}", which names no milestone`;
+      return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a D-nnn override (cost if wrong, and what reopens it)`];
+    })
+  : [];
 
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
@@ -127,7 +144,7 @@ function next() {
     return `Step 0 (you + agent) — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
   if (frame !== 'framed') return 'Step 1 (you, with /kickoff) — Frame: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.';
-  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results: docs/product/evidence/.`;
+  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results go in docs/product/evidence/ — or record a D-nnn override (cost if wrong, and what reopens it) to build ahead.`;
   if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) return testTheRisk;
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
     return prdReviews.length
@@ -188,6 +205,7 @@ if (ms.length) {
 }
 const attention = [
   ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (R1 requires one once Status leaves draft)`] : []),
+  ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),
   ...parked_.map((c) => `Parked: ${c}`),
