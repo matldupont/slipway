@@ -12,6 +12,19 @@ confident. Independent review pays best on exactly the claims the author was sur
 - Output a `## Cold review` section in the PR: the reviewer, the head sha reviewed, findings with
   `file:line`, a verdict. Every finding is fixed in the diff or explicitly waived there.
 
+## When to stop
+
+Another round runs only when the last round found a finding that **breaks a guarantee the spec states**:
+lost work or data, a leaked secret, a gate an agent can pass without asking, a wrong answer on an
+Acceptance case. Anything else is fixed in the same diff if it is cheap and in scope; otherwise it is
+recorded in the spec's known limitations or filed as a follow-up. A spec with no threat model has no
+guarantees to test against, so write the threat model before the next round, not another round (L-68).
+
+Findings that start with "when the environment has…" (a credential helper, a symlinked parent, a fork, a
+platform setting) are limitations until the spec promises otherwise. When a round finds only these,
+the change probably holds surface it should not: moving the surface out ends the review; patching it
+adds the next layer.
+
 Making this a required check is deferred until the first consequence-bearing path lands (L-50).
 A new checklist line needs a lesson naming the failure it prevents.
 

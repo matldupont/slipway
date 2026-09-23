@@ -65,22 +65,51 @@ files it describes:
 
 ```json
 {
-  "slipway": "<full sha of the template version installed>",
+  "slipway": "<sha when new-project ran from a clean slipway checkout, else null>",
+  "version": "<package.json version>",
   "source": "github:matldupont/slipway",
   "answers": { "name": "Acme", "repo": "owner/acme" },
-  "files": { "<path>": { "class": "managed", "sha256": "<hash of the content as written>" } }
+  "files": { "<path>": { "class": "managed", "sha256": "<hash of the content as written>", "blob": "<git blob id of the same bytes>" } }
 }
 ```
 
 `answers` records the placeholder values, so a sync can reproduce what `new-project` wrote from any
 slipway version, the way Copier keeps its answers file.
 
-Under `npx github:…` the package has no `.git`, so `new-project` resolves the sha with `git ls-remote`
-and confirms it by comparing every shipped file's hash with that commit's tree. If they don't match, it
-records `"slipway": null` with the version, and sync resolves the base by closest match, as adopt does.
+**The base is identified by content, not by a recorded sha.** `new-project` makes no network call.
+Under `npx github:…` the package has no `.git`, and a local checkout's HEAD may be unpushed or a fork,
+so any sha it records is only a hint. The manifest's `blob` ids fix the base on their own: it is the
+slipway commit whose tree holds exactly those blobs at those paths (`git ls-tree -r` per commit, in
+the clone sync makes anyway). For a fresh manifest the match is exact, not a guess. Sync starts its
+search at `slipway` when it is set. (This replaced a `git ls-remote` step in `new-project`: three cold-review
+rounds on #20 kept finding credential, prompt and fork cases in it.)
 
 `.slipway/overrides.yaml` lists the managed files the project changed on purpose: `path` and `reason`.
 Both files are `seeded`.
+
+### Threat model
+
+What the lock defends, so a review has a bar to stop at (`process/cold-review.md#When to stop`):
+
+- **D1 guards against an agent changing slipway-owned files unasked**, not against the owner, who can
+  edit anything, including the manifest. So `.slipway/**` edits are ask-level in the harness, next to
+  `ci/**` (#24). Signing the manifest is out of scope.
+- **Sync never loses a line of the project's work**: the Acceptance blocks. A finding that breaks one
+  blocks the merge.
+- **No secret leaves the machine or lands in the repo.** `source` can be user-supplied. Every git call
+  goes through one helper in `scripts/lib/install.mjs`:
+  - no prompts: `GIT_TERMINAL_PROMPT=0`, `GIT_ASKPASS` cleared, `GCM_INTERACTIVE=never`, and SSH in
+    `BatchMode` unless `GIT_SSH_COMMAND` is set;
+  - a timeout;
+  - `source` redacted in the manifest and in all output.
+
+  Sync reuses the helper rather than calling git itself.
+
+**Known limitations.** These are accepted, not bugs; a review that finds one records it here instead of
+starting another round:
+- D1 checks the last path component for symlinks, so a symlinked parent directory is still followed.
+- A project cloned with `core.autocrlf=true` hashes CRLF bytes. Open question below (#25).
+- The owner can forge the manifest or overrides.
 
 ### D1 — drift (ships to projects)
 
@@ -98,11 +127,10 @@ project's `meta` only was the alternative, but M1 in slipway fails on a check fi
 What proves D1 on a real install is `scripts/new-project.test.mjs` (internal, in slipway's `meta`): it
 creates a project, runs D1 and M1 in it, then drifts a file and deletes the manifest.
 
-The sha is confirmed the same way in both places it comes from: slipway's own checkout offers `HEAD`,
-anywhere else `git ls-remote <source> HEAD` plus a shallow blobless fetch of that commit's tree, and it
-counts only when every copied file's git blob id equals the tree's and every path the commit ships was
-copied. A credential in the source URL is stripped before it reaches the manifest. `SLIPWAY_SOURCE` overrides the
-source (a fork, or the test's local repository).
+The `slipway` hint is recorded only from slipway's own checkout: `HEAD`, when its tree holds every
+copied file's blob and every path that commit ships was copied. Anywhere else, and in an edited
+checkout, it is null. `SLIPWAY_SOURCE` overrides the recorded `source` (a fork), redacted of any
+credential.
 
 ### O1 — ownership (slipway only)
 
@@ -124,8 +152,11 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
 
 1. **Preflight.** Refuse a dirty tree, a detached HEAD, or D1 red. Create `slipway/sync-<short sha>` from
    the current branch; never write to `main`.
-2. **Resolve.** The base is the manifest's `slipway` sha and the target is the ref. Read both trees with
-   `git archive` or `git show <sha>:<path>` from a clone of `source`, cached in the OS temp dir.
+2. **Resolve.** The target is the ref. The base is the commit whose tree matches the manifest's
+   managed `blob` ids exactly, searched from `slipway` when it is set, then back along `main`. No exact
+   match (files deleted from slipway's history, or a hand-edited manifest) means sync stops and names
+   the closest commit with its match count. Read both trees with `git show <sha>:<path>` from a clone of
+   `source`, cached in the OS temp dir, through the git helper (Threat model).
 3. **Plan.** Print one row per path: `replace`, `merge`, `add`, `delete`, `keep (edited)`,
    `collision`, `seeded: upstream changed`, `merged: key updated or reported`, `unchanged`. `--plan` stops
    here and writes nothing.
@@ -149,9 +180,9 @@ does this step: an agent never installs its own hooks.
 
 **Adopt.** For a project with no manifest, the base comes from `--base`, else from a sha in the
 `chore: start from slipway <x>` commit or the README line. Under `npx` that `<x>` is `package.json`'s
-version, not a sha (sidebar's says `0.1.0`), so adopt then proposes the **closest match**: the slipway
-commit whose tree matches the most of the project's shipped files, with the runner-up's count, for the
-owner to confirm. Every current file is
+version, not a sha (sidebar's says `0.1.0`). Adopt then uses step 2's resolver in closest-match mode: the
+slipway commit whose tree matches the most of the project's shipped files, with the runner-up's count,
+for the owner to confirm. Every current file is
 hashed against the base. Pristine files enter the manifest as they are; differing managed files are
 listed for the owner to override or revert. Nothing is written until the owner re-runs with
 `--adopt --apply`.
@@ -243,10 +274,11 @@ Machinery before surface. Each step merges with `pnpm meta` green.
 1. **Ownership map and O1** (#14): `dev/ownership.yaml`, O1 with its fixture, and `new-project` taking its skip
    list from the map. Move the working rules to `process/slipway-rules.md` behind a `CLAUDE.md` import.
    Layer: template + check. ~M.
-2. **Manifest and D1** (#15): `new-project` writes `.slipway/manifest.json`; D1 with its fixtures; the shared
-   `package.json` derivation. ~M.
-3. **Sync plan (read-only)** (#16): the bin subcommand, preflight, resolve, classify and print. It writes
-   nothing, so it can run against sidebar safely. ~M.
+2. **Manifest and D1** (#15): `new-project` writes `.slipway/manifest.json` with `blob` ids and no network
+   call; D1 with its fixtures; the shared `package.json` derivation and git helper. ~M.
+3. **Sync plan (read-only)** (#16): the bin subcommand, preflight, the content resolver (exact and
+   closest match), classify and print; M1 gates `scripts/**/*.test.mjs` (#22). It writes nothing, so it
+   can run against sidebar safely. ~M.
 4. **Sync apply** (#17): per-class writes, merge-file, deletes, seeded diffs, manifest rewrite, the harness step.
    Temp-repo tests for every guarantee. Cold review: it writes and deletes. ~L.
 5. **`/sync-slipway` and adopt** (#18): the skill, `--adopt`, `PL-`/`PD-` in L1 and in the templates, and
@@ -277,6 +309,11 @@ Machinery before surface. Each step merges with `pnpm meta` green.
 - ~~**Project-written files under managed globs**~~ (settled in step 2, #15). D1 checks only the paths
   the manifest lists, so a lesson or skill the project adds under `process/**` or `.claude/skills/**` is
   never policed. (Step 1 already seeds `ci/exceptions.yaml`, the project's own M3 registry.)
+- **Line endings** (owner: #25, before #16). Hashes are of bytes, so a Windows clone with
+  `core.autocrlf=true` shows every managed file as drift. Recommended: ship `.gitattributes` with
+  `* text=auto eol=lf` as a managed file, so every platform checks out the bytes slipway hashed. The
+  alternatives are normalising before hashing (every hash consumer must agree, and merge-file then sees
+  different bytes) or a known limitation.
 - **Review home.** `/review-doc` writes to `docs/reviews/`, which ships. A review of this doc should go
   to `dev/reviews/` until the skill takes a destination.
 
