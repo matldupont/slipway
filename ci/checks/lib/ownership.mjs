@@ -23,6 +23,7 @@ export function globToRegExp(glob) {
   // At most one `*` per segment, and repeated `**` segments collapse to one: the RegExp then cannot
   // backtrack exponentially on a map typo.
   const segs = glob.split('/').map((s) => (s === '**' ? s : s.replace(/\*+/g, '*'))).filter((s, i, a) => !(s === '**' && a[i - 1] === '**'));
+  if (segs.some((s) => s === '')) throw new Error(`${MAP}: unsupported glob "${glob}" — empty segment`);
   if (segs.some((s) => s !== '**' && s.split('*').length > 2)) throw new Error(`${MAP}: unsupported glob "${glob}" — at most one * per segment`);
   const body = segs.map((s, i) => {
     const last = i === segs.length - 1;
@@ -64,10 +65,15 @@ export function classify(rules, path) {
 // the list: new-project writes it even when npm did not pack one. Throws on a symlink that is not
 // internal, which a copy would either dereference (shipping a file from outside the template) or break.
 export function shippedPaths(root, rules) {
-  const files = gitTop(root) === realpathSync.native(root) ? tracked(root) : walk(root, root);
+  const files = listSource(root) === 'git' ? tracked(root) : walk(root, root);
   const links = files.filter((f) => classify(rules, f) !== 'internal' && lstatSync(join(root, f)).isSymbolicLink());
   if (links.length) throw new Error(`symlinks are never shipped: ${links.join(', ')}`);
   return [...new Set([...files, '.gitignore'])].sort();
+}
+
+// Where shippedPaths takes its list from: 'git' (tracked files) or 'walk' (every file on disk).
+export function listSource(root) {
+  return gitTop(root) === realpathSync.native(root) ? 'git' : 'walk';
 }
 
 function gitTop(root) {

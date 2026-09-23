@@ -27,7 +27,8 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFi
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from '../ci/checks/lib/clock.mjs';
-import { classify, loadOwnership, MAP, shippedPaths } from '../ci/checks/lib/ownership.mjs';
+import { parseCommand } from '../ci/checks/lib/commands.mjs';
+import { classify, listSource, loadOwnership, MAP, shippedPaths } from '../ci/checks/lib/ownership.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
@@ -103,8 +104,12 @@ try {
   die(e.message);
 }
 const unclassified = shipped.filter((p) => !classify(rules, p));
+const source = listSource(SRC) === 'git' ? 'git ls-files' : 'a directory walk (no git checkout at the template top)';
 if (unclassified.length) {
-  die(`${unclassified.length} path(s) match no glob in ${MAP}; give each a class first (O1):\n  ${unclassified.join('\n  ')}`);
+  const fix = listSource(SRC) === 'git'
+    ? 'give each a class first (O1)'
+    : 'these may be local files: delete them or run from a git checkout of slipway; if they belong in the template, give each a class (O1)';
+  die(`${unclassified.length} path(s) from ${source} match no glob in ${MAP}; ${fix}:\n  ${unclassified.join('\n  ')}`);
 }
 const internal = shipped.filter((p) => classify(rules, p) === 'internal');
 // .gitignore is written in step 2, not copied.
@@ -137,7 +142,7 @@ if (!opts.dryRun) {
     copyFileSync(join(SRC, p), join(dest, p));
   }
 }
-note(`${opts.dryRun ? 'would copy' : 'copied'} ${COPY.length} paths by class (${MAP}); left out ${internal.length} internal`);
+note(`${opts.dryRun ? 'would copy' : 'copied'} ${COPY.length} paths by class (${MAP}, listed by ${source}); left out ${internal.length} internal`);
 
 // ---- 2. fill placeholders
 step(2, 'Fill placeholders and start the lessons clock');
@@ -153,7 +158,7 @@ if (!opts.dryRun) {
     delete pkg.version;
     // Drop every command that calls an internal path (O1): the project never receives it.
     for (const [k, v] of Object.entries(pkg.scripts ?? {})) {
-      const calls = (c) => c.split(/[\s;|&'"=]+/).some((t) => t && classify(rules, t.replace(/^\.\//, '')) === 'internal');
+      const calls = (c) => parseCommand(c).some((x) => x.kind === 'node' && classify(rules, x.path) === 'internal');
       const kept = v.split(/\s*&&\s*/).filter((c) => !calls(c));
       if (kept.length) pkg.scripts[k] = kept.join(' && ');
       else delete pkg.scripts[k];

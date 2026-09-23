@@ -33,6 +33,13 @@ paths:
     class: internal
   - glob: ci/fixtures/known-bad/o1/**
     class: internal
+  # local secrets and settings, wherever they sit: a directory walk would otherwise ship them
+  - glob: '**/.env*'
+    class: internal
+  - glob: '**/.npmrc'
+    class: internal
+  - glob: '**/settings.local.json'
+    class: internal
 
   # seeded exceptions inside managed trees
   - glob: process/anchor
@@ -55,13 +62,13 @@ paths:
     class: managed
   - glob: docs/**/TEMPLATE.md
     class: managed
-  - glob: docs/**/README.md
-    class: managed
 
   # seeded
   - glob: docs/PRD.md
     class: seeded
   - glob: docs/product/**
+    class: seeded
+  - glob: docs/qa/**
     class: seeded
   - glob: docs/milestones/**
     class: seeded
