@@ -33,16 +33,19 @@ import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from '../ci/checks/lib/clock.mjs';
 import { MANIFEST } from '../ci/checks/lib/manifest.mjs';
-import { classify, listSource, loadOwnership, MAP, shippedPaths } from '../ci/checks/lib/ownership.mjs';
-import { buildManifest, derivePackageJson, publicSource, resolveSlipway, SOURCE } from './lib/install.mjs';
+import { listSource, MAP } from '../ci/checks/lib/ownership.mjs';
+import { buildManifest, derivePackageJson, gitignoreText, publicSource, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// `sync` is its own command (F-01 step 3), dispatched here so the package's one bin runs it: the sync
+// code always comes from the slipway version being synced to. A directory named sync: `./sync`.
+if (process.argv[2] === 'sync') {
+  const { main } = await import('./sync.mjs');
+  process.exit(main(process.argv.slice(3)));
+}
+
 const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
 const REQUIRED_CHECKS = ['meta', 'verify', 'pr-body'];
-// Written, not copied: npm never packs .gitignore, so under `npx github:…` there is none to copy.
-const GITIGNORE = existsSync(join(SRC, '.gitignore'))
-  ? readFileSync(join(SRC, '.gitignore'), 'utf8')
-  : 'node_modules/\n.DS_Store\nSTATE.md\n';
 
 // ---- arguments
 const USAGE = 'usage: new-project <dir> [--name "Acme"] [--repo owner/name] [--public] [--keep-email] [--no-harness] [--no-github] [--dry-run]';
@@ -97,30 +100,12 @@ function edit(rel, fn) {
 
 // ---- what ships: every path by its class in dev/ownership.yaml, the classification O1 checks.
 // An unclassified path has no safe sync action, so nothing is copied until it has one.
-let rules;
+let rules, COPY, internal, source;
 try {
-  rules = loadOwnership(SRC);
-} catch (e) {
-  die(`${e.message} — cannot tell which files ship`);
-}
-let shipped;
-try {
-  shipped = shippedPaths(SRC, rules);
+  ({ rules, copy: COPY, internal, listedBy: source } = templateFiles(SRC));
 } catch (e) {
   die(e.message);
 }
-const unclassified = shipped.filter((p) => !classify(rules, p));
-const source = listSource(SRC) === 'git' ? 'git ls-files' : 'a directory walk (no git checkout at the template top)';
-if (unclassified.length) {
-  const fix = listSource(SRC) === 'git'
-    ? 'give each a class first (O1)'
-    : 'these may be local files: delete them or run from a git checkout of slipway; if they belong in the template, give each a class (O1)';
-  die(`${unclassified.length} path(s) from ${source} match no glob in ${MAP}; ${fix}:\n  ${unclassified.join('\n  ')}`);
-}
-const internal = shipped.filter((p) => classify(rules, p) === 'internal');
-// .gitignore is written in step 2, not copied.
-const COPY = shipped.filter((p) => classify(rules, p) !== 'internal' && p !== '.gitignore');
-if (COPY.length === 0) die(`found nothing to copy in ${SRC} — is this a slipway checkout or package?`);
 
 // ---- preflight
 let repo = opts.repo;
@@ -167,7 +152,7 @@ if (!opts.dryRun) {
   for (const f of PLACEHOLDER_FILES) edit(f, (s) => s.replaceAll('<Product>', name).replaceAll('<owner/repo>', repo ?? '<owner/repo>'));
   edit('package.json', (s) => JSON.stringify(derivePackageJson(JSON.parse(s), { name: slug, rules }), null, 2) + '\n');
   writeFileSync(join(dest, 'process', 'anchor'), today + '\n');
-  writeFileSync(join(dest, '.gitignore'), GITIGNORE);
+  writeFileSync(join(dest, '.gitignore'), gitignoreText(SRC));
   writeFileSync(join(dest, 'README.md'), `# ${name}
 
 <!-- One paragraph: what this is and who it is for — FRAME.md's question, once it is framed. -->

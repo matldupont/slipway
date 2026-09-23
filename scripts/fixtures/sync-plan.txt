@@ -1,0 +1,22 @@
+slipway sync plan, on main
+  source: <slipway>
+  base:   <A> (by content: the manifest's managed blobs)
+  target: <B>
+
+  unchanged                 .gitattributes
+  unchanged                 .gitignore
+  unchanged                 README.md
+  seeded: upstream changed  docs/PRD.md
+  unchanged                 docs/same.md
+  merged: key updated       package.json scripts.a
+  merged: key reported      package.json scripts.b
+  merged: key updated       package.json scripts.c
+  collision                 process/clash.md
+  delete                    process/delete.md
+  keep (edited)             process/kept.md
+  merge                     process/merge.md
+  add                       process/new.md
+  replace                   process/replace.md
+  unchanged                 process/same.md
+
+15 rows: 1 replace, 1 merge, 1 add, 1 delete, 1 keep (edited), 1 collision, 1 seeded: upstream changed, 2 merged: key updated, 1 merged: key reported, 5 unchanged. Plan only — nothing was written.

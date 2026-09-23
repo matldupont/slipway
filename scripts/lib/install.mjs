@@ -5,11 +5,11 @@
 
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseCommand } from '../../ci/checks/lib/commands.mjs';
 import { sha256 } from '../../ci/checks/lib/manifest.mjs';
-import { classify, listSource } from '../../ci/checks/lib/ownership.mjs';
+import { classify, listSource, loadOwnership, MAP, shippedPaths } from '../../ci/checks/lib/ownership.mjs';
 
 export const SOURCE = 'github:matldupont/slipway';
 // The source as the manifest and the output may show it: a token in `https://user:token@host/…` is
@@ -25,6 +25,41 @@ export function publicSource(source) {
   u.hash = '';
   return u.toString();
 }
+
+/**
+ * What an install takes from the template at `src`, by class in its ownership map: the precondition
+ * new-project and sync share (O1). Throws when the map cannot be read, a path has no class — it has no
+ * safe sync action — or nothing would be copied.
+ *
+ * @returns {{ rules: object[], copy: string[], internal: string[], listedBy: string }} `copy` is every
+ *   path taken as it is; `.gitignore` is written instead (gitignoreText), so it is in neither list.
+ */
+export function templateFiles(src) {
+  let rules;
+  try {
+    rules = loadOwnership(src);
+  } catch (e) {
+    throw new Error(`${e.message} — cannot tell which files ship`);
+  }
+  const shipped = shippedPaths(src, rules);
+  const git = listSource(src) === 'git';
+  const listedBy = git ? 'git ls-files' : 'a directory walk (no git checkout at the template top)';
+  const unclassified = shipped.filter((p) => !classify(rules, p));
+  if (unclassified.length) {
+    const fix = git
+      ? 'give each a class first (O1)'
+      : 'these may be local files: delete them or run from a git checkout of slipway; if they belong in the template, give each a class (O1)';
+    throw new Error(`${unclassified.length} path(s) from ${listedBy} match no glob in ${MAP}; ${fix}:\n  ${unclassified.join('\n  ')}`);
+  }
+  const internal = shipped.filter((p) => classify(rules, p) === 'internal');
+  const copy = shipped.filter((p) => classify(rules, p) !== 'internal' && p !== '.gitignore');
+  if (copy.length === 0) throw new Error(`found nothing to copy in ${src} — is this a slipway checkout or package?`);
+  return { rules, copy, internal, listedBy };
+}
+
+// The .gitignore an install writes: npm never packs one, so under `npx github:…` there is none to copy.
+export const gitignoreText = (src) =>
+  existsSync(join(src, '.gitignore')) ? readFileSync(join(src, '.gitignore'), 'utf8') : 'node_modules/\n.DS_Store\nSTATE.md\n';
 
 // The project's package.json from the template's: its own name, private, no bin/description/version,
 // and no command that calls an internal path (O1) — the project never receives one.
@@ -55,6 +90,8 @@ let quiet;
 function quietEnv() {
   if (!quiet) {
     quiet = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS: '', GCM_INTERACTIVE: 'never' };
+    // Transports only: never `ext::` (runs a command) or another helper a `source` could name.
+    quiet.GIT_ALLOW_PROTOCOL = 'file:git:http:https:ssh';
     if (!ownSsh()) quiet.GIT_SSH_COMMAND = 'ssh -o BatchMode=yes';
   }
   return quiet;
@@ -72,7 +109,7 @@ function ownSsh() {
 }
 
 // `path → blob id` for every file in a commit's tree.
-function lsTree(gitDir, sha) {
+export function lsTree(gitDir, sha) {
   const out = new Map();
   for (const rec of git(['--git-dir', gitDir, 'ls-tree', '-r', '-z', sha]).split('\0')) {
     const m = rec.match(/^\d+ blob ([0-9a-f]{40})\t(.+)$/s);
