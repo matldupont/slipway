@@ -19,6 +19,11 @@ export const OVERRIDES = '.slipway/overrides.yaml';
 // The classes a manifest can record: `internal` never ships, so it is never in one.
 export const RECORDED = ['managed', 'seeded', 'merged'];
 
+// Slipway itself, not an install: internal files new-project never copies, so a project's own `dev/`
+// folder alone is not enough. D1 goes green in template mode on them; M1 checks slipway's own tests.
+export const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
+export const isTemplate = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
+
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
 // null when the project has no manifest. Throws when it has one this code cannot trust: every drift

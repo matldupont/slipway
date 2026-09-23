@@ -1,0 +1,7 @@
+{
+  "name": "fixture-tests",
+  "private": true,
+  "scripts": {
+    "meta": "node scripts/run.test.mjs"
+  }
+}

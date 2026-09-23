@@ -20,13 +20,12 @@
 // that and exits green. What proves D1 against a real install is slipway's own
 // scripts/new-project.test.mjs, which creates a project and runs D1 in it.
 
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { MANIFEST, OVERRIDES, readManifest, readOverrides, sha256 } from '../lib/manifest.mjs';
+import { isTemplate, MANIFEST, OVERRIDES, readManifest, readOverrides, sha256, TEMPLATE_MARKERS } from '../lib/manifest.mjs';
 import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
-const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
 
 let manifest;
 let overrides;
@@ -37,7 +36,7 @@ try {
   process.exit(report({ id: 'D1', claim: '', scanned: 0, unit: 'managed files', broken: e.message }));
 }
 
-if (!manifest && TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)))) {
+if (!manifest && isTemplate(root)) {
   process.exit(
     report({
       id: 'D1',

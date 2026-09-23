@@ -38,9 +38,14 @@ export function globToRegExp(glob) {
 export function loadOwnership(root) {
   const p = join(root, MAP);
   if (!existsSync(p)) throw new Error(`no ${MAP}`);
+  return parseOwnership(readFileSync(p, 'utf8'));
+}
+
+// The same from the map's text: sync reads it from each slipway commit it compares (scripts/lib/base.mjs).
+export function parseOwnership(text) {
   let entries;
   try {
-    entries = readList(readFileSync(p, 'utf8'), ['glob', 'class'], { strict: true });
+    entries = readList(text, ['glob', 'class'], { strict: true });
   } catch (e) {
     throw new Error(`${MAP}: ${e.message}`);
   }
