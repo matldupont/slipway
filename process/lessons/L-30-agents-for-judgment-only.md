@@ -5,7 +5,7 @@ rule: Reserve agents for judgment, run what a shell command settles inline, and 
 failure: An agent used for a task a shell command settles stalls, or silently drops its results.
 enforcement:
   status: prose
-  pointer: CLAUDE.md#Agents
+  pointer: process/slipway-rules.md#Agents
   review-by: +90d
 ---
 

@@ -1,0 +1,4 @@
+{
+  "exit": 1,
+  "findings": ["unclassified/.gitignore", "unclassified/docs/sub/nested.md", "unclassified/stray.md"]
+}

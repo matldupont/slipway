@@ -5,7 +5,7 @@ rule: Never cd into another checkout, even to read; parallel relative cd command
 failure: A relative `cd` in parallel tool calls lands a commit in another checkout.
 enforcement:
   status: prose
-  pointer: CLAUDE.md#Agents
+  pointer: process/slipway-rules.md#Agents
   review-by: +90d
 ---
 

@@ -5,7 +5,7 @@ rule: Separate hard constraints from preferences, and name a change as a change.
 failure: A plan changes on every follow-up question because questions are read as change requests.
 enforcement:
   status: prose
-  pointer: CLAUDE.md#Working rules
+  pointer: process/slipway-rules.md#Working rules
   review-by: +90d
 ---
 
