@@ -27,6 +27,33 @@ CI time is a measured problem.
 `ci/checks/` runs on bare Node with no install step, so the harness that proves the other gates cannot be
 broken by a dependency. Cost: YAML is read as a declared subset, and anything outside it exits BROKEN.
 
+## D-015 — Projects take slipway updates by a locked, declared sync *(decided 2026-09-23)*
+
+A project must be able to take a newer slipway without losing anything, and without a merge that needs
+judgment on every file. Most of what slipway ships is prose, where a three-way merge is least reliable.
+
+- **Ownership is declared.** Every shipped path has a class: `managed` (slipway's; replaced on sync),
+  `seeded` (written once at creation, never touched again — the PRD, FRAME, the answers to D-001–D-014),
+  or `merged` (structured: `package.json` scripts, settings keys, marked blocks in `CLAUDE.md`). A check
+  fails on a shipped path with no class.
+- **Managed files are locked; projects extend, not edit.** Each project records the version it is on and
+  a hash per installed file. A check fails when a managed file differs from its hash, unless the path is in
+  an overrides list with a reason. Slipway provides extension points (local checks, a project section in
+  `CLAUDE.md`, project skills beside the shipped ones), so an override is the exception, not the way to
+  customise.
+- **IDs are owned by prefix.** Slipway keeps `L-` and `D-`, so existing citations stay valid; a project's
+  own lessons and decisions are `PL-` and `PD-`. The sync never renumbers: that would break every old link.
+- **Script plus skill.** A zero-dependency script does the sync — refuses a dirty tree, works on a branch,
+  lands through a PR, prints a plan first, merges instead of overwriting any file that changed, never
+  touches `seeded` files, and keeps a removed file the project edited. A skill wraps it for what needs
+  judgment: conflicts in prose, migrations written as steps, and the PR's `## Verification`.
+
+Consequences: releases are tagged, with a changelog and per-version migrations. Projects created before
+this adopt it once, taking their base version from the `chore: start from slipway <sha>` commit, and
+move any `L-57`-and-later lessons to `PL-`. Declined: free edits with a merge on every sync (drift makes
+each sync costlier until projects stop syncing), and shipping skills and checks as a plugin and a package
+(it conflicts with SLIPWAY.md's self-containment; revisit if the merge surface stays large).
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
