@@ -19,6 +19,8 @@ paths:
     class: internal
   - glob: STATE.md
     class: internal
+  - glob: .git
+    class: internal
   - glob: .git/**
     class: internal
   - glob: '**/node_modules/**'
@@ -34,6 +36,8 @@ paths:
 
   # seeded exceptions inside managed trees
   - glob: process/anchor
+    class: seeded
+  - glob: ci/exceptions.yaml
     class: seeded
 
   # managed
