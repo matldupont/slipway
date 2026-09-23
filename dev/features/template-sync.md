@@ -260,7 +260,7 @@ Then  the base resolves to the sha in "chore: start from slipway 0.1.0" or the R
 
 ```
 pnpm meta                          # M6 runs D1's and O1's known-bad fixtures
-node scripts/checks/sync.test.mjs  # temp-repo cases: one per Acceptance block
+node scripts/sync.test.mjs         # temp-repo cases: one per Acceptance block
 node scripts/new-project.mjs /tmp/sync-probe --no-github --dry-run
 ```
 
