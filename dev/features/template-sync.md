@@ -119,6 +119,10 @@ starting another round:
 - `.slipway/upstream/<path>.diff` is sync's output, rewritten by each sync that reports that path.
 - A failure after `--apply` has created its branch (a commit hook, a disk error) leaves a partial sync on
   that branch, named in the error. The project's branch and commits are untouched.
+- Manifest paths may hold control characters, which the plan prints raw; a planted entry can fake an
+  output line (never the exit code). Rejecting them in `readManifest` is a follow-up.
+- An agent that both unsets `CLAUDECODE` and disguises the command past the harness's
+  `Bash(*sync --apply*)` rule can still run `--apply`: string-matched rules are the limit of the gate.
 
 ### D1 — drift (ships to projects)
 
@@ -185,8 +189,8 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
    print the plan with the commit. Every write is computed before the branch is created, so a refusal
    writes nothing: each overwrite and delete re-checks its manifest hash as it is computed, and sync
    refuses a target that is not newer than the base (or not in `source`), a symlink or directory where
-   it would write a file, and a path the project ignores. Files slipway ships executable arrive
-   executable.
+   it would write a file, a file of the project's where it must write a folder, and a path the project
+   ignores. Files slipway ships executable arrive executable.
 
    The manifest after a sync must let the next one find its base exactly (#17). By the target's classes:
    - a managed path the target ships is recorded at the target's `blob`. Its `sha256` is the target's too,

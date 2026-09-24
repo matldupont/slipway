@@ -106,6 +106,7 @@ put(slip, {
   'process/kept.md': 'kept\n',
   'process/ours.md': 'ours\n',
   'process/harness/settings.json': '{ "harness": 1 }\n',
+  'process/dir': 'a file, then a folder\n',
   'docs/PRD.md': '# PRD v1\n',
   'docs/same.md': 'seeded, never changed\n',
 });
@@ -124,6 +125,8 @@ put(slip, {
   'process/harness/settings.json': '{ "harness": 2 }\n',
   'docs/PRD.md': '# PRD v2\n',
   'process/hooks/new.sh': '#!/bin/sh\necho new hook\n',
+  'process/dir': null,
+  'process/dir/index.md': 'now a folder\n',
 });
 chmodSync(join(slip, 'process/hooks/new.sh'), 0o755);
 const B = commit(slip, 'B');
@@ -279,8 +282,8 @@ test('resolveBase: closest-match mode ranks every commit and names the runner-up
   const r = resolveBase(gitDir, blobs);
   assert.equal(r.exact, null);
   assert.equal(r.total, 1);
-  assert.deepEqual(r.best, { sha: A0, matched: 1, extra: 7 });
-  assert.deepEqual(r.runnerUp, { sha: A, matched: 1, extra: 7 });
+  assert.deepEqual(r.best, { sha: A0, matched: 1, extra: 8 });
+  assert.deepEqual(r.runnerUp, { sha: A, matched: 1, extra: 8 });
 });
 
 test('from a packed install (no .git, no .gitignore) of B: the target is B by content, and .gitignore is compared with B\'s own', () => {
@@ -484,6 +487,7 @@ for (const [why, edit, code] of [
   ['a merge that conflicts', (d) => put(d, { 'process/merge.md': 'one\ntwo, ours\n', '.slipway/overrides.yaml': override('process/merge.md') }), 1],
   ['a collision', (d) => put(d, { 'process/clash.md': 'ours\n' }), 1],
   ['keep (edited)', (d) => put(d, { 'process/kept.md': 'kept, ours\n', '.slipway/overrides.yaml': override('process/kept.md') }), 1],
+  ['keep (edited) alone (deleted here under an override, changed upstream)', (d) => put(d, { 'process/replace.md': null, '.slipway/overrides.yaml': override('process/replace.md') }), 1],
   ['a key reported', (d) => put(d, { 'package.json': bytes(d, 'package.json').toString('utf8').replace('"echo b"', '"echo mine"') }), 1],
   ['an override made stale (the file deleted here, and upstream)', (d) => put(d, { 'process/kept.md': null, '.slipway/overrides.yaml': override('process/kept.md') }), 1],
   ['an edited harness copy', (d) => put(d, { '.claude/settings.json': '{ "mine": true }\n' }), 1],
@@ -511,6 +515,21 @@ test('apply never writes through a symlink: a diff path or the manifest that is 
     assert.equal(r.status, 1, `${at}: ${r.stdout}`);
     assert.match(r.stderr, new RegExp(`symlinks or directories[\\s\\S]*${at.replaceAll('.', '\\.')}`));
     assert.deepEqual([treeHash(dir), readFileSync(outside)], before);
+  }
+});
+
+test('apply refuses before branching when a file of the project sits where it must write a folder', () => {
+  const cases = [
+    ['.slipway/upstream', (d) => put(d, { '.slipway/upstream': 'mine\n' })],
+    ['process/dir', (d) => { git(d, 'reset', '-q', '--hard', 'HEAD~1'); put(d, { 'process/dir': 'ours\n', '.slipway/overrides.yaml': override('process/dir') }); }],
+  ];
+  for (const [at, edit] of cases) {
+    const dir = project((d) => { edit(d); commit(d, `a file at ${at}`); });
+    const before = treeHash(dir);
+    const r = sync(dir, '--apply');
+    assert.equal(r.status, 1, `${at}: ${r.stdout}`);
+    assert.match(r.stderr, new RegExp(`each is a file of yours[\\s\\S]*\n  ${at.replaceAll('.', '\\.')}\n`));
+    assert.equal(treeHash(dir), before);
   }
 });
 
