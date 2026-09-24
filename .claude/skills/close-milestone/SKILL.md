@@ -48,7 +48,7 @@ Fill `## Retro` in the milestone file:
   of the milestone, from `git log -p ci/baselines.json`. A number that went up means a baseline was
   raised: name the decision that did it. Consolidation work goes in the cool-down, not the next bet.
 - **Lessons.** Anything that cost real time and could recur becomes a file in
-  `process/lessons/` with an honest enforcement status (L1 checks it). Search existing lessons
+  `process/lessons/` with an honest enforcement status and a project id, `PL-<n>` (L1 checks it). Search existing lessons
   first; extend one rather than duplicating it.
 
 Keep it to one screen. Opinions about quality go in lessons, not the retro.

@@ -133,6 +133,7 @@ instead of rewriting the Contract.
 | `/review-doc <path>` | step 3, fresh session: adversarial review of a document into `docs/reviews/` — not a code diff |
 | `/kickoff` | steps 1–3: frame, risk test plan, PRD, week-1 decisions, milestones, readiness gate |
 | `/close-milestone` | step 6: gate evidence, retro, close out, next bet |
+| `/sync-slipway` | take a newer slipway: explain the change, the owner applies it, resolve, PR ([Taking slipway updates](#taking-slipway-updates)) |
 | `/log-feature` `/log-bug` `/log-followup` `/work-ticket` | intake and execution skills (user-level), configured by [`AGENT.md`](AGENT.md) |
 
 ---
@@ -143,7 +144,7 @@ instead of rewriting the Contract.
 
 ```
 README.md · SLIPWAY.md · BOOTSTRAP.md   what this is · the path · day 0
-scripts/new-project.mjs             start a project from this template (not copied into it)
+scripts/new-project.mjs             start a project from this template, and `sync` / `sync --adopt` (not copied into it)
 dev/ownership.yaml                  who owns each shipped path: managed · seeded · merged · internal (not copied)
 CLAUDE.md · AGENT.md                agent instructions: the project's own lines, importing the rules below · skill configuration
 process/slipway-rules.md            gates, planning flow, lanes, working rules, agents, notes — slipway's, replaced by a sync
@@ -161,7 +162,8 @@ process/lessons/                    61 lessons, each stating where it lives (L1 
 process/cold-review.md              the cold-review checklist, one line per lesson
 process/designation.md              which model and effort, by whether an oracle exists
 process/harness/                    permissions and hooks — installed into .claude/ by new-project
-.claude/skills/                     /bootstrap, /kickoff, /clarify, /review-doc and /close-milestone
+.claude/skills/                     /bootstrap, /kickoff, /clarify, /review-doc, /close-milestone and /sync-slipway
+.slipway/                           in a project, not here: manifest.json (what slipway wrote, hashed) · overrides.yaml
 .github/                            CI (meta · verify), pr-body (re-runs on description edits), issue-shape, issue forms, PR template
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
@@ -173,6 +175,28 @@ ci/exceptions.yaml                  expiring, structurally keyed exceptions
 ```
 
 All checks are zero-dependency (D-004): they run on bare Node with no install step.
+
+### Taking slipway updates
+
+A project takes a newer slipway through `sync`, run with `/sync-slipway` (F-01, D-015). Nothing is
+merged by judgment file by file:
+
+- **Ownership.** `dev/ownership.yaml` gives every shipped path a class. `managed` files are slipway's:
+  sync replaces them, and D1 fails when one changed without an entry in `.slipway/overrides.yaml` giving
+  the reason. `seeded` files (the PRD, FRAME, `decisions.md`, `AGENT.md`…) are the project's after
+  creation: sync never writes them, and saves slipway's own diff to `.slipway/upstream/` for the skill to
+  offer. `merged` is `package.json`'s `scripts`, key by key. A file slipway never shipped is the project's.
+- **The manifest.** `.slipway/manifest.json` records each file slipway wrote, with its hash and git blob
+  id. Sync finds the base as the slipway commit that holds exactly those blobs. `new-project` writes it,
+  and every sync rewrites it.
+- **Plan, then apply.** `sync` prints one row per path and slipway's commits since the base, and writes
+  nothing. `sync --apply` commits it all on `slipway/sync-<target>`. The owner runs `--apply` in their own
+  terminal, never an agent: it installs the harness.
+- **Adopt, once.** A project created before the manifest runs `sync --adopt`. The base comes from its
+  first commit or README, or, when those name only a version, from the closest slipway commit, which the
+  owner confirms with `--base`. Each managed file that differs is kept, with an override, or reverted.
+- **IDs by prefix.** Slipway's lessons and decisions are `L-`/`D-`; a project's own are `PL-`/`PD-`. L1
+  and the tracker pattern accept both, and a sync never renumbers either.
 
 ### The gates
 
@@ -207,7 +231,8 @@ All checks are zero-dependency (D-004): they run on bare Node with no install st
 | `prose` | 32 | judgment, written where it is used — the cold-review checklist, `process/slipway-rules.md`, the testing strategy — on a 90-day review clock |
 | `declined` | 14 | not built yet: deferred components and conditional rules, each naming the event that should reopen it, on a 60-day clock |
 
-Most lessons are judgment, and saying so is the point. Each has a home L1 proves exists and a date L1
+A project's own lessons are `PL-<n>`, so a sync never collides with slipway's (D-015); L1 fails any other
+id. Most lessons are judgment, and saying so is the point. Each has a home L1 proves exists and a date L1
 enforces. **Deferred work lives here too** (L-50 to L-60, L-64), so something fires when it has waited too
 long.
 

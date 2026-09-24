@@ -120,7 +120,14 @@ starting another round:
 - A failure after `--apply` has created its branch (a commit hook, a disk error) leaves a partial sync on
   that branch, named in the error. The project's branch and commits are untouched.
 - An agent that both unsets `CLAUDECODE` and disguises the command past the harness's
-  `Bash(*sync --apply*)` rule can still run `--apply`: string-matched rules are the limit of the gate.
+  `Bash(*sync --apply*)` and `Bash(*sync*--apply*)` rules can still run `--apply` or `--adopt --apply`:
+  string-matched rules are the limit of the gate.
+- A base older than the ownership map is found exactly only while the target's map classifies its paths as
+  it did at adopt. A later slipway that reclassifies one of them makes sync stop at "closest". This
+  matters for one sync only: the first sync after adopt records a target that has its own map.
+- Adopt's closest match counts managed files at the same blob. Files a project hand-copied from a newer
+  slipway count for that newer commit, so the proposal can be newer than the project's creation. The
+  owner confirms it, and each file that still differs is kept or reverted.
 
 ### D1 — drift (ships to projects)
 
@@ -210,19 +217,36 @@ left out, with the `cp` to install it. Edited: left as it is, reported, and sync
 refuses when `CLAUDECODE` is set, and the harness asks before any Bash command running `sync --apply`
 (`Bash(*sync --apply*)`), so an agent cannot take the owner's step unasked.
 
-**Adopt.** For a project with no manifest, the base comes from `--base`, else from a sha in the
-`chore: start from slipway <x>` commit or the README line. Under `npx` that `<x>` is `package.json`'s
-version, not a sha (the project's says `0.1.0`). Adopt then uses step 2's resolver in closest-match mode: the
-slipway commit whose tree matches the most of the project's shipped files, with the runner-up's count,
-for the owner to confirm. Every current file is
-hashed against the base. Pristine files enter the manifest as they are; differing managed files are
-listed for the owner to override or revert. Nothing is written until the owner re-runs with
-`--adopt --apply`.
+**Adopt** (`scripts/adopt.mjs`, #18). For a project with no manifest, the base comes from `--base`, else
+from a sha in the `chore: start from slipway <x>` commit or the README line. Under `npx` that `<x>` is
+`package.json`'s version, not a sha (the project's says `0.1.0`). Adopt then uses step 2's resolver in
+closest-match mode: the slipway commit on `main` whose managed files match the most of the project's
+tracked blobs. It prints that commit and the runner-up, each with its count, and exits 1, writing
+nothing, until the owner confirms with `--base <sha>`. A sha the source does not have is refused the
+same way.
+
+Every path the base ships is classified by the base's ownership map, or the target's when the base
+predates the map, and hashed against the project's copy. The report says `pristine`, `differs`,
+`missing` or `not a file` for each managed path, and `seeded` or `merged` for the rest. It also lists the
+project's own lesson and decision IDs (in neither the base nor the target) for the skill's step 4. The
+manifest records pristine, seeded and merged files as the project has them. It records every other
+managed path at the base's bytes, so the next sync finds the base exactly. `answers` come from
+`AGENT.md`'s configuration table, else `package.json`'s name.
+
+`--adopt --apply` refuses until each differing managed file has the owner's choice: `--keep
+<path>=<reason>` adds an override, and `--revert <path>` puts the base's bytes back. It commits the
+manifest, the overrides and the reverts together on `slipway/adopt-<base>` (so a reverted file's own
+version stays in history), with the same write checks and branch handling as `--apply`. It refuses under
+`CLAUDECODE`, and the harness asks before `Bash(*sync*--apply*)`: overrides decide which edits D1 excuses.
+
+A base older than the ownership map has no classes of its own. The resolver classifies such a commit by
+the target's map (its `fallback`), as adopt did when it wrote the manifest, so sync finds it exactly.
 
 ### `/sync-slipway` skill (managed, ships to projects)
 
 1. Run `sync` (plan). Explain the base → target change in project terms from `git log` between the two
-   shas: conventional-commit subjects, grouped by check, skill or doc.
+   shas: conventional-commit subjects, grouped by check, skill or doc. The plan prints those subjects,
+   read from sync's own clone, so the skill never clones slipway itself.
 2. On a yes, have the owner run `--apply`, since the harness step needs the owner.
 3. Resolve conflict markers in prose files. Offer each `seeded: upstream changed` diff one at a time:
    port it, adapt it, or decline it with a line in the PR.
@@ -283,10 +307,10 @@ Then  the file is kept and reported as keep (edited)
 ```
 
 ```
-Given a private project at its current commit, with no manifest
+Given a private project at its current commit, with no manifest ("chore: start from slipway 0.1.0": a version)
 When  sync --adopt runs
-Then  the base resolves to the sha in "chore: start from slipway 0.1.0" or the README, every file is
-      classified, and nothing is written without --apply
+Then  it proposes the closest slipway commit with the runner-up's count, writes nothing until the owner
+      confirms it with --base, then classifies every file, and nothing is written without --apply
 ```
 
 ## Verify
@@ -314,7 +338,8 @@ Machinery before surface. Each step merges with `pnpm meta` green.
 4. **Sync apply** (#17): per-class writes, merge-file, deletes, seeded diffs, manifest rewrite, the harness step.
    Temp-repo tests for every guarantee. Cold review: it writes and deletes. ~L.
 5. **`/sync-slipway` and adopt** (#18): the skill, `--adopt`, `PL-`/`PD-` in L1 and in the templates, and
-   `SLIPWAY.md`/`BOOTSTRAP.md` text. First real run: a private project. ~M.
+   `SLIPWAY.md`/`BOOTSTRAP.md` text. #18 verified adopt, then sync, on a throwaway clone of a private project. The
+   first real `/sync-slipway` run on a private project, with its PR, is #12's closing evidence. ~M.
 
 ## Out of scope
 

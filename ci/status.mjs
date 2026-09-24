@@ -68,7 +68,7 @@ const prdReviews = existsSync(reviewsDir)
     })
   : [];
 const decisions = read('decisions.md') ?? '';
-const openDecisions = [...decisions.matchAll(/^##\s+(D-\d+)\s+—\s+(.+?)\s*\*\((open[^)]*)\)\*/gm)].map((m) => `${m[1]} ${m[2]} (${m[3]})`);
+const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*\((open[^)]*)\)\*/gm)].map((m) => `${m[1]} ${m[2]} (${m[3]})`);
 
 const { milestones } = readMilestones(root);
 const ms = milestones.filter((m) => m.fm?.id).map((m) => ({ ...m.fm, file: m.file, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));

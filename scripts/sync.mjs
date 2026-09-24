@@ -29,25 +29,24 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
-import { classify } from '../ci/checks/lib/ownership.mjs';
+import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = 'usage: sync [--plan | --apply]   (run in the project; --adopt arrives in F-01 step 5)';
+const USAGE = 'usage: sync [--plan | --apply]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
 export const KINDS = [
   'replace', 'merge', 'add', 'delete', 'keep (edited)', 'collision',
   'seeded: upstream changed', 'merged: key updated', 'merged: key reported', 'unchanged',
 ];
 
-// A named reason to stop: printed as `sync: <reason>`, exit 1.
-class Refusal extends Error {}
+// A named reason to stop: printed as `sync: <reason>`, exit 1. Adopt (adopt.mjs) throws it too.
+export class Refusal extends Error {}
 
 export function main(argv, { cwd = process.cwd(), out = process.stdout, err = process.stderr } = {}) {
   try {
     for (const a of argv) {
       if (a === '-h' || a === '--help') { out.write(`${USAGE}\n`); return 0; }
-      if (a === '--adopt') throw new Refusal('--adopt arrives in F-01 step 5 (#18)');
       if (a !== '--plan' && a !== '--apply') throw new Refusal(`unknown argument ${a}\n${USAGE}`);
     }
     if (argv.includes('--plan') && argv.includes('--apply')) throw new Refusal(`--plan and --apply: choose one\n${USAGE}`);
@@ -69,7 +68,11 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
   }
 }
 
-function preflight(cwd) {
+/**
+ * The project as sync and adopt both require it: a git repository that is not slipway itself, a clean
+ * tree, and a branch checked out. Reads only: `--no-optional-locks` keeps status from refreshing the index.
+ */
+export function repoState(cwd) {
   let root;
   try {
     root = git(['-C', cwd, 'rev-parse', '--show-toplevel']).trim();
@@ -77,7 +80,6 @@ function preflight(cwd) {
     throw new Refusal(`${cwd} is not inside a git repository — run sync in the project`);
   }
   if (isTemplate(root)) throw new Refusal('this is slipway itself — run sync in a project built from it');
-  // --no-optional-locks: status must not refresh the index, or the plan would write to .git.
   const dirty = git(['-C', root, '--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean);
   if (dirty.length) {
     const shown = dirty.slice(0, 5).map((l) => `\n  ${l}`).join('') + (dirty.length > 5 ? `\n  +${dirty.length - 5} more` : '');
@@ -89,6 +91,21 @@ function preflight(cwd) {
   } catch {
     throw new Refusal('HEAD is detached — check out a branch first');
   }
+  return { root, branch };
+}
+
+// Git failing on slipway's clone (an empty source, a default branch gone) is a named refusal too.
+export function history(source, fn) {
+  try {
+    return fn();
+  } catch (e) {
+    if (e instanceof Refusal) throw e;
+    throw new Refusal(`cannot read slipway's history from ${publicSource(source)}: ${redactUrls(gitReason(e))}`);
+  }
+}
+
+function preflight(cwd) {
+  const { root, branch } = repoState(cwd);
   let manifest, overrides;
   try {
     manifest = readManifest(root);
@@ -96,14 +113,14 @@ function preflight(cwd) {
   } catch (e) {
     throw new Refusal(e.message);
   }
-  if (!manifest) throw new Refusal(`no ${MANIFEST} — run \`sync --adopt\` (arrives in F-01 step 5, #18)`);
+  if (!manifest) throw new Refusal(`no ${MANIFEST} — run \`sync --adopt\` first (a project created before the manifest existed)`);
   const d1 = spawnSync(process.execPath, [join(SRC, 'ci', 'checks', 'meta', 'd1-drift.mjs'), root], { encoding: 'utf8' });
   if (d1.status !== 0) throw new Refusal(`D1 is red — sync would lose or refuse these edits; fix them first:\n${(d1.stdout + d1.stderr).trim()}`);
 
   const managed = new Map();
   for (const [p, f] of Object.entries(manifest.files)) {
     if (f.class !== 'managed') continue;
-    if (!/^[0-9a-f]{40}$/.test(f.blob ?? '')) throw new Refusal(`${MANIFEST}: "${p}" has no blob id, so the base cannot be found — re-adopt it (#18)`);
+    if (!/^[0-9a-f]{40}$/.test(f.blob ?? '')) throw new Refusal(`${MANIFEST}: "${p}" has no blob id, so the base cannot be found — remove the manifest and run \`sync --adopt\``);
     managed.set(p, f.blob);
   }
 
@@ -124,17 +141,10 @@ function preflight(cwd) {
   } catch (e) {
     throw new Refusal(e.message);
   }
-  // Git failing on the clone's history (an empty source, a default branch gone) is a named refusal too.
-  const history = (fn) => {
-    try {
-      return fn();
-    } catch (e) {
-      if (e instanceof Refusal) throw e;
-      throw new Refusal(`cannot read slipway's history from ${publicSource(source)}: ${redactUrls(gitReason(e))}`);
-    }
-  };
+  const read = (fn) => history(source, fn);
 
-  const r = history(() => resolveBase(gitDir, managed, { start: manifest.slipway }));
+  // A base older than the ownership map is classified by the target's, as adopt recorded it.
+  const r = read(() => resolveBase(gitDir, managed, { start: manifest.slipway, fallback: t.rules }));
   if (!r.exact) {
     const c = (x) => `${x.sha.slice(0, 12)} (${x.matched} of ${r.total} managed files at their blob${x.extra ? `, ${x.extra} more it ships` : ''})`;
     throw new Refusal(
@@ -143,25 +153,29 @@ function preflight(cwd) {
         : `${publicSource(source)} has no commits to compare the manifest with`,
     );
   }
-  const base = history(() => commitFiles(gitDir, r.exact));
+  const base = read(() => commitFiles(gitDir, r.exact));
+  if (!base.tree.has(MAP)) base.rules = t.rules;
 
   // The target's sha, for the header: this checkout's clean HEAD, else the commit holding its managed
   // blobs on any branch (`npx github:…#<ref>` may run a ref off the default branch).
   const targetManaged = new Map(t.copy.filter((p) => classify(t.rules, p) === 'managed').map((p) => [p, blobSha(target.get(p))]));
-  const targetSha = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha ?? history(() => resolveBase(gitDir, targetManaged, { ref: '--branches' }).exact);
+  const targetSha = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha ?? read(() => resolveBase(gitDir, targetManaged, { ref: '--branches' }).exact);
   // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk. Without
   // that commit the target's copy is unknown, and the plan says so rather than compare a stand-in.
   const notes = [];
   if (!existsSync(join(SRC, '.gitignore'))) {
-    const id = targetSha && history(() => commitFiles(gitDir, targetSha).tree.get('.gitignore'));
-    if (id) target.set('.gitignore', history(() => readBlob(gitDir, id)));
+    const id = targetSha && read(() => commitFiles(gitDir, targetSha).tree.get('.gitignore'));
+    if (id) target.set('.gitignore', read(() => readBlob(gitDir, id)));
     else if (base.tree.has('.gitignore')) {
-      target.set('.gitignore', history(() => readBlob(gitDir, base.tree.get('.gitignore'))));
+      target.set('.gitignore', read(() => readBlob(gitDir, base.tree.get('.gitignore'))));
       notes.push("the target's .gitignore is unknown (npm does not pack it, and no slipway commit matches this package); its row compares the base with itself");
     }
   }
 
-  return { notes, root, branch, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
+  // What changed, for /sync-slipway to explain: the subjects on slipway's history, base → target.
+  const log = targetSha && targetSha !== r.exact ? read(() => git(['--git-dir', gitDir, 'log', '--format=%s', `${r.exact}..${targetSha}`]).split('\n').filter(Boolean)) : [];
+
+  return { notes, log, root, branch, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
 }
 
 /**
@@ -221,13 +235,14 @@ function scriptRows(p, { base, target, cur, baseRules, targetRules }) {
   return rows.length ? rows : [{ kind: 'unchanged', path: p }];
 }
 
-function print(out, { branch, source, base, targetSha, notes }, rows) {
+function print(out, { branch, source, base, targetSha, notes, log }, rows) {
   const width = Math.max(...KINDS.map((k) => k.length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
   out.write(`  base:   ${base.sha} (by content: the manifest's managed blobs)\n`);
   out.write(`  target: ${targetSha ?? `${SRC} (its files match no slipway commit)`}\n`);
   for (const n of notes) out.write(`  note:   ${n}\n`);
+  if (log.length) out.write(`\nslipway's commits, base → target (${log.length}, newest first):\n${log.map((l) => `  ${l}\n`).join('')}`);
   out.write('\n');
   for (const r of rows) out.write(`  ${r.kind.padEnd(width)}  ${r.path}\n`);
   const counts = KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length]).filter(([, n]) => n);
@@ -270,33 +285,8 @@ function apply(out, ctx, rows) {
     out.write(`Already at ${short(targetSha)} — nothing to apply, nothing written.\n`);
     return 0;
   }
-  let exists = true;
-  try {
-    git(['-C', root, 'rev-parse', '--verify', '-q', `refs/heads/${name}`]);
-  } catch {
-    exists = false;
-  }
-  if (exists) throw new Refusal(`branch ${name} already exists — merge or delete it first; nothing was written`);
-
   const message = `chore: sync slipway ${short(base.sha)}..${short(targetSha)}`;
-  let commit;
-  try {
-    git(['-C', root, 'switch', '-q', '-c', name]);
-    // Deletes first: a file slipway turned into a directory must be gone before the directory is made.
-    // Literal pathspecs: a path holding `*` or `:` names that file only. Git history keeps each deleted file.
-    if (todo.removes.length) git(['-C', root, '--literal-pathspecs', 'rm', '-q', '--', ...todo.removes]);
-    for (const [p, { bytes, exec }] of todo.writes) {
-      mkdirSync(dirname(join(root, p)), { recursive: true });
-      writeFileSync(join(root, p), bytes);
-      if (exec !== undefined) chmodSync(join(root, p), exec ? 0o755 : 0o644);
-    }
-    writeFileSync(join(root, MANIFEST), todo.manifest);
-    git(['-C', root, '--literal-pathspecs', 'add', '--', MANIFEST, ...todo.writes.keys()]);
-    git(['-C', root, 'commit', '-q', '-m', message]);
-    commit = git(['-C', root, 'rev-parse', 'HEAD']).trim();
-  } catch (e) {
-    throw new Refusal(`stopped partway: ${gitReason(e)}\nYou are on ${name}, with its writes not committed. ${branch} and its commits are untouched.`);
-  }
+  const commit = land(root, branch, name, message, { writes: new Map([...todo.writes, [MANIFEST, { bytes: todo.manifest }]]), removes: todo.removes });
 
   print(out, ctx, rows);
   out.write(`Applied on ${name} (from ${branch}), commit ${short(commit)}: ${message}\n`);
@@ -393,26 +383,62 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   // D1 was green, so every override named a managed file; one that no longer does was made stale here.
   todo.stale = overrides.filter((o) => hasReason(o) && next.files[o.path]?.class !== 'managed').map((o) => `${OVERRIDES}:${o.line}  path: ${o.path}`);
 
-  // Where each write lands: never through a symlink or onto a directory (the last path component; a
-  // symlinked parent is a known limitation), and never onto a path the project ignores, which git would
-  // refuse to commit after the branch exists.
-  const paths = [...todo.writes.keys(), MANIFEST];
+  checkWrites(root, [...todo.writes.keys(), MANIFEST], todo.removes);
+  return todo;
+}
+
+/**
+ * Where each write lands, checked before any is made: never through a symlink or onto a directory (the
+ * last path component; a symlinked parent is a known limitation), never inside a file of the project's
+ * (one not in `removes`), and never onto a path the project ignores, which git would refuse to commit
+ * after the branch exists. Throws a Refusal naming every offending path.
+ */
+export function checkWrites(root, paths, removes = []) {
   const notFile = paths.filter((p) => readProjectFile(root, p) === NOT_A_FILE);
   if (notFile.length) throw new Refusal(`sync writes regular files only, and these are symlinks or directories — nothing was written:\n  ${notFile.join('\n  ')}`);
-  // A file (one sync does not delete) where a write needs a directory: a kept file slipway turned into
-  // a folder, or a file at .slipway/upstream.
-  const removed = new Set(todo.removes);
+  // A file where a write needs a directory: a kept file slipway turned into a folder, or a file at .slipway/upstream.
+  const removed = new Set(removes);
   const parents = new Set(paths.flatMap((p) => p.split('/').slice(0, -1).map((_, i, dirs) => dirs.slice(0, i + 1).join('/'))));
   const blocked = [...parents].filter((d) => !removed.has(d) && existsSync(join(root, d)) && !statSync(join(root, d)).isDirectory());
   if (blocked.length) throw new Refusal(`sync must write inside these, but each is a file of yours — move it first; nothing was written:\n  ${blocked.join('\n  ')}`);
   let ignored = '';
   try {
-    ignored = git(['-C', root, 'check-ignore', '--', ...paths, ...todo.removes]).trim();
+    ignored = git(['-C', root, 'check-ignore', '--', ...paths, ...removes]).trim();
   } catch (e) {
     if (e.status !== 1) throw new Refusal(`git check-ignore failed: ${gitReason(e)} — nothing was written`);
   }
   if (ignored) throw new Refusal(`the project ignores paths sync would write or delete, so it could not commit them — un-ignore them first; nothing was written:\n  ${ignored.split('\n').join('\n  ')}`);
-  return todo;
+}
+
+/**
+ * Branch `name` from `from`, make `removes` and `writes` (path → `{ bytes, exec? }`), and commit them
+ * all as `message`. Returns the commit's sha. A branch that exists already is refused before anything
+ * is written; a failure after the branch exists names it, and `from` is never touched.
+ */
+export function land(root, from, name, message, { writes, removes = [] }) {
+  let exists = true;
+  try {
+    git(['-C', root, 'rev-parse', '--verify', '-q', `refs/heads/${name}`]);
+  } catch {
+    exists = false;
+  }
+  if (exists) throw new Refusal(`branch ${name} already exists — merge or delete it first; nothing was written`);
+  try {
+    git(['-C', root, 'switch', '-q', '-c', name]);
+    // Deletes first: a file slipway turned into a directory must be gone before the directory is made.
+    // Literal pathspecs: a path holding `*` or `:` names that file only. Git history keeps each deleted file.
+    if (removes.length) git(['-C', root, '--literal-pathspecs', 'rm', '-q', '--', ...removes]);
+    for (const [p, { bytes, exec }] of writes) {
+      mkdirSync(dirname(join(root, p)), { recursive: true });
+      writeFileSync(join(root, p), bytes);
+      if (exec !== undefined) chmodSync(join(root, p), exec ? 0o755 : 0o644);
+    }
+    git(['-C', root, '--literal-pathspecs', 'add', '--', ...writes.keys()]);
+    git(['-C', root, 'commit', '-q', '-m', message]);
+    return git(['-C', root, 'rev-parse', 'HEAD']).trim();
+  } catch (e) {
+    throw new Refusal(`stopped partway: ${gitReason(e)}\nYou are on ${name}, with its writes not committed. ${from} and its commits are untouched.`);
+  }
 }
 
 /**

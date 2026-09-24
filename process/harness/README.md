@@ -16,7 +16,7 @@ Destructive git operations are **ask-level**, never allowed silently (L-20):
 | any `git push` | pushes straight to the deploy branch |
 | `git stash pop`, `git stash drop` | the stash is shared across worktrees and sessions; a pop applies another session's work and drops its stash |
 | `git checkout --`, `git reset --hard` | restoring from HEAD destroys uncommitted work |
-| `sync --apply`, in any form (`npx github:…#<ref> sync --apply`, `node …/new-project.mjs sync --apply`) | it installs slipway's files and this harness; the owner runs it. It also refuses when `CLAUDECODE` is set |
+| `sync --apply` and `sync --adopt --apply`, in any form (`npx github:…#<ref> sync --apply`, `node …/new-project.mjs sync --adopt --apply`) | the first installs slipway's files and this harness, the second decides which edits D1 excuses; the owner runs both. Each also refuses when `CLAUDECODE` is set |
 
 `git stash list` and `git stash apply <sha>` — the safe halves — stay allowed. A prompt can still be approved
 reflexively; protection on `main` backstops the worst case.

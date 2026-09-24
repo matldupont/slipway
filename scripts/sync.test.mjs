@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// sync (F-01 steps 3–4). The plan: one row kind per case, the preflight refusals, the content resolver,
+// sync (F-01 steps 3–5). The plan: one row kind per case, the preflight refusals, the content resolver,
 // and a run that leaves every byte of the project as it was. --apply: one case per Acceptance line of
-// #17. Internal: `pnpm meta` runs it in slipway only.
+// #17. --adopt: one case per Acceptance line of #18. Internal: `pnpm meta` runs it in slipway only.
 //
 // Every case builds real repositories in a temp dir: a small slipway (this checkout's sync code, a
 // fixture map and fixture files) with a base commit and a target commit, and a project new-project
@@ -22,7 +22,7 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
 // The code a slipway needs to run new-project and sync. Its fixture map makes all of it internal, so the
 // plan lists fixture files only and does not change when this code does.
-const CODE = ['scripts/new-project.mjs', 'scripts/sync.mjs', 'scripts/lib', 'ci/checks/lib', 'ci/checks/meta/d1-drift.mjs'];
+const CODE = ['scripts/new-project.mjs', 'scripts/sync.mjs', 'scripts/adopt.mjs', 'scripts/lib', 'ci/checks/lib', 'ci/checks/meta/d1-drift.mjs'];
 
 const root = mkdtempSync(join(tmpdir(), 'slipway-sync-'));
 test.after(() => rmSync(root, { recursive: true, force: true }));
@@ -334,9 +334,9 @@ test('an empty source is a named refusal, not a stack trace', () => {
   assert.doesNotMatch(r.stderr, /\n\s+at /);
 });
 
-test('the bin dispatches sync; --adopt is refused until its step lands, and so are --plan with --apply; a sync source that reads as an option is refused', () => {
+test('the bin dispatches sync and sync --adopt; --plan with --apply is refused; a sync source that reads as an option is refused', () => {
   assert.match(sync(root, '--help').stdout, /^usage: sync \[--plan \| --apply\]/);
-  assert.match(sync(project(), '--adopt').stderr, /--adopt arrives in F-01 step 5/);
+  assert.match(sync(root, '--adopt', '--help').stdout, /^usage: sync --adopt /);
   assert.match(sync(project(), '--plan', '--apply').stderr, /--plan and --apply: choose one/);
   assert.throws(() => sourceClone('--upload-pack=touch x'), /reads as a git option/);
   // A transport prefix would carry a token past the redaction into the header and the manifest.
@@ -560,7 +560,7 @@ test('apply refuses under an agent (CLAUDECODE set), writing nothing; the harnes
   const asks = JSON.parse(readFileSync(join(SRC, 'process/harness/settings.json'), 'utf8')).permissions.ask
     .filter((a) => a.startsWith('Bash('))
     .map((a) => new RegExp(`^${a.slice(5, -1).replace(/:\*$/, '*').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*')}$`));
-  for (const cmd of ['npx github:matldupont/slipway#main sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply']) {
+  for (const cmd of ['npx github:matldupont/slipway#main sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply', 'npx github:matldupont/slipway#main sync --adopt --apply --base abc', 'node ../slipway/scripts/new-project.mjs sync --apply --adopt']) {
     assert.ok(asks.some((re) => re.test(cmd)), `no ask rule matches: ${cmd}`);
   }
 });
@@ -579,4 +579,172 @@ test('apply only moves forward: a target older than the base is refused', () => 
   assert.equal(r.status, 1, r.stdout);
   assert.match(r.stderr, /is not newer than the base .* sync only moves forward/);
   assert.equal(treeHash(dir), before);
+});
+
+// ---- --adopt (F-01 step 5, #18): one case per Acceptance line
+
+const adopt = (dir, ...args) =>
+  spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--adopt', ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
+// The edited project with its .slipway/ gone: what a project created before the manifest looks like.
+// Its first commit is new-project's `chore: start from slipway <A>`.
+const unadopted = (edit) => project((d) => {
+  rmSync(join(d, '.slipway'), { recursive: true });
+  if (edit) edit(d);
+  commit(d, 'before the manifest');
+});
+const DIFFERS = ['process/kept.md', 'process/merge.md', 'process/ours.md'];
+
+test('adopt, sha in the first commit: that sha is the base, every file is listed as pristine or differing, and the tree hash is unchanged', () => {
+  const dir = unadopted();
+  const before = treeHash(dir);
+  const r = adopt(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, new RegExp(`base: {3}${A} \\(from the first commit\\)`));
+  const got = rows(r.stdout);
+  for (const p of git(slip, 'ls-tree', '-r', '--name-only', A).split('\n').filter((p) => p.startsWith('process/') || p === '.gitattributes')) {
+    assert.equal(got[p], DIFFERS.includes(p) ? 'differs' : 'pristine', p);
+  }
+  for (const p of ['docs/PRD.md', 'docs/same.md', 'README.md', '.gitignore']) assert.equal(got[p], 'seeded', p);
+  assert.equal(got['package.json'], 'merged');
+  assert.equal(got['process/clash.md'], undefined, 'a file the base does not ship is the project\'s own');
+  assert.equal(treeHash(dir), before, 'adopt wrote to the project');
+  assert.equal(git(dir, 'status', '--porcelain'), '');
+});
+
+// A project new-project made from a packed A: the first commit and README name a version, not a sha.
+const versioned = join(root, 'versioned');
+{
+  const pkgDir = join(root, 'packed-a-adopt');
+  mkdirSync(pkgDir);
+  execFileSync('tar', ['-x', '-C', pkgDir], { input: execFileSync('git', ['-C', slip, 'archive', A]) });
+  const r = spawnSync(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), versioned, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  rmSync(join(versioned, '.slipway'), { recursive: true });
+  commit(versioned, 'before the manifest');
+}
+
+test('adopt, a version in the first commit: proposes the closest commit with the runner-up\'s count, and writes nothing until --base confirms it', () => {
+  assert.equal(git(versioned, 'log', '--format=%s', '--reverse').split('\n')[0], 'chore: start from slipway 0.0.0-fixture');
+  const before = treeHash(versioned);
+  for (const args of [[], ['--apply']]) {
+    const r = adopt(versioned, ...args);
+    assert.equal(r.status, 1, r.stdout);
+    // A and A0 hold the same managed blobs; the walk is newest first, so A0 leads and A is the runner-up.
+    const n = git(slip, 'ls-tree', '-r', '--name-only', A).split('\n').filter((p) => p.startsWith('process/') || p === '.gitattributes').length;
+    assert.match(r.stderr, new RegExp(`no slipway sha in the first commit or README \\(chore: start from slipway 0\\.0\\.0-fixture\\)\\. Closest commit on \\S+'s main:\\n  ${A0} — ${n} managed file\\(s\\)[^\\n]*\\n[^\\n]*\\n  runner-up: ${A} — ${n} managed file\\(s\\)`));
+    assert.match(r.stderr, new RegExp(`Confirm it \\(or name another\\) with: sync --adopt --base ${A0} — nothing was written`));
+    assert.equal(treeHash(versioned), before);
+  }
+  const r = adopt(versioned, '--base', A.slice(0, 10));
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, new RegExp(`base: {3}${A} \\(from --base\\)`));
+  assert.equal(treeHash(versioned), before);
+});
+
+test('adopt with no resolvable base and no --base exits non-zero and asks for --base <sha>, writing nothing', () => {
+  // Nothing in common with slipway, and a version in the first commit.
+  const lone = join(root, 'lone');
+  mkdirSync(lone);
+  git(lone, 'init', '-q', '-b', 'main');
+  put(lone, { 'README.md': '# not from slipway\n' });
+  commit(lone, 'chore: start from slipway 0.0.0-fixture');
+  // A README naming a sha the source does not have (a fork's), on a history whose first commit names a version.
+  const forked = unadopted((d) => put(d, { 'README.md': `Built on [slipway](SLIPWAY.md) ${'f'.repeat(40)}.\n` }));
+  git(forked, 'checkout', '-q', '--orphan', 'fresh');
+  commit(forked, 'chore: start from slipway 0.0.0-fixture');
+  for (const [dir, args, why] of [
+    [lone, [], /no commit on \S+'s main shares a managed file with this project — pass --base <sha>/],
+    [forked, [], /README\.md names slipway f{40}, which \S+ does not have \(a fork, or never pushed\) — pass --base <sha>/],
+    [forked, ['--base', 'e'.repeat(40)], /--base names slipway e{40}, which \S+ does not have/],
+    [forked, ['--base', 'HEAD'], /--base "HEAD" is not a commit sha — pass --base <sha>/],
+  ]) {
+    const before = treeHash(dir);
+    const r = adopt(dir, ...args);
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(r.stderr, why);
+    assert.equal(treeHash(dir), before);
+  }
+});
+
+test('adopt refuses a project that has a manifest, and --apply under an agent, writing nothing', () => {
+  const has = project();
+  assert.match(adopt(has).stderr, /\.slipway\/manifest\.json exists already — this project has adopted sync; run `sync`/);
+  const dir = unadopted();
+  const before = treeHash(dir);
+  const r = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--adopt', '--apply', '--revert', 'process/kept.md'], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip, CLAUDECODE: '1' } });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the owner runs it in their own terminal, not an agent \(CLAUDECODE is set\)/);
+  assert.equal(treeHash(dir), before);
+});
+
+test('adopt --apply refuses until every differing managed file is kept or reverted, and refuses a choice for a file that needs none', () => {
+  const dir = unadopted();
+  const before = treeHash(dir);
+  const cases = [
+    [[], /needs --keep <path>=<reason> or --revert <path> — nothing was written:\n {2}differs {5}process\/kept\.md\n {2}differs {5}process\/merge\.md\n {2}differs {5}process\/ours\.md$/m],
+    [['--keep', 'process/same.md=ours', '--revert', 'process/kept.md'], /process\/same\.md already matches the base/],
+    [['--keep', 'docs/PRD.md=ours'], /docs\/PRD\.md is not a managed file the base ships/],
+    [['--keep', 'process/ours.md='], /give the reason after "="/],
+    [['--keep', 'process/ours.md=x', '--revert', 'process/ours.md'], /--keep or --revert, not both/],
+    [['--keep', 'process/ours.md=ours # and more', '--keep', 'process/merge.md=m', '--revert', 'process/kept.md'], /cannot be written as one plain line/],
+  ];
+  for (const [args, why] of cases) {
+    const r = adopt(dir, '--apply', ...args);
+    assert.equal(r.status, 1, `${why}\n${r.stdout}`);
+    assert.match(r.stderr, why);
+    assert.equal(treeHash(dir), before, `${args} wrote to the project`);
+  }
+});
+
+test('adopt --apply writes the manifest and an override per kept file, reverts in the same commit on slipway/adopt-<base>; D1 is green, and sync then finds the base exactly', () => {
+  const dir = unadopted();
+  const mainBefore = git(dir, 'rev-parse', 'main');
+  const ours = bytes(dir, 'process/kept.md');
+  const r = adopt(dir, '--apply', '--keep', 'process/merge.md=our third line', '--keep', 'process/ours.md=our wording', '--revert', 'process/kept.md');
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(git(dir, 'branch', '--show-current'), `slipway/adopt-${short(A)}`);
+  assert.equal(git(dir, 'rev-parse', 'main'), mainBefore);
+  assert.equal(git(dir, 'rev-list', '--count', 'main..HEAD'), '1');
+  assert.equal(git(dir, 'log', '-1', '--format=%s'), `chore: adopt slipway sync at ${short(A)}`);
+  assert.deepEqual(git(dir, 'diff', '--name-only', 'main', 'HEAD').split('\n').sort(), ['.slipway/manifest.json', '.slipway/overrides.yaml', 'process/kept.md']);
+  assert.equal(git(dir, 'status', '--porcelain'), '');
+  // The project's version stays in history; the working tree has the base's.
+  assert.deepEqual(execFileSync('git', ['-C', dir, 'show', 'main:process/kept.md']), ours);
+  assert.deepEqual(bytes(dir, 'process/kept.md'), show(A, 'process/kept.md'));
+  assert.equal(bytes(dir, '.slipway/overrides.yaml').toString('utf8'), 'overrides:\n  - path: process/merge.md\n    reason: our third line\n  - path: process/ours.md\n    reason: our wording\n');
+  const m = manifestOf(dir);
+  assert.equal(m.slipway, A);
+  assert.equal(m.version, '0.0.0-fixture');
+  for (const [p, f] of Object.entries(m.files)) if (f.class === 'managed') assert.equal(f.blob, git(slip, 'rev-parse', `${A}:${p}`), p);
+  assert.equal(m.files['docs/PRD.md'].blob, git(dir, 'rev-parse', 'HEAD:docs/PRD.md'), 'a seeded file is recorded as the project has it');
+  const d1 = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), dir], { encoding: 'utf8' });
+  assert.equal(d1.status, 0, d1.stdout);
+  const plan = sync(dir);
+  assert.equal(plan.status, 0, plan.stderr);
+  assert.match(plan.stdout, new RegExp(`base: {3}${A} `));
+  assert.equal(rows(plan.stdout)['process/merge.md'], 'merge');
+});
+
+test('adopt lists the project\'s own lessons and decisions, still on L-/D-, for /sync-slipway to move', () => {
+  const dir = unadopted((d) => put(d, {
+    'process/lessons/L-99-ours.md': '---\nid: L-99\nrule: ours\nenforcement:\n  status: check\n  pointer: d1\n---\n',
+    'process/lessons/PL-1-moved.md': '---\nid: PL-1\nrule: already moved\nenforcement:\n  status: check\n  pointer: d1\n---\n',
+    'decisions.md': '# Decisions\n\n## D-099 — ours *(decided)*\n\n## PD-1 — moved *(decided)*\n',
+  }));
+  const r = adopt(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /The project's own IDs, for \/sync-slipway to move to PL-\/PD- [^\n]*\n {2}L-99 {2}process\/lessons\/L-99-ours\.md\n {2}D-099 {2}decisions\.md\n\n/);
+});
+
+test('resolveBase: a commit older than the ownership map is classified by the fallback map, so it can be exact', () => {
+  const old = join(root, 'premap');
+  mkdirSync(old);
+  git(old, 'init', '-q', '-b', 'main');
+  put(old, { 'process/a.md': 'a\n', 'docs/PRD.md': '# PRD\n' });
+  const P = commit(old, 'before the map');
+  const rules = [{ glob: 'process/**', class: 'managed', re: /^process\/.*$/ }, { glob: 'docs/**', class: 'seeded', re: /^docs\/.*$/ }];
+  const blobs = new Map([['process/a.md', git(old, 'rev-parse', `${P}:process/a.md`)]]);
+  const gitDir = join(old, '.git');
+  assert.equal(resolveBase(gitDir, blobs).exact, null);
+  assert.equal(resolveBase(gitDir, blobs, { fallback: rules }).exact, P);
 });

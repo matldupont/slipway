@@ -24,3 +24,4 @@ where it matches and by the template's position where it does not.
 | RISK-3 | Slot conflicts resolve fast enough | feasibility | rewrite | spike | p95 < 200 ms | |
 | RISK-4 | Walkers will pay monthly | value | no business | fake door | 3% click | 4% — met |
 | RISK-5 | Walkers invoice weekly | value | wrong billing model | interviews | 4 of 6 | |
+| RISK-6 | Walkers accept a deposit | value | no-shows stay unpaid | fake door | 2% click | |
