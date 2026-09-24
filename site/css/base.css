@@ -1,0 +1,51 @@
+/* The brand colours, resets and the launch motion. The page's type, layout and surfaces are in
+   css/manual.css (the design chosen from three explored; see design-direction.md). */
+
+:root {
+  /* steel ground: the hue of the mark's own metal (sampled ≈ rgb 31 38 44), pushed darker and bluer so the
+     orange sits against its complement. The images are recoloured to this exact value. */
+  --ground:      oklch(0.245 0.028 255);
+  --ground-deep: oklch(0.2 0.028 255);
+  --ink:         oklch(0.94 0.012 80);
+  --ink-2:       oklch(0.78 0.018 245);
+  --ink-3:       oklch(0.62 0.024 250);
+  --rule:        oklch(0.38 0.03 255);
+  --paper:       oklch(0.93 0.02 78);
+  --paper-ink:   oklch(0.245 0.028 255);
+  --paper-ink-2: oklch(0.45 0.028 255);
+  --paper-rule:  oklch(0.8 0.025 78);
+  /* sampled from the launch line */
+  --signal:      oklch(0.76 0.18 55);
+  --signal-core: oklch(0.9 0.13 85);
+  --signal-deep: oklch(0.5 0.15 45);   /* orange that holds contrast on paper */
+
+
+  /* ratio 1.414 */
+  --step--1: 0.8125rem;
+  --step-0:  1.0625rem;
+  --step-1:  clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+  --step-2:  clamp(1.6rem, 1.3rem + 1.2vw, 2.125rem);
+  --step-3:  clamp(2.1rem, 1.5rem + 2.6vw, 3rem);
+  --step-4:  clamp(2.6rem, 1.6rem + 4.2vw, 4.25rem);
+
+  --gutter: clamp(1rem, 4vw, 3.5rem);
+  --margin-col: clamp(0rem, 12vw, 11rem);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; background: var(--ground); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; }
+/* the launch lines run to the page edge; each section clips them, since clip on body does not stop a
+   phone from widening its layout viewport to fit them */
+main > section { overflow-x: clip; }
+img { display: block; max-width: 100%; height: auto; }
+p { margin: 0 0 1em; }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+
+.skip { position: absolute; left: -999px; }
+.skip:focus { left: 1rem; top: 0.5rem; background: var(--ground); color: var(--ink); padding: 0.5rem; z-index: 20; }
+
+
+
+@keyframes launch { from { transform: scaleX(0.02); } to { transform: scaleX(1); } }
