@@ -6,6 +6,7 @@
       "Bash(git stash drop:*)",
       "Bash(git checkout --:*)",
       "Bash(git reset --hard:*)",
+      "Bash(*sync --apply*)",
       "Edit(**/biome.json)",
       "Edit(**/biome.jsonc)",
       "Edit(**/tsconfig*.json)",

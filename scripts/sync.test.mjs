@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -36,6 +36,7 @@ Object.assign(process.env, {
   GIT_COMMITTER_EMAIL: 'test@example.invalid',
   TMPDIR: root,
 });
+delete process.env.CLAUDECODE; // --apply refuses under an agent; one case sets it back
 
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const put = (dir, files) => {
@@ -122,7 +123,9 @@ put(slip, {
   'process/clash.md': 'slipway clash\n',
   'process/harness/settings.json': '{ "harness": 2 }\n',
   'docs/PRD.md': '# PRD v2\n',
+  'process/hooks/new.sh': '#!/bin/sh\necho new hook\n',
 });
+chmodSync(join(slip, 'process/hooks/new.sh'), 0o755);
 const B = commit(slip, 'B');
 
 // The project, from A, then edited by its owner in every way the plan distinguishes.
@@ -363,6 +366,9 @@ test('apply, pristine project: every managed file equals the target, the manifes
   const managed = Object.entries(m.files).filter(([, f]) => f.class === 'managed').map(([p]) => p);
   assert.deepEqual(managed.sort(), [...managedAtB].sort());
   assert.equal(readProjectFile(dir, 'process/delete.md'), null);
+  // A file slipway ships executable arrives executable: a hook it adds must run.
+  assert.ok(statSync(join(dir, 'process/hooks/new.sh')).mode & 0o100, 'process/hooks/new.sh lost its executable bit');
+  assert.match(git(dir, 'ls-tree', 'HEAD', 'process/hooks/new.sh'), /^100755 /);
   assert.deepEqual(JSON.parse(bytes(dir, 'package.json')).scripts, { a: 'echo a2', b: 'echo b2', c: 'echo c', d: 'echo d', e: 'echo e2' });
   // --no-harness: nothing installed, so nothing to update, and the owner is told how.
   assert.equal(readProjectFile(dir, '.claude/settings.json'), null);
@@ -422,7 +428,8 @@ test('apply: an overridden file that conflicts holds markers with both sides and
 
 test('apply: a file removed upstream that the project edited is kept, reported as keep (edited), and its override is named, not edited', () => {
   assert.equal(rows(applied.stdout)['process/kept.md'], 'keep (edited)');
-  assert.match(applied.stdout, /keep \(edited\) — [^\n]*\n {2}\.slipway\/overrides\.yaml:\d+ {2}path: process\/kept\.md\n/);
+  assert.match(applied.stdout, /keep \(edited\) — slipway removed it[^\n]*\n {2}process\/kept\.md\n/);
+  assert.match(applied.stdout, /stale override — [^\n]*\n {2}\.slipway\/overrides\.yaml:4 {2}path: process\/kept\.md\n/);
   assert.equal(manifestOf(edited).files['process/kept.md'], undefined);
 });
 
@@ -447,7 +454,7 @@ test('apply: the harness — an installed copy is updated because the owner ran 
   const r = sync(dir, '--apply');
   assert.deepEqual(bytes(dir, 'process/harness/settings.json'), show(B, 'process/harness/settings.json'));
   assert.deepEqual(bytes(dir, '.claude/settings.json'), show(B, 'process/harness/settings.json'));
-  assert.match(r.stdout, /you installed it as \.claude\/settings\.json by running sync\. An agent never does this step\./);
+  assert.match(r.stdout, /you installed it as \.claude\/settings\.json by running sync --apply\. The owner runs this step; an agent must not/);
   assert.match(git(dir, 'show', '--stat=200', '--format=', 'HEAD'), /^\s*\.claude\/settings\.json\s+\|/m);
 
   const mine = installed('{ "mine": true }\n');
@@ -463,5 +470,87 @@ test('apply refuses an existing sync branch before writing anything', () => {
   const r = sync(dir, '--apply');
   assert.equal(r.status, 1);
   assert.match(r.stderr, /branch slipway\/sync-\S+ already exists/);
+  assert.equal(treeHash(dir), before);
+});
+
+// One owner row per project, each alone: sync exits 1 on it, and 0 when nothing needs the owner.
+const pristine = (edit) => project((d) => {
+  git(d, 'reset', '-q', '--hard', 'HEAD~1');
+  edit(d);
+  commit(d, 'one owner row');
+});
+const override = (p) => `overrides:\n  - path: ${p}\n    reason: ours\n`;
+for (const [why, edit, code] of [
+  ['a merge that conflicts', (d) => put(d, { 'process/merge.md': 'one\ntwo, ours\n', '.slipway/overrides.yaml': override('process/merge.md') }), 1],
+  ['a collision', (d) => put(d, { 'process/clash.md': 'ours\n' }), 1],
+  ['keep (edited)', (d) => put(d, { 'process/kept.md': 'kept, ours\n', '.slipway/overrides.yaml': override('process/kept.md') }), 1],
+  ['a key reported', (d) => put(d, { 'package.json': bytes(d, 'package.json').toString('utf8').replace('"echo b"', '"echo mine"') }), 1],
+  ['an override made stale (the file deleted here, and upstream)', (d) => put(d, { 'process/kept.md': null, '.slipway/overrides.yaml': override('process/kept.md') }), 1],
+  ['an edited harness copy', (d) => put(d, { '.claude/settings.json': '{ "mine": true }\n' }), 1],
+  ['an installed harness copy, and nothing else', (d) => put(d, { '.claude/settings.json': show(A, 'process/harness/settings.json') }), 0],
+]) {
+  test(`apply exits ${code} on ${why}`, () => {
+    const r = sync(pristine(edit), '--apply');
+    assert.equal(r.status, code, r.stdout + r.stderr);
+  });
+}
+
+test('apply never writes through a symlink: a diff path or the manifest that is one is refused, and the file it points to is intact', () => {
+  for (const at of ['.slipway/upstream/docs/PRD.md.diff', MANIFEST]) {
+    const outside = join(mkdtempSync(join(root, 'outside-')), 'precious.txt');
+    const dir = project((d) => {
+      if (at === MANIFEST) writeFileSync(outside, readFileSync(join(d, MANIFEST)));
+      else writeFileSync(outside, 'precious\n');
+      rmSync(join(d, at), { force: true });
+      mkdirSync(dirname(join(d, at)), { recursive: true });
+      symlinkSync(outside, join(d, at));
+      commit(d, `a symlink at ${at}`);
+    });
+    const before = [treeHash(dir), readFileSync(outside)];
+    const r = sync(dir, '--apply');
+    assert.equal(r.status, 1, `${at}: ${r.stdout}`);
+    assert.match(r.stderr, new RegExp(`symlinks or directories[\\s\\S]*${at.replaceAll('.', '\\.')}`));
+    assert.deepEqual([treeHash(dir), readFileSync(outside)], before);
+  }
+});
+
+test('apply refuses a write the project ignores before branching, naming it', () => {
+  const dir = project((d) => { put(d, { '.gitignore': 'node_modules/\n.slipway/upstream/\n' }); commit(d, 'ignore upstream diffs'); });
+  const before = treeHash(dir);
+  const r = sync(dir, '--apply');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the project ignores paths sync would write[\s\S]*\.slipway\/upstream\/docs\/PRD\.md\.diff/);
+  assert.equal(treeHash(dir), before);
+});
+
+test('apply refuses under an agent (CLAUDECODE set), writing nothing; the harness asks before either form of the command', () => {
+  const dir = project();
+  const before = treeHash(dir);
+  const r = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: dir, encoding: 'utf8', env: { ...process.env, CLAUDECODE: '1' } });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /the owner runs it in their own terminal, not an agent \(CLAUDECODE is set\)/);
+  assert.equal(treeHash(dir), before);
+  // Claude Code's Bash rules: `*` matches anything, `:*` a trailing prefix.
+  const asks = JSON.parse(readFileSync(join(SRC, 'process/harness/settings.json'), 'utf8')).permissions.ask
+    .filter((a) => a.startsWith('Bash('))
+    .map((a) => new RegExp(`^${a.slice(5, -1).replace(/:\*$/, '*').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*')}$`));
+  for (const cmd of ['npx github:matldupont/slipway#main sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply']) {
+    assert.ok(asks.some((re) => re.test(cmd)), `no ask rule matches: ${cmd}`);
+  }
+});
+
+test('apply only moves forward: a target older than the base is refused', () => {
+  const dir = project((d) => git(d, 'reset', '-q', '--hard', 'HEAD~1'));
+  assert.equal(sync(dir, '--apply').status, 0); // now at B
+  const older = join(root, 'packed-a');
+  mkdirSync(older);
+  execFileSync('tar', ['-x', '-C', older], { input: execFileSync('git', ['-C', slip, 'archive', A]) });
+  git(dir, 'switch', '-q', 'main');
+  git(dir, 'merge', '-q', '--ff-only', BRANCH);
+  git(dir, 'branch', '-q', '-D', BRANCH);
+  const before = treeHash(dir);
+  const r = spawnSync(process.execPath, [join(older, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: dir, encoding: 'utf8' });
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stderr, /is not newer than the base .* sync only moves forward/);
   assert.equal(treeHash(dir), before);
 });
