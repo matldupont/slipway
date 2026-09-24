@@ -160,16 +160,23 @@ function preflight(cwd) {
   // The target's sha, for the header: this checkout's clean HEAD, else the commit holding its files.
   const targetSha = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha ?? history(() => {
     const byClass = (want) => new Map(t.copy.filter((p) => (classify(t.rules, p) === 'managed') === want).map((p) => [p, blobSha(target.get(p))]));
-    const found = resolveBase(gitDir, byClass(true)).exact;
+    // Every branch: `npx github:…#<ref>` may run a ref off the default branch.
+    const found = resolveBase(gitDir, byClass(true), { ref: '--branches' }).exact;
     return found.length > 1 ? settleTie(gitDir, found, byClass(false), (p, buf) => buf).sha : found[0] ?? null;
   });
-  // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk.
-  if (!existsSync(join(SRC, '.gitignore')) && targetSha) {
-    const id = history(() => commitFiles(gitDir, targetSha).tree.get('.gitignore'));
+  // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk. Without
+  // that commit the target's copy is unknown, and the plan says so rather than compare a stand-in.
+  const notes = [];
+  if (!existsSync(join(SRC, '.gitignore'))) {
+    const id = targetSha && history(() => commitFiles(gitDir, targetSha).tree.get('.gitignore'));
     if (id) target.set('.gitignore', history(() => readBlob(gitDir, id)));
+    else if (base.tree.has('.gitignore')) {
+      target.set('.gitignore', history(() => readBlob(gitDir, base.tree.get('.gitignore'))));
+      notes.push("the target's .gitignore is unknown (npm does not pack it, and no slipway commit matches this package); its row compares the base with itself");
+    }
   }
 
-  return { root, branch, manifest, overrides, source, base: { sha: tie.sha, ...base }, gitDir, target, targetRules: t.rules, targetSha };
+  return { notes, root, branch, manifest, overrides, source, base: { sha: tie.sha, ...base }, gitDir, target, targetRules: t.rules, targetSha };
 }
 
 /**
@@ -229,12 +236,14 @@ function scriptRows(p, { base, target, cur, baseRules, targetRules }) {
   return rows.length ? rows : [{ kind: 'unchanged', path: p }];
 }
 
-function print(out, { branch, source, base, targetSha }, rows) {
+function print(out, { branch, source, base, targetSha, notes }, rows) {
   const width = Math.max(...KINDS.map((k) => k.length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
   out.write(`  base:   ${base.sha} (by content: the manifest's managed blobs)\n`);
-  out.write(`  target: ${targetSha ?? `${SRC} (its files match no slipway commit)`}\n\n`);
+  out.write(`  target: ${targetSha ?? `${SRC} (its files match no slipway commit)`}\n`);
+  for (const n of notes) out.write(`  note:   ${n}\n`);
+  out.write('\n');
   for (const r of rows) out.write(`  ${r.kind.padEnd(width)}  ${r.path}\n`);
   const counts = KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length]).filter(([, n]) => n);
   out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${k}`).join(', ')}. Plan only — nothing was written.\n`);
