@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { MANIFEST } from '../ci/checks/lib/manifest.mjs';
-import { resolveBase, sourceClone } from './lib/base.mjs';
+import { resolveBase, settleTie, sourceClone } from './lib/base.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -259,6 +259,9 @@ test('a manifest whose blobs match no commit exactly stops, naming the closest c
 
 test('resolveBase: closest-match mode ranks every commit and names the runner-up', () => {
   const gitDir = sourceClone(slip);
+  // A second call fetches into the cache; neither leaves the URL in FETCH_HEAD.
+  assert.equal(sourceClone(slip), gitDir);
+  assert.throws(() => lstatSync(join(gitDir, 'FETCH_HEAD')), /ENOENT/);
   const blobs = new Map([['process/replace.md', git(slip, 'rev-parse', `${A}:process/replace.md`)]]);
   const r = resolveBase(gitDir, blobs);
   assert.deepEqual(r.exact, []);
@@ -278,6 +281,38 @@ test('several exact commits the manifest cannot tell apart stop, naming each', (
   const r = sync(dir);
   assert.equal(r.status, 1, r.stdout);
   assert.match(r.stderr, new RegExp(`2 slipway commits hold the manifest's managed files and its other files do not tell them apart: ${A0.slice(0, 12)}, ${A.slice(0, 12)} — set "slipway"`));
+});
+
+test("the manifest's slipway sha settles commits its other files cannot tell apart", () => {
+  const dir = project((d) => {
+    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+    for (const p of ['docs/PRD.md', 'package.json']) m.files[p].blob = '0'.repeat(40);
+    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+    commit(d, 'only the hint tells A from A0');
+  });
+  const r = sync(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, new RegExp(`base: {3}${A} `));
+});
+
+test('settleTie: files the install writes whole are no evidence, so they leave no tie open', () => {
+  const gitDir = sourceClone(slip);
+  // A0 and A differ only in docs/PRD.md and package.json; with neither reproducible, both are one answer.
+  const unrenderable = (p, buf) => (p === 'docs/PRD.md' || p === 'package.json' ? null : buf);
+  const written = new Map(['docs/PRD.md', 'package.json'].map((p) => [p, '0'.repeat(40)]));
+  assert.deepEqual(settleTie(gitDir, [A0, A], written, unrenderable), { sha: A0, tied: [A0, A] });
+});
+
+test('from a packed install (no .git, no .gitignore) of B: the target is B by content, and .gitignore is compared with B\'s own', () => {
+  const pkgDir = join(root, 'packed-b');
+  mkdirSync(pkgDir);
+  execFileSync('tar', ['-x', '-C', pkgDir], { input: execFileSync('git', ['-C', slip, 'archive', B]) });
+  rmSync(join(pkgDir, '.gitignore'));
+  const r = spawnSync(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), 'sync'], { cwd: project(), encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, new RegExp(`target: ${B}\n`));
+  assert.equal(rows(r.stdout)['.gitignore'], 'unchanged');
+  assert.doesNotMatch(r.stdout, /note:/);
 });
 
 test('an empty source is a named refusal, not a stack trace', () => {
@@ -304,5 +339,6 @@ test('the bin dispatches sync; --apply and --adopt are refused until their steps
   // A transport prefix would carry a token past the redaction into the header and the manifest.
   assert.throws(() => sourceClone('https::https://u:TOKEN@example.invalid/r.git'), (e) => /names a git transport helper/.test(e.message) && !e.message.includes('TOKEN'));
   // git's own failure message quotes the URL; the error does not carry the token.
-  assert.throws(() => sourceClone('https://u:TOKEN@unreachable.invalid/r.git'), (e) => /could not fetch slipway from https:\/\/unreachable\.invalid\/r\.git/.test(e.message) && !e.message.includes('TOKEN'));
+  // git drops userinfo from its own messages itself, but keeps a query: that part is sync's to redact.
+  assert.throws(() => sourceClone('https://u:TOKEN@unreachable.invalid/r.git?token=SECRET'), (e) => /could not fetch slipway from https:\/\/unreachable\.invalid\/r\.git: /.test(e.message) && !/TOKEN|SECRET/.test(e.message));
 });

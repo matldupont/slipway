@@ -121,7 +121,7 @@ function ownSsh() {
   if (process.env.GIT_SSH_COMMAND || process.env.GIT_SSH) return true;
   return ['--global', '--system'].some((scope) => {
     try {
-      return execFileSync('git', ['config', scope, '--get', 'core.sshCommand'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
+      return execFileSync('git', ['config', scope, '--includes', '--get', 'core.sshCommand'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
     } catch {
       return false;
     }

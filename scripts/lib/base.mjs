@@ -43,8 +43,12 @@ export function sourceClone(source) {
     const why = redactUrls(String(e.stderr || e.message).trim().split(/\r?\n/).at(-1).replaceAll(url, shown).replaceAll(source, shown));
     return new Error(`could not fetch slipway from ${shown}: ${why}`);
   };
+  // Fetches name the URL themselves, never write FETCH_HEAD, and origin holds only the redacted URL:
+  // the cache keeps no credential at rest, including one an older cache recorded.
+  const redactOrigin = () => git(['--git-dir', dir, 'remote', 'set-url', 'origin', shown]);
   try {
-    git(['--git-dir', dir, 'fetch', '--quiet', '--prune', '--', url, '+refs/heads/*:refs/heads/*'], o);
+    git(['--git-dir', dir, 'fetch', '--quiet', '--prune', '--no-write-fetch-head', '--', url, '+refs/heads/*:refs/heads/*'], o);
+    redactOrigin();
     return dir;
   } catch {
     // No cache yet, or one that no longer fetches: start it again.
@@ -52,11 +56,11 @@ export function sourceClone(source) {
   }
   try {
     git(['clone', '--bare', '--quiet', '--', url, dir], o);
+    redactOrigin();
   } catch (e) {
+    rmSync(dir, { recursive: true, force: true });
     throw fail(e);
   }
-  // Fetches name the URL themselves: the cache keeps no credential at rest.
-  git(['--git-dir', dir, 'remote', 'set-url', 'origin', shown]);
   return dir;
 }
 
@@ -138,6 +142,9 @@ export function settleTie(gitDir, shas, written, render) {
   const seen = shas.map((sha) => {
     const { tree, rules } = commitFiles(gitDir, sha);
     let score = 0;
+    // A file the install writes whole (render gives null) is no evidence either way, so it cannot keep
+    // a tie open either.
+    const unrendered = new Set();
     for (const [p, blob] of written) {
       if (!tree.has(p)) continue;
       let out = null;
@@ -146,10 +153,11 @@ export function settleTie(gitDir, shas, written, render) {
       } catch {
         // an unreadable copy reproduces nothing
       }
-      if (out && blobSha(out) === blob) score++;
+      if (out === null) unrendered.add(p);
+      else if (blobSha(out) === blob) score++;
     }
     const shipped = [...tree]
-      .filter(([p]) => rules && classify(rules, p) !== 'internal')
+      .filter(([p]) => rules && classify(rules, p) !== 'internal' && !unrendered.has(p))
       .map(([p, id]) => `${p}\0${id}`)
       .sort()
       .join('\n');
