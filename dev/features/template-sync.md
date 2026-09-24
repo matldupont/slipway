@@ -183,24 +183,30 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
      project's `package.json` from the template's.
 5. **Record.** Rewrite the manifest, commit everything as `chore: sync slipway <base>..<target>`, and
    print the plan with the commit. Every write is computed before the branch is created, so a refusal
-   writes nothing; each overwrite and delete re-checks the manifest hash right before it is planned.
+   writes nothing: each overwrite and delete re-checks its manifest hash as it is computed, and sync
+   refuses a target that is not newer than the base (or not in `source`), a symlink or directory where
+   it would write a file, and a path the project ignores. Files slipway ships executable arrive
+   executable.
 
    The manifest after a sync must let the next one find its base exactly (#17). By the target's classes:
    - a managed path the target ships is recorded at the target's `blob`. Its `sha256` is the target's too,
      except a `merge` or `keep (edited)` row keeps its old one, and a `collision` holds slipway's — D1
-     flags it until the owner overrides it or moves their file. Recording the project's hash instead
-     would make the next sync replace that file.
+     flags it until the owner overrides it (keeping theirs) or copies slipway's file over theirs.
+     Recording the project's hash instead would make the next sync replace that file.
    - a managed path the target no longer ships leaves the manifest: a kept file is the project's now.
-     Its override goes stale; sync names the entry and never edits `overrides.yaml` (seeded).
+     An override that names no managed file afterwards is stale; sync lists each one by line and never
+     edits `overrides.yaml` (seeded).
    - seeded and merged entries stay; one the target adds is recorded as written.
 6. **Exit** 1 when any row needs the owner: a merge left markers, a `collision`, a `merged: key reported`,
-   a `keep (edited)`, or an edited harness copy. 0 otherwise.
+   a `keep (edited)`, a stale override, or an edited harness copy. 0 otherwise.
 
 **Harness.** When the target changes `process/harness/settings.json`, sync updates both copies only
 because the owner ran it, and it prints that it did, the way `new-project` step 2b does. The skill never
 does this step: an agent never installs its own hooks. `.claude/settings.json` is not in the manifest, so
 sync overwrites it only when it still equals the base's harness bytes. Not installed (`--no-harness`):
-left out, with the `cp` to install it. Edited: left as it is, reported, and sync exits 1.
+left out, with the `cp` to install it. Edited: left as it is, reported, and sync exits 1. `--apply`
+refuses when `CLAUDECODE` is set, and the harness asks before any Bash command running `sync --apply`
+(`Bash(*sync --apply*)`), so an agent cannot take the owner's step unasked.
 
 **Adopt.** For a project with no manifest, the base comes from `--base`, else from a sha in the
 `chore: start from slipway <x>` commit or the README line. Under `npx` that `<x>` is `package.json`'s
