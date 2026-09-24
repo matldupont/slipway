@@ -17,7 +17,8 @@ confident. Independent review pays best on exactly the claims the author was sur
 Another round runs only when the last round found a finding that **breaks a guarantee the spec states**:
 lost work or data, a leaked secret, a gate an agent can pass without asking, a wrong answer on an
 Acceptance case. Anything else is fixed in the same diff if it is cheap and in scope; otherwise it is
-recorded in the spec's known limitations or filed as a follow-up. A spec with no threat model has no
+recorded in the spec's known limitations or filed as a follow-up (the feature doc's `Threat model` and
+`Known limitations` sections, `docs/features/TEMPLATE.md`). A spec with no threat model has no
 guarantees to test against, so write the threat model before the next round, not another round (L-68).
 
 Findings that start with "when the environment has…" (a credential helper, a symlinked parent, a fork, a

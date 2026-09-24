@@ -153,7 +153,7 @@ docs/product/evidence/              interview logs and risk-test results
 docs/product/metrics.md             activation hypothesis · event taxonomy · weekly review · PMF survey
 docs/PRD.md                         stable IDs, principles with what they rule out, open decisions with impact-if-wrong
 docs/milestones/                    one file per bet: appetite · slices · no-gos · rabbit holes · gate · kill · retro
-docs/features/TEMPLATE.md           feature doc: Contract, Seams, Verify, Build map, Changes
+docs/features/TEMPLATE.md           feature doc: Contract, Seams, Threat model, Known limitations, Verify, Build map, Changes
 docs/domain-invariants.md           invariants, each citing the test that enforces it
 docs/testing-strategy.md            test layers, and what makes a test able to fail
 docs/qa/ · docs/reviews/            QA plans · adversarial reviews with provenance lines
