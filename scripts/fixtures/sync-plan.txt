@@ -3,6 +3,11 @@ slipway sync plan, on main
   base:   <A> (by content: the manifest's managed blobs)
   target: <B>
 
+slipway's commits, base → target (3, newest first):
+  B
+  A1: one managed file added
+  A0: seeded and scripts only
+
   unchanged                 .gitattributes
   unchanged                 .gitignore
   unchanged                 README.md

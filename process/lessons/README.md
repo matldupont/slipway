@@ -5,6 +5,9 @@ lesson here states where it lives, and **L1 checks that the statement is true.**
 
 One file per lesson:
 
+A project's own lessons use `PL-<n>` (`PL-1`, `PL-2`…), so they never collide with slipway's `L-<n>`
+when a sync brings new ones (D-015). L1 fails an id that is neither.
+
 ```yaml
 ---
 id: L-44

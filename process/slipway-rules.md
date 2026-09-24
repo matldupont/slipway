@@ -24,7 +24,8 @@ milestone at a time → `/close-milestone`.
 - Execution issues **embed** the feature doc's Contract and `Verify` block; they do not link to it.
 - Before building on a code-state claim in an issue or doc, re-verify it against `main` and record
   `Verified against: <sha> <date>` (L-18).
-- Record decisions in `decisions.md` when they are made, not afterwards.
+- Record decisions in `decisions.md` when they are made, not afterwards. A project's own are `PD-<n>`; `D-<n>`
+  is slipway's (D-015).
 - Before calling work done on money, auth, schema or data-deletion paths, run `process/cold-review.md` from
   a fresh context, refuting by default.
 - Choose model and effort with `process/designation.md`.
@@ -68,4 +69,5 @@ Each rule below is a lesson in `process/lessons/`, which records where it fires.
 
 - Before diagnosing a failure, search `process/lessons/` for the failing filename (L-32).
 - Index a note by its most valuable content, not its title topic; split a file that grows a second topic (L-33).
-- A new lesson is a file in `process/lessons/` with an enforcement status. L1 checks it.
+- A new lesson is a file in `process/lessons/` with an enforcement status, id `PL-<n>` in a project (`L-<n>`
+  is slipway's). L1 checks it.
