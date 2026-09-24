@@ -101,5 +101,6 @@ process.exit(
     unit: 'managed files',
     findings,
     exempted,
+    exemptedBy: OVERRIDES,
   })
 );

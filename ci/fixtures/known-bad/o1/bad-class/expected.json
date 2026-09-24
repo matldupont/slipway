@@ -1,1 +1,4 @@
-{ "exit": 2 }
+{
+  "exit": 2,
+  "broken": "dev/ownership.yaml:3: \"**\" has class \"manged\""
+}

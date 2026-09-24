@@ -3,7 +3,8 @@
 //
 // Runs every registered check against its known-bad fixture and asserts it goes red
 // FOR EXACTLY THE EXPECTED REASONS: expected.json names the exit code, every finding
-// id, every exempted id and every warning id. A fixture is either one case (expected.json
+// id, every exempted id and every warning id. A BROKEN case (exit 2) may also name the
+// start of its `broken` message, so an unrelated failure cannot satisfy it. A fixture is either one case (expected.json
 // at its top) or several (each subdirectory with its own expected.json).
 //
 // v1 asserted only "exit code is 1". That cannot tell a precise check from one that
@@ -62,6 +63,13 @@ function runCase(check, name, dir) {
   }
   if (got.exit !== expected.exit) {
     findings.push({ where: name, detail: `exit ${got.exit} on its fixture, expected ${expected.exit}${got.broken ? ` (${got.broken})` : ''}` });
+    return;
+  }
+  if (expected.broken !== undefined && !(got.broken ?? '').startsWith(expected.broken)) {
+    findings.push({
+      where: name,
+      detail: `BROKEN for the wrong reason — expected a message starting ${JSON.stringify(expected.broken)}, got ${JSON.stringify(got.broken ?? '')}`,
+    });
     return;
   }
   const f = setDiff(expected.findings ?? [], got.findings.map((x) => x.where));
