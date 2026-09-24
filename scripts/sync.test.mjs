@@ -96,7 +96,7 @@ put(slip, {
   '.gitignore': 'node_modules/\n',
   '.gitattributes': '* text=auto eol=lf\n',
   'README.md': '# slipway\n',
-  'package.json': pkg({ a: 'echo a', b: 'echo b', d: 'echo d', drop: 'echo drop', gone: 'node scripts/x.mjs' }),
+  'package.json': pkg({ a: 'echo a', b: 'echo b', d: 'echo d', e: 'echo e', drop: 'echo drop', gone: 'node scripts/x.mjs' }),
   'process/replace.md': 'v1\n',
   'process/same.md': 'same\n',
   'process/merge.md': 'one\ntwo\n',
@@ -107,12 +107,12 @@ put(slip, {
   'docs/same.md': 'seeded, never changed\n',
 });
 const A = commit(slip, 'A');
-put(slip, { 'docs/PRD.md': '# PRD v1.1\n', 'package.json': pkg({ a: 'echo a1', b: 'echo b', d: 'echo d', drop: 'echo drop', gone: 'node scripts/x.mjs' }) });
+put(slip, { 'docs/PRD.md': '# PRD v1.1\n', 'package.json': pkg({ a: 'echo a1', b: 'echo b', d: 'echo d', e: 'echo e', drop: 'echo drop', gone: 'node scripts/x.mjs' }) });
 const A0 = commit(slip, 'A0: seeded and scripts only');
 put(slip, { 'process/new.md': 'new\n' });
 const A1 = commit(slip, 'A1: one managed file added');
 put(slip, {
-  'package.json': pkg({ a: 'echo a2', b: 'echo b2', c: 'echo c', d: 'echo d', gone: 'node scripts/y.mjs' }),
+  'package.json': pkg({ a: 'echo a2', b: 'echo b2', c: 'echo c', d: 'echo d', e: 'echo e2', gone: 'node scripts/y.mjs' }),
   'process/replace.md': 'v2\n',
   'process/merge.md': 'one\ntwo, upstream\n',
   'process/delete.md': null,
@@ -135,6 +135,7 @@ const baseManifest = JSON.parse(readFileSync(join(base, MANIFEST), 'utf8'));
 assert.equal(baseManifest.slipway, A);
 const projPkg = JSON.parse(readFileSync(join(base, 'package.json'), 'utf8'));
 projPkg.scripts.b = 'echo mine';
+projPkg.scripts.e = 'echo e2'; // already upstream's new value
 put(base, {
   'package.json': `${JSON.stringify(projPkg, null, 2)}\n`,
   'process/merge.md': 'one\ntwo\nthree, ours\n',
@@ -208,8 +209,9 @@ const planned = rows(sync(project()).stdout);
 for (const [kind, path, why] of KIND_CASES) {
   test(`row ${kind}: ${path} — ${why}`, () => assert.equal(planned[path], kind));
 }
-test('a key that calls an internal path on both sides (changed upstream) and an unchanged key make no row', () => {
+test('a key that calls an internal path on both sides (changed upstream), an unchanged key, and one the project already has at the target value make no row', () => {
   assert.equal(planned['package.json scripts.gone'], undefined);
+  assert.equal(planned['package.json scripts.e'], undefined);
   assert.equal(planned['package.json scripts.d'], undefined);
 });
 
@@ -262,6 +264,13 @@ test('resolveBase: closest-match mode ranks every commit and names the runner-up
   // A second call fetches into the cache; neither leaves the URL in FETCH_HEAD.
   assert.equal(sourceClone(slip), gitDir);
   assert.throws(() => lstatSync(join(gitDir, 'FETCH_HEAD')), /ENOENT/);
+  assert.throws(() => git(root, '--git-dir', gitDir, 'config', '--get-regexp', '^remote\\.'), 'the cache records no remote URL');
+  // A cache an older version cloned: its origin URL and FETCH_HEAD go on the next fetch.
+  git(root, '--git-dir', gitDir, 'remote', 'add', 'origin', 'https://u:TOKEN@example.invalid/r.git');
+  writeFileSync(join(gitDir, 'FETCH_HEAD'), 'x\tbranch main of https://example.invalid/r.git?token=SECRET\n');
+  assert.equal(sourceClone(slip), gitDir);
+  assert.throws(() => lstatSync(join(gitDir, 'FETCH_HEAD')), /ENOENT/);
+  assert.throws(() => git(root, '--git-dir', gitDir, 'config', '--get-regexp', '^remote\\.'));
   const blobs = new Map([['process/replace.md', git(slip, 'rev-parse', `${A}:process/replace.md`)]]);
   const r = resolveBase(gitDir, blobs);
   assert.deepEqual(r.exact, []);
@@ -313,6 +322,29 @@ test('from a packed install (no .git, no .gitignore) of B: the target is B by co
   assert.match(r.stdout, new RegExp(`target: ${B}\n`));
   assert.equal(rows(r.stdout)['.gitignore'], 'unchanged');
   assert.doesNotMatch(r.stdout, /note:/);
+});
+
+test('settleTie: a commit that ships a file the manifest never recorded is not the base', () => {
+  const src = join(root, 'seeded-addition');
+  mkdirSync(src);
+  git(src, 'init', '-q', '-b', 'main');
+  put(src, { 'dev/ownership.yaml': MAP_YAML, 'process/m.md': 'm\n', 'docs/a.md': 'a\n' });
+  const first = commit(src, 'A');
+  put(src, { 'docs/b.md': 'b\n' });
+  const second = commit(src, 'A2: one seeded file added');
+  const gitDir = sourceClone(src);
+  const written = new Map([['docs/a.md', git(src, 'rev-parse', `${first}:docs/a.md`)]]);
+  assert.deepEqual(settleTie(gitDir, [second, first], written, (p, buf) => buf).sha, first);
+});
+
+test('the cache follows a renamed default branch', () => {
+  const src = join(root, 'renamed');
+  git(root, 'clone', '-q', slip, src);
+  const gitDir = sourceClone(src);
+  git(src, 'branch', '-m', 'main', 'trunk');
+  assert.equal(sourceClone(src), gitDir);
+  assert.equal(git(root, '--git-dir', gitDir, 'symbolic-ref', 'HEAD'), 'refs/heads/trunk');
+  assert.equal(resolveBase(gitDir, new Map()).best.sha, B);
 });
 
 test('an empty source is a named refusal, not a stack trace', () => {

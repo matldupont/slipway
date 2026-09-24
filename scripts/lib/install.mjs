@@ -6,6 +6,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseCommand } from '../../ci/checks/lib/commands.mjs';
 import { sha256 } from '../../ci/checks/lib/manifest.mjs';
@@ -79,6 +80,12 @@ export const redactUrls = (text) =>
     }
   });
 
+// Why a git call failed, in one line: its `fatal:`/`error:` line, not the hint git often ends with.
+export function gitReason(e) {
+  const lines = String(e.stderr || e.message).trim().split(/\r?\n/);
+  return lines.find((l) => /^(fatal|error): /.test(l)) ?? lines.at(-1);
+}
+
 // The project's package.json from the template's: its own name, private, no bin/description/version,
 // and no command that calls an internal path (O1) — the project never receives one.
 export function derivePackageJson(template, { name, rules }) {
@@ -121,7 +128,9 @@ function ownSsh() {
   if (process.env.GIT_SSH_COMMAND || process.env.GIT_SSH) return true;
   return ['--global', '--system'].some((scope) => {
     try {
-      return execFileSync('git', ['config', scope, '--includes', '--get', 'core.sshCommand'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
+      // Outside any repository, as the fetches in sync's cache are: an `includeIf gitdir:` for the
+      // project must not count as ssh the fetch will use.
+      return execFileSync('git', ['config', scope, '--includes', '--get', 'core.sshCommand'], { cwd: tmpdir(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() !== '';
     } catch {
       return false;
     }
