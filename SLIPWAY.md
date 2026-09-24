@@ -329,14 +329,41 @@ blocks on a failing test, lets the second stop through, and skips a tree it alre
 | zero workflow files | M3 exit 2 |
 | a YAML anchor inside `jobs` | M3 exit 2 — refuses to guess |
 
+### Exercised on a real project
+
+A private project started from slipway and ran it in live sessions (2026-09-22 to 2026-09-24). Its commits and
+PRs are the evidence; slipway holds nothing else from it.
+
+- `verify` on a real React + Vite + Vitest app: green on the bootstrap PR, and red on a probe PR with a failing
+  test (BOOTSTRAP §3 probe 3). Scaffold `46fa186`.
+- `pr-body` on real PRs, red on a missing `## Verification` and green once it names evidence (probe 4), and
+  `issue-shape` labelling a free-prose issue `needs-shape` (probe 7).
+- The Stop hook in a live session: it blocked on a raw `tsc: command not found` tail, which produced the
+  missing-install fix (`4cb5c44`, here PR #58).
+- The GitHub half of `scripts/new-project.mjs`: repository, label, and `main` protection with required
+  `meta`, `verify` and `pr-body`, recorded as D-001 "decided by attempting it".
+- `/kickoff` on a real product: frame, PRD, week-1 decisions and milestones (`e32234d`, `9613a9e`).
+- `sync --adopt`, then `sync --apply`, on a project that predated the manifest: adopted at a known base and
+  brought current, in one PR. See the yardstick below.
+
 ### Not verified here — read as unknown
 
-Each has a BOOTSTRAP §3 acceptance probe that is its first real test:
+Each kept line carries `Verified against: <sha> <date>` (slipway `main`) and the BOOTSTRAP §3 probe that will
+first exercise it.
 
-- `verify` against a real React + Vitest app. Package installs were not available when this was built.
-- The GitHub event wiring of `pr-body` and `issue-shape`, which first runs on a real PR and issue.
-- The harness inside a live Claude Code session: the hooks were tested with sample input only, and the
-  ask-level `Edit(...)` rules have not been seen prompting.
-- The GitHub half of `scripts/new-project.mjs` (repository, label, protection, D-001) against a real account.
-- `/kickoff` and `/close-milestone` on a real project, and `AGENT.md` against the real intake skills.
+- The ask-level `Edit(...)` rules prompting in a live session; the other hooks, and the `pnpm status` injection
+  at session start, were seen only on sample input. Probes 10, 14 and 15.
+  Verified against: 11d1a69 2026-09-24
+- `/close-milestone` on a real project: the first project's M1 is still `shaping`, so no milestone has closed.
+  No §3 probe covers it; closing that M1 is its first test.
+  Verified against: 11d1a69 2026-09-24
+- `AGENT.md` against the real intake skills, which live outside slipway today (#46). Probe 11.
+  Verified against: 11d1a69 2026-09-24
 - I1's stated residual: it catches adjectives, not criteria that cannot fail. "Returns HTTP 200" passes.
+  No probe applies; it is a limit of the check, not an unexercised path.
+  Verified against: 11d1a69 2026-09-24
+- Sync yardstick (#43 Acceptance): one terminal command and at most 3 questions, each answerable without
+  knowing slipway, and the owner can say what changed. **Missed** on the first real sync (2026-09-24,
+  `sync --adopt` then `sync --apply`): 2 commands, about 7 questions, and the owner needed help to say what
+  changed (#59, #60, #61, #62). Stays until a sync meets it; each later sync is scored here with its command
+  and question counts.
