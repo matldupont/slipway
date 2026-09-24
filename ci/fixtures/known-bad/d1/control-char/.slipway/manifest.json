@@ -1,0 +1,14 @@
+{
+  "slipway": "0000000000000000000000000000000000000000",
+  "source": "github:matldupont/slipway",
+  "answers": {
+    "name": "Fixture",
+    "repo": null
+  },
+  "files": {
+    "docs/x\n\nharness — installed": {
+      "class": "seeded",
+      "sha256": "4a6689419b00b11700c9b6246bcfa8936c8f5e1e824db3a7e57030e2d1c1a684"
+    }
+  }
+}

@@ -26,6 +26,10 @@ export const isTemplate = (root) => TEMPLATE_MARKERS.every((m) => existsSync(joi
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
+// A path with each C0/C1 control character shown as \uXXXX, so an error naming it prints nothing raw.
+const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+const escapeControl = (s) => s.replace(/[\u0000-\u001f\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+
 // null when the project has no manifest. Throws when it has one this code cannot trust: every drift
 // finding built on a misread manifest would be wrong, and a path outside the project is never read.
 export function readManifest(root) {
@@ -39,8 +43,9 @@ export function readManifest(root) {
   }
   if (!m || typeof m.files !== 'object' || m.files === null || Array.isArray(m.files)) throw new Error(`${MANIFEST} has no files map`);
   for (const [path, f] of Object.entries(m.files)) {
+    if (CONTROL.test(path)) throw new Error(`${MANIFEST}: "${escapeControl(path)}" holds a control character`);
     if (/[\\:]/.test(path) || path.startsWith('/') || path.split('/').some((s) => s === '..' || s === '' || s === '.')) {
-      throw new Error(`${MANIFEST}: "${path}" is not a plain relative path`);
+      throw new Error(`${MANIFEST}: "${escapeControl(path)}" is not a plain relative path`);
     }
     if (!RECORDED.includes(f?.class) || !/^[0-9a-f]{64}$/.test(f?.sha256 ?? '')) {
       throw new Error(`${MANIFEST}: "${path}" needs a class (${RECORDED.join(', ')}) and a sha256`);
