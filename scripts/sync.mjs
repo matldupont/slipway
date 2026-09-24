@@ -399,13 +399,19 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   const paths = [...todo.writes.keys(), MANIFEST];
   const notFile = paths.filter((p) => readProjectFile(root, p) === NOT_A_FILE);
   if (notFile.length) throw new Refusal(`sync writes regular files only, and these are symlinks or directories — nothing was written:\n  ${notFile.join('\n  ')}`);
+  // A file (one sync does not delete) where a write needs a directory: a kept file slipway turned into
+  // a folder, or a file at .slipway/upstream.
+  const removed = new Set(todo.removes);
+  const parents = new Set(paths.flatMap((p) => p.split('/').slice(0, -1).map((_, i, dirs) => dirs.slice(0, i + 1).join('/'))));
+  const blocked = [...parents].filter((d) => !removed.has(d) && existsSync(join(root, d)) && !statSync(join(root, d)).isDirectory());
+  if (blocked.length) throw new Refusal(`sync must write inside these, but each is a file of yours — move it first; nothing was written:\n  ${blocked.join('\n  ')}`);
   let ignored = '';
   try {
-    ignored = git(['-C', root, 'check-ignore', '--', ...paths]).trim();
+    ignored = git(['-C', root, 'check-ignore', '--', ...paths, ...todo.removes]).trim();
   } catch (e) {
     if (e.status !== 1) throw new Refusal(`git check-ignore failed: ${gitReason(e)} — nothing was written`);
   }
-  if (ignored) throw new Refusal(`the project ignores paths sync would write, so it could not commit them — un-ignore them first; nothing was written:\n  ${ignored.split('\n').join('\n  ')}`);
+  if (ignored) throw new Refusal(`the project ignores paths sync would write or delete, so it could not commit them — un-ignore them first; nothing was written:\n  ${ignored.split('\n').join('\n  ')}`);
   return todo;
 }
 
