@@ -211,13 +211,13 @@
       <ul class="hang">
         <li><strong>Every check is seen failing before it’s trusted.</strong> Each has known-bad examples it must go red on, for exactly the expected reasons.</li>
         <li><strong>Slipway was built on its own path.</strong> Its planning, reviews and lessons live in the repo, like any project’s would.</li>
-        <li><strong>Starting a project and taking updates are tested.</strong> <code>new-project</code> and <code>sync</code> run end to end against throwaway git repositories in their test suites.</li>
+        <li><strong>A real project has used it.</strong> A private project started from slipway, ran the gates on real pull requests and issues, and had its repository protected by the setup script. <code>/kickoff</code> shaped its product, and the Stop hook caught a bug in a live session that became a fix.</li>
+        <li><strong>Taking updates works, but not yet gently.</strong> <code>sync</code> adopted that project and brought it current in one pull request. It took two commands and about seven questions against a goal of one and three, so it’s scored a miss.</li>
       </ul>
       <h3>Not proven yet</h3>
       <ul class="hang">
-        <li><strong>A real product through its first milestone.</strong> The first one is underway now.</li>
-        <li><strong>A full milestone, start to close.</strong> <code>/kickoff</code> has shaped a real product (with an earlier version of the skill). No milestone has closed yet, so <code>/close-milestone</code> hasn’t run for real.</li>
-        <li>The full list is in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#not-verified-here--read-as-unknown">SLIPWAY.md</a>, under “Not verified here — read as unknown”.</li>
+        <li><strong>A full milestone, start to close.</strong> That project’s first milestone hasn’t started, so <code>/close-milestone</code> hasn’t run for real.</li>
+        <li>The full list, dated, is in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#not-verified-here--read-as-unknown">SLIPWAY.md</a>, under “Not verified here — read as unknown”.</li>
       </ul>
       <h3>Next</h3>
       <ul class="hang">
