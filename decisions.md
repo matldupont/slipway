@@ -57,6 +57,23 @@ move their own lessons and decisions (the ones slipway does not ship) to `PL-`/`
 each sync costlier until projects stop syncing), and shipping skills and checks as a plugin and a package
 (it conflicts with SLIPWAY.md's self-containment; revisit if the merge surface stays large).
 
+## D-016 — Project state for non-technical readers is a generated page, not a board *(decided 2026-09-24)*
+
+A project's non-technical members need to see where things stand without reading issues or `STATE.md`.
+
+- **Generated, read-only.** A static page built from `docs/milestones/` by the same lib `pnpm status`, MS1
+  and K1 read. Nobody edits it, so it cannot drift. A GitHub Projects board was declined: a second,
+  hand-kept source of truth goes stale, which is what `pnpm status` exists to prevent.
+- **Built, not served.** CI rebuilds it on every push to `main` and once a day, for the day count.
+  Rendering per request (a Worker) was declined: `main` changes only on a push, so it adds a runtime, a
+  token and a second reader of the repo for no fresher content. Reopen it if the page ever shows live
+  GitHub state (open PRs, CI).
+- **Opt-in, and an allowlist.** Off unless AGENT.md turns it on. Only milestone-level fields are
+  published; decisions, risks, questions and issues never are.
+
+Consequences: the first host is GitHub Pages, public but `noindex`, which is not access control. A
+private page (Cloudflare Access) is a later value of the same AGENT.md key. Spec: `dev/features/roadmap-page.md`.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
