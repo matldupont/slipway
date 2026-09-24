@@ -339,10 +339,10 @@ PRs are the evidence; slipway holds nothing else from it.
 - `pr-body` on real PRs, red on a missing `## Verification` and green once it names evidence (probe 4), and
   `issue-shape` labelling a free-prose issue `needs-shape` (probe 7).
 - The Stop hook in a live session: it blocked on a raw `tsc: command not found` tail, which produced the
-  missing-install fix (`4cb5c44`, here PR #58).
+  missing-install fix (the project's `4cb5c44`, ported here as PR #58).
 - The GitHub half of `scripts/new-project.mjs`: repository, label, and `main` protection with required
   `meta`, `verify` and `pr-body`, recorded as D-001 "decided by attempting it".
-- `/kickoff` on a real product: frame, PRD, week-1 decisions and milestones (`e32234d`, `9613a9e`).
+- `/kickoff` on a real product: frame, PRD, week-1 decisions and milestones (`e32234d`, then `9613a9e` set the frame).
 - `sync --adopt`, then `sync --apply`, on a project that predated the manifest: adopted at a known base and
   brought current, in one PR. See the yardstick below.
 
@@ -351,8 +351,9 @@ PRs are the evidence; slipway holds nothing else from it.
 Each kept line carries `Verified against: <sha> <date>` (slipway `main`) and the BOOTSTRAP §3 probe that will
 first exercise it.
 
-- The ask-level `Edit(...)` rules prompting in a live session; the other hooks, and the `pnpm status` injection
-  at session start, were seen only on sample input. Probes 10, 14 and 15.
+- The ask-level `Edit(...)` rules prompting in a live session; the Stop hook refusing on a failing test (it
+  has only been seen blocking on a missing install); the other hooks and the `pnpm status` injection at session
+  start, seen only on sample input. Probes 10, 14 and 15.
   Verified against: 11d1a69 2026-09-24
 - `/close-milestone` on a real project: the first project's M1 is still `shaping`, so no milestone has closed.
   No §3 probe covers it; closing that M1 is its first test.
