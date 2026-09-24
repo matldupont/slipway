@@ -82,7 +82,7 @@ function tokenize(cmd) {
 const PRINTERS = new Set(['echo', 'printf']);
 
 // The invocations in one command line. The right side of `||` is conditional (it runs only
-// when the left failed), so it is not an invocation; an `echo`/`printf` segment prints.
+// when the left failed), so it is not an invocation (up to the next `;` or `&&`); an `echo`/`printf` segment prints.
 //   { kind: 'pnpm-script', script, filters, recursive }
 //   { kind: 'turbo', tasks, filtered }
 //   { kind: 'node', path }
@@ -90,7 +90,10 @@ export function parseCommand(cmd) {
   const toks = tokenize(cmd);
   const out = [];
   for (let i = 0; i < toks.length; i++) {
-    if (toks[i] === '||') break;
+    if (toks[i] === '||') {
+      while (i + 1 < toks.length && toks[i + 1] !== ';' && toks[i + 1] !== '&&') i++;
+      continue;
+    }
     if (PRINTERS.has(toks[i]) && (i === 0 || SEPARATORS.has(toks[i - 1]))) {
       while (i + 1 < toks.length && !SEPARATORS.has(toks[i + 1])) i++;
       continue;
