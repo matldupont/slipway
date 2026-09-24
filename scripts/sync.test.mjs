@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// sync's plan (F-01 step 3): one row kind per case, the preflight refusals, the content resolver, and a
-// run that leaves every byte of the project as it was. Internal: `pnpm meta` runs it in slipway only.
+// sync (F-01 steps 3–4). The plan: one row kind per case, the preflight refusals, the content resolver,
+// and a run that leaves every byte of the project as it was. --apply: one case per Acceptance line of
+// #17. Internal: `pnpm meta` runs it in slipway only.
 //
 // Every case builds real repositories in a temp dir: a small slipway (this checkout's sync code, a
 // fixture map and fixture files) with a base commit and a target commit, and a project new-project
@@ -14,7 +15,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { MANIFEST } from '../ci/checks/lib/manifest.mjs';
+import { MANIFEST, readProjectFile } from '../ci/checks/lib/manifest.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -103,6 +104,7 @@ put(slip, {
   'process/delete.md': 'delete me\n',
   'process/kept.md': 'kept\n',
   'process/ours.md': 'ours\n',
+  'process/harness/settings.json': '{ "harness": 1 }\n',
   'docs/PRD.md': '# PRD v1\n',
   'docs/same.md': 'seeded, never changed\n',
 });
@@ -118,6 +120,7 @@ put(slip, {
   'process/delete.md': null,
   'process/kept.md': null,
   'process/clash.md': 'slipway clash\n',
+  'process/harness/settings.json': '{ "harness": 2 }\n',
   'docs/PRD.md': '# PRD v2\n',
 });
 const B = commit(slip, 'B');
@@ -142,6 +145,7 @@ put(base, {
   'process/kept.md': 'kept, edited\n',
   'process/ours.md': 'ours, edited\n',
   'process/clash.md': 'our own file\n',
+  'docs/PRD.md': '# Our PRD\n',
   '.slipway/overrides.yaml': 'overrides:\n  - path: process/merge.md\n    reason: our third line\n  - path: process/kept.md\n    reason: we still use it\n  - path: process/ours.md\n    reason: our wording\n',
 });
 commit(base, 'owner edits');
@@ -225,11 +229,15 @@ test('refuses a dirty tree, a detached HEAD, D1 red and a missing manifest — e
   for (const [edit, why] of cases) {
     const dir = project(edit);
     const before = treeHash(dir);
-    const r = sync(dir);
-    assert.equal(r.status, 1, `${why}: exit ${r.status}\n${r.stdout}`);
-    assert.match(r.stderr, why);
-    assert.equal(r.stdout, '');
-    assert.equal(treeHash(dir), before);
+    const status = git(dir, 'status', '--porcelain');
+    for (const args of [[], ['--apply']]) {
+      const r = sync(dir, ...args);
+      assert.equal(r.status, 1, `${why} ${args}: exit ${r.status}\n${r.stdout}`);
+      assert.match(r.stderr, why);
+      assert.equal(r.stdout, '');
+      assert.equal(treeHash(dir), before, `${args} wrote to the project`);
+      assert.equal(git(dir, 'status', '--porcelain'), status);
+    }
   }
 });
 
@@ -268,8 +276,8 @@ test('resolveBase: closest-match mode ranks every commit and names the runner-up
   const r = resolveBase(gitDir, blobs);
   assert.equal(r.exact, null);
   assert.equal(r.total, 1);
-  assert.deepEqual(r.best, { sha: A0, matched: 1, extra: 6 });
-  assert.deepEqual(r.runnerUp, { sha: A, matched: 1, extra: 6 });
+  assert.deepEqual(r.best, { sha: A0, matched: 1, extra: 7 });
+  assert.deepEqual(r.runnerUp, { sha: A, matched: 1, extra: 7 });
 });
 
 test('from a packed install (no .git, no .gitignore) of B: the target is B by content, and .gitignore is compared with B\'s own', () => {
@@ -313,14 +321,147 @@ test('an empty source is a named refusal, not a stack trace', () => {
   assert.doesNotMatch(r.stderr, /\n\s+at /);
 });
 
-test('the bin dispatches sync; --apply and --adopt are refused until their steps land; a sync source that reads as an option is refused', () => {
-  assert.match(sync(root, '--help').stdout, /^usage: sync/);
-  assert.match(sync(project(), '--apply').stderr, /--apply arrives in F-01 step 4/);
+test('the bin dispatches sync; --adopt is refused until its step lands, and so are --plan with --apply; a sync source that reads as an option is refused', () => {
+  assert.match(sync(root, '--help').stdout, /^usage: sync \[--plan \| --apply\]/);
   assert.match(sync(project(), '--adopt').stderr, /--adopt arrives in F-01 step 5/);
+  assert.match(sync(project(), '--plan', '--apply').stderr, /--plan and --apply: choose one/);
   assert.throws(() => sourceClone('--upload-pack=touch x'), /reads as a git option/);
   // A transport prefix would carry a token past the redaction into the header and the manifest.
   assert.throws(() => sourceClone('https::https://u:TOKEN@example.invalid/r.git'), (e) => /names a git transport helper/.test(e.message) && !e.message.includes('TOKEN'));
   // git's own failure message quotes the URL; the error does not carry the token.
   // git drops userinfo from its own messages itself, but keeps a query: that part is sync's to redact.
   assert.throws(() => sourceClone('https://u:TOKEN@unreachable.invalid/r.git?token=SECRET'), (e) => /could not fetch slipway from https:\/\/unreachable\.invalid\/r\.git: /.test(e.message) && !/TOKEN|SECRET/.test(e.message));
+});
+
+// ---- --apply (F-01 step 4, #17): one case per Acceptance line
+
+const short = (sha) => sha.slice(0, 12);
+const BRANCH = `slipway/sync-${short(B)}`;
+const show = (sha, p) => execFileSync('git', ['-C', slip, 'show', `${sha}:${p}`]);
+const bytes = (dir, p) => readFileSync(join(dir, p));
+const manifestOf = (dir) => JSON.parse(readFileSync(join(dir, MANIFEST), 'utf8'));
+// Slipway B's managed files, by the fixture map: process/** and .gitattributes.
+const managedAtB = git(slip, 'ls-tree', '-r', '--name-only', B).split('\n').filter((p) => p.startsWith('process/') || p === '.gitattributes');
+
+test('apply, pristine project: every managed file equals the target, the manifest records B, one commit on slipway/sync-<B>, main unchanged', () => {
+  const dir = project((d) => git(d, 'reset', '-q', '--hard', 'HEAD~1')); // before the owner's edits
+  const main = git(dir, 'rev-parse', 'main');
+  const mainTree = git(dir, 'rev-parse', 'main^{tree}');
+  const r = sync(dir, '--apply');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(git(dir, 'symbolic-ref', '--short', 'HEAD'), BRANCH);
+  assert.equal(git(dir, 'rev-parse', 'main'), main);
+  assert.equal(git(dir, 'rev-parse', 'main^{tree}'), mainTree);
+  assert.equal(git(dir, 'rev-parse', 'HEAD~1'), main);
+  assert.equal(git(dir, 'status', '--porcelain'), '');
+  const m = manifestOf(dir);
+  assert.equal(m.slipway, B);
+  for (const p of managedAtB) {
+    assert.deepEqual(bytes(dir, p), show(B, p), p);
+    assert.equal(m.files[p].blob, git(slip, 'rev-parse', `${B}:${p}`), p);
+  }
+  const managed = Object.entries(m.files).filter(([, f]) => f.class === 'managed').map(([p]) => p);
+  assert.deepEqual(managed.sort(), [...managedAtB].sort());
+  assert.equal(readProjectFile(dir, 'process/delete.md'), null);
+  assert.deepEqual(JSON.parse(bytes(dir, 'package.json')).scripts, { a: 'echo a2', b: 'echo b2', c: 'echo c', d: 'echo d', e: 'echo e2' });
+  // --no-harness: nothing installed, so nothing to update, and the owner is told how.
+  assert.equal(readProjectFile(dir, '.claude/settings.json'), null);
+  assert.match(r.stdout, /\.claude\/settings\.json is not installed, so it was left out/);
+  // The rewritten manifest resolves: the next sync finds B as its base and has nothing to do.
+  const again = sync(dir);
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, new RegExp(`base: {3}${B} `));
+  assert.deepEqual(new Set(Object.values(rows(again.stdout))), new Set(['unchanged']));
+  const noop = sync(dir, '--apply');
+  assert.equal(noop.status, 0, noop.stderr);
+  assert.match(noop.stdout, /Already at .* nothing to apply, nothing written/);
+  assert.equal(git(dir, 'symbolic-ref', '--short', 'HEAD'), BRANCH);
+});
+
+// The owner-edited project, applied once; each case below reads its result.
+const edited = project();
+const editedMain = git(edited, 'rev-parse', 'main');
+const kept = ['docs/PRD.md', 'process/kept.md', 'process/clash.md', '.slipway/overrides.yaml'].map((p) => [p, bytes(edited, p)]);
+const ourMerge = bytes(edited, 'process/merge.md').toString('utf8');
+const manifestBefore = manifestOf(edited);
+const applied = sync(edited, '--apply');
+
+test('apply, edited project: exits 1 — rows need the owner — with main unchanged and the tree clean', () => {
+  assert.equal(applied.status, 1, applied.stdout + applied.stderr);
+  assert.match(applied.stdout, /Sync exits 1/);
+  assert.equal(git(edited, 'rev-parse', 'main'), editedMain);
+  assert.equal(git(edited, 'symbolic-ref', '--short', 'HEAD'), BRANCH);
+  assert.equal(git(edited, 'status', '--porcelain'), '');
+});
+
+test('apply: seeded, collision and keep (edited) files are byte-identical; overrides.yaml too', () => {
+  for (const [p, before] of kept) assert.deepEqual(bytes(edited, p), before, p);
+});
+
+test('apply: a seeded file slipway changed gets slipway\'s base → target diff in .slipway/upstream/<path>.diff', () => {
+  const diff = join(edited, '.slipway/upstream/docs/PRD.md.diff');
+  const at = mkdtempSync(join(root, 'patch-'));
+  put(at, { 'docs/PRD.md': show(A, 'docs/PRD.md') });
+  execFileSync('git', ['apply', diff], { cwd: at });
+  assert.deepEqual(bytes(at, 'docs/PRD.md'), show(B, 'docs/PRD.md'));
+  assert.match(applied.stdout, /seeded: upstream changed — [^\n]*\n {2}\.slipway\/upstream\/docs\/PRD\.md\.diff\n/);
+});
+
+test('apply: an overridden file that conflicts holds markers with both sides and every line of the project\'s version', () => {
+  const merged = bytes(edited, 'process/merge.md').toString('utf8');
+  assert.match(merged, /^<{7} project\n[\s\S]*^={7}\n[\s\S]*^>{7} slipway\n/m);
+  assert.ok(merged.includes('two, upstream\n'), 'slipway\'s side');
+  const lines = merged.split('\n');
+  for (const l of ourMerge.split('\n')) assert.ok(lines.includes(l), `lost: ${l}`);
+  assert.match(applied.stdout, /merge — conflict markers[^\n]*\n {2}process\/merge\.md \(1 conflict\)/);
+  // It keeps its old hash, so D1 still sees it as the override it is; its blob is the target's, so the base resolves.
+  const f = manifestOf(edited).files['process/merge.md'];
+  assert.equal(f.sha256, manifestBefore.files['process/merge.md'].sha256);
+  assert.equal(f.blob, git(slip, 'rev-parse', `${B}:process/merge.md`));
+});
+
+test('apply: a file removed upstream that the project edited is kept, reported as keep (edited), and its override is named, not edited', () => {
+  assert.equal(rows(applied.stdout)['process/kept.md'], 'keep (edited)');
+  assert.match(applied.stdout, /keep \(edited\) — [^\n]*\n {2}\.slipway\/overrides\.yaml:\d+ {2}path: process\/kept\.md\n/);
+  assert.equal(manifestOf(edited).files['process/kept.md'], undefined);
+});
+
+test('apply: a new upstream file at a path the project has is reported as collision and recorded at slipway\'s hash, so D1 flags it', () => {
+  assert.equal(rows(applied.stdout)['process/clash.md'], 'collision');
+  assert.match(applied.stdout, /collision — [^\n]*\n {2}process\/clash\.md\n/);
+  assert.equal(manifestOf(edited).files['process/clash.md'].blob, git(slip, 'rev-parse', `${B}:process/clash.md`));
+});
+
+test('apply: the manifest and the file changes land in one commit', () => {
+  assert.equal(git(edited, 'rev-list', '--count', `main..${BRANCH}`), '1');
+  const stat = git(edited, 'show', '--stat=200', '--format=%s', 'HEAD');
+  assert.match(stat, new RegExp(`^chore: sync slipway ${short(A)}\\.\\.${short(B)}\n`));
+  for (const p of [MANIFEST, 'process/replace.md', 'process/merge.md', 'process/delete.md', 'process/new.md', 'package.json', '.slipway/upstream/docs/PRD.md.diff']) {
+    assert.ok(stat.includes(` ${p} `), `${p} is not in the commit:\n${stat}`);
+  }
+});
+
+test('apply: the harness — an installed copy is updated because the owner ran sync; an edited one is left and exits 1', () => {
+  const installed = (body) => project((d) => { put(d, { '.claude/settings.json': body }); commit(d, 'install the harness'); });
+  const dir = installed(show(A, 'process/harness/settings.json'));
+  const r = sync(dir, '--apply');
+  assert.deepEqual(bytes(dir, 'process/harness/settings.json'), show(B, 'process/harness/settings.json'));
+  assert.deepEqual(bytes(dir, '.claude/settings.json'), show(B, 'process/harness/settings.json'));
+  assert.match(r.stdout, /you installed it as \.claude\/settings\.json by running sync\. An agent never does this step\./);
+  assert.match(git(dir, 'show', '--stat=200', '--format=', 'HEAD'), /^\s*\.claude\/settings\.json\s+\|/m);
+
+  const mine = installed('{ "mine": true }\n');
+  const e = sync(mine, '--apply');
+  assert.equal(e.status, 1);
+  assert.deepEqual(bytes(mine, '.claude/settings.json'), Buffer.from('{ "mine": true }\n'));
+  assert.match(e.stdout, /\.claude\/settings\.json was edited, so it was left as it is/);
+});
+
+test('apply refuses an existing sync branch before writing anything', () => {
+  const dir = project((d) => git(d, 'branch', BRANCH));
+  const before = treeHash(dir);
+  const r = sync(dir, '--apply');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /branch slipway\/sync-\S+ already exists/);
+  assert.equal(treeHash(dir), before);
 });
