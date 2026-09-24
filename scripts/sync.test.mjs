@@ -777,11 +777,12 @@ test('adopt: a differing file overrides.yaml already lists with a reason is kept
   assert.equal(treeHash(stale), before);
 });
 
-test('ownDecisions: a base ID is slipway\'s; a target ID only under the target\'s own heading (a reused number is the project\'s)', () => {
+test('ownDecisions: a base ID is slipway\'s; a target ID only under the target\'s own title, whatever its status (a reused number is the project\'s)', () => {
   const base = '## D-001 — Protect main *(open)*\n';
   const target = `${base}## D-015 — Projects take slipway updates *(decided)*\n## D-016 — Something newer *(decided)*\n`;
-  const mine = '## D-001 — `main` is protected *(decided)*\n## D-015 — API framework: Fastify *(decided)*\n## D-016 — Something newer *(decided)*\n## D-099 — Ours *(open)*\n## PD-1 — Moved *(open)*\n';
-  assert.deepEqual(ownDecisions(mine, base, target), ['D-015', 'D-099']);
+  const mine = '## D-001 — `main` is protected *(decided)*\n## D-015 — API framework: Fastify *(decided)*\n## D-016 — Something newer *(decided 2026-10-01)*\n## D-099 — Ours *(open)*\n## PD-1 — Moved *(open)*\n';
+  // D-016 was copied in by hand and then decided: its status changed, its title did not, so it stays slipway's.
+  assert.deepEqual(ownDecisions(mine, base, target.replace('Something newer *(decided)*', 'Something newer *(open — week 1)*')), ['D-015', 'D-099']);
 });
 
 test('sync from a target the source does not have (an unpushed commit): the plan notes it and still prints; --apply refuses', () => {
@@ -836,4 +837,18 @@ test('adopt, then sync, from a base older than the ownership map: classified by 
   assert.equal(plan.status, 0, plan.stderr);
   assert.match(plan.stdout, new RegExp(`base: {3}${P0} `));
   assert.equal(rows(plan.stdout)['process/one.md'], 'replace');
+});
+
+test('adopt: a lesson the target ships under another file name (same id, same rule) is slipway\'s, not listed', () => {
+  const renamed = join(root, 'slipway-renamed-lesson');
+  git(root, 'clone', '-q', slip, renamed);
+  const lesson = (rule) => `---\nid: L-05\nrule: ${rule}\nenforcement:\n  status: check\n  pointer: d1\n---\n`;
+  put(renamed, { 'process/lessons/L-05-new-name.md': lesson('slipway rule') });
+  commit(renamed, 'a lesson, renamed');
+  const run = (dir) => spawnSync(process.execPath, [join(renamed, 'scripts', 'new-project.mjs'), 'sync', '--adopt'], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
+  const copied = run(unadopted((d) => put(d, { 'process/lessons/L-05-old-name.md': lesson('slipway rule') })));
+  assert.equal(copied.status, 0, copied.stderr);
+  assert.doesNotMatch(copied.stdout, /L-05/);
+  const own = run(unadopted((d) => put(d, { 'process/lessons/L-05-old-name.md': lesson('our own rule') })));
+  assert.match(own.stdout, /^ {2}L-05 {2}process\/lessons\/L-05-old-name\.md$/m);
 });
