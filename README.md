@@ -1,5 +1,7 @@
 # slipway
 
+<img src="dev/assets/logo-lockup.png" alt="slipway" width="420">
+
 A slipway is where a ship is built and then launched down the ramp. This is a starting point for a product
 built with coding agents: a path from a loose idea to a shipped, measured product, and the checks that keep
 that path honest.
