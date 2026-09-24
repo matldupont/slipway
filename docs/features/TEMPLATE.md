@@ -25,6 +25,22 @@ date. Evidence rots within days; re-verify before building (L-18).
 Does this add a person, a channel, or a promise? `none` plus one line of why — or who pays, who is
 counted, who is told, what is promised.
 
+## Threat model
+
+What this feature promises, and against whom: the bar a cold review measures findings against
+(`process/cold-review.md#When to stop`). The baseline always holds and needs no restating: no secret
+leaks, no injection, no auth or authz bypass, no loss of user data or work, no gate an agent can pass
+without being asked. `none beyond baseline` is a valid answer, and most UI work gives it; say so.
+
+A feature that adds a network call, a cache, a subprocess, stored secrets, user-supplied input or a
+deletion must fill this in: what it defends, who it defends against, and what it does not defend.
+
+## Known limitations
+
+Gaps seen and accepted, one line each with why. A review finding that is already listed here is
+dropped; a new one that breaks no guarantee is added here in the same PR instead of opening another
+round.
+
 ## Acceptance
 
 ```
