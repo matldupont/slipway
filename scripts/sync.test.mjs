@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { MANIFEST } from '../ci/checks/lib/manifest.mjs';
-import { resolveBase, settleTie, sourceClone } from './lib/base.mjs';
+import { resolveBase, sourceClone } from './lib/base.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -85,7 +85,7 @@ const MAP_YAML = `paths:
 `;
 const pkg = (scripts) => `${JSON.stringify({ name: 'create-slipway', version: '0.0.0-fixture', bin: { 'create-slipway': 'scripts/new-project.mjs' }, scripts }, null, 2)}\n`;
 
-// slipway: A (base) → A0 (seeded and scripts only: the same managed blobs as A) → A1 (adds one managed
+// slipway: A (base) → A0 (seeded and scripts only: the same managed blobs as A, so a tie) → A1 (adds one managed
 // file, nothing else) → B (target).
 const slip = join(root, 'slipway');
 mkdirSync(slip);
@@ -233,7 +233,7 @@ test('refuses a dirty tree, a detached HEAD, D1 red and a missing manifest — e
   }
 });
 
-test('with "slipway": null the base is found by blobs alone — A, not A1 (one managed file more) nor A0 (same managed blobs)', () => {
+test('with "slipway": null the base is found by blobs alone: the newest exact commit — A0, which shares A\'s managed blobs, never A1', () => {
   const dir = project((d) => {
     const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
     m.slipway = null;
@@ -242,8 +242,11 @@ test('with "slipway": null the base is found by blobs alone — A, not A1 (one m
   });
   const r = sync(dir);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, new RegExp(`base: {3}${A} `));
-  assert.deepEqual(rows(r.stdout), planned);
+  assert.match(r.stdout, new RegExp(`base: {3}${A0} `));
+  // The known limitation (F-01): the tie changes only advisory rows — here scripts.a, which A0 changed.
+  const got = rows(r.stdout);
+  assert.equal(got['package.json scripts.a'], 'merged: key reported');
+  for (const [path, kind] of Object.entries(planned)) if (path !== 'package.json scripts.a') assert.equal(got[path], kind, path);
 });
 
 test('a manifest whose blobs match no commit exactly stops, naming the closest commit and its count', () => {
@@ -261,55 +264,12 @@ test('a manifest whose blobs match no commit exactly stops, naming the closest c
 
 test('resolveBase: closest-match mode ranks every commit and names the runner-up', () => {
   const gitDir = sourceClone(slip);
-  // A second call fetches into the cache; neither leaves the URL in FETCH_HEAD.
-  assert.equal(sourceClone(slip), gitDir);
-  assert.throws(() => lstatSync(join(gitDir, 'FETCH_HEAD')), /ENOENT/);
-  assert.throws(() => git(root, '--git-dir', gitDir, 'config', '--get-regexp', '^remote\\.'), 'the cache records no remote URL');
-  // A cache an older version cloned: its origin URL and FETCH_HEAD go on the next fetch.
-  git(root, '--git-dir', gitDir, 'remote', 'add', 'origin', 'https://u:TOKEN@example.invalid/r.git');
-  writeFileSync(join(gitDir, 'FETCH_HEAD'), 'x\tbranch main of https://example.invalid/r.git?token=SECRET\n');
-  assert.equal(sourceClone(slip), gitDir);
-  assert.throws(() => lstatSync(join(gitDir, 'FETCH_HEAD')), /ENOENT/);
-  assert.throws(() => git(root, '--git-dir', gitDir, 'config', '--get-regexp', '^remote\\.'));
   const blobs = new Map([['process/replace.md', git(slip, 'rev-parse', `${A}:process/replace.md`)]]);
   const r = resolveBase(gitDir, blobs);
-  assert.deepEqual(r.exact, []);
+  assert.equal(r.exact, null);
   assert.equal(r.total, 1);
   assert.deepEqual(r.best, { sha: A0, matched: 1, extra: 6 });
   assert.deepEqual(r.runnerUp, { sha: A, matched: 1, extra: 6 });
-});
-
-test('several exact commits the manifest cannot tell apart stop, naming each', () => {
-  const dir = project((d) => {
-    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
-    m.slipway = null;
-    for (const p of ['docs/PRD.md', 'package.json']) m.files[p].blob = '0'.repeat(40);
-    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
-    commit(d, 'blobs that settle nothing');
-  });
-  const r = sync(dir);
-  assert.equal(r.status, 1, r.stdout);
-  assert.match(r.stderr, new RegExp(`2 slipway commits hold the manifest's managed files and its other files do not tell them apart: ${A0.slice(0, 12)}, ${A.slice(0, 12)} — set "slipway"`));
-});
-
-test("the manifest's slipway sha settles commits its other files cannot tell apart", () => {
-  const dir = project((d) => {
-    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
-    for (const p of ['docs/PRD.md', 'package.json']) m.files[p].blob = '0'.repeat(40);
-    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
-    commit(d, 'only the hint tells A from A0');
-  });
-  const r = sync(dir);
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, new RegExp(`base: {3}${A} `));
-});
-
-test('settleTie: files the install writes whole are no evidence, so they leave no tie open', () => {
-  const gitDir = sourceClone(slip);
-  // A0 and A differ only in docs/PRD.md and package.json; with neither reproducible, both are one answer.
-  const unrenderable = (p, buf) => (p === 'docs/PRD.md' || p === 'package.json' ? null : buf);
-  const written = new Map(['docs/PRD.md', 'package.json'].map((p) => [p, '0'.repeat(40)]));
-  assert.deepEqual(settleTie(gitDir, [A0, A], written, unrenderable), { sha: A0, tied: [A0, A] });
 });
 
 test('from a packed install (no .git, no .gitignore) of B: the target is B by content, and .gitignore is compared with B\'s own', () => {
@@ -324,27 +284,17 @@ test('from a packed install (no .git, no .gitignore) of B: the target is B by co
   assert.doesNotMatch(r.stdout, /note:/);
 });
 
-test('settleTie: a commit that ships a file the manifest never recorded is not the base', () => {
-  const src = join(root, 'seeded-addition');
-  mkdirSync(src);
-  git(src, 'init', '-q', '-b', 'main');
-  put(src, { 'dev/ownership.yaml': MAP_YAML, 'process/m.md': 'm\n', 'docs/a.md': 'a\n' });
-  const first = commit(src, 'A');
-  put(src, { 'docs/b.md': 'b\n' });
-  const second = commit(src, 'A2: one seeded file added');
-  const gitDir = sourceClone(src);
-  const written = new Map([['docs/a.md', git(src, 'rev-parse', `${first}:docs/a.md`)]]);
-  assert.deepEqual(settleTie(gitDir, [second, first], written, (p, buf) => buf).sha, first);
-});
-
-test('the cache follows a renamed default branch', () => {
-  const src = join(root, 'renamed');
-  git(root, 'clone', '-q', slip, src);
-  const gitDir = sourceClone(src);
-  git(src, 'branch', '-m', 'main', 'trunk');
-  assert.equal(sourceClone(src), gitDir);
-  assert.equal(git(root, '--git-dir', gitDir, 'symbolic-ref', 'HEAD'), 'refs/heads/trunk');
-  assert.equal(resolveBase(gitDir, new Map()).best.sha, B);
+test('the clone of slipway is gone when sync exits, and when it is interrupted', () => {
+  const clones = (tmp) => readdirSync(tmp).filter((e) => e.startsWith('slipway-sync-'));
+  const plain = mkdtempSync(join(root, 'tmp-'));
+  const r = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync'], { cwd: project(), encoding: 'utf8', env: { ...process.env, TMPDIR: plain } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(clones(plain), []);
+  const killed = mkdtempSync(join(root, 'tmp-'));
+  const code = `const { sourceClone } = await import(${JSON.stringify(join(slip, 'scripts', 'lib', 'base.mjs'))}); sourceClone(${JSON.stringify(slip)}); process.kill(process.pid, 'SIGINT'); await new Promise((r) => setTimeout(r, 5000));`;
+  const k = spawnSync(process.execPath, ['--input-type=module', '-e', code], { encoding: 'utf8', env: { ...process.env, TMPDIR: killed } });
+  assert.equal(k.status, 130, k.stderr);
+  assert.deepEqual(clones(killed), []);
 });
 
 test('an empty source is a named refusal, not a stack trace', () => {
