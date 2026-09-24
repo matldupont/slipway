@@ -57,6 +57,28 @@ move their own lessons and decisions (the ones slipway does not ship) to `PL-`/`
 each sync costlier until projects stop syncing), and shipping skills and checks as a plugin and a package
 (it conflicts with SLIPWAY.md's self-containment; revisit if the merge surface stays large).
 
+## D-016 — Slipway maintains itself; it asks owners only about their product *(decided 2026-09-24)*
+
+Slipway teaches engineering **practice**: frame before building, test the riskiest assumption, time-box
+milestones, verify before calling work done. An engineer who learns these is better at the job without
+slipway. Slipway's **machinery** is different: ownership classes, manifests, overrides, upstream diffs,
+`PL-`/`PD-` numbering, check ids and the formats checks parse. That is slipway's business, and an engineer
+must never have to learn it to use slipway.
+
+- **The test.** A check that fails, or a question a skill asks, makes sense to someone who has never opened
+  slipway's own docs. It names the project's own thing (a file, a risk, a milestone) and the next action.
+- **Mechanical decisions are slipway's.** When a choice follows from slipway's own rules, slipway makes it
+  and reports it in the PR. It doesn't ask the owner to approve its upkeep.
+- **Questions are about the product.** When only the owner can answer, the question says what changes for
+  their project and what each answer means for it. It doesn't mention hunks, diffs, ID prefixes or check ids.
+  Those go in the PR body, for review.
+
+Consequences: check messages, skill questions and `pnpm status` are held to the test. The audit that finds
+where machinery shows is #63, and sync's questions are #62. On the first real sync (2026-09-24), an
+experienced engineer said the questions "mean nothing to me" and accepted every recommendation. That cost
+time and protected nothing. Declined: documenting the machinery better. A tool that needs its own manual
+before it helps is one more complex thing to learn.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
