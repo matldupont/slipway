@@ -109,6 +109,9 @@ What the lock defends, so a review has a bar to stop at (`process/cold-review.md
 starting another round:
 - D1 checks the last path component for symlinks, so a symlinked parent directory is still followed.
 - The owner can forge the manifest or overrides.
+- With no `slipway` hint, several slipway commits can hold the manifest's managed blobs exactly (the
+  commits between them touched only seeded or merged files); sync takes the newest. Tied commits share
+  managed content, so the choice changes only advisory seeded diffs and reported `package.json` keys.
 
 ### D1 — drift (ships to projects)
 
@@ -154,8 +157,9 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
 2. **Resolve.** The target is the ref. The base is the commit whose tree matches the manifest's
    managed `blob` ids exactly, searched from `slipway` when it is set, then back along `main`. No exact
    match (files deleted from slipway's history, or a hand-edited manifest) means sync stops and names
-   the closest commit with its match count. Read both trees with `git show <sha>:<path>` from a clone of
-   `source`, cached in the OS temp dir, through the git helper (Threat model).
+   the closest commit with its match count. Read both trees with `git show <sha>:<path>` from a fresh
+   blobless clone of `source` per run, in a new OS temp dir removed on exit, through the git helper
+   (Threat model).
 3. **Plan.** Print one row per path: `replace`, `merge`, `add`, `delete`, `keep (edited)`,
    `collision`, `seeded: upstream changed`, `merged: key updated or reported`, `unchanged`. `--plan` stops
    here and writes nothing.

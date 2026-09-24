@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { today as localToday } from '../ci/checks/lib/clock.mjs';
 import { MANIFEST } from '../ci/checks/lib/manifest.mjs';
 import { listSource, MAP } from '../ci/checks/lib/ownership.mjs';
-import { buildManifest, derivePackageJson, fillPlaceholders, gitignoreText, PLACEHOLDER_FILES, publicSource, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
+import { buildManifest, derivePackageJson, gitignoreText, publicSource, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // `sync` is its own command (F-01 step 3), dispatched here so the package's one bin runs it: the sync
@@ -44,6 +44,7 @@ if (process.argv[2] === 'sync') {
   process.exit(main(process.argv.slice(3)));
 }
 
+const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
 const REQUIRED_CHECKS = ['meta', 'verify', 'pr-body'];
 
 // ---- arguments
@@ -148,7 +149,7 @@ note(`${opts.dryRun ? 'would copy' : 'copied'} ${COPY.length} paths by class (${
 step(2, 'Fill placeholders and start the lessons clock');
 const today = localToday(opts.dryRun ? SRC : dest);
 if (!opts.dryRun) {
-  for (const f of PLACEHOLDER_FILES) edit(f, (s) => fillPlaceholders(s, { name, repo }));
+  for (const f of PLACEHOLDER_FILES) edit(f, (s) => s.replaceAll('<Product>', name).replaceAll('<owner/repo>', repo ?? '<owner/repo>'));
   edit('package.json', (s) => JSON.stringify(derivePackageJson(JSON.parse(s), { name: slug, rules }), null, 2) + '\n');
   writeFileSync(join(dest, 'process', 'anchor'), today + '\n');
   writeFileSync(join(dest, '.gitignore'), gitignoreText(SRC));
