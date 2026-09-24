@@ -65,13 +65,20 @@ Work through what `--apply` listed, on the sync branch:
 
 ## 4 — Adopted: move the project's own IDs
 
-Only after an adopt. The adopt report listed "the project's own IDs": lessons and decisions that are
-not in slipway's base or target. Confirm the list with the owner. Then, for each one:
+Only after an adopt, and **right after `--adopt --apply`, on the adopt branch, before step 1's sync**.
+At that point every `L-<n>`/`D-<n>` a project file cites is either slipway's base ID or one of the
+project's own. After a sync or a ported diff, a citation of a newer slipway ID with the same number
+would be indistinguishable.
+
+The adopt report listed "the project's own IDs": lessons at paths slipway never shipped, and decisions
+that the base's `decisions.md` lacks (or that the target has under a different heading, where slipway
+reused the number). Confirm the list with the owner. Then, for each one:
 
 - A lesson: `L-<n>` becomes `PL-<n>` (keep the number). Rename the file to match and change its `id:`.
 - A decision: `D-<n>` becomes `PD-<n>` in its `decisions.md` heading.
 - Rewrite each citation (`grep -rnw 'L-<n>'`) in the files the project owns: every file that is not
-  `managed` in `.slipway/manifest.json`. Managed files cite slipway's IDs only, so leave them as they are.
+  `managed` in `.slipway/manifest.json`, and never anything under `.slipway/`. Managed files cite
+  slipway's IDs only, so leave them as they are.
 
 Never rename an ID the report did not list.
 
@@ -107,5 +114,7 @@ For a project created before `.slipway/manifest.json` existed. Run it once, then
      --keep <path>=<reason> --revert <path>
    ```
 
-   It commits the manifest, the overrides and the reverts on `slipway/adopt-<base>`. Run `sync` from
-   that branch, and carry the adopt report into the PR's `## Verification`.
+   It commits the manifest, the overrides and the reverts on `slipway/adopt-<base>`. A file that
+   `overrides.yaml` already lists with a reason counts as kept.
+4. On that branch, move the project's own IDs (§4) and commit, then run `sync` (§1). Carry the adopt
+   report into the PR's `## Verification`.

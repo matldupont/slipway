@@ -129,7 +129,7 @@ for (const file of walk(join(root, 'docs'))) {
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
 const dueSoon = existsSync(lessonsDir)
-  ? readdirSync(lessonsDir).filter((f) => /^L-.*\.md$/.test(f)).flatMap((f) => {
+  ? readdirSync(lessonsDir).filter((f) => /^P?L-.*\.md$/.test(f)).flatMap((f) => {
       const fm = frontmatter(readFileSync(join(lessonsDir, f), 'utf8'));
       const rb = fm?.enforcement?.['review-by'];
       if (!rb) return [];

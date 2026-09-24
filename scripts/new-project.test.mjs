@@ -46,6 +46,8 @@ function newProject(src, dest, env = {}) {
     env: { ...process.env, ...env },
   });
   assert.equal(r.status, 0, `new-project failed:\n${r.stdout}\n${r.stderr}`);
+  // The owner learns where updates come from (#18).
+  assert.match(r.stdout, /Later, to take a newer slipway: \/sync-slipway \(\.slipway\/manifest\.json records what this run wrote\)/);
   return {
     manifest: JSON.parse(readFileSync(join(dest, MANIFEST), 'utf8')),
     subject: git(dest, 'log', '-1', '--format=%s'),

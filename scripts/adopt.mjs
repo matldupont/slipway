@@ -21,8 +21,7 @@
 // manifest, the overrides and the reverts together; the owner runs it (it refuses under CLAUDECODE),
 // since overrides decide which edits D1 excuses. Every git call goes through lib/install.mjs's helper.
 
-import { readFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { frontmatter } from '../ci/checks/lib/frontmatter.mjs';
 import { MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile } from '../ci/checks/lib/manifest.mjs';
@@ -45,15 +44,15 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     }
     const ctx = locate(cwd, o);
     const rows = classifyAll(ctx);
-    const owed = decide(rows, o);
+    const owed = decide(rows, o, ctx.overrides);
     report(out, ctx, rows);
     if (!o.apply) {
       out.write(owed.length
-        ? `Plan only — nothing was written. Each managed file that differs needs --keep <path>=<reason> or --revert <path> on --apply.\n`
+        ? `Plan only — nothing was written. Before --apply, each managed file that differs needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps:\n  ${owed.join('\n  ')}\n`
         : `Plan only — nothing was written. Write it with: sync --adopt --apply --base ${ctx.base.sha}\n`);
       return 0;
     }
-    if (owed.length) throw new Refusal(`each managed file that differs from the base needs --keep <path>=<reason> or --revert <path> — nothing was written:\n  ${owed.join('\n  ')}`);
+    if (owed.length) throw new Refusal(`each managed file that differs from the base needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps — nothing was written:\n  ${owed.join('\n  ')}`);
     return write(out, ctx, rows, o);
   } catch (e) {
     if (!(e instanceof Refusal)) throw e;
@@ -98,6 +97,12 @@ function locate(cwd, o) {
     throw new Refusal(e.message);
   }
   if (has) throw new Refusal(`${MANIFEST} exists already — this project has adopted sync; run \`sync\``);
+  let overrides;
+  try {
+    overrides = readOverrides(root);
+  } catch (e) {
+    throw new Refusal(e.message);
+  }
   let t;
   try {
     t = templateFiles(SRC);
@@ -147,22 +152,27 @@ function locate(cwd, o) {
   const mapped = base.tree.has(MAP);
   if (mapped && !base.rules) throw new Refusal(`slipway ${short(sha)} has an ownership map this version cannot read — pass a newer --base`);
   const rules = mapped ? base.rules : t.rules;
-  return { root, branch, source, gitDir, read, target: t, base: { sha, tree: base.tree, rules, mapped, from: hint.from } };
+  return { root, branch, source, gitDir, read, overrides, target: t, base: { sha, tree: base.tree, rules, mapped, from: hint.from } };
 }
 
 // The slipway sha new-project recorded, when it recorded one: the first commit's subject, else the README.
 function recordedSha(root) {
   const subject = firstSubject(root);
-  const c = subject.match(/^chore: start from slipway ([0-9a-f]{40})$/);
+  // Before the manifest, new-project recorded `rev-parse --short`; since, the full sha.
+  const c = subject.match(/^chore: start from slipway ([0-9a-f]{7,40})$/);
   if (c) return { rev: c[1], from: 'the first commit' };
   const readme = readProjectFile(root, 'README.md');
-  const r = Buffer.isBuffer(readme) && readme.toString('utf8').match(/Built on \[?slipway\]?(?:\([^)\s]*\))? ([0-9a-f]{40})(?![\w-])/);
+  const r = Buffer.isBuffer(readme) && readme.toString('utf8').match(/Built on \[?slipway\]?(?:\([^)\s]*\))? ([0-9a-f]{7,40})(?![\w.-]*\w)/);
   return r ? { rev: r[1], from: 'README.md' } : null;
 }
 
 function firstSubject(root) {
-  const roots = git(['-C', root, 'rev-list', '--max-parents=0', 'HEAD']).split('\n').filter(Boolean);
-  return git(['-C', root, 'log', '-1', '--format=%s', roots.at(-1)]).trim();
+  try {
+    const roots = git(['-C', root, 'rev-list', '--max-parents=0', 'HEAD']).split('\n').filter(Boolean);
+    return git(['-C', root, 'log', '-1', '--format=%s', roots.at(-1)]).trim();
+  } catch {
+    throw new Refusal('this branch has no commits — commit the project first, or pass --base <sha>');
+  }
 }
 
 /**
@@ -184,17 +194,25 @@ function classifyAll({ root, base }) {
   return rows;
 }
 
-// Apply each --keep and --revert to its row. Returns the managed rows still waiting for a choice.
-function decide(rows, o) {
+// Apply each --keep and --revert to its row; a differing file .slipway/overrides.yaml already lists
+// with a reason is kept already. Returns what still stops --apply: each managed row waiting for a
+// choice, and each override D1 would call stale once the manifest exists.
+function decide(rows, o, overrides) {
   const byPath = new Map(rows.map((r) => [r.path, r]));
+  const differs = (r) => r?.cls === 'managed' && r.kind !== 'pristine';
+  const listed = new Set(overrides.filter((x) => x.reason?.trim() && differs(byPath.get(x.path))).map((x) => x.path));
   for (const p of [...o.keep.keys(), ...o.revert]) {
     const r = byPath.get(p);
     if (!r || r.cls !== 'managed') throw new Refusal(`${p} is not a managed file the base ships — --keep and --revert take the managed files that differ`);
     if (r.kind === 'pristine') throw new Refusal(`${p} already matches the base — it needs no --keep or --revert`);
     if (o.keep.has(p) && o.revert.has(p)) throw new Refusal(`${p}: --keep or --revert, not both`);
+    if (listed.has(p)) throw new Refusal(`${p} is kept already by its entry in ${OVERRIDES} — drop the ${o.keep.has(p) ? '--keep' : '--revert (or remove that entry first)'}`);
     r.choice = o.keep.has(p) ? 'keep' : 'revert';
   }
-  return rows.filter((r) => r.cls === 'managed' && r.kind !== 'pristine' && !r.choice).map((r) => `${r.kind.padEnd(10)}  ${r.path}`);
+  for (const p of listed) byPath.get(p).choice = `keep (${OVERRIDES})`;
+  const waiting = rows.filter((r) => differs(r) && !r.choice).map((r) => `${r.kind.padEnd(10)}  ${r.path}`);
+  const stale = overrides.filter((x) => !listed.has(x.path)).map((x) => `${OVERRIDES}:${x.line}  ${x.path} — ${x.reason?.trim() ? 'not a managed file that differs from the base' : 'no reason'}; remove it`);
+  return [...waiting, ...stale];
 }
 
 function report(out, ctx, rows) {
@@ -212,27 +230,37 @@ function report(out, ctx, rows) {
   const own = git(['-C', root, 'ls-files', '-z']).split('\0').filter((p) => p && !shipped.has(p));
   out.write(`${own.length} tracked file(s) are the project's own: not in the base, so sync never touches them.\n`);
   const ids = ownIds(ctx);
-  if (ids.length) out.write(`\nThe project's own IDs, for /sync-slipway to move to PL-/PD- (slipway's are in the base or the target):\n${ids.map((i) => `  ${i}\n`).join('')}`);
+  if (ids.length) out.write(`\nThe project's own IDs, for /sync-slipway to move to PL-/PD- right after --apply (slipway's are in the base, or the target's word for word):\n${ids.map((i) => `  ${i}\n`).join('')}`);
   out.write('\n');
 }
 
-// Lessons whose file is in neither the base nor the target, and decisions.md headings whose ID is in
-// neither's decisions.md: the project's own, still on slipway's L-/D- prefixes.
+// Lessons whose file is in neither the base nor the target, and the project's own decisions
+// (ownDecisions): still on slipway's L-/D- prefixes.
 function ownIds({ root, base, target, read, gitDir }) {
   const slipway = new Set([...base.tree.keys(), ...target.copy]);
   const lessons = git(['-C', root, 'ls-files', '-z', '--', 'process/lessons']).split('\0')
     .filter((p) => /^process\/lessons\/[^/]+\.md$/.test(p) && !p.endsWith('/README.md') && !slipway.has(p))
-    .map((p) => ({ p, id: frontmatter(readFileSync(join(root, p), 'utf8'))?.id }))
+    .map((p) => ({ p, buf: readProjectFile(root, p) }))
+    .map(({ p, buf }) => ({ p, id: Buffer.isBuffer(buf) ? frontmatter(buf.toString('utf8'))?.id : null }))
     .filter(({ id }) => /^L-\d+$/.test(id ?? ''))
     .map(({ p, id }) => `${id}  ${p}`);
-  const heads = (text) => new Set([...text.matchAll(/^##\s+(D-\d+)\b/gm)].map((m) => m[1]));
-  const theirs = new Set([
-    ...(base.tree.has('decisions.md') ? heads(read(() => readBlob(gitDir, base.tree.get('decisions.md'))).toString('utf8')) : []),
-    ...heads(Buffer.isBuffer(readProjectFile(SRC, 'decisions.md')) ? readFileSync(join(SRC, 'decisions.md'), 'utf8') : ''),
-  ]);
-  const mine = readProjectFile(root, 'decisions.md');
-  const decisions = Buffer.isBuffer(mine) ? [...heads(mine.toString('utf8'))].filter((d) => !theirs.has(d)).map((d) => `${d}  decisions.md`) : [];
+  const text = (buf) => (Buffer.isBuffer(buf) ? buf.toString('utf8') : '');
+  const was = base.tree.has('decisions.md') ? read(() => readBlob(gitDir, base.tree.get('decisions.md'))) : null;
+  const decisions = ownDecisions(text(readProjectFile(root, 'decisions.md')), text(was), text(readProjectFile(SRC, 'decisions.md'))).map((d) => `${d}  decisions.md`);
   return [...lessons, ...decisions];
+}
+
+/**
+ * The project's own `D-<n>` headings in its decisions.md: slipway's are the base's IDs (the file is
+ * seeded from it), and a target ID only when the heading is the target's own, word for word — one the
+ * project copied in by hand. A target ID under another heading is the project's decision that slipway
+ * reused the number of (the project's D-015), so it is listed.
+ */
+export function ownDecisions(mine, base, target) {
+  const heads = (t) => new Map([...t.matchAll(/^##\s+(D-\d+)\b(.*)$/gm)].map((m) => [m[1], m[2].trim()]));
+  const b = heads(base);
+  const t = heads(target);
+  return [...heads(mine)].filter(([id, title]) => !b.has(id) && t.get(id) !== title).map(([id]) => id);
 }
 
 // --apply: the manifest, the overrides and the reverts, on a branch, in one commit.
@@ -250,7 +278,12 @@ function write(out, ctx, rows, o) {
       writes.set(r.path, { bytes: bytes.get(r.path), exec: mode === '100755' });
     }
   }
-  const pkg = rows.some((r) => r.path === 'package.json') ? JSON.parse(bytes.get('package.json').toString('utf8')) : {};
+  let pkg = {};
+  try {
+    if (bytes.has('package.json')) pkg = JSON.parse(bytes.get('package.json').toString('utf8'));
+  } catch (e) {
+    throw new Refusal(`package.json is not valid JSON: ${e.message} — nothing was written`);
+  }
   const baseVersion = base.tree.has('package.json') ? JSON.parse(read(() => readBlob(gitDir, base.tree.get('package.json'))).toString('utf8')).version ?? null : null;
   const manifest = buildManifest(null, rows.map((r) => r.path), {
     rules: base.rules,

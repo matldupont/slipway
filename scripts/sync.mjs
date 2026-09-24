@@ -172,8 +172,16 @@ function preflight(cwd) {
     }
   }
 
-  // What changed, for /sync-slipway to explain: the subjects on slipway's history, base → target.
-  const log = targetSha && targetSha !== r.exact ? read(() => git(['--git-dir', gitDir, 'log', '--format=%s', `${r.exact}..${targetSha}`]).split('\n').filter(Boolean)) : [];
+  // What changed, for /sync-slipway to explain: the subjects on slipway's history, base → target. Only
+  // informs the explanation, so a target the source lacks (unpushed) is a note; --apply refuses it.
+  let log = [];
+  if (targetSha && targetSha !== r.exact) {
+    try {
+      log = git(['--git-dir', gitDir, 'log', '--format=%s', `${r.exact}..${targetSha}`]).split('\n').filter(Boolean);
+    } catch {
+      notes.push(`slipway's commits base → target are not listed: ${targetSha.slice(0, 12)} is not in ${publicSource(source)} (unpushed?)`);
+    }
+  }
 
   return { notes, log, root, branch, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
 }
