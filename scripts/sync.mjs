@@ -12,7 +12,9 @@
 //           read from a clone of the manifest's `source`
 //
 // Refuses, naming why, on a dirty tree, a detached HEAD, no manifest, or D1 red.
-// Zero dependencies (D-004): Node stdlib and `git`, only through the helper in lib/install.mjs.
+// Zero dependencies (D-004): Node stdlib and `git`. Every git call on the project or on slipway's clone
+// goes through the helper in lib/install.mjs; only the local listing of this package's own files
+// (ownership.mjs, as new-project uses it) calls git directly.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -21,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { classify } from '../ci/checks/lib/ownership.mjs';
 import { commitFiles, readBlob, resolveBase, settleTie, sourceClone } from './lib/base.mjs';
-import { blobSha, derivePackageJson, fillPlaceholders, git, gitignoreText, PLACEHOLDER_FILES, publicSource, redactUrls, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
+import { blobSha, derivePackageJson, fillPlaceholders, git, gitignoreText, gitReason, PLACEHOLDER_FILES, publicSource, redactUrls, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: sync [--plan]   (run in the project; --apply arrives in F-01 step 4, --adopt in step 5)';
@@ -113,7 +115,7 @@ function preflight(cwd) {
       return fn();
     } catch (e) {
       if (e instanceof Refusal) throw e;
-      throw new Refusal(`cannot read slipway's history from ${publicSource(source)}: ${redactUrls(String(e.stderr || e.message).trim().split(/\r?\n/).at(-1))}`);
+      throw new Refusal(`cannot read slipway's history from ${publicSource(source)}: ${redactUrls(gitReason(e))}`);
     }
   };
 
