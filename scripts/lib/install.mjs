@@ -64,11 +64,6 @@ export function templateFiles(src) {
 export const gitignoreText = (src) =>
   existsSync(join(src, '.gitignore')) ? readFileSync(join(src, '.gitignore'), 'utf8') : 'node_modules/\n.DS_Store\nSTATE.md\n';
 
-// The files whose `<Product>` and `<owner/repo>` new-project fills from the manifest's `answers`; sync
-// fills a slipway commit's copy the same way to tell which commit a project was written from.
-export const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
-export const fillPlaceholders = (text, { name, repo }) => text.replaceAll('<Product>', name).replaceAll('<owner/repo>', repo ?? '<owner/repo>');
-
 // Every URL in `text` (a git message) as publicSource shows it: git drops userinfo from its own
 // messages but keeps a `?token=` query.
 export const redactUrls = (text) =>
