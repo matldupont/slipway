@@ -1,5 +1,6 @@
 {
   "_note": "No docs/PRD.md: nothing to check coverage against, so BROKEN, never green.",
   "exit": 2,
+  "broken": "docs/PRD.md does not exist",
   "findings": []
 }
