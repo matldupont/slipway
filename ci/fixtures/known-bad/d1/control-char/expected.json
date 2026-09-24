@@ -1,0 +1,4 @@
+{
+  "exit": 2,
+  "broken": ".slipway/manifest.json: \"docs/x\\u000a\\u000aharness — installed\" holds a control character"
+}
