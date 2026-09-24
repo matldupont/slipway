@@ -250,9 +250,11 @@ the target's map (its `fallback`), as adopt did when it wrote the manifest, so s
 2. On a yes, have the owner run `--apply`, since the harness step needs the owner.
 3. Resolve conflict markers in prose files. Offer each `seeded: upstream changed` diff one at a time:
    port it, adapt it, or decline it with a line in the PR.
-4. On adopt: move the project's own lessons and decisions to `PL-`/`PD-`, rewriting citations in
-   files the project owns. The manifest lists slipway's own IDs, so which ones are the project's is
-   known.
+4. On adopt, right after `--adopt --apply` and before any sync or ported diff: move the project's own
+   lessons and decisions to `PL-`/`PD-`, rewriting citations in files the project owns (never
+   `.slipway/`). The adopt report lists them: lessons at paths slipway never shipped, and decision
+   headings the base's `decisions.md` lacks (a target ID counts as slipway's only under the target's own
+   heading, so a project decision whose number slipway reused, like sidebar's D-015, is listed).
 5. Run `pnpm verify` and `pnpm meta`, then open the PR with `## Verification` naming the plan, each
    conflict and how it was resolved, and each seeded diff taken or declined.
 
