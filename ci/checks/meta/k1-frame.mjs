@@ -27,11 +27,11 @@
 //
 // Once a milestone that is not the walking skeleton (kind other than `skeleton`) is active
 // or closed, every value risk must have been tested:
-//   risk/unresolved        a risk tagged value has no Result (a D-nnn override counts)
+//   risk/unresolved        a risk tagged value has no Result (a PD-<n> override counts)
 //
 // Where the PRD's risk table has a `Resolves by` column, its deadlines hold too, for every category:
 //   risk/overdue           the PRD says `before Mn`, Mn or a later milestone is active or closed, and
-//                          FRAME records no Result (a D-nnn override counts) — or has no row for the risk
+//                          FRAME records no Result (a PD-<n> override counts) — or has no row for the risk
 //                          at all. A value risk already reported as risk/unresolved is not reported twice.
 //                          Deadlines that name no milestone (`with RISK-1`, `before first live charge`)
 //                          are not checked here. Status warns about an untested existential risk due
@@ -118,10 +118,10 @@ for (const r of risks) {
     add(`${r.id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test');
   }
   if (pastSkeleton.length && r.value && !r.tested) {
-    add(`${r.id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record a Result or a D-nnn override`);
+    add(`${r.id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record a Result or a PD-<n> override`);
   }
   if (underway.length && r.value && !r.tested && !r.tracker) {
-    add(`${r.id}#risk/untracked`, `value risk has no Result and no tracker while ${underway.map((m) => m.fm.id).join(', ')} ${underway.length > 1 ? 'are' : 'is'} underway: name the issue running its test (#n, D-n, OD-n) in FRAME's Tracker column, or in a Tracked: line in its evidence file`);
+    add(`${r.id}#risk/untracked`, `value risk has no Result and no tracker while ${underway.map((m) => m.fm.id).join(', ')} ${underway.length > 1 ? 'are' : 'is'} underway: name the issue running its test (#n, PD-n, OD-n) in FRAME's Tracker column, or in a Tracked: line in its evidence file`);
   }
 }
 
@@ -135,7 +135,7 @@ for (const [id, d] of deadlines ?? []) {
   const r = risks.find((x) => (x.id ?? '').toUpperCase() === id);
   if (r?.tested || (r?.value && pastSkeleton.length)) continue;
   add(`${id}#risk/overdue`, r
-    ? `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}: record its Result in FRAME, or a D-nnn override (cost if wrong, and what reopens it)`
+    ? `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}: record its Result in FRAME, or a PD-<n> override (cost if wrong, and what reopens it)`
     : `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}, but FRAME's Risks table has no ${id} row to hold its Threshold and Result`);
 }
 

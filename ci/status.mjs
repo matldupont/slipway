@@ -85,7 +85,7 @@ const riskLine = untestedValue.length ? `${untestedValue.map(riskState).join(', 
 const riskFile = untracked.length ? ' File the issue that runs each untested one and name it in FRAME\'s Tracker column.' : '';
 // An existential risk — any category, so K1's value gate may not cover it — whose test the PRD schedules
 // after the first milestone past the skeleton starts, or at no milestone at all. A warning, not a K1
-// finding: "existential" is the owner's word, and building ahead of it on purpose is a D-nnn override.
+// finding: "existential" is the owner's word, and building ahead of it on purpose is a PD-<n> override.
 // The Impact cell must start with the word (`Existential: no lawful revenue`), so "not existential" is not.
 // Read only where the PRD's risk table has a Resolves by column.
 const deadlines = readDeadlines(prd);
@@ -97,7 +97,7 @@ const existential = deadlines && firstBet !== null
       const d = deadlines.get((r.id ?? '').toUpperCase());
       if (d?.before && milestoneNumber(d.before) <= firstBet) return [];
       const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${d.cell}, after M${firstBet} starts` : `resolves "${d.cell || 'blank'}", which names no milestone`;
-      return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a D-nnn override (cost if wrong, and what reopens it)`];
+      return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a PD-<n> override (cost if wrong, and what reopens it)`];
     })
   : [];
 
@@ -151,7 +151,7 @@ function next() {
     return `Step 0 (you + agent) — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
   if (frame !== 'framed') return 'Step 1 (you, with /kickoff) — Frame: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.';
-  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results go in docs/product/evidence/ — or record a D-nnn override (cost if wrong, and what reopens it) to build ahead.`;
+  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results go in docs/product/evidence/ — or record a PD-<n> override (cost if wrong, and what reopens it) to build ahead.`;
   if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) return testTheRisk;
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
     return prdReviews.length

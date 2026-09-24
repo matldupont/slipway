@@ -17,7 +17,7 @@
 //   retro/missing          a closed or killed milestone has no Retro
 //   appetite/overrun       active past the last day of its appetite, with no extension — the
 //                          circuit breaker: by default a bet does not get more time
-//   extended/unresolved    `extended: D-nnn` names a decision decisions.md does not hold
+//   extended/unresolved    `extended: PD-<n>` names a decision decisions.md does not hold
 //   wip/exceeded           more than one milestone is active
 //   template/fields        TEMPLATE.md lost a field or section MS1 reads
 //   summary/drift          a milestone's `summary:` differs from its row in the table under
@@ -101,7 +101,7 @@ for (const { file: f, md, fm } of milestones) {
   if (!fm.appetite) add('appetite/missing', `a ${fm.status} milestone needs appetite: YYYY-MM-DD..YYYY-MM-DD`);
   else if (!appetite) add('appetite/invalid', `"${fm.appetite}" is not YYYY-MM-DD..YYYY-MM-DD with start <= end`);
   else if (fm.status === 'active' && appetite.end < today && !(fm.extended && hasDecision(fm.extended))) {
-    add('appetite/overrun', `appetite ended ${appetite.end}: cut scope and close it, kill it, or record an extension (extended: D-nnn)`);
+    add('appetite/overrun', `appetite ended ${appetite.end}: cut scope and close it, kill it, or record an extension (extended: PD-<n>)`);
   }
   for (const s of REQUIRED_SECTIONS) {
     if (!written(section(md, s, 2))) add(`section/${s}`, `## ${s} is missing, empty or still a placeholder`);
