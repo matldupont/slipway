@@ -34,7 +34,7 @@ Under `bypassPermissions` nothing asks; required checks on `main` remain the bac
 | hook | event | does |
 |---|---|---|
 | `hooks/session-state.sh` | SessionStart | injects `node ci/status.mjs` — where the project is on the slipway path and the next step — before the agent reads anything else |
-| `hooks/stop-verify.sh` | Stop | runs `pnpm verify:fast`; while red, the agent may not end its turn. Once per stop: a second red lets it stop, and it must say what is failing. Quiet before an app exists; skips a tree it already verified green |
+| `hooks/stop-verify.sh` | Stop | runs `pnpm verify:fast`; while red, the agent may not end its turn. Once per stop: a second red lets it stop, and it must say what is failing. Quiet before an app exists; skips a tree it already verified green. A package with dependencies and no `node_modules` (a fresh worktree) blocks with `pnpm install --frozen-lockfile` as the reason, before any cache check, and never counts as green |
 
 The Stop hook is the only blocking hook. It answers the most documented agent failure — declaring work
 done that was never run — with the one thing that cannot be talked past. `verify:fast` is `verify`
@@ -83,3 +83,7 @@ printf '{}' | env -i HOME="$HOME" PATH=/usr/bin:/bin CLAUDE_PROJECT_DIR="$PWD" s
 
 The first prints a SessionStart JSON with the state. The second prints nothing while there is no app;
 once there is, make a test fail and it must print `"decision":"block"`.
+
+In a worktree without `node_modules` (move `apps/web/node_modules` aside, or use a fresh worktree) the
+second must print `"decision":"block"` naming the package and `pnpm install --frozen-lockfile`, and must
+not write `.git/stop-verify-ok`.

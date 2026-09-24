@@ -7,17 +7,40 @@
 // - A tree already verified green is not re-verified: the fingerprint of HEAD, the diff and
 //   untracked files is cached in .git/stop-verify-ok.
 // - Anything that stops the gate from running (no pnpm) is reported, never swallowed (L-34).
+// - A package that declares dependencies but has no node_modules (a fresh worktree) blocks
+//   with the install command, not the raw `tsc: command not found` it would produce. It is
+//   checked before the cache, and never counts as green.
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { discoverWorkspace } from '../../../ci/checks/lib/workspace.mjs';
 
 const root = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 const say = (o) => process.stdout.write(JSON.stringify(o) + '\n');
 let input = {};
 try { input = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { /* no input */ }
 if (input.stop_hook_active) process.exit(0);
+
+function notInstalled() {
+  let ws;
+  try { ws = discoverWorkspace(root); } catch { return []; } // verify reports a broken workspace itself
+  if (ws.packages.length === 0) return []; // no app yet: stay quiet, as below
+  return [ws.root, ...ws.packages].filter((p) => {
+    const pkg = JSON.parse(readFileSync(join(root, p.dir, 'package.json'), 'utf8'));
+    const deps = ['dependencies', 'devDependencies', 'optionalDependencies'].some((k) => Object.keys(pkg[k] ?? {}).length);
+    return deps && !existsSync(join(root, p.dir, 'node_modules'));
+  }).map((p) => p.dir);
+}
+const missing = notInstalled();
+if (missing.length) {
+  say({
+    decision: 'block',
+    reason: `stop-verify: dependencies are not installed — no node_modules in ${missing.join(', ')} (a fresh worktree?), so \`pnpm verify:fast\` cannot run.\n\nRun \`pnpm install --frozen-lockfile\`, then let the gate run again. If you cannot install this turn, say so plainly: the gate did not run.`,
+  });
+  process.exit(0);
+}
 
 const git = (...a) => spawnSync('git', ['-C', root, ...a], { encoding: 'utf8' });
 function fingerprint() {
