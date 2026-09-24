@@ -112,6 +112,13 @@ starting another round:
 - With no `slipway` hint, several slipway commits can hold the manifest's managed blobs exactly (the
   commits between them touched only seeded or merged files); sync takes the newest. Tied commits share
   managed content, so the choice changes only advisory seeded diffs and reported `package.json` keys.
+- D1 cannot see conflict markers left in a merged file: its override excuses the file whatever its
+  hash. Sync exits 1 and lists the file; `/sync-slipway` (#18) resolves it.
+- Updating a `package.json` key rewrites the file as `JSON.stringify(…, null, 2)`: key order and values
+  stay, the project's own formatting does not.
+- `.slipway/upstream/<path>.diff` is sync's output, rewritten by each sync that reports that path.
+- A failure after `--apply` has created its branch (a commit hook, a disk error) leaves a partial sync on
+  that branch, named in the error. The project's branch and commits are untouched.
 
 ### D1 — drift (ships to projects)
 
@@ -175,11 +182,25 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
    - `merged`: the `package.json` rule above. `new-project` and sync share one function that derives the
      project's `package.json` from the template's.
 5. **Record.** Rewrite the manifest, commit everything as `chore: sync slipway <base>..<target>`, and
-   print the plan with the commit.
+   print the plan with the commit. Every write is computed before the branch is created, so a refusal
+   writes nothing; each overwrite and delete re-checks the manifest hash right before it is planned.
+
+   The manifest after a sync must let the next one find its base exactly (#17). By the target's classes:
+   - a managed path the target ships is recorded at the target's `blob`. Its `sha256` is the target's too,
+     except a `merge` or `keep (edited)` row keeps its old one, and a `collision` holds slipway's — D1
+     flags it until the owner overrides it or moves their file. Recording the project's hash instead
+     would make the next sync replace that file.
+   - a managed path the target no longer ships leaves the manifest: a kept file is the project's now.
+     Its override goes stale; sync names the entry and never edits `overrides.yaml` (seeded).
+   - seeded and merged entries stay; one the target adds is recorded as written.
+6. **Exit** 1 when any row needs the owner: a merge left markers, a `collision`, a `merged: key reported`,
+   a `keep (edited)`, or an edited harness copy. 0 otherwise.
 
 **Harness.** When the target changes `process/harness/settings.json`, sync updates both copies only
 because the owner ran it, and it prints that it did, the way `new-project` step 2b does. The skill never
-does this step: an agent never installs its own hooks.
+does this step: an agent never installs its own hooks. `.claude/settings.json` is not in the manifest, so
+sync overwrites it only when it still equals the base's harness bytes. Not installed (`--no-harness`):
+left out, with the `cp` to install it. Edited: left as it is, reported, and sync exits 1.
 
 **Adopt.** For a project with no manifest, the base comes from `--base`, else from a sha in the
 `chore: start from slipway <x>` commit or the README line. Under `npx` that `<x>` is `package.json`'s

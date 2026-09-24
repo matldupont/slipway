@@ -181,11 +181,12 @@ export function resolveSlipway(src, paths, { rules }) {
 
 // The manifest for files already written under `dest`: each path's class and the sha256 of its bytes.
 // `blob` is the git blob id of the same bytes: sync finds the base as the slipway commit whose tree
-// holds exactly these blobs (#16), so the `slipway` sha is only where it starts looking.
-export function buildManifest(dest, paths, { rules, slipway, version, source = SOURCE, answers }) {
+// holds exactly these blobs (#16), so the `slipway` sha is only where it starts looking. `read` gives
+// a path's bytes some other way: sync --apply (#17) records the target's bytes, not the project's.
+export function buildManifest(dest, paths, { rules, slipway, version, source = SOURCE, answers, read = (p) => readFileSync(join(dest, p)) }) {
   const files = {};
   for (const p of [...paths].sort()) {
-    const buf = readFileSync(join(dest, p));
+    const buf = read(p);
     files[p] = { class: classify(rules, p), sha256: sha256(buf), blob: blobSha(buf) };
   }
   return { slipway, version, source, answers, files };

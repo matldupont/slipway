@@ -1,11 +1,17 @@
-// sync — take a newer slipway into a project (F-01, dev/features/template-sync.md). Step 3: the plan.
+// sync — take a newer slipway into a project (F-01, dev/features/template-sync.md). Steps 3–4.
 //
-//   npx github:matldupont/slipway#<ref> sync        run in the project
-//   node <slipway>/scripts/new-project.mjs sync
+//   npx github:matldupont/slipway#<ref> sync [--plan]   run in the project: the plan, the default
+//   npx github:matldupont/slipway#<ref> sync --apply    carry it out on a branch, in one commit
+//   node <slipway>/scripts/new-project.mjs sync …
 //
-// Reached through new-project's bin, so this code is always the target version's. It prints one row
-// per path — what a sync to this version would do — and writes nothing: no file, no branch, no commit.
-// The only write is its clone of slipway, in a new temp dir removed on exit.
+// Reached through new-project's bin, so this code is always the target version's. The plan prints one
+// row per path — what a sync to this version would do — and writes nothing: no file, no branch, no
+// commit. The only write is its clone of slipway, in a new temp dir removed on exit.
+//
+// --apply (step 4, #17) takes those rows as they are and computes every write first, so a refusal
+// leaves the project untouched. Then it creates `slipway/sync-<target>` from the current branch and
+// commits the files and the manifest together. No path whose content differs from its manifest hash is
+// overwritten or deleted without a three-way merge; the check runs again right before each write.
 //
 //   target  the files of the slipway running this command, classified by its dev/ownership.yaml
 //   base    the slipway commit whose tree holds exactly the manifest's managed blob ids (lib/base.mjs),
@@ -17,16 +23,16 @@
 // (ownership.mjs, as new-project uses it) calls git directly.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hasReason, isTemplate, MANIFEST, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { hasReason, isTemplate, MANIFEST, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { classify } from '../ci/checks/lib/ownership.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
-import { blobSha, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
+import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = 'usage: sync [--plan]   (run in the project; --apply arrives in F-01 step 4, --adopt in step 5)';
+const USAGE = 'usage: sync [--plan | --apply]   (run in the project; --adopt arrives in F-01 step 5)';
 export const KINDS = [
   'replace', 'merge', 'add', 'delete', 'keep (edited)', 'collision',
   'seeded: upstream changed', 'merged: key updated', 'merged: key reported', 'unchanged',
@@ -39,14 +45,18 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
   try {
     for (const a of argv) {
       if (a === '-h' || a === '--help') { out.write(`${USAGE}\n`); return 0; }
-      if (a === '--apply') throw new Refusal('--apply arrives in F-01 step 4 (#17); this version only plans');
       if (a === '--adopt') throw new Refusal('--adopt arrives in F-01 step 5 (#18)');
-      if (a !== '--plan') throw new Refusal(`unknown argument ${a}\n${USAGE}`);
+      if (a !== '--plan' && a !== '--apply') throw new Refusal(`unknown argument ${a}\n${USAGE}`);
     }
+    if (argv.includes('--plan') && argv.includes('--apply')) throw new Refusal(`--plan and --apply: choose one\n${USAGE}`);
     const ctx = preflight(cwd);
     const rows = plan(ctx);
-    print(out, ctx, rows);
-    return 0;
+    if (!argv.includes('--apply')) {
+      print(out, ctx, rows);
+      out.write('Plan only — nothing was written.\n');
+      return 0;
+    }
+    return apply(out, ctx, rows);
   } catch (e) {
     if (!(e instanceof Refusal)) throw e;
     err.write(`sync: ${e.message}\n`);
@@ -216,5 +226,215 @@ function print(out, { branch, source, base, targetSha, notes }, rows) {
   out.write('\n');
   for (const r of rows) out.write(`  ${r.kind.padEnd(width)}  ${r.path}\n`);
   const counts = KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length]).filter(([, n]) => n);
-  out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${k}`).join(', ')}. Plan only — nothing was written.\n`);
+  out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${k}`).join(', ')}. `);
+}
+
+// ---- apply (F-01 step 4, #17)
+
+const HARNESS = 'process/harness/settings.json';
+const INSTALLED = '.claude/settings.json';
+const UPSTREAM = '.slipway/upstream';
+// The rows that leave the owner something to do: sync exits 1 on any of them.
+const OWNER_ROWS = ['collision', 'merged: key reported', 'keep (edited)'];
+
+/**
+ * Carry out `rows` (plan's, not recomputed): compute every write, then branch, write and commit. Every
+ * refusal is raised before the first write. Returns the exit code: 1 when a row needs the owner.
+ */
+function apply(out, ctx, rows) {
+  const { root, branch, manifest, base, targetSha } = ctx;
+  if (!targetSha) throw new Refusal('the target matches no slipway commit, so the manifest could not record it — run sync from a slipway checkout, or from `npx github:…#<sha>`');
+  const todo = compute(ctx, rows);
+  const name = `slipway/sync-${targetSha.slice(0, 12)}`;
+  const current = readProjectFile(root, MANIFEST);
+  if (!todo.writes.size && !todo.removes.length && Buffer.isBuffer(current) && current.equals(todo.manifest)) {
+    print(out, ctx, rows);
+    out.write(`Already at ${targetSha.slice(0, 12)} — nothing to apply, nothing written.\n`);
+    return 0;
+  }
+  let exists = true;
+  try {
+    git(['-C', root, 'rev-parse', '--verify', '-q', `refs/heads/${name}`]);
+  } catch {
+    exists = false;
+  }
+  if (exists) throw new Refusal(`branch ${name} already exists — merge or delete it first; nothing was written`);
+
+  const message = `chore: sync slipway ${base.sha.slice(0, 12)}..${targetSha.slice(0, 12)}`;
+  let commit;
+  try {
+    git(['-C', root, 'switch', '-q', '-c', name]);
+    for (const [p, buf] of todo.writes) {
+      mkdirSync(dirname(join(root, p)), { recursive: true });
+      writeFileSync(join(root, p), buf);
+    }
+    writeFileSync(join(root, MANIFEST), todo.manifest);
+    // Literal pathspecs: a path holding `*` or `:` names that file only. Git history keeps each deleted file.
+    if (todo.removes.length) git(['-C', root, '--literal-pathspecs', 'rm', '-q', '--', ...todo.removes]);
+    git(['-C', root, '--literal-pathspecs', 'add', '--', MANIFEST, ...todo.writes.keys()]);
+    git(['-C', root, 'commit', '-q', '-m', message]);
+    commit = git(['-C', root, 'rev-parse', 'HEAD']).trim();
+  } catch (e) {
+    throw new Refusal(`stopped partway on ${name}: ${gitReason(e)}\n${branch} and its commits are untouched; \`git status\` shows what ${name} holds`);
+  }
+
+  print(out, ctx, rows);
+  out.write(`Applied on ${name} (from ${branch}), commit ${commit.slice(0, 12)}: ${message}\n`);
+  const say = (why, list) => list.length && out.write(`\n${why}\n${list.map((l) => `  ${l}\n`).join('')}`);
+  say('merge — conflict markers left in the file; resolve them, and keep its override:', todo.conflicts.map((c) => `${c.path} (${c.n} conflict${c.n > 1 ? 's' : ''})`));
+  say('collision — slipway ships this path now and your file was not touched; override it with a reason, or move yours and take slipway\'s:', rows.filter((r) => r.kind === 'collision').map((r) => r.path));
+  say('keep (edited) — slipway removed it; your file stays and is yours now. Remove the override that names it:', todo.kept);
+  say('merged: key reported — your value stays; slipway\'s is shown:', todo.reported);
+  say(`seeded: upstream changed — slipway's own diff (base → target), for you to port or decline; the file was not touched:`, todo.diffs);
+  if (todo.harness) out.write(`\nharness — ${todo.harness.text}\n`);
+  const owed = todo.conflicts.length || todo.harness?.owed || rows.some((r) => OWNER_ROWS.includes(r.kind));
+  out.write(owed ? '\nSync exits 1: the rows above need you before this branch merges.\n' : '');
+  return owed ? 1 : 0;
+}
+
+// Every write --apply makes, and nothing written yet. Throws a Refusal on anything that would break
+// the invariant or that git cannot do.
+function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows) {
+  const tmp = mkdtempSync(join(dirname(gitDir), 'apply-')); // inside the clone's temp dir: removed on exit
+  const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
+  const pristine = (p) => {
+    const cur = readProjectFile(root, p);
+    return Buffer.isBuffer(cur) && sha256(cur) === manifest.files[p]?.sha256;
+  };
+  const moved = (p) => new Refusal(`${p} changed after it was planned — nothing was written`);
+  const todo = { writes: new Map(), removes: [], conflicts: [], diffs: [], kept: [], reported: [], harness: null, manifest: null };
+  let pkg = null; // the project's package.json, once a key is updated
+  let n = 0;
+
+  for (const { kind, path: p } of rows) {
+    if (kind === 'replace' || kind === 'add') {
+      // The invariant, checked again where it is spent: overwrite only a pristine file, create only an absent one.
+      if (kind === 'replace' ? !pristine(p) : readProjectFile(root, p) !== null) throw moved(p);
+      todo.writes.set(p, target.get(p));
+    } else if (kind === 'delete') {
+      if (!pristine(p)) throw moved(p);
+      todo.removes.push(p);
+    } else if (kind === 'merge') {
+      const ours = readProjectFile(root, p);
+      if (!Buffer.isBuffer(ours)) throw moved(p);
+      const r = mergeFile(join(tmp, `merge-${++n}`), p, ours, baseBytes(p), target.get(p));
+      todo.writes.set(p, r.bytes);
+      if (r.conflicts) todo.conflicts.push({ path: p, n: r.conflicts });
+    } else if (kind === 'seeded: upstream changed') {
+      const d = `${UPSTREAM}/${p}.diff`;
+      todo.writes.set(d, seededDiff(join(tmp, `diff-${++n}`), p, baseBytes(p), target.get(p) ?? null));
+      todo.diffs.push(d);
+    } else if (kind === 'merged: key updated' || kind === 'merged: key reported') {
+      const at = p.indexOf(' scripts.');
+      const [file, key] = [p.slice(0, at), p.slice(at + ' scripts.'.length)];
+      const t = target.get(file);
+      const now = t ? derivePackageJson(JSON.parse(t.toString('utf8')), { name: 'x', rules: targetRules }).scripts?.[key] : undefined;
+      if (kind === 'merged: key reported') {
+        todo.reported.push(`${p}: ${now === undefined ? '(removed)' : JSON.stringify(now)}`);
+        continue;
+      }
+      if (!pkg) {
+        const cur = readProjectFile(root, file);
+        if (!Buffer.isBuffer(cur)) throw new Refusal(`${file} is missing — restore it before syncing its scripts; nothing was written`);
+        pkg = { file, json: JSON.parse(cur.toString('utf8')) };
+      }
+      pkg.json.scripts ??= {};
+      if (now === undefined) delete pkg.json.scripts[key];
+      else pkg.json.scripts[key] = now;
+    } else if (kind === 'keep (edited)') {
+      const o = overrides.find((x) => x.path === p);
+      todo.kept.push(o ? `${OVERRIDES}:${o.line}  path: ${p}` : p);
+    }
+  }
+  if (pkg) todo.writes.set(pkg.file, Buffer.from(`${JSON.stringify(pkg.json, null, 2)}\n`));
+
+  // The harness: installed only because the owner ran sync, and only over the copy slipway installed.
+  if (todo.writes.has(HARNESS) && !rows.some((r) => r.path === HARNESS && r.kind === 'merge')) {
+    const installed = readProjectFile(root, INSTALLED);
+    const was = baseBytes(HARNESS);
+    if (installed === null) {
+      todo.harness = { text: `${HARNESS} changed; ${INSTALLED} is not installed, so it was left out. Install it with: cp ${HARNESS} ${INSTALLED}` };
+    } else if (Buffer.isBuffer(installed) && was && installed.equals(was)) {
+      todo.writes.set(INSTALLED, target.get(HARNESS));
+      todo.harness = { text: `${HARNESS} changed, and you installed it as ${INSTALLED} by running sync. An agent never does this step.` };
+    } else {
+      todo.harness = { owed: true, text: `${HARNESS} changed, but ${INSTALLED} was edited, so it was left as it is. Compare them: git diff --no-index ${INSTALLED} ${HARNESS}` };
+    }
+  } else if (rows.some((r) => r.path === HARNESS && r.kind === 'merge')) {
+    todo.harness = { text: `${HARNESS} was merged; once it is resolved, install it with: cp ${HARNESS} ${INSTALLED}` };
+  }
+
+  todo.manifest = Buffer.from(`${JSON.stringify(nextManifest({ manifest, target, targetRules, targetSha }, rows), null, 2)}\n`);
+  return todo;
+}
+
+/**
+ * The manifest after the sync, by the target's classes. Each managed path the target ships is recorded
+ * at the target's blob, so the next sync finds this target as its base exactly; its sha256 is the
+ * target's too, except a merged or kept file keeps its own (F-01: until resolved) and a collision
+ * holds slipway's, so D1 flags it until the owner overrides it or moves their file. A managed path the
+ * target no longer ships leaves the manifest: the file, if kept, is the project's. Seeded and merged
+ * entries stay as they are; one the target adds is recorded as written.
+ */
+function nextManifest({ manifest, target, targetRules, targetSha }, rows) {
+  const kind = new Map(rows.map((r) => [r.path, r.kind]));
+  const version = JSON.parse(target.get('package.json')?.toString('utf8') ?? '{}').version ?? manifest.version;
+  const next = buildManifest(null, [...target.keys()], {
+    rules: targetRules,
+    slipway: targetSha,
+    version,
+    source: manifest.source,
+    answers: manifest.answers,
+    read: (p) => target.get(p),
+  });
+  const files = {};
+  for (const p of [...new Set([...Object.keys(manifest.files), ...target.keys()])].sort()) {
+    const m = manifest.files[p];
+    const t = next.files[p];
+    if (!t) {
+      if (m && m.class !== 'managed') files[p] = m;
+    } else if (t.class === 'managed') {
+      files[p] = m && (kind.get(p) === 'merge' || kind.get(p) === 'keep (edited)') ? { ...t, sha256: m.sha256 } : t;
+    } else if (m) {
+      files[p] = { ...m, class: t.class };
+    } else if (kind.get(p) === 'add') {
+      files[p] = t;
+    }
+  }
+  return { ...next, files };
+}
+
+// `git merge-file` on copies in `dir`: the project's side, the base, slipway's side. Conflict markers
+// stay in the result; git's exit status is their count.
+function mergeFile(dir, p, ours, base, theirs) {
+  mkdirSync(dir);
+  const file = (name, buf) => {
+    writeFileSync(join(dir, name), buf);
+    return join(dir, name);
+  };
+  const args = ['merge-file', '-p', '-L', 'project', '-L', 'base', '-L', 'slipway', file('ours', ours), file('base', base ?? Buffer.alloc(0)), file('theirs', theirs)];
+  try {
+    return { bytes: git(args, { encoding: 'buffer' }), conflicts: 0 };
+  } catch (e) {
+    if (e.status >= 1 && e.status <= 127 && Buffer.isBuffer(e.stdout)) return { bytes: e.stdout, conflicts: e.status };
+    throw new Refusal(`${p}: git merge-file failed: ${gitReason(e)} — nothing was written`);
+  }
+}
+
+// Slipway's own change to a seeded file, base → target, as a patch that names the project's path.
+function seededDiff(dir, p, was, now) {
+  const side = (s, buf) => {
+    if (!buf) return '/dev/null';
+    mkdirSync(dirname(join(dir, s, p)), { recursive: true });
+    writeFileSync(join(dir, s, p), buf);
+    return `${s}/${p}`;
+  };
+  const args = ['diff', '--no-index', '--no-prefix', '--no-ext-diff', '--no-textconv', '--no-color', '--binary', '--', side('a', was), side('b', now)];
+  try {
+    git(args, { cwd: dir, encoding: 'buffer' });
+  } catch (e) {
+    if (e.status === 1 && Buffer.isBuffer(e.stdout)) return e.stdout;
+    throw new Refusal(`${p}: git diff failed: ${gitReason(e)} — nothing was written`);
+  }
+  throw new Refusal(`${p}: planned as changed upstream, but its base and target are the same`);
 }
