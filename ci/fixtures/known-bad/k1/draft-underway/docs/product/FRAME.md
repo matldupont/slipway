@@ -64,7 +64,7 @@ it work as a business), **ethical** (could it do harm). Test the riskiest first,
 as possible — interviews, a concierge run done by hand, a fake door — before building.
 
 Write the Threshold **before** the test. K1 fails a Result with no Threshold. A Result may be
-a decision override (`D-nnn`) when you proceed despite the evidence.
+a decision override (`PD-<n>`) when you proceed despite the evidence.
 
 | ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result | Tracker |
 |---|---|---|---|---|---|---|---|

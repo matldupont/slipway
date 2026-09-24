@@ -13,7 +13,7 @@ appetite: 2026-01-01..2026-01-14
 > - `status`: shaping → active → closed, or killed. **One active at a time.**
 > - `kind`: skeleton (the first, thinnest end-to-end path) · mvp · release · bet (after launch).
 > - `appetite`: first and last day, inclusive. When it ends the milestone closes, is killed,
->   or gets an extension recorded in decisions.md (`extended: D-nnn`). By default it does
+>   or gets an extension recorded in decisions.md (`extended: PD-<n>`). By default it does
 >   not get more time.
 > - Shaping milestones may hold placeholders. Active, closed and killed ones may not.
 

@@ -101,7 +101,7 @@ first: their lead times are longest, and they change scope rather than size.
 
 Write Resolves by as `before Mn` (or `before Mn starts`, with any note in brackets). Once Mn or a later
 milestone is active or closed, K1 fails the risk (`risk/overdue`) unless FRAME's Risks table records its
-Result or a D-nnn override. Any other wording — `with RISK-1`, `before first live charge` — is not checked.
+Result or a PD-<n> override. Any other wording — `with RISK-1`, `before first live charge` — is not checked.
 `pnpm status` warns when an untested existential risk (FRAME's Impact starts with `existential`) is due after
 the first milestone past the skeleton, at no milestone, or is missing here. IDs are FRAME's.
 

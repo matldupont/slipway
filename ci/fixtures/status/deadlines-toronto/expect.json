@@ -6,9 +6,9 @@
   "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (#9, window 2026-03-01..2026-03-10), RISK-3 untested, RISK-4 untested, RISK-5 untested, RISK-6 tested, RISK-7 untested, RISK-8 untested · blocks M2, M4 activation (K1)",
   "attention": [
     "PRD 0.2.0 has no adversarial review — run /review-doc docs/PRD.md in a fresh session (R1 requires one once Status leaves draft)",
-    "Existential risk: RISK-3 is existential and untested, and resolves \"before first live charge\", which names no milestone: schedule its test before M2, or record a D-nnn override (cost if wrong, and what reopens it)",
-    "Existential risk: RISK-4 is existential and untested, and resolves before M4, after M2 starts: schedule its test before M2, or record a D-nnn override (cost if wrong, and what reopens it)",
-    "Existential risk: RISK-7 is existential and untested, and has no row in the PRD risk table: schedule its test before M2, or record a D-nnn override (cost if wrong, and what reopens it)",
+    "Existential risk: RISK-3 is existential and untested, and resolves \"before first live charge\", which names no milestone: schedule its test before M2, or record a PD-<n> override (cost if wrong, and what reopens it)",
+    "Existential risk: RISK-4 is existential and untested, and resolves before M4, after M2 starts: schedule its test before M2, or record a PD-<n> override (cost if wrong, and what reopens it)",
+    "Existential risk: RISK-7 is existential and untested, and has no row in the PRD risk table: schedule its test before M2, or record a PD-<n> override (cost if wrong, and what reopens it)",
     "Open decision: PD-1 Deposits are refundable (open — owner, before M2)"
   ]
 }

@@ -23,7 +23,7 @@ Method: …
 Tracked: #n
 Window: <yyyy-mm-dd>..<yyyy-mm-dd>
 Result (<date>): … — met / not met
-Decision: continue · reframe · D-nnn
+Decision: continue · reframe · PD-<n>
 ```
 
 `Tracked:` names the issue (or `OD-`/`D-` id) running the test, and `Window:` when it runs. When FRAME's
