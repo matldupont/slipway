@@ -14,7 +14,7 @@ summary: <…one line: what this bet delivers…>
 > - `status`: shaping → active → closed, or killed. **One active at a time.**
 > - `kind`: skeleton (the first, thinnest end-to-end path) · mvp · release · bet (after launch).
 > - `appetite`: first and last day, inclusive. When it ends the milestone closes, is killed,
->   or gets an extension recorded in decisions.md (`extended: D-nnn`). By default it does
+>   or gets an extension recorded in decisions.md (`extended: PD-<n>`). By default it does
 >   not get more time.
 > - `summary`: the one line the PRD's milestones table (§10) shows for this milestone. The table
 >   is generated from these fields, never hand-written; MS1 flags a row that differs. A `|` in it

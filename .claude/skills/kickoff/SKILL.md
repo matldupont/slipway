@@ -68,7 +68,7 @@ You cannot run interviews; the user can. Produce what they need:
   active.
 
 Tell the user plainly: **no milestone past the walking skeleton can start (K1) until each value
-risk has a Result or a recorded override (`D-nnn`).** The skeleton may be built in parallel
+risk has a Result or a recorded override (`PD-<n>`).** The skeleton may be built in parallel
 with the test. When results come back, record them in FRAME's Result column and in
 `evidence/`; if the threshold was missed, the options are reframe (back to phase 1) or proceed
 anyway with a decision in `decisions.md` that says why.
@@ -124,7 +124,7 @@ anyway with a decision in `decisions.md` that says why.
 
    ```
    Readiness: PASS | CONCERNS | FAIL
-   - <slice>: <decision that would have to be invented> → OD-n / D-n created
+   - <slice>: <decision that would have to be invented> → OD-n / PD-n created
    ```
 
    Every concern becomes an OD- in the PRD (with a working assumption) or a D- entry. FAIL

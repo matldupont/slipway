@@ -21,7 +21,7 @@ gh issue list --milestone "<title>" --state all --json number,title,state,closed
 - Gate evidence exists → **close**.
 - Appetite over, gate not green → ask the user: cut the remaining slices and close with what
   shipped, kill, or extend. **Extending needs a `decisions.md` entry** (why, new last day, what
-  was cut to fit) and `extended: D-nnn` in the milestone frontmatter. Recommend cutting; that
+  was cut to fit) and `extended: PD-<n>` in the milestone frontmatter. Recommend cutting; that
   is the default the appetite exists to enforce.
 - Kill criteria observed → **kill**. Not a failure: the milestone did its job.
 
