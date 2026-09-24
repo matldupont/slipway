@@ -8,3 +8,8 @@ jobs:
         run: |
           # node scripts/commented.test.mjs   <- a command in a comment is not an invocation
           pnpm meta
+          pnpm meta  # node scripts/trailing.test.mjs   <- a trailing comment is not an invocation
+          echo node scripts/echoed.test.mjs
+          echo "node scripts/echoed.test.mjs"
+          pnpm meta || node scripts/fallback.test.mjs
+          node scripts/quoted.test.mjs --grep "#1"

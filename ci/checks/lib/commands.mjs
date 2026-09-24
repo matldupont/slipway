@@ -4,8 +4,19 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 // Every shell command line a workflow runs: inline `run:` values and the lines of
-// `run: |` / `run: >` block scalars. Shell comment lines inside a block are dropped:
-// a gate that only appears in a comment is not an invocation.
+// `run: |` / `run: >` block scalars. A shell comment — a whole line or a trailing unquoted
+// ` #` onward — is dropped: a gate that only appears in a comment is not an invocation.
+export function stripShellComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (quote) { if (c === quote) quote = null; continue; }
+    if (c === '"' || c === "'") quote = c;
+    else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i).trimEnd();
+  }
+  return line.trimEnd();
+}
+
 export function workflowCommands(root) {
   const dir = join(root, '.github', 'workflows');
   if (!existsSync(dir)) return [];
@@ -17,15 +28,15 @@ export function workflowCommands(root) {
       const m = lines[i].match(/^(\s*)(-\s+)?run\s*:\s*(.*)$/);
       if (!m) continue;
       const keyIndent = m[1].length + (m[2] ? m[2].length : 0);
-      const value = m[3].replace(/\s+#.*$/, '').trim();
+      const value = stripShellComment(m[3]).trim();
       if (/^[|>][+-]?[0-9]?[+-]?$/.test(value)) {
         let j = i + 1;
         for (; j < lines.length; j++) {
           const l = lines[j];
           if (/^\s*$/.test(l)) continue;
           if (l.length - l.trimStart().length <= keyIndent) break;
-          const cmd = l.trim();
-          if (!cmd.startsWith('#')) out.push({ where: `${rel}:${j + 1}`, cmd });
+          const cmd = stripShellComment(l.trim());
+          if (cmd) out.push({ where: `${rel}:${j + 1}`, cmd });
         }
         i = j - 1;
       } else if (value) {
@@ -45,10 +56,33 @@ const PNPM_BUILTINS = new Set([
 ]);
 const PNPM_VALUE_FLAGS = new Set(['--filter', '-F', '--dir', '-C', '--workspace-concurrency', '--reporter']);
 
-const tokenize = (cmd) =>
-  cmd.replace(/(&&|\|\||;|\|)/g, ' $1 ').split(/\s+/).map((t) => t.replace(/^['"]|['"]$/g, '')).filter(Boolean);
+// Quote-aware: whitespace and `&&` `||` `;` `|` split only outside quotes, so a quoted
+// `"node x.mjs"` stays one token and never reads as an invocation.
+function tokenize(cmd) {
+  const toks = [];
+  let cur = '';
+  let quote = null;
+  let has = false;
+  const flush = () => { if (has) toks.push(cur); cur = ''; has = false; };
+  for (let i = 0; i < cmd.length; i++) {
+    const c = cmd[i];
+    if (quote) { if (c === quote) quote = null; else cur += c; continue; }
+    if (c === '"' || c === "'") { quote = c; has = true; continue; }
+    if (/\s/.test(c)) { flush(); continue; }
+    const two = cmd.slice(i, i + 2);
+    if (two === '&&' || two === '||') { flush(); toks.push(two); i++; continue; }
+    if (c === ';' || c === '|') { flush(); toks.push(c); continue; }
+    cur += c; has = true;
+  }
+  flush();
+  return toks;
+}
 
-// The invocations in one command line:
+// Text-printing commands: their arguments are data, never invocations.
+const PRINTERS = new Set(['echo', 'printf']);
+
+// The invocations in one command line. The right side of `||` is conditional (it runs only
+// when the left failed), so it is not an invocation; an `echo`/`printf` segment prints.
 //   { kind: 'pnpm-script', script, filters, recursive }
 //   { kind: 'turbo', tasks, filtered }
 //   { kind: 'node', path }
@@ -56,6 +90,11 @@ export function parseCommand(cmd) {
   const toks = tokenize(cmd);
   const out = [];
   for (let i = 0; i < toks.length; i++) {
+    if (toks[i] === '||') break;
+    if (PRINTERS.has(toks[i]) && (i === 0 || SEPARATORS.has(toks[i - 1]))) {
+      while (i + 1 < toks.length && !SEPARATORS.has(toks[i + 1])) i++;
+      continue;
+    }
     if (toks[i] === 'pnpm') {
       const filters = [];
       let recursive = false;
