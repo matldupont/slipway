@@ -66,13 +66,13 @@ Work through what `--apply` listed, on the sync branch:
 ## 4 — Adopted: move the project's own IDs
 
 Only after an adopt, and **right after `--adopt --apply`, on the adopt branch, before step 1's sync**.
-At that point every `L-<n>`/`D-<n>` a project file cites is either slipway's base ID or one of the
-project's own. After a sync or a ported diff, a citation of a newer slipway ID with the same number
+At that point a project file cites only IDs that were in the project before the adopt. After a sync or a ported diff, a citation of a newer slipway ID with the same number
 would be indistinguishable.
 
 The adopt report listed "the project's own IDs": lessons at paths slipway never shipped, and decisions
-that the base's `decisions.md` lacks (or that the target has under a different heading, where slipway
-reused the number). Confirm the list with the owner. Then, for each one:
+that the base's `decisions.md` lacks (or that the target has under a different title, where slipway
+reused the number). The list is a proposal: a lesson or decision the project copied from slipway by hand
+and then edited can appear in it. Confirm each one with the owner. Then, for each one:
 
 - A lesson: `L-<n>` becomes `PL-<n>` (keep the number). Rename the file to match and change its `id:`.
 - A decision: `D-<n>` becomes `PD-<n>` in its `decisions.md` heading.
