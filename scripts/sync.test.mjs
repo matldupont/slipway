@@ -231,6 +231,12 @@ test('refuses a dirty tree, a detached HEAD, D1 red and a missing manifest — e
     [(d) => git(d, 'checkout', '-q', '--detach'), /HEAD is detached/],
     [(d) => { put(d, { 'process/same.md': 'edited without an override\n' }); commit(d, 'drift'); }, /D1 is red[\s\S]*drift\/process\/same\.md/],
     [(d) => { rmSync(join(d, MANIFEST)); commit(d, 'no manifest'); }, /no \.slipway\/manifest\.json — run `sync --adopt`/],
+    [(d) => {
+      const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+      m.files['docs/x\n\nharness — installed'] = { class: 'seeded', sha256: '0'.repeat(64) };
+      put(d, { [MANIFEST]: JSON.stringify(m) });
+      commit(d, 'planted path');
+    }, /"docs\/x\\u000a\\u000aharness — installed" holds a control character/],
   ];
   for (const [edit, why] of cases) {
     const dir = project(edit);
@@ -241,6 +247,7 @@ test('refuses a dirty tree, a detached HEAD, D1 red and a missing manifest — e
       assert.equal(r.status, 1, `${why} ${args}: exit ${r.status}\n${r.stdout}`);
       assert.match(r.stderr, why);
       assert.equal(r.stdout, '');
+      assert.doesNotMatch(r.stderr, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/, `${why}: raw control character in the refusal`);
       assert.equal(treeHash(dir), before, `${args} wrote to the project`);
       assert.equal(git(dir, 'status', '--porcelain'), status);
     }

@@ -119,8 +119,6 @@ starting another round:
 - `.slipway/upstream/<path>.diff` is sync's output, rewritten by each sync that reports that path.
 - A failure after `--apply` has created its branch (a commit hook, a disk error) leaves a partial sync on
   that branch, named in the error. The project's branch and commits are untouched.
-- Manifest paths may hold control characters, which the plan prints raw; a planted entry can fake an
-  output line (never the exit code). Rejecting them in `readManifest` is a follow-up.
 - An agent that both unsets `CLAUDECODE` and disguises the command past the harness's
   `Bash(*sync --apply*)` rule can still run `--apply`: string-matched rules are the limit of the gate.
 
