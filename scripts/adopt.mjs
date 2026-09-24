@@ -230,7 +230,7 @@ function report(out, ctx, rows) {
   const own = git(['-C', root, 'ls-files', '-z']).split('\0').filter((p) => p && !shipped.has(p));
   out.write(`${own.length} tracked file(s) are the project's own: not in the base, so sync never touches them.\n`);
   const ids = ownIds(ctx);
-  if (ids.length) out.write(`\nThe project's own IDs, for /sync-slipway to move to PL-/PD- right after --apply (slipway's are in the base, or the target's word for word):\n${ids.map((i) => `  ${i}\n`).join('')}`);
+  if (ids.length) out.write(`\nThe project's own IDs, for /sync-slipway to move to PL-/PD- right after --apply (slipway's are in the base, or the target's under the same title):\n${ids.map((i) => `  ${i}\n`).join('')}`);
   out.write('\n');
 }
 
@@ -238,12 +238,18 @@ function report(out, ctx, rows) {
 // (ownDecisions): still on slipway's L-/D- prefixes.
 function ownIds({ root, base, target, read, gitDir }) {
   const slipway = new Set([...base.tree.keys(), ...target.copy]);
+  const lesson = (root, p) => {
+    const buf = readProjectFile(root, p);
+    return Buffer.isBuffer(buf) ? frontmatter(buf.toString('utf8')) : null;
+  };
+  const isLesson = (p) => /^process\/lessons\/[^/]+\.md$/.test(p) && !p.endsWith('/README.md');
+  // A target lesson under another file name (slipway renamed it) is still slipway's: same id, same rule.
+  const theirs = new Set(target.copy.filter(isLesson).map((p) => lesson(SRC, p)).filter(Boolean).map((fm) => `${fm.id}\0${fm.rule}`));
   const lessons = git(['-C', root, 'ls-files', '-z', '--', 'process/lessons']).split('\0')
-    .filter((p) => /^process\/lessons\/[^/]+\.md$/.test(p) && !p.endsWith('/README.md') && !slipway.has(p))
-    .map((p) => ({ p, buf: readProjectFile(root, p) }))
-    .map(({ p, buf }) => ({ p, id: Buffer.isBuffer(buf) ? frontmatter(buf.toString('utf8'))?.id : null }))
-    .filter(({ id }) => /^L-\d+$/.test(id ?? ''))
-    .map(({ p, id }) => `${id}  ${p}`);
+    .filter((p) => isLesson(p) && !slipway.has(p))
+    .map((p) => ({ p, fm: lesson(root, p) }))
+    .filter(({ fm }) => /^L-\d+$/.test(fm?.id ?? '') && !theirs.has(`${fm.id}\0${fm.rule}`))
+    .map(({ p, fm }) => `${fm.id}  ${p}`);
   const text = (buf) => (Buffer.isBuffer(buf) ? buf.toString('utf8') : '');
   const was = base.tree.has('decisions.md') ? read(() => readBlob(gitDir, base.tree.get('decisions.md'))) : null;
   const decisions = ownDecisions(text(readProjectFile(root, 'decisions.md')), text(was), text(readProjectFile(SRC, 'decisions.md'))).map((d) => `${d}  decisions.md`);
@@ -252,12 +258,13 @@ function ownIds({ root, base, target, read, gitDir }) {
 
 /**
  * The project's own `D-<n>` headings in its decisions.md: slipway's are the base's IDs (the file is
- * seeded from it), and a target ID only when the heading is the target's own, word for word — one the
- * project copied in by hand. A target ID under another heading is the project's decision that slipway
- * reused the number of (the project's D-015), so it is listed.
+ * seeded from it), and a target ID only when its title is the target's own, word for word — one the
+ * project copied in by hand. The trailing `*(status)*` is not compared: a project decides slipway's
+ * open decisions. A target ID under another title is the project's decision that slipway reused the
+ * number of (the project's D-015), so it is listed.
  */
 export function ownDecisions(mine, base, target) {
-  const heads = (t) => new Map([...t.matchAll(/^##\s+(D-\d+)\b(.*)$/gm)].map((m) => [m[1], m[2].trim()]));
+  const heads = (t) => new Map([...t.matchAll(/^##\s+(D-\d+)\b(.*)$/gm)].map((m) => [m[1], m[2].replace(/\s*\*\([^)]*\)\*\s*$/, '').trim()]));
   const b = heads(base);
   const t = heads(target);
   return [...heads(mine)].filter(([id, title]) => !b.has(id) && t.get(id) !== title).map(([id]) => id);
