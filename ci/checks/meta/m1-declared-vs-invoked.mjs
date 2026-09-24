@@ -24,7 +24,8 @@
 //   node ci/checks/meta/<check>.mjs             that check
 //   node scripts/<…>.test.mjs                   that test (slipway only)
 //
-// Not invocations — each is a trap in the fixture: a command in a shell comment; a
+// Not invocations — each is a trap in the fixture: a command in a shell comment (whole-line or
+// trailing); an `echo`/`printf` argument; the right side of `||`, which runs only on failure; a
 // filter M1 cannot resolve to one package (`...`, globs, `[ref]`); `pnpm exec <tool>`,
 // which bypasses the declared script; a root script no workflow calls; `verify` for a
 // `test:<sub>` script, which verify does not run. Commands inside shell files are
