@@ -16,6 +16,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { MANIFEST, readProjectFile } from '../ci/checks/lib/manifest.mjs';
+import { ownDecisions } from './adopt.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -681,7 +682,7 @@ test('adopt --apply refuses until every differing managed file is kept or revert
   const dir = unadopted();
   const before = treeHash(dir);
   const cases = [
-    [[], /needs --keep <path>=<reason> or --revert <path> — nothing was written:\n {2}differs {5}process\/kept\.md\n {2}differs {5}process\/merge\.md\n {2}differs {5}process\/ours\.md$/m],
+    [[], /needs --keep <path>=<reason> or --revert <path>, and \.slipway\/overrides\.yaml may list only those it keeps — nothing was written:\n {2}differs {5}process\/kept\.md\n {2}differs {5}process\/merge\.md\n {2}differs {5}process\/ours\.md$/m],
     [['--keep', 'process/same.md=ours', '--revert', 'process/kept.md'], /process\/same\.md already matches the base/],
     [['--keep', 'docs/PRD.md=ours'], /docs\/PRD\.md is not a managed file the base ships/],
     [['--keep', 'process/ours.md='], /give the reason after "="/],
@@ -747,4 +748,92 @@ test('resolveBase: a commit older than the ownership map is classified by the fa
   const gitDir = join(old, '.git');
   assert.equal(resolveBase(gitDir, blobs).exact, null);
   assert.equal(resolveBase(gitDir, blobs, { fallback: rules }).exact, P);
+});
+
+test('adopt: a short sha in the first commit (new-project before the manifest wrote `rev-parse --short`) is the base', () => {
+  const dir = unadopted();
+  git(dir, 'checkout', '-q', '--orphan', 'short');
+  commit(dir, `chore: start from slipway ${A.slice(0, 7)}`);
+  const r = adopt(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, new RegExp(`base: {3}${A} \\(from the first commit\\)`));
+});
+
+test('adopt: a differing file overrides.yaml already lists with a reason is kept; an override D1 would call stale stops --apply', () => {
+  const listed = unadopted((d) => put(d, { '.slipway/overrides.yaml': 'overrides:\n  - path: process/merge.md\n    reason: our third line\n' }));
+  const plan = adopt(listed);
+  assert.equal(rows(plan.stdout)['process/merge.md'], 'differs → keep (.slipway/overrides.yaml)');
+  assert.match(adopt(listed, '--apply', '--keep', 'process/merge.md=again').stderr, /process\/merge\.md is kept already by its entry in \.slipway\/overrides\.yaml — drop the --keep/);
+  const r = adopt(listed, '--apply', '--keep', 'process/ours.md=our wording', '--revert', 'process/kept.md');
+  assert.equal(r.status, 0, r.stderr);
+  const d1 = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), listed], { encoding: 'utf8' });
+  assert.equal(d1.status, 0, d1.stdout);
+
+  const stale = unadopted((d) => put(d, { '.slipway/overrides.yaml': 'overrides:\n  - path: process/same.md\n    reason: pristine, so stale\n' }));
+  const before = treeHash(stale);
+  const s = adopt(stale, '--apply', '--keep', 'process/merge.md=m', '--keep', 'process/ours.md=o', '--revert', 'process/kept.md');
+  assert.equal(s.status, 1, s.stdout);
+  assert.match(s.stderr, /\.slipway\/overrides\.yaml:2 {2}process\/same\.md — not a managed file that differs from the base; remove it/);
+  assert.equal(treeHash(stale), before);
+});
+
+test('ownDecisions: a base ID is slipway\'s; a target ID only under the target\'s own heading (a reused number is the project\'s)', () => {
+  const base = '## D-001 — Protect main *(open)*\n';
+  const target = `${base}## D-015 — Projects take slipway updates *(decided)*\n## D-016 — Something newer *(decided)*\n`;
+  const mine = '## D-001 — `main` is protected *(decided)*\n## D-015 — API framework: Fastify *(decided)*\n## D-016 — Something newer *(decided)*\n## D-099 — Ours *(open)*\n## PD-1 — Moved *(open)*\n';
+  assert.deepEqual(ownDecisions(mine, base, target), ['D-015', 'D-099']);
+});
+
+test('sync from a target the source does not have (an unpushed commit): the plan notes it and still prints; --apply refuses', () => {
+  const ahead = join(root, 'slipway-ahead');
+  git(root, 'clone', '-q', slip, ahead);
+  put(ahead, { 'process/same.md': 'changed locally, never pushed\n' });
+  commit(ahead, 'unpushed');
+  const dir = project();
+  const run = (...args) => spawnSync(process.execPath, [join(ahead, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /note: {3}slipway's commits base → target are not listed: \S+ is not in \S+ \(unpushed\?\)/);
+  const a = run('--apply');
+  assert.equal(a.status, 1);
+  assert.match(a.stderr, /is not in \S+ — push it first; nothing was written/);
+});
+
+test('adopt, then sync, from a base older than the ownership map: classified by the target\'s map, D1 green, and sync finds that base exactly', () => {
+  // A slipway whose first commit has no dev/ownership.yaml, then one that adds it.
+  const old = join(root, 'slipway-premap');
+  mkdirSync(old);
+  git(old, 'init', '-q', '-b', 'main');
+  copyCode(old);
+  const files = {
+    '.gitignore': 'node_modules/\n',
+    'README.md': '# slipway\n',
+    'package.json': pkg({ a: 'echo a' }),
+    'process/one.md': 'one\n',
+    'process/two.md': 'two\n',
+    'docs/PRD.md': '# PRD\n',
+  };
+  put(old, files);
+  const P0 = commit(old, 'before the map');
+  put(old, { 'dev/ownership.yaml': MAP_YAML, 'process/one.md': 'one, upstream\n' });
+  commit(old, 'the map');
+  // A project copied from P0 by hand, as new-project did before the manifest: a version, no sha.
+  const proj = join(root, 'premap-project');
+  mkdirSync(proj);
+  git(proj, 'init', '-q', '-b', 'main');
+  put(proj, { ...files, 'README.md': '# Ours\n\nBuilt on [slipway](SLIPWAY.md) 0.0.0-fixture.\n', 'process/two.md': 'two, ours\n' });
+  commit(proj, 'chore: start from slipway 0.0.0-fixture');
+  const run = (...args) => spawnSync(process.execPath, [join(old, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: proj, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: old } });
+  const proposed = run('--adopt');
+  assert.equal(proposed.status, 1);
+  assert.match(proposed.stderr, new RegExp(`Closest commit on \\S+'s main:\\n  ${P0} — 1 managed file`));
+  const a = run('--adopt', '--apply', '--base', P0, '--keep', 'process/two.md=ours');
+  assert.equal(a.status, 0, a.stderr);
+  assert.match(a.stdout, /map: {4}the target's — the base predates dev\/ownership\.yaml/);
+  const d1 = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), proj], { encoding: 'utf8' });
+  assert.equal(d1.status, 0, d1.stdout);
+  const plan = run();
+  assert.equal(plan.status, 0, plan.stderr);
+  assert.match(plan.stdout, new RegExp(`base: {3}${P0} `));
+  assert.equal(rows(plan.stdout)['process/one.md'], 'replace');
 });

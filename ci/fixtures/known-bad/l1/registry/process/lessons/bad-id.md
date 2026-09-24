@@ -6,4 +6,4 @@ enforcement:
   pointer: m1
 ---
 
-PL- with no number is not a project lesson id.
+A PL- id with characters after the number is not a project lesson id.

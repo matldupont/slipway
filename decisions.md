@@ -52,7 +52,8 @@ judgment on every file. Most of what slipway ships is prose, where a three-way m
 
 Consequences: releases are tagged, with a changelog and per-version migrations. Projects created before
 this adopt it once, taking their base version from the `chore: start from slipway <sha>` commit, and
-move any `L-57`-and-later lessons to `PL-`. Declined: free edits with a merge on every sync (drift makes
+move their own lessons and decisions (the ones slipway does not ship) to `PL-`/`PD-`; slipway's own
+`L-`/`D-` IDs, `L-57` onward included, stay as they are. Declined: free edits with a merge on every sync (drift makes
 each sync costlier until projects stop syncing), and shipping skills and checks as a plugin and a package
 (it conflicts with SLIPWAY.md's self-containment; revisit if the merge surface stays large).
 
