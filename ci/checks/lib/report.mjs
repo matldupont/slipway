@@ -26,10 +26,11 @@ export const EXIT = { GREEN: 0, FINDINGS: 1, BROKEN: 2 };
  * @param {string} o.unit      what a unit is ("workflow files", "docs")
  * @param {Array<{where:string, detail:string}>} [o.findings]
  * @param {string[]} [o.exempted] ids excused by the exception registry
+ * @param {string} [o.exemptedBy] names that registry in the output (default "registry")
  * @param {Array<{where:string, detail:string}>} [o.warnings] printed, never fail the check
  * @param {string|null} [o.broken] set when the check could not run safely
  */
-export function report({ id, claim, scanned, unit, findings = [], exempted = [], warnings = [], broken = null }) {
+export function report({ id, claim, scanned, unit, findings = [], exempted = [], exemptedBy = 'registry', warnings = [], broken = null }) {
   const L = [`${id}: scanned ${scanned} ${unit}`];
   let exit;
 
@@ -41,7 +42,7 @@ export function report({ id, claim, scanned, unit, findings = [], exempted = [],
     L.push(`${id}: BROKEN — denominator is 0, nothing was examined`);
     exit = EXIT.BROKEN;
   } else {
-    if (exempted.length) L.push(`${id}: ${exempted.length} exempted by registry: ${exempted.join(', ')}`);
+    if (exempted.length) L.push(`${id}: ${exempted.length} exempted by ${exemptedBy}: ${exempted.join(', ')}`);
     for (const w of warnings) L.push(`${id}: warning: ${w.where}: ${w.detail}`);
     for (const f of findings) L.push(`${id}: ${f.where}: ${f.detail}`);
     if (findings.length) {
