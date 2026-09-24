@@ -1,0 +1,333 @@
+/* Engineering manual — the chosen design. Direction: site/design-direction.md.
+   A standards manual for a shipyard: numbered sections hung in a margin column, no boxes, no radius.
+   Orange: accents plus one full band. Scoped to :root[data-design="manual"], set on <html>. */
+
+:root[data-design="manual"] {
+    --display: "Saira", "Arial Narrow", sans-serif;
+    --body:    "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --mono:    "Martian Mono", ui-monospace, Menlo, monospace;
+    /* ratio 1.414 */
+    --step--1: 0.8125rem;
+    --step-0:  1.0625rem;
+    --step-1:  clamp(1.25rem, 1.1rem + 0.6vw, 1.5rem);
+    --step-2:  clamp(1.6rem, 1.3rem + 1.2vw, 2.125rem);
+    --step-3:  clamp(2.1rem, 1.5rem + 2.6vw, 3rem);
+    --step-4:  clamp(2.6rem, 1.6rem + 4.2vw, 4.25rem);
+    --gutter: clamp(1rem, 4vw, 3.5rem);
+    --margin-col: clamp(0rem, 12vw, 11rem);
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font: 400 var(--step-0)/1.6 var(--body);
+    font-stretch: 100%;
+    overflow-x: clip;
+    text-rendering: optimizeLegibility;
+  }
+  img { display: block; max-width: 100%; height: auto; }
+  a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 0.2em; text-decoration-color: var(--ink-3); }
+  a:hover { text-decoration-color: var(--signal); }
+  :focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+  p { margin: 0 0 1em; }
+  h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.08; margin: 0; text-wrap: balance; letter-spacing: -0.005em; }
+  code, .mono { font-family: var(--mono); font-size: 0.84em; font-stretch: 87.5%; }
+  p code, li code, td code { color: var(--ink); white-space: nowrap; }
+
+  /* ── The grid: margin column for the section number, a text column, and the rest ── */
+  .row {
+    display: grid;
+    grid-template-columns:
+      [full-start] var(--gutter)
+      [margin-start] var(--margin-col) [margin-end]
+      minmax(1.5rem, 3rem)
+      [text-start] minmax(0, 40rem) [text-end]
+      minmax(0, 1fr)
+      [wide-end] var(--gutter) [full-end];
+  }
+  .row > * { grid-column: text; }
+  .row > .wide { grid-column: margin-start / wide-end; }
+  .row > .full { grid-column: full; }
+  .row > .margin { grid-column: margin; }
+
+  /* ── Masthead ── */
+  .masthead {
+    background: var(--ground);
+    padding-block: 1.25rem 0;
+  }
+  .masthead-bar {
+    grid-column: margin-start / wide-end;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  /* the icon tile (cut from the brand icon, corners transparent) and the name set in the display face */
+  .brand { display: inline-flex; align-items: center; gap: 0.65rem; text-decoration: none; color: var(--ink); }
+  .brand img { width: 2.25rem; height: auto; }
+  .brand span { font-family: var(--display); font-weight: 600; font-size: 1.35rem; letter-spacing: 0.01em; line-height: 1; }
+  .masthead-bar nav { font-family: var(--mono); font-size: var(--step--1); font-stretch: 87.5%; display: flex; gap: 1.5rem; }
+  .masthead-bar nav a { text-decoration: none; color: var(--ink-2); }
+  .masthead-bar nav a:hover { color: var(--ink); }
+
+  /* ── Hero ── */
+  .hero {
+    background: var(--ground);
+    padding-block: clamp(3rem, 9vw, 7rem) clamp(3rem, 7vw, 5.5rem);
+    row-gap: 0;
+  }
+  .hero-copy { grid-column: margin-start / span 3; grid-row: 1; align-self: center; }
+  .kicker {
+    font-family: var(--mono); font-size: var(--step--1); font-stretch: 87.5%;
+    color: var(--signal); letter-spacing: 0.02em; margin-bottom: 1.75rem;
+  }
+  .hero h1 { font-size: var(--step-4); font-weight: 600; font-stretch: 92%; max-width: 15ch; }
+  .hero h1 span { color: var(--signal); }
+  .lede { font-size: var(--step-1); line-height: 1.5; color: var(--ink); max-width: 36ch; margin-top: 2rem; }
+  .name-note { color: var(--ink-2); max-width: 44ch; margin-top: 1.5rem; }
+
+  .hero-mark {
+    grid-column: text-end / full-end; grid-row: 1;
+    margin: 0; position: relative; align-self: center;
+    margin-inline-start: clamp(-14rem, -12vw, 0rem);
+  }
+  .hero-mark img {
+    width: min(100%, 44rem);
+    /* the render's background was lifted to the page ground; the mask only hides what's left of the seam */
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 91%, transparent), linear-gradient(transparent, #000 14%, #000 88%, transparent);
+    -webkit-mask-composite: source-in;
+            mask-image: linear-gradient(90deg, transparent, #000 12%, #000 91%, transparent), linear-gradient(transparent, #000 14%, #000 88%, transparent);
+            mask-composite: intersect;
+  }
+
+  .start {
+    grid-column: margin-start / wide-end;
+    margin-top: clamp(3rem, 6vw, 4.5rem);
+    display: grid; gap: 0.5rem 2.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  }
+  .cmd {
+    font-family: var(--mono); font-stretch: 87.5%; font-size: 0.9rem;
+    margin: 0; padding-inline-start: 1rem; border-inline-start: 1px solid var(--rule);
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .cmd-note { display: block; font-family: var(--body); font-stretch: 100%; font-size: var(--step--1); color: var(--ink-2); margin-top: 0.35rem; }
+
+  /* ── Thesis band: a thin beat between tall sections ── */
+  .thesis {
+    padding-block: 1.6rem 1.75rem;
+    background: var(--signal); color: var(--ground-deep);
+    align-items: baseline;
+  }
+  .thesis .margin { font-family: var(--mono); font-size: var(--step--1); font-stretch: 87.5%; color: var(--ground-deep); }
+  .thesis p { grid-column: text-start / wide-end; margin: 0; font-family: var(--display); font-size: var(--step-2); font-weight: 500; line-height: 1.2; max-width: 44ch; }
+  .thesis em { font-style: normal; text-decoration: underline 3px var(--ground-deep); text-underline-offset: 0.18em; }
+
+  /* ── Sections ── */
+  .section { padding-block: clamp(4rem, 10vw, 8rem); }
+  .section--short { padding-block: clamp(3rem, 6vw, 4.5rem) clamp(3.5rem, 7vw, 5.5rem); }
+  .section--major { padding-block: clamp(5rem, 13vw, 10.5rem) clamp(4rem, 10vw, 8rem); }
+  .section--tall  { padding-block: clamp(4rem, 10vw, 8rem) clamp(5rem, 12vw, 9.5rem); }
+  .num {
+    grid-column: margin; grid-row: 1 / span 2; align-self: start;
+    font-family: var(--display); font-weight: 200; font-stretch: 50%;
+    font-size: clamp(3.5rem, 2rem + 6vw, 8rem); line-height: 0.8; color: var(--signal);
+    padding-bottom: 1.1rem; position: relative;
+  }
+  /* station ticks, as on a lines plan */
+  .num::after {
+    content: ""; position: absolute; left: 0; bottom: 0; width: 100%; max-width: 8rem; height: 0.55rem;
+    background:
+      linear-gradient(var(--signal), var(--signal)) left bottom / 100% 1px no-repeat,
+      repeating-linear-gradient(90deg, var(--signal) 0 1px, transparent 1px 1rem) left bottom / 100% 100% no-repeat;
+  }
+  .section h2 { font-size: var(--step-3); font-stretch: 96%; max-width: 20ch; margin-bottom: 2rem; }
+  .section h3 { font-size: var(--step-1); font-weight: 600; margin: 3rem 0 1rem; }
+  .answer { font-size: var(--step-1); line-height: 1.5; max-width: 34ch; }
+  .prose { max-width: 62ch; }
+  .prose p, .prose li { color: var(--ink-2); }
+  .prose strong { color: var(--ink); font-weight: 600; }
+
+  /* hanging list: each item hangs from a short rule in the gutter */
+  .hang { list-style: none; padding: 0; margin: 1.5rem 0 2rem; max-width: 60ch; }
+  .hang li { position: relative; padding-inline-start: 2rem; margin-bottom: 0.9rem; color: var(--ink-2); }
+  .hang li::before { content: ""; position: absolute; left: 0; top: 0.8em; width: 1.1rem; height: 2px; background: var(--signal); }
+  .hang li strong { color: var(--ink); font-weight: 600; }
+
+  /* numbered sequence, numerals hang in the gutter */
+  .seq { list-style: none; padding: 0; margin: 1.5rem 0 0; counter-reset: seq; max-width: 60ch; }
+  .seq li { counter-increment: seq; position: relative; padding-inline-start: 2.5rem; margin-bottom: 1.1rem; color: var(--ink-2); }
+  .seq li::before {
+    content: counter(seq); position: absolute; left: 0; top: 0.05em;
+    font-family: var(--display); font-weight: 300; font-stretch: 62.5%; font-size: 1.35em; line-height: 1; color: var(--signal);
+  }
+  .seq li strong { color: var(--ink); font-weight: 600; }
+
+  /* ── Paper plate: the page inverted to paper stock ── */
+  .plate {
+    background: var(--paper); color: var(--paper-ink);
+    padding-block: clamp(3.5rem, 8vw, 6.5rem);
+  }
+  .plate .num { color: var(--signal-deep); }
+  .plate .num::after {
+    background:
+      linear-gradient(var(--signal-deep), var(--signal-deep)) left bottom / 100% 1px no-repeat,
+      repeating-linear-gradient(90deg, var(--signal-deep) 0 1px, transparent 1px 1rem) left bottom / 100% 100% no-repeat;
+  }
+  .plate h2 { font-size: var(--step-2); max-width: 26ch; margin-bottom: 0.75rem; }
+  .plate .caption { color: var(--paper-ink-2); max-width: 58ch; }
+  .plate table {
+    grid-column: text-start / wide-end;
+    border-collapse: collapse; width: 100%; margin-top: 2.5rem;
+  }
+  .plate th {
+    text-align: left; font-family: var(--mono); font-stretch: 87.5%; font-weight: 500;
+    font-size: var(--step--1); color: var(--paper-ink-2); padding: 0 1.5rem 0.75rem 0;
+    border-bottom: 2px solid var(--signal-deep);
+  }
+  .plate td { vertical-align: top; padding: 1rem 1.5rem 1rem 0; border-bottom: 1px solid var(--paper-rule); }
+  .plate td:first-child { width: 42%; font-weight: 600; }
+  .plate td code { color: var(--paper-ink); }
+  .plate .id { display: block; font-family: var(--mono); font-stretch: 87.5%; font-size: 0.75rem; font-weight: 600; color: var(--signal-deep); margin-top: 0.3rem; }
+
+  /* ── The launch ramp (signature) ── */
+  .ramp-wrap { grid-column: margin-start / wide-end; margin-top: 3.5rem; }
+  .ramp {
+    --tread: clamp(1.4rem, 2.4vw, 2.4rem);
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: repeat(8, minmax(0, 1fr));
+  }
+  .ramp li {
+    --i: 0;
+    position: relative;
+    margin-top: calc(var(--i) * var(--tread));
+    border-top: 1px solid var(--ink-3);
+    padding: 1rem 1rem 0 0.9rem;
+  }
+  /* riser: from the previous tread down to this one */
+  .ramp li:not(:first-child)::before {
+    content: ""; position: absolute; left: 0; top: calc(var(--tread) * -1);
+    height: var(--tread); border-left: 1px solid var(--ink-3);
+  }
+  .ramp li:first-child { padding-left: 0; }
+  .ramp .step {
+    display: block; font-family: var(--display); font-weight: 200; font-stretch: 50%;
+    font-size: clamp(2.4rem, 1.4rem + 2.6vw, 4rem); line-height: 0.9; margin-bottom: 0.5rem;
+    /* each step warms toward the launch line */
+    color: color-mix(in oklch, var(--signal) calc(20% + var(--i) * 11.4%), var(--ink-3));
+  }
+  .ramp .name { display: block; font-family: var(--display); font-weight: 600; font-size: 1.125rem; line-height: 1.2; }
+  .ramp .who { display: block; font-family: var(--mono); font-stretch: 87.5%; font-size: 0.72rem; color: var(--ink-2); margin: 0.35rem 0 0.7rem; }
+  .ramp p { font-size: 0.9375rem; line-height: 1.5; color: var(--ink-2); margin: 0; }
+  .ramp p code { white-space: normal; }
+
+  /* the launch line: step 7's tread turns orange and runs off the page */
+  .ramp li.launch { border-top-color: transparent; }
+  .ramp li.launch .line {
+    position: absolute; left: 0; top: -1px; width: 100vw; height: 3px; transform-origin: left center;
+    background: linear-gradient(var(--signal-core), var(--signal-core)) 0 50% / 100% 1px no-repeat, var(--signal);
+    box-shadow: 0 0 10px 1px oklch(0.75 0.175 58 / 0.55), 0 0 28px 4px oklch(0.75 0.175 58 / 0.18);
+  }
+  .ramp .loop { display: block; font-family: var(--mono); font-stretch: 87.5%; font-size: 0.72rem; color: var(--signal); margin-top: 0.75rem; }
+
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .ramp li.launch .line {
+        animation: launch linear both;
+        animation-timeline: view();
+        animation-range: entry 20% cover 45%;
+      }
+    }
+  }
+
+
+  .status-line {
+    grid-column: text-start / wide-end; margin-top: 4rem;
+  }
+
+  /* ── Honesty band ── */
+  .unknown {
+    background: var(--ground-deep);
+    padding-block: 2rem;
+    align-items: baseline;
+  }
+  .unknown .margin { font-family: var(--mono); font-size: var(--step--1); font-stretch: 87.5%; color: var(--signal); }
+  .unknown p { margin: 0; color: var(--ink-2); max-width: 64ch; }
+  .unknown strong { color: var(--ink); font-weight: 600; }
+
+  /* ── Owner's note ── */
+  .note p { font-size: var(--step-1); line-height: 1.55; color: var(--ink); max-width: 34ch; }
+  .note p + p { text-indent: 2em; margin-top: -0.4em; }
+  .note .sig { text-indent: 0; color: var(--signal); font-family: var(--mono); font-stretch: 87.5%; font-size: var(--step--1); margin-top: 2rem; }
+
+  /* ── The repo, drawn as a tree: each path annotated with what it tells you ── */
+  .tree-root { grid-column: text-start / wide-end; font-family: var(--mono); font-stretch: 87.5%; font-size: 0.875rem; margin: 2.75rem 0 0; color: var(--ink-2); }
+  .tree {
+    grid-column: text-start / wide-end;
+    list-style: none; margin: 0.6rem 0 0 0.35rem; padding: 0; border-left: 1px solid var(--rule);
+  }
+  .tree li {
+    position: relative;
+    display: grid; grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr); gap: 0.2rem 2rem;
+    padding: 0.8rem 0 0.8rem 1.6rem;
+  }
+  .tree li::before { content: ""; position: absolute; left: 0; top: 1.45rem; width: 1rem; height: 1px; background: var(--signal); }
+  .tree li:last-child::after { content: ""; position: absolute; left: -1px; top: 1.45rem; bottom: 0; width: 1px; background: var(--ground); }
+  .tree .path { font-family: var(--mono); font-stretch: 87.5%; font-size: 0.8125rem; color: var(--ink); padding-top: 0.25rem; overflow-wrap: anywhere; }
+  .tree .what { color: var(--ink-2); }
+  .tree .what strong { color: var(--ink); font-weight: 600; }
+  .outside { grid-column: text; }
+
+  .num--plate {
+    font-family: var(--mono); font-stretch: 87.5%; font-weight: 400;
+    font-size: var(--step--1); line-height: 1.4; padding-bottom: 0.9rem;
+  }
+
+  /* ── In numbers: a thin band of figures between hanging rules ── */
+  .specs { padding-block: 0 2.5rem; }
+  .specs dl {
+    grid-column: margin-start / wide-end; margin: 0;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+    border-top: 1px solid var(--rule);
+  }
+  .specs div { padding: 1.1rem 1.5rem 0 0; display: flex; gap: 0.9rem; align-items: baseline; }
+  .specs dt { font-family: var(--display); font-weight: 200; font-stretch: 50%; font-size: 3rem; line-height: 0.9; color: var(--signal); }
+  .specs dd { margin: 0; font-size: var(--step--1); color: var(--ink-2); max-width: 18ch; }
+
+  /* ── Colophon ── */
+  .colophon {
+    background: var(--ground);
+    border-top: 1px solid var(--rule);
+    padding-block: 3rem 3.5rem;
+    font-size: var(--step--1); color: var(--ink-2);
+  }
+  .colophon .wide { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 1.5rem 3rem; }
+  .colophon .brand img { width: 1.75rem; }
+  .colophon .brand span { font-size: 1.1rem; }
+  .colophon ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.75rem; font-family: var(--mono); font-stretch: 87.5%; }
+
+  /* ── Narrow screens ── */
+  @media (max-width: 56rem) {
+    .row {
+      grid-template-columns: [full-start] var(--gutter) [margin-start text-start] minmax(0, 1fr) [margin-end text-end wide-end] var(--gutter) [full-end];
+    }
+    .hero-copy { grid-column: text; }
+    .hero-mark { grid-column: text-start / full-end; grid-row: 2; margin: 2.5rem 0 0; }
+    .num { grid-row: auto; font-size: 3.5rem; margin-bottom: 1.5rem; max-width: 8rem; }
+    .thesis .margin, .unknown .margin { margin-bottom: 0.75rem; }
+    .thesis p { grid-column: text; }
+    .plate table, .plate thead, .plate tbody, .plate tr, .plate td { display: block; width: 100%; }
+    .plate thead { position: absolute; left: -999px; }
+    .plate td:first-child { width: 100%; padding-bottom: 0.25rem; border-bottom: 0; }
+    .plate td { padding: 0 0 1rem; }
+    .plate tr { border-top: 1px solid var(--paper-rule); padding-top: 1rem; }
+
+    /* the ramp turns on its side: treads become a descending ladder */
+    .ramp { grid-template-columns: 1fr; }
+    .ramp li { margin-top: 0; margin-left: calc(var(--i) * 0.55rem); padding: 1.1rem 0 1.4rem 1rem; border-top: 0; border-left: 1px solid var(--ink-3); }
+    .ramp li:first-child { padding-left: 1rem; }
+    .ramp li:not(:first-child)::before { left: -0.55rem; top: 0; width: 0.55rem; height: 0; border-left: 0; border-top: 1px solid var(--ink-3); }
+    .ramp .step { font-size: 2.4rem; }
+    .ramp li.launch { border-left-color: var(--ink-3); padding-bottom: 2.5rem; }
+    .ramp li.launch .line { top: auto; bottom: 0; left: -1px; }
+    .ramp li.launch .line { animation-range: entry 60% cover 70%; }
+    .tree li { grid-template-columns: 1fr; }
+  }
+}
