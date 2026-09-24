@@ -7,7 +7,7 @@ import { lstatSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { classify, MAP, parseOwnership } from '../../ci/checks/lib/ownership.mjs';
-import { blobSha, git, lsTree, publicSource, redactUrls } from './install.mjs';
+import { blobSha, git, gitReason, lsTree, publicSource, redactUrls } from './install.mjs';
 
 // What git fetches for a manifest's `source`. `github:owner/repo` is npm's shorthand; anything else
 // (a URL, a local path) is passed as it is, after `--`. An option-shaped source is refused.
@@ -40,23 +40,33 @@ export function sourceClone(source) {
   const dir = join(cacheRoot(), `${createHash('sha256').update(url).digest('hex').slice(0, 16)}.git`);
   const o = { timeout: 300_000 };
   const fail = (e) => {
-    const why = redactUrls(String(e.stderr || e.message).trim().split(/\r?\n/).at(-1).replaceAll(url, shown).replaceAll(source, shown));
+    const why = redactUrls(gitReason(e).replaceAll(url, shown).replaceAll(source, shown));
     return new Error(`could not fetch slipway from ${shown}: ${why}`);
   };
-  // Fetches name the URL themselves, never write FETCH_HEAD, and origin holds only the redacted URL:
-  // the cache keeps no credential at rest, including one an older cache recorded.
-  const redactOrigin = () => git(['--git-dir', dir, 'remote', 'set-url', 'origin', shown]);
-  try {
+  // The cache never records the URL: it is made with `init` (no remote), and fetches name the URL
+  // themselves and write no FETCH_HEAD. A cache an older version cloned is cleaned of both, so an
+  // interrupted run leaves no credential at rest either. HEAD follows the source's default branch.
+  const fetch = () => {
+    const head = git(['ls-remote', '--symref', '--', url, 'HEAD'], o).match(/^ref: refs\/heads\/(\S+)\tHEAD$/m)?.[1];
     git(['--git-dir', dir, 'fetch', '--quiet', '--prune', '--no-write-fetch-head', '--', url, '+refs/heads/*:refs/heads/*'], o);
-    redactOrigin();
+    if (head) git(['--git-dir', dir, 'symbolic-ref', 'HEAD', `refs/heads/${head}`]);
+  };
+  try {
+    try {
+      git(['--git-dir', dir, 'remote', 'remove', 'origin']);
+    } catch {
+      // no origin: a cache this version made
+    }
+    rmSync(join(dir, 'FETCH_HEAD'), { force: true });
+    fetch();
     return dir;
   } catch {
     // No cache yet, or one that no longer fetches: start it again.
     rmSync(dir, { recursive: true, force: true });
   }
   try {
-    git(['clone', '--bare', '--quiet', '--', url, dir], o);
-    redactOrigin();
+    git(['init', '--bare', '--quiet', dir]);
+    fetch();
   } catch (e) {
     rmSync(dir, { recursive: true, force: true });
     throw fail(e);
@@ -147,15 +157,17 @@ export function settleTie(gitDir, shas, written, render) {
     const unrendered = new Set();
     for (const [p, blob] of written) {
       if (!tree.has(p)) continue;
-      let out = null;
+      let out;
       try {
         out = render(p, readBlob(gitDir, tree.get(p)), rules);
       } catch {
-        // an unreadable copy reproduces nothing
+        continue; // an unreadable copy reproduces nothing, and still counts in the fingerprint
       }
       if (out === null) unrendered.add(p);
       else if (blobSha(out) === blob) score++;
     }
+    // A file the commit ships that the install never recorded: the project did not come from it.
+    if (rules) for (const [p] of tree) if (!written.has(p) && !['internal', 'managed'].includes(classify(rules, p))) score--;
     const shipped = [...tree]
       .filter(([p]) => rules && classify(rules, p) !== 'internal' && !unrendered.has(p))
       .map(([p, id]) => `${p}\0${id}`)
