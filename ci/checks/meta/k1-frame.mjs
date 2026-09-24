@@ -83,7 +83,7 @@ for (const [, body] of text.matchAll(/\[PARKED:([^\]]*)\]/g)) {
   const missing = [
     !/\bassume:\s*\S/i.test(body) && 'assume: <what you build on>',
     !/\bif wrong:\s*\S/i.test(body) && 'if wrong: <the cost>',
-    !TRACKER.test(body) && 'a tracker (#12, OD-3, D-7)',
+    !TRACKER.test(body) && 'a tracker (#12, OD-3, D-7, PD-7)',
   ].filter(Boolean);
   if (missing.length) add('FRAME.md#parked/incomplete', `parked question "${body.trim().slice(0, 60)}" is missing ${missing.join(', ')}`);
 }

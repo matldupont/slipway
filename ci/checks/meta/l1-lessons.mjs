@@ -16,6 +16,7 @@
 //                         or delete it
 //   trigger/missing       a declined lesson must name the event that should reopen it
 //   anchor/missing        a relative date (+90d) with no process/anchor to count from
+//   id/format             the id is not L-<n> (slipway's) or PL-<n> (the project's own, D-015)
 //   id/duplicate
 //
 // Deferred work lives here as `declined` lessons, so the review clock is its detector.
@@ -32,6 +33,8 @@ import { today as localToday } from '../lib/clock.mjs';
 import { report } from '../lib/report.mjs';
 
 const STATUSES = new Set(['check', 'structural', 'artifact', 'prose', 'declined']);
+// Slipway's lessons are L-<n>; a project's own are PL-<n>, so a sync never renumbers either (D-015).
+const ID = /^P?L-\d+$/;
 function resolves(root, pointer) {
   if (/^[a-z]{1,3}\d+$/.test(pointer)) {
     const dir = join(root, 'ci', 'checks', 'meta');
@@ -77,6 +80,7 @@ for (const f of files) {
   const enf = typeof fm.enforcement === 'object' ? fm.enforcement : {};
   const status = enf.status;
   if (!fm.id || !fm.rule || !status) { add('field/missing', 'needs id, rule and enforcement.status'); continue; }
+  if (!ID.test(String(fm.id))) add('id/format', `"${fm.id}" is neither L-<n> (slipway's) nor PL-<n> (this project's own)`);
   if (seen.has(fm.id)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(fm.id)}`);
   else seen.set(fm.id, f);
   if (!STATUSES.has(status)) { add('status/unknown', `"${status}" is not one of ${[...STATUSES].join(', ')}`); continue; }

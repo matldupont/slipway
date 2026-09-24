@@ -38,9 +38,10 @@ import { buildManifest, derivePackageJson, gitignoreText, publicSource, resolveS
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // `sync` is its own command (F-01 step 3), dispatched here so the package's one bin runs it: the sync
-// code always comes from the slipway version being synced to. A directory named sync: `./sync`.
+// code always comes from the slipway version being synced to. `sync --adopt` (step 5) is adopt.mjs.
+// A directory named sync: `./sync`.
 if (process.argv[2] === 'sync') {
-  const { main } = await import('./sync.mjs');
+  const { main } = await import(process.argv.includes('--adopt') ? './adopt.mjs' : './sync.mjs');
   process.exit(main(process.argv.slice(3)));
 }
 
@@ -268,5 +269,7 @@ Next: open Claude Code in the project and run /bootstrap — it scaffolds the ap
 and runs the acceptance probes (BOOTSTRAP.md is the reference for each step).
   cd ${rel}
 ${outcome ? `  git status             # decisions.md carries D-001 — commit it in the bootstrap PR, not to main\n` : ''}${opts.harness ? '' : '  mkdir -p .claude && cp process/harness/settings.json .claude/settings.json   # harness, if wanted\n'}  claude                 # then: /bootstrap
+
+Later, to take a newer slipway: /sync-slipway (${MANIFEST} records what this run wrote).
 `);
 }

@@ -1,5 +1,5 @@
 {
-  "_note": "good-check, good-prose (+200d from 2026-06-01 = 2026-12-18) and good-declined pass; README.md is skipped. due.md: +30d = 2026-07-01, already past.",
+  "_note": "good-check, good-project (PL-1, a project's own id), good-prose (+200d from 2026-06-01 = 2026-12-18) and good-declined pass; README.md is skipped. due.md: +30d = 2026-07-01, already past. bad-id.md: PL-1a is neither L-<n> nor PL-<n>.",
   "exit": 1,
   "env": {
     "CHECK_TODAY": "2026-09-21"
@@ -8,6 +8,7 @@
     "bad-anchor.md#pointer/unresolved",
     "bad-date.md#review/invalid",
     "bad-file.md#pointer/unresolved",
+    "bad-id.md#id/format",
     "bad-pointer.md#pointer/unresolved",
     "bad-status.md#status/unknown",
     "declined-no-trigger.md#trigger/missing",

@@ -8,8 +8,8 @@ import { cells, plain, section } from './markdown.mjs';
 import { parseAppetite } from './milestones.mjs';
 
 // Where the real answer is being chased: an issue (#14, owner/repo#14), a PRD open decision (OD-3)
-// or a decision (D-7).
-export const TRACKER = /(?:[\w.-]+\/[\w.-]+)?#\d+|\b(?:OD|D)-\d+\b/;
+// or a decision — slipway's (D-7) or the project's own (PD-7, D-015).
+export const TRACKER = /(?:[\w.-]+\/[\w.-]+)?#\d+|\b(?:OD|PD|D)-\d+\b/;
 
 export const filled = (c) => !!c && !PLACEHOLDER.test(c);
 

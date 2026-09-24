@@ -82,17 +82,21 @@ function commits(gitDir, start, ref) {
  * blob, then fewest extra, then the walk's order) — the closest-match mode adopt (#18) shows, never
  * picking silently.
  *
+ * A commit older than the ownership map is classified by `fallback` (the target's map), as adopt
+ * classified it when it wrote the manifest; without one it can be closest, never exact.
+ *
  * @param {string} gitDir
  * @param {Map<string, string>} blobs  path → git blob id
- * @param {{ start?: string|null, ref?: string, cls?: string }} [o]
+ * @param {{ start?: string|null, ref?: string, cls?: string, fallback?: object[]|null }} [o]
  * @returns {{ exact: string|null, best: Candidate|null, runnerUp: Candidate|null, total: number }}
  *   Candidate: `{ sha, matched, extra }` — `matched` of `total` paths hold their blob; `extra` counts
- *   the paths in `cls` that commit ships and `blobs` does not list (null when it has no readable map).
+ *   the paths in `cls` that commit ships and `blobs` does not list (null when it has no map to read).
  */
-export function resolveBase(gitDir, blobs, { start = null, ref = 'HEAD', cls = 'managed' } = {}) {
+export function resolveBase(gitDir, blobs, { start = null, ref = 'HEAD', cls = 'managed', fallback = null } = {}) {
   const ranked = [];
   for (const sha of commits(gitDir, start, ref)) {
-    const { tree, rules } = commitFiles(gitDir, sha);
+    const { tree, rules: own } = commitFiles(gitDir, sha);
+    const rules = tree.has(MAP) ? own : fallback; // an unreadable map stays unreadable
     let matched = 0;
     for (const [p, b] of blobs) if (tree.get(p) === b && (!rules || classify(rules, p) === cls)) matched++;
     const extra = rules ? [...tree.keys()].filter((p) => !blobs.has(p) && classify(rules, p) === cls).length : null;

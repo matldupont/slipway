@@ -3,6 +3,8 @@
 A ruling that lives only in a closing comment or a chat transcript gets re-litigated. Record decisions here as they are made.
 
 Each entry: ID · status · decision · why · consequences · supersedes. Superseded entries stay, struck through.
+Slipway's decisions are `D-<n>`; add this project's own as `PD-<n>` (`PD-1`, `PD-2`…), so a slipway sync
+never collides with them (D-015).
 
 ## D-001 — Can `main` be protected on this plan? *(open — owner, BOOTSTRAP §0)*
 
