@@ -14,6 +14,7 @@ slipway sync plan, on main
   merged: key updated       package.json scripts.drop
   collision                 process/clash.md
   delete                    process/delete.md
+  replace                   process/harness/settings.json
   keep (edited)             process/kept.md
   merge                     process/merge.md
   add                       process/new.md
@@ -21,4 +22,4 @@ slipway sync plan, on main
   replace                   process/replace.md
   unchanged                 process/same.md
 
-17 rows: 1 replace, 1 merge, 1 add, 1 delete, 1 keep (edited), 1 collision, 1 seeded: upstream changed, 3 merged: key updated, 1 merged: key reported, 6 unchanged. Plan only — nothing was written.
+18 rows: 2 replace, 1 merge, 1 add, 1 delete, 1 keep (edited), 1 collision, 1 seeded: upstream changed, 3 merged: key updated, 1 merged: key reported, 6 unchanged. Plan only — nothing was written.
