@@ -893,3 +893,67 @@ test('adopt: a lesson the target ships under another file name (same id, same ru
   const own = run(unadopted((d) => put(d, { 'process/lessons/L-05-old-name.md': lesson('our own rule') })));
   assert.match(own.stdout, /^ {2}L-05 {2}process\/lessons\/L-05-old-name\.md$/m);
 });
+
+// ---- the remote check (#61): a warning, never a gate
+
+// A project cloned from its own upstream, so a case can move the upstream without touching `base`.
+function withUpstream() {
+  const up = join(root, `upstream-${++n}`);
+  git(root, 'clone', '-q', base, up);
+  const dir = project();
+  git(dir, 'remote', 'set-url', 'origin', up);
+  git(dir, 'fetch', '-q');
+  return { up, dir };
+}
+const remoteLine = (stdout) => stdout.match(/^ {2}remote: (.*)$/m)?.[1];
+
+test('behind its upstream: sync and sync --adopt print one warning with the count and `git pull`, before the plan; --apply still applies', () => {
+  const { up, dir } = withUpstream();
+  put(up, { 'notes.md': 'one\n' });
+  commit(up, 'merged on the remote');
+  put(up, { 'notes.md': 'two\n' });
+  commit(up, 'and another');
+  const r = sync(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(remoteLine(r.stdout), /^WARNING — main is 2 commits behind origin\/main; run `git pull` first$/);
+  assert.equal(r.stdout.match(/remote:/g).length, 1);
+  assert.ok(r.stdout.indexOf('remote:') < r.stdout.indexOf('rows:'), 'the warning comes before the plan');
+  const a = adopt(unadopted2(dir));
+  assert.match(remoteLine(a.stdout), /2 commits behind origin\/main; run `git pull`/);
+  const again = withUpstream();
+  put(again.up, { 'notes.md': 'one\n' });
+  commit(again.up, 'merged on the remote');
+  const applied = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: again.dir, encoding: 'utf8' });
+  assert.match(applied.stdout, /Applied on slipway\/sync-/);
+  assert.match(remoteLine(applied.stdout), /behind/);
+});
+// The behind project as one that predates the manifest, for adopt: its .slipway removed and committed.
+function unadopted2(dir) {
+  rmSync(join(dir, '.slipway'), { recursive: true });
+  commit(dir, 'before the manifest');
+  return dir;
+}
+
+test('level with its upstream: no remote line, the plan as before', () => {
+  const { dir } = withUpstream();
+  const r = sync(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(remoteLine(r.stdout), undefined);
+  assert.equal(normalise(r.stdout), readFileSync(EXPECTED_SUMMARY, 'utf8'));
+});
+
+test('no upstream, or a fetch that fails: the plan prints, plus one line saying the remote was not checked', () => {
+  const none = project();
+  git(none, 'branch', '--unset-upstream');
+  const r = sync(none);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(remoteLine(r.stdout), 'not checked — main has no upstream');
+  assert.match(adopt(unadopted2(none)).stdout, /remote: not checked — main has no upstream/);
+
+  const { dir } = withUpstream();
+  git(dir, 'remote', 'set-url', 'origin', join(root, 'gone'));
+  const off = sync(dir);
+  assert.equal(off.status, 0, off.stderr);
+  assert.match(remoteLine(off.stdout), /^not checked — could not fetch origin\/main: /);
+  assert.match(off.stdout, /\d+ rows:/);
+});

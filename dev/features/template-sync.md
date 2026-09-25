@@ -169,7 +169,9 @@ npx github:matldupont/slipway#<ref> sync --adopt    # a project without a manife
 Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
 
 1. **Preflight.** Refuse a dirty tree, a detached HEAD, or D1 red. Create `slipway/sync-<short sha>` from
-   the current branch; never write to `main`.
+   the current branch; never write to `main`. After a `git fetch`, a branch behind its upstream gets one
+   `remote:` warning line in the header (count and `git pull`); no upstream or a failed fetch gets
+   `remote: not checked`. A warning, never a gate (#61).
 2. **Resolve.** The target is the ref. The base is the commit whose tree matches the manifest's
    managed `blob` ids exactly, searched from `slipway` when it is set, then back along `main`. No exact
    match (files deleted from slipway's history, or a hand-edited manifest) means sync stops and names

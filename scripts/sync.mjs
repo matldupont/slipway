@@ -92,7 +92,30 @@ export function repoState(cwd) {
   } catch {
     throw new Refusal('HEAD is detached — check out a branch first');
   }
-  return { root, branch };
+  return { root, branch, remote: remoteLine(root, branch) };
+}
+
+/**
+ * The header line about the branch's remote, or null when it is level: a plan against a tree that lacks
+ * merged work misleads every later step. A warning, never a gate. Fetches the upstream's remote (its
+ * tracking refs move; FETCH_HEAD is not written), so offline or without an upstream the line says the
+ * remote was not checked.
+ */
+export function remoteLine(root, branch) {
+  const at = (args) => git(['-C', root, ...args]).trim();
+  let upstream;
+  try {
+    upstream = at(['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']);
+  } catch {
+    return `not checked — ${branch} has no upstream`;
+  }
+  try {
+    at(['fetch', '-q', '--no-write-fetch-head', at(['config', `branch.${branch}.remote`])]);
+    const behind = Number(at(['rev-list', '--count', 'HEAD..@{u}']));
+    return behind > 0 ? `WARNING — ${branch} is ${behind} commit${behind > 1 ? 's' : ''} behind ${upstream}; run \`git pull\` first` : null;
+  } catch (e) {
+    return `not checked — could not fetch ${upstream}: ${redactUrls(gitReason(e))}`;
+  }
 }
 
 // Git failing on slipway's clone (an empty source, a default branch gone) is a named refusal too.
@@ -106,7 +129,7 @@ export function history(source, fn) {
 }
 
 function preflight(cwd) {
-  const { root, branch } = repoState(cwd);
+  const { root, branch, remote } = repoState(cwd);
   let manifest, overrides;
   try {
     manifest = readManifest(root);
@@ -184,7 +207,7 @@ function preflight(cwd) {
     }
   }
 
-  return { notes, log, root, branch, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
+  return { notes, log, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
 }
 
 /**
@@ -266,12 +289,13 @@ function nextStep(r, targetSha) {
   return "sync --apply leaves your file as it is; port slipway's change by hand if you want it";
 }
 
-function print(out, { branch, source, base, targetSha, notes, log, verbose }, rows, plan = false) {
+function print(out, { branch, remote, source, base, targetSha, notes, log, verbose }, rows, plan = false) {
   const width = Math.max(...KINDS.map((k) => k.length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
   out.write(`  base:   ${base.sha} (by content: the manifest's managed blobs)\n`);
   out.write(`  target: ${targetSha ?? `${SRC} (its files match no slipway commit)`}\n`);
+  if (remote) out.write(`  remote: ${remote}\n`);
   for (const n of notes) out.write(`  note:   ${n}\n`);
   if (log.length) out.write(`\nslipway's commits, base → target (${log.length}, newest first):\n${log.map((l) => `  ${l}\n`).join('')}`);
   out.write('\n');
