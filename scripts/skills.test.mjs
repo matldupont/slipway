@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The intake and ticket skills slipway ships (F-04, dev/features/intake-skills.md): each fits in 300 lines,
 // each intake skill ends by asking what else the new issue changes, and every AGENT.md key a skill reads is a
-// documented row. Internal: `pnpm meta` runs it in slipway, never in a project.
+// documented row; no command names a repository or label of its own. Internal: `pnpm meta` runs it in
+// slipway, never in a project.
 //
 // A skill cites its keys on one line, `**Reads:** `Key`, `Key``. process/intake.md → Configuration lists each
 // key with the skills that read it, and either a default or the question asked when it is missing.
@@ -21,6 +22,18 @@ const INTAKE = FOUR.filter((s) => s.startsWith('log-'));
 // Shipped so far; each build-map step of #46 adds the skill it ships.
 const REQUIRED = ['log-followup'];
 const MAX_LINES = 300;
+// Reference sections a skill may keep below its last step.
+const AFTER_RIPPLE = ['Edge cases'];
+
+// A repository, label, milestone or board written into a command, instead of a {placeholder} filled from AGENT.md.
+function hardCoded(md) {
+  const found = [];
+  for (const m of md.matchAll(/--(repo|label|milestone|add-project)[ =]+"?([^\s"`]+)/g)) {
+    if (!m[2].startsWith('{')) found.push(`--${m[1]} ${m[2]}`);
+  }
+  for (const m of md.matchAll(/\brepos\/(\{repo\}|[^\s"`/{]+\/[^\s"`/]+)\//g)) if (m[1] !== '{repo}') found.push(`repos/${m[1]}/`);
+  return found;
+}
 
 const skillPath = (s) => `.claude/skills/${s}/SKILL.md`;
 const present = FOUR.filter((s) => existsSync(join(SRC, skillPath(s))));
@@ -98,11 +111,22 @@ for (const s of present) {
     test(`${s}: ends with a Ripple step that runs the shared procedure`, () => {
       const headings = [...md.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim());
       assert.ok(headings.includes('Ripple'), `${skillPath(s)} has no \`## Ripple\``);
+      // Last step, after filing: every phase comes before it, and only reference sections after it.
+      const at = headings.indexOf('Ripple');
+      assert.ok(headings.slice(0, at).some((h) => /^Phase \d/.test(h)), `${s}: \`## Ripple\` must come after the phases`);
+      const after = headings.slice(at + 1).filter((h) => !AFTER_RIPPLE.includes(h));
+      assert.deepEqual(after, [], `${s}: \`## Ripple\` must be the last step; found after it: ${after.join(', ')}`);
       assert.match(section(md, 'Ripple', 2), /`process\/intake\.md` → Ripple/, `${s}'s Ripple must run process/intake.md → Ripple`);
       assert.match(section(md, 'Ripple', 2), /\*\*Terms:\*\*/, `${s}'s Ripple must say which terms it collects`);
     });
   }
 }
+
+test('no command in a skill or process/intake.md names a repository, label, milestone or board', () => {
+  for (const p of [...present.map(skillPath), 'process/intake.md']) {
+    assert.deepEqual(hardCoded(read(p)), [], `${p} writes these into commands; read them from AGENT.md as {placeholders}`);
+  }
+});
 
 test('process/intake.md: every key is an AGENT.md row, with either a default or a question', () => {
   for (const [k, row] of intakeRows) {
