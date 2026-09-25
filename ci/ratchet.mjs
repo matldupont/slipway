@@ -12,7 +12,7 @@
 //
 //   node ci/ratchet.mjs <name> <report.json> <dot.path.to.number> [--update]
 //
-// Example, as a root script CI runs (M1 fails a `check:*` script no workflow invokes):
+// Example, as a root script CI runs (W1 fails a `check:*` script no workflow invokes):
 //   "check:duplication": "jscpd apps packages --reporters json --output .jscpd --silent &&
 //                         node ci/ratchet.mjs duplication .jscpd/jscpd-report.json statistics.total.duplicatedLines"
 //

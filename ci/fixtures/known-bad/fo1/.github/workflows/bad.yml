@@ -1,4 +1,4 @@
-# Known-bad fixture for M3. Every trap is a way a line-matching check gets it wrong.
+# Known-bad fixture for FO1. Every trap is a way a line-matching check gets it wrong.
 #
 # MUST be reported:
 #   A. a step with an id                              -> #build/flaky

@@ -1,4 +1,4 @@
-# Registry traps for M3's fixture. CHECK_TODAY is pinned to 2026-09-10 by expected.json.
+# Registry traps for FO1's fixture. CHECK_TODAY is pinned to 2026-09-10 by expected.json.
 exceptions:
   - id: .github/workflows/bad.yml#build/tolerated
     reason: fixture - a live, valid exemption (trap I)
