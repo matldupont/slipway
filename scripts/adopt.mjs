@@ -28,11 +28,12 @@ import { MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProje
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { readList } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
+import { BASE_WHY, bucketLines, needsLines } from './lib/summary.mjs';
 import { blobSha, buildManifest, git, publicSource, SOURCE, templateFiles } from './lib/install.mjs';
 import { checkWrites, history, land, Refusal, repoState } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = 'usage: sync --adopt [--base <sha>] [--apply [--keep <path>=<reason>]… [--revert <path>]…]   (run in a project with no manifest)';
+const USAGE = 'usage: sync --adopt [--base <sha>] [--verbose] [--apply [--keep <path>=<reason>]… [--revert <path>]…]   (run in a project with no manifest)';
 const short = (sha) => sha.slice(0, 12);
 
 export function main(argv, { cwd = process.cwd(), out = process.stdout, err = process.stderr } = {}) {
@@ -44,10 +45,10 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     }
     const ctx = locate(cwd, o);
     const rows = classifyAll(ctx);
-    const owed = decide(rows, o, ctx.overrides);
-    report(out, ctx, rows);
+    const { stale, all: owed } = decide(rows, o, ctx.overrides);
+    report(out, ctx, rows, o.verbose, stale);
     if (!o.apply) {
-      out.write(owed.length
+      out.write(!o.verbose && owed.length ? `Plan only — nothing was written. Give each file above its choice, then write it with: sync --adopt --apply --base ${ctx.base.sha} --keep <path>=<reason> | --revert <path>\n` : owed.length
         ? `Plan only — nothing was written. Before --apply, each managed file that differs needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps:\n  ${owed.join('\n  ')}\n`
         : `Plan only — nothing was written. Write it with: sync --adopt --apply --base ${ctx.base.sha}\n`);
       return 0;
@@ -62,7 +63,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
 }
 
 function parse(argv) {
-  const o = { apply: false, base: null, keep: new Map(), revert: new Set(), help: false };
+  const o = { apply: false, verbose: false, base: null, keep: new Map(), revert: new Set(), help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const value = () => {
@@ -73,6 +74,7 @@ function parse(argv) {
     if (a === '--adopt') continue;
     else if (a === '-h' || a === '--help') o.help = true;
     else if (a === '--apply') o.apply = true;
+    else if (a === '--verbose') o.verbose = true;
     else if (a === '--base') o.base = value();
     else if (a === '--revert') o.revert.add(value());
     else if (a === '--keep') {
@@ -212,10 +214,25 @@ function decide(rows, o, overrides) {
   for (const p of listed) byPath.get(p).choice = `keep (${OVERRIDES})`;
   const waiting = rows.filter((r) => differs(r) && !r.choice).map((r) => `${r.kind.padEnd(10)}  ${r.path}`);
   const stale = overrides.filter((x) => !listed.has(x.path)).map((x) => `${OVERRIDES}:${x.line}  ${x.path} — ${x.reason?.trim() ? 'not a managed file that differs from the base' : 'no reason'}; remove it`);
-  return [...waiting, ...stale];
+  return { waiting, stale, all: [...waiting, ...stale] };
 }
 
-function report(out, ctx, rows) {
+// What each bucket means for the owner, and what sync does with it later.
+const MEANING = {
+  pristine: 'the same as the base. Sync updates it when slipway changes it',
+  differs: 'you changed it since the base. Needs your choice below; then sync merges slipway\'s changes into it, or leaves it if you keep it',
+  missing: 'the base ships it and you have no such file. Needs your choice below',
+  'not a file': 'a folder or link where the base ships a file. Needs your choice below',
+  seeded: "a file you fill in (README, PRD…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch",
+  merged: 'package.json: sync updates its scripts key by key, and keeps any you changed',
+};
+const meaning = (label) => {
+  const base = label.replace(/ \(missing\)$/, '').replace(/ → .*$/, '');
+  const m = MEANING[base] ?? '';
+  return label.includes('→') ? `${m.split('. ')[0]}; you chose it, --apply writes it` : label.endsWith('(missing)') ? `${m.split('. ')[0]}; the file is missing here` : m;
+};
+
+function report(out, ctx, rows, verbose = false, stale = []) {
   const { root, branch, source, base } = ctx;
   const show = (r) => (r.choice ? `${r.kind} → ${r.choice}` : r.kind);
   const width = Math.max(...rows.map((r) => show(r).length), 8);
@@ -223,12 +240,26 @@ function report(out, ctx, rows) {
   out.write(`  source: ${source}\n`);
   out.write(`  base:   ${base.sha} (from ${base.from})\n`);
   out.write(`  map:    ${base.mapped ? "the base's dev/ownership.yaml" : `the target's — the base predates ${MAP}`}\n\n`);
-  for (const r of rows) out.write(`  ${show(r).padEnd(width)}  ${r.path}\n`);
-  const counts = [...new Set(rows.map(show))].map((k) => `${rows.filter((r) => show(r) === k).length} ${k}`);
-  out.write(`\n${rows.length} paths the base ships: ${counts.join(', ')}.\n`);
+  const labels = [...new Set(rows.map(show))];
+  if (verbose) for (const r of rows) out.write(`  ${show(r).padEnd(width)}  ${r.path}\n`);
+  else out.write(`${BASE_WHY}\n\n${rows.length} paths the base ships:\n${bucketLines(labels.map((l) => ({ n: rows.filter((r) => show(r) === l).length, label: l, meaning: meaning(l) })))}\n`);
+  if (verbose) {
+    const counts = labels.map((k) => `${rows.filter((r) => show(r) === k).length} ${k}`);
+    out.write(`\n${rows.length} paths the base ships: ${counts.join(', ')}.\n`);
+  }
   const shipped = new Set(rows.map((r) => r.path));
   const own = git(['-C', root, 'ls-files', '-z']).split('\0').filter((p) => p && !shipped.has(p));
   out.write(`${own.length} tracked file(s) are the project's own: not in the base, so sync never touches them.\n`);
+  const waiting = rows.filter((r) => r.cls === 'managed' && r.kind !== 'pristine' && !r.choice);
+  if (!verbose) {
+    if (waiting.length || stale.length) {
+      const items = [
+        ...waiting.map((r) => ({ kind: r.kind, path: r.path, next: `--keep ${r.path}=<reason>  to keep yours, or  --revert ${r.path}  to put the base's back` })),
+        ...stale.map((s) => ({ kind: 'override', path: s.replace(/ — .*$/, '').replace(/^\S+ +/, ''), next: `remove its entry from ${OVERRIDES}` })),
+      ];
+      out.write(`\nNeeds you (${items.length}):\n${needsLines(items)}`);
+    } else out.write('\nNothing needs a decision.\n');
+  }
   const ids = ownIds(ctx);
   if (ids.length) out.write(`\nThe project's own IDs, for /sync-slipway to move to PL-/PD- right after --apply (slipway's are in the base, or the target's under the same title):\n${ids.map((i) => `  ${i}\n`).join('')}`);
   out.write('\n');
