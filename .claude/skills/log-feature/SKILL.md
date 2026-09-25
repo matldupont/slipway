@@ -12,11 +12,8 @@ short list of edits to existing work it changes, applied only where the owner sa
 `/log-feature`, or `/log-feature a way to export a month's bookings as CSV`: a description in the same
 message is Phase 1's input. Otherwise ask what they want to build and what problem it solves.
 
-## Which intake skill
-
-- **Already framed and approved** (a slice of an epic, a deferred item, cleanup) → `/log-followup`.
-- **Something is broken** → `/log-bug`.
-- **New, and needs framing** → this skill.
+Already framed and approved (a slice of an epic, a deferred item, cleanup): `/log-followup` instead.
+Something broken: `/log-bug`.
 
 ## Configuration
 
@@ -30,8 +27,8 @@ Read before Phase 1, and do not work from memory: the `Product frame` (its quest
 principles, §4 scope and §5 features), the active milestone (`Milestone roadmap`), the `Domain invariants doc`
 unless none, and the `Marketing context` unless none.
 
-Every file this skill writes, `AGENT.md` answers included, goes through the doc PR (Phase 7), never straight
-onto the default branch.
+Every file this skill writes goes through the doc PR (Phase 7), never straight onto the default branch.
+Answers the owner gives for `AGENT.md` are held, and written on the doc branch once Phase 4 creates it.
 
 ## Phase 1 — Problem
 
@@ -92,9 +89,8 @@ VERDICT: PROCEED | RESHAPE → {shape} | REJECT — {why} | DEFER until {conditi
 ```
 
 REJECT or DEFER: stop, show the reasoning, file nothing. The owner may have context that changes it; if they
-push back, re-run this phase with it and state the new verdict, never flip silently. A DEFER can go in the
-PRD's §4 *Out, explicitly*, with its condition, if the owner wants it written down (Phase 4's branch rule
-applies).
+push back, re-run this phase with it and state the new verdict, never flip silently. A DEFER the owner wants
+written down goes in the PRD's §4 *Out, explicitly*, with its condition, through Phase 7 alone.
 
 ## Phase 3 — What already exists
 
@@ -110,11 +106,8 @@ A feature that ignores the codebase gets grafted on; one that reuses what is the
 
 ```
 PHASE 3: WHAT EXISTS
-Prior art:   {file:line — what it does, how it relates}
-Reuse:       | capability | from | net-new? |
-Touches:     {layer: paths}
-Rules:       {file: the rule that applies}
-Related:     {feature docs, PRD ids | none}
+Prior art: {file:line — what it does, how it relates} · Reuse: | capability | from | net-new? |
+Touches:   {layer: paths} · Rules: {file: the rule that applies} · Related: {docs, PRD ids | none}
 ```
 
 ## Phase 4 — Cut, spec, schedule
@@ -126,15 +119,20 @@ Related:     {feature docs, PRD ids | none}
    **Machinery before surface:** data, rules and endpoints land before the screen that uses them. Each step
    merges on its own with the gate green.
 4. **Lane,** per `Change lanes`. One session, one coherent unit, no new concept, surface or data shape is
-   **bounded**: say so, skip the doc, and file the issue in Phase 5 without Contract and Verify, plan inline.
+   **bounded**: say so, and skip the doc, the PRD tie, the branch, Phase 6 and Phase 7. Phase 5 then omits
+   Contract, Verify and `Spec:`, writes `Lane: bounded` and the plan under Problem, with one designation line.
    Otherwise it is **feature**, and the rest of this phase applies.
+
+`{name}` is the feature's name as lowercase letters, digits and `-` only: it goes into branch names, paths
+and commands.
 
 **Branch.** `git status` must be empty (dirty: stop and ask, never stash silently). `git fetch`, then
 `git switch -c docs/feature-{name} origin/{default branch}`; with no remote, from the local default branch,
-and say so.
+and say so. Write any held `AGENT.md` answers now, in their own commit.
 
 **Feature doc.** Copy `{Feature docs dir}/TEMPLATE.md` to `{Feature docs dir}/{name}.md`, named for the
-feature, not the slice: later iterations extend the same doc. Fill every section:
+feature, not the slice: later iterations extend the same doc. If that file exists, extend it instead (Edge
+cases). Fill every section:
 
 - Frontmatter `prd-ref:` the new F-ID, `status: draft`. Title `# F-{nn} — {name}`.
 - **Problem:** the job story, the evidence, the PRD ids it serves, and the verdict with the alternatives table.
@@ -164,14 +162,16 @@ summary}), or a later milestone?" With no active milestone, name the one being s
   name what it displaces. If it breaks one of the milestone's no-gos, the owner picks: amend the no-go (same
   commit, with why), or schedule it later.
 - **Later:** add the item to a shaping milestone's Contents. None exists: create one from the milestone
-  template (`TEMPLATE.md` beside the milestones) with `status: shaping`, or ask the owner to DEFER instead
-  (remove the §5 entry, and write it in §4 *Out, explicitly* with its condition).
+  template (`TEMPLATE.md` beside the milestones) with the next free `id:`, `status: shaping` and a one-line
+  `summary:`, and add its row to the PRD's milestones table (§10).
+- **Not scheduled:** that is a DEFER. Remove the §5 entry and the doc, write the feature in §4 *Out,
+  explicitly* with its condition, file nothing, and go to Phase 7 with that PRD change alone.
 
-Commit on the branch, and run the milestone check. On a draft PRD it only checks that the PRD exists: say so,
-and confirm by reading that the F-ID sits in a live milestone's Contents.
+Commit on the branch, and run the repository's checks. On a draft PRD the milestone check only confirms the
+PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents.
 
 ```bash
-node ci/checks/meta/f1-feature-coverage.mjs .
+pnpm meta
 ```
 
 ```
@@ -234,7 +234,8 @@ or deletion deserves its own review, apart from the rest).
    | # | title (bounds the diff) | layer | size | blocked by | review |
    ```
 
-2. **File each in order,** as Phase 5's steps 1–2, each in its own folder, under the feature issue (`process/intake.md` → Commands).
+2. **File each in order,** as Phase 5's steps 1–2 without the Changes line, each in its own folder, under the
+   feature issue (`process/intake.md` → Commands).
    Body: `### Problem` (step {k} of {total} for #{n}: what this step makes true; `Spec:` and its Build map
    line), `### Acceptance` (checkable at this step alone; the last step also carries the parent's end-to-end
    lines), `### Contract` (only the part this step builds, with the Threat model and Known limitations that
@@ -244,7 +245,7 @@ or deletion deserves its own review, apart from the rest).
 3. **Number the plan.** Add each sub-issue's number to its Build map line in the doc, and commit. GitHub lists
    the sub-issues under the feature issue; its body is not edited again.
 
-The feature issue closes with its last sub-issue, and only that step's PR claims its end-to-end acceptance.
+The feature issue closes with its last sub-issue; only that step's PR claims the end-to-end acceptance.
 
 ```
 PHASE 6: SPLIT
@@ -254,14 +255,16 @@ Start with: /work-ticket {a}, in a fresh session
 
 ## Phase 7 — Open the doc PR
 
-The PR body goes in its own folder, never the issue folder, so a re-run of the issue check stays green. Its
-sections: `## What` (`Lane: feature`, spec only, the verdict in one line), `## Verification` (the issue and
-milestone checks as run, and `pnpm meta` with its result, in a code block), `## Links` (`Part of #{issue}`: the
-issue closes with its last build step, not this PR).
+The PR's title and body go in a fresh folder of their own, `{prdir}`, never the issue folder, so a re-run of
+the issue check stays green. Title: `docs({scope}): spec {feature name}`. Body, under the same never-in-a-body
+rule as an issue (`process/intake.md` → Issue body): `## What` (`Lane: feature`, spec only, the verdict in one
+line), `## Verification` (the issue check and `pnpm meta` as run, in a code block), `## Links`
+(`Part of #{issue}`: the issue closes with its last build step, not this PR). The PR goes to the checkout's
+repository, `{checkout}`, which `gh repo view --json nameWithOwner --jq .nameWithOwner` prints.
 
 ```bash
 git push -u origin docs/feature-{name}
-gh pr create --repo {repo} --title "docs({scope}): spec {feature name}" --body-file {prdir}/pr.md
+gh pr create --repo {checkout} --title "$(cat {prdir}/title.txt)" --body-file {prdir}/pr.md
 ```
 
 With no remote, stop before the push and tell the owner the branch is ready.
@@ -270,7 +273,9 @@ With no remote, stop before the push and tell the owner the branch is ready.
 
 Run `process/intake.md` → Ripple, then end. After a split, run it once over all their terms, and exclude
 every issue this skill filed: in the search, `select(.number | IN({n},{a},{b}) | not)` replaces
-`select(.number != {new})`.
+`select(.number != {new})`. A confirmed milestone-doc edit is committed on the doc branch and pushed to the
+open PR; re-run `pnpm meta` and update the PR's Verification (`gh pr edit {pr} --repo {checkout} --body-file
+{prdir}/pr.md`). With no remote, say the commit is local.
 
 **Terms:** any parent; the paths in the Contract and the Build map; the new F-ID, the RISK- ids from
 Challenge 5, every D-, PD-, PRIN- and OD- id the doc cites, the milestone it was scheduled in, and every `#n`
@@ -293,5 +298,3 @@ Declined: {row numbers | none}
   alternatives table, "rejected — reshaped to {shape}".
 - **The PRD is a draft, or does not cover the area.** Add the §5 entry anyway; if its §4 scope needs a wider
   look, say so in the issue. No PRD file at all: the project is not kicked off; stop, point at `/kickoff`.
-- **A parent in another repository.** No sub-issue link and no Ripple for it; `process/intake.md` → Commands
-  says what to do instead.
