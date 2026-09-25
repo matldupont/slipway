@@ -35,14 +35,14 @@ match wins. It uses the declared YAML subset (D-004), like `ci/exceptions.yaml`.
 | `managed` | slipway | replace it when the project's copy still matches its install hash; three-way merge when the path is in the overrides list; refuse when it drifted undeclared |
 | `seeded` | the project, after creation | never write it. Report slipway's own diff for it (base → target) so the skill can offer to port it |
 | `merged` | both, structurally | `package.json` `scripts` only: add new keys; update a key whose project value still equals the base value; report the rest |
-| `internal` | slipway only | never shipped: `dev/**`, `scripts/**`, `STATE.md`, `.git`, `node_modules`, `.DS_Store` |
+| `internal` | slipway only | never shipped: `dev/**`, `scripts/**`, `STATE.md`, `README.md` (new-project writes the project's own), `.git`, `node_modules`, `.DS_Store` |
 
 Initial assignment, to be confirmed in step 1:
 - `managed`: `ci/**`, `.github/**`, `.claude/skills/**`, `process/**` (except `process/anchor`), lessons
   `process/lessons/L-*`, `SLIPWAY.md`, `BOOTSTRAP.md`, `docs/features/TEMPLATE.md`, the templates' READMEs.
 - `seeded`: `docs/PRD.md`, `docs/product/**`, `docs/milestones/**`, `docs/conventions.md`,
   `docs/domain-invariants.md`, `docs/testing-strategy.md`, `decisions.md`, `AGENT.md`, `CLAUDE.md`,
-  `README.md`, `.gitignore`, `process/anchor`.
+  `.gitignore`, `process/anchor`.
 - `merged`: `package.json`.
 
 Rules that hold for every class:
