@@ -98,7 +98,8 @@ paste the output into the bootstrap PR:
 4. A PR with no evidence under `## Verification` turns `pr-body` red.
 5. Adding `"test:e2e": "…"` to a package, with no workflow running it, turns W1 red.
 6. `continue-on-error: true` on any step turns FO1 red.
-7. An issue opened with `gh issue create` and free prose gets the `needs-shape` label.
+7. An issue opened with `gh issue create` and free prose gets the `needs-shape` label and a comment listing what is
+   missing; editing it until it passes removes both.
 8. A review whose `Version line:` no longer matches the PRD turns R1 red.
 9. A lesson whose `review-by` is set to a past date turns L1 red.
 10. Each harness hook prints its reminder on the sample input in `process/harness/README.md`, and running

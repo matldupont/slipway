@@ -6,5 +6,5 @@ case "$input" in
   *'gh issue create'*) ;;
   *) exit 0 ;;
 esac
-msg='Route new issues through the issue forms (feature or bug), not a free-prose gh issue create. The issue-shape workflow labels an issue with no Acceptance or Seams answer as needs-shape.'
+msg='Route new issues through the issue forms (feature or bug), not a free-prose gh issue create. The issue-shape workflow labels an issue with no Acceptance or Seams answer as needs-shape, and comments what is missing.'
 printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"%s"}}\n' "$msg"
