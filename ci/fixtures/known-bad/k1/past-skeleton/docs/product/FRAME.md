@@ -36,3 +36,5 @@ and [PARKED: which cities first? · assume: one city]
 | RISK-4 | Walkers will pay monthly | value | no business | fake door | 3% click | D-007 | |
 | RISK-5 | The add flow is learnable | usability | support load | hallway test | | done | |
 | RISK-6 | Two walkers share one client list | value, viability | wrong model | interviews | | | Sam |
+
+Use `a` or `b`. [NEEDS CLARIFICATION: which store?] See `c`.

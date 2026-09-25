@@ -31,9 +31,9 @@ const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
 // ---- facts
 const agent = read('AGENT.md') ?? '';
-// Any `<…>` placeholder left in AGENT.md's table: the product, the repository, the GitHub project, the
-// timezone or the invariants doc. The literal `<…>` in its prose is not one.
-const bootstrapped = !/`<[^`\n\u2026]*>`/.test(agent);
+// The AGENT.md rows only the owner can fill, still holding their `<…>` placeholder (backticked or not).
+const placeholders = [...agent.matchAll(/^\|\s*(Product name|Issue repo|GitHub project|Timezone|Domain invariants doc)[^|]*\|\s*`?</gm)].map((m) => m[1]);
+const bootstrapped = placeholders.length === 0;
 let packages = 0;
 try { packages = discoverWorkspace(root).packages.length; } catch { /* reported as 0 */ }
 
@@ -119,8 +119,9 @@ const parked_ = [];
 for (const file of walk(join(root, 'docs'))) {
   const rel_ = relative(root, file);
   // Comments are blanked, not removed, so line numbers hold. A marker sitting whole inside inline code is the
-  // template explaining the syntax, not a question; an escaped backtick is not code.
-  const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, '')).split(/\r?\n/).map((l) => l.replace(/(?<!\\)`[^`\n]*\[(?:NEEDS CLARIFICATION|PARKED)[^`\n]*`/g, ''));
+  // template explaining the syntax, not a question; an escaped backtick is not code. Every span is matched so
+  // that the gap between two spans is never read as one.
+  const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, '')).split(/\r?\n/).map((l) => l.replace(/(?<!\\)`[^`\n]*`/g, (span) => (/\[(?:NEEDS CLARIFICATION|PARKED)[^\]]*\]/.test(span) ? '' : span)));
   lines.forEach((line, i) => {
     for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${body.trim().slice(0, 90) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
@@ -150,8 +151,10 @@ const dueSoon = existsSync(lessonsDir)
 
 // ---- the next step on the slipway path
 function next() {
-  if (!bootstrapped || packages === 0) {
-    const missing = [!bootstrapped && 'AGENT.md still has placeholders', packages === 0 && 'no app yet'].filter(Boolean);
+  // Step 0 until the app exists. A row left unfilled after that (a project synced onto rows it never had) is
+  // listed under Needs attention instead of sending a running project back to bootstrap.
+  if (packages === 0 || (!bootstrapped && !ms.some((m) => m.status === 'active' || m.status === 'closed'))) {
+    const missing = [!bootstrapped && `AGENT.md still has placeholders: ${placeholders.join(', ')}`, packages === 0 && 'no app yet'].filter(Boolean);
     return `Step 0 (you + agent) — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
   if (frame !== 'framed') return 'Step 1 (you, with /kickoff) — Frame: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.';
@@ -216,6 +219,7 @@ if (ms.length) {
 }
 const attention = [
   ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (needed before the PRD leaves draft)`] : []),
+  ...(!bootstrapped && packages > 0 ? [`AGENT.md rows still unfilled: ${placeholders.join(', ')} — the skills and the date checks read them; fill each, or write none`] : []),
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),

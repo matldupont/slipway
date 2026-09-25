@@ -30,3 +30,7 @@ Where do I need to be tomorrow, and who hasn't paid?
 [PARKED: which region first? · assume: `us-east` only · if wrong: latency for the rest · `#12`]
 
 \`[NEEDS CLARIFICATION: escaped backticks are not code]\`
+
+Use `a` or `b`. [NEEDS CLARIFICATION: which store?] See `c`.
+
+Pick `a` or `b`: [PARKED: which one? · assume: `a` · if wrong: none · #3] then `c`.

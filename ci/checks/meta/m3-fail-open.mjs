@@ -208,7 +208,8 @@ for (const s of sites) {
   const why = s.duplicate ? 'step name is not unique in its job — give it an id: before it can be excused'
     : s.positional ? 'step has no id or name — give it an id: before it can be excused'
     : 'a failure here would not fail CI';
-  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}; currently line ${s.line}) — remove it, or add a dated entry with id: ${s.id}` });
+  const next = s.duplicate || s.positional ? 'give the step an id: and add a dated entry for it' : `add a dated entry with id: ${s.id}`;
+  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}; currently line ${s.line}) — remove it, or ${next}` });
 }
 
 process.exit(

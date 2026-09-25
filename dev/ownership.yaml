@@ -38,7 +38,8 @@ paths:
     class: internal
   - glob: ci/fixtures/known-bad/o1/**
     class: internal
-  # S1 pins slipway's own status output; a project cannot change status.mjs (managed), so it never runs there
+  # S1 pins slipway's own status output. status.mjs is managed: a project's edit to it is an override, and S1's
+  # coverage of that edit is slipway's concern, not the project's, so S1 and its fixtures never ship
   - glob: ci/checks/meta/s1-status.mjs
     class: internal
   - glob: ci/fixtures/status/**

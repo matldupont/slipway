@@ -1,8 +1,9 @@
 {
-  "_note": "Framed and complete; a category legend table sits above the risk table and must not be read as its header; the Tracker header is bold and must still be found; the clarification marker is inside an HTML comment and must not count. RISK-1 is met, RISK-3 is not a value risk, RISK-4 is overridden by a decision. RISK-6 has neither threshold nor result, and its Tracker cell names a person, not an issue or decision, so it is untracked too; RISK-2 is tracked but still unresolved. One parked question is complete (assumption, cost, tracker); the second is missing the cost and the tracker.",
+  "_note": "Framed and complete; a category legend table sits above the risk table and must not be read as its header; the Tracker header is bold and must still be found; the clarification marker is inside an HTML comment and must not count. RISK-1 is met, RISK-3 is not a value risk, RISK-4 is overridden by a decision. RISK-6 has neither threshold nor result, and its Tracker cell names a person, not an issue or decision, so it is untracked too; RISK-2 is tracked but still unresolved. One parked question is complete (assumption, cost, tracker); the second is missing the cost and the tracker. A clarification marker between two inline-code spans on one line is still a question (placeholder/present).",
   "exit": 1,
   "findings": [
     "FRAME.md#parked/incomplete",
+    "FRAME.md#placeholder/present",
     "RISK-2#risk/unresolved",
     "RISK-5#risk/no-threshold",
     "RISK-6#risk/unresolved",
