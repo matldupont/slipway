@@ -99,13 +99,13 @@ it is built from.
 changes for them, and what each answer means for the project, with your recommendation and what you
 found. The owner answers it from what they know of the product. A question never contains `hunk`,
 `diff`, `seeded`, `managed`, `port`, `PD-`, `PL-` or a check id (`K1`, `MS1`, `R1`, `D1`). That detail
-goes in the PR, beside the owner's answer and the edit it made. Two examples from a real sync
+goes in the PR, beside the owner's answer and the edit it made. Two examples, adapted from a real sync
 (2026-09-24):
 
 | Asked about the mechanism | Asked about the project |
 |---|---|
-| "AGENT.md's Timezone row: port as written, or adapt?" | "Which timezone should deadlines and appetite dates use? Your hosting and decisions say Toronto. Left unset, the date comes from whatever runs the check, and CI runs in UTC, so a deadline day ends at 8 pm Toronto time (7 pm in winter). I'd set America/Toronto: a day then ends at midnight there, on your laptop and in CI alike." |
-| "FRAME adds a Tracker column that K1 requires once M1 is active: fill it?" | "Where is the test for 'people will pay $200–400 tonight' tracked? I found #9 'concierge channels'. Is that it? If not, name the issue, or I'll file one: once the walking skeleton starts, each untested value risk has to say where its test is tracked, or the build goes red." |
+| "AGENT.md's Timezone row: port as written, or adapt?" | "Which timezone should deadlines and appetite dates use? Your hosting and decisions say Chicago. Left unset, the date comes from whatever runs the check, and CI runs in UTC, so a deadline day ends at 7 pm Chicago time (6 pm in winter). I'd set America/Chicago: a day then ends at midnight there, on your laptop and in CI alike." |
+| "FRAME adds a Tracker column that K1 requires once M1 is active: fill it?" | "Where is the test for 'customers will pay for a same-day booking' tracked? I found #9 'pilot sign-up channels'. Is that it? If not, name the issue, or I'll file one: once the walking skeleton starts, each untested value risk has to say where its test is tracked, or the build goes red." |
 
 ## 4 — Adopted: move the project's own IDs
 
