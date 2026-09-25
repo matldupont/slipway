@@ -172,7 +172,7 @@ function preflight(cwd) {
   if (!r.exact) {
     const rewritten = r.best?.extra === 0 && rewrittenHistory({ root, gitDir, read, managed, best: r.best.sha, source });
     if (rewritten) throw new Refusal(rewritten);
-    const c =(x) => `${x.sha.slice(0, 12)} (${x.matched} of ${r.total} managed files at their blob${x.extra ? `, ${x.extra} more it ships` : ''})`;
+    const c = (x) => `${x.sha.slice(0, 12)} (${x.matched} of ${r.total} managed files at their blob${x.extra ? `, ${x.extra} more it ships` : ''})`;
     throw new Refusal(
       r.best
         ? `no slipway commit holds exactly the manifest's ${r.total} managed files; closest ${c(r.best)}${r.runnerUp ? `, then ${c(r.runnerUp)}` : ''}`
@@ -212,6 +212,9 @@ function preflight(cwd) {
   return { notes, log, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
 }
 
+// A path as the owner pastes it into a shell: as is when it is plain, else single-quoted.
+export const shellQuote = (p) => (/^[\w./@%+=,-]+$/.test(p) ? p : `'${p.replaceAll("'", "'\\''")}'`);
+
 /**
  * The refusal for a manifest whose managed blobs match no commit, when the closest commit differs from it
  * only in managed files it lists: slipway's published history was rewritten under the project (D-015).
@@ -228,12 +231,12 @@ function rewrittenHistory({ root, gitDir, read, managed, best, source }) {
     if (now === recorded) continue;
     const cur = readProjectFile(root, p);
     if (Buffer.isBuffer(cur) && blobSha(cur) === now) continue; // already the closest commit's copy
-    (Buffer.isBuffer(cur) && blobSha(cur) === recorded ? restore : own).push(p);
+    (now && Buffer.isBuffer(cur) && blobSha(cur) === recorded ? restore : own).push(p);
   }
   if (!restore.length && !own.length) return null;
   const list = (ps) => ps.map((p) => `\n  ${p}`).join('');
   const short = best.slice(0, 12);
-  const re = restore.map((p) => ` --revert ${p}`).join('');
+  const re = restore.map((p) => ` --revert ${shellQuote(p)}`).join('');
   return [
     `slipway's history was changed after this project recorded its version, so that record points at a version ${publicSource(source)} no longer has. The nearest one is ${short}, which differs in:${list([...restore, ...own])}`,
     `To re-point the project at ${short}${restore.length ? ", restoring slipway's copy of each file you have not changed" : ''}, run this in your own terminal:\n  git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && sync --adopt --apply --base ${best}${re}`,

