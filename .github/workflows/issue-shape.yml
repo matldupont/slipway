@@ -1,7 +1,9 @@
 name: issue-shape
 
 # The web form enforces shape; issues created through the API (gh issue create, agents)
-# bypass it. This labels them instead of letting them in silently.
+# bypass it. This labels them, and says in a comment on the issue what is missing, instead of
+# letting them in silently. The check's own output stays in the Actions log, which an issue's
+# author never opens; the comment is where they will read it.
 on:
   issues:
     types: [opened, edited]
@@ -26,14 +28,41 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/issue"
           printf '%s\n' "$ISSUE_BODY" > "$RUNNER_TEMP/issue/body.md"
-          node ci/checks/meta/i1-issue-shape.mjs "$RUNNER_TEMP/issue"
-      - name: Label an issue that fails
+          node ci/checks/meta/i1-issue-shape.mjs "$RUNNER_TEMP/issue" > "$RUNNER_TEMP/issue/report.txt" || status=$?
+          cat "$RUNNER_TEMP/issue/report.txt"
+          exit "${status:-0}"
+      - name: Label an issue that fails, and say what is missing
         if: failure() && steps.shape.outcome == 'failure'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --add-label needs-shape
-      - name: Clear the label once it passes
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue edit "$NUMBER" --repo "$REPO" --add-label needs-shape
+          # I1's finding lines read `I1: <file>#<key>: <sentence>`; the comment keeps the sentence.
+          sed -n 's/^I1: [^ :]*#[^ :]*: //p' "$RUNNER_TEMP/issue/report.txt" > "$RUNNER_TEMP/issue/findings.txt"
+          [ -s "$RUNNER_TEMP/issue/findings.txt" ] || exit 0
+          {
+            echo '<!-- issue-shape -->'
+            echo 'This issue is labelled `needs-shape`. Edit it to fix:'
+            echo
+            sed 's/^/- /' "$RUNNER_TEMP/issue/findings.txt"
+            echo
+            echo 'This comment updates when you edit the issue, and goes away once it passes.'
+          } > "$RUNNER_TEMP/issue/comment.md"
+          id=$(gh api "repos/$REPO/issues/$NUMBER/comments" --paginate --jq '.[] | select(.body | startswith("<!-- issue-shape -->")) | .id' | head -n 1)
+          if [ -n "$id" ]; then
+            gh api --method PATCH "repos/$REPO/issues/comments/$id" --field body=@"$RUNNER_TEMP/issue/comment.md" > /dev/null
+          else
+            gh issue comment "$NUMBER" --repo "$REPO" --body-file "$RUNNER_TEMP/issue/comment.md"
+          fi
+      - name: Clear the label and the comment once it passes
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh issue edit ${{ github.event.issue.number }} --repo ${{ github.repository }} --remove-label needs-shape || true
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue edit "$NUMBER" --repo "$REPO" --remove-label needs-shape || true
+          gh api "repos/$REPO/issues/$NUMBER/comments" --paginate --jq '.[] | select(.body | startswith("<!-- issue-shape -->")) | .id' |
+            while read -r id; do gh api --method DELETE "repos/$REPO/issues/comments/$id"; done
