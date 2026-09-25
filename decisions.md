@@ -100,6 +100,29 @@ A project's non-technical members need to see where things stand without reading
 Consequences: the first host is GitHub Pages, public but `noindex`, which is not access control. A
 private page (Cloudflare Access) is a later value of the same AGENT.md key. Spec: `dev/features/roadmap-page.md`.
 
+## D-018 — Slipway ships its intake and ticket skills *(decided 2026-09-25)*
+
+The build loop (step 5) and the feature lane name `/log-feature`, `/log-bug`, `/log-followup` and
+`/work-ticket`. Until now they were the author's personal skills: slipway named them as "user-level" and had
+to work without them, so `/bootstrap` and `/clarify` said "where installed". Anyone else starting from
+slipway, a teammate on the author's own projects included, hit a dead end at step 5. Those skills are what
+made agent work consistent in practice.
+
+- **Shipped, managed, configured.** The four skills ship in `.claude/skills/` as `managed` files. Every
+  project-specific value (repository, labels, milestone rule, board fields, paths, quality gate) is a key in
+  `AGENT.md`, and `AGENT.md` documents each key. No skill names a product; a key an existing project lacks
+  takes a documented default.
+- **Each maps to a step and a check,** so shipping them does not make slipway a pile of skills: intake
+  produces issues I1 accepts and feature docs F1 can schedule; `/work-ticket` opens PRs P1 accepts.
+- **Intake goes both ways.** `/log-feature`, `/log-bug` and `/log-followup` end by asking which existing
+  work the new issue changes, and edit only what the owner confirms (D-016's rule for questions applies).
+
+Reverses: "slipway must work without personal skills". Consistent with D-015, which declined shipping skills as
+a plugin: these are files in the project, like the other shipped skills. Consequences: Claude Code loads a
+personal skill over a project skill of the same name, so anyone holding personal copies keeps running those
+until they retire them. Slipway's own repository keeps filing its issues by hand: its `AGENT.md` is the
+template. Spec: `dev/features/intake-skills.md`; #46.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
