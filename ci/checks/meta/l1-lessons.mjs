@@ -80,10 +80,10 @@ for (const f of files) {
   const enf = typeof fm.enforcement === 'object' ? fm.enforcement : {};
   const status = enf.status;
   if (!fm.id || !fm.rule || !status) { add('field/missing', 'needs id, rule and enforcement.status'); continue; }
-  if (!ID.test(String(fm.id))) add('id/format', `"${fm.id}" is neither L-<n> (slipway's) nor PL-<n> (this project's own)`);
+  if (!ID.test(String(fm.id))) add('id/format', `"${fm.id}" is not a lesson id: this project's own are PL-<n>, slipway's are L-<n> (process/lessons/README.md)`);
   if (seen.has(fm.id)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(fm.id)}`);
   else seen.set(fm.id, f);
-  if (!STATUSES.has(status)) { add('status/unknown', `"${status}" is not one of ${[...STATUSES].join(', ')}`); continue; }
+  if (!STATUSES.has(status)) { add('status/unknown', `"${status}" is not an enforcement status: check (a mechanism fires), structural (cannot happen after bootstrap), artifact (a template slot a check requires), prose (judgment, with a review date) or declined (deferred, with a trigger)`); continue; }
   counts[status]++;
 
   if (status !== 'declined') {
@@ -98,7 +98,7 @@ for (const f of files) {
     } else {
       const due = dueDate(enf['review-by'], anchor);
       if (due === 'invalid') add('review/invalid', `"${enf['review-by']}" is neither YYYY-MM-DD nor +<N>d`);
-      else if (due === null) add('anchor/missing', `"${enf['review-by']}" is relative, but process/anchor does not exist`);
+      else if (due === null) add('anchor/missing', `"${enf['review-by']}" counts from the project's start date in process/anchor, which is missing — write that date there (YYYY-MM-DD), or a date in review-by`);
       else if (due <= today) add('review/due', `review was due ${due}: mechanise it, extend it with a reason, or delete it`);
     }
   }

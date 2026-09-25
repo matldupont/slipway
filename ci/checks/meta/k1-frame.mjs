@@ -69,7 +69,8 @@ if (!existsSync(path)) {
 }
 
 const md = readFileSync(path, 'utf8');
-const text = md.replace(/<!--[\s\S]*?-->/g, '');
+// Comments and inline code are guidance, not content: the template explains both markers in backticks.
+const text = md.replace(/<!--[\s\S]*?-->/g, '').replace(/`[^`\n]*`/g, '');
 const fm = frontmatter(md) ?? {};
 const { milestones } = readMilestones(root);
 const underway = milestones.filter((m) => m.fm && (m.fm.status === 'active' || m.fm.status === 'closed'));
@@ -83,7 +84,7 @@ for (const [, body] of text.matchAll(/\[PARKED:([^\]]*)\]/g)) {
   const missing = [
     !/\bassume:\s*\S/i.test(body) && 'assume: <what you build on>',
     !/\bif wrong:\s*\S/i.test(body) && 'if wrong: <the cost>',
-    !TRACKER.test(body) && 'a tracker (#12, OD-3, D-7, PD-7)',
+    !TRACKER.test(body) && 'a tracker (an issue like #12, or a decision id from decisions.md or the PRD)',
   ].filter(Boolean);
   if (missing.length) add('FRAME.md#parked/incomplete', `parked question "${body.trim().slice(0, 60)}" is missing ${missing.join(', ')}`);
 }
@@ -94,7 +95,7 @@ if (fm.status !== 'draft' && fm.status !== 'framed') {
 
 if (underway.length) {
   const names = underway.map((m) => m.fm.id).join(', ');
-  if (fm.status === 'draft') add('FRAME.md#status/draft', `${names} underway while the frame is still a draft`);
+  if (fm.status === 'draft') add('FRAME.md#status/draft', `${names} underway while docs/product/FRAME.md is still a draft: finish it and set status: framed`);
   for (const s of ['Job story', 'The question it answers', 'Risks']) {
     const body = section(md, s, 2);
     if (body === null || body === '') add(`FRAME.md#section/${s}`, `## ${s} is missing or empty`);
@@ -103,14 +104,14 @@ if (underway.length) {
   if (job && !/\bwhen\b[\s\S]*\bwant\b[\s\S]*\bso\b/i.test(job)) {
     add('FRAME.md#job/shape', 'the job story must read "When …, I want to …, so I can …"');
   }
-  const open = text.split(/\r?\n/).filter((l) => PLACEHOLDER.test(l)).length;
-  if (open) add('FRAME.md#placeholder/present', `${open} line(s) still hold a placeholder or [NEEDS CLARIFICATION]`);
+  const open = text.split(/\r?\n/).map((l, i) => (PLACEHOLDER.test(l) ? i + 1 : 0)).filter(Boolean);
+  if (open.length) add('FRAME.md#placeholder/present', `line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/product/FRAME.md still hold a placeholder or [NEEDS CLARIFICATION]: answer or park each (/clarify), then set status: framed`);
 }
 
 // Risk table rows, read by column header: | RISK-n | … | Category | … | Threshold | Result | Tracker |
 const { rows: risks, missing } = readRisks(root, md);
 if (missing.length) {
-  add('FRAME.md#risk/header', `the Risks table has no ${missing.join(', ')} column K1 can find: use the template's headers (ID … Category … Threshold … Result … Tracker)`);
+  add('FRAME.md#risk/header', `the Risks table in docs/product/FRAME.md has no readable ${missing.join(', ')} column: use the template's headers (ID … Category … Threshold … Result … Tracker)`);
 }
 
 for (const r of risks) {
@@ -118,10 +119,10 @@ for (const r of risks) {
     add(`${r.id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test');
   }
   if (pastSkeleton.length && r.value && !r.tested) {
-    add(`${r.id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record a Result or a PD-<n> override`);
+    add(`${r.id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record its Result in FRAME's Risks table, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`);
   }
   if (underway.length && r.value && !r.tested && !r.tracker) {
-    add(`${r.id}#risk/untracked`, `value risk has no Result and no tracker while ${underway.map((m) => m.fm.id).join(', ')} ${underway.length > 1 ? 'are' : 'is'} underway: name the issue running its test (#n, PD-n, OD-n) in FRAME's Tracker column, or in a Tracked: line in its evidence file`);
+    add(`${r.id}#risk/untracked`, `value risk has no Result and no tracker while ${underway.map((m) => m.fm.id).join(', ')} ${underway.length > 1 ? 'are' : 'is'} underway: name the issue running its test in FRAME's Tracker column (#n), or in a \`Tracked: #n\` line in its docs/product/evidence/ file`);
   }
 }
 
@@ -135,8 +136,8 @@ for (const [id, d] of deadlines ?? []) {
   const r = risks.find((x) => (x.id ?? '').toUpperCase() === id);
   if (r?.tested || (r?.value && pastSkeleton.length)) continue;
   add(`${id}#risk/overdue`, r
-    ? `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}: record its Result in FRAME, or a PD-<n> override (cost if wrong, and what reopens it)`
-    : `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}, but FRAME's Risks table has no ${id} row to hold its Threshold and Result`);
+    ? `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}: record its Result in FRAME, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`
+    : `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}, but FRAME's Risks table has no ${id} row: add one with its Threshold, then its Result`);
 }
 
 process.exit(

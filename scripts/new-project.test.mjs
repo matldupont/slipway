@@ -47,7 +47,7 @@ function newProject(src, dest, env = {}) {
   });
   assert.equal(r.status, 0, `new-project failed:\n${r.stdout}\n${r.stderr}`);
   // The owner learns where updates come from (#18).
-  assert.match(r.stdout, /Later, to take a newer slipway: \/sync-slipway \(\.slipway\/manifest\.json records what this run wrote\)/);
+  assert.match(r.stdout, /Later, to take a newer slipway: \/sync-slipway\./);
   return {
     manifest: JSON.parse(readFileSync(join(dest, MANIFEST), 'utf8')),
     subject: git(dest, 'log', '-1', '--format=%s'),
@@ -100,7 +100,7 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   appendFileSync(join(dest, 'SLIPWAY.md'), '\nedited\n');
   let r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: edited/);
+  assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
 
   // A whitespace-only reason is empty: it excuses nothing.
   writeFileSync(join(dest, '.slipway', 'overrides.yaml'), 'overrides:\n  - path: SLIPWAY.md\n    reason: "  "\n');
@@ -113,13 +113,13 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   mkdirSync(join(dest, 'BOOTSTRAP.md'));
   r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 1, r.stderr);
-  assert.match(r.stdout, /drift\/BOOTSTRAP\.md: replaced by a non-file/);
+  assert.match(r.stdout, /drift\/BOOTSTRAP\.md: BOOTSTRAP\.md is a file slipway maintains, and it was replaced by a non-file/);
   rmSync(join(dest, 'BOOTSTRAP.md'), { recursive: true });
   git(dest, 'checkout', '--', 'BOOTSTRAP.md');
   // A symlink is never followed out of the project.
   rmSync(join(dest, 'BOOTSTRAP.md'));
   symlinkSync(join(SRC, 'BOOTSTRAP.md'), join(dest, 'BOOTSTRAP.md'));
-  assert.match(check(dest, 'd1-drift.mjs').stdout, /drift\/BOOTSTRAP\.md: replaced by a non-file/);
+  assert.match(check(dest, 'd1-drift.mjs').stdout, /drift\/BOOTSTRAP\.md: BOOTSTRAP\.md is a file slipway maintains, and it was replaced by a non-file/);
   rmSync(join(dest, 'BOOTSTRAP.md'));
   git(dest, 'checkout', '--', 'BOOTSTRAP.md');
 
@@ -268,5 +268,5 @@ test('.gitattributes ships as managed, under a checkout and a packed install; a 
   writeFileSync(join(clone, 'SLIPWAY.md'), readFileSync(join(clone, 'SLIPWAY.md'), 'utf8').replaceAll('\n', '\r\n'));
   const r = check(clone, 'd1-drift.mjs');
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: edited/);
+  assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
 });

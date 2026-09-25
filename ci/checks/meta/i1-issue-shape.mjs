@@ -52,7 +52,7 @@ for (const f of bodies) {
       if (!FALSIFIABLE.test(item)) {
         findings.push({
           where: `${f}#ac/unfalsifiable/${n + 1}`,
-          detail: `"${item}" names no number, command, comparison, Given/When/Then or #ref — an adjective, not a test`,
+          detail: `"${item}" names no number, command, comparison, Given/When/Then or issue reference (#12) — an adjective, not a test`,
         });
       }
     });
@@ -61,7 +61,7 @@ for (const f of bodies) {
   const seams = section(md, 'Seams', 3);
   const detail = section(md, 'Seams detail', 3);
   if (isNoResponse(seams)) {
-    findings.push({ where: `${f}#seams/unanswered`, detail: 'person, channel or promise? — unanswered; silence is not `none`' });
+    findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none` with one line of why, or name them' });
   } else if (/^none\b/i.test(seams)) {
     if (isNoResponse(detail)) findings.push({ where: `${f}#seams/none-without-reason`, detail: '`none` needs one line of why' });
   } else if (isNoResponse(detail)) {

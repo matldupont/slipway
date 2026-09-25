@@ -84,5 +84,5 @@ List the S0 and S1 findings in the chat, each in one line, and say plainly that 
 decided. When the owner files a finding as an issue, or records it as an `OD-` or `D-` entry, write that
 id into the register's Tracker column in the same change — a finding whose issue is not named in the
 review loses its link back. The owner resolves each one in the document, bumps its `Version:` and change log, and —
-because the version line moves — **a substantive revision needs a fresh review**. R1 turns red
+because the version line moves — **a substantive revision needs a fresh review**. The build goes red
 when the PRD leaves draft with no review naming its current version.

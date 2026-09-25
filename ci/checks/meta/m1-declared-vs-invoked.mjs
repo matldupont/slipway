@@ -41,7 +41,7 @@ import { GATED, VERIFY_TASKS } from '../lib/tasks.mjs';
 import { discoverWorkspace } from '../lib/workspace.mjs';
 
 const root = process.argv[2] ?? '.';
-const UNIT = 'gated scripts, check files and slipway tests';
+const UNIT = isTemplate(root) ? 'gated scripts, check files and slipway tests' : 'gated scripts and check files';
 
 let ws;
 try {

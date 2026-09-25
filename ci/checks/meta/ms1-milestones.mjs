@@ -101,7 +101,7 @@ for (const { file: f, md, fm } of milestones) {
   if (!fm.appetite) add('appetite/missing', `a ${fm.status} milestone needs appetite: YYYY-MM-DD..YYYY-MM-DD`);
   else if (!appetite) add('appetite/invalid', `"${fm.appetite}" is not YYYY-MM-DD..YYYY-MM-DD with start <= end`);
   else if (fm.status === 'active' && appetite.end < today && !(fm.extended && hasDecision(fm.extended))) {
-    add('appetite/overrun', `appetite ended ${appetite.end}: cut scope and close it, kill it, or record an extension (extended: PD-<n>)`);
+    add('appetite/overrun', `appetite ended ${appetite.end}: cut scope and close it, kill it, or record an extension as a decision in decisions.md and name that decision in the milestone's \`extended:\` line`);
   }
   for (const s of REQUIRED_SECTIONS) {
     if (!written(section(md, s, 2))) add(`section/${s}`, `## ${s} is missing, empty or still a placeholder`);
@@ -142,9 +142,9 @@ if (prd && withSummary.length) {
     const rows = new Map(t.rows.map((c) => [plain(c[idAt] ?? ''), c[lineAt] ?? '']));
     for (const { file, fm } of withSummary) {
       const add = (detail) => findings.push({ where: `${file}#summary/drift`, detail });
-      if (!rows.has(fm.id)) add(`the PRD's ### Milestones table has no ${fm.id} row — generate it from summary: "${fm.summary}"`);
+      if (!rows.has(fm.id)) add(`the PRD's Milestones table (§10) has no ${fm.id} row — add one copied from its summary: "${fm.summary}"`);
       else if (squash(rows.get(fm.id)) !== squash(fm.summary)) {
-        add(`the PRD says "${squash(rows.get(fm.id))}", summary: says "${squash(fm.summary)}" — correct the one that is wrong, then regenerate the row`);
+        add(`the PRD says "${squash(rows.get(fm.id))}", summary: says "${squash(fm.summary)}" — correct the one that is wrong, then copy summary: into the PRD's Milestones table (§10)`);
       }
     }
   }
@@ -159,7 +159,7 @@ if (prd) {
   const capacityLine = (estimate ?? '').split(/\r?\n/).find((l) => /^[ \t>*_-]*Capacity\b/i.test(l));
   const capacity = toRange(squash(plain((capacityLine ?? '').slice(0, 200)).replace(/,/g, '')).match(CAPACITY));
   if (t && (idAt < 0 || hoursAt < 0)) {
-    warnings.push({ where: 'docs/PRD.md#estimate/header', detail: 'the §9 table has no Milestone and Hours columns, so no estimate is compared with its appetite' });
+    warnings.push({ where: 'docs/PRD.md#estimate/header', detail: 'the estimate table in the PRD (§9) has no Milestone and Hours columns, so no estimate is compared with its appetite' });
   } else if (t) {
     const rows = t.rows.map((c) => ({ id: plain(c[idAt] ?? ''), cell: c[hoursAt] ?? '', hours: hoursIn(c[hoursAt]) }));
     for (const r of rows.filter((r) => !r.hours && r.cell && !PLACEHOLDER.test(r.cell))) {
@@ -170,7 +170,7 @@ if (prd) {
     }
     const estimated = rows.filter((r) => r.hours);
     if (estimated.length && !capacity) {
-      warnings.push({ where: 'docs/PRD.md#estimate/capacity', detail: '§9 estimates hours but has no `Capacity: <n>–<m> h/week` line, so no estimate is compared with its appetite' });
+      warnings.push({ where: 'docs/PRD.md#estimate/capacity', detail: 'the PRD estimates hours (§9) but has no `Capacity: <n>–<m> h/week` line, so no estimate is compared with its appetite' });
     }
     for (const { id, hours } of capacity ? estimated : []) {
       const m = named.get(id);

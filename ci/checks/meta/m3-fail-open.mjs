@@ -196,10 +196,10 @@ const siteIds = new Set(sites.map((s) => s.id));
 
 for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
   const where = `registry:${e.id}`;
-  if (!e.expires) findings.push({ where, detail: 'exception has no expires — every exemption must be a clock' });
-  else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'exception keys a positional or duplicate step, which moves on any edit — give the step an id:' });
-  else if (e.expires <= today) findings.push({ where, detail: `exception expired ${e.expires}` });
-  else if (!siteIds.has(e.id)) findings.push({ where, detail: 'exception matches no fail-open site — stale entry' });
+  if (!e.expires) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
+  else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'the entry names its step by position, which moves on any edit — give the step an id: and key the entry to it' });
+  else if (e.expires <= today) findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — fix the step, or extend the date with a reason` });
+  else if (!siteIds.has(e.id)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml matches no continue-on-error step or job — remove it' });
   else live.add(e.id);
 }
 
@@ -207,18 +207,19 @@ for (const s of sites) {
   if (live.has(s.id)) { exempted.push(s.id); continue; }
   const why = s.duplicate ? 'step name is not unique in its job — give it an id: before it can be excused'
     : s.positional ? 'step has no id or name — give it an id: before it can be excused'
-    : 'fail-open';
-  findings.push({ where: s.id, detail: `unregistered continue-on-error (${why}; currently line ${s.line})` });
+    : 'a failure here would not fail CI';
+  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}; currently line ${s.line}) — remove it, or add a dated entry keyed to the step's id` });
 }
 
 process.exit(
   report({
     id: 'M3',
-    claim: 'every fail-open job and step is excused by a structurally keyed, unexpired exception, and no registry entry is stale, expired, positional or undated',
+    claim: 'every continue-on-error job and step is excused by a dated entry in ci/exceptions.yaml keyed to its id, and no entry is stale, expired, positional or undated',
     scanned: files.length,
     unit: 'workflow files',
     findings,
     exempted,
+    exemptedBy: 'ci/exceptions.yaml',
     broken,
   })
 );

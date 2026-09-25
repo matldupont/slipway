@@ -113,7 +113,7 @@ for (const name of cases) {
 process.exit(
   report({
     id: 'S1',
-    claim: `status prints the expected date, Next and Frame lines — the FRAME risk states — and Needs attention where a case lists it, for ${cases.length} fixture roots`,
+    claim: `status prints the expected date, Next and Frame lines — the FRAME risk states — and Needs attention where a case lists it, for ${cases.length} status fixtures`,
     scanned: cases.length,
     unit: UNIT,
     findings,

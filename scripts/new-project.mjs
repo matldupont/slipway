@@ -133,8 +133,8 @@ try {
 const resolved = resolveSlipway(SRC, COPY, { rules });
 const version = resolved.sha ?? (resolved.candidate && listSource(SRC) === 'git' ? `${resolved.candidate}-dirty` : pkgVersion);
 
-process.stdout.write(`slipway ${version} → ${dest}\n  product: ${name}\n  repo:    ${opts.github ? `${repo} (${opts.public ? 'public' : 'private'})` : 'none (--no-github)'}\n  commits: ${identity ? `${identity.name} <${identity.email}>` : 'your git config'}\n`);
-if (!resolved.sha) process.stdout.write(`  sha:     no hint — ${resolved.why}; the manifest records null, version ${pkgVersion} and every file's blob id\n`);
+process.stdout.write(`slipway ${/^[0-9a-f]{40}/.test(version) ? version.slice(0, 12) + version.slice(40) : version} → ${dest}\n  product: ${name}\n  repo:    ${opts.github ? `${repo} (${opts.public ? 'public' : 'private'})` : 'none (--no-github)'}\n  commits: ${identity ? `${identity.name} <${identity.email}>` : 'your git config'}\n`);
+if (!resolved.sha) process.stdout.write(`  sha:     unknown — ${resolved.why}; a later sync finds the base by content (version ${pkgVersion} recorded)\n`);
 
 // ---- 1. copy
 step(1, 'Copy the template');
@@ -144,10 +144,10 @@ if (!opts.dryRun) {
     copyFileSync(join(SRC, p), join(dest, p));
   }
 }
-note(`${opts.dryRun ? 'would copy' : 'copied'} ${COPY.length} paths by class (${MAP}, listed by ${source}); left out ${internal.length} internal`);
+note(`${opts.dryRun ? 'would copy' : 'copied'} the template: ${COPY.length} files`);
 
 // ---- 2. fill placeholders
-step(2, 'Fill placeholders and start the lessons clock');
+step(2, 'Fill placeholders and record the start date');
 const today = localToday(opts.dryRun ? SRC : dest);
 if (!opts.dryRun) {
   for (const f of PLACEHOLDER_FILES) edit(f, (s) => s.replaceAll('<Product>', name).replaceAll('<owner/repo>', repo ?? '<owner/repo>'));
@@ -166,7 +166,7 @@ pnpm status
 `);
 }
 note(`<Product> → ${name}${repo ? `, <owner/repo> → ${repo}` : ''} in ${PLACEHOLDER_FILES.join(', ')}`);
-note(`package.json name → ${slug}; process/anchor → ${today}; README.md → product stub; .gitignore written`);
+note(`package.json name → ${slug}; start date ${today} → process/anchor; README.md → product stub; .gitignore written`);
 
 // ---- 2b. harness
 step('2b', opts.harness ? 'Install the agent harness' : 'Agent harness — skipped (--no-harness)');
@@ -185,7 +185,7 @@ if (opts.harness) {
 }
 
 // ---- 2c. manifest
-step('2c', `Record what slipway wrote in ${MANIFEST}`);
+step('2c', `Record what slipway installed (${MANIFEST})`);
 const recorded = [...COPY, '.gitignore'];
 if (!opts.dryRun) {
   const manifest = buildManifest(dest, recorded, {
@@ -198,7 +198,7 @@ if (!opts.dryRun) {
   mkdirSync(join(dest, '.slipway'), { recursive: true });
   writeFileSync(join(dest, MANIFEST), JSON.stringify(manifest, null, 2) + '\n');
 }
-note(`${recorded.length} paths with class, sha256 and blob id, as written; slipway ${resolved.sha ?? `null (version ${pkgVersion})`}. D1 checks the managed ones.`);
+note(`${recorded.length} files, so a later /sync-slipway can tell slipway's files from yours; slipway ${resolved.sha ? resolved.sha.slice(0, 12) : `version ${pkgVersion}, sha unknown`}`);
 
 // ---- 3. git
 step(3, 'Initialise git on main and commit');
@@ -223,7 +223,7 @@ run('gh', ['repo', 'create', repo, opts.public ? '--public' : '--private', '--so
 // ---- 5. label
 step(5, 'Create the needs-shape label');
 run('gh', ['label', 'create', 'needs-shape', '--repo', repo, '--color', 'D93F0B', '--force',
-  '--description', 'Issue failed the I1 shape check (acceptance or seams missing)']);
+  '--description', 'Issue needs shaping: acceptance or seams missing']);
 
 // ---- 6. protect main, record D-001
 step(6, 'Attempt to protect main (D-001)');
@@ -268,8 +268,8 @@ Done${opts.dryRun ? ' (dry run — nothing was written)' : ''}. ${dest}
 Next: open Claude Code in the project and run /bootstrap — it scaffolds the app, opens the bootstrap PR
 and runs the acceptance probes (BOOTSTRAP.md is the reference for each step).
   cd ${rel}
-${outcome ? `  git status             # decisions.md carries D-001 — commit it in the bootstrap PR, not to main\n` : ''}${opts.harness ? '' : '  mkdir -p .claude && cp process/harness/settings.json .claude/settings.json   # harness, if wanted\n'}  claude                 # then: /bootstrap
+${outcome ? `  git status             # decisions.md carries D-001 — commit it in the bootstrap PR, not to main\n` : ''}${opts.harness ? '' : '  mkdir -p .claude && cp process/harness/settings.json .claude/settings.json   # agent harness: asks before a push or a gate edit; a red verify stops a turn\n'}  claude                 # then: /bootstrap
 
-Later, to take a newer slipway: /sync-slipway (${MANIFEST} records what this run wrote).
+Later, to take a newer slipway: /sync-slipway.
 `);
 }

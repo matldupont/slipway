@@ -4,8 +4,8 @@ Lane: trivial | bounded | feature (process/slipway-rules.md#Lanes). A trivial ch
 
 ## Verification
 <!--
-What you ran and what it showed. Name commands, check ids or CI runs.
-"Tested locally" is a claim, not evidence — P1 fails a PR without one.
+What you ran and what it showed. Name commands, their output or CI runs.
+"Tested locally" is a claim, not evidence — CI fails a PR without one.
 Also say what you did NOT verify: motion, real devices, production data.
 
 ```
