@@ -31,10 +31,11 @@ import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
+import { BASE_WHY, bucketLines, needsLines } from './lib/summary.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = 'usage: sync [--plan | --apply]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
+const USAGE = 'usage: sync [--plan | --apply] [--verbose]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
 export const KINDS = [
   'replace', 'merge', 'add', 'delete', 'keep (edited)', 'collision',
   'seeded: upstream changed', 'merged: key updated', 'merged: key reported', 'unchanged',
@@ -47,17 +48,17 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
   try {
     for (const a of argv) {
       if (a === '-h' || a === '--help') { out.write(`${USAGE}\n`); return 0; }
-      if (a !== '--plan' && a !== '--apply') throw new Refusal(`unknown argument ${a}\n${USAGE}`);
+      if (a !== '--plan' && a !== '--apply' && a !== '--verbose') throw new Refusal(`unknown argument ${a}\n${USAGE}`);
     }
     if (argv.includes('--plan') && argv.includes('--apply')) throw new Refusal(`--plan and --apply: choose one\n${USAGE}`);
     if (argv.includes('--apply') && process.env.CLAUDECODE) {
       throw new Refusal('--apply installs slipway\'s files and its harness, so the owner runs it in their own terminal, not an agent (CLAUDECODE is set) — nothing was written');
     }
-    const ctx = preflight(cwd);
+    const ctx = { ...preflight(cwd), verbose: argv.includes('--verbose') };
     const rows = plan(ctx);
     if (!argv.includes('--apply')) {
-      print(out, ctx, rows);
-      out.write('Plan only — nothing was written.\n');
+      print(out, ctx, rows, true);
+      out.write(ctx.verbose ? 'Plan only — nothing was written.\n' : 'Plan only — nothing was written. Carry it out with: sync --apply\n');
       return 0;
     }
     return apply(out, ctx, rows);
@@ -243,7 +244,29 @@ function scriptRows(p, { base, target, cur, baseRules, targetRules }) {
   return rows.length ? rows : [{ kind: 'unchanged', path: p }];
 }
 
-function print(out, { branch, source, base, targetSha, notes, log }, rows) {
+// What each row kind means for the owner, and what --apply does with it.
+const MEANING = {
+  replace: 'pristine here, changed by slipway: --apply overwrites it',
+  merge: 'you edited it under an override, and slipway changed it: --apply merges (conflict markers possible)',
+  add: 'new in slipway, absent here: --apply copies it in',
+  delete: 'slipway removed it and yours is pristine: --apply deletes it',
+  'keep (edited)': 'slipway removed or changed it, but you edited yours: --apply leaves yours',
+  collision: 'slipway ships a path where you have your own file: --apply leaves yours',
+  'seeded: upstream changed': "a file you fill in, never rewritten: --apply writes slipway's diff under .slipway/upstream/ as a reference to port by hand, not a patch (it is against the template's copy); /sync-slipway walks you through it",
+  'merged: key updated': 'a package.json script you left at the base value: --apply updates it',
+  'merged: key reported': "a package.json script you changed: --apply keeps yours and shows slipway's",
+  unchanged: 'the same on both sides: nothing to do',
+};
+
+// The next command for a row that needs the owner (OWNER_ROWS).
+function nextStep(r, targetSha) {
+  const from = targetSha ? targetSha.slice(0, 12) : 'the target';
+  if (r.kind === 'collision') return `to keep yours, list it in ${OVERRIDES} with a reason; to take slipway's, copy its file from ${from} over yours`;
+  if (r.kind === 'merged: key reported') return "sync --apply keeps your value and prints slipway's; edit the key by hand to take it";
+  return "sync --apply leaves your file as it is; port slipway's change by hand if you want it";
+}
+
+function print(out, { branch, source, base, targetSha, notes, log, verbose }, rows, plan = false) {
   const width = Math.max(...KINDS.map((k) => k.length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
@@ -252,9 +275,16 @@ function print(out, { branch, source, base, targetSha, notes, log }, rows) {
   for (const n of notes) out.write(`  note:   ${n}\n`);
   if (log.length) out.write(`\nslipway's commits, base → target (${log.length}, newest first):\n${log.map((l) => `  ${l}\n`).join('')}`);
   out.write('\n');
-  for (const r of rows) out.write(`  ${r.kind.padEnd(width)}  ${r.path}\n`);
   const counts = KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length]).filter(([, n]) => n);
-  out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${k}`).join(', ')}. `);
+  if (verbose) {
+    for (const r of rows) out.write(`  ${r.kind.padEnd(width)}  ${r.path}\n`);
+    out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${k}`).join(', ')}. `);
+    return;
+  }
+  out.write(`${BASE_WHY}\n\n${rows.length} rows:\n${bucketLines(counts.map(([k, n]) => ({ n, label: k, meaning: MEANING[k] })))}\n`);
+  const owed = rows.filter((r) => OWNER_ROWS.includes(r.kind));
+  if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed.map((r) => ({ kind: r.kind, path: r.path, next: nextStep(r, targetSha) })))}\n`);
+  else if (plan) out.write('Nothing needs you.\n');
 }
 
 // ---- apply (F-01 step 4, #17)
@@ -305,7 +335,7 @@ function apply(out, ctx, rows) {
   say(`keep (edited) — slipway changed it, but your copy is missing, not a file, or was seeded until now, so nothing was merged. Copy slipway's from ${short(targetSha)}, or override it with a reason:`, todo.kept.shipped);
   say(`stale override — it names no managed file now, so D1 flags it; remove it from ${OVERRIDES}:`, todo.stale);
   say('merged: key reported — your value stays; slipway\'s is shown:', todo.reported);
-  say(`seeded: upstream changed — slipway's own diff (base → target), for you to port or decline; the file was not touched:`, todo.diffs);
+  say(`seeded: upstream changed — slipway's own diff (base → target): a reference to port by hand, not a patch to apply (it is against the template's copy, not yours). /sync-slipway walks you through them. The file was not touched:`, todo.diffs);
   if (todo.harness) out.write(`\nharness — ${todo.harness.text}\n`);
   const owed = todo.conflicts.length || todo.stale.length || todo.harness?.owed || rows.some((r) => OWNER_ROWS.includes(r.kind));
   out.write(owed ? '\nSync exits 1: the rows above need you before this branch merges.\n' : '');

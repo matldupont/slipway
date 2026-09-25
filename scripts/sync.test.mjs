@@ -21,6 +21,8 @@ import { resolveBase, sourceClone } from './lib/base.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
+const EXPECTED_SUMMARY = join(SRC, 'scripts', 'fixtures', 'sync-plan-summary.txt');
+const EXPECTED_ADOPT_SUMMARY = join(SRC, 'scripts', 'fixtures', 'adopt-plan-summary.txt');
 // The code a slipway needs to run new-project and sync. Its fixture map makes all of it internal, so the
 // plan lists fixture files only and does not change when this code does.
 const CODE = ['scripts/new-project.mjs', 'scripts/sync.mjs', 'scripts/adopt.mjs', 'scripts/lib', 'ci/checks/lib', 'ci/checks/meta/d1-drift.mjs'];
@@ -168,7 +170,7 @@ function project(edit) {
 const sync = (dir, ...args) =>
   spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
 const rows = (stdout) => Object.fromEntries([...stdout.matchAll(/^ {2}(\S.*?) {2,}(\S+(?: scripts\.\S+)?)$/gm)].map((m) => [m[2], m[1]]));
-const normalise = (stdout) => stdout.replaceAll(slip, '<slipway>').replaceAll(A, '<A>').replaceAll(B, '<B>');
+const normalise = (stdout) => stdout.replaceAll(slip, '<slipway>').replaceAll(A, '<A>').replaceAll(B, '<B>').replaceAll(B.slice(0, 12), '<B>');
 
 // Every file under `dir`, .git included, with its bytes: what "nothing was written" means.
 function treeHash(dir) {
@@ -192,11 +194,19 @@ test('the plan from base A to target B equals the checked-in plan, and writes no
   const later = new Date(Date.now() + 60_000);
   utimesSync(join(dir, 'process/same.md'), later, later);
   const before = treeHash(dir);
-  const r = sync(dir);
+  const r = sync(dir, '--verbose');
   assert.equal(r.status, 0, r.stderr);
   assert.equal(treeHash(dir), before, 'sync wrote to the project');
   assert.equal(git(dir, 'status', '--porcelain'), '');
   assert.equal(normalise(r.stdout), readFileSync(EXPECTED, 'utf8'));
+});
+
+test('the default plan is a summary: no per-path row for a bucket that needs nothing, each owner row with its next command, the base explained; --verbose is the checked-in list above', () => {
+  const dir = project();
+  const r = sync(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(normalise(r.stdout), readFileSync(EXPECTED_SUMMARY, 'utf8'));
+  assert.doesNotMatch(r.stdout, /process\/same\.md/);
 });
 
 // One case per row kind: which fixture path produces it, and why.
@@ -216,7 +226,7 @@ const KIND_CASES = [
   ['unchanged', 'process/ours.md', 'managed, overridden, unchanged upstream: nothing to merge'],
   ['unchanged', 'docs/same.md', 'seeded, same on both sides'],
 ];
-const planned = rows(sync(project()).stdout);
+const planned = rows(sync(project(), '--verbose').stdout);
 for (const [kind, path, why] of KIND_CASES) {
   test(`row ${kind}: ${path} — ${why}`, () => assert.equal(planned[path], kind));
 }
@@ -262,7 +272,7 @@ test('with "slipway": null the base is found by blobs alone: the newest exact co
     writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
     commit(d, 'no hint');
   });
-  const r = sync(dir);
+  const r = sync(dir, '--verbose');
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, new RegExp(`base: {3}${A0} `));
   // The known limitation (F-01): the tie changes only advisory rows — here scripts.a, which A0 changed.
@@ -299,7 +309,7 @@ test('from a packed install (no .git, no .gitignore) of B: the target is B by co
   mkdirSync(pkgDir);
   execFileSync('tar', ['-x', '-C', pkgDir], { input: execFileSync('git', ['-C', slip, 'archive', B]) });
   rmSync(join(pkgDir, '.gitignore'));
-  const r = spawnSync(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), 'sync'], { cwd: project(), encoding: 'utf8' });
+  const r = spawnSync(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), 'sync', '--verbose'], { cwd: project(), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, new RegExp(`target: ${B}\n`));
   assert.equal(rows(r.stdout)['.gitignore'], 'unchanged');
@@ -385,7 +395,7 @@ test('apply, pristine project: every managed file equals the target, the manifes
   assert.equal(readProjectFile(dir, '.claude/settings.json'), null);
   assert.match(r.stdout, /\.claude\/settings\.json is not installed, so it was left out/);
   // The rewritten manifest resolves: the next sync finds B as its base and has nothing to do.
-  const again = sync(dir);
+  const again = sync(dir, '--verbose');
   assert.equal(again.status, 0, again.stderr);
   assert.match(again.stdout, new RegExp(`base: {3}${B} `));
   assert.deepEqual(new Set(Object.values(rows(again.stdout))), new Set(['unchanged']));
@@ -401,7 +411,7 @@ const editedMain = git(edited, 'rev-parse', 'main');
 const kept = ['docs/PRD.md', 'process/kept.md', 'process/clash.md', '.slipway/overrides.yaml'].map((p) => [p, bytes(edited, p)]);
 const ourMerge = bytes(edited, 'process/merge.md').toString('utf8');
 const manifestBefore = manifestOf(edited);
-const applied = sync(edited, '--apply');
+const applied = sync(edited, '--apply', '--verbose');
 
 test('apply, edited project: exits 1 — rows need the owner — with main unchanged and the tree clean', () => {
   assert.equal(applied.status, 1, applied.stdout + applied.stderr);
@@ -598,7 +608,7 @@ const DIFFERS = ['process/kept.md', 'process/merge.md', 'process/ours.md'];
 test('adopt, sha in the first commit: that sha is the base, every file is listed as pristine or differing, and the tree hash is unchanged', () => {
   const dir = unadopted();
   const before = treeHash(dir);
-  const r = adopt(dir);
+  const r = adopt(dir, '--verbose');
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, new RegExp(`base: {3}${A} \\(from the first commit\\)`));
   const got = rows(r.stdout);
@@ -610,6 +620,25 @@ test('adopt, sha in the first commit: that sha is the base, every file is listed
   assert.equal(got['process/clash.md'], undefined, 'a file the base does not ship is the project\'s own');
   assert.equal(treeHash(dir), before, 'adopt wrote to the project');
   assert.equal(git(dir, 'status', '--porcelain'), '');
+});
+
+test('the default adopt plan is a summary: a count line per bucket, each differing path and project ID with its next command, the base explained', () => {
+  const dir = unadopted((d) => put(d, { 'decisions.md': '# Decisions\n\n## D-099 — ours *(decided)*\n' }));
+  const before = treeHash(dir);
+  const r = adopt(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(normalise(r.stdout), readFileSync(EXPECTED_ADOPT_SUMMARY, 'utf8'));
+  assert.doesNotMatch(r.stdout, /^ {2}pristine {2,}\S/m, 'a pristine row is printed');
+  assert.equal(treeHash(dir), before, 'adopt wrote to the project');
+});
+
+test('a default adopt plan with nothing to decide says so in one line and prints the --apply command', () => {
+  const dir = unadopted((d) => put(d, { 'process/kept.md': 'kept\n', 'process/merge.md': 'one\ntwo\n', 'process/ours.md': 'ours\n' }));
+  const r = adopt(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^Nothing needs a decision\.$/m);
+  assert.match(r.stdout, new RegExp(`Plan only — nothing was written\\. Write it with: sync --adopt --apply --base ${A}\n$`));
+  assert.doesNotMatch(r.stdout, /Needs you/);
 });
 
 // A project new-project made from a packed A: the first commit and README name a version, not a sha.
@@ -720,7 +749,7 @@ test('adopt --apply writes the manifest and an override per kept file, reverts i
   assert.equal(m.files['docs/PRD.md'].blob, git(dir, 'rev-parse', 'HEAD:docs/PRD.md'), 'a seeded file is recorded as the project has it');
   const d1 = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), dir], { encoding: 'utf8' });
   assert.equal(d1.status, 0, d1.stdout);
-  const plan = sync(dir);
+  const plan = sync(dir, '--verbose');
   assert.equal(plan.status, 0, plan.stderr);
   assert.match(plan.stdout, new RegExp(`base: {3}${A} `));
   assert.equal(rows(plan.stdout)['process/merge.md'], 'merge');
@@ -761,7 +790,7 @@ test('adopt: a short sha in the first commit (new-project before the manifest wr
 
 test('adopt: a differing file overrides.yaml already lists with a reason is kept; an override D1 would call stale stops --apply', () => {
   const listed = unadopted((d) => put(d, { '.slipway/overrides.yaml': 'overrides:\n  - path: process/merge.md\n    reason: our third line\n' }));
-  const plan = adopt(listed);
+  const plan = adopt(listed, '--verbose');
   assert.equal(rows(plan.stdout)['process/merge.md'], 'differs → keep (.slipway/overrides.yaml)');
   assert.match(adopt(listed, '--apply', '--keep', 'process/merge.md=again').stderr, /process\/merge\.md is kept already by its entry in \.slipway\/overrides\.yaml — drop the --keep/);
   const r = adopt(listed, '--apply', '--keep', 'process/ours.md=our wording', '--revert', 'process/kept.md');
@@ -833,7 +862,7 @@ test('adopt, then sync, from a base older than the ownership map: classified by 
   assert.match(a.stdout, /map: {4}the target's — the base predates dev\/ownership\.yaml/);
   const d1 = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), proj], { encoding: 'utf8' });
   assert.equal(d1.status, 0, d1.stdout);
-  const plan = run();
+  const plan = run('--verbose');
   assert.equal(plan.status, 0, plan.stderr);
   assert.match(plan.stdout, new RegExp(`base: {3}${P0} `));
   assert.equal(rows(plan.stdout)['process/one.md'], 'replace');
