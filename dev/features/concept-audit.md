@@ -55,7 +55,7 @@ Three rules the fixes follow:
 | "copied 411 paths **by class** (dev/ownership.yaml, listed by git ls-files); left out 41 **internal**" | machinery | ownership classes are sync's bookkeeping | "copied the template: 411 files" |
 | "start the **lessons clock**", `process/anchor → date` | machinery | the anchor exists so lesson review dates can be relative | "record the start date"; "start date 2026-09-25 → process/anchor" |
 | "Record what slipway wrote in .slipway/manifest.json — 412 paths with class, sha256 and blob id … **D1 checks the managed ones**" | machinery | hashes, classes, a check id | "Record what slipway installed … 412 files, so a later /sync-slipway can tell slipway's files from yours" |
-| 40-character sha, three times; "(.slipway/manifest.json records what this run wrote)"; "the manifest records null … and every file's blob id" | machinery | sync finds its base by content; nobody types the sha | 12 characters; parentheticals dropped; "a later sync finds the base by content" |
+| 40-character sha, three times; "(.slipway/manifest.json records what this run wrote)"; "the manifest records null … and every file's blob id" | machinery | sync finds its base by content; nobody types the sha | 12 characters; parentheticals dropped; "a later sync looks for the base by content" |
 | "# harness, if wanted" | practice, line failed the test | the harness is a gate an agent cannot pass without asking; the comment said nothing about it | "# agent harness: asks before a push or a gate edit; a red verify stops a turn" |
 | the `needs-shape` label's description "Issue failed the I1 shape check" | machinery | a check id where the author reads it | "Issue needs shaping: acceptance or seams missing" |
 | Next: `/bootstrap`, BOOTSTRAP.md | practice | step 0 | kept |
@@ -72,7 +72,7 @@ Three rules the fixes follow:
 | "(**R1** requires one once Status leaves draft)"; "(R1 turns red otherwise)"; "One at a time — MS1 is red"; "K1 then needs a tracker for RISK-2" | machinery | check ids | "(needed before the PRD leaves draft)"; "(the build goes red otherwise)"; "pnpm meta is red until then"; "then name where RISK-2 is being tested (FRAME's Tracker column)" |
 | "Open question: docs/product/FRAME.md:16 — `<question>`" and "Parked: …:19 — `<question>` (#12)" on a fresh project | machinery leak | status read the template's own explanation of the marker syntax as real questions | a marker sitting whole inside inline code is skipped (both examples are in backticks); an escaped backtick is not code, and a backticked tracker inside a real marker still counts. K1 reads the same way, and both keep line numbers across multi-line comments. A marker between two code spans on one line is still a question. Pinned by controls in the `deadlines-toronto` status fixture (all four cases) and in `k1/draft-underway` and `k1/past-skeleton` |
 | "no app package yet (§1)" | machinery | a bare section number | "no app yet" (the sentence already says to run /bootstrap) |
-| "Bootstrap: AGENT.md filled" while the GitHub project, timezone and invariants rows were still `<…>` | machinery leak | status only looked for the two placeholders `new-project` fills, so Step 0 could end with product questions unasked | an unfilled owner row (product, repo, GitHub project, timezone, invariants) holds Step 0 while there is no app; a project that already builds sees the rows under Needs attention instead |
+| "Bootstrap: AGENT.md filled" while the GitHub project, timezone and invariants rows were still `<…>` | machinery leak | status only looked for the two placeholders `new-project` fills, so Step 0 could end with product questions unasked | an unfilled owner row (product, repo, GitHub project, timezone, invariants) holds Step 0 while there is no app or no milestone is underway yet; a project with a milestone underway sees the rows under Needs attention instead |
 | "Open decision: D-001 … (open — owner, BOOTSTRAP §0)" | practice | the text is the project's own `decisions.md` heading, and BOOTSTRAP.md §0 is the step it sends the owner to | kept |
 | Step labels (you / agent / fresh session), circuit breaker, appetite "day 209 of 14", walking skeleton, lanes, open vs parked (assumption · cost · tracker), adversarial review, open decisions, RISK-n tested/scheduled/untested, windows | practice | each names the project's thing and the next action | kept |
 
@@ -174,6 +174,8 @@ backticks on purpose is no longer counted; the template's own examples were the 
 - The sync plan, the adopt report and adopt's questions still use ownership classes until #76.
 - A marker an owner deliberately puts whole inside inline code is not counted. Escaped backticks and a backticked
   tracker inside a marker are.
+- No status fixture has unfilled owner rows: the Step 0 rule is exercised by the fresh-project probe in Verify,
+  not pinned by S1.
 - `SLIPWAY.md` and `BOOTSTRAP.md` cite check ids throughout; they are the manual, not a surface.
 
 ## Acceptance
