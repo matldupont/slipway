@@ -6,22 +6,22 @@ slipway adopt, on main
 The base is the slipway commit these files last matched. Sync needs it to tell "you changed this" from "slipway changed this", the way a merge needs a common ancestor.
 
 13 paths the base ships:
-  6 pristine  the same as the base. Sync updates it when slipway changes it
-  3 seeded    a file you fill in (PRD, decisions…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch; /sync-slipway walks you through it
-  1 merged    package.json: sync updates its scripts key by key, and keeps any you changed
-  3 differs   you changed it since the base. Needs your choice below; then sync merges slipway's changes into it, or leaves it if you keep it
+  6 unchanged since install                      slipway's file, unchanged since install. Sync updates it when slipway changes it
+  3 your file (started from slipway's template)  the PRD, decisions and the like. Sync never rewrites it; it writes slipway's diff for you to apply by hand, a reference and not a patch; /sync-slipway walks you through it
+  1 package.json scripts                         package.json scripts: sync updates them key by key, and keeps any you changed
+  3 changed by you                               slipway's file that you changed since the base. Needs your choice below; then sync combines slipway's changes with yours, or leaves it if you keep it
 
 4 tracked file(s) are the project's own: not in the base, so sync never touches them.
 
 Needs you (3):
-  differs  process/kept.md
+  changed by you  process/kept.md
     next: --keep process/kept.md=<reason>  to keep yours, or  --revert process/kept.md  to put the base's back
-  differs  process/merge.md
+  changed by you  process/merge.md
     next: --keep process/merge.md=<reason>  to keep yours, or  --revert process/merge.md  to put the base's back
-  differs  process/ours.md
+  changed by you  process/ours.md
     next: --keep process/ours.md=<reason>  to keep yours, or  --revert process/ours.md  to put the base's back
 
-The project's own IDs, for /sync-slipway to move to PL-/PD- right after --apply (slipway's are in the base, or the target's under the same title):
+The project's own IDs, for /sync-slipway to renumber right after --apply, so they never collide with slipway's own (slipway's are in the base, or the target's under the same title):
   D-099  decisions.md
 
 Plan only — nothing was written. Give each file above its choice, then write it with: sync --adopt --apply --base <A> --keep <path>=<reason> | --revert <path>

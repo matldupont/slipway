@@ -1,32 +1,32 @@
 slipway sync plan, on main
   source: <slipway>
-  base:   <A> (by content: the manifest's managed blobs)
+  base:   <A> (by content: the files slipway installed)
   target: <B>
 
 slipway's commits, base → target (3, newest first):
   B
-  A1: one managed file added
-  A0: seeded and scripts only
+  A1: one slipway file added
+  A0: docs and scripts only
 
-  unchanged                 .gitattributes
-  unchanged                 .gitignore
-  seeded: upstream changed  docs/PRD.md
-  unchanged                 docs/same.md
-  merged: key updated       package.json scripts.a
-  merged: key reported      package.json scripts.b
-  merged: key updated       package.json scripts.c
-  merged: key updated       package.json scripts.drop
-  collision                 process/clash.md
-  delete                    process/delete.md
-  delete                    process/dir
-  add                       process/dir/index.md
-  replace                   process/harness/settings.json
-  add                       process/hooks/new.sh
-  keep (edited)             process/kept.md
-  merge                     process/merge.md
-  add                       process/new.md
-  unchanged                 process/ours.md
-  replace                   process/replace.md
-  unchanged                 process/same.md
+  unchanged                           .gitattributes
+  unchanged                           .gitignore
+  yours — slipway's template changed  docs/PRD.md
+  unchanged                           docs/same.md
+  script updated                      package.json scripts.a
+  script kept, yours differs          package.json scripts.b
+  script updated                      package.json scripts.c
+  script updated                      package.json scripts.drop
+  collision                           process/clash.md
+  delete                              process/delete.md
+  delete                              process/dir
+  add                                 process/dir/index.md
+  replace                             process/harness/settings.json
+  add                                 process/hooks/new.sh
+  keep (edited)                       process/kept.md
+  merge                               process/merge.md
+  add                                 process/new.md
+  unchanged                           process/ours.md
+  replace                             process/replace.md
+  unchanged                           process/same.md
 
-20 rows: 2 replace, 1 merge, 3 add, 2 delete, 1 keep (edited), 1 collision, 1 seeded: upstream changed, 3 merged: key updated, 1 merged: key reported, 5 unchanged. Plan only — nothing was written.
+20 rows: 2 replace, 1 merge, 3 add, 2 delete, 1 keep (edited), 1 collision, 1 yours — slipway's template changed, 3 script updated, 1 script kept, yours differs, 5 unchanged. Plan only — nothing was written.

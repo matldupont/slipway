@@ -49,11 +49,11 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     report(out, ctx, rows, o.verbose, stale);
     if (!o.apply) {
       out.write(!o.verbose && owed.length ? `Plan only — nothing was written. Give each file above its choice, then write it with: sync --adopt --apply --base ${ctx.base.sha} --keep <path>=<reason> | --revert <path>\n` : owed.length
-        ? `Plan only — nothing was written. Before --apply, each managed file that differs needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps:\n  ${owed.join('\n  ')}\n`
+        ? `Plan only — nothing was written. Before --apply, each of slipway's files you changed needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps:\n  ${owed.join('\n  ')}\n`
         : `Plan only — nothing was written. Write it with: sync --adopt --apply --base ${ctx.base.sha}\n`);
       return 0;
     }
-    if (owed.length) throw new Refusal(`each managed file that differs from the base needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps — nothing was written:\n  ${owed.join('\n  ')}`);
+    if (owed.length) throw new Refusal(`each of slipway's files you changed since the base needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps — nothing was written:\n  ${owed.join('\n  ')}`);
     return write(out, ctx, rows, o);
   } catch (e) {
     if (!(e instanceof Refusal)) throw e;
@@ -143,8 +143,8 @@ function locate(cwd, o) {
     }
     const r = read(() => resolveBase(gitDir, blobs, { fallback: t.rules }));
     const subject = (sha) => read(() => git(['--git-dir', gitDir, 'log', '-1', '--date=short', '--format=%ad %s', sha]).trim());
-    const c = (x) => `${x.sha} — ${x.matched} managed file(s) as that commit shipped them${x.extra ? `, ${x.extra} it ships that you lack` : ''}\n    ${subject(x.sha)}`;
-    if (!r.best?.matched) throw new Refusal(`no slipway sha in the first commit or README, and no commit on ${source}'s main shares a managed file with this project — pass --base <sha>`);
+    const c = (x) => `${x.sha} — ${x.matched} of slipway's file(s) as that commit shipped them${x.extra ? `, ${x.extra} it ships that you lack` : ''}\n    ${subject(x.sha)}`;
+    if (!r.best?.matched) throw new Refusal(`no slipway sha in the first commit or README, and no commit on ${source}'s main shares one of slipway's files with this project — pass --base <sha>`);
     throw new Refusal(
       `no slipway sha in the first commit or README (${firstSubject(root)}). Closest commit on ${source}'s main:\n  ${c(r.best)}\n` +
         `${r.runnerUp ? `  runner-up: ${c(r.runnerUp)}\n` : ''}Confirm it (or name another) with: sync --adopt --base ${r.best.sha} — nothing was written`,
@@ -205,36 +205,38 @@ function decide(rows, o, overrides) {
   const listed = new Set(overrides.filter((x) => x.reason?.trim() && differs(byPath.get(x.path))).map((x) => x.path));
   for (const p of [...o.keep.keys(), ...o.revert]) {
     const r = byPath.get(p);
-    if (!r || r.cls !== 'managed') throw new Refusal(`${p} is not a managed file the base ships — --keep and --revert take the managed files that differ`);
+    if (!r || r.cls !== 'managed') throw new Refusal(`${p} is not one of slipway's files that the base ships — --keep and --revert take the ones you changed`);
     if (r.kind === 'pristine') throw new Refusal(`${p} already matches the base — it needs no --keep or --revert`);
     if (o.keep.has(p) && o.revert.has(p)) throw new Refusal(`${p}: --keep or --revert, not both`);
     if (listed.has(p)) throw new Refusal(`${p} is kept already by its entry in ${OVERRIDES} — drop the ${o.keep.has(p) ? '--keep' : '--revert (or remove that entry first)'}`);
     r.choice = o.keep.has(p) ? 'keep' : 'revert';
   }
   for (const p of listed) byPath.get(p).choice = `keep (${OVERRIDES})`;
-  const waiting = rows.filter((r) => differs(r) && !r.choice).map((r) => `${r.kind.padEnd(10)}  ${r.path}`);
-  const stale = overrides.filter((x) => !listed.has(x.path)).map((x) => `${OVERRIDES}:${x.line}  ${x.path} — ${x.reason?.trim() ? 'not a managed file that differs from the base' : 'no reason'}; remove it`);
+  const waiting = rows.filter((r) => differs(r) && !r.choice).map((r) => `${label(r.kind).padEnd(10)}  ${r.path}`);
+  const stale = overrides.filter((x) => !listed.has(x.path)).map((x) => `${OVERRIDES}:${x.line}  ${x.path} — ${x.reason?.trim() ? "not one of slipway's files you changed since the base" : 'no reason'}; remove it`);
   return { waiting, stale, all: [...waiting, ...stale] };
 }
 
 // What each bucket means for the owner, and what sync does with it later.
 const MEANING = {
-  pristine: 'the same as the base. Sync updates it when slipway changes it',
-  differs: 'you changed it since the base. Needs your choice below; then sync merges slipway\'s changes into it, or leaves it if you keep it',
-  missing: 'the base ships it and you have no such file. Needs your choice below',
-  'not a file': 'a folder or link where the base ships a file. Needs your choice below',
-  seeded: "a file you fill in (PRD, decisions…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch; /sync-slipway walks you through it",
-  merged: 'package.json: sync updates its scripts key by key, and keeps any you changed',
+  pristine: "slipway's file, unchanged since install. Sync updates it when slipway changes it",
+  differs: "slipway's file that you changed since the base. Needs your choice below; then sync combines slipway's changes with yours, or leaves it if you keep it",
+  missing: "slipway's file, and you have no such file. Needs your choice below",
+  'not a file': "a folder or link where slipway ships a file. Needs your choice below",
+  seeded: "the PRD, decisions and the like. Sync never rewrites it; it writes slipway's diff for you to apply by hand, a reference and not a patch; /sync-slipway walks you through it",
+  merged: 'package.json scripts: sync updates them key by key, and keeps any you changed',
 };
-const meaning = (label) => {
-  const base = label.replace(/ \(missing\)$/, '').replace(/ → .*$/, '');
-  const m = MEANING[base] ?? '';
-  return label.includes('→') ? `${m.split('. ')[0]}; you chose it, --apply writes it` : label.endsWith('(missing)') ? `${m.split('. ')[0]}; the file is missing here` : m;
+// The words a bucket is shown in (D-016); `kind` stays the identifier the code branches on.
+const LABEL = { pristine: 'unchanged since install', differs: 'changed by you', seeded: "your file (started from slipway's template)", merged: 'package.json scripts' };
+const label = (kind) => kind.replace(/^(\w+)/, (w) => LABEL[w] ?? w);
+const meaning = (r) => {
+  const m = MEANING[r.kind.replace(/ \(missing\)$/, '')] ?? '';
+  return r.choice ? `${m.split('. ')[0]}; you chose it, --apply writes it` : r.kind.endsWith('(missing)') ? `${m.split('. ')[0]}; the file is missing here` : m;
 };
 
 function report(out, ctx, rows, verbose = false, stale = []) {
   const { root, branch, remote, source, base } = ctx;
-  const show = (r) => (r.choice ? `${r.kind} → ${r.choice}` : r.kind);
+  const show = (r) => (r.choice ? `${label(r.kind)} → ${r.choice}` : label(r.kind));
   const width = Math.max(...rows.map((r) => show(r).length), 8);
   out.write(`slipway adopt, on ${branch}\n`);
   out.write(`  source: ${source}\n`);
@@ -243,7 +245,7 @@ function report(out, ctx, rows, verbose = false, stale = []) {
   out.write(remote ? `  remote: ${remote}\n\n` : '\n');
   const labels = [...new Set(rows.map(show))];
   if (verbose) for (const r of rows) out.write(`  ${show(r).padEnd(width)}  ${r.path}\n`);
-  else out.write(`${BASE_WHY}\n\n${rows.length} paths the base ships:\n${bucketLines(labels.map((l) => ({ n: rows.filter((r) => show(r) === l).length, label: l, meaning: meaning(l) })))}\n`);
+  else out.write(`${BASE_WHY}\n\n${rows.length} paths the base ships:\n${bucketLines(labels.map((l) => ({ n: rows.filter((r) => show(r) === l).length, label: l, meaning: meaning(rows.find((r) => show(r) === l)) })))}\n`);
   if (verbose) {
     const counts = labels.map((k) => `${rows.filter((r) => show(r) === k).length} ${k}`);
     out.write(`\n${rows.length} paths the base ships: ${counts.join(', ')}.\n`);
@@ -255,14 +257,14 @@ function report(out, ctx, rows, verbose = false, stale = []) {
   if (!verbose) {
     if (waiting.length || stale.length) {
       const items = [
-        ...waiting.map((r) => ({ kind: r.kind, path: r.path, next: `--keep ${r.path}=<reason>  to keep yours, or  --revert ${r.path}  to put the base's back` })),
+        ...waiting.map((r) => ({ kind: label(r.kind), path: r.path, next: `--keep ${r.path}=<reason>  to keep yours, or  --revert ${r.path}  to put the base's back` })),
         ...stale.map((s) => ({ kind: 'override', path: s.replace(/ — .*$/, '').replace(/^\S+ +/, ''), next: `remove its entry from ${OVERRIDES}` })),
       ];
       out.write(`\nNeeds you (${items.length}):\n${needsLines(items)}`);
     } else out.write('\nNothing needs a decision.\n');
   }
   const ids = ownIds(ctx);
-  if (ids.length) out.write(`\nThe project's own IDs, for /sync-slipway to move to PL-/PD- right after --apply (slipway's are in the base, or the target's under the same title):\n${ids.map((i) => `  ${i}\n`).join('')}`);
+  if (ids.length) out.write(`\nThe project's own IDs, for /sync-slipway to renumber right after --apply, so they never collide with slipway's own (slipway's are in the base, or the target's under the same title):\n${ids.map((i) => `  ${i}\n`).join('')}`);
   out.write('\n');
 }
 
