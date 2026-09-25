@@ -5,7 +5,7 @@ Adds the thing.
 ```
 pnpm verify
 ```
-M6 green locally.
+PC1 green locally.
 
 ## Links
 Closes #12

@@ -90,8 +90,8 @@
       <thead><tr><th scope="col">What goes wrong</th><th scope="col">What fails instead</th></tr></thead>
       <tbody>
         <tr><td>The agent finishes its turn with tests failing</td><td>A hook runs <code>pnpm verify:fast</code> when the agent tries to stop. It can’t end a turn on red.</td></tr>
-        <tr><td>A check that can’t fail</td><td>Every check has a known-bad example it must go red on, for exactly the expected reasons.<span class="id">M6</span></td></tr>
-        <tr><td>Tests or scripts that CI never runs</td><td>Every gated script has to be invoked by a CI workflow.<span class="id">M1</span></td></tr>
+        <tr><td>A check that can’t fail</td><td>Every check has a known-bad example it must go red on, for exactly the expected reasons.<span class="id">PC1</span></td></tr>
+        <tr><td>Tests or scripts that CI never runs</td><td>Every gated script has to be invoked by a CI workflow.<span class="id">W1</span></td></tr>
         <tr><td>A pull request with no record of what was run</td><td>The PR description has to say what was verified, and link its issue.<span class="id">P1</span></td></tr>
         <tr><td>“Make it faster” as the acceptance criterion</td><td>Issues can’t use a bare adjective as a criterion.<span class="id">I1</span></td></tr>
         <tr><td>A plan nobody argued with</td><td>The PRD needs a written review, from a fresh session, that names the version it read.<span class="id">R1</span></td></tr>
