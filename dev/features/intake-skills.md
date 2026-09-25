@@ -64,7 +64,7 @@ section it uses. Reused, not rewritten: `process/designation.md` (the effort lin
 | Product frame | log-feature | since creation |
 | Change lanes | log-feature, work-ticket | since creation |
 | Marketing context | log-feature | since creation; `none` skips the positioning questions |
-| Domain invariants doc | log-feature, log-bug, work-ticket | since creation; `none` → the product's data-integrity invariants |
+| Domain invariants doc | all four | since creation; `none` → the product's data-integrity invariants |
 | Conventions doc | log-feature, work-ticket | since creation |
 | Testing strategy doc | log-bug, work-ticket | since creation |
 | Effort decision-tree | intake ×3 | since creation |
@@ -239,3 +239,4 @@ none.
 ## Changes
 
 - 2026-09-25 · ADDED · shaped from #46 before any code · PR for #46
+- 2026-09-25 · CHANGED · build step 1: `log-followup` reads `Domain invariants doc` too (its acceptance line on checked math), so that row is read by all four · PR for #46 step 1
