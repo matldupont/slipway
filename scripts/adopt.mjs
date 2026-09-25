@@ -223,7 +223,7 @@ const MEANING = {
   differs: 'you changed it since the base. Needs your choice below; then sync merges slipway\'s changes into it, or leaves it if you keep it',
   missing: 'the base ships it and you have no such file. Needs your choice below',
   'not a file': 'a folder or link where the base ships a file. Needs your choice below',
-  seeded: "a file you fill in (README, PRD…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch",
+  seeded: "a file you fill in (README, PRD…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch; /sync-slipway walks you through it",
   merged: 'package.json: sync updates its scripts key by key, and keeps any you changed',
 };
 const meaning = (label) => {

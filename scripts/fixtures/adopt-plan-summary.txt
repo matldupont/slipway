@@ -7,7 +7,7 @@ The base is the slipway commit these files last matched. Sync needs it to tell "
 
 14 paths the base ships:
   6 pristine  the same as the base. Sync updates it when slipway changes it
-  4 seeded    a file you fill in (README, PRD…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch
+  4 seeded    a file you fill in (README, PRD…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch; /sync-slipway walks you through it
   1 merged    package.json: sync updates its scripts key by key, and keeps any you changed
   3 differs   you changed it since the base. Needs your choice below; then sync merges slipway's changes into it, or leaves it if you keep it
 
