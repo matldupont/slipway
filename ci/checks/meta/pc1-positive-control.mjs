@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// M6 — the positive-control harness. The keystone check.
+// PC1 — the positive-control harness. The keystone check.
 //
 // Runs every registered check against its known-bad fixture and asserts it goes red
 // FOR EXACTLY THE EXPECTED REASONS: expected.json names the exit code, every finding
@@ -26,7 +26,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const fixturesRoot = resolve(here, '..', '..', 'fixtures', 'known-bad');
 
 const checks = readdirSync(here)
-  .filter((f) => f.endsWith('.mjs') && !f.startsWith('m6-'))
+  .filter((f) => f.endsWith('.mjs') && !f.startsWith('pc1-'))
   .sort()
   .map((f) => ({ file: join(here, f), id: f.split('-')[0] }));
 
@@ -111,7 +111,7 @@ for (const c of checks) {
 
 process.exit(
   report({
-    id: 'M6',
+    id: 'PC1',
     claim: `every check goes red on its known-bad fixtures (${caseCount} cases) for exactly the expected reasons`,
     scanned: checks.length,
     unit: 'checks',

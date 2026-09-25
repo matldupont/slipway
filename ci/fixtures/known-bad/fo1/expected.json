@@ -1,5 +1,5 @@
 {
-  "_note": "M6 asserts M3 goes red on this fixture for exactly these reasons. Exit code alone cannot catch a check that flags everything.",
+  "_note": "PC1 asserts FO1 goes red on this fixture for exactly these reasons. Exit code alone cannot catch a check that flags everything.",
   "exit": 1,
   "env": { "CHECK_TODAY": "2026-09-10" },
   "findings": [

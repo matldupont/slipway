@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-// M1 — declared vs invoked.
+// W1 — declared vs invoked.
 //
 // A gate that exists but never runs is worse than no gate: it reads as coverage.
-// M1 proves three things from the repository alone:
+// W1 proves three things from the repository alone:
 //   1. every gated script (check, lint, test, build, typecheck, and their `:sub` forms)
 //      declared by any workspace package is invoked by a CI workflow;
 //   2. every check in ci/checks/meta/ is run by a CI workflow;
 //   3. in slipway itself (lib/manifest.mjs TEMPLATE_MARKERS), every `scripts/**/*.test.mjs` is run
 //      by a CI workflow — they prove new-project and sync, and never ship. A project's own scripts/
-//      is not read: its tests usually run through a runner M1 cannot see into.
+//      is not read: its tests usually run through a runner W1 cannot see into.
 //
 // WHY: a package's `test` script that no workflow runs reads as coverage for as long as
 // nobody looks. So do gates on disk wired to nothing: a hook manager never installed, a
@@ -26,7 +26,7 @@
 //
 // Not invocations — each is a trap in the fixture: a command in a shell comment (whole-line or
 // trailing); an `echo`/`printf` argument; the right side of `||`, which runs only on failure; a
-// filter M1 cannot resolve to one package (`...`, globs, `[ref]`); `pnpm exec <tool>`,
+// filter W1 cannot resolve to one package (`...`, globs, `[ref]`); `pnpm exec <tool>`,
 // which bypasses the declared script; a root script no workflow calls; `verify` for a
 // `test:<sub>` script, which verify does not run. Commands inside shell files are
 // invisible by design: call gates from the workflow or a root script, where the wiring
@@ -47,7 +47,7 @@ let ws;
 try {
   ws = discoverWorkspace(root);
 } catch (e) {
-  process.exit(report({ id: 'M1', claim: '', scanned: 0, unit: UNIT, broken: e.message }));
+  process.exit(report({ id: 'W1', claim: '', scanned: 0, unit: UNIT, broken: e.message }));
 }
 
 const members = ws.packages;
@@ -129,7 +129,7 @@ for (const t of tests) {
 
 process.exit(
   report({
-    id: 'M1',
+    id: 'W1',
     claim: `every gated script and every check${isTemplate(root) ? ', and every scripts/**/*.test.mjs,' : ''} is invoked by a CI workflow`,
     scanned: gated + checkFiles.length + tests.length,
     unit: `${UNIT} (${commands.length} workflow commands read)`,

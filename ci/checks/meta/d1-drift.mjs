@@ -4,7 +4,7 @@
 // Compares every `managed` file in .slipway/manifest.json with the file on disk:
 //   drift/<path>            its hash differs, or it was deleted, and no override declares why
 //   override/stale/<path>   an override lists a path that matches its manifest hash again, or that is
-//                           not a managed file in the manifest: it excuses nothing (M3's stale entry)
+//                           not a managed file in the manifest: it excuses nothing (FO1's stale entry)
 //   override/reason/<path>  an override with an empty reason; it excuses nothing
 // No manifest is BROKEN, never green: the fix is to adopt one with `sync --adopt` (F-01 step 5).
 //

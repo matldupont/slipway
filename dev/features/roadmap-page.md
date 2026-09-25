@@ -114,7 +114,7 @@ concurrency: { group: pages, cancel-in-progress: false }
 
 One job, skipped on a template repository (like `ci.yml`'s verify). Steps: checkout, setup-node 24 (no
 install), `node ci/roadmap.mjs --enabled >> "$GITHUB_OUTPUT"`, then, only when enabled: render to
-`_site`, `actions/upload-pages-artifact`, `actions/deploy-pages`. No `continue-on-error` (M3).
+`_site`, `actions/upload-pages-artifact`, `actions/deploy-pages`. No `continue-on-error` (FO1).
 
 Once per project, the owner sets Settings → Pages → Source to **GitHub Actions**. Until then the deploy
 step fails and says so; the render step has already proved the page builds.
@@ -224,7 +224,7 @@ End to end: the owner's project with the non-technical reader has the row set to
 
 ```
 node scripts/roadmap.test.mjs     # one case per Acceptance block, fixture roots in scripts/fixtures/roadmap/
-pnpm meta                         # S1 (status unchanged), M1 (the test is wired into CI), M3, O1
+pnpm meta                         # S1 (status unchanged), W1 (the test is wired into CI), FO1, O1
 CHECK_TODAY=2026-03-11 node ci/roadmap.mjs scripts/fixtures/roadmap/full --out /tmp/roadmap --sha 0123456789abcdef
 ```
 

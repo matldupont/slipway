@@ -8,19 +8,19 @@
 // 2 is distinct on purpose: a broken check must never read as a clean one.
 //
 // With CHECK_JSON=1 the report also emits one machine-readable line prefixed
-// `@@json `. M6 reads it to compare a check's findings with its fixture's
+// `@@json `. PC1 reads it to compare a check's findings with its fixture's
 // expected set — an exit code alone cannot tell "red for the right reason"
 // from "red for any reason".
 //
 // Warnings are printed and emitted but never change the exit code: something a person should
-// look at that is not wrong on its face (an estimate larger than its appetite). M6 still
+// look at that is not wrong on its face (an estimate larger than its appetite). PC1 still
 // compares them, so a warning that can no longer fire is caught like a finding.
 
 export const EXIT = { GREEN: 0, FINDINGS: 1, BROKEN: 2 };
 
 /**
  * @param {object} o
- * @param {string} o.id        check id, e.g. "M3"
+ * @param {string} o.id        check id, e.g. "FO1"
  * @param {string} o.claim     the exact claim a green result supports — no more
  * @param {number} o.scanned   denominator: how many units were examined
  * @param {string} o.unit      what a unit is ("workflow files", "docs")

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // new-project's install record (F-01 step 2): the manifest it writes, the slipway sha it resolves, and
-// D1 and M1 in the project it creates. Internal: `pnpm meta` runs it in slipway, never in a project.
+// D1 and W1 in the project it creates. Internal: `pnpm meta` runs it in slipway, never in a project.
 //
 // Every case builds real repositories in the OS temp dir. new-project makes no network call, so
 // nothing here reaches one either.
@@ -64,7 +64,7 @@ function copyTemplate(to) {
   }
 }
 
-test('the manifest lists every shipped path with its class, sha256 and blob as written; D1 and M1 pass', () => {
+test('the manifest lists every shipped path with its class, sha256 and blob as written; D1 and W1 pass', () => {
   const dest = join(tmp(), 'probe');
   const { manifest, subject, readme } = newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
 
@@ -92,7 +92,7 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   assert.doesNotMatch(meta, /scripts\//);
   assert.equal(readme.includes('Built on [slipway](SLIPWAY.md) '), true);
 
-  for (const f of ['d1-drift.mjs', 'm1-declared-vs-invoked.mjs']) {
+  for (const f of ['d1-drift.mjs', 'w1-declared-vs-invoked.mjs']) {
     const r = check(dest, f);
     assert.equal(r.status, 0, `${f} in a fresh project:\n${r.stdout}`);
   }

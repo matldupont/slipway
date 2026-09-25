@@ -143,7 +143,7 @@ Which tools, where data is stored, and how consent is asked. Events: `docs/produ
 ## D-014 — Code health: dead code, duplication, boundaries *(open — week 1)*
 
 Agents duplicate by default and rarely refactor unasked, so cohesion needs something that fires.
-Template defaults, installed in M1 and run in CI as `check:*` scripts (M1 fails one no workflow
+Template defaults, installed in M1 and run in CI as `check:*` scripts (W1 fails one no workflow
 runs): **knip** (unused files, exports, dependencies) and **jscpd** (duplicated blocks), each
 through `ci/ratchet.mjs` so existing debt never blocks work but new debt fails; and
 **dependency-cruiser** for boundaries (packages never import apps, features do not reach into

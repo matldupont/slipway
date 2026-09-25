@@ -7,8 +7,8 @@ Read by `verify` (it runs `test` in every package), by cold review, and by anyon
 | Layer | Where | Runs in |
 |---|---|---|
 | Unit | beside the code, `*.test.ts` | `pnpm verify` (`test`) |
-| Integration | `tests/` in the package | `pnpm verify` as `test`, or a `test:<sub>` script CI invokes (M1 fails it otherwise) |
-| Browser / e2e | `apps/web/e2e/` | a `test:e2e` script CI invokes (M1 fails it otherwise) |
+| Integration | `tests/` in the package | `pnpm verify` as `test`, or a `test:<sub>` script CI invokes (W1 fails it otherwise) |
+| Browser / e2e | `apps/web/e2e/` | a `test:e2e` script CI invokes (W1 fails it otherwise) |
 
 ## A test must be able to fail
 

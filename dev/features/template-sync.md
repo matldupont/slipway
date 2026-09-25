@@ -141,9 +141,9 @@ starting another round:
 **In slipway itself** (settled in step 2, #15): template mode. With no manifest and both `dev/ownership.yaml`
 and `scripts/new-project.mjs` present — internal files `new-project` never copies, so a project's own
 `dev/` folder is not enough — D1 exits green with that exact claim. Adding `d1` to the
-project's `meta` only was the alternative, but M1 in slipway fails on a check file no workflow runs.
+project's `meta` only was the alternative, but W1 in slipway fails on a check file no workflow runs.
 What proves D1 on a real install is `scripts/new-project.test.mjs` (internal, in slipway's `meta`): it
-creates a project, runs D1 and M1 in it, then drifts a file and deletes the manifest.
+creates a project, runs D1 and W1 in it, then drifts a file and deletes the manifest.
 
 The `slipway` hint is recorded only from slipway's own checkout: `HEAD`, when its tree holds every
 copied file's blob and every path that commit ships was copied. Anywhere else, and in an edited
@@ -322,7 +322,7 @@ Then  it proposes the closest slipway commit with the runner-up's count, writes 
 ## Verify
 
 ```
-pnpm meta                          # M6 runs D1's and O1's known-bad fixtures
+pnpm meta                          # PC1 runs D1's and O1's known-bad fixtures
 node scripts/sync.test.mjs         # temp-repo cases: one per Acceptance block
 node scripts/new-project.mjs /tmp/sync-probe --no-github --dry-run
 ```
@@ -339,7 +339,7 @@ Machinery before surface. Each step merges with `pnpm meta` green.
 2. **Manifest and D1** (#15): `new-project` writes `.slipway/manifest.json` with `blob` ids and no network
    call; D1 with its fixtures; the shared `package.json` derivation and git helper. ~M.
 3. **Sync plan (read-only)** (#16): the bin subcommand, preflight, the content resolver (exact and
-   closest match), classify and print; M1 gates `scripts/**/*.test.mjs` (#22). It writes nothing, so it
+   closest match), classify and print; W1 gates `scripts/**/*.test.mjs` (#22). It writes nothing, so it
    can run against a private project safely. ~M.
 4. **Sync apply** (#17): per-class writes, merge-file, deletes, seeded diffs, manifest rewrite, the harness step.
    Temp-repo tests for every guarantee. Cold review: it writes and deletes. ~L.
@@ -365,13 +365,13 @@ Machinery before surface. Each step merges with `pnpm meta` green.
   D1 in a created project. See D1 above.
 - ~~**Glob matching**~~ (settled in step 1, #14). `path.matchesGlob` is stable on Node 24.12 but never
   matches a dot-segment under `**` (`ci/**` misses `ci/fixtures/…/.github/…`), so
-  `ci/checks/lib/ownership.mjs` has its own `*`/`?`/`**` matcher. Its tests are O1's fixture cases, which M6
+  `ci/checks/lib/ownership.mjs` has its own `*`/`?`/`**` matcher. Its tests are O1's fixture cases, which PC1
   compares finding by finding.
 - **Does `CLAUDE.md`'s `@import` load in every surface slipway supports** (CLI, desktop, cloud)?
   (Owner: step 1.) Confirm with `/memory` before moving the rules.
 - ~~**Project-written files under managed globs**~~ (settled in step 2, #15). D1 checks only the paths
   the manifest lists, so a lesson or skill the project adds under `process/**` or `.claude/skills/**` is
-  never policed. (Step 1 already seeds `ci/exceptions.yaml`, the project's own M3 registry.)
+  never policed. (Step 1 already seeds `ci/exceptions.yaml`, the project's own FO1 registry.)
 - ~~**Line endings**~~ (settled, option a, #25). Slipway ships `.gitattributes` (`* text=auto eol=lf`) as a
   managed file, so every platform checks out the bytes slipway hashed; D1 and `blob` ids stay raw-byte.
   Normalising before hashing and accepting the limitation were both rejected. Sync notes: a working tree

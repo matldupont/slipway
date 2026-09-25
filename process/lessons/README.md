@@ -16,7 +16,7 @@ rule: one sentence, testable
 failure: the failure it prevents, in one sentence (cite the issue, PR or commit where it cost you)
 enforcement:
   status: check | structural | artifact | prose | declined
-  pointer: a check id (m1), a path, or path#Heading
+  pointer: a check id (w1), a path, or path#Heading
   review-by: YYYY-MM-DD or +90d        # prose and declined
   trigger: the event that reopens it    # declined only
 ---
