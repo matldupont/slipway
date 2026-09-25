@@ -260,7 +260,7 @@ the target's map (its `fallback`), as adopt did when it wrote the manifest, so s
    conflict and how it was resolved, each change decided by sync with its reason, and each question asked
    with the owner's answer.
 
-Verified against: e801604 2026-09-23 — `new-project` SKIP (scripts/new-project.mjs:34), placeholder
+Verified against: 1b7dfe7 2026-09-23 — `new-project` SKIP (scripts/new-project.mjs:34), placeholder
 files (:35), version recording (:107, :138, :172), no git tags in slipway, lessons up to L-67, and
 the file list of the project's #12.
 

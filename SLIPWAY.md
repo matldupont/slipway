@@ -354,15 +354,15 @@ first exercise it.
 - The ask-level `Edit(...)` rules prompting in a live session; the Stop hook refusing on a failing test (it
   has only been seen blocking on a missing install); the other hooks and the `pnpm status` injection at session
   start, seen only on sample input. Probes 10, 14 and 15.
-  Verified against: 11d1a69 2026-09-24
+  Verified against: 4783d70 2026-09-24
 - `/close-milestone` on a real project: the first project's M1 is still `shaping`, so no milestone has closed.
   No §3 probe covers it; closing that M1 is its first test.
-  Verified against: 11d1a69 2026-09-24
+  Verified against: 4783d70 2026-09-24
 - `AGENT.md` against the real intake skills, which live outside slipway today (#46). Probe 11.
-  Verified against: 11d1a69 2026-09-24
+  Verified against: 4783d70 2026-09-24
 - I1's stated residual: it catches adjectives, not criteria that cannot fail. "Returns HTTP 200" passes.
   No probe applies; it is a limit of the check, not an unexercised path.
-  Verified against: 11d1a69 2026-09-24
+  Verified against: 4783d70 2026-09-24
 - Sync yardstick (#43 Acceptance): one terminal command and at most 3 questions, each answerable without
   knowing slipway, and the owner can say what changed. **Missed** on the first real sync (2026-09-24,
   `sync --adopt` then `sync --apply`): 2 commands, about 7 questions, and the owner needed help to say what
