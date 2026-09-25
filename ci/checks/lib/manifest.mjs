@@ -43,7 +43,7 @@ export function readManifest(root) {
   }
   if (!m || typeof m.files !== 'object' || m.files === null || Array.isArray(m.files)) throw new Error(`${MANIFEST} has no files map`);
   for (const [path, f] of Object.entries(m.files)) {
-    if (CONTROL.test(path)) throw new Error(`${MANIFEST}: "${escapeControl(path)}" holds a control character — restore a good copy from git (git log -- ${MANIFEST}, then git checkout <that sha> -- ${MANIFEST}); sync refuses to read it as it is`);
+    if (CONTROL.test(path)) throw new Error(`${MANIFEST}: "${escapeControl(path)}" holds a control character — restore a good copy from git (git log -- ${MANIFEST} shows the commit that wrote it; git checkout <that sha>~1 -- ${MANIFEST} takes the copy before it); sync refuses to read it as it is`);
     if (/[\\:]/.test(path) || path.startsWith('/') || path.split('/').some((s) => s === '..' || s === '' || s === '.')) {
       throw new Error(`${MANIFEST}: "${escapeControl(path)}" is not a plain relative path`);
     }

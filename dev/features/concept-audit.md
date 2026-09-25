@@ -174,8 +174,8 @@ backticks on purpose is no longer counted; the template's own examples were the 
 - The sync plan, the adopt report and adopt's questions still use ownership classes until #76.
 - A marker an owner deliberately puts whole inside inline code is not counted. Escaped backticks and a backticked
   tracker inside a marker are.
-- No status fixture has unfilled owner rows: the Step 0 rule is exercised by the fresh-project probe in Verify,
-  not pinned by S1.
+- No status fixture has unfilled owner rows: the Step 0 rule was exercised by hand on fixture copies (no app; app
+  with no milestone underway; a milestone active), not pinned by S1.
 - `SLIPWAY.md` and `BOOTSTRAP.md` cite check ids throughout; they are the manual, not a surface.
 
 ## Acceptance
