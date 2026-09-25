@@ -221,7 +221,7 @@ if (ms.length) {
 }
 const attention = [
   ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (needed before the PRD leaves draft)`] : []),
-  ...(!bootstrapped && !step0 ? [`AGENT.md rows still unfilled: ${placeholders.join(', ')} — the skills read them (Timezone also sets when a deadline day ends); fill each row`] : []),
+  ...(!bootstrapped && !step0 ? [`AGENT.md rows still unfilled: ${placeholders.join(', ')} — the skills read them${placeholders.includes('Timezone') ? ' (Timezone also sets when a deadline day ends)' : ''}; fill each row`] : []),
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),
