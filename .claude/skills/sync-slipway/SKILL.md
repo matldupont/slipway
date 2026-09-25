@@ -1,6 +1,6 @@
 ---
 name: sync-slipway
-description: Take a newer slipway into this project — explain what changed, have the owner run the sync, resolve its conflicts, offer each upstream change to a seeded file, and open the PR. Also adopts sync once in a project created before `.slipway/manifest.json` existed. Use when the user says "sync slipway", "update slipway", "take the latest slipway", "adopt sync", or when D1 reports `manifest/missing`.
+description: Take a newer slipway into this project — explain what changed, have the owner run the sync, resolve its conflicts, settle slipway's changes to the project's own files and ask the owner only about their project, and open the PR. Also adopts sync once in a project created before `.slipway/manifest.json` existed. Use when the user says "sync slipway", "update slipway", "take the latest slipway", "adopt sync", or when D1 reports `manifest/missing`.
 ---
 
 # Sync slipway
@@ -16,7 +16,8 @@ writes it. You explain, resolve and record. Run it with the owner present, becau
 - Edit `.slipway/manifest.json`. Sync writes it.
 - Edit a managed file, except to resolve conflict markers that sync left in it (step 3).
 - Renumber slipway's own `L-`/`D-` IDs. Only the project's own move, to `PL-`/`PD-` (D-015).
-- Apply a seeded-file diff the owner did not choose.
+- Change a file the project owns beyond what §3 settles or the owner chose. A change that needs a
+  project value is never settled.
 
 Every command below is `npx github:matldupont/slipway#<ref> sync …`. `<ref>` is the target: `main`, or
 a sha the owner names. In slipway's own checkout it is `node <slipway>/scripts/new-project.mjs sync …`.
@@ -36,7 +37,8 @@ change in the project's terms, not slipway's:
   what each group changes for this project: a new check that may go red, a new step in a skill it uses,
   a template it already filled in.
 - Read the rows that need the owner, and say what each will ask of them: `merge` (conflicts possible),
-  `collision`, `keep (edited)`, `merged: key reported`, `seeded: upstream changed`, and the harness.
+  `collision`, `keep (edited)`, `merged: key reported`, and the harness. `seeded: upstream changed` rows
+  mostly settle without them (§3): say that some may bring a question about the project.
 
 Ask for a yes before step 2. A no ends the skill, with nothing written.
 
@@ -58,12 +60,46 @@ Work through what `--apply` listed, on the sync branch:
 - **Conflict markers** (`merge` with conflicts). A prose file you can resolve: keep every line of the
   project's version and take slipway's change around it, then show the owner the result. Code or config
   with a real conflict goes to the owner. The file keeps its override.
-- **Seeded diffs**, `.slipway/upstream/<path>.diff`, **one at a time**: show the diff, then offer to
-  **port** it (apply as written), **adapt** it (the same intent in the project's words), or **decline**
-  it. Record the choice and a one-line reason for the PR. Delete each `.diff` file once it is handled.
+- **Seeded diffs**, `.slipway/upstream/<path>.diff`: settle what follows from slipway, then ask the owner
+  about the rest, in the project's terms (below). Delete each `.diff` file once every change in it is
+  handled.
 - **Collision**, **keep (edited)**, **stale override**, **key reported**, **harness**: follow the line
   sync printed for each, with the owner's choice. Removing a stale override from
   `.slipway/overrides.yaml` is an edit the owner approves.
+
+### Seeded diffs: settle, then ask
+
+Each `.diff` is slipway's change to its template copy of a file the project owns. Take its changes one at
+a time (one file's diff can hold several), and decide first whether a change needs the owner at all.
+Three kinds never do (D-016). Settle them, and record each for the PR's `## Verification` under
+**Decided by sync**, with a one-line reason:
+
+- **Already there.** Every line the change adds is already in the project's file. Nothing to write.
+- **Not there to change.** The text the change edits, or sits beside, is not in the project's file,
+  because the project rewrote or removed it. Decline, and say in the reason what slipway's new text says,
+  so the owner can take it at their next edit of that file.
+- **Follows from sync.** The change keeps the file in step with a file this sync replaced. That covers
+  a link to that file, text that moved into it, slipway's own decision it cites, or slipway's guidance
+  (still unedited in the project's file) for a format one of the replaced checks reads. Take it as
+  written. When text moved, first confirm that every line the change removes is in the replaced file,
+  and keep the project's own lines.
+
+Everything else goes to the owner. So does any change that needs a value only the project has (a
+timezone, a tracker, a date, an estimate), even when you can find a likely one: propose it, and say
+where you found it. One file often splits: settle part of it, and ask about the rest. Changes that one
+answer settles share one question, such as a new PRD section and the milestone field it is built from.
+
+**Asking.** A question is about the project, never the mechanism. It names the project's own thing, what
+changes for them, and what each answer means for the project, with your recommendation and what you
+found. The owner answers it from what they know of the product. A question never contains `hunk`,
+`diff`, `seeded`, `managed`, `port`, `PD-`, `PL-` or a check id (`K1`, `MS1`, `R1`, `D1`). That detail
+goes in the PR, beside the owner's answer and the edit it made. Two examples from a real sync
+(2026-09-24):
+
+| Asked about the mechanism | Asked about the project |
+|---|---|
+| "AGENT.md's Timezone row: port as written, or adapt?" | "Which timezone should deadlines and appetite dates use? Your hosting and decisions say Chicago. Left as the machine's local time, CI runs in UTC, so a deadline day ends at 7 pm Chicago time (6 pm in winter)." |
+| "FRAME adds a Tracker column that K1 requires once M1 is active: fill it?" | "Where is the test for 'customers will pay for a same-day booking' tracked? I found #9 'pilot sign-up channels'. Is that it?" |
 
 ## 4 — Adopted: move the project's own IDs
 
@@ -90,9 +126,10 @@ Run `pnpm verify` and `pnpm meta`. Both must be green; D1 must be green with no 
 resolutions on the sync branch, then open one PR (`Lane: bounded`) whose body has:
 
 - `## What`: base → target, and the grouped explanation from step 1.
-- `## Verification`: the plan as printed, each conflict and how it was resolved, each seeded diff taken,
-  adapted or declined (with its reason), each ID moved, and the `pnpm verify` and `pnpm meta` results.
-  Also say what was not verified.
+- `## Verification`: the plan as printed, each conflict and how it was resolved, **Decided by sync** (each
+  settled change, its file and its one-line reason), each question as asked with the owner's answer and
+  the edit it made, each ID moved, and the `pnpm verify` and `pnpm meta` results. Also say what was not
+  verified.
 - `## Links`: `none: slipway sync <base>..<target>`.
 
 When the sync brings `.gitattributes` for the first time, the PR says so: a working tree checked out

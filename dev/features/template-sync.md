@@ -248,15 +248,17 @@ the target's map (its `fallback`), as adopt did when it wrote the manifest, so s
    shas: conventional-commit subjects, grouped by check, skill or doc. The plan prints those subjects,
    read from sync's own clone, so the skill never clones slipway itself.
 2. On a yes, have the owner run `--apply`, since the harness step needs the owner.
-3. Resolve conflict markers in prose files. Offer each `seeded: upstream changed` diff one at a time:
-   port it, adapt it, or decline it with a line in the PR.
+3. Resolve conflict markers in prose files. For each `seeded: upstream changed` diff, settle the changes
+   that need no owner (already there, not there to change, follows from sync), and ask about the rest in
+   the project's terms, never the mechanism's (D-016, #62).
 4. On adopt, right after `--adopt --apply` and before any sync or ported diff: move the project's own
    lessons and decisions to `PL-`/`PD-`, rewriting citations in files the project owns (never
    `.slipway/`). The adopt report lists them: lessons at paths slipway never shipped, and decision
    headings the base's `decisions.md` lacks (a target ID counts as slipway's only under the target's own
    heading, so a project decision whose number slipway reused, like the project's D-015, is listed).
 5. Run `pnpm verify` and `pnpm meta`, then open the PR with `## Verification` naming the plan, each
-   conflict and how it was resolved, and each seeded diff taken or declined.
+   conflict and how it was resolved, each change decided by sync with its reason, and each question asked
+   with the owner's answer.
 
 Verified against: e801604 2026-09-23 — `new-project` SKIP (scripts/new-project.mjs:34), placeholder
 files (:35), version recording (:107, :138, :172), no git tags in slipway, lessons up to L-67, and
