@@ -99,7 +99,7 @@ it is built from.
 changes for them, and what each answer means for the project, with your recommendation and what you
 found. The owner answers it from what they know of the product. A question never contains `hunk`,
 `diff`, `seeded`, `managed`, `port`, `PD-`, `PL-` or a check id (`K1`, `MS1`, `R1`, `D1`). That detail
-goes in the PR, beside the owner's answer and the edit it made. Two examples from a real sync
+goes in the PR, beside the owner's answer and the edit it made. Two examples, adapted from a real sync
 (2026-09-24):
 
 | Asked about the mechanism | Asked about the project |
