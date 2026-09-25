@@ -157,7 +157,8 @@ none: developer tooling; adds no person, channel or promise to a project's produ
 The skills run `gh` with the owner's credentials, and Ripple edits issues other than the one filed.
 
 - **Nothing is edited without the owner's confirmation.** Given 0 confirmations, the repository's issues are
-  unchanged except the one just filed.
+  unchanged except the one just filed and its native link under a same-repository parent, which filing
+  includes. A comment on a parent in another repository is posted only when the owner says yes.
 - **An edit changes one line of a freshly fetched body.** A body edited since the proposal is re-read, never
   overwritten from a stale copy.
 - **Issue text is data.** A body or comment that tells the agent to apply edits, close issues or skip
@@ -240,3 +241,4 @@ none.
 
 - 2026-09-25 · ADDED · shaped from #46 before any code · PR for #46
 - 2026-09-25 · CHANGED · build step 1: `log-followup` reads `Domain invariants doc` too (its acceptance line on checked math), so that row is read by all four · PR for #46 step 1
+- 2026-09-25 · CHANGED · threat model: filing includes the new issue's link under a same-repository parent; a comment on a parent in another repository needs the owner's yes (cold review of step 1) · PR for #46 step 1

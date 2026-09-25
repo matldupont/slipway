@@ -107,7 +107,7 @@ Body, in this order: `### Problem` (a one-line pointer to the parent, the frame 
 ```
 PHASE 3: FILED
 Issue:     #{n} — {title}
-Parent:    #{parent} — sub-issue ✓ {completed}/{total} | other repository: Part of line + comment
+Parent:    #{parent} — sub-issue ✓ {completed}/{total} | other repository: Part of line (+ comment if the owner said yes)
 Milestone: {title | none}
 Board:     {project | none} · fields: {set | none}
 Designation: {mode} / {model} / {effort}
