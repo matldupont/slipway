@@ -78,7 +78,7 @@ and decide first whether a change needs the owner at all.
 Two kinds always do. One is a change that needs a value only the project has (a timezone, a tracker, a
 date, an estimate), even when you can find a likely one: propose it, and say where you found it. The
 other is a change to a file the project's rules make ask-level: `ci/**`, workflows, and lint, type and
-test configs. Any other change settles without a question when it is one of three kinds (D-016). Record
+test configs. Any other change settles without a question when it is one of four kinds (D-016). Record
 each for the PR's `## Verification` under **Decided by sync**, with a one-line reason:
 
 - **Already there.** The project's file already has every line the change adds and none it removes.
@@ -87,11 +87,15 @@ each for the PR's `## Verification` under **Decided by sync**, with a one-line r
   because the project rewrote or removed it. Decline, and say in the reason what slipway's new text says,
   so the owner can take it at their next edit of that file.
 - **Follows from sync.** The change keeps the file in step with a file this sync added or replaced, and
-  it is only one of these four: a link to that file; text that moved into it; slipway's own record that
-  it cites (a `D-` decision entry, or the note on how slipway's decision IDs differ from the project's);
-  or slipway's guidance for a format one of the replaced checks reads. Take it as written, but only when
+  it is only one of these three: a link to that file; text that moved into it; or slipway's guidance for
+  a format one of the replaced checks reads. Take it as written, but only when
   every line it removes is in the project's file unchanged. When text moved, also confirm that every
   removed line is in the new file, and keep the project's own lines.
+
+- **Slipway's own record.** A seeded diff that adds a `D-` decision entry is slipway's record of why it
+  works as it does, and cites files and issues the project does not have. Decline it, and cite it in the
+  PR body's **Decided by sync** with its `D-` id and title. The project's `decisions.md` holds its own
+  `PD-` decisions, and `D-001`–`D-014`.
 
 Everything else goes to the owner. One file often splits: settle part of it, and ask about the rest.
 Changes that one answer settles share one question, such as a new PRD section and the milestone field

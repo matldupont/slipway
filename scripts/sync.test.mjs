@@ -485,6 +485,13 @@ test('apply: a seeded file slipway changed gets slipway\'s base → target diff 
   assert.match(applied.stdout, /yours — slipway's template changed — [^\n]*\n {2}\.slipway\/upstream\/docs\/PRD\.md\.diff\n/);
 });
 
+test('decisions.md is seeded, and /sync-slipway declines a D- entry a seeded diff adds instead of porting it', () => {
+  assert.equal(classify(loadOwnership(SRC), 'decisions.md'), 'seeded');
+  const skill = readFileSync(join(SRC, '.claude/skills/sync-slipway/SKILL.md'), 'utf8');
+  assert.match(skill, /A seeded diff that adds a `D-` decision entry is slipway's record[^]*?Decline it/);
+  assert.doesNotMatch(skill, /it cites \(a `D-` decision entry/);
+});
+
 test('README.md is slipway\'s own: a change to it is no row and no .slipway/upstream diff, and the real map classes it internal', () => {
   const r = sync(project());
   assert.equal(rows(r.stdout)['README.md'], undefined, r.stdout);

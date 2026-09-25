@@ -132,6 +132,17 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   assert.match(r.stdout, /BROKEN — manifest\/missing/);
 });
 
+test('the created decisions.md holds the header and D-001–D-014 only: no slipway record, no citation of one', () => {
+  const dest = join(tmp(), 'probe');
+  newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
+  const text = readFileSync(join(dest, 'decisions.md'), 'utf8');
+  assert.equal((text.match(/^## D-01[5-9]/gm) ?? []).length, 0);
+  for (let n = 1; n <= 14; n++) assert.match(text, new RegExp(`^## D-0${String(n).padStart(2, '0')} `, 'm'), `D-${n}`);
+  assert.match(text, /add this project's own as `PD-<n>`/);
+  assert.doesNotMatch(text, /roadmap-page|#62|#63|D-01[5-9]/);
+  assert.match(readFileSync(join(SRC, 'decisions.md'), 'utf8'), /^## D-017 /m, 'slipway keeps its own records');
+});
+
 test('under npx, untracked inside another repository: no sha from the enclosing HEAD, no network — null plus version', () => {
   const root = tmp();
   const outer = join(root, 'outer');
