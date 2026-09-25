@@ -58,7 +58,7 @@ for (const task of TASKS) {
   if (declaring.length === 0) {
     if (REQUIRED_TASKS.includes(task)) {
       const proves = task === 'test' ? 'behaviour' : 'types';
-      findings.push({ where: `task:${task}`, detail: `no package declares \`${task}\` — verify cannot prove ${proves}` });
+      findings.push({ where: `task:${task}`, detail: `no package declares \`${task}\` — verify cannot prove ${proves}: add a \`${task}\` script to the app's package.json` });
     }
     continue;
   }
@@ -71,7 +71,7 @@ if (!plan && findings.length === 0) {
     process.stdout.write(`VERIFY: pnpm -r --workspace-concurrency=1 run ${s.task}\n`);
     const r = spawnSync('pnpm', ['-r', '--workspace-concurrency=1', 'run', s.task], { cwd: root, stdio: 'inherit' });
     if (r.status !== 0) {
-      findings.push({ where: `task:${s.task}`, detail: `failed (exit ${r.status ?? r.signal}) — stopped; later tasks did not run` });
+      findings.push({ where: `task:${s.task}`, detail: `failed (exit ${r.status ?? r.signal}) — stopped; later tasks did not run. Fix it, then run pnpm verify again` });
       break;
     }
     ran.push(`${s.task} in ${s.declaring.length}`);

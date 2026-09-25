@@ -69,8 +69,9 @@ if (!existsSync(path)) {
 }
 
 const md = readFileSync(path, 'utf8');
-// Comments and inline code are guidance, not content: the template explains both markers in backticks.
-const text = md.replace(/<!--[\s\S]*?-->/g, '').replace(/`[^`\n]*`/g, '');
+// Comments are blanked (not removed) so line numbers hold. A marker sitting whole inside inline code is
+// the template's explanation of the syntax, not a question; an escaped backtick is not code.
+const text = md.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, '')).replace(/(?<!\\)`[^`\n]*\[(?:NEEDS CLARIFICATION|PARKED)[^`\n]*`/g, '');
 const fm = frontmatter(md) ?? {};
 const { milestones } = readMilestones(root);
 const underway = milestones.filter((m) => m.fm && (m.fm.status === 'active' || m.fm.status === 'closed'));
@@ -105,7 +106,7 @@ if (underway.length) {
     add('FRAME.md#job/shape', 'the job story must read "When …, I want to …, so I can …"');
   }
   const open = text.split(/\r?\n/).map((l, i) => (PLACEHOLDER.test(l) ? i + 1 : 0)).filter(Boolean);
-  if (open.length) add('FRAME.md#placeholder/present', `line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/product/FRAME.md still hold a placeholder or [NEEDS CLARIFICATION]: answer or park each (/clarify), then set status: framed`);
+  if (open.length) add('FRAME.md#placeholder/present', `line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/product/FRAME.md still hold${open.length > 1 ? '' : 's'} a placeholder or [NEEDS CLARIFICATION]: answer or park each (/clarify), then set status: framed`);
 }
 
 // Risk table rows, read by column header: | RISK-n | … | Category | … | Threshold | Result | Tracker |
@@ -116,7 +117,7 @@ if (missing.length) {
 
 for (const r of risks) {
   if (r.tested && !filled(r.threshold)) {
-    add(`${r.id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test');
+    add(`${r.id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test — write the Threshold it was measured against, or clear the Result and run the test again');
   }
   if (pastSkeleton.length && r.value && !r.tested) {
     add(`${r.id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record its Result in FRAME's Risks table, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`);

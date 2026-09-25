@@ -85,15 +85,15 @@ if (files.includes('TEMPLATE.md')) {
 for (const { file: f, md, fm } of milestones) {
   const add = (rule, detail) => findings.push({ where: `${f}#${rule}`, detail });
   if (!fm) { add('frontmatter/missing', 'no YAML frontmatter'); continue; }
-  if (!fm.id || !fm.status) { add('field/missing', 'needs id and status'); continue; }
-  if (seen.has(fm.id)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(fm.id)}`);
+  if (!fm.id || !fm.status) { add('field/missing', 'needs id: and status: in its frontmatter (docs/milestones/TEMPLATE.md shows both)'); continue; }
+  if (seen.has(fm.id)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(fm.id)} — give one of them the next free number`);
   else seen.set(fm.id, f);
   if (!MILESTONE_STATUSES.includes(fm.status)) {
     add('status/unknown', `"${fm.status}" is not one of ${MILESTONE_STATUSES.join(', ')}`);
     continue;
   }
   if (fm.kind && !MILESTONE_KINDS.includes(fm.kind)) add('kind/unknown', `"${fm.kind}" is not one of ${MILESTONE_KINDS.join(', ')}`);
-  if (fm.extended && !hasDecision(fm.extended)) add('extended/unresolved', `${fm.extended} is not a heading in decisions.md`);
+  if (fm.extended && !hasDecision(fm.extended)) add('extended/unresolved', `${fm.extended} is not a heading in decisions.md: record the extension there, or fix the id in extended:`);
   if (fm.status === 'shaping') continue;
 
   if (fm.status === 'active') active.push(f);

@@ -9,6 +9,8 @@
     "Existential risk: RISK-3 is existential and untested, and resolves \"before first live charge\", which names no milestone: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-3's Result",
     "Existential risk: RISK-4 is existential and untested, and resolves before M4, after M2 starts: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-4's Result",
     "Existential risk: RISK-7 is existential and untested, and has no row in the PRD risk table: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-7's Result",
-    "Open decision: PD-1 Deposits are refundable (open — owner, before M2)"
+    "Open decision: PD-1 Deposits are refundable (open — owner, before M2)",
+    "Open question: docs/product/FRAME.md:32 — escaped backticks are not code",
+    "Parked: docs/product/FRAME.md:30 — which region first? (#12)"
   ]
 }

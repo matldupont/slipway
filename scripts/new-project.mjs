@@ -134,7 +134,7 @@ const resolved = resolveSlipway(SRC, COPY, { rules });
 const version = resolved.sha ?? (resolved.candidate && listSource(SRC) === 'git' ? `${resolved.candidate}-dirty` : pkgVersion);
 
 process.stdout.write(`slipway ${/^[0-9a-f]{40}/.test(version) ? version.slice(0, 12) + version.slice(40) : version} → ${dest}\n  product: ${name}\n  repo:    ${opts.github ? `${repo} (${opts.public ? 'public' : 'private'})` : 'none (--no-github)'}\n  commits: ${identity ? `${identity.name} <${identity.email}>` : 'your git config'}\n`);
-if (!resolved.sha) process.stdout.write(`  sha:     unknown — ${resolved.why}; a later sync finds the base by content (version ${pkgVersion} recorded)\n`);
+if (!resolved.sha) process.stdout.write(`  sha:     unknown — ${resolved.why}; ${resolved.candidate ? 'a later sync finds the base only if those files match a slipway commit' : 'a later sync looks for the base by content'} (version ${pkgVersion} recorded)\n`);
 
 // ---- 1. copy
 step(1, 'Copy the template');

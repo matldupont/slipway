@@ -51,4 +51,4 @@ body:
     id: links
     attributes:
       label: Links
-      description: "Part of: #N · Follows: #N · Supersedes: #N · Decision: <its id in decisions.md>"
+      description: "Part of: #N · Follows: #N · Supersedes: #N · Decision: PD-n"

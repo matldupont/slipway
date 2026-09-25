@@ -50,14 +50,14 @@ for (const f of files) {
     }
     continue;
   }
-  if (!reviewed) findings.push({ where: `${rel}#provenance/missing`, detail: 'no `Reviewed: <path> @ <ref>` line' });
-  if (!version) findings.push({ where: `${rel}#provenance/no-version-line`, detail: 'no `Version line: <verbatim text>` line' });
+  if (!reviewed) findings.push({ where: `${rel}#provenance/missing`, detail: 'no `Reviewed: <path> @ <ref>` line: add one under the title, naming the file read and the commit it was read at' });
+  if (!version) findings.push({ where: `${rel}#provenance/no-version-line`, detail: 'no `Version line: <verbatim text>` line: add one, copying the reviewed document\'s Version line as it is' });
   if (!reviewed || !version) continue;
 
   const targetRel = unquote(reviewed[1]);
   const target = join(root, targetRel);
   if (!existsSync(target)) {
-    findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${targetRel} does not exist` });
+    findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${targetRel} does not exist: fix the Reviewed: line, or delete the review` });
     continue;
   }
   const want = unquote(version[1]);
@@ -65,7 +65,7 @@ for (const f of files) {
   if (!readFileSync(target, 'utf8').includes(want)) {
     findings.push({
       where: `${rel}#provenance/stale`,
-      detail: `"${want}" is not in ${targetRel} — the document moved on, or the line was written from memory`,
+      detail: `"${want}" is not in ${targetRel} — the document moved on, or the line was written from memory: review the current version (/review-doc), or copy the line from the file`,
     });
   }
 }

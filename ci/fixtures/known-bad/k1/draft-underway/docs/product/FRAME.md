@@ -71,3 +71,7 @@ a decision override (`PD-<n>`) when you proceed despite the evidence.
 | RISK-1 | <…> | value | <…> | <…> | <…> | | |
 
 Evidence — interview notes and test results — lives in `docs/product/evidence/`.
+
+`[NEEDS CLARIFICATION: an example inside inline code is not a question]`
+
+[PARKED: which region first? · assume: `us-east` only · if wrong: latency for the rest · `#12`]

@@ -30,7 +30,7 @@ const root = process.argv[2] ?? '.';
 const prdPath = join(root, 'docs', 'PRD.md');
 const UNIT = 'PRD features and milestone slices';
 if (!existsSync(prdPath)) {
-  process.exit(report({ id: 'F1', claim: '', scanned: 0, unit: UNIT, broken: 'docs/PRD.md does not exist' }));
+  process.exit(report({ id: 'F1', claim: '', scanned: 0, unit: UNIT, broken: 'docs/PRD.md does not exist — /kickoff writes it' }));
 }
 
 const prd = readFileSync(prdPath, 'utf8');

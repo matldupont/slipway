@@ -99,7 +99,7 @@ for (const p of [ws.root, ...members]) {
     if (!GATED.test(script)) continue;
     gated++;
     if (!covered.has(key(p, script))) {
-      findings.push({ where: key(p, script), detail: 'declared, but no CI workflow invokes it — a gate that never runs' });
+      findings.push({ where: key(p, script), detail: 'declared, but no CI workflow invokes it — a gate that never runs: add a step that runs it to .github/workflows/ci.yml, or remove the script' });
     }
   }
 }
@@ -108,7 +108,7 @@ const checksDir = join(root, 'ci', 'checks', 'meta');
 const checkFiles = existsSync(checksDir) ? readdirSync(checksDir).filter((f) => f.endsWith('.mjs')).sort() : [];
 for (const f of checkFiles) {
   if (!invokedChecks.has(f)) {
-    findings.push({ where: `check:${f}`, detail: 'the check exists, but no CI workflow runs it — declared, not installed' });
+    findings.push({ where: `check:${f}`, detail: 'the check exists, but no CI workflow runs it — declared, not installed: add it to the meta script in package.json, or to a workflow step' });
   }
 }
 
@@ -124,7 +124,7 @@ const walkTests = (rel) => {
 };
 if (isTemplate(root)) walkTests('scripts');
 for (const t of tests) {
-  if (!invokedPaths.has(t)) findings.push({ where: `test:${t}`, detail: 'a slipway test no CI workflow runs — it proves nothing while it sits there' });
+  if (!invokedPaths.has(t)) findings.push({ where: `test:${t}`, detail: 'a slipway test no CI workflow runs — it proves nothing while it sits there: add it to the meta script in package.json' });
 }
 
 process.exit(

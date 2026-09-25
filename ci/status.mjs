@@ -31,7 +31,9 @@ const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
 // ---- facts
 const agent = read('AGENT.md') ?? '';
-const bootstrapped = !agent.includes('<Product>') && !agent.includes('<owner/repo>');
+// Any `<…>` placeholder left in AGENT.md's table: the product, the repository, the GitHub project, the
+// timezone or the invariants doc. The literal `<…>` in its prose is not one.
+const bootstrapped = !/`<[^`\n\u2026]*>`/.test(agent);
 let packages = 0;
 try { packages = discoverWorkspace(root).packages.length; } catch { /* reported as 0 */ }
 
@@ -116,8 +118,9 @@ const open_ = [];
 const parked_ = [];
 for (const file of walk(join(root, 'docs'))) {
   const rel_ = relative(root, file);
-  // Comments and inline code are guidance, not questions: the FRAME template explains both markers in backticks.
-  const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/).map((l) => l.replace(/`[^`\n]*`/g, ''));
+  // Comments are blanked, not removed, so line numbers hold. A marker sitting whole inside inline code is the
+  // template explaining the syntax, not a question; an escaped backtick is not code.
+  const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, '')).split(/\r?\n/).map((l) => l.replace(/(?<!\\)`[^`\n]*\[(?:NEEDS CLARIFICATION|PARKED)[^`\n]*`/g, ''));
   lines.forEach((line, i) => {
     for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${body.trim().slice(0, 90) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {

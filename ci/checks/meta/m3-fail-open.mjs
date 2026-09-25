@@ -198,7 +198,7 @@ for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
   const where = `registry:${e.id}`;
   if (!e.expires) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
   else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'the entry names its step by position, which moves on any edit — give the step an id: and key the entry to it' });
-  else if (e.expires <= today) findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — fix the step, or extend the date with a reason` });
+  else if (e.expires <= today) findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — fix the job or step, or extend the date with a reason` });
   else if (!siteIds.has(e.id)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml matches no continue-on-error step or job — remove it' });
   else live.add(e.id);
 }
@@ -208,7 +208,7 @@ for (const s of sites) {
   const why = s.duplicate ? 'step name is not unique in its job — give it an id: before it can be excused'
     : s.positional ? 'step has no id or name — give it an id: before it can be excused'
     : 'a failure here would not fail CI';
-  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}; currently line ${s.line}) — remove it, or add a dated entry keyed to the step's id` });
+  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}; currently line ${s.line}) — remove it, or add a dated entry with id: ${s.id}` });
 }
 
 process.exit(
