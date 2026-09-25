@@ -91,7 +91,7 @@ function parse(argv) {
 
 // The project, slipway's clone, and the base: every refusal that needs no hashing.
 function locate(cwd, o) {
-  const { root, branch } = repoState(cwd);
+  const { root, branch, remote } = repoState(cwd);
   let has;
   try {
     has = readManifest(root);
@@ -154,7 +154,7 @@ function locate(cwd, o) {
   const mapped = base.tree.has(MAP);
   if (mapped && !base.rules) throw new Refusal(`slipway ${short(sha)} has an ownership map this version cannot read — pass a newer --base`);
   const rules = mapped ? base.rules : t.rules;
-  return { root, branch, source, gitDir, read, overrides, target: t, base: { sha, tree: base.tree, rules, mapped, from: hint.from } };
+  return { root, branch, remote, source, gitDir, read, overrides, target: t, base: { sha, tree: base.tree, rules, mapped, from: hint.from } };
 }
 
 // The slipway sha new-project recorded, when it recorded one: the first commit's subject, else the README.
@@ -233,13 +233,14 @@ const meaning = (label) => {
 };
 
 function report(out, ctx, rows, verbose = false, stale = []) {
-  const { root, branch, source, base } = ctx;
+  const { root, branch, remote, source, base } = ctx;
   const show = (r) => (r.choice ? `${r.kind} → ${r.choice}` : r.kind);
   const width = Math.max(...rows.map((r) => show(r).length), 8);
   out.write(`slipway adopt, on ${branch}\n`);
   out.write(`  source: ${source}\n`);
   out.write(`  base:   ${base.sha} (from ${base.from})\n`);
-  out.write(`  map:    ${base.mapped ? "the base's dev/ownership.yaml" : `the target's — the base predates ${MAP}`}\n\n`);
+  out.write(`  map:    ${base.mapped ? "the base's dev/ownership.yaml" : `the target's — the base predates ${MAP}`}\n`);
+  out.write(remote ? `  remote: ${remote}\n\n` : '\n');
   const labels = [...new Set(rows.map(show))];
   if (verbose) for (const r of rows) out.write(`  ${show(r).padEnd(width)}  ${r.path}\n`);
   else out.write(`${BASE_WHY}\n\n${rows.length} paths the base ships:\n${bucketLines(labels.map((l) => ({ n: rows.filter((r) => show(r) === l).length, label: l, meaning: meaning(l) })))}\n`);
