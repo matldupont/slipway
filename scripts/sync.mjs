@@ -172,10 +172,10 @@ function preflight(cwd) {
   if (!r.exact) {
     const rewritten = r.best?.extra === 0 && rewrittenHistory({ root, gitDir, read, managed, best: r.best.sha, source });
     if (rewritten) throw new Refusal(rewritten);
-    const c = (x) => `${x.sha.slice(0, 12)} (${x.matched} of ${r.total} managed files at their blob${x.extra ? `, ${x.extra} more it ships` : ''})`;
+    const c = (x) => `${x.sha.slice(0, 12)} (${x.matched} of ${r.total} of slipway's files at their blob${x.extra ? `, ${x.extra} more it ships` : ''})`;
     throw new Refusal(
       r.best
-        ? `no slipway commit holds exactly the manifest's ${r.total} managed files; closest ${c(r.best)}${r.runnerUp ? `, then ${c(r.runnerUp)}` : ''}`
+        ? `no slipway commit holds exactly the manifest's ${r.total} slipway files; closest ${c(r.best)}${r.runnerUp ? `, then ${c(r.runnerUp)}` : ''}`
         : `${publicSource(source)} has no commits to compare the manifest with`,
     );
   }
@@ -302,15 +302,24 @@ function scriptRows(p, { base, target, cur, baseRules, targetRules }) {
   return rows.length ? rows : [{ kind: 'unchanged', path: p }];
 }
 
+// The words a row kind is shown in. The kinds themselves are identifiers the code branches on; the owner
+// reads whose file it is (D-016). A kind with no entry is already plain.
+const LABEL = {
+  'seeded: upstream changed': "yours — slipway's template changed",
+  'merged: key updated': 'script updated',
+  'merged: key reported': 'script kept, yours differs',
+};
+const label = (kind) => LABEL[kind] ?? kind;
+
 // What each row kind means for the owner, and what --apply does with it.
 const MEANING = {
-  replace: 'pristine here, changed by slipway: --apply overwrites it',
+  replace: "slipway's file, unchanged since install, and slipway changed it: --apply overwrites it",
   merge: 'you edited it under an override, and slipway changed it: --apply merges (conflict markers possible)',
   add: 'new in slipway, absent here: --apply copies it in',
-  delete: 'slipway removed it and yours is pristine: --apply deletes it',
+  delete: 'slipway removed it and yours is unchanged since install: --apply deletes it',
   'keep (edited)': 'slipway removed or changed it, but you edited yours: --apply leaves yours',
   collision: 'slipway ships a path where you have your own file: --apply leaves yours',
-  'seeded: upstream changed': "a file you fill in, never rewritten: --apply writes slipway's diff under .slipway/upstream/ as a reference to port by hand, not a patch (it is against the template's copy); /sync-slipway walks you through it",
+  'seeded: upstream changed': "your file (started from slipway's template), which slipway's template has since changed. --apply never rewrites it: it writes slipway's diff under .slipway/upstream/ as a reference to apply by hand, not a patch (it is against the template's copy); /sync-slipway walks you through it",
   'merged: key updated': 'a package.json script you left at the base value: --apply updates it',
   'merged: key reported': "a package.json script you changed: --apply keeps yours and shows slipway's",
   unchanged: 'the same on both sides: nothing to do',
@@ -325,10 +334,10 @@ function nextStep(r, targetSha) {
 }
 
 function print(out, { branch, remote, source, base, targetSha, notes, log, verbose }, rows, plan = false) {
-  const width = Math.max(...KINDS.map((k) => k.length));
+  const width = Math.max(...KINDS.map((k) => label(k).length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
-  out.write(`  base:   ${base.sha} (by content: the manifest's managed blobs)\n`);
+  out.write(`  base:   ${base.sha} (by content: the files slipway installed)\n`);
   out.write(`  target: ${targetSha ?? `${SRC} (its files match no slipway commit)`}\n`);
   if (remote) out.write(`  remote: ${remote}\n`);
   for (const n of notes) out.write(`  note:   ${n}\n`);
@@ -336,13 +345,13 @@ function print(out, { branch, remote, source, base, targetSha, notes, log, verbo
   out.write('\n');
   const counts = KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length]).filter(([, n]) => n);
   if (verbose) {
-    for (const r of rows) out.write(`  ${r.kind.padEnd(width)}  ${r.path}\n`);
-    out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${k}`).join(', ')}. `);
+    for (const r of rows) out.write(`  ${label(r.kind).padEnd(width)}  ${r.path}\n`);
+    out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${label(k)}`).join(', ')}. `);
     return;
   }
-  out.write(`${BASE_WHY}\n\n${rows.length} rows:\n${bucketLines(counts.map(([k, n]) => ({ n, label: k, meaning: MEANING[k] })))}\n`);
+  out.write(`${BASE_WHY}\n\n${rows.length} rows:\n${bucketLines(counts.map(([k, n]) => ({ n, label: label(k), meaning: MEANING[k] })))}\n`);
   const owed = rows.filter((r) => OWNER_ROWS.includes(r.kind));
-  if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed.map((r) => ({ kind: r.kind, path: r.path, next: nextStep(r, targetSha) })))}\n`);
+  if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed.map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha) })))}\n`);
   else if (plan) out.write('Nothing needs you.\n');
 }
 
@@ -391,10 +400,10 @@ function apply(out, ctx, rows) {
   say('merge — conflict markers left in the file; resolve them, and keep its override:', todo.conflicts.map((c) => `${c.path} (${c.n} conflict${c.n > 1 ? 's' : ''})`));
   say(`collision — slipway ships this path now; your file was not touched, and D1 flags it. To keep yours, override it with a reason; to take slipway's, copy its file from ${short(targetSha)} over yours:`, rows.filter((r) => r.kind === 'collision').map((r) => r.path));
   say('keep (edited) — slipway removed it; your file stays and is yours now:', todo.kept.gone);
-  say(`keep (edited) — slipway changed it, but your copy is missing, not a file, or was seeded until now, so nothing was merged. Copy slipway's from ${short(targetSha)}, or override it with a reason:`, todo.kept.shipped);
-  say(`stale override — it names no managed file now, so D1 flags it; remove it from ${OVERRIDES}:`, todo.stale);
-  say('merged: key reported — your value stays; slipway\'s is shown:', todo.reported);
-  say(`seeded: upstream changed — slipway's own diff (base → target): a reference to port by hand, not a patch to apply (it is against the template's copy, not yours). /sync-slipway walks you through them. The file was not touched:`, todo.diffs);
+  say(`keep (edited) — slipway changed it, but your copy is missing, not a file, or was your own file until now, so slipway's change was not applied. Copy slipway's from ${short(targetSha)}, or override it with a reason:`, todo.kept.shipped);
+  say(`stale override — it names no file of slipway's now, so D1 flags it; remove it from ${OVERRIDES}:`, todo.stale);
+  say(`${label('merged: key reported')} — your value stays; slipway's is shown:`, todo.reported);
+  say(`${label('seeded: upstream changed')} — slipway's own diff (base → target): a reference to apply by hand, not a patch (it is against the template's copy, not yours). /sync-slipway walks you through them. The file was not touched:`, todo.diffs);
   if (todo.harness) out.write(`\nharness — ${todo.harness.text}\n`);
   const owed = todo.conflicts.length || todo.stale.length || todo.harness?.owed || rows.some((r) => OWNER_ROWS.includes(r.kind));
   out.write(owed ? '\nSync exits 1: the rows above need you before this branch merges.\n' : '');
@@ -472,7 +481,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       todo.harness = { owed: true, text: `${HARNESS} changed, but ${INSTALLED} was edited, so it was left as it is. Compare them: git diff --no-index ${INSTALLED} ${HARNESS}` };
     }
   } else if (harnessRow === 'merge') {
-    todo.harness = { text: `${HARNESS} was merged; once it is resolved, install it with: cp ${HARNESS} ${INSTALLED}` };
+    todo.harness = { text: `${HARNESS} now holds your edits and slipway's changes together; once any conflicts in it are resolved, install it with: cp ${HARNESS} ${INSTALLED}` };
   }
 
   const next = nextManifest({ manifest, target, targetRules, targetSha }, rows);

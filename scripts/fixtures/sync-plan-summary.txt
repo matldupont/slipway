@@ -1,33 +1,33 @@
 slipway sync plan, on main
   source: <slipway>
-  base:   <A> (by content: the manifest's managed blobs)
+  base:   <A> (by content: the files slipway installed)
   target: <B>
 
 slipway's commits, base → target (3, newest first):
   B
-  A1: one managed file added
-  A0: seeded and scripts only
+  A1: one slipway file added
+  A0: docs and scripts only
 
 The base is the slipway commit these files last matched. Sync needs it to tell "you changed this" from "slipway changed this", the way a merge needs a common ancestor.
 
 20 rows:
-  2 replace                   pristine here, changed by slipway: --apply overwrites it
-  1 merge                     you edited it under an override, and slipway changed it: --apply merges (conflict markers possible)
-  3 add                       new in slipway, absent here: --apply copies it in
-  2 delete                    slipway removed it and yours is pristine: --apply deletes it
-  1 keep (edited)             slipway removed or changed it, but you edited yours: --apply leaves yours
-  1 collision                 slipway ships a path where you have your own file: --apply leaves yours
-  1 seeded: upstream changed  a file you fill in, never rewritten: --apply writes slipway's diff under .slipway/upstream/ as a reference to port by hand, not a patch (it is against the template's copy); /sync-slipway walks you through it
-  3 merged: key updated       a package.json script you left at the base value: --apply updates it
-  1 merged: key reported      a package.json script you changed: --apply keeps yours and shows slipway's
-  5 unchanged                 the same on both sides: nothing to do
+  2 replace                             slipway's file, unchanged since install, and slipway changed it: --apply overwrites it
+  1 merge                               you edited it under an override, and slipway changed it: --apply merges (conflict markers possible)
+  3 add                                 new in slipway, absent here: --apply copies it in
+  2 delete                              slipway removed it and yours is unchanged since install: --apply deletes it
+  1 keep (edited)                       slipway removed or changed it, but you edited yours: --apply leaves yours
+  1 collision                           slipway ships a path where you have your own file: --apply leaves yours
+  1 yours — slipway's template changed  your file (started from slipway's template), which slipway's template has since changed. --apply never rewrites it: it writes slipway's diff under .slipway/upstream/ as a reference to apply by hand, not a patch (it is against the template's copy); /sync-slipway walks you through it
+  3 script updated                      a package.json script you left at the base value: --apply updates it
+  1 script kept, yours differs          a package.json script you changed: --apply keeps yours and shows slipway's
+  5 unchanged                           the same on both sides: nothing to do
 
 Needs you (3):
-  merged: key reported  package.json scripts.b
+  script kept, yours differs  package.json scripts.b
     next: sync --apply keeps your value and prints slipway's; edit the key by hand to take it
-  collision             process/clash.md
+  collision                   process/clash.md
     next: to keep yours, list it in .slipway/overrides.yaml with a reason; to take slipway's, copy its file from <B> over yours
-  keep (edited)         process/kept.md
+  keep (edited)               process/kept.md
     next: sync --apply leaves your file as it is; port slipway's change by hand if you want it
 
 Plan only — nothing was written. Carry it out with: sync --apply
