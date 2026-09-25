@@ -26,7 +26,9 @@ a sha the owner names. In slipway's own checkout it is `node <slipway>/scripts/n
 Run `sync` (the plan; it writes nothing). If it says there is no manifest, adopt first (§Adopt), then
 come back here.
 
-The plan prints the base, the target, slipway's commits between them, and one row per path. Explain the
+The plan prints the base, the target, slipway's commits between them, one count line per bucket with what
+sync does with it, and only the rows that need the owner, each with its next command. `--verbose` prints one
+row per path; the `seeded: upstream changed` diffs are references to port by hand, not patches. Explain the
 change in the project's terms, not slipway's:
 
 - Group the commit subjects by what they touch, using the conventional-commit scope: **checks** (`m1`,
