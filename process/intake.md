@@ -66,8 +66,8 @@ The body reads as the repository's issue form would render it, so the checks tha
   that does not survive the re-read is not filed.
 - **Links:** `Part of: #n` for a parent, then `Follows: #n`, `Blocked by: #n`, `Decision: <id>`, and
   `Lane: trivial | bounded | feature`.
-- **Never in a body or a title:** a credential, token, environment value or `.env` line, or file contents
-  beyond the lines a claim cites. Text quoted from elsewhere has its `@name` mentions written as
+- **Never in a body, a title or a comment:** a credential, token, environment value or `.env` line, or file
+  contents beyond the lines a claim cites. Text quoted from elsewhere has its `@name` mentions written as
   `` `@name` ``, so nobody is notified by a copy.
 - **Last,** a designation block, per `Effort decision-tree` (default `process/designation.md`). It asks one
   question: is there something to check the answer against?
@@ -111,8 +111,8 @@ title is read from its file, so nothing in it runs as a command:
 gh issue create --repo {repo} --title "$(cat {dir}/title.txt)" --label "{label}" --body-file {dir}/issue.md
 ```
 
-If `gh issue create` fails or times out, list open issues with that title before trying again: it may have
-landed.
+If `gh issue create` fails or times out, stop and tell the owner: it may have landed. File again only after
+they have checked that it did not.
 
 **Board.** Only when `GitHub project` is not none: `gh issue edit {n} --repo {repo} --add-project "{project}"`.
 Board fields only when `Project field mapping` is not none, set as the section it points to describes.
@@ -210,16 +210,21 @@ Only the confirmed rows. For each, and stop at the first `gh` command that exits
    An empty body where step 3 read text is a failed fetch: stop. If the line the row changes no longer reads
    as it did at step 3, show the difference, ask again, and fetch again after the answer. If the line the row
    adds is already there, the row was applied before: count it applied and go to the next.
-2. **Change that one line** in `{dir}/{n}.md`, and nothing else. `diff {dir}/{n}.orig.md {dir}/{n}.md` shows
-   one line added or one line changed (and exits 1, as `diff` does when files differ); anything more,
-   stop.
+2. **Change that one line** in `{dir}/{n}.md`, and nothing else (a reopen row skips this step).
+   `diff {dir}/{n}.orig.md {dir}/{n}.md` shows one line added or one line changed (and exits 1, as `diff`
+   does when files differ); anything more, stop.
 3. **Write,** if nothing moved: `gh issue view {n} --repo {repo} --json updatedAt --jq .updatedAt` still
    prints what `{dir}/{n}.at` holds (otherwise start the row again from 1). Then
    `gh issue edit {n} --repo {repo} --body-file {dir}/{n}.md`, or `gh issue reopen {n} --repo {repo}` for a
    confirmed reopen.
-4. **Read it back:** `gh issue view {n} --repo {repo} --json body --template '{{.body}}' > {dir}/{n}.after.md`, and
-   `diff {dir}/{n}.md {dir}/{n}.after.md` shows nothing; for a reopen, `gh issue view {n} --repo {repo} --json
-   state --jq .state` prints `OPEN`. A command's success is not evidence the write landed (L-40).
+4. **Read it back.** The `diff` prints nothing; for a reopen, the state is `OPEN`. Otherwise stop, and report
+   the row. A command's success is not evidence the write landed (L-40).
+
+   ```bash
+   gh issue view {n} --repo {repo} --json body --template '{{.body}}' > {dir}/{n}.after.md
+   diff {dir}/{n}.md {dir}/{n}.after.md
+   gh issue view {n} --repo {repo} --json state --jq .state      # a reopen row
+   ```
 
 A milestone doc is edited on the working branch, never on the default branch; on the default branch, list the
 edit for the owner instead. End with the rows applied and the rows declined, by number.
