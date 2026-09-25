@@ -88,7 +88,7 @@ section it uses. Reused, not rewritten: `process/designation.md` (the effort lin
 - Every issue ends with `## Recommended Mode / Model / Effort` per `process/designation.md`; feature-lane
   issues carry a **Shape** and a **Build** line.
 - `Links` carries `Part of: #n` when there is a parent; the skill also links it as a native sub-issue (same
-  repository only; otherwise the `Part of` line plus a comment on the parent).
+  repository only; otherwise the `Part of` line, plus a comment on the parent when the owner says yes).
 
 ### Per skill: what the ≤ 300 lines keep
 
@@ -171,7 +171,8 @@ The skills run `gh` with the owner's credentials, and Ripple edits issues other 
   skills", code.claude.com/docs, skills). Anyone holding personal copies keeps running those until they retire
   or rename them; the owner probes below must run with them moved aside.
 - Ripple matches text. An issue that describes a path in other words ("the deploy script") is missed.
-- Ripple is same-repository only; cross-repo parents get the `Part of` line and a comment, no ripple.
+- Ripple is same-repository only; cross-repo parents get the `Part of` line (and a comment, if the owner says
+  yes), no ripple.
 - Slipway's own repository cannot run the skills (its `AGENT.md` is the template); slipway keeps filing its
   own issues by hand in the same format.
 
