@@ -15,7 +15,7 @@ takes the default in `process/intake.md` → Configuration; add the row to chang
 | GitHub project | `<project name>`, or none | the board new issues are added to (`gh issue edit --add-project`); none skips the board |
 | PRD path | `docs/PRD.md` | where a feature's F-ID goes, and what intake checks a feature against |
 | Feature docs dir | `docs/features/` | where feature docs and bug-fix stubs are written |
-| Milestone roadmap | `docs/milestones/` — one file per milestone; the active one is named by `pnpm status` | which milestone a new issue belongs to, and the milestone docs intake checks for work the new issue changes |
+| Milestone roadmap | `docs/milestones/` — one file per milestone; the active one is named by `pnpm status` | where the active milestone is found, and the milestone docs intake checks for work the new issue changes |
 | Product frame | `docs/product/FRAME.md` — the question every feature must serve | the first challenge a new feature must pass |
 | Change lanes | `process/slipway-rules.md#Lanes` — trivial, bounded, feature | the lane an issue and its PR are sized to |
 | Marketing context | none | the positioning questions a new feature is asked; none skips them |
