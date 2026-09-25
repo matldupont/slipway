@@ -28,7 +28,8 @@ principles, §4 scope and §5 features), the active milestone (`Milestone roadma
 unless none, and the `Marketing context` unless none.
 
 Every file this skill writes goes through the doc PR (Phase 7), never straight onto the default branch.
-Answers the owner gives for `AGENT.md` are held, and written on the doc branch once Phase 4 creates it.
+Answers the owner gives for `AGENT.md` are held and written on the doc branch once Phase 4 creates it; a run
+that ends before then lists them in its last output for the owner to add.
 
 ## Phase 1 — Problem
 
@@ -90,7 +91,7 @@ VERDICT: PROCEED | RESHAPE → {shape} | REJECT — {why} | DEFER until {conditi
 
 REJECT or DEFER: stop, show the reasoning, file nothing. The owner may have context that changes it; if they
 push back, re-run this phase with it and state the new verdict, never flip silently. A DEFER the owner wants
-written down goes in the PRD's §4 *Out, explicitly*, with its condition, through Phase 7 alone.
+written down is a line for the PRD's §4 *Out, explicitly*, with its condition: give them the line.
 
 ## Phase 3 — What already exists
 
@@ -113,20 +114,16 @@ Touches:   {layer: paths} · Rules: {file: the rule that applies} · Related: {d
 ## Phase 4 — Cut, spec, schedule
 
 1. **MVP cut:** the smallest *complete* slice that delivers the job story's outcome, not the cheapest.
-2. **Deferred,** each with one line of why. Deferred items stay in the doc's Out of scope; they never get an
-   issue of their own.
+2. **Deferred,** each with one line of why: in the doc's Out of scope, never an issue of their own.
 3. **Build map:** the cut as ordered PR-sized steps, one line each (what changes, which layer, rough size).
    **Machinery before surface:** data, rules and endpoints land before the screen that uses them. Each step
    merges on its own with the gate green.
 4. **Lane,** per `Change lanes`. One session, one coherent unit, no new concept, surface or data shape is
-   **bounded**: say so, and skip the doc, the PRD tie, the branch, Phase 6 and Phase 7. Phase 5 then omits
-   Contract, Verify and `Spec:`, writes `Lane: bounded` and the plan under Problem, with one designation line.
-   Otherwise it is **feature**, and the rest of this phase applies.
+   **bounded**: it needs no feature doc. Stop, and hand it to `/log-followup`, with Phases 1–3 above as its
+   frame (a conversation decision). Otherwise it is **feature**, and the rest of this skill applies.
 
-`{name}` is the feature's name as lowercase letters, digits and `-` only: it goes into branch names, paths
-and commands.
-
-**Branch.** `git status` must be empty (dirty: stop and ask, never stash silently). `git fetch`, then
+**Branch.** `{name}` is lowercase letters, digits and `-` only: it goes into branch names, paths and
+commands. `git status` must be empty (dirty: stop and ask, never stash silently). `git fetch`, then
 `git switch -c docs/feature-{name} origin/{default branch}`; with no remote, from the local default branch,
 and say so. Write any held `AGENT.md` answers now, in their own commit.
 
@@ -163,9 +160,9 @@ summary}), or a later milestone?" With no active milestone, name the one being s
   commit, with why), or schedule it later.
 - **Later:** add the item to a shaping milestone's Contents. None exists: create one from the milestone
   template (`TEMPLATE.md` beside the milestones) with the next free `id:`, `status: shaping` and a one-line
-  `summary:`, and add its row to the PRD's milestones table (§10).
-- **Not scheduled:** that is a DEFER. Remove the §5 entry and the doc, write the feature in §4 *Out,
-  explicitly* with its condition, file nothing, and go to Phase 7 with that PRD change alone.
+  `summary:`, and add its row to the PRD's milestones table (§10), its one-line cell copied from `summary:`.
+- **Not scheduled:** that is a DEFER, as in Phase 2: stop and file nothing. Leave the branch unpushed, tell
+  the owner its name, and give them the §4 line.
 
 Commit on the branch, and run the repository's checks. On a draft PRD the milestone check only confirms the
 PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents.
@@ -179,9 +176,9 @@ PHASE 4: CUT AND SPEC
 MVP cut:   {one line}
 Deferred:  {item — why}
 Build map: 1. {step} — {layer}, ~{size} …
-Lane:      feature | bounded — {why}
+Lane:      feature | bounded → /log-followup
 Doc:       {Feature docs dir}/{name}.md · PRD §5 F-{nn} (Version {old} → {new})
-Scheduled: {milestone id} Contents item {n} | DEFER → PRD §4
+Scheduled: {milestone id} Contents item {n} | DEFER — stopped, branch {name} unpushed
 Branch:    docs/feature-{name} (committed, not pushed)
 ```
 
@@ -259,8 +256,10 @@ The PR's title and body go in a fresh folder of their own, `{prdir}`, never the 
 the issue check stays green. Title: `docs({scope}): spec {feature name}`. Body, under the same never-in-a-body
 rule as an issue (`process/intake.md` → Issue body): `## What` (`Lane: feature`, spec only, the verdict in one
 line), `## Verification` (the issue check and `pnpm meta` as run, in a code block), `## Links`
-(`Part of #{issue}`: the issue closes with its last build step, not this PR). The PR goes to the checkout's
-repository, `{checkout}`, which `gh repo view --json nameWithOwner --jq .nameWithOwner` prints.
+(`Part of #{issue}`, or `Part of {repo}#{issue}` when the two repositories differ: the issue closes with its
+last build step, not this PR). The PR goes to the checkout's repository, `{checkout}`, which
+`gh repo view --json nameWithOwner --jq .nameWithOwner` prints. `gh pr create` prints the PR's URL; its
+number is `{pr}`.
 
 ```bash
 git push -u origin docs/feature-{name}
