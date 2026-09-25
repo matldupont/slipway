@@ -149,11 +149,13 @@ const dueSoon = existsSync(lessonsDir)
     })
   : [];
 
+// Step 0 while there is no app, or while rows are unfilled and no milestone is underway yet. A running project
+// synced onto rows it never had is not sent back to bootstrap: the rows go under Needs attention instead.
+const step0 = packages === 0 || (!bootstrapped && !ms.some((m) => m.status === 'active' || m.status === 'closed'));
+
 // ---- the next step on the slipway path
 function next() {
-  // Step 0 until the app exists. A row left unfilled after that (a project synced onto rows it never had) is
-  // listed under Needs attention instead of sending a running project back to bootstrap.
-  if (packages === 0 || (!bootstrapped && !ms.some((m) => m.status === 'active' || m.status === 'closed'))) {
+  if (step0) {
     const missing = [!bootstrapped && `AGENT.md still has placeholders: ${placeholders.join(', ')}`, packages === 0 && 'no app yet'].filter(Boolean);
     return `Step 0 (you + agent) — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
@@ -219,7 +221,7 @@ if (ms.length) {
 }
 const attention = [
   ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (needed before the PRD leaves draft)`] : []),
-  ...(!bootstrapped && packages > 0 ? [`AGENT.md rows still unfilled: ${placeholders.join(', ')} — the skills and the date checks read them; fill each, or write none`] : []),
+  ...(!bootstrapped && !step0 ? [`AGENT.md rows still unfilled: ${placeholders.join(', ')} — the skills read them (Timezone also sets when a deadline day ends); fill each row`] : []),
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),

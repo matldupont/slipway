@@ -127,7 +127,7 @@ instead of rewriting the Contract.
 | `pnpm verify` | the gate: `check`, `lint`, `test`, `build` in every package — CI, agents and humans run the same thing |
 | `pnpm verify:fast` | `verify` without `build`; the inner loop and the Stop hook |
 | `node ci/ratchet.mjs <name> <report> <path>` | a code-health number may go down, never up (D-014); `--update` locks in an improvement |
-| `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 F1 (in slipway itself also S1, O1) |
+| `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 F1 D1 (in slipway itself also S1, O1) |
 | `/bootstrap` | step 0, after `new-project`: scaffold the app, bootstrap PR, acceptance probes |
 | `/clarify` | walk the open questions: answer in place, or park with an assumption, a cost and a tracker |
 | `/review-doc <path>` | step 3, fresh session: adversarial review of a document into `docs/reviews/` — not a code diff |
@@ -168,7 +168,7 @@ process/harness/                    permissions and hooks — installed into .cl
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
 docs/conventions.md                 the one way to do each recurring thing, with its canonical example
-ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1 F1 — and O1, S1 in slipway itself, never copied
+ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1 F1 D1 — and O1, S1 in slipway itself, never copied
 ci/fixtures/known-bad/              known-bad fixtures, one expected.json per case
 ci/fixtures/status/                 fixture roots S1 runs `ci/status.mjs` against, one expect.json each (slipway itself, never copied)
 ci/exceptions.yaml                  expiring, structurally keyed exceptions
