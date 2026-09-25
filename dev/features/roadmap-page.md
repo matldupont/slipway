@@ -1,5 +1,5 @@
 ---
-prd-ref: D-016
+prd-ref: D-017
 status: draft
 ---
 
@@ -19,11 +19,11 @@ Evidence: the owner reports a non-technical member on a live slipway project who
 link that is always current, so I can stop writing status updates by hand and they can stop reading
 stale ones.
 
-Decided in D-016: a generated static page, rebuilt by CI, opt-in, from an allowlist of milestone fields.
+Decided in D-017: a generated static page, rebuilt by CI, opt-in, from an allowlist of milestone fields.
 
 ## Contract
 
-Verified against: 880af92 2026-09-24 — every code-state claim below re-checked against `main` on that
+Verified against: eb97a34 2026-09-24 — every code-state claim below re-checked against `main` on that
 date. Evidence rots within days; re-verify before building (L-18).
 
 ### Switch
@@ -244,7 +244,7 @@ Machinery before surface. Each step merges with `pnpm meta` green.
 
 - **A private page** (Cloudflare Pages with Access, a `private` value of the same row). Add it when a
   project's roadmap cannot be public.
-- **Rendering per request.** Declined in D-016; reopens only with live GitHub state.
+- **Rendering per request.** Declined in D-017; reopens only with live GitHub state.
 - **Live GitHub state** (open PRs, CI, issues in flight). That is for technical readers; they have GitHub.
 - **Extracting `ci/status.mjs` into a pure model.** Planned as a prerequisite in discussion, then dropped:
   it was needed only for a Worker that cannot read the filesystem. The page shares `milestones.mjs` with
@@ -253,7 +253,7 @@ Machinery before surface. Each step merges with `pnpm meta` green.
   find it too technical.
 - **Retros on the page.** They are written for the next milestone's builders. Revisit if readers ask
   what a milestone delivered and `summary` does not answer it.
-- **A GitHub Projects board.** Declined in D-016.
+- **A GitHub Projects board.** Declined in D-017.
 
 ## Open questions
 

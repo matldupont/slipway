@@ -17,6 +17,8 @@ paths:
     class: internal
   - glob: scripts/**
     class: internal
+  - glob: site/**
+    class: internal
   - glob: STATE.md
     class: internal
   - glob: .git
