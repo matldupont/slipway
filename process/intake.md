@@ -61,6 +61,11 @@ The body reads as the repository's issue form would render it, so the checks tha
 - **Acceptance:** one line each, each able to fail: a number, a `command`, a comparison, `Given / When / Then`,
   or an issue reference. "Faster" is an adjective, not a test.
 - **Seams:** does this add a person, a channel or a promise? Answer every time. `none` takes one line of why.
+- **In the project's words.** The body, every Ripple row and everything shown to the owner say what changes
+  in their project. Never slipway's machinery: no ownership classes (managed, seeded), check ids, slipway's own
+  files (`.slipway/manifest.json`, its overrides) or a bare decision id; say what was decided, and put the id
+  in Links. A file that comes from slipway reads: "`ci/verify.mjs` comes from slipway: change it in slipway,
+  or keep a local change with a written reason."
 - **A claim about the code** (a file does X, a check misses Y) is re-read on the default branch before it goes
   in, and the body says so: `Verified against: <short sha> <yyyy-mm-dd>`, with what was read (L-18). A claim
   that does not survive the re-read is not filed.
@@ -186,8 +191,8 @@ One row per edit. Each row is exactly one kind:
 An issue that needs two kinds gets two rows. Each row says what the hit is, why it matched and the exact line
 to add or change, in the project's own words: "#12 says it rolls back `scripts/deploy.mjs`; the new issue
 changes how that script names releases. Add to #12's acceptance: `rollback finds a release named by the new
-scheme`." Never a check id or slipway's own vocabulary. A term that matched without the hit being affected is
-not a row.
+scheme`." Never slipway's machinery (Issue body, "In the project's words"). A term that matched
+without the hit being affected is not a row.
 
 ### 4 — Confirm
 

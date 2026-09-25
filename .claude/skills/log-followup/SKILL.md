@@ -124,7 +124,7 @@ the new issue's scope, closed ones included.
 
 ```
 RIPPLE
-Terms:    {parent, paths, ids}
+Checked:  {in words: open issues, #parent's other work, the milestone docs} — never the raw term list
 Proposed: {n} rows — {kind}: #{n} {one line}   | Nothing else open names {terms}.
 Applied:  {row numbers | none}
 Declined: {row numbers | none}
