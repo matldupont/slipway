@@ -2,6 +2,6 @@
   "_note": "The expected text is what status printed reading the clock in UTC, Timezone ignored: 03:30 UTC is 2026-03-11, so the heading date is a day ahead and RISK-2 window reads as overran on both lines.",
   "today": "2026-03-11",
   "now": "2026-03-10T23:30:00-04:00",
-  "next": "Step 4 (agent) — Walking skeleton: Walking skeleton. Next slice from its Contents; pick the lane (process/slipway-rules.md#Lanes). Meanwhile (yours): RISK-2 scheduled (#9, window 2026-03-01..2026-03-10 — overran) · blocks M2, M4 activation (K1).",
-  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (#9, window 2026-03-01..2026-03-10 — overran), RISK-3 untested, RISK-4 untested, RISK-5 untested, RISK-6 tested, RISK-7 untested, RISK-8 untested · blocks M2, M4 activation (K1)"
+  "next": "Step 4 (agent) — Walking skeleton: Walking skeleton. Next slice from its Contents; pick the lane (process/slipway-rules.md#Lanes). Meanwhile (yours): RISK-2 scheduled (#9, window 2026-03-01..2026-03-10 — overran) · blocks M2, M4 activation.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (#9, window 2026-03-01..2026-03-10 — overran), RISK-3 untested, RISK-4 untested, RISK-5 untested, RISK-6 tested, RISK-7 untested, RISK-8 untested · blocks M2, M4 activation"
 }

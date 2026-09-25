@@ -112,9 +112,9 @@ for (const c of checks) {
 process.exit(
   report({
     id: 'M6',
-    claim: `every registered check goes red on its fixtures (${caseCount} cases) for exactly the expected reasons`,
+    claim: `every check goes red on its known-bad fixtures (${caseCount} cases) for exactly the expected reasons`,
     scanned: checks.length,
-    unit: 'registered checks',
+    unit: 'checks',
     findings,
   })
 );

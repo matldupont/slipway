@@ -79,13 +79,13 @@ const curAppetite = cur && parseAppetite(cur.appetite);
 const pastSkeletonUnderway = ms.filter((m) => m.kind !== 'skeleton' && (m.status === 'active' || m.status === 'closed'));
 const blockedByRisk = ms.filter((m) => m.kind !== 'skeleton' && m.status === 'shaping').map((m) => m.id);
 const riskBlocks = pastSkeletonUnderway.length
-  ? `K1 is red: ${pastSkeletonUnderway.map((m) => m.id).join(', ')} underway`
-  : `blocks ${blockedByRisk.length ? `${blockedByRisk.join(', ')} activation` : 'every milestone past the skeleton'} (K1)`;
+  ? `${pastSkeletonUnderway.map((m) => m.id).join(', ')} underway with it untested — pnpm meta is red until it has a Result`
+  : `blocks ${blockedByRisk.length ? `${blockedByRisk.join(', ')} activation` : 'every milestone past the skeleton'}`;
 const riskLine = untestedValue.length ? `${untestedValue.map(riskState).join(', ')} · ${riskBlocks}` : '';
 const riskFile = untracked.length ? ' File the issue that runs each untested one and name it in FRAME\'s Tracker column.' : '';
 // An existential risk — any category, so K1's value gate may not cover it — whose test the PRD schedules
 // after the first milestone past the skeleton starts, or at no milestone at all. A warning, not a K1
-// finding: "existential" is the owner's word, and building ahead of it on purpose is a PD-<n> override.
+// finding: "existential" is the owner's word, and building ahead of it on purpose is a recorded decision.
 // The Impact cell must start with the word (`Existential: no lawful revenue`), so "not existential" is not.
 // Read only where the PRD's risk table has a Resolves by column.
 const deadlines = readDeadlines(prd);
@@ -97,7 +97,7 @@ const existential = deadlines && firstBet !== null
       const d = deadlines.get((r.id ?? '').toUpperCase());
       if (d?.before && milestoneNumber(d.before) <= firstBet) return [];
       const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${d.cell}, after M${firstBet} starts` : `resolves "${d.cell || 'blank'}", which names no milestone`;
-      return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a PD-<n> override (cost if wrong, and what reopens it)`];
+      return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${r.id}'s Result`];
     })
   : [];
 
@@ -116,7 +116,8 @@ const open_ = [];
 const parked_ = [];
 for (const file of walk(join(root, 'docs'))) {
   const rel_ = relative(root, file);
-  const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+  // Comments and inline code are guidance, not questions: the FRAME template explains both markers in backticks.
+  const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/).map((l) => l.replace(/`[^`\n]*`/g, ''));
   lines.forEach((line, i) => {
     for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${body.trim().slice(0, 90) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
@@ -147,18 +148,18 @@ const dueSoon = existsSync(lessonsDir)
 // ---- the next step on the slipway path
 function next() {
   if (!bootstrapped || packages === 0) {
-    const missing = [!bootstrapped && 'AGENT.md still has placeholders', packages === 0 && 'no app package yet (§1)'].filter(Boolean);
+    const missing = [!bootstrapped && 'AGENT.md still has placeholders', packages === 0 && 'no app yet'].filter(Boolean);
     return `Step 0 (you + agent) — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
   if (frame !== 'framed') return 'Step 1 (you, with /kickoff) — Frame: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.';
-  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results go in docs/product/evidence/ — or record a PD-<n> override (cost if wrong, and what reopens it) to build ahead.`;
+  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results go in docs/product/evidence/ — or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the risk's Result.`;
   if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) return testTheRisk;
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
     return prdReviews.length
       ? `Step 3 (you) — Shape: ${prdVersion} is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.`
-      : `Step 3 (you, with /kickoff) — Shape: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not /pr-review — and only then set Status: approved (R1 turns red otherwise).`;
+      : `Step 3 (you, with /kickoff) — Shape: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not /pr-review — and only then set Status: approved (the build goes red otherwise).`;
   }
-  if (active.length > 1) return `Fix: ${active.length} milestones are active (${active.map((m) => m.id).join(', ')}). One at a time — MS1 is red.`;
+  if (active.length > 1) return `Fix: ${active.length} milestones are active (${active.map((m) => m.id).join(', ')}). One at a time; pnpm meta is red until then.`;
   if (cur && curAppetite && curAppetite.end < today && !cur.extended) {
     return `Circuit breaker: ${cur.id}'s appetite ended ${curAppetite.end}. Cut scope and close it (/close-milestone), kill it, or record an extension.`;
   }
@@ -185,7 +186,7 @@ const also = [];
 if (frame === 'framed' && !cur) {
   const skel = ms.find((m) => m.kind === 'skeleton' && m.status === 'shaping');
   if (skel && untestedValue.length) {
-    const first = untracked.length ? ` — K1 then needs a tracker for ${untracked.map((r) => r.id).join(', ')}` : '';
+    const first = untracked.length ? ` — then name where ${untracked.map((r) => r.id).join(', ')} is being tested (FRAME's Tracker column)` : '';
     also.push(`(agent) ${skel.id} — the walking skeleton is not blocked by an untested value risk: activate it and build in parallel${first}`);
   }
 }
@@ -211,7 +212,7 @@ if (ms.length) {
   L.push('');
 }
 const attention = [
-  ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (R1 requires one once Status leaves draft)`] : []),
+  ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (needed before the PRD leaves draft)`] : []),
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),

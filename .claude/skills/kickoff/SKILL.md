@@ -67,8 +67,8 @@ You cannot run interviews; the user can. Produce what they need:
   risk as scheduled, and K1 requires the tracker for every untested value risk once the skeleton is
   active.
 
-Tell the user plainly: **no milestone past the walking skeleton can start (K1) until each value
-risk has a Result or a recorded override (`PD-<n>`).** The skeleton may be built in parallel
+Tell the user plainly: **no milestone past the walking skeleton can start until each value risk has
+a Result, or a decision in `decisions.md` to build ahead of it.** The skeleton may be built in parallel
 with the test. When results come back, record them in FRAME's Result column and in
 `evidence/`; if the threshold was missed, the options are reframe (back to phase 1) or proceed
 anyway with a decision in `decisions.md` that says why.
@@ -114,7 +114,7 @@ anyway with a decision in `decisions.md` that says why.
    one-liners a second time. MS1 flags a row that differs from its `summary:`. When a one-liner
    needs to change, change the `summary:` and regenerate.
 
-   Fill PRD §9 the same way: a `Capacity: <n>–<m> h/week` line from the user — the total for
+   Fill the PRD's estimates (§9) the same way: a `Capacity: <n>–<m> h/week` line from the user — the total for
    everyone building, not per person (ask; never guess it) — and one row per milestone with its hours as a range and what they are made of. MS1 warns
    when a milestone's midpoint is more than its appetite holds (appetite days ÷ 7 × the top of
    Capacity). Show the user any warning and let them cut scope, lengthen the appetite or
@@ -124,7 +124,7 @@ anyway with a decision in `decisions.md` that says why.
 
    ```
    Readiness: PASS | CONCERNS | FAIL
-   - <slice>: <decision that would have to be invented> → OD-n / PD-n created
+   - <slice>: <decision that would have to be invented> → recorded as an open question in the PRD (OD-n) or a decision in decisions.md
    ```
 
    Every concern becomes an OD- in the PRD (with a working assumption) or a D- entry. FAIL
@@ -140,8 +140,8 @@ anyway with a decision in `decisions.md` that says why.
 
    > Open a **new** session and run `/review-doc docs/PRD.md`. It fills
    > `docs/reviews/<file>`. This is the document review, not a code review of the PR — `/pr-review`
-   > reads a diff and writes nothing here. R1 turns red once the PRD leaves draft with no review
-   > naming its current version.
+   > reads a diff and writes nothing here. The build goes red once the PRD leaves draft with no
+   > review naming its current version.
 
    Do not run it yourself: this session wrote the PRD, and a reviewer must not share the author's
    context.

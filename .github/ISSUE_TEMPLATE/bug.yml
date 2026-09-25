@@ -29,14 +29,14 @@ body:
       label: Acceptance
       description: >-
         One per line, each checkable — a number, a command, a comparison, an issue ref, or
-        Given/When/Then. I1 flags adjectives.
+        Given/When/Then. CI flags adjectives.
     validations:
       required: true
   - type: dropdown
     id: seams
     attributes:
       label: Seams
-      description: Does the fix add or change a person, a channel, or a promise? Always answer.
+      description: Who else does this touch — does the fix add or change a person, a channel, or a promise? Always answer.
       multiple: true
       options:
         - none
@@ -63,4 +63,4 @@ body:
     id: links
     attributes:
       label: Links
-      description: "Part of: #N · Regression of: #N · Decision: D-nnn"
+      description: "Part of: #N · Regression of: #N · Decision: <its id in decisions.md>"

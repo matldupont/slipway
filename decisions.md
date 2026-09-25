@@ -36,7 +36,8 @@ judgment on every file. Most of what slipway ships is prose, where a three-way m
 
 - **Ownership is declared.** Every shipped path has a class: `managed` (slipway's; replaced on sync),
   `seeded` (written once at creation, never touched again — the PRD, FRAME, the answers to D-001–D-014),
-  or `merged` (structured: `package.json` scripts, settings keys, marked blocks in `CLAUDE.md`). A check
+  or `merged` (`package.json` scripts, key by key; narrowed from settings keys and `CLAUDE.md` blocks when
+  sync was built — `CLAUDE.md` imports slipway's rules instead of merging them). A check
   fails on a shipped path with no class.
 - **Managed files are locked; projects extend, not edit.** Each project records the version it is on and
   a hash per installed file. A check fails when a managed file differs from its hash, unless the path is in

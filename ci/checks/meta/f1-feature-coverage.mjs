@@ -66,15 +66,15 @@ if (status !== 'draft') {
       if (fm.status === 'shaping') continue;
       slices++;
       for (const n of cited) {
-        if (!features.has(n)) findings.push({ where: `${file}#contents/unknown/F-${String(n).padStart(2, '0')}`, detail: `item ${item.n} cites F-${String(n).padStart(2, '0')}, which PRD §5 does not define` });
+        if (!features.has(n)) findings.push({ where: `${file}#contents/unknown/F-${String(n).padStart(2, '0')}`, detail: `Contents item ${item.n} cites F-${String(n).padStart(2, '0')}, which the PRD's Features section (§5) does not define` });
       }
       if (!cited.length && !/\(no feature:\s*\S[^)]*\)/i.test(item.text)) {
-        findings.push({ where: `${file}#contents/uncited/${item.n}`, detail: `item ${item.n} cites no F-ID and gives no "(no feature: <reason>)"` });
+        findings.push({ where: `${file}#contents/uncited/${item.n}`, detail: `Contents item ${item.n} "${item.text.trim().slice(0, 50)}" cites no feature (F-nn) and gives no "(no feature: <reason>)"` });
       }
     }
   }
   for (const [n, id] of features) {
-    if (!scheduled.has(n)) findings.push({ where: `${id}#feature/unscheduled`, detail: `${id} is in PRD §5 but no live milestone cites it — schedule it, or move it to §4 Out, explicitly` });
+    if (!scheduled.has(n)) findings.push({ where: `${id}#feature/unscheduled`, detail: `${id} is in the PRD's Features (§5) but no live milestone builds it — add it to a milestone's Contents, or move it to the PRD's Out, explicitly (§4)` });
   }
 }
 

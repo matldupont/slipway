@@ -31,7 +31,7 @@ try {
   manifest = readManifest(root);
   overrides = readOverrides(root);
 } catch (e) {
-  process.exit(report({ id: 'D1', claim: '', scanned: 0, unit: 'managed files', broken: e.message }));
+  process.exit(report({ id: 'D1', claim: '', scanned: 0, unit: 'files slipway maintains', broken: e.message }));
 }
 
 if (!manifest && isTemplate(root)) {
@@ -50,8 +50,8 @@ if (!manifest) {
       id: 'D1',
       claim: '',
       scanned: 0,
-      unit: 'managed files',
-      broken: `manifest/missing — no ${MANIFEST}, so drift cannot be told from a deliberate edit; adopt one with \`sync --adopt\``,
+      unit: 'files slipway maintains',
+      broken: `manifest/missing — ${MANIFEST} is missing. It is the record of what slipway installed, so an edit to one of slipway's files cannot be told from an update; run /sync-slipway once to create it`,
     })
   );
 }
@@ -69,11 +69,11 @@ const current = (p) => {
 
 for (const o of overrides) {
   if (!hasReason(o)) {
-    findings.push({ where: `override/reason/${o.path}`, detail: `override in ${OVERRIDES}:${o.line} has no reason — it excuses nothing until it says why` });
+    findings.push({ where: `override/reason/${o.path}`, detail: `${OVERRIDES}:${o.line} keeps your edit to ${o.path} but gives no reason — add one, or remove the entry` });
   } else if (!hashes.has(o.path)) {
-    findings.push({ where: `override/stale/${o.path}`, detail: `override in ${OVERRIDES}:${o.line} names no managed file in ${MANIFEST} — remove it` });
+    findings.push({ where: `override/stale/${o.path}`, detail: `${OVERRIDES}:${o.line} names ${o.path}, which is not a file slipway maintains — remove the entry` });
   } else if (current(o.path) === hashes.get(o.path)) {
-    findings.push({ where: `override/stale/${o.path}`, detail: `the file matches its install hash again — remove the override in ${OVERRIDES}:${o.line}` });
+    findings.push({ where: `override/stale/${o.path}`, detail: `${o.path} is back to slipway's version, so the entry keeping your edit at ${OVERRIDES}:${o.line} is no longer needed — remove it` });
   } else {
     excused.add(o.path);
   }
@@ -89,16 +89,16 @@ for (const [p, want] of hashes) {
   }
   findings.push({
     where: `drift/${p}`,
-    detail: `${got === null ? 'deleted' : got === NOT_A_FILE ? 'replaced by a non-file' : 'edited'} since install, and not in ${OVERRIDES} — revert it, or add an override with the reason`,
+    detail: `${p} is a file slipway maintains, and it was ${got === null ? 'deleted' : got === NOT_A_FILE ? 'replaced by a non-file' : 'edited'} here; the next /sync-slipway would undo that. Revert it, or keep it by adding it to ${OVERRIDES} (path: and reason:)`,
   });
 }
 
 process.exit(
   report({
     id: 'D1',
-    claim: `every managed file matches its hash in ${MANIFEST} (slipway ${manifest.slipway ?? `${manifest.version ?? 'unknown'}, sha unresolved`}) or is declared in ${OVERRIDES} with a reason, and no override is stale`,
+    claim: `every file slipway maintains is as slipway ${manifest.slipway?.slice(0, 12) ?? `${manifest.version ?? 'unknown'} (sha unresolved)`} installed it, or is kept with a reason in ${OVERRIDES}`,
     scanned: managed.length,
-    unit: 'managed files',
+    unit: 'files slipway maintains',
     findings,
     exempted,
     exemptedBy: OVERRIDES,

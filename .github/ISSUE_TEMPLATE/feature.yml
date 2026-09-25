@@ -15,7 +15,7 @@ body:
       label: Acceptance
       description: >-
         One per line. Each must be checkable — a number, a command, a comparison, an issue ref,
-        or Given/When/Then. "Faster" and "clearer" are adjectives, not tests; I1 flags them.
+        or Given/When/Then. "Faster" and "clearer" are adjectives, not tests; CI flags them.
       placeholder: |
         - p95 < 400 ms on GET /walks
         - `pnpm --filter web test` exits 0
@@ -26,7 +26,7 @@ body:
     id: seams
     attributes:
       label: Seams
-      description: Does this add a person, a channel, or a promise? Always answer — `none` is an answer, silence is not.
+      description: Who else does this touch — does it add a person, a channel, or a promise? Always answer — `none` is an answer, silence is not.
       multiple: true
       options:
         - none
@@ -51,4 +51,4 @@ body:
     id: links
     attributes:
       label: Links
-      description: "Part of: #N · Follows: #N · Supersedes: #N · Decision: D-nnn"
+      description: "Part of: #N · Follows: #N · Supersedes: #N · Decision: <its id in decisions.md>"

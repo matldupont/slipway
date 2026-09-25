@@ -8,7 +8,7 @@ status: draft
 > answers, and what could kill it. Written before the PRD, and before any production code.
 > `/kickoff` drafts it by asking one question at a time.
 >
-> K1 checks it. While `status: draft` it may hold placeholders and open questions. Set
+> A check reads it. While `status: draft` it may hold placeholders and open questions. Set
 > `status: framed` when none remain; no milestone can start before that. Once a milestone is
 > underway, every untested **value** risk names a Tracker; no milestone past the walking skeleton
 > can start until every value risk has a Result.
@@ -18,7 +18,7 @@ status: draft
 >
 > `[PARKED: <question> · assume: <what we build on> · if wrong: <the cost> · #12]`
 >
-> All three parts are required — assumption, cost, tracker (an issue, or an `OD-`/`D-` id). `/clarify`
+> All three parts are required — assumption, cost, tracker (an issue, or a decision's id). `/clarify`
 > walks them; `pnpm status` lists both kinds with their text.
 
 ## Job story

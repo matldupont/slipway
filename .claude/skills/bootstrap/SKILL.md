@@ -43,9 +43,12 @@ means you reached for a gate — stop and explain why before the owner approves 
 
 ## 2 — Fill AGENT.md
 
-`new-project` filled the product and repository. For each remaining `<…>`:
-derive it if the repo answers it (paths, gates, the domain map from `apps/` and `packages/`);
-otherwise ask the owner, one question at a time. A row they don't use says `none`. When done,
+`new-project` filled the product and repository. Three rows are the owner's to answer, one question at a
+time and in their product's terms: the GitHub project (or none); the timezone deadlines and appetite dates
+are read in (CI runs in UTC, so `local` there is UTC); and whether the product has money or other
+correctness-critical math (the domain invariants doc, or `none`). Every other row keeps its default unless
+the repo says otherwise (paths, gates, the domain map from `apps/` and `packages/`) — never ask about
+those. When done,
 `grep -n "<" AGENT.md` shows no placeholders, and `pnpm status` no longer reports Step 0.
 
 ## 3 — Open the bootstrap PR
@@ -87,9 +90,9 @@ as not run, never as passed.
 
 | # | Probe |
 |---|---|
-| 2 | `git push origin main` from a clean checkout is rejected (or, under the D-001 fallback, turns CI red) |
+| 2 | `git push origin main` from a clean checkout is rejected (or, where `main` could not be protected, turns CI red) |
 | 10b | `git stash pop` in a session asks before acting |
-| 11 | `/log-followup` files its issue in this repository (needs the owner's intake skills) |
+| 11 | the intake skill (`/log-followup`, where installed) files its issue in this repository |
 | 14 | a new Claude Code session opens with the `pnpm status` state (ask it "what's next?") |
 | 15 | asking the agent to edit `biome.json` or a workflow shows an approval prompt; a failing test stops a turn from ending — you will likely have seen this one already during §1; say so if you did |
 

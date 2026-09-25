@@ -31,7 +31,7 @@ for (const f of bodies) {
   if (v === null) findings.push({ where: `${f}#verification/missing`, detail: 'no `## Verification` section' });
   else if (v === '') findings.push({ where: `${f}#verification/empty`, detail: 'Verification is empty or only template comments' });
   else if (!EVIDENCE.test(v)) {
-    findings.push({ where: `${f}#verification/prose-only`, detail: 'Verification names no command, code block, check id or CI run' });
+    findings.push({ where: `${f}#verification/prose-only`, detail: 'Verification names no command, code block or CI run' });
   }
   const links = section(md, 'Links', 2);
   if (links === null || !(/#\d+/.test(links) || /^\s*none:\s*\S/im.test(links))) {
