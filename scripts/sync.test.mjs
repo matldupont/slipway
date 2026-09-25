@@ -16,7 +16,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { classify, loadOwnership } from '../ci/checks/lib/ownership.mjs';
-import { MANIFEST, readProjectFile } from '../ci/checks/lib/manifest.mjs';
+import { MANIFEST, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { ownDecisions } from './adopt.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
 
@@ -294,6 +294,42 @@ test('a manifest whose blobs match no commit exactly stops, naming the closest c
   const r = sync(dir);
   assert.equal(r.status, 1);
   assert.match(r.stderr, new RegExp(`no slipway commit holds exactly the manifest's ${total} managed files; closest ${A.slice(0, 12)} \\(${total - 1} of ${total} managed files at their blob\\), then ${A0.slice(0, 12)} \\(${total - 1} of ${total} managed files at their blob\\)`));
+});
+
+test('a manifest recorded before slipway rewrote its history: names the closest commit, each differing file and the command, and the command re-points the project', () => {
+  const old = 'the text before the rewrite\n';
+  const dir = project((d) => {
+    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+    m.files['process/same.md'].blob = execFileSync('git', ['hash-object', '--stdin'], { input: old, encoding: 'utf8' }).trim();
+    m.files['process/ours.md'].blob = '0'.repeat(40); // the project's own edit: matches neither the record nor the commit
+    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+    m.files['process/same.md'].sha256 = sha256(Buffer.from(old));
+    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+    put(d, { 'process/same.md': old });
+    commit(d, 'as adopted before the rewrite');
+  });
+  const before = treeHash(dir);
+  const r = sync(dir);
+  assert.equal(r.status, 1);
+  assert.equal(treeHash(dir), before, 'sync wrote to the project');
+  const [first] = r.stderr.split('\n');
+  assert.match(first, /^sync: slipway's history was changed after this project recorded its version/);
+  assert.doesNotMatch(first, /[0-9a-f]{40}|\b[A-Z]\d\b/, 'a blob id or check id in the first line');
+  assert.match(r.stderr, new RegExp(`nearest one is ${A.slice(0, 12)}, which differs in:\\n {2}process/same\\.md\\n {2}process/ours\\.md`));
+  const cmd = `git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && sync --adopt --apply --base ${A} --revert process/same.md\n`;
+  assert.ok(r.stderr.includes(cmd), r.stderr);
+  assert.match(r.stderr, /You changed this file yourself[^\n]*\n {2}process\/ours\.md/);
+  assert.doesNotMatch(cmd, /process\/ours\.md/, 'a file the project edited is restored silently');
+  assert.match(r.stderr, /Nothing was written\.$/m);
+
+  // The printed command works: the record is re-pointed and slipway's copy is back.
+  git(dir, 'switch', '-c', 'slipway/re-point');
+  git(dir, 'rm', '-q', MANIFEST);
+  git(dir, 'commit', '-qm', 'drop the record');
+  const a = adopt(dir, '--apply', '--base', A, '--revert', 'process/same.md');
+  assert.equal(a.status, 0, a.stderr);
+  assert.equal(bytes(dir, 'process/same.md').toString(), show(A, 'process/same.md').toString());
+  assert.equal(manifestOf(dir).slipway, A);
 });
 
 test('resolveBase: closest-match mode ranks every commit and names the runner-up', () => {

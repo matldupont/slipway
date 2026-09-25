@@ -170,7 +170,9 @@ function preflight(cwd) {
   // A base older than the ownership map is classified by the target's, as adopt recorded it.
   const r = read(() => resolveBase(gitDir, managed, { start: manifest.slipway, fallback: t.rules }));
   if (!r.exact) {
-    const c = (x) => `${x.sha.slice(0, 12)} (${x.matched} of ${r.total} managed files at their blob${x.extra ? `, ${x.extra} more it ships` : ''})`;
+    const rewritten = r.best?.extra === 0 && rewrittenHistory({ root, gitDir, read, managed, best: r.best.sha, source });
+    if (rewritten) throw new Refusal(rewritten);
+    const c =(x) => `${x.sha.slice(0, 12)} (${x.matched} of ${r.total} managed files at their blob${x.extra ? `, ${x.extra} more it ships` : ''})`;
     throw new Refusal(
       r.best
         ? `no slipway commit holds exactly the manifest's ${r.total} managed files; closest ${c(r.best)}${r.runnerUp ? `, then ${c(r.runnerUp)}` : ''}`
@@ -208,6 +210,36 @@ function preflight(cwd) {
   }
 
   return { notes, log, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
+}
+
+/**
+ * The refusal for a manifest whose managed blobs match no commit, when the closest commit differs from it
+ * only in managed files it lists: slipway's published history was rewritten under the project (D-015).
+ * Names that commit and each differing file, and the command that re-points the project at it. A file the
+ * project changed itself (its bytes match neither the record nor the closest commit) is the owner's
+ * choice, never in the command. Null when the closest commit holds every listed file at its record.
+ */
+function rewrittenHistory({ root, gitDir, read, managed, best, source }) {
+  const tree = read(() => commitFiles(gitDir, best).tree);
+  const restore = [];
+  const own = [];
+  for (const [p, recorded] of managed) {
+    const now = tree.get(p);
+    if (now === recorded) continue;
+    const cur = readProjectFile(root, p);
+    if (Buffer.isBuffer(cur) && blobSha(cur) === now) continue; // already the closest commit's copy
+    (Buffer.isBuffer(cur) && blobSha(cur) === recorded ? restore : own).push(p);
+  }
+  if (!restore.length && !own.length) return null;
+  const list = (ps) => ps.map((p) => `\n  ${p}`).join('');
+  const short = best.slice(0, 12);
+  const re = restore.map((p) => ` --revert ${p}`).join('');
+  return [
+    `slipway's history was changed after this project recorded its version, so that record points at a version ${publicSource(source)} no longer has. The nearest one is ${short}, which differs in:${list([...restore, ...own])}`,
+    `To re-point the project at ${short}${restore.length ? ", restoring slipway's copy of each file you have not changed" : ''}, run this in your own terminal:\n  git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && sync --adopt --apply --base ${best}${re}`,
+    own.length && `You changed ${own.length === 1 ? 'this file' : 'these files'} yourself, so the command leaves ${own.length === 1 ? 'it' : 'them'} alone and adopt asks you for each: add --keep <path>=<reason> to keep yours, or --revert <path> to take slipway's copy:${list(own)}`,
+    'Nothing was written.',
+  ].filter(Boolean).join('\n');
 }
 
 /**
