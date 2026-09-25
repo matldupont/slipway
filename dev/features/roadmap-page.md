@@ -23,7 +23,7 @@ Decided in D-017: a generated static page, rebuilt by CI, opt-in, from an allowl
 
 ## Contract
 
-Verified against: eb97a34 2026-09-24 — every code-state claim below re-checked against `main` on that
+Verified against: a0767f5 2026-09-24 — every code-state claim below re-checked against `main` on that
 date. Evidence rots within days; re-verify before building (L-18).
 
 ### Switch
