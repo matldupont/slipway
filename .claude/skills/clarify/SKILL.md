@@ -45,7 +45,7 @@ For each question, in the order they block things (frame before PRD before evide
    - **Blocking** → leave it as `NEEDS CLARIFICATION` and say plainly that the frame cannot be
      finished until someone answers it. Do not invent an assumption to unblock the check.
 4. **Every parked question gets a tracker before you move on**: an existing issue, a new one, or a
-   PRD `OD-` / `decisions.md` `D-` entry when it is a decision rather than a task. With no existing
+   PRD `OD-` / `decisions.md` `PD-` entry when it is a decision rather than a task. With no existing
    one, offer to file it now — the repo's intake skill (`/log-followup` with the parent, where it
    is installed), or `gh issue create --title "<question>" --body "<file:line, the assumption, the
    cost if wrong, what it blocks>"` — and on a yes, write

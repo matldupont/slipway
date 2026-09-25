@@ -46,7 +46,7 @@ for (const f of bodies) {
 
   const ac = section(md, 'Acceptance', 3);
   if (isNoResponse(ac)) {
-    findings.push({ where: `${f}#acceptance/missing`, detail: 'no acceptance criteria' });
+    findings.push({ where: `${f}#acceptance/missing`, detail: 'no acceptance criteria: add an Acceptance section, one checkable line each (a number, a command, a comparison, Given/When/Then or an issue reference)' });
   } else {
     items(ac).forEach((item, n) => {
       if (!FALSIFIABLE.test(item)) {

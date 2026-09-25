@@ -59,6 +59,8 @@ Three rules the fixes follow:
 | "# harness, if wanted" | practice, line failed the test | the harness is a gate an agent cannot pass without asking; the comment said nothing about it | "# agent harness: asks before a push or a gate edit; a red verify stops a turn" |
 | the `needs-shape` label's description "Issue failed the I1 shape check" | machinery | a check id where the author reads it | "Issue needs shaping: acceptance or seams missing" |
 | Next: `/bootstrap`, BOOTSTRAP.md | practice | step 0 | kept |
+| "sha: unknown — N file(s) differ from <sha> … a later sync finds the base by content" (an install from an edited checkout) | machinery, and a promise sync could not keep | the base is found by content only when the files match a commit | "finds the base only if those files match a slipway commit" |
+| steps 4–6 with GitHub: "Create acme/acme and push main", "Create the needs-shape label", "Attempt to protect main (D-001)" → "protected" or "not available: <GitHub's reason>" | practice | D-001 is the project's own decision, decided by attempting it; the outcome is written into its `decisions.md` | kept |
 | `decisions.md` in the new project holds D-015, D-016, D-017 | machinery | slipway's own records, with a `dev/` path and issue numbers no project has; seeded, so never updated | #78 |
 
 ### 2. `pnpm status`
@@ -68,9 +70,10 @@ Three rules the fixes follow:
 | "blocks every milestone past the skeleton **(K1)**", on every status | machinery | the sentence stands without the id | dropped; the past-skeleton case reads "M2 underway with it untested — pnpm meta is red until it has a Result" |
 | "or record a **PD-<n> override** (cost if wrong, and what reopens it)" — step 2, existential risks | machinery | the prefix is D-015 bookkeeping; it also lost the step the check needs (the id in the risk's Result) | "record a decision in decisions.md to build ahead (…) and put its id in RISK-3's Result" |
 | "(**R1** requires one once Status leaves draft)"; "(R1 turns red otherwise)"; "One at a time — MS1 is red"; "K1 then needs a tracker for RISK-2" | machinery | check ids | "(needed before the PRD leaves draft)"; "(the build goes red otherwise)"; "pnpm meta is red until then"; "then name where RISK-2 is being tested (FRAME's Tracker column)" |
-| "Open question: docs/product/FRAME.md:16 — `<question>`" and "Parked: …:19 — `<question>` (#12)" on a fresh project | machinery leak | status read the template's own explanation of the marker syntax as real questions | markers inside inline code are skipped (both examples are in backticks); K1 reads the same way |
+| "Open question: docs/product/FRAME.md:16 — `<question>`" and "Parked: …:19 — `<question>` (#12)" on a fresh project | machinery leak | status read the template's own explanation of the marker syntax as real questions | a marker sitting whole inside inline code is skipped (both examples are in backticks); an escaped backtick is not code, and a backticked tracker inside a real marker still counts. K1 reads the same way, and both keep line numbers across multi-line comments. Pinned by controls in the `deadlines-toronto` status fixture and the `k1/draft-underway` fixture |
 | "no app package yet (§1)" | machinery | a bare section number | "no app yet" (the sentence already says to run /bootstrap) |
-| "Open decision: D-001 … (open — owner, BOOTSTRAP §0)" | machinery, kept | the pointer is the project's own decisions.md text; BOOTSTRAP §0 is the step it names | kept |
+| "Bootstrap: AGENT.md filled" while the GitHub project, timezone and invariants rows were still `<…>` | machinery leak | status only looked for the two placeholders `new-project` fills, so Step 0 could end with product questions unasked | any `<…>` placeholder in the table holds Step 0 |
+| "Open decision: D-001 … (open — owner, BOOTSTRAP §0)" | practice | the text is the project's own `decisions.md` heading, and BOOTSTRAP.md §0 is the step it sends the owner to | kept |
 | Step labels (you / agent / fresh session), circuit breaker, appetite "day 209 of 14", walking skeleton, lanes, open vs parked (assumption · cost · tracker), adversarial review, open decisions, RISK-n tested/scheduled/untested, windows | practice | each names the project's thing and the next action | kept |
 
 ### 3. Check failures on known-bad fixtures
@@ -85,14 +88,24 @@ Before and after for all 36 cases is in the PR for #63. The `K1:` prefix and the
 | I1 (8) | practice — checkable acceptance, seams answered | "#ref"; "person, channel or promise?" with no lead-in | "issue reference (#12)"; "Seams — does this add a person, a channel or a promise? … answer `none` with one line of why, or name them". The author never sees it: #77 |
 | K1 (20 lines) | practice — frame before build; risk tracked before the skeleton; result before later milestones | "K1 can find"; "PD-<n> override" ×3; tracker examples "(#n, PD-n, OD-n)", "(#12, OD-3, D-7, PD-7)"; "9 line(s) still hold a placeholder" named no line; the overdue-without-row case had no next action; "Tracked: line in its evidence file" | reworded; placeholders listed by line with "answer or park each (/clarify), then set status: framed"; "add one with its Threshold, then its Result"; "a `Tracked: #n` line in its docs/product/evidence/ file" |
 | L1 (13) | practice — a lesson has a home and a review date | "process/anchor does not exist"; the id line; the status vocabulary bare | anchor: "counts from the project's start date in process/anchor, which is missing — write that date there"; id: "not a lesson id: this project's own are PL-<n>, slipway's are L-<n> (process/lessons/README.md)"; each status gets a few words |
-| M1 (11) | practice — a declared gate must run | nothing in the sentence; the unit said "slipway tests" inside a project, where none exist; **the id collides with milestone M1** | unit is "gated scripts and check files" outside slipway; the collision is #75 |
+| M1 (11) | practice — a declared gate must run | the three findings named no next action; the unit said "slipway tests" inside a project, where none exist; **the id collides with milestone M1** | each finding says where the step goes (ci.yml, or the meta script); unit is "gated scripts and check files" outside slipway; the collision is #75 |
 | M3 (7) | practice — no fail-open without a dated, keyed exception | "registry", "unregistered", "fail-open site", "keys a positional step"; "exempted by registry" | every line names `ci/exceptions.yaml`; "a failure here would not fail CI"; "names its step by position, which moves on any edit — give the step an id: and key the entry to it" |
 | MS1 (29 lines) | practice — appetite, one active, retro, gate; the estimate warnings are the model | "(extended: PD-<n>)"; "§9"; "regenerate the row" (said neither how nor where) | "record an extension as a decision in decisions.md and name that decision in the milestone's `extended:` line"; "the PRD's estimate table (§9)"; "copy summary: into the PRD's Milestones table (§10)" |
 | O1 (3) | machinery, slipway-internal | never runs in a project: `new-project` derives the `meta` script without it | nothing |
 | P1 (4) | practice — evidence, not claims | "check id" listed as evidence | "names no command, code block or CI run" |
-| R1 (7) | practice — a fresh review pinned to a version | nothing | kept |
-| S1 (9) | machinery, slipway-internal | ships in every project's `pnpm meta` (the fixtures are managed); can only fire if `status.mjs` drifts, which D1 reports first | kept; unit "status fixtures" |
+| R1 (7) | practice — a fresh review pinned to a version | four findings named no next action | "review the current version (/review-doc), or copy the line from the file"; "fix the Reviewed: line, or delete the review"; the two missing-line findings say what to add |
+| S1 (9) | machinery, slipway-internal | shipped in every project's `pnpm meta` (the fixtures were managed), where it could only fire if `status.mjs` drifted, which D1 reports first | internal now (`dev/ownership.yaml`): a project never receives S1 or its fixtures, and its `meta` script drops the call |
 | the `PASS — green proves:` lines | practice — a check states its claim | D1's and M3's claims carried "managed file", "hash", "registry", "structurally keyed"; M6's "registered checks" | reworded. L1's enforcement mix stays: it is the count a lesson author reads |
+| findings that fired with no next action, in checks the first pass called unchanged | practice, line failed the test | F1's missing PRD; MS1 `extended/unresolved`, `id/duplicate`, `field/missing`; D1's control character; K1 `risk/no-threshold`; L1 `id/duplicate`, `pointer/unresolved`, `frontmatter/missing`; I1 `acceptance/missing`; M3's next action was wrong for a job-level site | each names its action ("/kickoff writes it", "give one of them the next free number", "add id: and status: in its frontmatter", "write the Threshold it was measured against, or clear the Result", …); M3 prints the exact `id:` the entry needs |
+
+### 3b. `pnpm verify`, the shared report, M6
+
+| surface | label | why | done |
+|---|---|---|---|
+| VERIFY "no workspace packages — add an app (BOOTSTRAP.md §1) before verify can prove anything" | practice | names the file and the step | kept |
+| VERIFY "no package declares `test` — verify cannot prove behaviour"; "failed (exit 1) — stopped; later tasks did not run" | practice, lines had no next action | the Stop hook shows these on every red turn | "add a `test` script to the app's package.json"; "Fix it, then run pnpm verify again" |
+| `report.mjs` "BROKEN — denominator is 0, nothing was examined" | machinery | "denominator" is the check author's word | "nothing was examined (0 <unit>), so green would prove nothing" |
+| M6's own findings ("no known-bad fixture at …", "PASSED its known-bad fixture — the check cannot fail", "red for the wrong reasons — missed […]") | practice, for a check's author only | they fire when someone adds or breaks a check; each names the fixture path and what differs | kept |
 
 ### 4. Questions the shipped skills ask
 
@@ -105,7 +118,8 @@ Before and after for all 36 cases is in the PR for #63. The `K1:` prefix and the
 | kickoff | told "in these words": "…can start **(K1)** until … a recorded override **(PD-<n>)**"; hand-off "**R1** turns red once…"; readiness "→ OD-n / PD-n created"; "Fill PRD §9" | machinery | "until each value risk has a Result, or a decision in `decisions.md` to build ahead of it"; "The build goes red once…"; "→ recorded as an open question in the PRD (OD-n) or a decision in decisions.md"; "the PRD's estimates (§9)" |
 | close-milestone | cut / kill / extend; the next bet | practice | kept |
 | review-doc | nothing; hand-back "**R1** turns red when…" | machinery | "The build goes red when…" |
-| sync-slipway | port / adapt / decline per diff; adopt's keep / revert per file | machinery | #62 (questions), #54 (adopt); output labels #76 |
+| sync-slipway | settle-or-ask per seeded change (#62, shipped): questions are in the project's terms | practice | kept |
+| sync-slipway | adopt's keep / revert "for each managed file"; §4's confirmation of each `L-`→`PL-`, `D-`→`PD-` move | machinery | #76 (its acceptance names both questions) |
 
 ### 5. Issue forms and the PR template
 
@@ -127,12 +141,13 @@ Before and after for all 36 cases is in the PR for #63. The `K1:` prefix and the
 | "(M6)", "(M1)", "(M3)", "(MS1)" | machinery | "a known-bad fixture under `ci/fixtures/known-bad/` and a step in `.github/workflows/ci.yml`"; "a dated entry in `ci/exceptions.yaml`"; "a decision in `decisions.md`" |
 | "A project's own are `PD-<n>`; `D-<n>` is slipway's (D-015)" | machinery, and false in a project (D-001–D-014 are the project's to answer) | "Answer D-001–D-014 in place; number the decisions you add `PD-1`, `PD-2`…, so a slipway update never collides with them" |
 | "id `PL-<n>` in a project (`L-<n>` is slipway's). L1 checks it." | machinery | "numbered `PL-1`, `PL-2`… (slipway's own are `L-<n>`); `pnpm meta` checks it" |
-| "(L-18)" … 11 lesson citations | machinery, kept as footnotes | every cited lesson ships and resolves; each sentence stands without it; D-016 governs failures and questions, not footnotes in agent rules |
+| "(L-18)" … 10 lesson citations | practice | a footnote to a lesson file the project ships and can open; each sentence stands without it, and D-016 governs failures and questions, not footnotes in agent rules |
 | the Lanes row names `/log-feature`, `/work-ticket` | machinery until they ship | #46 |
 
 ### Also touched
 
-- `docs/product/FRAME.md`'s guidance blockquote — the first file `/kickoff` has the owner read: "K1 checks it" → "A check reads it"; "an `OD-`/`D-` id" → "a decision's id".
+- `docs/product/FRAME.md` — the first file `/kickoff` has the owner read. The guidance blockquote: "K1 checks it" → "A check reads it"; "an `OD-`/`D-` id" → "a decision's id". The Risks paragraph: "K1 fails …", "record a PD-<n> override … K1 counts it", "K1 requires it" → the build, a decision in `decisions.md`, its id in Result.
+- `/kickoff`, `/clarify` and `/review-doc` told the agent to add "a `D-` entry" for a project decision; that number can collide with slipway's on a sync (D-015). Now `PD-`.
 - `decisions.md` D-015: `merged` said "settings keys, marked blocks in `CLAUDE.md`"; sync narrowed it to `package.json` scripts and `CLAUDE.md` imports the rules instead. Corrected in place.
 
 ### Not audited here
@@ -156,7 +171,9 @@ backticks on purpose is no longer counted; the template's own examples were the 
 - Check ids remain as output prefixes; a reader still meets `K1:` before the sentence. Removing them is
   the wrong trade: fixtures and CI grep key on them.
 - The M-series ids still collide with milestone ids until #75.
-- The sync plan and adopt report still print ownership classes until #76.
+- The sync plan, the adopt report and adopt's questions still use ownership classes until #76.
+- A marker an owner deliberately puts whole inside inline code is not counted. Escaped backticks and a backticked
+  tracker inside a marker are.
 - `SLIPWAY.md` and `BOOTSTRAP.md` cite check ids throughout; they are the manual, not a surface.
 
 ## Acceptance

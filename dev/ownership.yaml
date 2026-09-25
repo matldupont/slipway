@@ -38,6 +38,13 @@ paths:
     class: internal
   - glob: ci/fixtures/known-bad/o1/**
     class: internal
+  # S1 pins slipway's own status output; a project cannot change status.mjs (managed), so it never runs there
+  - glob: ci/checks/meta/s1-status.mjs
+    class: internal
+  - glob: ci/fixtures/status/**
+    class: internal
+  - glob: ci/fixtures/known-bad/s1/**
+    class: internal
   # local secrets and settings, wherever they sit: a directory walk would otherwise ship them
   - glob: '**/.env*'
     class: internal

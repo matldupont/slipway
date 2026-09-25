@@ -75,20 +75,20 @@ const counts = Object.fromEntries([...STATUSES].map((s) => [s, 0]));
 for (const f of files) {
   const add = (rule, detail) => findings.push({ where: `${f}#${rule}`, detail });
   const fm = frontmatter(readFileSync(join(dir, f), 'utf8'));
-  if (!fm) { add('frontmatter/missing', 'no YAML frontmatter'); continue; }
+  if (!fm) { add('frontmatter/missing', 'no YAML frontmatter: start the file with the block shown in process/lessons/README.md'); continue; }
 
   const enf = typeof fm.enforcement === 'object' ? fm.enforcement : {};
   const status = enf.status;
   if (!fm.id || !fm.rule || !status) { add('field/missing', 'needs id, rule and enforcement.status'); continue; }
   if (!ID.test(String(fm.id))) add('id/format', `"${fm.id}" is not a lesson id: this project's own are PL-<n>, slipway's are L-<n> (process/lessons/README.md)`);
-  if (seen.has(fm.id)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(fm.id)}`);
+  if (seen.has(fm.id)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(fm.id)} — give one of them the next free number`);
   else seen.set(fm.id, f);
   if (!STATUSES.has(status)) { add('status/unknown', `"${status}" is not an enforcement status: check (a mechanism fires), structural (cannot happen after bootstrap), artifact (a template slot a check requires), prose (judgment, with a review date) or declined (deferred, with a trigger)`); continue; }
   counts[status]++;
 
   if (status !== 'declined') {
     if (!enf.pointer) add('pointer/missing', `a ${status} lesson must say where it lives`);
-    else if (!resolves(root, enf.pointer)) add('pointer/unresolved', `"${enf.pointer}" does not exist`);
+    else if (!resolves(root, enf.pointer)) add('pointer/unresolved', `"${enf.pointer}" does not exist: point enforcement.pointer at the check, file or heading that enforces it`);
   }
   if (status === 'declined' && !enf.trigger) add('trigger/missing', 'a declined lesson must name the event that reopens it');
 

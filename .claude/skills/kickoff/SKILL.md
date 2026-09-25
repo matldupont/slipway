@@ -68,7 +68,8 @@ You cannot run interviews; the user can. Produce what they need:
   active.
 
 Tell the user plainly: **no milestone past the walking skeleton can start until each value risk has
-a Result, or a decision in `decisions.md` to build ahead of it.** The skeleton may be built in parallel
+a Result, or a decision in `decisions.md` to build ahead of it with that decision's id in the risk's
+Result.** The skeleton may be built in parallel
 with the test. When results come back, record them in FRAME's Result column and in
 `evidence/`; if the threshold was missed, the options are reframe (back to phase 1) or proceed
 anyway with a decision in `decisions.md` that says why.
@@ -127,7 +128,7 @@ anyway with a decision in `decisions.md` that says why.
    - <slice>: <decision that would have to be invented> → recorded as an open question in the PRD (OD-n) or a decision in decisions.md
    ```
 
-   Every concern becomes an OD- in the PRD (with a working assumption) or a D- entry. FAIL
+   Every concern becomes an OD- in the PRD (with a working assumption) or a PD- entry in decisions.md. FAIL
    means a BLOCKING question is open; say who must answer it.
 
 ## Hand-off

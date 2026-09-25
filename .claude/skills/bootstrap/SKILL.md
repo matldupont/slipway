@@ -43,8 +43,9 @@ means you reached for a gate — stop and explain why before the owner approves 
 
 ## 2 — Fill AGENT.md
 
-`new-project` filled the product and repository. Three rows are the owner's to answer, one question at a
-time and in their product's terms: the GitHub project (or none); the timezone deadlines and appetite dates
+`new-project` filled the product, and the repository unless it ran with `--no-github` and no `--repo`; if
+the Issue repo row still reads `<owner/repo>`, ask for it first. Three rows are the owner's to answer, one
+question at a time and in their product's terms: the GitHub project (or none); the timezone deadlines and appetite dates
 are read in (CI runs in UTC, so `local` there is UTC); and whether the product has money or other
 correctness-critical math (the domain invariants doc, or `none`). Every other row keeps its default unless
 the repo says otherwise (paths, gates, the domain map from `apps/` and `packages/`) — never ask about

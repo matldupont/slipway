@@ -39,7 +39,7 @@ export function report({ id, claim, scanned, unit, findings = [], exempted = [],
     exit = EXIT.BROKEN;
   } else if (scanned === 0) {
     // Nothing was examined, so the check is broken, not the repo clean.
-    L.push(`${id}: BROKEN — denominator is 0, nothing was examined`);
+    L.push(`${id}: BROKEN — nothing was examined (0 ${unit}), so green would prove nothing`);
     exit = EXIT.BROKEN;
   } else {
     if (exempted.length) L.push(`${id}: ${exempted.length} exempted by ${exemptedBy}: ${exempted.join(', ')}`);

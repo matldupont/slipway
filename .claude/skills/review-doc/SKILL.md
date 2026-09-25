@@ -81,7 +81,7 @@ Then run `pnpm meta` — R1 must be green — and commit the review on a branch 
 ## 4 — Hand back
 
 List the S0 and S1 findings in the chat, each in one line, and say plainly that none of them is
-decided. When the owner files a finding as an issue, or records it as an `OD-` or `D-` entry, write that
+decided. When the owner files a finding as an issue, or records it as an `OD-` or `PD-` entry, write that
 id into the register's Tracker column in the same change — a finding whose issue is not named in the
 review loses its link back. The owner resolves each one in the document, bumps its `Version:` and change log, and —
 because the version line moves — **a substantive revision needs a fresh review**. The build goes red
