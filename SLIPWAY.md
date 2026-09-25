@@ -127,7 +127,7 @@ instead of rewriting the Contract.
 | `pnpm verify` | the gate: `check`, `lint`, `test`, `build` in every package — CI, agents and humans run the same thing |
 | `pnpm verify:fast` | `verify` without `build`; the inner loop and the Stop hook |
 | `node ci/ratchet.mjs <name> <report> <path>` | a code-health number may go down, never up (D-014); `--update` locks in an improvement |
-| `pnpm meta` | checks the checks, and the planning documents: M6 M1 M3 R1 L1 MS1 K1 F1 D1 (in slipway itself also S1, O1) |
+| `pnpm meta` | checks the checks, and the planning documents: PC1 W1 FO1 R1 L1 MS1 K1 F1 D1 (in slipway itself also S1, O1) |
 | `/bootstrap` | step 0, after `new-project`: scaffold the app, bootstrap PR, acceptance probes |
 | `/clarify` | walk the open questions: answer in place, or park with an assumption, a cost and a tracker |
 | `/review-doc <path>` | step 3, fresh session: adversarial review of a document into `docs/reviews/` — not a code diff |
@@ -168,7 +168,7 @@ process/harness/                    permissions and hooks — installed into .cl
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
 docs/conventions.md                 the one way to do each recurring thing, with its canonical example
-ci/checks/meta/                     M1 M3 M6 P1 I1 R1 L1 MS1 K1 F1 D1 — and O1, S1 in slipway itself, never copied
+ci/checks/meta/                     W1 FO1 PC1 P1 I1 R1 L1 MS1 K1 F1 D1 — and O1, S1 in slipway itself, never copied
 ci/fixtures/known-bad/              known-bad fixtures, one expected.json per case
 ci/fixtures/status/                 fixture roots S1 runs `ci/status.mjs` against, one expect.json each (slipway itself, never copied)
 ci/exceptions.yaml                  expiring, structurally keyed exceptions
@@ -203,9 +203,9 @@ merged by judgment file by file:
 | gate | green proves | the failure it prevents |
 |---|---|---|
 | `verify` | `check`, `lint`, `test`, `build` passed in every package that declares them | a filtered runner skips dependents, or matches nothing, and exits 0 having run nothing |
-| M6 | every check goes red on its fixtures for exactly the expected reasons | a gate wired to nothing looks exactly like a working one |
-| M1 | every gated script and every check is invoked by CI | test suites no workflow runs read as coverage |
-| M3 | every `continue-on-error` is excused by an unexpired, structurally keyed exception | a fail-open step reports success while proving nothing; line-keyed exceptions break on ordinary edits |
+| PC1 | every check goes red on its fixtures for exactly the expected reasons | a gate wired to nothing looks exactly like a working one |
+| W1 | every gated script and every check is invoked by CI | test suites no workflow runs read as coverage |
+| FO1 | every `continue-on-error` is excused by an unexpired, structurally keyed exception | a fail-open step reports success while proving nothing; line-keyed exceptions break on ordinary edits |
 | P1 | the PR body names verification evidence and links its issue | PRs merge with no record of what was run, and same-day follow-ups repair them |
 | I1 | issue acceptance criteria are not bare adjectives; the seams question is answered | adjective criteria that any change satisfies; a conditional question silently skipped |
 | R1 | each review names the file it read and a version line still verbatim in it, and the PRD has one once it leaves draft | a review written from memory cites a version that no longer exists; a plan nobody argued with |
@@ -243,7 +243,7 @@ long.
 2. **Exit codes mean one thing each:** `0` green · `1` findings · `2` BROKEN. A zero denominator is BROKEN,
    and so is input a check cannot model safely.
 3. **State exactly what green proves**, and no more.
-4. **Under `CHECK_JSON=1`, emit one `@@json` line**, so M6 compares findings rather than exit codes.
+4. **Under `CHECK_JSON=1`, emit one `@@json` line**, so PC1 compares findings rather than exit codes.
 
 ### Exceptions are clocks, keyed to structure
 
@@ -255,7 +255,7 @@ exceptions:
     expires: 2026-12-31                           # first day it no longer applies
 ```
 
-M3 turns red on an exception that is undated, expired, stale, or keyed to a positional or duplicate step.
+FO1 turns red on an exception that is undated, expired, stale, or keyed to a positional or duplicate step.
 
 ### Adding a check
 
@@ -263,11 +263,11 @@ M3 turns red on an exception that is undated, expired, stale, or keyed to a posi
 2. A known-bad fixture: `ci/fixtures/known-bad/<id>/` with `expected.json`, or one subdirectory per case,
    each with its own. **Put the traps in it** — every way a naive version of the check gets it wrong — and
    at least one input that must pass, so a check that flags everything cannot hide.
-3. Invoke it from CI (M1 fails an uninvoked check), then run `pnpm meta`.
+3. Invoke it from CI (W1 fails an uninvoked check), then run `pnpm meta`.
 
 ### Validation
 
-**Harness.** M6 green over 10 checks and 22 fixture cases. On the template itself M1, M3, R1, L1 (60
+**Harness.** PC1 green over 10 checks and 22 fixture cases. On the template itself W1, FO1, R1, L1 (60
 lessons), MS1, K1 and F1 are green, and `pnpm meta` is green with nothing installed. The PR template is
 byte-identical to P1's `placeholder.md` fixture and the FRAME template to K1's `draft-underway` fixture, so
 an unfilled template is proven to fail.
@@ -301,33 +301,33 @@ blocks on a failing test, lets the second stop through, and skips a tree it alre
 
 | control | result |
 |---|---|
-| a check that cannot fail, with a complete fixture | M6 red |
-| a check with no fixture | M6 red |
-| a fixture with no `expected.json` | M6 red |
-| M3 loosened to count `continue-on-error: false` | M6 red — flagged unexpected |
-| I1 loosened to accept any criterion | M6 red — missed both adjective findings |
-| M1 loosened to count commented-out commands | M6 red — missed `c:check` |
-| L1 loosened so every pointer resolves | M6 red — missed three unresolved pointers |
-| MS1 with the last appetite day made exclusive | M6 red — flagged an on-time milestone |
-| MS1 allowing two active milestones | M6 red — missed `wip/exceeded` |
-| MS1 comparing summaries without collapsing whitespace, or reading `**M1**` or `[M7](…)` literally | M6 red — flagged unexpected `summary/drift` |
-| MS1 reading the first `### Milestones` in the PRD rather than §10's | M6 red — flagged `milestones/header` |
-| MS1 comparing when no milestone declares `summary:`, or comparing an empty one | M6 red — flagged unexpected (the synced-repo case) |
-| table cells split on an escaped `\|`, or the last cell dropped from a row with no closing pipe | M6 red — flagged unexpected `summary/drift` |
-| MS1 ignoring a milestone with no PRD row | M6 red — missed `summary/drift` |
-| MS1 warning at an estimate equal to the appetite (`days / 7 × h` float error), at the bottom of Capacity, or with the last appetite day exclusive | M6 red — unexpected warning |
-| MS1 comparing a closed milestone's estimate, or calling a placeholder unreadable | M6 red — unexpected warning |
-| MS1 reading `40 to 60` as 40, keeping `1,200`'s comma, or staying silent on an unreadable cell | M6 red — missed warning |
-| MS1 reading `Estimate basis` as the hours column, or needing the exact §9 / §10 heading text | M6 red — missed warnings, or flagged `milestones/header` |
-| MS1 silent on a §9 row that names no milestone, or warning on a Total row | M6 red — missed or unexpected `estimate/unknown` |
-| MS1 dropping its warnings | M6 red — missed all seven, across three cases |
-| K1 reading placeholders inside HTML comments | M6 red — flagged unexpected |
-| S1 with evidence `Window:` lines no longer read | S1 red on `framed-no-milestone`; M6 red — missed both `window-ignored` findings, flagged `next-only#frame` |
+| a check that cannot fail, with a complete fixture | PC1 red |
+| a check with no fixture | PC1 red |
+| a fixture with no `expected.json` | PC1 red |
+| FO1 loosened to count `continue-on-error: false` | PC1 red — flagged unexpected |
+| I1 loosened to accept any criterion | PC1 red — missed both adjective findings |
+| W1 loosened to count commented-out commands | PC1 red — missed `c:check` |
+| L1 loosened so every pointer resolves | PC1 red — missed three unresolved pointers |
+| MS1 with the last appetite day made exclusive | PC1 red — flagged an on-time milestone |
+| MS1 allowing two active milestones | PC1 red — missed `wip/exceeded` |
+| MS1 comparing summaries without collapsing whitespace, or reading `**M1**` or `[M7](…)` literally | PC1 red — flagged unexpected `summary/drift` |
+| MS1 reading the first `### Milestones` in the PRD rather than §10's | PC1 red — flagged `milestones/header` |
+| MS1 comparing when no milestone declares `summary:`, or comparing an empty one | PC1 red — flagged unexpected (the synced-repo case) |
+| table cells split on an escaped `\|`, or the last cell dropped from a row with no closing pipe | PC1 red — flagged unexpected `summary/drift` |
+| MS1 ignoring a milestone with no PRD row | PC1 red — missed `summary/drift` |
+| MS1 warning at an estimate equal to the appetite (`days / 7 × h` float error), at the bottom of Capacity, or with the last appetite day exclusive | PC1 red — unexpected warning |
+| MS1 comparing a closed milestone's estimate, or calling a placeholder unreadable | PC1 red — unexpected warning |
+| MS1 reading `40 to 60` as 40, keeping `1,200`'s comma, or staying silent on an unreadable cell | PC1 red — missed warning |
+| MS1 reading `Estimate basis` as the hours column, or needing the exact §9 / §10 heading text | PC1 red — missed warnings, or flagged `milestones/header` |
+| MS1 silent on a §9 row that names no milestone, or warning on a Total row | PC1 red — missed or unexpected `estimate/unknown` |
+| MS1 dropping its warnings | PC1 red — missed all seven, across three cases |
+| K1 reading placeholders inside HTML comments | PC1 red — flagged unexpected |
+| S1 with evidence `Window:` lines no longer read | S1 red on `framed-no-milestone`; PC1 red — missed both `window-ignored` findings, flagged `next-only#frame` |
 | S1 with an evidence heading no longer closing its risk | S1 red on `skeleton-active` |
-| F1 counting killed milestones as scheduling a feature | M6 red — missed `feature/unscheduled` |
-| F1 ignoring a citation on a continuation line | M6 red — flagged two unexpected |
-| zero workflow files | M3 exit 2 |
-| a YAML anchor inside `jobs` | M3 exit 2 — refuses to guess |
+| F1 counting killed milestones as scheduling a feature | PC1 red — missed `feature/unscheduled` |
+| F1 ignoring a citation on a continuation line | PC1 red — flagged two unexpected |
+| zero workflow files | FO1 exit 2 |
+| a YAML anchor inside `jobs` | FO1 exit 2 — refuses to guess |
 
 ### Exercised on a real project
 

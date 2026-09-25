@@ -70,9 +70,9 @@ as not run, never as passed.
 
 | # | Probe | Expect |
 |---|---|---|
-| 1 | `pnpm meta` on a fresh clone (`git clone` into a temp dir) | M6 green |
-| 5 | add `"test:e2e": "echo x"` to `apps/web/package.json` | M1 red |
-| 6 | add `continue-on-error: true` to a step in `ci.yml` (the harness asks — say it is a probe) | M3 red |
+| 1 | `pnpm meta` on a fresh clone (`git clone` into a temp dir) | PC1 green |
+| 5 | add `"test:e2e": "echo x"` to `apps/web/package.json` | W1 red |
+| 6 | add `continue-on-error: true` to a step in `ci.yml` (the harness asks — say it is a probe) | FO1 red |
 | 8 | a review in `docs/reviews/` whose `Version line:` is not in the PRD | R1 red |
 | 9 | a lesson with `review-by` in the past | L1 red |
 | 10 | the sample commands in `process/harness/README.md` § Test | each hook prints; non-matches print nothing |

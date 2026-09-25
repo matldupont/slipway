@@ -32,7 +32,7 @@ sync does with it, and only the rows that need the owner, each with its next com
 row per path; the `seeded: upstream changed` diffs are references to port by hand, not patches. Explain the
 change in the project's terms, not slipway's:
 
-- Group the commit subjects by what they touch, using the conventional-commit scope: **checks** (`m1`,
+- Group the commit subjects by what they touch, using the conventional-commit scope: **checks** (`w1`,
   `d1`, `ci`…), **skills** (`bootstrap`, `clarify`…), **docs and templates**, **sync itself**. Say
   what each group changes for this project: a new check that may go red, a new step in a skill it uses,
   a template it already filled in.

@@ -22,7 +22,7 @@
 // Deferred work lives here as `declined` lessons, so the review clock is its detector.
 // Deferral with nothing that fires is indistinguishable from closing it.
 //
-// Pointers: a check id (`m1`, `ms1` …), a repo path, or `path#Heading text` (the heading must
+// Pointers: a check id (`w1`, `ms1` …), a repo path, or `path#Heading text` (the heading must
 // start with that text). review-by: `YYYY-MM-DD`, or `+<N>d` counted from the date in
 // process/anchor, which bootstrap sets to the project's start.
 

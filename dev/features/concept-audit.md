@@ -36,7 +36,7 @@ thing and a next action. **machinery** — slipway's bookkeeping showing through
 
 Three rules the fixes follow:
 
-- **Check ids stay as output prefixes** (`K1: …`) and in PR bodies. M6 keys fixtures on the `file#key`
+- **Check ids stay as output prefixes** (`K1: …`) and in PR bodies. PC1 keys fixtures on the `file#key`
   locator, CI output is grepped by prefix, and the acceptance asks only that the sentence after the
   prefix stand alone. They leave `pnpm status`, the skills' owner-facing lines, the templates and the
   rules' prose.
@@ -88,24 +88,24 @@ Before and after for all 36 cases is in the PR for #63. The `K1:` prefix and the
 | I1 (8) | practice — checkable acceptance, seams answered | "#ref"; "person, channel or promise?" with no lead-in | "issue reference (#12)"; "Seams — does this add a person, a channel or a promise? … answer `none` with one line of why, or name them". The author never sees it: #77 |
 | K1 (20 lines) | practice — frame before build; risk tracked before the skeleton; result before later milestones | "K1 can find"; "PD-<n> override" ×3; tracker examples "(#n, PD-n, OD-n)", "(#12, OD-3, D-7, PD-7)"; "9 line(s) still hold a placeholder" named no line; the overdue-without-row case had no next action; "Tracked: line in its evidence file" | reworded; placeholders listed by line with "answer or park each (/clarify), then set status: framed"; "add one with its Threshold, then its Result"; "a `Tracked: #n` line in its docs/product/evidence/ file" |
 | L1 (13) | practice — a lesson has a home and a review date | "process/anchor does not exist"; the id line; the status vocabulary bare | anchor: "counts from the project's start date in process/anchor, which is missing — write that date there"; id: "not a lesson id: this project's own are PL-<n>, slipway's are L-<n> (process/lessons/README.md)"; each status gets a few words |
-| M1 (11) | practice — a declared gate must run | the three findings named no next action; the unit said "slipway tests" inside a project, where none exist; **the id collides with milestone M1** | each finding says where the step goes (ci.yml, or the meta script); unit is "gated scripts and check files" outside slipway; the collision is #75 |
-| M3 (7) | practice — no fail-open without a dated, keyed exception | "registry", "unregistered", "fail-open site", "keys a positional step"; "exempted by registry" | every line names `ci/exceptions.yaml`; "a failure here would not fail CI"; "names its step by position, which moves on any edit — give the step an id: and key the entry to it" |
+| W1 (11) | practice — a declared gate must run | the three findings named no next action; the unit said "slipway tests" inside a project, where none exist; **the id collides with milestone M1** | each finding says where the step goes (ci.yml, or the meta script); unit is "gated scripts and check files" outside slipway; the collision is #75 |
+| FO1 (7) | practice — no fail-open without a dated, keyed exception | "registry", "unregistered", "fail-open site", "keys a positional step"; "exempted by registry" | every line names `ci/exceptions.yaml`; "a failure here would not fail CI"; "names its step by position, which moves on any edit — give the step an id: and key the entry to it" |
 | MS1 (29 lines) | practice — appetite, one active, retro, gate; the estimate warnings are the model | "(extended: PD-<n>)"; "§9"; "regenerate the row" (said neither how nor where) | "record an extension as a decision in decisions.md and name that decision in the milestone's `extended:` line"; "the PRD's estimate table (§9)"; "copy summary: into the PRD's Milestones table (§10)" |
 | O1 (3) | machinery, slipway-internal | never runs in a project: `new-project` derives the `meta` script without it | nothing |
 | P1 (4) | practice — evidence, not claims | "check id" listed as evidence | "names no command, code block or CI run" |
 | R1 (7) | practice — a fresh review pinned to a version | four findings named no next action | "review the current version (/review-doc), or copy the line from the file"; "fix the Reviewed: line, or delete the review"; the two missing-line findings say what to add |
 | S1 (9) | machinery, slipway-internal | shipped in every project's `pnpm meta` (the fixtures were managed), where it could only fire if `status.mjs` drifted, which D1 reports first | internal now (`dev/ownership.yaml`): a project never receives S1 or its fixtures, and its `meta` script drops the call |
-| the `PASS — green proves:` lines | practice — a check states its claim | D1's and M3's claims carried "managed file", "hash", "registry", "structurally keyed"; M6's "registered checks" | reworded. L1's enforcement mix stays: it is the count a lesson author reads |
-| findings that fired with no next action, in checks the first pass called unchanged | practice, line failed the test | F1's missing PRD; MS1 `extended/unresolved`, `id/duplicate`, `field/missing`; D1's control character; K1 `risk/no-threshold`; L1 `id/duplicate`, `pointer/unresolved`, `frontmatter/missing`; I1 `acceptance/missing`; M3's next action was wrong for a job-level site | each names its action ("/kickoff writes it", "give one of them the next free number", "add id: and status: in its frontmatter", "write the Threshold it was measured against, or clear the Result", …); M3 prints the exact `id:` the entry needs |
+| the `PASS — green proves:` lines | practice — a check states its claim | D1's and FO1's claims carried "managed file", "hash", "registry", "structurally keyed"; PC1's "registered checks" | reworded. L1's enforcement mix stays: it is the count a lesson author reads |
+| findings that fired with no next action, in checks the first pass called unchanged | practice, line failed the test | F1's missing PRD; MS1 `extended/unresolved`, `id/duplicate`, `field/missing`; D1's control character; K1 `risk/no-threshold`; L1 `id/duplicate`, `pointer/unresolved`, `frontmatter/missing`; I1 `acceptance/missing`; FO1's next action was wrong for a job-level site | each names its action ("/kickoff writes it", "give one of them the next free number", "add id: and status: in its frontmatter", "write the Threshold it was measured against, or clear the Result", …); FO1 prints the exact `id:` the entry needs |
 
-### 3b. `pnpm verify`, the shared report, M6
+### 3b. `pnpm verify`, the shared report, PC1
 
 | surface | label | why | done |
 |---|---|---|---|
 | VERIFY "no workspace packages — add an app (BOOTSTRAP.md §1) before verify can prove anything" | practice | names the file and the step | kept |
 | VERIFY "no package declares `test` — verify cannot prove behaviour"; "failed (exit 1) — stopped; later tasks did not run" | practice, lines had no next action | the Stop hook shows these on every red turn | "add a `test` script to the app's package.json"; "Fix it, then run pnpm verify again" |
 | `report.mjs` "BROKEN — denominator is 0, nothing was examined" | machinery | "denominator" is the check author's word | "nothing was examined (0 <unit>), so green would prove nothing" |
-| M6's own findings ("no known-bad fixture at …", "PASSED its known-bad fixture — the check cannot fail", "red for the wrong reasons — missed […]") | practice, for a check's author only | they fire when someone adds or breaks a check; each names the fixture path and what differs | kept |
+| PC1's own findings ("no known-bad fixture at …", "PASSED its known-bad fixture — the check cannot fail", "red for the wrong reasons — missed […]") | practice, for a check's author only | they fire when someone adds or breaks a check; each names the fixture path and what differs | kept |
 
 ### 4. Questions the shipped skills ask
 
@@ -138,7 +138,7 @@ Before and after for all 36 cases is in the PR for #63. The `K1:` prefix and the
 | Stack line; "until decisions.md D-005–D-008 are made" | practice | kept |
 | Gates, lanes, one active milestone, embed the Contract, Verified against, decide when made, cold review, designation, reuse search, never rebase a stacked PR, the agent rules | practice | kept |
 | "Managed by slipway (`dev/ownership.yaml` in slipway)" | machinery | "Slipway replaces this file when the project takes a newer version" |
-| "(M6)", "(M1)", "(M3)", "(MS1)" | machinery | "a known-bad fixture under `ci/fixtures/known-bad/` and a step in `.github/workflows/ci.yml`"; "a dated entry in `ci/exceptions.yaml`"; "a decision in `decisions.md`" |
+| "(PC1)", "(W1)", "(FO1)", "(MS1)" | machinery | "a known-bad fixture under `ci/fixtures/known-bad/` and a step in `.github/workflows/ci.yml`"; "a dated entry in `ci/exceptions.yaml`"; "a decision in `decisions.md`" |
 | "A project's own are `PD-<n>`; `D-<n>` is slipway's (D-015)" | machinery, and false in a project (D-001–D-014 are the project's to answer) | "Answer D-001–D-014 in place; number the decisions you add `PD-1`, `PD-2`…, so a slipway update never collides with them" |
 | "id `PL-<n>` in a project (`L-<n>` is slipway's). L1 checks it." | machinery | "numbered `PL-1`, `PL-2`… (slipway's own are `L-<n>`); `pnpm meta` checks it" |
 | "(L-18)" … 10 lesson citations | practice | a footnote to a lesson file the project ships and can open; each sentence stands without it, and D-016 governs failures and questions, not footnotes in agent rules |
@@ -190,7 +190,7 @@ Then  every line names the project's own thing and the next action, and none nee
 ## Verify
 
 ```
-pnpm meta                      # exit 0; M6: every check red on its 36 fixtures for the expected reasons
+pnpm meta                      # exit 0; PC1: every check red on its 36 fixtures for the expected reasons
 node scripts/new-project.mjs /tmp/probe --name Acme --repo acme/acme --no-github --no-harness
 node ci/status.mjs /tmp/probe  # no check id, no PD-<n>, no ownership class in the output
 ```

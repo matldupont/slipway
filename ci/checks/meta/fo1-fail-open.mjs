@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// M3 — fail-open lint.
+// FO1 — fail-open lint.
 //
 // Reports every `continue-on-error` in the workflow corpus that is not excused
 // by an unexpired entry in ci/exceptions.yaml, and every registry entry that is
@@ -214,7 +214,7 @@ for (const s of sites) {
 
 process.exit(
   report({
-    id: 'M3',
+    id: 'FO1',
     claim: 'every continue-on-error job and step is excused by a dated entry in ci/exceptions.yaml keyed to its id, and no entry is stale, expired, positional or undated',
     scanned: files.length,
     unit: 'workflow files',

@@ -20,7 +20,7 @@ export const OVERRIDES = '.slipway/overrides.yaml';
 export const RECORDED = ['managed', 'seeded', 'merged'];
 
 // Slipway itself, not an install: internal files new-project never copies, so a project's own `dev/`
-// folder alone is not enough. D1 goes green in template mode on them; M1 checks slipway's own tests.
+// folder alone is not enough. D1 goes green in template mode on them; W1 checks slipway's own tests.
 export const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
 export const isTemplate = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
 

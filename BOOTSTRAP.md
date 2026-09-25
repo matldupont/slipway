@@ -58,7 +58,7 @@ pnpm create vite apps/web --template react-ts
 - `check` — the typecheck (the react-ts template's build already runs `tsc -b`);
 - `test` — for example `vitest run`, with one real test.
 
-`verify` refuses to run unless some package declares `check` and `test`, and M1 fails any gated script that
+`verify` refuses to run unless some package declares `check` and `test`, and W1 fails any gated script that
 no workflow runs. Keep `lint` and `build` as the scaffold emits them. The checks enforce that gates exist and
 run, not which tools they use.
 
@@ -92,12 +92,12 @@ untested tree ship.
 A spine that has never refused anything cannot be told apart from one that is not installed. Do each, and
 paste the output into the bootstrap PR:
 
-1. `pnpm meta` is green on a fresh clone — M6 proves each check fails, precisely, on its fixtures.
+1. `pnpm meta` is green on a fresh clone — PC1 proves each check fails, precisely, on its fixtures.
 2. A direct push to `main` is rejected (or, under the D-001 fallback, turns CI red).
 3. A PR whose test fails cannot be merged; a PR behind `main` cannot merge until updated.
 4. A PR with no evidence under `## Verification` turns `pr-body` red.
-5. Adding `"test:e2e": "…"` to a package, with no workflow running it, turns M1 red.
-6. `continue-on-error: true` on any step turns M3 red.
+5. Adding `"test:e2e": "…"` to a package, with no workflow running it, turns W1 red.
+6. `continue-on-error: true` on any step turns FO1 red.
 7. An issue opened with `gh issue create` and free prose gets the `needs-shape` label.
 8. A review whose `Version line:` no longer matches the PRD turns R1 red.
 9. A lesson whose `review-by` is set to a past date turns L1 red.

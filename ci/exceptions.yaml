@@ -1,7 +1,7 @@
 # Exception registry.
 #
 # Every entry MUST carry an expiry. `expires` is the first day the exception no
-# longer applies. Expired, undated, stale and positional entries all turn M3 red:
+# longer applies. Expired, undated, stale and positional entries all turn FO1 red:
 # "temporary" becomes a clock instead of a permanent state.
 #
 # Ids are STRUCTURAL, never line numbers:
