@@ -84,7 +84,7 @@ if (files.includes('TEMPLATE.md')) {
 
 for (const { file: f, md, fm } of milestones) {
   const add = (rule, detail) => findings.push({ where: `${f}#${rule}`, detail });
-  if (!fm) { add('frontmatter/missing', 'no YAML frontmatter'); continue; }
+  if (!fm) { add('frontmatter/missing', 'no YAML frontmatter: start the file with the block shown in docs/milestones/TEMPLATE.md'); continue; }
   if (!fm.id || !fm.status) { add('field/missing', 'needs id: and status: in its frontmatter (docs/milestones/TEMPLATE.md shows both)'); continue; }
   if (seen.has(fm.id)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(fm.id)} — give one of them the next free number`);
   else seen.set(fm.id, f);

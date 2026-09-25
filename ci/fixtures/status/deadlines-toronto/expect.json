@@ -11,6 +11,8 @@
     "Existential risk: RISK-7 is existential and untested, and has no row in the PRD risk table: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-7's Result",
     "Open decision: PD-1 Deposits are refundable (open — owner, before M2)",
     "Open question: docs/product/FRAME.md:32 — escaped backticks are not code",
-    "Parked: docs/product/FRAME.md:30 — which region first? (#12)"
+    "Open question: docs/product/FRAME.md:34 — which store?",
+    "Parked: docs/product/FRAME.md:30 — which region first? (#12)",
+    "Parked: docs/product/FRAME.md:36 — which one? (#3)"
   ]
 }

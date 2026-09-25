@@ -70,8 +70,9 @@ if (!existsSync(path)) {
 
 const md = readFileSync(path, 'utf8');
 // Comments are blanked (not removed) so line numbers hold. A marker sitting whole inside inline code is
-// the template's explanation of the syntax, not a question; an escaped backtick is not code.
-const text = md.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, '')).replace(/(?<!\\)`[^`\n]*\[(?:NEEDS CLARIFICATION|PARKED)[^`\n]*`/g, '');
+// the template's explanation of the syntax, not a question; an escaped backtick is not code. Every span is
+// matched so that the gap between two spans is never read as one.
+const text = md.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, '')).replace(/(?<!\\)`[^`\n]*`/g, (span) => (/\[(?:NEEDS CLARIFICATION|PARKED)[^\]]*\]/.test(span) ? '' : span));
 const fm = frontmatter(md) ?? {};
 const { milestones } = readMilestones(root);
 const underway = milestones.filter((m) => m.fm && (m.fm.status === 'active' || m.fm.status === 'closed'));
