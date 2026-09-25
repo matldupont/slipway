@@ -10,7 +10,7 @@ slipway's commits, base → target (3, newest first):
 
 The base is the slipway commit these files last matched. Sync needs it to tell "you changed this" from "slipway changed this", the way a merge needs a common ancestor.
 
-21 rows:
+20 rows:
   2 replace                   pristine here, changed by slipway: --apply overwrites it
   1 merge                     you edited it under an override, and slipway changed it: --apply merges (conflict markers possible)
   3 add                       new in slipway, absent here: --apply copies it in
@@ -20,7 +20,7 @@ The base is the slipway commit these files last matched. Sync needs it to tell "
   1 seeded: upstream changed  a file you fill in, never rewritten: --apply writes slipway's diff under .slipway/upstream/ as a reference to port by hand, not a patch (it is against the template's copy); /sync-slipway walks you through it
   3 merged: key updated       a package.json script you left at the base value: --apply updates it
   1 merged: key reported      a package.json script you changed: --apply keeps yours and shows slipway's
-  6 unchanged                 the same on both sides: nothing to do
+  5 unchanged                 the same on both sides: nothing to do
 
 Needs you (3):
   merged: key reported  package.json scripts.b

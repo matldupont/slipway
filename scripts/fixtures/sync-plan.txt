@@ -10,7 +10,6 @@ slipway's commits, base → target (3, newest first):
 
   unchanged                 .gitattributes
   unchanged                 .gitignore
-  unchanged                 README.md
   seeded: upstream changed  docs/PRD.md
   unchanged                 docs/same.md
   merged: key updated       package.json scripts.a
@@ -30,4 +29,4 @@ slipway's commits, base → target (3, newest first):
   replace                   process/replace.md
   unchanged                 process/same.md
 
-21 rows: 2 replace, 1 merge, 3 add, 2 delete, 1 keep (edited), 1 collision, 1 seeded: upstream changed, 3 merged: key updated, 1 merged: key reported, 6 unchanged. Plan only — nothing was written.
+20 rows: 2 replace, 1 merge, 3 add, 2 delete, 1 keep (edited), 1 collision, 1 seeded: upstream changed, 3 merged: key updated, 1 merged: key reported, 5 unchanged. Plan only — nothing was written.

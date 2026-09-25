@@ -9,12 +9,13 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { classify, loadOwnership } from '../ci/checks/lib/ownership.mjs';
 import { MANIFEST, readProjectFile } from '../ci/checks/lib/manifest.mjs';
 import { ownDecisions } from './adopt.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
@@ -82,7 +83,7 @@ const MAP_YAML = `paths:
   - glob: docs/**
     class: seeded
   - glob: README.md
-    class: seeded
+    class: internal
   - glob: .gitignore
     class: seeded
   - glob: package.json
@@ -127,6 +128,7 @@ put(slip, {
   'process/clash.md': 'slipway clash\n',
   'process/harness/settings.json': '{ "harness": 2 }\n',
   'docs/PRD.md': '# PRD v2\n',
+  'README.md': '# slipway\n\n<img src="dev/assets/logo-lockup.png">\n',
   'process/hooks/new.sh': '#!/bin/sh\necho new hook\n',
   'process/dir': null,
   'process/dir/index.md': 'now a folder\n',
@@ -434,6 +436,16 @@ test('apply: a seeded file slipway changed gets slipway\'s base → target diff 
   assert.match(applied.stdout, /seeded: upstream changed — [^\n]*\n {2}\.slipway\/upstream\/docs\/PRD\.md\.diff\n/);
 });
 
+test('README.md is slipway\'s own: a change to it is no row and no .slipway/upstream diff, and the real map classes it internal', () => {
+  const r = sync(project());
+  assert.equal(rows(r.stdout)['README.md'], undefined, r.stdout);
+  assert.doesNotMatch(r.stdout, /README\.md/);
+  const dir = project();
+  sync(dir, '--apply');
+  assert.equal(existsSync(join(dir, '.slipway/upstream/README.md.diff')), false);
+  assert.equal(classify(loadOwnership(SRC), 'README.md'), 'internal');
+});
+
 test('apply: an overridden file that conflicts holds markers with both sides and every line of the project\'s version', () => {
   const merged = bytes(edited, 'process/merge.md').toString('utf8');
   assert.match(merged, /^<{7} project\n[\s\S]*^={7}\n[\s\S]*^>{7} slipway\n/m);
@@ -615,7 +627,7 @@ test('adopt, sha in the first commit: that sha is the base, every file is listed
   for (const p of git(slip, 'ls-tree', '-r', '--name-only', A).split('\n').filter((p) => p.startsWith('process/') || p === '.gitattributes')) {
     assert.equal(got[p], DIFFERS.includes(p) ? 'differs' : 'pristine', p);
   }
-  for (const p of ['docs/PRD.md', 'docs/same.md', 'README.md', '.gitignore']) assert.equal(got[p], 'seeded', p);
+  for (const p of ['docs/PRD.md', 'docs/same.md', '.gitignore']) assert.equal(got[p], 'seeded', p);
   assert.equal(got['package.json'], 'merged');
   assert.equal(got['process/clash.md'], undefined, 'a file the base does not ship is the project\'s own');
   assert.equal(treeHash(dir), before, 'adopt wrote to the project');

@@ -5,13 +5,13 @@ slipway adopt, on main
 
 The base is the slipway commit these files last matched. Sync needs it to tell "you changed this" from "slipway changed this", the way a merge needs a common ancestor.
 
-14 paths the base ships:
+13 paths the base ships:
   6 pristine  the same as the base. Sync updates it when slipway changes it
-  4 seeded    a file you fill in (README, PRD…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch; /sync-slipway walks you through it
+  3 seeded    a file you fill in (PRD, decisions…). Sync never rewrites it; it writes slipway's diff for you to port by hand, a reference and not a patch; /sync-slipway walks you through it
   1 merged    package.json: sync updates its scripts key by key, and keeps any you changed
   3 differs   you changed it since the base. Needs your choice below; then sync merges slipway's changes into it, or leaves it if you keep it
 
-3 tracked file(s) are the project's own: not in the base, so sync never touches them.
+4 tracked file(s) are the project's own: not in the base, so sync never touches them.
 
 Needs you (3):
   differs  process/kept.md
