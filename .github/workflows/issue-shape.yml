@@ -12,6 +12,9 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: issue-shape-${{ github.event.issue.number }}
+
 jobs:
   shape:
     name: shape
@@ -46,11 +49,12 @@ jobs:
             echo '<!-- issue-shape -->'
             echo 'This issue is labelled `needs-shape`. Edit it to fix:'
             echo
-            sed 's/^/- /' "$RUNNER_TEMP/issue/findings.txt"
+            # a quoted criterion may hold an @mention; a zero-width space keeps the bot from notifying it
+            sed -e 's/@/@\xe2\x80\x8b/g' -e 's/^/- /' "$RUNNER_TEMP/issue/findings.txt"
             echo
             echo 'This comment updates when you edit the issue, and goes away once it passes.'
           } > "$RUNNER_TEMP/issue/comment.md"
-          id=$(gh api "repos/$REPO/issues/$NUMBER/comments" --paginate --jq '.[] | select(.body | startswith("<!-- issue-shape -->")) | .id' | head -n 1)
+          id=$(gh api "repos/$REPO/issues/$NUMBER/comments" --paginate --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- issue-shape -->"))) | .id' | head -n 1)
           if [ -n "$id" ]; then
             gh api --method PATCH "repos/$REPO/issues/comments/$id" --field body=@"$RUNNER_TEMP/issue/comment.md" > /dev/null
           else
@@ -64,5 +68,5 @@ jobs:
           NUMBER: ${{ github.event.issue.number }}
         run: |
           gh issue edit "$NUMBER" --repo "$REPO" --remove-label needs-shape || true
-          gh api "repos/$REPO/issues/$NUMBER/comments" --paginate --jq '.[] | select(.body | startswith("<!-- issue-shape -->")) | .id' |
+          gh api "repos/$REPO/issues/$NUMBER/comments" --paginate --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- issue-shape -->"))) | .id' |
             while read -r id; do gh api --method DELETE "repos/$REPO/issues/comments/$id"; done
