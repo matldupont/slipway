@@ -56,6 +56,9 @@ move their own lessons and decisions (the ones slipway does not ship) to `PL-`/`
 `L-`/`D-` IDs, `L-57` onward included, stay as they are. Declined: free edits with a merge on every sync (drift makes
 each sync costlier until projects stop syncing), and shipping skills and checks as a plugin and a package
 (it conflicts with SLIPWAY.md's self-containment; revisit if the merge surface stays large).
+Slipway does not rewrite published history; if it ever has to, it ships the recovery with it: `sync` names the
+nearest commit and the command that re-points the project. The 2026-09-24 rewrite that removed a private name
+from one lesson is the example.
 
 ## D-016 — Slipway maintains itself; it asks owners only about their product *(decided 2026-09-24)*
 
