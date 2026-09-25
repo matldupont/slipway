@@ -1,0 +1,7 @@
+{
+  "_note": "The skeleton is active while FRAME is still a draft: status/draft, and nothing else. The only marker text is the template's own explanation, a whole [NEEDS CLARIFICATION] and a whole [PARKED] example inside inline code; if either were read as a question, placeholder/present or parked/incomplete would appear as an unexpected finding. Pins the one accepted skip, and only that one.",
+  "exit": 1,
+  "findings": [
+    "FRAME.md#status/draft"
+  ]
+}
