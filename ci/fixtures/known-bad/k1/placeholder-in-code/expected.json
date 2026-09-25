@@ -1,0 +1,7 @@
+{
+  "_note": "Framed, complete and the skeleton active, except that a `TBD` and a `<…>` placeholder sit inside inline code. Backticks do not hide a placeholder: only a whole [NEEDS CLARIFICATION]/[PARKED] marker inside a code span is skipped, as the template's own explanation of the syntax. Pins that the skip never widens.",
+  "exit": 1,
+  "findings": [
+    "FRAME.md#placeholder/present"
+  ]
+}
