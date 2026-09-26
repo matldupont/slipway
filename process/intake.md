@@ -55,9 +55,9 @@ stays locked, and a retried write repeats nothing.
 The body reads as the repository's issue form would render it, so the checks that read issues accept it.
 
 - Headings at level 3, in the form's order: `### Problem`, `### Acceptance`, `### Seams`, `### Seams detail`,
-  `### Out of scope`, `### Links`. A bug uses the headings of `.github/ISSUE_TEMPLATE/bug.yml`. A feature or a
-  split issue adds `### Contract` and `### Verify` after `### Acceptance`, **copied in**, never linked: the
-  issue is built from its own body.
+  `### Out of scope`, `### Links`. A bug uses the headings of `.github/ISSUE_TEMPLATE/bug.yml`, with
+  `### Root cause` added after `### Reproduction`. A feature or a split issue adds `### Contract` and
+  `### Verify` after `### Acceptance`, **copied in**, never linked: the issue is built from its own body.
 - **Acceptance:** one line each, each able to fail: a number, a `command`, a comparison, `Given / When / Then`,
   or an issue reference. "Faster" is an adjective, not a test.
 - **Seams:** does this add a person, a channel or a promise? Answer every time. `none` takes one line of why.
@@ -71,7 +71,7 @@ The body reads as the repository's issue form would render it, so the checks tha
   in, and the body says so: `Verified against: <short sha> <yyyy-mm-dd>`, with what was read (L-18). A claim
   that does not survive the re-read is not filed.
 - **Links:** `Part of: #n` for a parent, then `Follows: #n`, `Blocked by: #n`, `Decision: <id>`, and
-  `Lane: trivial | bounded | feature`.
+  `Lane: trivial | bounded | feature`. A bug adds `Regression of: #n` and `Breaks: #n`.
 - **Never in a body, a title or a comment:** a credential, token, environment value or `.env` line, or file
   contents beyond the lines a claim cites. Text quoted from elsewhere has its `@name` mentions written as
   `` `@name` ``, so nobody is notified by a copy.
