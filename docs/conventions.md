@@ -1,8 +1,8 @@
 # Conventions
 
 The one way this codebase does each recurring thing, with the file that shows it. Read by
-agents before writing new code (`/work-ticket`) and by review (`/pr-review`): code that
-duplicates an existing helper or breaks a rule written here is a `[FIX]`, citing the line.
+agents before writing new code and by its cold review (both in `/work-ticket`): code that
+duplicates an existing helper or breaks a rule written here is a finding the PR fixes, citing the line.
 
 **Short, human-written, and grown from real divergences.** Add a row only when two ways of
 doing the same thing have appeared, or an agent reached for the wrong one — the same bar as a

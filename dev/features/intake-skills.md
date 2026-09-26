@@ -243,3 +243,4 @@ none.
 - 2026-09-25 · ADDED · shaped from #46 before any code · PR for #46
 - 2026-09-25 · CHANGED · build step 1: `log-followup` reads `Domain invariants doc` too (its acceptance line on checked math), so that row is read by all four · PR for #46 step 1
 - 2026-09-25 · CHANGED · threat model: filing includes the new issue's link under a same-repository parent; a comment on a parent in another repository needs the owner's yes (cold review of step 1) · PR for #46 step 1
+- 2026-09-25 · CHANGED · build step 4: the stale-wording sweep also covered `SLIPWAY.md` step 3, `/kickoff` and `pnpm status` ("not `/pr-review`") and the `[FIX]` label in `docs/conventions.md`, `SLIPWAY.md` and `AGENT.md`; a test now fails on "user-level", "where installed" or `/pr-review` in anything slipway ships · PR for #46 step 4

@@ -68,8 +68,8 @@ criteria written before starting. A readiness gate then asks of every slice: can
 inventing a decision nobody recorded? Finally, run **`/review-doc docs/PRD.md` in a fresh session**: the
 adversarial review of the *document*. It argues with the plan — criteria that cannot fail, assumptions stated
 as facts, contradictions, sequencing — and writes `docs/reviews/<date>-prd-<version>.md`, which R1 checks.
-This is not `/pr-review`, which reads a code diff on a pull request and writes nothing here; you want both, at
-different moments. A substantive revision bumps the PRD version, so it needs a fresh review.
+This is not the code review of a pull request (`/work-ticket` runs one), which reads a diff and writes nothing
+here; you want both, at different moments. A substantive revision bumps the PRD version, so it needs a fresh review.
 
 ### 4 · Walking skeleton — days
 
@@ -88,7 +88,7 @@ the diff.
 
 Cohesion is checked three ways: the code-health ratchets fail a PR that adds dead code or duplication;
 `docs/conventions.md` names the one way to do each recurring thing, and agents search for an existing
-helper before writing a new one; review treats a duplicate or a convention break as a `[FIX]`. Debt that
+helper before writing a new one; review makes the PR fix a duplicate or a convention break. Debt that
 does accumulate shows up in the milestone retro and is paid down in the cool-down.
 
 ### 6 · Close the milestone
@@ -134,7 +134,7 @@ instead of rewriting the Contract.
 | `/kickoff` | steps 1–3: frame, risk test plan, PRD, week-1 decisions, milestones, readiness gate |
 | `/close-milestone` | step 6: gate evidence, retro, close out, next bet |
 | `/sync-slipway` | take a newer slipway: explain the change, the owner applies it, resolve, PR ([Taking slipway updates](#taking-slipway-updates)) |
-| `/log-feature` `/log-bug` `/log-followup` `/work-ticket` | intake and execution skills (user-level), configured by [`AGENT.md`](AGENT.md) |
+| `/log-feature` `/log-bug` `/log-followup` `/work-ticket` | file a feature, a bug or a follow-up, and build one issue to a ready PR; configured by [`AGENT.md`](AGENT.md) |
 
 ---
 

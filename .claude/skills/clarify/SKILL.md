@@ -46,10 +46,9 @@ For each question, in the order they block things (frame before PRD before evide
      finished until someone answers it. Do not invent an assumption to unblock the check.
 4. **Every parked question gets a tracker before you move on**: an existing issue, a new one, or a
    PRD `OD-` / `decisions.md` `PD-` entry when it is a decision rather than a task. With no existing
-   one, offer to file it now — the repo's intake skill (`/log-followup` with the parent, where it
-   is installed), or `gh issue create --title "<question>" --body "<file:line, the assumption, the
-   cost if wrong, what it blocks>"` — and on a yes, write
-   the number it returns into the `[PARKED: … · #n]` marker **in the same step**. Filing the issue
+   one, offer to file it now — `/log-followup` with the parent, or `gh issue create --title
+   "<question>" --body "<file:line, the assumption, the cost if wrong, what it blocks>"` — and on a
+   yes, write the number it returns into the `[PARKED: … · #n]` marker **in the same step**. Filing the issue
    and converting the marker are one act: an issue filed while the marker still says
    `NEEDS CLARIFICATION` is the failure L-67 names. `untracked` in `pnpm status` means it will be
    forgotten.
