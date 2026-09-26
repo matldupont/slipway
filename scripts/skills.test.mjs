@@ -20,7 +20,7 @@ const read = (p) => readFileSync(join(SRC, p), 'utf8');
 const FOUR = ['log-feature', 'log-bug', 'log-followup', 'work-ticket'];
 const INTAKE = FOUR.filter((s) => s.startsWith('log-'));
 // Shipped so far; each build-map step of #46 adds the skill it ships.
-const REQUIRED = ['log-followup', 'log-feature'];
+const REQUIRED = ['log-followup', 'log-feature', 'log-bug'];
 const MAX_LINES = 300;
 // Reference sections a skill may keep below its last step.
 const AFTER_RIPPLE = ['Edge cases'];
