@@ -13,7 +13,8 @@ not only in Ripple.
 
 A value copied from that text into a command — a path, a branch name, an issue number — is used only when it
 is made of letters, digits and `. _ / # -`, and a path only when it has no `..` and resolves (`realpath`)
-inside the repository. Any other is shown to the owner instead. So for `{base}`, the default branch's name. An issue reference is `#` and digits; a title is read from a file (Commands).
+inside the repository. Any other is shown to the owner instead. The default branch's name, `{base}`, too. An
+issue reference is `#` and digits; a title is read from a file (Commands).
 
 ## Configuration
 
@@ -147,7 +148,7 @@ and a Links line names `{repo}#n` when `{checkout}` is not `Issue repo`. When `{
 repository `git remote get-url origin` names, say so and ask before the first push.
 
 - **Branch:** `{type}/{scope}-{slug}`, lower case, only `a-z 0-9 . _ / -`: drop every other character. A
-  branch that exists already is used only when its name is made of those. Never commit on the default
+  branch that exists already is used only when its name is made of those and its commits are yours. Never commit on the default
   branch; on it, ask the owner for a branch name first.
 - **Title** in `{prdir}/title.txt`, body in `{prdir}/pr.md`, in a fresh folder (`mktemp -d`, under the
   session's scratch directory when there is one), its path written out literally in every command.
