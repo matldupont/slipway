@@ -19,8 +19,10 @@ writes it. You explain, resolve and record. Run it with the owner present, becau
 - Change a file the project owns beyond what §3 settles or the owner chose. A change that needs a
   project value is never settled.
 
-Every command below is `npx github:matldupont/slipway#<ref> sync …`. `<ref>` is the target: `main`, or
-a sha the owner names. In slipway's own checkout it is `node <slipway>/scripts/new-project.mjs sync …`.
+Every command below is `pnpm use-slipway sync …`: the project's `use-slipway` script runs slipway's `main`.
+When the project has no such script yet (its first sync, or an adoption), or the owner names another target,
+use `npx github:matldupont/slipway#<ref> sync …`, where `<ref>` is `main` or a sha. In slipway's own
+checkout it is `node <slipway>/scripts/new-project.mjs sync …`.
 
 ## 1 — Plan and explain
 
@@ -49,7 +51,7 @@ Ask for a yes before step 2. A no ends the skill, with nothing written.
 Give the owner the exact command, to run in **their own terminal**, not through you:
 
 ```bash
-npx github:matldupont/slipway#<ref> sync --apply
+pnpm use-slipway sync --apply
 ```
 
 It creates `slipway/sync-<target>` from the current branch and commits everything in one commit. Exit 1

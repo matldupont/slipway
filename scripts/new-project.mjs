@@ -166,6 +166,8 @@ Built on [slipway](SLIPWAY.md) ${version}. Where the project stands and what to 
 \`\`\`bash
 pnpm status
 \`\`\`
+
+To take a newer slipway later: \`pnpm use-slipway sync\` prints the plan; \`/sync-slipway\` walks you through it.
 `);
 }
 note(`<Product> → ${name}${repo ? `, <owner/repo> → ${repo}` : ''} in ${PLACEHOLDER_FILES.join(', ')}`);

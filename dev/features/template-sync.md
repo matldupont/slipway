@@ -161,10 +161,16 @@ The entry point is a subcommand of the package's existing bin, so the sync code 
 **target** version:
 
 ```bash
-npx github:matldupont/slipway#<ref> sync            # plan only, the default
-npx github:matldupont/slipway#<ref> sync --apply
-npx github:matldupont/slipway#<ref> sync --adopt    # a project without a manifest
+pnpm use-slipway sync            # plan only, the default
+pnpm use-slipway sync --apply
+npx github:matldupont/slipway#<ref> sync --adopt    # a project without a manifest: no script yet
 ```
+
+A project's `package.json` carries `"use-slipway": "npx github:matldupont/slipway#main"`, so its owner types
+a short, stable name, not slipway's repository address (#90). It is a script slipway ships, so a sync adds
+it to an existing project as any other `merged` key. Sync's printed next steps name the script when the
+project has it, and the long form (`#<ref>` for another target) when it does not yet. Publishing to npm
+(#91) changes the script's body, not what owners type.
 
 Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
 

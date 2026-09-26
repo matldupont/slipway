@@ -29,7 +29,7 @@ to exempt. The cheapest moment to install the spine is before there is anything 
    - installs the agent harness (`.claude/settings.json`), and prints what it does as it goes;
    - records what it wrote in `.slipway/manifest.json`: each file's class, hash and git blob id. D1 then
      fails on a slipway-managed file changed without a reason in `.slipway/overrides.yaml`, and
-     `/sync-slipway` takes a newer slipway later (SLIPWAY.md, *Taking slipway updates*);
+     `/sync-slipway` takes a newer slipway later, and `pnpm use-slipway sync` prints its plan (SLIPWAY.md, *Taking slipway updates*);
    - creates the GitHub repository and pushes;
    - creates the `needs-shape` label that `.github/workflows/issue-shape.yml` applies;
    - **attempts** to protect `main` — pull request required; required checks `meta`, `verify`, `pr-body`;

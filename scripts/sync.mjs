@@ -1,7 +1,8 @@
 // sync — take a newer slipway into a project (F-01, dev/features/template-sync.md). Steps 3–4.
 //
-//   npx github:matldupont/slipway#<ref> sync [--plan]   run in the project: the plan, the default
-//   npx github:matldupont/slipway#<ref> sync --apply    carry it out on a branch, in one commit
+//   pnpm use-slipway sync [--plan]   run in the project: the plan, the default
+//   pnpm use-slipway sync --apply    carry it out on a branch, in one commit
+//   (the script is `npx github:matldupont/slipway#main`; a project without it yet runs that, #<ref> for another ref)
 //   node <slipway>/scripts/new-project.mjs sync …
 //
 // Reached through new-project's bin, so this code is always the target version's. The plan prints one
@@ -32,7 +33,7 @@ import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, r
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
 import { BASE_WHY, bucketLines, needsLines } from './lib/summary.mjs';
-import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
+import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: sync [--plan | --apply] [--verbose]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
@@ -58,7 +59,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     const rows = plan(ctx);
     if (!argv.includes('--apply')) {
       print(out, ctx, rows, true);
-      out.write(ctx.verbose ? 'Plan only — nothing was written.\n' : 'Plan only — nothing was written. Carry it out with: sync --apply\n');
+      out.write(ctx.verbose ? 'Plan only — nothing was written.\n' : `Plan only — nothing was written. Carry it out with: ${syncCommand(ctx.root)} --apply\n`);
       return 0;
     }
     return apply(out, ctx, rows);
@@ -239,7 +240,7 @@ function rewrittenHistory({ root, gitDir, read, managed, best, source }) {
   const re = restore.map((p) => ` --revert ${shellQuote(p)}`).join('');
   return [
     `slipway's history was changed after this project recorded its version, so that record points at a version ${publicSource(source)} no longer has. The nearest one is ${short}, which differs in:${list([...restore, ...own])}`,
-    `To re-point the project at ${short}${restore.length ? ", restoring slipway's copy of each file you have not changed" : ''}, run this in your own terminal:\n  git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && sync --adopt --apply --base ${best}${re}`,
+    `To re-point the project at ${short}${restore.length ? ", restoring slipway's copy of each file you have not changed" : ''}, run this in your own terminal:\n  git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && ${syncCommand(root)} --adopt --apply --base ${best}${re}`,
     own.length && `You changed ${own.length === 1 ? 'this file' : 'these files'} yourself, so the command leaves ${own.length === 1 ? 'it' : 'them'} alone and adopt asks you for each: add --keep <path>=<reason> to keep yours, or --revert <path> to take slipway's copy:${list(own)}`,
     'Nothing was written.',
   ].filter(Boolean).join('\n');
@@ -326,14 +327,14 @@ const MEANING = {
 };
 
 // The next command for a row that needs the owner (OWNER_ROWS).
-function nextStep(r, targetSha) {
+function nextStep(r, targetSha, cmd) {
   const from = targetSha ? targetSha.slice(0, 12) : 'the target';
   if (r.kind === 'collision') return `to keep yours, list it in ${OVERRIDES} with a reason; to take slipway's, copy its file from ${from} over yours`;
-  if (r.kind === 'merged: key reported') return "sync --apply keeps your value and prints slipway's; edit the key by hand to take it";
-  return "sync --apply leaves your file as it is; port slipway's change by hand if you want it";
+  if (r.kind === 'merged: key reported') return `${cmd} --apply keeps your value and prints slipway's; edit the key by hand to take it`;
+  return `${cmd} --apply leaves your file as it is; port slipway's change by hand if you want it`;
 }
 
-function print(out, { branch, remote, source, base, targetSha, notes, log, verbose }, rows, plan = false) {
+function print(out, { root, branch, remote, source, base, targetSha, notes, log, verbose }, rows, plan = false) {
   const width = Math.max(...KINDS.map((k) => label(k).length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
@@ -351,7 +352,7 @@ function print(out, { branch, remote, source, base, targetSha, notes, log, verbo
   }
   out.write(`${BASE_WHY}\n\n${rows.length} rows:\n${bucketLines(counts.map(([k, n]) => ({ n, label: label(k), meaning: MEANING[k] })))}\n`);
   const owed = rows.filter((r) => OWNER_ROWS.includes(r.kind));
-  if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed.map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha) })))}\n`);
+  if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed.map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, syncCommand(root)) })))}\n`);
   else if (plan) out.write('Nothing needs you.\n');
 }
 

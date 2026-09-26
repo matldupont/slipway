@@ -24,4 +24,4 @@ Needs you (3):
 The project's own IDs, for /sync-slipway to renumber right after --apply, so they never collide with slipway's own (slipway's are in the base, or the target's under the same title):
   D-099  decisions.md
 
-Plan only — nothing was written. Give each file above its choice, then write it with: sync --adopt --apply --base <A> --keep <path>=<reason> | --revert <path>
+Plan only — nothing was written. Give each file above its choice, then write it with: npx github:matldupont/slipway#main sync --adopt --apply --base <A> --keep <path>=<reason> | --revert <path>

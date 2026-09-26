@@ -29,7 +29,7 @@ import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { readList } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
 import { BASE_WHY, bucketLines, needsLines } from './lib/summary.mjs';
-import { blobSha, buildManifest, git, publicSource, SOURCE, templateFiles } from './lib/install.mjs';
+import { blobSha, buildManifest, git, publicSource, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 import { checkWrites, history, land, Refusal, repoState } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -48,9 +48,9 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     const { stale, all: owed } = decide(rows, o, ctx.overrides);
     report(out, ctx, rows, o.verbose, stale);
     if (!o.apply) {
-      out.write(!o.verbose && owed.length ? `Plan only — nothing was written. Give each file above its choice, then write it with: sync --adopt --apply --base ${ctx.base.sha} --keep <path>=<reason> | --revert <path>\n` : owed.length
+      out.write(!o.verbose && owed.length ? `Plan only — nothing was written. Give each file above its choice, then write it with: ${syncCommand(ctx.root)} --adopt --apply --base ${ctx.base.sha} --keep <path>=<reason> | --revert <path>\n` : owed.length
         ? `Plan only — nothing was written. Before --apply, each of slipway's files you changed needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps:\n  ${owed.join('\n  ')}\n`
-        : `Plan only — nothing was written. Write it with: sync --adopt --apply --base ${ctx.base.sha}\n`);
+        : `Plan only — nothing was written. Write it with: ${syncCommand(ctx.root)} --adopt --apply --base ${ctx.base.sha}\n`);
       return 0;
     }
     if (owed.length) throw new Refusal(`each of slipway's files you changed since the base needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps — nothing was written:\n  ${owed.join('\n  ')}`);
@@ -147,7 +147,7 @@ function locate(cwd, o) {
     if (!r.best?.matched) throw new Refusal(`no slipway sha in the first commit or README, and no commit on ${source}'s main shares one of slipway's files with this project — pass --base <sha>`);
     throw new Refusal(
       `no slipway sha in the first commit or README (${firstSubject(root)}). Closest commit on ${source}'s main:\n  ${c(r.best)}\n` +
-        `${r.runnerUp ? `  runner-up: ${c(r.runnerUp)}\n` : ''}Confirm it (or name another) with: sync --adopt --base ${r.best.sha} — nothing was written`,
+        `${r.runnerUp ? `  runner-up: ${c(r.runnerUp)}\n` : ''}Confirm it (or name another) with: ${syncCommand(root)} --adopt --base ${r.best.sha} — nothing was written`,
     );
   }
   const base = read(() => commitFiles(gitDir, sha));
@@ -345,7 +345,7 @@ function write(out, ctx, rows, o) {
   const say = (why, list) => list.length && out.write(`  ${why}: ${list.join(', ')}\n`);
   say(`kept, with an override in ${OVERRIDES}`, [...o.keep.keys()]);
   say("reverted to the base's bytes", [...o.revert]);
-  out.write('Next: run `sync` on this branch for the plan to the target, then `sync --apply`.\n');
+  out.write(`Next: run \`${syncCommand(root)}\` on this branch for the plan to the target, then \`${syncCommand(root)} --apply\`.\n`);
   return 0;
 }
 

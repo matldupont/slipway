@@ -189,8 +189,8 @@ merged by judgment file by file:
 - **The manifest.** `.slipway/manifest.json` records each file slipway wrote, with its hash and git blob
   id. Sync finds the base as the slipway commit that holds exactly those blobs. `new-project` writes it,
   and every sync rewrites it.
-- **Plan, then apply.** `sync` prints one row per path and slipway's commits since the base, and writes
-  nothing. `sync --apply` commits it all on `slipway/sync-<target>`. The owner runs `--apply` in their own
+- **Plan, then apply.** `pnpm use-slipway sync` prints one row per path and slipway's commits since the base, and writes
+  nothing. `pnpm use-slipway sync --apply` commits it all on `slipway/sync-<target>`. The owner runs `--apply` in their own
   terminal, never an agent: it installs the harness.
 - **Adopt, once.** A project created before the manifest runs `sync --adopt`. The base comes from its
   first commit or README, or, when those name only a version, from the closest slipway commit, which the
