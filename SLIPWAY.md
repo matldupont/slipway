@@ -358,8 +358,9 @@ first exercise it.
 - `/close-milestone` on a real project: the first project's M1 is still `shaping`, so no milestone has closed.
   No §3 probe covers it; closing that M1 is its first test.
   Verified against: 4783d70 2026-09-24
-- `AGENT.md` against the real intake skills, which live outside slipway today (#46). Probe 11.
-  Verified against: 4783d70 2026-09-24
+- `AGENT.md` against the shipped intake and ticket skills on a real project: slipway's own `AGENT.md` is the
+  template, so they have run only in scratch projects. Probe 11.
+  Verified against: c40c26b 2026-09-25
 - I1's stated residual: it catches adjectives, not criteria that cannot fail. "Returns HTTP 200" passes.
   No probe applies; it is a limit of the check, not an unexercised path.
   Verified against: 4783d70 2026-09-24
