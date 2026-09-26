@@ -140,26 +140,30 @@ test('AGENT.md: every row says what it controls', () => {
   for (const [k, controls] of agentRows) assert.ok(plain(controls) !== '', `AGENT.md row \`${k}\` has an empty "What it controls" cell`);
 });
 
-test('work-ticket: its draft PR body opens with a lane and carries Verification and Links', () => {
-  const md = read(skillPath('work-ticket'));
-  const body = [...md.matchAll(/^```markdown\n([\s\S]*?)^```/gm)].map((m) => m[1]).find((b) => /^## What$/m.test(b));
-  assert.ok(body, 'work-ticket has no ```markdown block holding the draft PR body');
-  assert.match(section(body, 'What', 2) ?? '', /^Lane: /m, 'the draft body\'s ## What must state the lane');
-  for (const h of ['Verification', 'Links']) assert.ok(section(body, h, 2) !== null, `the draft body has no ## ${h}`);
-  assert.match(section(body, 'Links', 2), /#n/, 'the draft body\'s ## Links must reference the issue');
+test('process/intake.md: the PR body it prescribes passes the PR check — a lane, commands in a code block, Links', () => {
+  const pr = section(intake, 'Pull request', 2) ?? '';
+  const body = pr.match(/^\s*~~~markdown\n([\s\S]*?)^\s*~~~/m)?.[1]?.replace(/^ {2}/gm, '');
+  assert.ok(body, 'process/intake.md → Pull request has no ~~~markdown block holding the PR body');
+  assert.match(section(body, 'What', 2) ?? '', /^Lane: /m, 'the body\'s ## What must state the lane');
+  assert.match(section(body, 'Verification', 2) ?? '', /```/, 'the body\'s ## Verification must hold the commands in a code block (P1 wants evidence)');
+  assert.match(section(body, 'Links', 2) ?? '', /#n/, 'the body\'s ## Links must reference the issue');
+  assert.match(read(skillPath('work-ticket')), /`process\/intake\.md` → Pull request/, 'work-ticket must open its PR per process/intake.md → Pull request');
 });
 
 // Shipped text still speaking of the skills as someone's own install, or of a review skill slipway does not ship.
-// History (decisions, feature docs, lessons, reviews) keeps its wording.
-const STALE = [/\buser-level\b/i, /where (it is )?installed/i, /\/pr-review\b/];
+// Matched across line breaks, since the docs are hard-wrapped. History (decisions, feature docs, lessons, filled
+// reviews) keeps its wording.
+const STALE = [/\buser-level\b/i, /where (it is )?installed/i, /\/pr-review\b/, /live outside slipway/i];
 test('nothing slipway ships calls the skills user-level or installed elsewhere, or names /pr-review', () => {
-  const files = execFileSync('git', ['ls-files', '*.md', '*.mjs', '*.yml', '*.yaml', '*.json'], { cwd: SRC, encoding: 'utf8' })
+  const files = execFileSync('git', ['ls-files', '*.md', '*.mjs', '*.sh', '*.html', '*.yml', '*.yaml', '*.json'], { cwd: SRC, encoding: 'utf8' })
     .split('\n')
-    .filter((f) => f && !/^(decisions\.md|dev\/|process\/lessons\/|docs\/reviews\/|scripts\/skills\.test\.mjs)/.test(f));
+    .filter((f) => f && !/^(decisions\.md|dev\/|process\/lessons\/|scripts\/skills\.test\.mjs)/.test(f))
+    .filter((f) => !f.startsWith('docs/reviews/') || f.endsWith('TEMPLATE.md'));
   const hits = [];
   for (const f of files) {
     if (!existsSync(join(SRC, f))) continue;
-    read(f).split('\n').forEach((line, i) => STALE.some((re) => re.test(line)) && hits.push(`${f}:${i + 1}`));
+    const text = read(f).replace(/\s+/g, ' ');
+    for (const re of STALE) if (re.test(text)) hits.push(`${f}: ${re}`);
   }
-  assert.deepEqual(hits, [], 'these lines still describe the shipped skills as installed elsewhere');
+  assert.deepEqual(hits, [], 'these files still describe the shipped skills as installed elsewhere');
 });
