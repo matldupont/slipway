@@ -91,6 +91,9 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   assert.match(meta, /d1-drift\.mjs/);
   assert.doesNotMatch(meta, /scripts\//);
   assert.equal(readme.includes('Built on [slipway](SLIPWAY.md) '), true);
+  // The owner updates with a short name, not slipway's repository address (#90).
+  assert.equal(JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8')).scripts['use-slipway'], 'npx github:matldupont/slipway#main');
+  assert.match(readme, /`pnpm use-slipway sync`/);
 
   for (const f of ['d1-drift.mjs', 'w1-declared-vs-invoked.mjs']) {
     const r = check(dest, f);

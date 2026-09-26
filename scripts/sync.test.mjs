@@ -212,6 +212,21 @@ test('the default plan is a summary: no per-path row for a bucket that needs not
   assert.doesNotMatch(r.stdout, /process\/same\.md/);
 });
 
+test('a project with the use-slipway script is told `pnpm use-slipway sync --apply`, and one without it the long form (#90)', () => {
+  const dir = project((d) => {
+    const pkg = JSON.parse(readFileSync(join(d, 'package.json'), 'utf8'));
+    pkg.scripts['use-slipway'] = 'npx github:matldupont/slipway#main';
+    writeFileSync(join(d, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
+    commit(d, 'add the use-slipway script');
+  });
+  const r = sync(dir);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /Carry it out with: pnpm use-slipway sync --apply\n$/);
+  assert.match(r.stdout, /next: pnpm use-slipway sync --apply keeps your value/);
+  assert.doesNotMatch(r.stdout, /npx github:/);
+  assert.match(sync(project()).stdout, /Carry it out with: npx github:matldupont\/slipway#main sync --apply\n$/);
+});
+
 test('the owner sees none of the ownership words: not in the plan, the verbose plan, the adopt plan or an apply (D-016)', () => {
   const ids = /pristine|seeded|managed|merged|\bP[LD]-/i;
   const dir = project();
@@ -323,7 +338,7 @@ test('a manifest recorded before slipway rewrote its history: names the closest 
   assert.match(first, /^sync: slipway's history was changed after this project recorded its version/);
   assert.doesNotMatch(first, /[0-9a-f]{40}|\b[A-Z]\d\b/, 'a blob id or check id in the first line');
   assert.match(r.stderr, new RegExp(`nearest one is ${A.slice(0, 12)}, which differs in:\\n {2}process/same\\.md\\n {2}process/ours\\.md`));
-  const cmd = `git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && sync --adopt --apply --base ${A} --revert process/same.md\n`;
+  const cmd = `git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && npx github:matldupont/slipway#main sync --adopt --apply --base ${A} --revert process/same.md\n`;
   assert.ok(r.stderr.includes(cmd), r.stderr);
   assert.match(r.stderr, /You changed this file yourself[^\n]*\n {2}process\/ours\.md/);
   assert.doesNotMatch(cmd, /process\/ours\.md/, 'a file the project edited is restored silently');
@@ -639,7 +654,7 @@ test('apply refuses under an agent (CLAUDECODE set), writing nothing; the harnes
   const asks = JSON.parse(readFileSync(join(SRC, 'process/harness/settings.json'), 'utf8')).permissions.ask
     .filter((a) => a.startsWith('Bash('))
     .map((a) => new RegExp(`^${a.slice(5, -1).replace(/:\*$/, '*').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*')}$`));
-  for (const cmd of ['npx github:matldupont/slipway#main sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply', 'npx github:matldupont/slipway#main sync --adopt --apply --base abc', 'node ../slipway/scripts/new-project.mjs sync --apply --adopt']) {
+  for (const cmd of ['pnpm use-slipway sync --apply', 'npx github:matldupont/slipway#main sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply', 'npx github:matldupont/slipway#main sync --adopt --apply --base abc', 'node ../slipway/scripts/new-project.mjs sync --apply --adopt']) {
     assert.ok(asks.some((re) => re.test(cmd)), `no ask rule matches: ${cmd}`);
   }
 });
@@ -705,7 +720,7 @@ test('a default adopt plan with nothing to decide says so in one line and prints
   const r = adopt(dir);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^Nothing needs a decision\.$/m);
-  assert.match(r.stdout, new RegExp(`Plan only — nothing was written\\. Write it with: sync --adopt --apply --base ${A}\n$`));
+  assert.match(r.stdout, new RegExp(`Plan only — nothing was written\\. Write it with: npx github:matldupont/slipway#main sync --adopt --apply --base ${A}\n$`));
   assert.doesNotMatch(r.stdout, /Needs you/);
 });
 
@@ -730,7 +745,7 @@ test('adopt, a version in the first commit: proposes the closest commit with the
     // A and A0 hold the same managed blobs; the walk is newest first, so A0 leads and A is the runner-up.
     const n = git(slip, 'ls-tree', '-r', '--name-only', A).split('\n').filter((p) => p.startsWith('process/') || p === '.gitattributes').length;
     assert.match(r.stderr, new RegExp(`no slipway sha in the first commit or README \\(chore: start from slipway 0\\.0\\.0-fixture\\)\\. Closest commit on \\S+'s main:\\n  ${A0} — ${n} of slipway's file\\(s\\)[^\\n]*\\n[^\\n]*\\n  runner-up: ${A} — ${n} of slipway's file\\(s\\)`));
-    assert.match(r.stderr, new RegExp(`Confirm it \\(or name another\\) with: sync --adopt --base ${A0} — nothing was written`));
+    assert.match(r.stderr, new RegExp(`Confirm it \\(or name another\\) with: npx github:matldupont/slipway#main sync --adopt --base ${A0} — nothing was written`));
     assert.equal(treeHash(versioned), before);
   }
   const r = adopt(versioned, '--base', A.slice(0, 10));
