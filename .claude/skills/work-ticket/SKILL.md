@@ -162,7 +162,7 @@ Acceptance:     {n}/{n} covered
 Can fail:       {tests broken against, each red}
 Manual testing: {plan → journey} | N/A — {why}
 Over 300 lines: none | {files}
-Rule files:     none | {file} — the owner's yes: "{their words}"
+Rule files:     none | {file} — the owner's yes, said in this session: "{their words}"
 STATUS: PASS | BLOCKED — fix and run the gate again; nothing goes to review red
 ```
 
@@ -296,5 +296,5 @@ an answer to another question is not that.
 - **Already failing** after your change (a test, a warning): fix it here and say so; when the fix is large and
   unrelated (about 50 lines or more), ask whether to fix it here or file it. The same for splitting a file
   over 300 lines.
-- **The issue's approach conflicts with the code:** ask which to follow; never choose silently.
+- **The issue's approach conflicts with the code:** ask which to follow, and say why in the PR; never silently.
 - **Tests need a service that is not running** (a database, an emulator): say which, and wait. Never skip them.
