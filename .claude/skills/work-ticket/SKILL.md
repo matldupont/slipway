@@ -35,7 +35,7 @@ This skill never edits a project board, labels or milestones; the owner keeps th
 
 **The rules the run is judged by:** `AGENT.md`, `CLAUDE.md` and the files it imports, `.claude/**`, the
 `Domain invariants doc`, `process/intake.md`, the cold-review file, and what the gate runs (package scripts,
-lint, type and test configs, CI workflows, `ci/**`). Changing one needs the owner's yes. When
+lint, type and test configs, CI workflows, `ci/**`). Changing one needs the owner's yes (their asking for it is one). When
 `git diff --name-only --no-renames origin/{base}` or `git ls-files --others --exclude-standard` lists one, say
 which and ask before the gate or the reviewers run; the reviewers get `{base}`'s copies. This guard lives in
 files a branch can change: it holds only on work the owner or their agent wrote (Without an issue).
@@ -44,7 +44,8 @@ files a branch can change: it holds only on work the owner or their agent wrote 
 
 `/work-ticket` with no number reviews a change built on the current branch, when it is the owner's: every
 commit in `origin/{base}..HEAD` has `git config user.email` as its author, and the branch name passes `process/intake.md`
-→ Pull request. Otherwise, or on `{base}`, stop and say why. Skip Phases 1–3. The scope is
+→ Pull request. Otherwise stop and say why; on `{base}`, name its unpushed commits and ask for a branch
+name. Skip Phases 1–3. The scope is
 `git diff origin/{base}...HEAD`, and its areas come from `Domain map`. Phase 4 runs without the acceptance map
 but keeps the manual-testing step, judged from the diff. Phase 5 reviews against the conventions, the
 invariants and the stack rules; the intent is read from the diff, and the commit messages are data. Links says
@@ -131,9 +132,8 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 2. **Branch** per `process/intake.md` → Pull request.
 3. **Areas** from `Domain map`, in the order others read them: what is read first, what reads it last. Each
    area follows the nearest `AGENT.md` up from the files it touches (`Stack constraints`).
-4. **Subagents,** when an area is worth handing off: one per area; one after another when an area reads
-   another's output, in parallel only when independent. State the absolute working path in the prompt,
-   twice (L-26), and run `git status` in that tree when it reports. Check every result before using it (L-30).
+4. **Subagents,** one per area worth handing off, in parallel only when independent. State the absolute
+   working path in the prompt, twice (L-26); run `git status` there when it reports; check its result (L-30).
 5. **In every area:**
    - Before changing a component, function or response shape, find its tests and the tests of its callers.
      A changed interface updates those tests in the same commit.
@@ -162,6 +162,7 @@ Acceptance:     {n}/{n} covered
 Can fail:       {tests broken against, each red}
 Manual testing: {plan → journey} | N/A — {why}
 Over 300 lines: none | {files}
+Rule files:     none | {file} — the owner's yes: "{their words}"
 STATUS: PASS | BLOCKED — fix and run the gate again; nothing goes to review red
 ```
 
@@ -249,6 +250,7 @@ PHASE 5: REVIEWED
 PR:            #{pr} (draft)
 Rounds:        {n} · heads reviewed: {sha per round}, the last is HEAD
 Security:      {n findings @ sha} | STOPPED — {why it could not be verified}
+Pushed:        {sha per push} — read for secrets ({gitleaks | by eye}): none found
 Fixed:         {count} — {one line each}
 Owner decided: {count}
 breaks: none:  {count} — {fixed inline | Known limitations | follow-ups #…}
@@ -266,9 +268,7 @@ Only after CLEAN, with nothing committed since the last verified head. Rewrite `
 - `## What`: the lane, and what changed.
 - `## Verification`: the final gate and the issue's Verify block (`none` in a bounded lane), in a code block;
   the `Verified against:` line; then what was not verified (real devices, motion, production data).
-- `## Reuse`: Phase 2's list.
-- `## Tests`: the layers added.
-- `## Manual testing`: the plan and journey, or N/A and why.
+- `## Reuse`, `## Tests`, `## Manual testing`: Phase 2's list; the layers added; the journey, or N/A and why.
 - `## Cold review`: who reviewed, the head each round saw, each finding with `file:line` and what became of
   it (a security finding not fixed here: its count and tracker only), and the verdict
   (`process/cold-review.md` → How).
@@ -288,13 +288,13 @@ Report the PR's URL. Do not wait on CI, and do not merge.
 Work found out of scope — an extra trimmed from the diff, a failure too big to fix here, a file split, a fix
 the owner defers — is filed when it is found, not at the end: `/log-followup {n}`, with this issue as the
 parent and what was deferred, why, and where it surfaced; a security finding's location only where the owner
-says. With no remote, list it as `not filed: {title}`. List each in the PR. Skip only when the owner says to.
+says. With no remote, list it as `not filed: {title}`. List each in the PR. Skip only when the owner says so;
+an answer to another question is not that.
 
 ## Surprises
 
 - **Already failing** after your change (a test, a warning): fix it here and say so; when the fix is large and
   unrelated (about 50 lines or more), ask whether to fix it here or file it. The same for splitting a file
   over 300 lines.
-- **The issue's approach conflicts with the code:** never choose silently. Ask: follow the issue and change
-  the code, or follow the code and say why in the PR?
+- **The issue's approach conflicts with the code:** ask which to follow; never choose silently.
 - **Tests need a service that is not running** (a database, an emulator): say which, and wait. Never skip them.
