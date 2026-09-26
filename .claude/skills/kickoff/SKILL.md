@@ -140,7 +140,7 @@ anyway with a decision in `decisions.md` that says why.
    register empty. Commit it with the rest. Then tell the user, in these words:
 
    > Open a **new** session and run `/review-doc docs/PRD.md`. It fills
-   > `docs/reviews/<file>`. This is the document review, not a code review of the PR — `/pr-review`
+   > `docs/reviews/<file>`. This is the document review, not a code review of the PR, which
    > reads a diff and writes nothing here. The build goes red once the PRD leaves draft with no
    > review naming its current version.
 

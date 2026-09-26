@@ -72,7 +72,8 @@ pnpm meta
 Commit the lockfile. Then:
 
 - **Fill the remaining `<…>` in `AGENT.md`** (the script filled the product and repository). It configures
-  optional intake and execution skills; a row you don't use can say `none`.
+  intake and execution skills (`/log-feature`, `/log-bug`, `/log-followup`, `/work-ticket`); where a row
+  offers `none` and you don't use it, say `none`.
 - **The lessons clock** was started by the script (`process/anchor` holds the project's first day; by hand:
   `date +%F > process/anchor`). Lesson review dates written as `+90d` count from it, and L1 fails when one
   passes. That clock is also how deferred components come back up.

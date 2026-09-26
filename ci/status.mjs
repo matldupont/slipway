@@ -165,7 +165,7 @@ function next() {
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
     return prdReviews.length
       ? `Step 3 (you) — Shape: ${prdVersion} is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.`
-      : `Step 3 (you, with /kickoff) — Shape: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not /pr-review — and only then set Status: approved (the build goes red otherwise).`;
+      : `Step 3 (you, with /kickoff) — Shape: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not a code review of a pull request — and only then set Status: approved (the build goes red otherwise).`;
   }
   if (active.length > 1) return `Fix: ${active.length} milestones are active (${active.map((m) => m.id).join(', ')}). One at a time; pnpm meta is red until then.`;
   if (cur && curAppetite && curAppetite.end < today && !cur.extended) {

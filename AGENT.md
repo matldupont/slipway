@@ -20,7 +20,7 @@ takes the default in `process/intake.md` → Configuration; add the row to chang
 | Change lanes | `process/slipway-rules.md#Lanes` — trivial, bounded, feature | the lane an issue and its PR are sized to |
 | Marketing context | none | the positioning questions a new feature is asked; none skips them |
 | Domain invariants doc | `<docs/domain-invariants.md, or none>` — none if the product has no money or other correctness-critical math | the rules a change must not break; a path here makes the skills require property tests on that math, none makes them check data integrity instead (who owns a row, quantities never negative, locked states, retries that repeat nothing) |
-| Conventions doc | `docs/conventions.md` — the one way to do each recurring thing | what new code must reuse; duplicates and violations are `[FIX]` in review |
+| Conventions doc | `docs/conventions.md` — the one way to do each recurring thing | what new code must reuse; review makes the PR fix a duplicate or a violation |
 | Testing strategy doc | `docs/testing-strategy.md` | which test type and path a missing test is filed under |
 | Effort decision-tree | `process/designation.md` | the mode, model and effort line on every issue |
 | Quality gate | `pnpm verify && pnpm meta` | the commands `/work-ticket` runs before a PR is called done |

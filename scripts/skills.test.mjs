@@ -8,6 +8,7 @@
 // key with the skills that read it, and either a default or the question asked when it is missing.
 
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -19,8 +20,7 @@ const read = (p) => readFileSync(join(SRC, p), 'utf8');
 
 const FOUR = ['log-feature', 'log-bug', 'log-followup', 'work-ticket'];
 const INTAKE = FOUR.filter((s) => s.startsWith('log-'));
-// Shipped so far; each build-map step of #46 adds the skill it ships.
-const REQUIRED = ['log-followup', 'log-feature', 'log-bug'];
+const REQUIRED = FOUR;
 const MAX_LINES = 300;
 // Reference sections a skill may keep below its last step.
 const AFTER_RIPPLE = ['Edge cases'];
@@ -66,7 +66,7 @@ const reads = (md) => {
   return [...line.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
 };
 
-test('the skills shipped so far are present', () => {
+test('the four skills are present', () => {
   for (const s of REQUIRED) assert.ok(present.includes(s), `${skillPath(s)} is missing`);
 });
 
@@ -138,4 +138,28 @@ test('process/intake.md: every key is an AGENT.md row, with either a default or 
 
 test('AGENT.md: every row says what it controls', () => {
   for (const [k, controls] of agentRows) assert.ok(plain(controls) !== '', `AGENT.md row \`${k}\` has an empty "What it controls" cell`);
+});
+
+test('work-ticket: its draft PR body opens with a lane and carries Verification and Links', () => {
+  const md = read(skillPath('work-ticket'));
+  const body = [...md.matchAll(/^```markdown\n([\s\S]*?)^```/gm)].map((m) => m[1]).find((b) => /^## What$/m.test(b));
+  assert.ok(body, 'work-ticket has no ```markdown block holding the draft PR body');
+  assert.match(section(body, 'What', 2) ?? '', /^Lane: /m, 'the draft body\'s ## What must state the lane');
+  for (const h of ['Verification', 'Links']) assert.ok(section(body, h, 2) !== null, `the draft body has no ## ${h}`);
+  assert.match(section(body, 'Links', 2), /#n/, 'the draft body\'s ## Links must reference the issue');
+});
+
+// Shipped text still speaking of the skills as someone's own install, or of a review skill slipway does not ship.
+// History (decisions, feature docs, lessons, reviews) keeps its wording.
+const STALE = [/\buser-level\b/i, /where (it is )?installed/i, /\/pr-review\b/];
+test('nothing slipway ships calls the skills user-level or installed elsewhere, or names /pr-review', () => {
+  const files = execFileSync('git', ['ls-files', '*.md', '*.mjs', '*.yml', '*.yaml', '*.json'], { cwd: SRC, encoding: 'utf8' })
+    .split('\n')
+    .filter((f) => f && !/^(decisions\.md|dev\/|process\/lessons\/|docs\/reviews\/|scripts\/skills\.test\.mjs)/.test(f));
+  const hits = [];
+  for (const f of files) {
+    if (!existsSync(join(SRC, f))) continue;
+    read(f).split('\n').forEach((line, i) => STALE.some((re) => re.test(line)) && hits.push(`${f}:${i + 1}`));
+  }
+  assert.deepEqual(hits, [], 'these lines still describe the shipped skills as installed elsewhere');
 });

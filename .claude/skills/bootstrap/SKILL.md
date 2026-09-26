@@ -93,7 +93,7 @@ as not run, never as passed.
 |---|---|
 | 2 | `git push origin main` from a clean checkout is rejected (or, where `main` could not be protected, turns CI red) |
 | 10b | `git stash pop` in a session asks before acting |
-| 11 | the intake skill (`/log-followup`, where installed) files its issue in this repository |
+| 11 | `/log-followup` files its issue in this repository |
 | 14 | a new Claude Code session opens with the `pnpm status` state (ask it "what's next?") |
 | 15 | asking the agent to edit `biome.json` or a workflow shows an approval prompt; a failing test stops a turn from ending — you will likely have seen this one already during §1; say so if you did |
 
