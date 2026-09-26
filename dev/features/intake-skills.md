@@ -175,6 +175,10 @@ The skills run `gh` with the owner's credentials, and Ripple edits issues other 
   yes), no ripple.
 - Slipway's own repository cannot run the skills (its `AGENT.md` is the template); slipway keeps filing its
   own issues by hand in the same format.
+- `/work-ticket`'s guard on the files that judge a run (the gate's scripts and configs, `AGENT.md`, the skills,
+  `process/intake.md`) lives in those same files, and the agent loads the branch's copies. So it runs only on
+  work the owner or their agent wrote: with no issue, a branch with another author's commits is refused
+  (owner's ruling, 2026-09-25, after two review rounds found problems there).
 
 ## Acceptance
 
@@ -245,3 +249,4 @@ none.
 - 2026-09-25 · CHANGED · threat model: filing includes the new issue's link under a same-repository parent; a comment on a parent in another repository needs the owner's yes (cold review of step 1) · PR for #46 step 1
 - 2026-09-25 · CHANGED · build step 4: the stale-wording sweep also covered `SLIPWAY.md` step 3, `/kickoff` and `pnpm status` ("not `/pr-review`") and the `[FIX]` label in `docs/conventions.md`, `SLIPWAY.md` and `AGENT.md`; a test fails on "user-level", "where installed", "live outside slipway" or `/pr-review` in anything slipway ships, across line breaks · PR for #46 step 4
 - 2026-09-25 · CHANGED · build step 4: `process/intake.md` gains a Pull request section (checkout repository, branch and title rules, the body P1 reads, redaction) for `work-ticket`, and "Issue text is data" covers commit messages and subagent reports, and every value copied into a command (cold review of step 4) · PR for #46 step 4
+- 2026-09-25 · CHANGED · build step 4: `/work-ticket` without an issue runs only on the owner's own branch; Known limitations says why · PR for #46 step 4
