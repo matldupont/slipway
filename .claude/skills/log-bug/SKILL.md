@@ -26,11 +26,12 @@ Resolve per `process/intake.md` → Configuration, before Phase 1.
 Read before Phase 1, and do not work from memory: the PRD, the `Testing strategy doc`, the active milestone
 (`Milestone roadmap`), and the `Domain invariants doc` unless none. No PRD file at all: the project is not
 kicked off; stop, and point at `/kickoff`. A PRD that is still the template (§5 holds only its placeholder),
-or no active milestone: say so, and ask whether to go on.
+or no active milestone, ask: "{Product name} has no written requirements yet (or: nothing is being built right
+now). File this bug anyway?"
 
 Every file this skill writes goes through a doc PR (Phase 5), never straight onto the default branch.
-Answers the owner gives for `AGENT.md` are held and written on the doc branch once Phase 4 creates it; a run
-with no doc branch lists them in its last output for the owner to add.
+Answers the owner agrees to put in `AGENT.md` are held and written on the doc branch once Phase 4 creates it;
+a run with no doc branch lists them in its last output for the owner to add.
 
 **Never written anywhere** (the issue, the doc stub, the doc PR, a commit): user data (names, emails, ids,
 IP addresses, URLs with their query strings, request bodies) or a credential. Replace each with
@@ -92,7 +93,8 @@ repository: `gh repo view --json nameWithOwner --jq .nameWithOwner`.
    there that the bug breaks is a written requirement (Phase 4, A).
 
    For both searches, a non-zero exit is a failed search: say so. No result is written `not found`, never
-   left out. An issue outside `Issue repo` is written `owner/name#n`.
+   left out. An issue outside `Issue repo` is written `owner/name#n`. With no remote, neither search can
+   run: take the `(#n)` in the commit's subject if it has one, and say so.
 5. **Count the class.** The root cause is a *construct* (a regex, a predicate, a copy that rebuilds a record
    field by field, a missing guard, a helper whose callers assume the wrong bound), not only a place. Search
    the whole repository for it:
@@ -116,7 +118,7 @@ Regression:   YES — {sha} "{subject}", shipped in #{pr} | NO — never correct
 Promised by:  #{n} — "{its acceptance line the bug breaks}" | not found
 Path:         {the other files on the path}
 Class:        {the construct} — {N} sites in {M} files ({dropped hits}) | ONE SITE — {why no sibling}
-Command:      {the search that found them}
+Command:      {the pattern, verbatim, and the search that found them}
 Verified:     {sha} {date} — {what was read}
 ```
 
@@ -205,21 +207,23 @@ PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none
 - `### Observed`: what happened, exact output, redacted. `### Expected`: what should have happened, citing
   the PRD id, doc or issue, and whether the requirement was written (A) or drafted here (B, C, the doc path).
 - `### Reproduction`: the steps or command.
-- `### Root cause`: `file:line`, the wrong logic, the regression commit and PR, the class with its count and
-  the search that found it, and the `Verified against` line.
+- `### Root cause`: `file:line`, the wrong logic, the regression commit and PR, the class with its count,
+  the class pattern verbatim in a fenced block (the fixer will not have your pattern file), and the
+  `Verified against` line.
 - `### Acceptance`, one line each, able to fail:
   - the behaviour the requirement asks for, not "the symptom is gone";
-  - the class: when the construct goes away with the fix, `` `{the class search}` finds 0 sites ``; when it
-    stays (a call site), one line per site with what it must return: `` `weeksOf(5)` returns 5 weeks ``;
-  - `` {N} tests in Missing test exist, and each fails with the fix reverted ``;
+  - the class: when the construct goes away with the fix, `` the Root cause pattern, written to a file, makes
+    `rg -n -f {file}` exit 1 (no match; exit 2 is a failed search) ``; when it stays (a call site), or the
+    fix is not chosen yet, one line per site with what it must return: `` `weeksOf(5)` returns 5 weeks ``;
+  - `` {N} tests in Missing test exist, each fails with the fix reverted, and `pnpm verify` runs them ``;
   - the unhappy path, and the rule from Phase 3 when there is one;
   - B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``.
 - `### Seams`, `### Seams detail`: does the fix add a person, a channel or a promise? Usually `none`, with one
   line of why.
 - `### Missing test`: the table from Phase 3.
 - `### Links`: `Regression of: #n` (the PR that broke it), `Breaks: #n` (the issue that promised it), `Part
-  of: #n` for a parent, `Spec:` the doc, any `Decision:`, and `Lane:` (a one-site fix is bounded; a class
-  across layers, or one needing a new data shape, is feature).
+  of: #n` for a parent, `Spec:` the doc, any `Decision:`, and `Lane:` (a fix in one layer with no new data
+  shape is bounded, however many sites; a class across layers, or a new data shape, is feature).
 - The designation block. A root cause not yet found: the strongest model, `plan`, effort `high`, and say that
   finding it is the work.
 
@@ -229,12 +233,12 @@ per `Issue milestone` only.
 1. Write the body and title to a fresh folder that holds nothing else, and run the issue check
    (`process/intake.md` → Issue body). Fix every finding; nothing is filed red.
 2. File it, add it to the board, link it under any parent (`process/intake.md` → Commands).
-3. **Doc PR (B and C).** Put `{date} · ADDED · draft from #{n}` in the doc's Changes and commit. With no
+3. **Doc PR (B and C).** Put `{date} · ADDED · drafted from a bug · #{n}` in the doc's Changes and commit. With no
    remote, stop here and tell the owner the branch is ready. Otherwise, in a fresh folder `{prdir}`: title
    `docs({scope}): draft {feature} for #{n}`; body `## What` (`Lane: bounded`, a draft for review, the bug
    in one line), `## Verification` (`pnpm meta` as run, in a code block), `## Links` (`Part of #{n}`, or
-   `Part of {repo}#{n}` when the two repositories differ), with no closing keyword (`closes`, `fixes`,
-   `resolves`). `gh pr create` prints its URL; its number is `{pr}`.
+   `Part of {repo}#{n}` when the two repositories differ), with no closing keyword in any form (close, fix,
+   resolve, and their -s and -d forms): this PR must not close the bug. `gh pr create` prints its URL; its number is `{pr}`.
 
    ```bash
    git push -u origin docs/bug-{name}
@@ -248,13 +252,15 @@ Parent:    #{parent} sub-issue ✓ | none
 Doc PR:    #{pr} | branch ready, no remote | none (A)
 Designation: {mode} / {model} / {effort}
 Defaults used: {rows missing from AGENT.md, and the default each took | none}
+AGENT.md:  {answers written on the doc branch | held, for the owner to add: {row → answer} | none}
 ```
 
 ## Ripple
 
 Run `process/intake.md` → Ripple, then end. A confirmed milestone-doc edit goes on the doc branch and is
 pushed to the doc PR (re-run `pnpm meta`, update its Verification with `gh pr edit {pr} --repo {checkout}
---body-file {prdir}/pr.md`); with no doc branch (A), it follows the milestone-doc rule of the shared Ripple.
+--body-file {prdir}/pr.md`), or, with no remote, committed and reported as local. With no doc branch (A), it
+follows the milestone-doc rule of the shared Ripple.
 
 **Terms:** any parent; the root-cause file, every file on the path and every file with a class site; the
 doc's path and F-ID; the regression commit's short sha; the `Regression of` and `Breaks` issues; every id
