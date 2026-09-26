@@ -148,8 +148,8 @@ cases). Fill every section:
 With a `Domain invariants doc` and checked math touched: an acceptance line says which rule holds across all
 legal inputs, and Verify names the property test that proves it.
 
-**PRD.** Add `### F-{nn} — {name}` to §5, a one-paragraph what, its acceptance, and the doc's path. The
-number is the next after the highest real one; the template's placeholder (`F-01 — <name>`) is replaced. Bump the PRD's `Version:` line and add a Change log line.
+**PRD.** Add `### F-{nn} — {name}` to §5 (next number after the highest real one, replacing `F-01 — <name>`): a
+one-paragraph what, its acceptance, the doc's path. Version bump and Change log: `process/intake.md` → PRD entry.
 
 **Schedule.** A §5 feature that no live milestone cites is unscheduled, and the repository's checks fail on it.
 Ask the owner where it goes, in these words: "Is this part of what you are building now ({active milestone's
@@ -164,8 +164,8 @@ summary}), or a later milestone?" With no active milestone, name the one being s
 - **Not scheduled:** that is a DEFER, as in Phase 2: stop and file nothing. Leave the branch unpushed, tell
   the owner its name, and give them the §4 line.
 
-Commit on the branch, and run the repository's checks. On a draft PRD the milestone check only confirms the
-PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents.
+Commit on the branch, and run the repository's checks (R1 as PRD entry says). On a draft PRD the milestone
+check only confirms the PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents.
 
 ```bash
 pnpm meta
@@ -179,6 +179,7 @@ Build map: 1. {step} — {layer}, ~{size} …
 Lane:      feature | bounded → /log-followup
 Doc:       {Feature docs dir}/{name}.md · PRD §5 F-{nn} (Version {old} → {new})
 Scheduled: {milestone id} Contents item {n} | DEFER — stopped, branch {name} unpushed
+Review:    {PRD entry's owner message, when R1 reports it} | none
 Branch:    docs/feature-{name} (committed, not pushed)
 ```
 

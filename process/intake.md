@@ -187,6 +187,21 @@ repository `git remote get-url origin` names, say so and ask before the first pu
   `--draft` when a review runs before the PR is ready (`/work-ticket`). Every later change is a new commit on the PR: never amend or force-push, so each reviewed head stays
   addressable. With no remote, stop before the push and tell the owner the branch is ready.
 
+## PRD entry
+
+An F-ID added to the PRD's §5 (`/log-feature`; `/log-bug` coverage C) comes with a `Version:` bump and a Change
+log line. The bump moves the line every review of the PRD quotes, so R1 (`pnpm meta`) goes red on a project
+that already has one: `provenance/stale` for each review naming the old line, and, once the PRD has left
+draft, `review/missing` until a review names the new version. That is expected, not a fault in the edit.
+
+- **Never touch `docs/reviews/`,** and never restore or reword the version line to turn R1 green: a review
+  records what was read at that version. `git diff --stat -- docs/reviews` is empty after the run.
+- **Record it as run.** The doc PR's Verification shows `pnpm meta` with R1's findings named, not called
+  green. Any other red check is not expected: fix it.
+- **Tell the owner,** in the skill's output, when R1 reports either finding for the PRD: "The PRD moved to
+  Version {new}; the review of {old} no longer matches. Run `/review-doc docs/PRD.md` from a fresh session
+  before this PRD is relied on." With no review of the PRD on file, R1 says nothing and neither does the skill.
+
 ## Ripple
 
 Run after the issue is filed: which work already on the books does the new issue change? Search, propose,
