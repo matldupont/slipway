@@ -208,13 +208,14 @@ PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none
   the PRD id, doc or issue, and whether the requirement was written (A) or drafted here (B, C, the doc path).
 - `### Reproduction`: the steps or command.
 - `### Root cause`: `file:line`, the wrong logic, the regression commit and PR, the class with its count,
-  the class pattern verbatim in a fenced block (the fixer will not have your pattern file), and the
-  `Verified against` line.
+  the class pattern verbatim in a fenced block (the fixer will not have your pattern file), each dropped hit
+  with its file and matched text, and the `Verified against` line.
 - `### Acceptance`, one line each, able to fail:
   - the behaviour the requirement asks for, not "the symptom is gone";
-  - the class: when the construct goes away with the fix, `` the Root cause pattern, written to a file, makes
-    `rg -n -f {file}` exit 1 (no match; exit 2 is a failed search) ``; when it stays (a call site), or the
-    fix is not chosen yet, one line per site with what it must return: `` `weeksOf(5)` returns 5 weeks ``;
+  - the class: when the construct goes away with the fix, `` with the Root cause pattern in a file outside the
+    repository, `rg -n -f {file}` finds no hit but the dropped ones Root cause lists (none dropped: exit 1;
+    exit 2 is a failed search) ``; when it stays (a call site), or the fix is not chosen yet, one line per
+    site with what it must return: `` `weeksOf(5)` returns 5 weeks ``;
   - `` {N} tests in Missing test exist, each fails with the fix reverted, and `pnpm verify` runs them ``;
   - the unhappy path, and the rule from Phase 3 when there is one;
   - B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``.
