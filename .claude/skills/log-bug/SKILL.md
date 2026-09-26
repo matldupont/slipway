@@ -179,14 +179,14 @@ extend it (a Changes line, an acceptance line) instead of starting another.
   `none`: {why}). Everything you cannot derive from the PRD or the code is an **Open question** for the owner
   (their GitHub login), never an invented rule.
 - **C also adds the PRD entry:** `### F-{nn} — {name}` in §5 (the next free number; the template's whole
-  placeholder block is replaced), a one-paragraph what and the doc's path, a `Version:` bump and a Change log
-  line. Then ask: "Is fixing this part of what you are building now ({active milestone's summary}), or a
+  placeholder block is replaced), a one-paragraph what and the doc's path, and the `Version:` bump and Change
+  log line (`process/intake.md` → PRD entry). Then ask: "Is fixing this part of what you are building now ({active milestone's summary}), or a
   later milestone?"; with no active milestone, name the one being shaped next instead. Add a Contents item
   citing `(F-{nn})` to the one they name, and say what it displaces. If it breaks one of that milestone's
   no-gos, the owner picks: amend the no-go (same commit, with why), or another milestone. Neither: stop and
   file nothing, leave the branch unpushed, tell the owner its name, and give them the §4 *Out, explicitly*
   line instead.
-- **Commit** on the branch, and run `pnpm meta`. On a draft PRD the milestone check only confirms the PRD
+- **Commit** on the branch, and run `pnpm meta` (R1 as PRD entry says). On a draft PRD the milestone check only confirms the PRD
   exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents. Push in Phase 5,
   once the issue number exists.
 
@@ -198,6 +198,7 @@ PHASE 4: WRITTEN DOWN
 PRD:      {§ and ids} "{quoted lines}" | not found
 Doc:      A {path | #n} | B/C drafted {path} (draft, committed on docs/bug-{name}) | C → not a bug | C → /log-feature
 PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none
+Review:   {PRD entry's owner message, when R1 reports it} | none
 ```
 
 ## Phase 5 — File the issue
