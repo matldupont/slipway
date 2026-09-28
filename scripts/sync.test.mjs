@@ -1043,7 +1043,9 @@ test('a file slipway stopped shipping is planned once with no upstream diff, lea
   assert.equal(run.stderr, '', 'apply refused'); // exits 1 anyway: the shared fixture has rows that need the owner
   assert.equal(existsSync(join(dir, '.slipway/upstream/README.md.diff')), false, 'no diff is offered for it');
   assert.equal(readFileSync(join(dir, 'README.md'), 'utf8'), '# ours\n', "the project's file is untouched");
-  assert.equal(JSON.parse(readFileSync(join(dir, MANIFEST), 'utf8')).files['README.md'], undefined);
+  const after = JSON.parse(readFileSync(join(dir, MANIFEST), 'utf8')).files;
+  assert.equal(after['README.md'], undefined);
+  assert.equal(after['package.json']?.class, 'merged', 'a merged entry the target no longer lists would stay; package.json is still shipped and stays recorded');
   const again = sync(dir, '--verbose');
   assert.doesNotMatch(again.stdout, /README\.md/);
 });
