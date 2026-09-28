@@ -123,6 +123,29 @@ personal skill over a project skill of the same name, so anyone holding personal
 until they retire them. Slipway's own repository keeps filing its issues by hand: its `AGENT.md` is the
 template. Spec: `dev/features/intake-skills.md`; #46.
 
+## D-019 — Experience settles a value risk when it says what would prove it wrong *(decided 2026-09-28)*
+
+K1 let nothing past the walking skeleton until every value risk had a Result from a test with a bar written
+first. Two honest cases have no test: a feature that is **table stakes** in its domain (a product without it
+is not usable, so there is nothing to ask), and a risk the **creator, as the user**, or a **domain expert**
+already knows the answer to. Until now the only way through was a decision that read like a waiver.
+
+- **Experience is evidence, with a closed list of reasons.** A value risk's Result may read
+  `experience: table stakes`, `experience: creator is the user` or `experience: domain expertise`. No other
+  rationale: a fourth is a change to this decision, not a FRAME edit.
+- **Every one names what would prove it wrong.** Its evidence in `docs/product/evidence/` carries a
+  `Wrong if:` line in the owner's words. Without it K1 fails the risk. That line is the row's bar, the way a
+  Threshold is a test's; a `Wrong if:` that comes true reopens the risk.
+- **`/kickoff` interviews for it, one question at a time,** and never writes a rationale or a refutation the
+  owner did not give. No refutation means no settlement: the risk gets a cheapest test and a Threshold.
+
+Reverses: "only a test, or a decision to build ahead, settles a value risk". The test path and the decision
+override stay; experience is a third answer, not a replacement. Consequences: K1 gains two findings and
+skips its no-Threshold rule for experience rows; `pnpm status` shows the risk as settled and names the
+rationale; the FRAME and evidence templates say so. Declined: a free-text rationale (an excuse box nothing
+can refute) and putting the refutation in the Threshold cell (prose in a table, and "set before" would mean
+nothing there). Spec: `dev/features/experience-evidence.md`; #47.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
