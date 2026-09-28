@@ -267,7 +267,7 @@ FO1 turns red on an exception that is undated, expired, stale, or keyed to a pos
 
 ### Validation
 
-**Harness.** PC1 green over 10 checks and 22 fixture cases. On the template itself W1, FO1, R1, L1 (60
+**Harness.** PC1 green over 12 checks and 40 fixture cases. On the template itself W1, FO1, R1, L1 (62
 lessons), MS1, K1 and F1 are green, and `pnpm meta` is green with nothing installed.
 
 **`verify`, including real `pnpm -r` runs in scratch workspaces:**

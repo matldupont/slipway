@@ -60,9 +60,17 @@ ahead of the evidence (today); or, new, **experience**:
 `ci/checks/lib/risks.mjs` (shared by K1 and `pnpm status`, so the two cannot disagree):
 
 - `readRisks` rows gain `experience: { rationale: string } | null`, parsed from `plain(row.result)` (the cell
-  is read raw today, line 96, and the fixtures already bold such lines), and `refutation: string | null`.
-- `readEvidence` gains one regex beside `Tracked:` and `Window:`: `^[\s>*_-]*Wrong if:\s*(.*)$`, first wins,
-  scoped by the same heading rules.
+  is read raw today, line 96, and the fixtures already bold such lines), `claimsExperience` (a value risk
+  whose Result starts with `experience`, valid or not, so K1 and status test it once) and
+  `refutation: string | null`. Only a **value** risk is settled by experience; on any other category the
+  cell is an ordinary Result, so K1 is no looser for it than before.
+- `readEvidence` reads one more line beside `Tracked:` and `Window:`: the label `^[\s>*_-]*Wrong if[*_]*:`
+  (so `**Wrong if:** x` and `**Wrong if**: x` count), the text after it cut off with emphasis trimmed, first
+  filled one wins, scoped by the same heading rules. A text with no letter or digit (the template's `…`) or
+  a placeholder is no refutation.
+- Every pattern on the cell or the line is anchored and bounded, and the text after a label is cut, never
+  matched: a hostile FRAME cannot make K1 or status backtrack (the first cut was cubic on a `\r` after many
+  spaces).
 - `tested` stays a boolean (a filled Result). A decision override already shares it, so `risk/unresolved`,
   `risk/untracked` and `risk/overdue` treat an experience-settled risk as settled with no change, and no
   existing K1 or S1 fixture flips (none contains `experience` or `Wrong if`).
@@ -79,7 +87,10 @@ action, readable without the check id (D-016):
   experience (table stakes), but its evidence names nothing that would prove it wrong. Add a `Wrong if:` line
   under RISK-n in docs/product/evidence/ (its `RISK-n-…` file, or its `### RISK-n` heading in a shared one),
   or run a test."
-- `risk/no-threshold` is skipped for an experience-settled row: its bar is the `Wrong if:` line.
+- `risk/no-threshold` is skipped for a value risk whose Result claims experience: its bar is the `Wrong if:`
+  line. On a non-value risk it still fires, and its message adds that experience settles only a value risk.
+- A Result quoted in a finding has control characters escaped and is cut at 60 characters, as a parked
+  question is.
 - The header comment's tier list and the `claim` string name both.
 
 ### The known-bad fixture — under `ci/`: shown to the owner before it is added
@@ -93,12 +104,17 @@ action, readable without the check id (D-016):
 | RISK-3 | `experience: because I said so` | — | fire `RISK-3#risk/experience-rationale` |
 | RISK-4 | `**experience: creator is the user**` (bold) | `Wrong if:` under `### RISK-4` in a shared file, after a `Wrong if:` above any heading | stay silent |
 
-`expected.json` lists exactly those two findings, with a `_note`. PC1 runs it with the other K1 cases.
+`expected.json` lists exactly those two findings, with a `_note`. RISK-2's file carries the template's bare
+`Wrong if: …`, which must not count. PC1 runs it with the other K1 cases. A second case,
+`ci/fixtures/known-bad/k1/experience-not-value/`, pins the value-only rule: a feasibility row settled by
+experience fires exactly `RISK-1#risk/no-threshold`, and the same row on a value risk stays silent.
 
 ### `pnpm status` (`ci/status.mjs`) and its fixture — shown before it is added
 
-`riskState` prints `RISK-n settled by experience (table stakes)` for an experience row, whether or not its
-`Wrong if:` exists (K1 owns that failure). A **new** S1 case `ci/fixtures/status/experience-settled/` pins
+`riskState` prints `RISK-n settled by experience (table stakes)` only when K1 would pass the row. With no
+`Wrong if:` it prints `RISK-n needs a Wrong if: line (experience: table stakes)`, and with a reason off the
+list `RISK-n needs an experience reason (table stakes, creator is the user or domain expertise)`, so status
+never reads settled while K1 is red (owner's decision at build). A **new** S1 case `ci/fixtures/status/experience-settled/` pins
 the Frame and Next lines verbatim; extending `framed-no-milestone` would rewrite its `frame` string and
 `_note`.
 
@@ -160,6 +176,11 @@ required) and no looser elsewhere: the test path and the decision override are u
 - A project that wrote its FRAME before this release gets the parsing on its next sync; until then a
   `Wrong if:` line is prose.
 - Nothing detects a `Wrong if:` that has come true.
+- An experience risk with no `Wrong if:` reads as tested for status's Next line and Needs attention, so
+  only the Frame line (and K1) name it. K1 is red, so nothing past the skeleton starts on it.
+- Any Result whose first word is experience is read as a claim, so a measured `experience-based: 4 of 10`
+  with no Threshold is told to name a reason rather than a Threshold. It is red either way, with a next
+  action.
 
 ## Acceptance
 
@@ -242,3 +263,5 @@ none.
 ## Changes
 
 - 2026-09-28 · ADDED · shaped from #47 before any code · PR for #47
+- 2026-09-28 · CHANGED · at build (#109): status never says settled while K1 is red; bold `Wrong if:`
+  forms; value-only experience, bounded parsing and escaped quotes, from cold and security review

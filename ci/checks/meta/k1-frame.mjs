@@ -13,12 +13,13 @@
 //                          position an added column has shifted. Reported before any milestone, since
 //                          once one is underway the risk findings below would read the wrong cells.
 //   risk/no-threshold      a risk has a Result but no Threshold — the bar was set after the
-//                          test, so the test could not fail. Not for a Result settled by experience:
-//                          its `Wrong if:` line is its bar.
+//                          test, so the test could not fail. Not for a value risk settled by
+//                          experience: its `Wrong if:` line is its bar. Experience settles only a value
+//                          risk, so on any other risk it is an ordinary Result, and the message says why.
 //   risk/experience-rationale
-//                          a Result starts with `experience` but names none of the three reasons:
-//                          table stakes, creator is the user, domain expertise (D-019)
-//   risk/no-refutation     a Result is settled by experience, but no `Wrong if:` line in the risk's
+//                          a value risk's Result starts with `experience` but names none of the three
+//                          reasons: table stakes, creator is the user, domain expertise (D-019)
+//   risk/no-refutation     a value risk is settled by experience, but no `Wrong if:` line in its
 //                          evidence says what would prove it wrong
 //
 // Once any milestone is active or closed, the frame must be finished:
@@ -63,8 +64,11 @@ import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section } from '../lib/markdown.mjs';
 import { readMilestones } from '../lib/milestones.mjs';
-import { report } from '../lib/report.mjs';
+import { escapeControl, report } from '../lib/report.mjs';
 import { EXPERIENCE, filled, milestoneNumber, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
+
+// A Result quoted in a finding: control characters escaped, and cut like a parked question.
+const quote = (s) => escapeControl(s.length > 60 ? `${s.slice(0, 60)}…` : s);
 
 const root = process.argv[2] ?? '.';
 const rel = 'docs/product/FRAME.md';
@@ -126,14 +130,14 @@ if (missing.length) {
 for (const r of risks) {
   // Settled by experience: one of three reasons, and what would prove it wrong. A reason off the list is
   // reported alone, not also as missing its refutation or its Threshold.
-  const claimsExperience = EXPERIENCE.test(plain(r.result ?? ''));
-  if (claimsExperience && !r.experience) {
-    add(`${r.id}#risk/experience-rationale`, `is settled by experience, but "${plain(r.result)}" is not one of: table stakes, creator is the user, domain expertise — write which one in the Result column of docs/product/FRAME.md's Risks table, or clear it and run a test`);
+  if (r.claimsExperience && !r.experience) {
+    add(`${r.id}#risk/experience-rationale`, `is settled by experience, but "${quote(plain(r.result))}" is not one of: table stakes, creator is the user, domain expertise — write which one in the Result column of docs/product/FRAME.md's Risks table, or clear it and run a test`);
   } else if (r.experience && !r.refutation) {
     add(`${r.id}#risk/no-refutation`, `is settled by experience (${r.experience.rationale}), but its evidence names nothing that would prove it wrong — add a \`Wrong if:\` line under ${r.id} in docs/product/evidence/ (its ${r.id}-… file, or its \`### ${r.id}\` heading in a shared one), or run a test`);
   }
-  if (r.tested && !claimsExperience && !filled(r.threshold)) {
-    add(`${r.id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test — write the Threshold it was measured against, or clear the Result and run the test again');
+  if (r.tested && !r.claimsExperience && !filled(r.threshold)) {
+    const why = EXPERIENCE.test(plain(r.result ?? '')) ? ` (experience settles only a value risk, and ${r.id} is ${quote(plain(r.category ?? '')) || 'uncategorised'})` : '';
+    add(`${r.id}#risk/no-threshold`, `has a Result but no Threshold${why}: the bar must be written before the test — write the Threshold it was measured against, or clear the Result and run the test again`);
   }
   if (pastSkeleton.length && r.value && !r.tested) {
     add(`${r.id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record its Result in FRAME's Risks table, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`);

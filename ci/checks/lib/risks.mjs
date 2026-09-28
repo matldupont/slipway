@@ -35,13 +35,26 @@ const REQUIRED = ['id', 'category', 'threshold', 'result'];
 
 // A Result settled by experience (D-019): `experience: <rationale>`, read on the cell's plain text, so
 // `**Experience — table stakes**` reads the same. EXPERIENCE matches any Result whose first word is
-// experience, so K1 can name one whose rationale is not one of the three.
+// experience, so K1 can name one whose rationale is not one of the three. Only a value risk is settled this
+// way; on any other risk the cell is an ordinary Result. Every pattern here is anchored and bounded, and
+// the text after the separator is cut, never matched, so a hostile cell cannot make a check backtrack.
 export const RATIONALES = ['table stakes', 'creator is the user', 'domain expertise'];
-export const EXPERIENCE = /^experience\b\s*[:—–-]?\s*(.*)$/i;
-const experienceOf = (cell) => {
-  const said = plain(cell ?? '').match(EXPERIENCE)?.[1].replace(/[\s.]+$/, '').replace(/\s+/g, ' ').toLowerCase();
-  return RATIONALES.includes(said) ? { rationale: said } : null;
+export const EXPERIENCE = /^experience\b/i;
+const rationaleOf = (text) => {
+  const rest = text.slice('experience'.length).replace(/^\s{0,8}[:—–-]?/, '');
+  if (rest.length > 40) return null;
+  const said = trimWith(rest, (c) => /[\s.]/.test(c)).replace(/\s+/g, ' ').toLowerCase();
+  return RATIONALES.includes(said) ? said : null;
 };
+
+// `s` without the leading and trailing characters `drop` accepts: a loop, not a regex, so it is linear.
+function trimWith(s, drop) {
+  let a = 0;
+  let b = s.length;
+  while (a < b && drop(s[a])) a++;
+  while (b > a && drop(s[b - 1])) b--;
+  return s.slice(a, b);
+}
 
 // docs/product/evidence/*.md, README.md excluded. A file named `RISK-n-…` or a `RISK-n` heading opens
 // that risk, until a heading at the same or a higher level closes it; `Tracked: #n`,
@@ -73,7 +86,8 @@ function readEvidence(root) {
       const window = line.match(/^[\s>*_-]*Window:\s*(.*)$/i);
       if (window && !e.window) e.window = parseAppetite(window[1].trim()) ?? 'unreadable';
       // `**Wrong if:** x`, `**Wrong if**: x` and `_Wrong if:_ *x*` read as `Wrong if: x`.
-      const wrong = line.match(/^[\s>*_-]*Wrong if[*_]*:[*_]*\s*(.*)$/i)?.[1].replace(/^[\s*_]+|[\s*_]+$/g, '');
+      const label = line.match(/^[\s>*_-]*Wrong if[*_]*:/i);
+      const wrong = label && trimWith(line.slice(label[0].length), (c) => /[\s*_]/.test(c));
       if (wrong && !e.refutation && filled(wrong) && /[\p{L}\p{N}]/u.test(wrong)) e.refutation = wrong;
     }
   }
@@ -83,7 +97,8 @@ function readEvidence(root) {
 // `rows`: one entry per `| RISK-n |` row. Its `tracker` is FRAME's Tracker cell, or the evidence file's
 // `Tracked:` line when the cell names none; `window` and `refutation` (its `Wrong if:` line) come from the
 // evidence file only. `experience` is `{ rationale }` when the Result is settled by experience with one of
-// the three rationales, else null. `tested` is any filled Result: a measure, a decision id or experience.
+// the three rationales, else null; `claimsExperience` is a value risk whose Result starts with experience,
+// valid or not. `tested` is any filled Result: a measure, a decision id or experience.
 // `missing`: the columns a check reads that the table has no readable header for.
 export function readRisks(root, frameMd) {
   const lines = (section(frameMd, 'Risks', 2) ?? '').split(/\r?\n/).filter((l) => l.trim().startsWith('|'));
@@ -111,13 +126,18 @@ export function readRisks(root, frameMd) {
       const c = cells(l);
       const row = Object.fromEntries(Object.entries(at).map(([key, n]) => [key, c[n] ?? '']));
       const ev = evidence[(row.id ?? '').toUpperCase()] ?? {};
+      const value = /\bvalue\b/i.test(row.category ?? '');
+      const result = plain(row.result ?? '');
+      const claimsExperience = value && EXPERIENCE.test(result);
+      const rationale = claimsExperience ? rationaleOf(result) : null;
       return {
         ...row,
-        value: /\bvalue\b/i.test(row.category ?? ''),
+        value,
         tested: filled(row.result),
         tracker: (filled(row.tracker) && row.tracker.match(TRACKER)?.[0]) || ev.tracker || null,
         window: ev.window ?? null,
-        experience: experienceOf(row.result),
+        claimsExperience,
+        experience: rationale ? { rationale } : null,
         refutation: ev.refutation ?? null,
       };
     });

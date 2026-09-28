@@ -1,0 +1,7 @@
+{
+  "_note": "Experience settles only a value risk. RISK-1 is feasibility with Result experience: table stakes, a Wrong if: line and no Threshold: it is an ordinary Result, so no-threshold fires as it did before experience existed, and its message says why. RISK-2 is the same row on a value risk and stays silent, so the difference is the category alone.",
+  "exit": 1,
+  "findings": [
+    "RISK-1#risk/no-threshold"
+  ]
+}

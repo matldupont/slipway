@@ -21,3 +21,4 @@ Which entries are missing from my books this month?
 | RISK-3 | Month-end is the painful moment | value | wrong moment | | | experience: domain expertise | |
 | RISK-4 | Bookkeepers will import statements | value | no data | fake door | 3 of 10 import | | #5 |
 | RISK-5 | A statement parses in under a second | feasibility | slow close | spike | p95 < 1 s | p95 0.4 s — met | |
+| RISK-6 | Bookkeepers trust an automatic match | value | manual rework | | | experience: gut feel | |

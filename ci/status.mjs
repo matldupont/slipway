@@ -46,6 +46,7 @@ const untestedValue = risks.filter((r) => r.value && !r.tested);
 const untracked = untestedValue.filter((r) => !r.tracker);
 // Settled by experience only when K1 would pass it: a missing `Wrong if:` line is said, never "settled".
 const riskState = (r) => {
+  if (r.claimsExperience && !r.experience) return `${r.id} needs an experience reason (table stakes, creator is the user or domain expertise)`;
   if (r.experience) return r.refutation ? `${r.id} settled by experience (${r.experience.rationale})` : `${r.id} needs a Wrong if: line (experience: ${r.experience.rationale})`;
   if (r.tested) return `${r.id} tested`;
   if (!r.tracker) return r.value ? `${r.id} untested (no tracker)` : `${r.id} untested`;

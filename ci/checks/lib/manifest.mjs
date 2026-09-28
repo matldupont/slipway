@@ -12,6 +12,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { CONTROL, escapeControl } from './report.mjs';
 import { readList } from './yaml-list.mjs';
 
 export const MANIFEST = '.slipway/manifest.json';
@@ -25,10 +26,6 @@ export const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'
 export const isTemplate = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
-
-// A path with each C0/C1 control character shown as \uXXXX, so an error naming it prints nothing raw.
-const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
-const escapeControl = (s) => s.replace(/[\u0000-\u001f\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
 
 // null when the project has no manifest. Throws when it has one this code cannot trust: every drift
 // finding built on a misread manifest would be wrong, and a path outside the project is never read.
