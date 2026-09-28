@@ -1028,3 +1028,24 @@ test('no upstream, or a fetch that fails: the plan prints, plus one line saying 
   assert.match(remoteLine(off.stdout), /^not checked — could not fetch origin\/main: /);
   assert.match(off.stdout, /\d+ rows:/);
 });
+
+test('a file slipway stopped shipping is planned once with no upstream diff, leaves the manifest on apply, and the next plan is silent (#98)', () => {
+  const dir = project((d) => {
+    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+    m.files['README.md'] = { class: 'seeded', sha256: sha256(Buffer.from('# ours\n')), blob: git(slip, 'rev-parse', `${A}:README.md`) };
+    put(d, { 'README.md': '# ours\n', [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+    commit(d, 'a README slipway used to seed');
+  });
+  const plan = sync(dir, '--verbose');
+  assert.equal(plan.status, 0, plan.stderr);
+  assert.equal(rows(plan.stdout)['README.md'], 'no longer tracked');
+  const run = sync(dir, '--apply');
+  assert.equal(run.stderr, '', 'apply refused'); // exits 1 anyway: the shared fixture has rows that need the owner
+  assert.equal(existsSync(join(dir, '.slipway/upstream/README.md.diff')), false, 'no diff is offered for it');
+  assert.equal(readFileSync(join(dir, 'README.md'), 'utf8'), '# ours\n', "the project's file is untouched");
+  const after = JSON.parse(readFileSync(join(dir, MANIFEST), 'utf8')).files;
+  assert.equal(after['README.md'], undefined);
+  assert.equal(after['package.json']?.class, 'merged', 'a merged entry the target no longer lists would stay; package.json is still shipped and stays recorded');
+  const again = sync(dir, '--verbose');
+  assert.doesNotMatch(again.stdout, /README\.md/);
+});

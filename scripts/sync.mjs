@@ -39,7 +39,7 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: sync [--plan | --apply] [--verbose]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
 export const KINDS = [
   'replace', 'merge', 'add', 'delete', 'keep (edited)', 'collision',
-  'seeded: upstream changed', 'merged: key updated', 'merged: key reported', 'unchanged',
+  'seeded: upstream changed', 'no longer tracked', 'merged: key updated', 'merged: key reported', 'unchanged',
 ];
 
 // A named reason to stop: printed as `sync: <reason>`, exit 1. Adopt (adopt.mjs) throws it too.
@@ -266,6 +266,8 @@ export function plan({ root, manifest, overrides, base, gitDir, target, targetRu
       scriptRows(p, { base: baseBytes(p), target: t, cur, baseRules: base.rules, targetRules }).forEach((r) => rows.push(r));
     } else if (!m) {
       add(cur === null ? 'add' : 'collision', p);
+    } else if (cls === 'seeded' && !t) {
+      add('no longer tracked', p); // slipway stopped shipping it (internal now, or gone): the project's file stays its own
     } else if (cls === 'seeded') {
       // Never written; reported when slipway changed its own copy between base and target.
       const was = base.tree.get(p);
@@ -320,6 +322,7 @@ const MEANING = {
   delete: 'slipway removed it and yours is unchanged since install: --apply deletes it',
   'keep (edited)': 'slipway removed or changed it, but you edited yours: --apply leaves yours',
   collision: 'slipway ships a path where you have your own file: --apply leaves yours',
+  'no longer tracked': "slipway no longer ships this file, so it stays yours untouched: --apply stops listing it, and no later plan mentions it",
   'seeded: upstream changed': "your file (started from slipway's template), which slipway's template has since changed. --apply never rewrites it: it writes slipway's diff under .slipway/upstream/ as a reference to apply by hand, not a patch (it is against the template's copy); /sync-slipway walks you through it",
   'merged: key updated': 'a package.json script you left at the base value: --apply updates it',
   'merged: key reported': "a package.json script you changed: --apply keeps yours and shows slipway's",
@@ -553,8 +556,8 @@ export function land(root, from, name, message, { writes, removes = [] }) {
  * at the target's blob, so the next sync finds this target as its base exactly; its sha256 is the
  * target's too, except a merged or kept file keeps its own (F-01: until resolved) and a collision
  * holds slipway's, so D1 flags it until the owner overrides it or takes slipway's copy. A managed path
- * the target no longer ships leaves the manifest: the file, if kept, is the project's. Seeded and
- * merged entries stay as they are; one the target adds is recorded as written.
+ * the target no longer ships leaves the manifest, and so does a seeded one: the file, if kept, is the
+ * project's. Merged entries stay as they are; one the target adds is recorded as written.
  */
 function nextManifest({ manifest, target, targetRules, targetSha }, rows) {
   const kind = new Map(rows.map((r) => [r.path, r.kind]));
@@ -572,7 +575,7 @@ function nextManifest({ manifest, target, targetRules, targetSha }, rows) {
     const m = manifest.files[p];
     const t = next.files[p];
     if (!t) {
-      if (m && m.class !== 'managed') files[p] = m;
+      if (m && m.class === 'merged') files[p] = m;
     } else if (t.class === 'managed') {
       files[p] = m && (kind.get(p) === 'merge' || kind.get(p) === 'keep (edited)') ? { ...t, sha256: m.sha256 } : t;
     } else if (m) {
