@@ -203,6 +203,7 @@ function preflight(cwd) {
   // informs the explanation, so a target the source lacks (unpushed) is a note; --apply refuses it.
   let log = [];
   if (targetSha && targetSha !== r.exact) {
+    forwardOnly(gitDir, r.exact, targetSha, source); // the plan and --apply refuse the same base
     try {
       log = git(['--git-dir', gitDir, 'log', '--format=%s', `${r.exact}..${targetSha}`]).split('\n').filter(Boolean);
     } catch {
@@ -211,6 +212,36 @@ function preflight(cwd) {
   }
 
   return { notes, log, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
+}
+
+/**
+ * Refuses a target that is not newer than the base: sync moves forward only, and a target the source
+ * lacks cannot be the next base. Plan and --apply both call it, so a plan never reads as ready for a base
+ * --apply would refuse. A target that shares no history with the base gets its own words: git could
+ * name no commit between them.
+ */
+function forwardOnly(gitDir, base, target, source, { apply = false } = {}) {
+  const short = (sha) => sha.slice(0, 12);
+  try {
+    git(['--git-dir', gitDir, 'merge-base', '--is-ancestor', base, target]);
+  } catch (e) {
+    if (e.status !== 1) {
+      // The target is not in the source: the plan notes it and goes on; --apply cannot record it.
+      if (apply) throw new Refusal(`the target ${short(target)} is not in ${publicSource(source)} — push it first; nothing was written`);
+      return;
+    }
+    let shared = true;
+    try {
+      git(['--git-dir', gitDir, 'merge-base', base, target]);
+    } catch {
+      shared = false;
+    }
+    throw new Refusal(
+      shared
+        ? `the target ${short(target)} is not newer than the base ${short(base)} — sync only moves forward; nothing was written`
+        : `the target ${short(target)} and the base ${short(base)} share no history in ${publicSource(source)}, so sync cannot say what changed between them; nothing was written`,
+    );
+  }
 }
 
 // A path as the owner pastes it into a shell: as is when it is plain, else single-quoted.
@@ -378,15 +409,7 @@ function apply(out, ctx, rows) {
   if (!targetSha) throw new Refusal('the target matches no slipway commit, so the manifest could not record it — run sync from a slipway checkout, or from `npx github:…#<sha>`');
   const short = (sha) => sha.slice(0, 12);
   // Forward only, and only to a commit the source has: the next sync finds its base there.
-  try {
-    git(['--git-dir', gitDir, 'merge-base', '--is-ancestor', base.sha, targetSha]);
-  } catch (e) {
-    throw new Refusal(
-      e.status === 1
-        ? `the target ${short(targetSha)} is not newer than the base ${short(base.sha)} — sync only moves forward; nothing was written`
-        : `the target ${short(targetSha)} is not in ${publicSource(ctx.source)} — push it first; nothing was written`,
-    );
-  }
+  forwardOnly(gitDir, base.sha, targetSha, ctx.source, { apply: true });
   const todo = compute(ctx, rows);
   const name = `slipway/sync-${short(targetSha)}`;
   const current = readProjectFile(root, MANIFEST);

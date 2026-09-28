@@ -64,12 +64,10 @@ export function commitFiles(gitDir, sha) {
 
 function commits(gitDir, start, ref) {
   const list = git(['--git-dir', gitDir, 'rev-list', ref]).split('\n').filter(Boolean);
-  if (!start || !/^[0-9a-f]{40}$/.test(start)) return list;
-  try {
-    git(['--git-dir', gitDir, 'cat-file', '-e', `${start}^{commit}`]);
-  } catch {
-    return list; // a fork's or an unpushed sha: the walk alone decides
-  }
+  // The hint counts only when the walk reaches it. An existence check would not say so: in a partial
+  // clone git fetches a missing object on demand, and GitHub still serves a commit no branch holds.
+  // A fork's or an unpushed sha stays out too: the walk alone decides.
+  if (!start || !list.includes(start)) return list;
   return [start, ...list.filter((s) => s !== start)];
 }
 
