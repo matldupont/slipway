@@ -40,7 +40,10 @@ import { report } from '../lib/report.mjs';
 
 const FALSIFIABLE = /\d|`[^`]+`|[<>≤≥]|[=!]=|^(given|when|then)\b|#\d+/i;
 const LANE_FEATURE = /Lane:\s*`?feature`?\b/i;
-const REFERENCE = /\[[^\]]*\]\([^)]*\)|https?:\/\/\S+|#\d+|`[^`]+`/g;
+// Bracket/paren contents are capped so a long run of unclosed `[` in a hostile issue body
+// cannot force the engine into an O(n²) scan (found in review): a real link or path never
+// needs more than 300 chars.
+const REFERENCE = /\[[^\]]{0,300}\]\([^)]{0,300}\)|https?:\/\/\S+|#\d+|`[^`]{0,300}`/g;
 const FILLER = /^(see|full|contract|verify|refer|refers|to|in|per|the|doc|for)$/i;
 
 // True once every link/URL/issue-ref/path is stripped and nothing but filler words remains —
