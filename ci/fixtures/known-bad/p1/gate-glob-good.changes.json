@@ -1,0 +1,1 @@
+{"files": ["ci/fixtures/known-bad/p1/a.json", "ci/fixtures/known-bad/p1/b/c.json", "ci/checks/lib/x.mjs"], "scripts": []}

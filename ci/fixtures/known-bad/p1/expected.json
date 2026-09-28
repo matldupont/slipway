@@ -1,10 +1,25 @@
 {
-  "_note": "good.md and none-link.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count.",
+  "_note": "good.md, none-link.md, gate-good.md, gate-glob-good.md, gate-doc-only.md (a markdown file is never a gate file), gate-base-rule-good.md and gate-none.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count. A `<name>.changes.json` beside a body lists what that PR changed; the gate-* cases are read against the harness's gate paths. A sidecar's `globs` are the gate paths the base branch's harness listed: a PR that removes a rule is held to it. One line may name a directory glob (`ci/fixtures/known-bad/p1/**`): it covers the files it matches and nothing else.",
   "exit": 1,
   "findings": [
+    "gate-glob-everything.md#gate-changes/unmentioned:ci/verify.mjs",
+    "gate-glob-loosens.md#gate-changes/loosens-uncited:ci/fixtures/x.json",
+    "gate-glob-outside.md#gate-changes/unmentioned:ci/verify.mjs",
+    "gate-loosening-word.md#gate-changes/loosens-uncited:.oxlintrc.json",
+    "gate-loosens-uncited.md#gate-changes/loosens-uncited:.oxlintrc.json",
+    "gate-missing-section.md#gate-changes/missing",
+    "gate-newline-name.md#gate-changes/missing",
+    "gate-no-verdict.md#gate-changes/no-verdict:packages/api/tsconfig.json",
+    "gate-removed-rule.md#gate-changes/missing",
+    "gate-scripts-unmentioned.md#gate-changes/unmentioned:packages/api/package.json scripts",
+    "gate-self-citing.md#gate-changes/loosens-uncited:ci/exceptions.yaml",
+    "gate-substring-path.md#gate-changes/unmentioned:package.json scripts",
+    "gate-suffix-path.md#gate-changes/unmentioned:ci/verify.mjs",
+    "gate-unmentioned.md#gate-changes/unmentioned:.github/workflows/ci.yml",
+    "gate-unreadable.md#gate-changes/unreadable",
     "missing-verification.md#verification/missing",
-    "placeholder.md#verification/empty",
     "placeholder.md#links/missing",
+    "placeholder.md#verification/empty",
     "prose-only.md#verification/prose-only"
   ]
 }
