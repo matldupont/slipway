@@ -207,8 +207,8 @@ to GitHub or edits a file.
   with the GUARANTEES block.
 
 A `Head reviewed` other than `git rev-parse HEAD` saw a stale push: push, and run it again. A security review
-that comes back empty-handed or short may be a declined one: run it again on another model, and when that is
-thin too, the run is STOPPED and the owner is shown why.
+that comes back empty-handed or short may be a declined one: run it again on another model; thin again,
+the run is STOPPED and the owner is shown why.
 
 **Model.** Both inherit the session's model, unless the diff touches checked math, auth or secrets, a schema,
 or data deletion: then the strongest model at the highest effort, for round 1 (`process/designation.md`).
@@ -238,11 +238,14 @@ the owner the options in the project's terms.
    GUARANTEES block, the last round's fixes and `git diff {last reviewed sha}..HEAD`. It answers: is each fix
    done, and does the fix break a guarantee? The security review runs on the fix diff too when it touches
    secrets, input handling, auth or deletion. Never a new whole-PR review: it finds a new layer every time.
-3. The verify belongs to the round whose fixes it checks. Three rounds at most, whatever else says: a
-   guarantee still broken after round 3 stops the run, the PR stays draft, and the owner is shown why.
+3. The verify belongs to the round whose fixes it checks. **Another round runs only when the last one broke a
+   line of the GUARANTEES block**, threat model or none; `breaks: none` findings end the review. Three
+   rounds at most: a guarantee still broken after round 3 stops the run, the PR stays draft, the owner is
+   shown why. `process/cold-review.md` points here.
 
-**Cluster signal.** Two rounds in a row finding problems in one mechanism the acceptance does not need (a
-cache, a retry, a heuristic): stop patching, and ask the owner whether to remove or narrow it.
+**Cluster signal.** Two rounds in a row finding problems in one mechanism (a cache, a retry, a heuristic, a
+parser of hostile input): stop patching, and ask the owner whether to remove it, narrow it, or, when the
+acceptance needs it, move the surface: one place handles the hostile input once, and hands on plain fields.
 
 ```
 PHASE 5: REVIEWED
@@ -254,10 +257,8 @@ Fixed:         {count} — {one line each}
 Owner decided: {count}
 breaks: none:  {count} — {fixed inline | Known limitations | follow-ups #…}
 Dropped:       {count} known limitations
-STATUS: CLEAN | STOPPED
+STATUS: CLEAN | STOPPED   (CLEAN: no open finding breaks a guarantee, not zero findings)
 ```
-
-CLEAN means no open finding that breaks a guarantee, not zero findings.
 
 ## Phase 6 — Ready
 
@@ -281,7 +282,6 @@ git status --porcelain            # prints nothing
 gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"
 gh pr ready {pr} --repo {checkout}
 ```
-
 Report the PR's URL. Do not wait on CI, and do not merge.
 
 ## Follow-ups
