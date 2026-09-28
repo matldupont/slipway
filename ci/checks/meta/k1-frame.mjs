@@ -67,8 +67,12 @@ import { readMilestones } from '../lib/milestones.mjs';
 import { escapeControl, report } from '../lib/report.mjs';
 import { EXPERIENCE, filled, milestoneNumber, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
-// A Result quoted in a finding: control characters escaped, and cut like a parked question.
-const quote = (s) => escapeControl(s.length > 60 ? `${s.slice(0, 60)}…` : s);
+// A Result quoted in a finding: control characters escaped, and cut like a parked question, by code point
+// so a character is never split.
+const quote = (s) => {
+  const chars = Array.from(s);
+  return escapeControl(chars.length > 60 ? `${chars.slice(0, 60).join('')}…` : s);
+};
 
 const root = process.argv[2] ?? '.';
 const rel = 'docs/product/FRAME.md';

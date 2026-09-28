@@ -36,8 +36,8 @@ const REQUIRED = ['id', 'category', 'threshold', 'result'];
 // A Result settled by experience (D-019): `experience: <rationale>`, read on the cell's plain text, so
 // `**Experience — table stakes**` reads the same. EXPERIENCE matches any Result whose first word is
 // experience, so K1 can name one whose rationale is not one of the three. Only a value risk is settled this
-// way; on any other risk the cell is an ordinary Result. Every pattern here is anchored and bounded, and
-// the text after the separator is cut, never matched, so a hostile cell cannot make a check backtrack.
+// way; on any other risk the cell is an ordinary Result. Every pattern this file adds is anchored, or runs
+// on text cut to a fixed length, and the text after the separator is cut, never matched.
 export const RATIONALES = ['table stakes', 'creator is the user', 'domain expertise'];
 export const EXPERIENCE = /^experience\b/i;
 const rationaleOf = (text) => {
@@ -88,7 +88,7 @@ function readEvidence(root) {
       // `**Wrong if:** x`, `**Wrong if**: x` and `_Wrong if:_ *x*` read as `Wrong if: x`.
       const label = line.match(/^[\s>*_-]*Wrong if[*_]*:/i);
       const wrong = label && trimWith(line.slice(label[0].length), (c) => /[\s*_]/.test(c));
-      if (wrong && !e.refutation && filled(wrong) && /[\p{L}\p{N}]/u.test(wrong)) e.refutation = wrong;
+      if (wrong && !e.refutation && filled(wrong.slice(0, 200)) && /[\p{L}\p{N}]/u.test(wrong)) e.refutation = wrong;
     }
   }
   return out;

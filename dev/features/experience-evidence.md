@@ -68,9 +68,9 @@ ahead of the evidence (today); or, new, **experience**:
   (so `**Wrong if:** x` and `**Wrong if**: x` count), the text after it cut off with emphasis trimmed, first
   filled one wins, scoped by the same heading rules. A text with no letter or digit (the template's `…`) or
   a placeholder is no refutation.
-- Every pattern on the cell or the line is anchored and bounded, and the text after a label is cut, never
-  matched: a hostile FRAME cannot make K1 or status backtrack (the first cut was cubic on a `\r` after many
-  spaces).
+- Every pattern this adds on the cell or the line is anchored, or runs on text cut to a fixed length, and
+  the text after a label is cut, never matched (the first cut was cubic on a `\r` after many spaces). The
+  placeholder test `filled()` already ran on the whole Result cell before this, and still does.
 - `tested` stays a boolean (a filled Result). A decision override already shares it, so `risk/unresolved`,
   `risk/untracked` and `risk/overdue` treat an experience-settled risk as settled with no change, and no
   existing K1 or S1 fixture flips (none contains `experience` or `Wrong if`).
@@ -100,7 +100,7 @@ action, readable without the check id (D-016):
 | row | Result | evidence | must |
 |---|---|---|---|
 | RISK-1 | `experience: table stakes`, empty Threshold | `RISK-1-….md` with `Wrong if:` | stay silent (proves the no-threshold skip) |
-| RISK-2 | `experience: domain expertise` | a file with no `Wrong if:` | fire `RISK-2#risk/no-refutation` |
+| RISK-2 | `experience: domain expertise` | a file whose only `Wrong if:` is the bare `…` | fire `RISK-2#risk/no-refutation` |
 | RISK-3 | `experience: because I said so` | — | fire `RISK-3#risk/experience-rationale` |
 | RISK-4 | `**experience: creator is the user**` (bold) | `Wrong if:` under `### RISK-4` in a shared file, after a `Wrong if:` above any heading | stay silent |
 
