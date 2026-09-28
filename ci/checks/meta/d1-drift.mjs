@@ -79,6 +79,10 @@ for (const o of overrides) {
   }
 }
 
+// An edited ci.yml is usually a project adding what its tests need; that has a place that is not an override.
+const CI_YML = '.github/workflows/ci.yml';
+const CI_HINT = `If the edit adds what your tests need before pnpm verify (a database service, an env var), revert it and put that in ci/before-verify.sh, which the verify job runs when the file exists. Otherwise revert it`;
+
 const exempted = [];
 for (const [p, want] of hashes) {
   const got = current(p);
@@ -89,7 +93,7 @@ for (const [p, want] of hashes) {
   }
   findings.push({
     where: `drift/${p}`,
-    detail: `${p} is a file slipway maintains, and it was ${got === null ? 'deleted' : got === NOT_A_FILE ? 'replaced by a non-file' : 'edited'} here; the next /sync-slipway would undo that. Revert it, or keep it by adding it to ${OVERRIDES} (path: and reason:)`,
+    detail: `${p} is a file slipway maintains, and it was ${got === null ? 'deleted' : got === NOT_A_FILE ? 'replaced by a non-file' : 'edited'} here; the next /sync-slipway would undo that. ${p === CI_YML ? CI_HINT : 'Revert it'}, or keep it by adding it to ${OVERRIDES} (path: and reason:)`,
   });
 }
 

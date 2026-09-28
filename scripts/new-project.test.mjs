@@ -135,6 +135,40 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   assert.match(r.stdout, /BROKEN — manifest\/missing/);
 });
 
+test('ci/before-verify.sh: the project\'s own (seeded, never shipped), run by the verify job when present, named by D1 for an edited ci.yml', () => {
+  assert.equal(classify(rules, 'ci/before-verify.sh'), 'seeded');
+  assert.equal(shippedPaths(SRC, rules).includes('ci/before-verify.sh'), false, 'a shipped file would collide with a project\'s own on sync');
+
+  const dest = join(tmp(), 'probe');
+  newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
+  writeFileSync(join(dest, 'ci', 'before-verify.sh'), 'echo DATABASE_URL=postgres://ci >> "$GITHUB_ENV"\n');
+  assert.equal(check(dest, 'd1-drift.mjs').status, 0, 'the project\'s file is not drift');
+
+  // The verify job's step, as written in ci.yml, run in a project with and without the file.
+  const yml = readFileSync(join(SRC, '.github', 'workflows', 'ci.yml'), 'utf8');
+  const step = yml.match(/- name: Project setup for tests\n\s+run: (.+)\n/)?.[1];
+  assert.ok(step, 'ci.yml has the "Project setup for tests" step');
+  assert.ok(yml.indexOf(step) < yml.indexOf('- run: pnpm verify'), 'it runs before pnpm verify');
+  const run = (cwd) => {
+    const envFile = join(tmp(), 'github-env');
+    writeFileSync(envFile, '');
+    const r = spawnSync('bash', ['-e', '-c', step], { cwd, encoding: 'utf8', env: { ...process.env, GITHUB_ENV: envFile } });
+    return { status: r.status, stdout: r.stdout, env: readFileSync(envFile, 'utf8') };
+  };
+  assert.deepEqual(run(dest), { status: 0, stdout: '', env: 'DATABASE_URL=postgres://ci\n' });
+  rmSync(join(dest, 'ci', 'before-verify.sh'));
+  assert.deepEqual(run(dest), { status: 0, stdout: '', env: '' }, 'no file: the step does nothing');
+  writeFileSync(join(dest, 'ci', 'before-verify.sh'), 'exit 3\n');
+  assert.equal(run(dest).status, 3, 'a failing setup fails the job');
+
+  // An edited ci.yml points at the extension point before it offers an override; other files do not.
+  appendFileSync(join(dest, '.github', 'workflows', 'ci.yml'), '\n# services: postgres\n');
+  appendFileSync(join(dest, 'SLIPWAY.md'), '\nedited\n');
+  const out = check(dest, 'd1-drift.mjs').stdout;
+  assert.match(out, /drift\/\.github\/workflows\/ci\.yml: .*put that in ci\/before-verify\.sh.*or keep it by adding it to/);
+  assert.doesNotMatch(out.split('\n').find((l) => l.includes('drift/SLIPWAY.md')), /before-verify/);
+});
+
 test('the created decisions.md holds the header and D-001–D-014 only: no slipway record, no citation of one', () => {
   const dest = join(tmp(), 'probe');
   newProject(SRC, dest, { SLIPWAY_SOURCE: '' });

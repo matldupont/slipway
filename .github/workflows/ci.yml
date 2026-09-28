@@ -46,4 +46,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # What the project's tests need before verify (a database service, an env var) goes in
+      # ci/before-verify.sh, the project's own file: never edit this workflow for it. It can append
+      # `NAME=value` lines to "$GITHUB_ENV". With no such file, this step does nothing.
+      - name: Project setup for tests
+        run: if [ -f ci/before-verify.sh ]; then bash ci/before-verify.sh; fi
       - run: pnpm verify
