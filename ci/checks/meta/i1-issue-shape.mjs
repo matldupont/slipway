@@ -31,6 +31,13 @@
 // no backtracking, no cap on link length to get wrong. A section that embeds real content and
 // also links the doc passes — the rule is about what's missing, not about citing a source.
 //
+// KNOWN LIMITATION: this counts words, not meaning. Eight words of filler in front of a link
+// ("Please go read the linked document over here: [doc](url)") clears the floor and passes.
+// I1 catches the honest mistake of linking instead of embedding; it is not a defense against
+// someone gaming it on purpose — that is cold review's job, not a static check's. See
+// `ci/fixtures/known-bad/i1/feature-padded-link.md`, kept passing on purpose so the gap is
+// documented, not hidden.
+//
 // RESIDUAL, stated so green is not over-read: this catches adjectives ("lower contrast"),
 // not criteria that cannot fail. "Returns HTTP 200" passes. That class belongs to cold
 // review.
