@@ -177,6 +177,11 @@ repository `git remote get-url origin` names, say so and ask before the first pu
   ~~~
 
   Only the PR that finishes an issue closes it; a step of its build map says `Part of #n`.
+- **`## Gate changes`** when the diff touches a gate file (a path the harness asks before editing: lint, format,
+  type and test configs, workflows, `ci/**`) or changes a `package.json` `scripts` key. One line per file, in
+  plain words: **stricter**, **the same** or **loosens**, and why. A line that loosens cites a decision or a
+  `ci/exceptions.yaml` entry. The PR check names any file the section skips. It cannot tell whether a line is
+  true, so the owner still checks each sentence against the diff. A PR with no gate file needs no section.
 - **Open it:**
 
   ```bash

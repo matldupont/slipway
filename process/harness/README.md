@@ -24,7 +24,7 @@ reflexively; protection on `main` backstops the worst case.
 **Gate configuration is ask-level too.** An agent that cannot make a check pass will weaken the check:
 edit the lint config, loosen `tsconfig`, add `continue-on-error`, touch a fixture. Edits to lint, format,
 type and test-runner configs, workflows, `ci/**`, this directory and `.claude/settings*.json` ask first,
-so changing a gate is always a human decision. Adding a check is legitimate work — approve it knowingly.
+so changing a gate is always a human decision, and so is creating one: each edit rule has a matching write rule. A PR that touches a gate file also says, in a `## Gate changes` section, whether each file got stricter, stayed the same or loosens. Adding a check is legitimate work — approve it knowingly.
 Under `bypassPermissions` nothing asks; required checks on `main` remain the backstop.
 
 ## Hooks

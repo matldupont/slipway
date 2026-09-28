@@ -1,10 +1,16 @@
 {
-  "_note": "good.md and none-link.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count.",
+  "_note": "good.md, none-link.md, gate-good.md and gate-none.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count. A `<name>.changes.json` beside a body lists what that PR changed; the gate-* cases are read against the harness's gate paths.",
   "exit": 1,
   "findings": [
+    "gate-loosens-uncited.md#gate-changes/loosens-uncited:.oxlintrc.json",
+    "gate-missing-section.md#gate-changes/missing",
+    "gate-no-verdict.md#gate-changes/no-verdict:packages/api/tsconfig.json",
+    "gate-scripts-unmentioned.md#gate-changes/unmentioned:packages/api/package.json scripts",
+    "gate-unmentioned.md#gate-changes/unmentioned:.github/workflows/ci.yml",
+    "gate-unreadable.md#gate-changes/unreadable",
     "missing-verification.md#verification/missing",
-    "placeholder.md#verification/empty",
     "placeholder.md#links/missing",
+    "placeholder.md#verification/empty",
     "prose-only.md#verification/prose-only"
   ]
 }
