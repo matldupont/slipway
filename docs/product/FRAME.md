@@ -71,8 +71,10 @@ it), **usability** (can they use it), **feasibility** (can we build it), **viabi
 it work as a business), **ethical** (could it do harm). Test the riskiest first, as cheaply
 as possible — interviews, a concierge run done by hand, a fake door — before building.
 
-Write the Threshold **before** the test: a Result with no Threshold fails the build. To build ahead of the
-evidence, record a decision in `decisions.md` (cost if wrong, and what reopens it) and put its id in
+Write the Threshold **before** the test: a Result with no Threshold fails the build. When experience
+already settles a value risk, write `experience: table stakes`, `experience: creator is the user` or
+`experience: domain expertise` in Result, and a `Wrong if:` line in its evidence file saying what would
+prove it wrong: that line is its bar, so it needs no Threshold. To build ahead of the evidence, record a decision in `decisions.md` (cost if wrong, and what reopens it) and put its id in
 Result — it counts as one. The PRD's Resolves by column says when each risk is due; once that milestone
 is underway, a risk of any category with neither fails the build. Tracker names where the test is being
 run — an issue (#14), or a decision's id — so `pnpm status` can tell a scheduled test from one nobody has

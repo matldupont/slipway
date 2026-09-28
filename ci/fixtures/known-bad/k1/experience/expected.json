@@ -1,0 +1,8 @@
+{
+  "_note": "Framed, no milestone: only the always-on tier runs. Every Threshold is empty. RISK-1 is settled by experience (table stakes) with a bold `**Wrong if:**` line in its RISK-1 file, so it is silent: no-threshold is skipped for it. RISK-2 names domain expertise, but its evidence file has no Wrong if: line. RISK-3's reason is not one of the three, and is reported for that alone. RISK-4's Result is bold with a dash, and its Wrong if: sits under ### RISK-4 in a shared file, after a Wrong if: above any risk heading that belongs to no risk; it is silent.",
+  "exit": 1,
+  "findings": [
+    "RISK-2#risk/no-refutation",
+    "RISK-3#risk/experience-rationale"
+  ]
+}

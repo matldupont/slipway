@@ -1,0 +1,6 @@
+{
+  "_note": "Framed, no milestone. RISK-1 is settled by experience (table stakes) with a Wrong if: line in its RISK-1 file. RISK-2 is bold with a dash, and its bold `**Wrong if**:` line sits under ### RISK-2 in a shared file. RISK-3 names domain expertise but no Wrong if: line, so status says it needs one and never calls it settled (K1 fails it). None of the three is untested, so Next names only RISK-4, the one value risk still to test. RISK-5 is a measured feasibility result.",
+  "today": "2026-03-10",
+  "next": "Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: RISK-4 scheduled (#5) · blocks every milestone past the skeleton. An agent can prepare the materials; running the test with real people is yours. Thresholds and results go in docs/product/evidence/ — or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the risk's Result.",
+  "frame": "framed · risks: RISK-1 settled by experience (table stakes), RISK-2 settled by experience (creator is the user), RISK-3 needs a Wrong if: line (experience: domain expertise), RISK-4 scheduled (#5), RISK-5 tested · blocks every milestone past the skeleton"
+}

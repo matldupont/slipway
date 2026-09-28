@@ -33,10 +33,21 @@ const COLUMNS = [
 // The columns a check reads; the others only help a person.
 const REQUIRED = ['id', 'category', 'threshold', 'result'];
 
+// A Result settled by experience (D-019): `experience: <rationale>`, read on the cell's plain text, so
+// `**Experience — table stakes**` reads the same. EXPERIENCE matches any Result whose first word is
+// experience, so K1 can name one whose rationale is not one of the three.
+export const RATIONALES = ['table stakes', 'creator is the user', 'domain expertise'];
+export const EXPERIENCE = /^experience\b\s*[:—–-]?\s*(.*)$/i;
+const experienceOf = (cell) => {
+  const said = plain(cell ?? '').match(EXPERIENCE)?.[1].replace(/[\s.]+$/, '').replace(/\s+/g, ' ').toLowerCase();
+  return RATIONALES.includes(said) ? { rationale: said } : null;
+};
+
 // docs/product/evidence/*.md, README.md excluded. A file named `RISK-n-…` or a `RISK-n` heading opens
-// that risk, until a heading at the same or a higher level closes it; `Tracked: #n` and
-// `Window: <from>..<to>` lines inside belong to it. The first of each wins. A window that does not parse
-// is kept as 'unreadable' so status can say so.
+// that risk, until a heading at the same or a higher level closes it; `Tracked: #n`,
+// `Window: <from>..<to>` and `Wrong if: <what would prove it wrong>` lines inside belong to it. The first
+// of each wins. A window that does not parse is kept as 'unreadable' so status can say so. A `Wrong if:`
+// with no letter or digit, or only a placeholder, is no refutation, so the next one counts instead.
 function readEvidence(root) {
   const dir = join(root, 'docs', 'product', 'evidence');
   const out = {};
@@ -61,13 +72,18 @@ function readEvidence(root) {
       if (tracked && !e.tracker) e.tracker = tracked[1].match(TRACKER)?.[0] ?? null;
       const window = line.match(/^[\s>*_-]*Window:\s*(.*)$/i);
       if (window && !e.window) e.window = parseAppetite(window[1].trim()) ?? 'unreadable';
+      // `**Wrong if:** x`, `**Wrong if**: x` and `_Wrong if:_ *x*` read as `Wrong if: x`.
+      const wrong = line.match(/^[\s>*_-]*Wrong if[*_]*:[*_]*\s*(.*)$/i)?.[1].replace(/^[\s*_]+|[\s*_]+$/g, '');
+      if (wrong && !e.refutation && filled(wrong) && /[\p{L}\p{N}]/u.test(wrong)) e.refutation = wrong;
     }
   }
   return out;
 }
 
 // `rows`: one entry per `| RISK-n |` row. Its `tracker` is FRAME's Tracker cell, or the evidence file's
-// `Tracked:` line when the cell names none; `window` comes from the evidence file only.
+// `Tracked:` line when the cell names none; `window` and `refutation` (its `Wrong if:` line) come from the
+// evidence file only. `experience` is `{ rationale }` when the Result is settled by experience with one of
+// the three rationales, else null. `tested` is any filled Result: a measure, a decision id or experience.
 // `missing`: the columns a check reads that the table has no readable header for.
 export function readRisks(root, frameMd) {
   const lines = (section(frameMd, 'Risks', 2) ?? '').split(/\r?\n/).filter((l) => l.trim().startsWith('|'));
@@ -101,6 +117,8 @@ export function readRisks(root, frameMd) {
         tested: filled(row.result),
         tracker: (filled(row.tracker) && row.tracker.match(TRACKER)?.[0]) || ev.tracker || null,
         window: ev.window ?? null,
+        experience: experienceOf(row.result),
+        refutation: ev.refutation ?? null,
       };
     });
   return { rows, missing };

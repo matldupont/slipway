@@ -13,7 +13,13 @@
 //                          position an added column has shifted. Reported before any milestone, since
 //                          once one is underway the risk findings below would read the wrong cells.
 //   risk/no-threshold      a risk has a Result but no Threshold — the bar was set after the
-//                          test, so the test could not fail
+//                          test, so the test could not fail. Not for a Result settled by experience:
+//                          its `Wrong if:` line is its bar.
+//   risk/experience-rationale
+//                          a Result starts with `experience` but names none of the three reasons:
+//                          table stakes, creator is the user, domain expertise (D-019)
+//   risk/no-refutation     a Result is settled by experience, but no `Wrong if:` line in the risk's
+//                          evidence says what would prove it wrong
 //
 // Once any milestone is active or closed, the frame must be finished:
 //   status/draft           a milestone is underway but FRAME.md is still `status: draft`
@@ -27,7 +33,8 @@
 //
 // Once a milestone that is not the walking skeleton (kind other than `skeleton`) is active
 // or closed, every value risk must have been tested:
-//   risk/unresolved        a risk tagged value has no Result (a PD-<n> override counts)
+//   risk/unresolved        a risk tagged value has no Result (a PD-<n> override counts, and so does
+//                          experience with what would prove it wrong written down)
 //
 // Where the PRD's risk table has a `Resolves by` column, its deadlines hold too, for every category:
 //   risk/overdue           the PRD says `before Mn`, Mn or a later milestone is active or closed, and
@@ -54,10 +61,10 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
-import { section } from '../lib/markdown.mjs';
+import { plain, section } from '../lib/markdown.mjs';
 import { readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
-import { filled, milestoneNumber, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
+import { EXPERIENCE, filled, milestoneNumber, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
 const root = process.argv[2] ?? '.';
 const rel = 'docs/product/FRAME.md';
@@ -117,7 +124,15 @@ if (missing.length) {
 }
 
 for (const r of risks) {
-  if (r.tested && !filled(r.threshold)) {
+  // Settled by experience: one of three reasons, and what would prove it wrong. A reason off the list is
+  // reported alone, not also as missing its refutation or its Threshold.
+  const claimsExperience = EXPERIENCE.test(plain(r.result ?? ''));
+  if (claimsExperience && !r.experience) {
+    add(`${r.id}#risk/experience-rationale`, `is settled by experience, but "${plain(r.result)}" is not one of: table stakes, creator is the user, domain expertise — write which one in the Result column of docs/product/FRAME.md's Risks table, or clear it and run a test`);
+  } else if (r.experience && !r.refutation) {
+    add(`${r.id}#risk/no-refutation`, `is settled by experience (${r.experience.rationale}), but its evidence names nothing that would prove it wrong — add a \`Wrong if:\` line under ${r.id} in docs/product/evidence/ (its ${r.id}-… file, or its \`### ${r.id}\` heading in a shared one), or run a test`);
+  }
+  if (r.tested && !claimsExperience && !filled(r.threshold)) {
     add(`${r.id}#risk/no-threshold`, 'has a Result but no Threshold: the bar must be written before the test — write the Threshold it was measured against, or clear the Result and run the test again');
   }
   if (pastSkeleton.length && r.value && !r.tested) {
@@ -146,8 +161,8 @@ process.exit(
   report({
     id: 'K1',
     claim: underway.length
-      ? `the frame is finished, every untested value risk names a tracker${pastSkeleton.length ? ', every value risk was tested against a bar set first' : ''}${deadlines ? `, and every risk the PRD's Resolves by has made due has a Result` : ''} (${risks.length} risks)`
-      : `no milestone is underway, so only the frame's shape is checked (${risks.length} risks)`,
+      ? `the frame is finished, every untested value risk names a tracker, every risk settled by experience names its reason and what would prove it wrong${pastSkeleton.length ? ', every value risk was tested against a bar set first or settled by experience' : ''}${deadlines ? `, and every risk the PRD's Resolves by has made due has a Result` : ''} (${risks.length} risks)`
+      : `no milestone is underway, so only the frame's shape, its Thresholds and its risks settled by experience are checked (${risks.length} risks)`,
     scanned: 1,
     unit: `${UNIT} (${milestones.length} milestones read)`,
     findings,
