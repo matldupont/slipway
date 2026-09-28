@@ -1,5 +1,5 @@
 {
-  "_note": "good.md and fenced-gwt.md pass (fence lines are not items). adjective-ac.md item 3, 'Returns HTTP 200', PASSES on purpose: it records the stated residual \u2014 I1 catches adjectives, not criteria that cannot fail. feature-good-mixed.md and bounded-no-contract.md pass: a Contract that embeds real content (even alongside a link to the doc) is not link-only, and a non-feature lane is never asked for one.",
+  "_note": "good.md and fenced-gwt.md pass (fence lines are not items). adjective-ac.md item 3, 'Returns HTTP 200', PASSES on purpose: it records the stated residual \u2014 I1 catches adjectives, not criteria that cannot fail. feature-good-mixed.md and bounded-no-contract.md pass: a Contract that embeds real content (even alongside a link to the doc) is not link-only, and a non-feature lane is never asked for one. feature-link-only-long-url.md pins that a >4000-char URL in the link still leaves a link-only Contract/Verify caught \u2014 the word count doesn't grow with link length.",
   "exit": 1,
   "findings": [
     "adjective-ac.md#ac/unfalsifiable/1",
@@ -13,6 +13,8 @@
     "feature-no-contract-verify.md#contract/missing",
     "feature-no-contract-verify.md#verify/missing",
     "feature-link-only-contract.md#contract/link-only",
-    "feature-link-only-contract.md#verify/link-only"
+    "feature-link-only-contract.md#verify/link-only",
+    "feature-link-only-long-url.md#contract/link-only",
+    "feature-link-only-long-url.md#verify/link-only"
   ]
 }
