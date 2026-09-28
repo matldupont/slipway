@@ -2,8 +2,9 @@
 // (process/harness/settings.json, `Edit(...)` rules), plus a `package.json` whose `scripts` changed.
 // Read by P1. One list: a gate path added to the harness is a gate path here.
 //
-// As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…]}` for the pull
-// request's diff (base...head): every changed path, and each package.json whose `scripts` differ.
+// As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…]}` for the pull
+// request's diff (base...head): every changed path, each package.json whose `scripts` differ, and the gate
+// paths the base branch's harness asked about.
 // pr-body.yml writes it beside the PR body.
 //
 // Not shared with ownership.mjs: that file is slipway's own and never ships to a project.
@@ -35,15 +36,17 @@ export function globToRegExp(glob) {
   const segs = glob.split('/');
   const body = segs.map((s, i) => {
     const last = i === segs.length - 1;
-    if (s === '**') return last ? '.+' : '(?:[^/]+/)*';
+    if (s === '**') return last ? '[\\s\\S]+' : '(?:[^/]+/)*';
     const seg = s.replace(/[.+^${}()|[\]\\?]/g, '\\$&').replace(/\*/g, '[^/]*');
     return last ? seg : `${seg}/`;
   });
   return new RegExp(`^${body.join('')}$`);
 }
 
-export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8')) {
-  const res = gateGlobs(settingsText).map(globToRegExp);
+// The paths in `settings` (the harness's rules) plus `more` globs: P1 adds the base branch's rules, so a PR
+// that removes a rule from the harness is still held to it.
+export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more = []) {
+  const res = [...new Set([...gateGlobs(settingsText), ...more])].map(globToRegExp);
   return (path) => res.some((re) => re.test(path));
 }
 
@@ -62,8 +65,12 @@ export function changes(base, head, cwd = process.cwd()) {
       return '[]'; // absent at that revision, or not JSON
     }
   };
+  let globs = [];
+  try {
+    globs = gateGlobs(git('show', `${from}:process/harness/settings.json`)); // absent before the harness existed
+  } catch {}
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
-  return { files, scripts };
+  return { files, scripts, globs };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -25,19 +25,30 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gateMatcher } from '../lib/gate-files.mjs';
+import { gateGlobs, gateMatcher, SETTINGS } from '../lib/gate-files.mjs';
 import { section } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 
 const EVIDENCE = /`[^`]+`|```|\b[MPIR]\d+\b|https:\/\/github\.com\/\S+\/actions\/runs\/\d+/;
 
-const VERDICT = /\b(stricter|same|loosens?|loosened)\b/i;
-const LOOSENS = /\bloosen(s|ed)?\b/i;
-const CITATION = /\bP?D-\d+\b|ci\/exceptions\.yaml/;
+const LOOSENS = /\b(loosen\w*|looser|weaker)\b/i;
+const VERDICT = new RegExp(`\\b(stricter|same)\\b|${LOOSENS.source}`, 'i');
+// A decision, an exception entry's id (`<workflow>#<job>`), or the registry named on a line about another file.
+const CITATION = /\bP?D-\d+\b|[\w./-]+#[\w./-]+|ci\/exceptions\.yaml/;
+const shown = (s) => s.replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, '?'); // a file name is data: no line breaks in the log
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// The path as a whole token on the line: `package.json` is not in `apps/web/package.json`.
+const names = (line, path) => new RegExp(`(^|[^\\w./-])${escapeRe(path)}($|[^\\w./-]|\\.(?!\\w))`).test(line);
 
 const dir = process.argv[2] ?? '.';
 const bodies = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
 const findings = [];
+let broken = null;
+// The harness's own rules are the list of gate paths: none read means every gate file would pass unseen.
+let rules = 0;
+try {
+  rules = gateGlobs(readFileSync(SETTINGS, 'utf8')).length;
+} catch {}
 
 for (const f of bodies) {
   const md = readFileSync(join(dir, f), 'utf8');
@@ -54,24 +65,28 @@ for (const f of bodies) {
       c = JSON.parse(readFileSync(sidecar, 'utf8'));
       if (!Array.isArray(c.files) || !Array.isArray(c.scripts)) throw new Error('needs files and scripts lists');
     } catch (e) {
-      c = { files: [], scripts: [] };
+      c = { files: [], scripts: [], globs: [] };
       findings.push({ where: `${f}#gate-changes/unreadable`, detail: `the changed-files list beside the body is unreadable (${String(e.message).split('\n')[0]}); the workflow must write it` });
     }
-    const isGate = gateMatcher();
+    if (rules === 0) {
+      broken = 'process/harness/settings.json is missing or lists no Edit(...) gate paths, so no gate file can be recognised';
+      continue;
+    }
+    const isGate = gateMatcher(undefined, Array.isArray(c.globs) ? c.globs : []);
     const touched = [...new Set([...c.files.filter(isGate), ...c.scripts.map((p) => `${p} scripts`)])];
     if (touched.length) {
       const gc = section(md, 'Gate changes', 2);
       const next = 'add `## Gate changes` with one line per file: `path — stricter | the same | loosens (cite a decision or ci/exceptions.yaml): why`';
-      if (!gc) findings.push({ where: `${f}#gate-changes/missing`, detail: `the PR touches gate files (${touched.join(', ')}); ${next}` });
+      if (!gc) findings.push({ where: `${f}#gate-changes/missing`, detail: `the PR touches gate files (${touched.map(shown).join(', ')}); ${next}` });
       else {
         const lines = gc.split(/\r?\n/);
         for (const t of touched) {
           const path = t.replace(/ scripts$/, '');
-          const line = lines.find((l) => l.includes(path));
-          if (!line) findings.push({ where: `${f}#gate-changes/unmentioned:${t}`, detail: `Gate changes has no line for ${t}; ${next}` });
-          else if (!VERDICT.test(line)) findings.push({ where: `${f}#gate-changes/no-verdict:${t}`, detail: `the line for ${t} says neither stricter, the same, nor loosens; say which, and why` });
-          else if (LOOSENS.test(line) && !CITATION.test(line)) {
-            findings.push({ where: `${f}#gate-changes/loosens-uncited:${t}`, detail: `the line for ${t} loosens the gate; cite the decision (D-n) or the ci/exceptions.yaml entry that allows it, or make the gate no looser` });
+          const own = lines.filter((l) => names(l, path));
+          if (!own.length) findings.push({ where: `${f}#gate-changes/unmentioned:${shown(t)}`, detail: `Gate changes has no line for ${shown(t)}; ${next}` });
+          else if (!own.some((l) => VERDICT.test(l))) findings.push({ where: `${f}#gate-changes/no-verdict:${shown(t)}`, detail: `the line for ${shown(t)} says neither stricter, the same, nor loosens; say which, and why` });
+          else if (own.some((l) => LOOSENS.test(l) && !CITATION.test(l.split(path).join(' ')))) {
+            findings.push({ where: `${f}#gate-changes/loosens-uncited:${shown(t)}`, detail: `the line for ${shown(t)} loosens the gate; cite the decision (D-n) or the ci/exceptions.yaml entry that allows it, or make the gate no looser` });
           }
         }
       }
@@ -90,5 +105,6 @@ process.exit(
     scanned: bodies.length,
     unit: 'PR bodies',
     findings,
+    broken,
   })
 );

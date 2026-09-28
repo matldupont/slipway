@@ -27,6 +27,8 @@ test('the matcher covers the harness paths, at any depth, and nothing else', () 
   for (const p of ['tsconfig.json', 'packages/api/tsconfig.base.json', '.oxlintrc.json', 'apps/web/vite.config.ts', '.github/workflows/ci.yml', 'ci/verify.mjs', 'ci/fixtures/known-bad/p1/a.md', 'docs/ci/notes.md', 'process/harness/settings.json', '.claude/settings.json']) {
     assert.ok(gate(p), `${p} should be a gate file`);
   }
+  assert.ok(gate('ci/a\nb.mjs') && gate('.github/workflows/x\r.yml'), 'a line break in a name hides nothing');
+  assert.ok(gateMatcher(settings, ['**/legacy-gate.cfg'])('x/legacy-gate.cfg'), 'extra globs (the base branch\'s) are added');
   for (const p of ['src/ci.ts', 'src/tsconfig.ts', 'package.json', 'README.md']) assert.ok(!gate(p), `${p} should not be`);
 });
 
@@ -45,6 +47,7 @@ put('package.json', pkg({ test: 'vitest', lint: 'oxlint' }));
 put('apps/web/package.json', pkg({ test: 'vitest' }));
 put('tsconfig.json', '{}');
 put('old/tsconfig.json', '{}');
+put('process/harness/settings.json', JSON.stringify({ permissions: { ask: ['Edit(**/x.cfg)'] } }));
 git('add', '-A');
 git('commit', '-q', '-m', 'base');
 const base = git('rev-parse', 'HEAD');
@@ -62,6 +65,7 @@ test('changes lists every changed path, deletions included, and a package.json o
   const c = changes(base, head, repo);
   assert.deepEqual(c.files.sort(), ['apps/web/package.json', 'old/tsconfig.json', 'package.json', 'packages/api/package.json', 'packages/api/tsconfig.json']);
   assert.deepEqual(c.scripts.sort(), ['apps/web/package.json', 'packages/api/package.json']);
+  assert.deepEqual(c.globs, ['**/x.cfg']); // the base commit's harness, not the PR's
   const gate = gateMatcher(settings);
   assert.deepEqual(c.files.filter(gate).sort(), ['old/tsconfig.json', 'packages/api/tsconfig.json']);
 });
@@ -82,7 +86,7 @@ test('the script refuses anything but commit ids', () => {
   assert.match(r.stderr, /commit ids/);
   const ok = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), base, head], { cwd: repo, encoding: 'utf8' });
   assert.equal(ok.status, 0, ok.stderr);
-  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts']);
+  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts', 'globs']);
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));
