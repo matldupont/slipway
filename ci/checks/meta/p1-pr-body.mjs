@@ -25,7 +25,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gateGlobs, gateMatcher, SETTINGS } from '../lib/gate-files.mjs';
+import { gateGlobs, gateMatcher, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
 import { section } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 
@@ -39,6 +39,10 @@ const shown = (s) => s.replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, '?'); // a 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // The path as a whole token on the line: `package.json` is not in `apps/web/package.json`.
 const names = (line, path) => new RegExp(`(^|[^\\w./-])${escapeRe(path)}($|[^\\w./-]|\\.(?!\\w))`).test(line);
+
+// Directory globs written on a line: `ci/checks/**`, `ci/fixtures/known-bad/p1/*.json`. A glob starts at a
+// named directory, so `**/*` cannot cover a whole PR, and bold markers (`**stricter**`) are not globs.
+const globsOn = (line) => (line.match(/[\w.*/-]*\*[\w.*/-]*/g) ?? []).filter((g) => g.includes('/') && !g.split('/')[0].includes('*'));
 
 const dir = process.argv[2] ?? '.';
 const bodies = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
@@ -76,16 +80,19 @@ for (const f of bodies) {
     const touched = [...new Set([...c.files.filter(isGate), ...c.scripts.map((p) => `${p} scripts`)])];
     if (touched.length) {
       const gc = section(md, 'Gate changes', 2);
-      const next = 'add `## Gate changes` with one line per file: `path — stricter | the same | loosens (cite a decision or ci/exceptions.yaml): why`';
+      const next = 'add `## Gate changes` with one line per file, or per directory glob (`ci/fixtures/x/**`): `path — stricter | the same | loosens (cite a decision or ci/exceptions.yaml): why`';
       if (!gc) findings.push({ where: `${f}#gate-changes/missing`, detail: `the PR touches gate files (${touched.map(shown).join(', ')}); ${next}` });
       else {
         const lines = gc.split(/\r?\n/);
         for (const t of touched) {
           const path = t.replace(/ scripts$/, '');
-          const own = lines.filter((l) => names(l, path));
+          // A line covers a file when it names the path, or names a directory glob that matches it
+          // (`ci/fixtures/known-bad/p1/**`). A glob covers only what it matches.
+          const covers = (l) => globsOn(l).filter((g) => globToRegExp(g).test(path));
+          const own = lines.filter((l) => names(l, path) || covers(l).length);
           if (!own.length) findings.push({ where: `${f}#gate-changes/unmentioned:${shown(t)}`, detail: `Gate changes has no line for ${shown(t)}; ${next}` });
           else if (!own.some((l) => VERDICT.test(l))) findings.push({ where: `${f}#gate-changes/no-verdict:${shown(t)}`, detail: `the line for ${shown(t)} says neither stricter, the same, nor loosens; say which, and why` });
-          else if (own.some((l) => LOOSENS.test(l) && !CITATION.test(l.split(path).join(' ')))) {
+          else if (own.some((l) => LOOSENS.test(l) && !CITATION.test([path, ...covers(l)].reduce((text, x) => text.split(x).join(' '), l)))) {
             findings.push({ where: `${f}#gate-changes/loosens-uncited:${shown(t)}`, detail: `the line for ${shown(t)} loosens the gate; cite the decision (D-n) or the ci/exceptions.yaml entry that allows it, or make the gate no looser` });
           }
         }

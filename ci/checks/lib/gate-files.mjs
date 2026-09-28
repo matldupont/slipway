@@ -47,7 +47,8 @@ export function globToRegExp(glob) {
 // that removes a rule from the harness is still held to it.
 export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more = []) {
   const res = [...new Set([...gateGlobs(settingsText), ...more])].map(globToRegExp);
-  return (path) => res.some((re) => re.test(path));
+  // A markdown file is a document: it cannot change what a gate checks, even under ci/ or process/harness/.
+  return (path) => !/\.md$/i.test(path) && res.some((re) => re.test(path));
 }
 
 const SHA = /^[0-9a-f]{7,64}$/;

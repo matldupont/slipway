@@ -24,12 +24,12 @@ test('every gate path the harness asks before editing asks before creating', () 
 
 test('the matcher covers the harness paths, at any depth, and nothing else', () => {
   const gate = gateMatcher(settings);
-  for (const p of ['tsconfig.json', 'packages/api/tsconfig.base.json', '.oxlintrc.json', 'apps/web/vite.config.ts', '.github/workflows/ci.yml', 'ci/verify.mjs', 'ci/fixtures/known-bad/p1/a.md', 'docs/ci/notes.md', 'process/harness/settings.json', '.claude/settings.json']) {
+  for (const p of ['tsconfig.json', 'packages/api/tsconfig.base.json', '.oxlintrc.json', 'apps/web/vite.config.ts', '.github/workflows/ci.yml', 'ci/verify.mjs', 'ci/fixtures/known-bad/p1/a.json', 'process/harness/settings.json', '.claude/settings.json']) {
     assert.ok(gate(p), `${p} should be a gate file`);
   }
   assert.ok(gate('ci/a\nb.mjs') && gate('.github/workflows/x\r.yml'), 'a line break in a name hides nothing');
   assert.ok(gateMatcher(settings, ['**/legacy-gate.cfg'])('x/legacy-gate.cfg'), 'extra globs (the base branch\'s) are added');
-  for (const p of ['src/ci.ts', 'src/tsconfig.ts', 'package.json', 'README.md']) assert.ok(!gate(p), `${p} should not be`);
+  for (const p of ['src/ci.ts', 'src/tsconfig.ts', 'ci/README.md', 'docs/ci/notes.md', 'process/harness/README.md', 'ci/fixtures/known-bad/p1/gate-none.md', 'package.json', 'README.md']) assert.ok(!gate(p), `${p} should not be`);
 });
 
 const repo = mkdtempSync(join(tmpdir(), 'gate-files-'));
