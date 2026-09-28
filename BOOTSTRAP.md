@@ -62,6 +62,11 @@ pnpm create vite apps/web --template react-ts
 no workflow runs. Keep `lint` and `build` as the scaffold emits them. The checks enforce that gates exist and
 run, not which tools they use.
 
+If your tests need something running in CI (a Postgres service, an env var such as `DATABASE_URL`), add it in
+`ci/before-verify.sh`, never in `ci.yml`: a sync replaces `ci.yml`, and an edit to it is drift. The `verify` job
+runs that file, when it exists, after install and before `pnpm verify`; it can start a container and append
+`DATABASE_URL=…` to `$GITHUB_ENV`. Slipway ships no such file, so yours is never overwritten.
+
 ```bash
 pnpm install
 node ci/verify.mjs --plan    # must list apps/web under check and test

@@ -59,6 +59,10 @@ paths:
     class: seeded
   - glob: ci/exceptions.yaml
     class: seeded
+  # the project's own setup before verify runs in CI (a service its tests need, an env var). Slipway ships no
+  # file here, so a project's own is never a collision; the class keeps one out of the managed ci/** tree
+  - glob: ci/before-verify.sh
+    class: seeded
 
   # managed
   - glob: ci/**
