@@ -183,5 +183,6 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   assert.match(stop, /Another round runs only when the last one found a finding that breaks a line of that block/, 'cold-review must give the same answer as work-ticket');
   assert.doesNotMatch(stop, /(three|3) rounds at most|stop patching/i, 'the cap and the cluster signal are stated once, in work-ticket');
   assert.doesNotMatch(stop, /write the threat model before/i, 'cold-review must not tell an agent to write a threat model');
+  assert.match(stop, /A review never writes a threat model/, 'cold-review must forbid a review-written threat model, as work-ticket does');
   assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
 });
