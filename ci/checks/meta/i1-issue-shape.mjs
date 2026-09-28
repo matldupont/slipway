@@ -12,11 +12,22 @@
 //   seams/unanswered            person, channel or promise? not answered; silence is not `none`
 //   seams/none-without-reason   `none` with no reason
 //   seams/unenumerated          a person, channel or promise with no detail
+//   contract/missing            Links says Lane: feature, no Contract section
+//   contract/link-only          Contract is only a link/reference — nothing copied in
+//   verify/missing              Links says Lane: feature, no Verify section
+//   verify/link-only            Verify is only a link/reference — nothing copied in
 //
 // WHY: an issue whose acceptance criteria cannot fail closes, then reopens. A conditional
 // rule — "answer seams whenever the feature adds a person…" — makes an absent section
 // indistinguishable from correct non-application, so in practice it is skipped. Here the
 // question is always asked.
+//
+// A feature-lane issue must carry its feature doc's Contract and Verify copied in, never
+// linked (`process/intake.md` → Issue body): the issue is built from its own body. "Only a
+// link" is read narrowly, so it cannot be gamed by padding: strip every markdown link, bare
+// URL, issue reference and backtick path, and if nothing but filler words is left, the
+// section named a doc instead of embedding it. A Contract that both embeds real content and
+// also links the doc passes — the rule is about what's missing, not about citing a source.
 //
 // RESIDUAL, stated so green is not over-read: this catches adjectives ("lower contrast"),
 // not criteria that cannot fail. "Returns HTTP 200" passes. That class belongs to cold
@@ -28,6 +39,18 @@ import { isNoResponse, section } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 
 const FALSIFIABLE = /\d|`[^`]+`|[<>≤≥]|[=!]=|^(given|when|then)\b|#\d+/i;
+const LANE_FEATURE = /Lane:\s*`?feature`?\b/i;
+const REFERENCE = /\[[^\]]*\]\([^)]*\)|https?:\/\/\S+|#\d+|`[^`]+`/g;
+const FILLER = /^(see|full|contract|verify|refer|refers|to|in|per|the|doc|for)$/i;
+
+// True once every link/URL/issue-ref/path is stripped and nothing but filler words remains —
+// so the section named where the contract lives instead of copying it in.
+function linkOnly(text) {
+  REFERENCE.lastIndex = 0;
+  if (!REFERENCE.test(text)) return false;
+  const words = text.replace(REFERENCE, ' ').split(/\s+/).map((w) => w.replace(/[.:,]/g, '')).filter(Boolean);
+  return words.every((w) => FILLER.test(w));
+}
 
 function items(text) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^```/.test(l));
@@ -67,12 +90,24 @@ for (const f of bodies) {
   } else if (isNoResponse(detail)) {
     findings.push({ where: `${f}#seams/unenumerated`, detail: 'name who pays, who is counted, who is told, what is promised' });
   }
+
+  const links = section(md, 'Links', 3);
+  if (links && LANE_FEATURE.test(links)) {
+    for (const [name, id] of [['Contract', 'contract'], ['Verify', 'verify']]) {
+      const body = section(md, name, 3);
+      if (isNoResponse(body)) {
+        findings.push({ where: `${f}#${id}/missing`, detail: `Links says Lane: feature, so ### ${name} must be copied in from the feature doc, never only linked — it is missing` });
+      } else if (linkOnly(body)) {
+        findings.push({ where: `${f}#${id}/link-only`, detail: `### ${name} only points at the feature doc — copy the ${name.toLowerCase()} in, don't link it` });
+      }
+    }
+  }
 }
 
 process.exit(
   report({
     id: 'I1',
-    claim: 'every issue has acceptance criteria that are not bare adjectives, and an answered seams question',
+    claim: 'every issue has acceptance criteria that are not bare adjectives, an answered seams question, and — for Lane: feature — a Contract and Verify copied in',
     scanned: bodies.length,
     unit: 'issue bodies',
     findings,
