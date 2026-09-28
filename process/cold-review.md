@@ -14,12 +14,17 @@ confident. Independent review pays best on exactly the claims the author was sur
 
 ## When to stop
 
-Another round runs only when the last round found a finding that **breaks a guarantee the spec states**:
-lost work or data, a leaked secret, a gate an agent can pass without asking, a wrong answer on an
-Acceptance case. Anything else is fixed in the same diff if it is cheap and in scope; otherwise it is
-recorded in the spec's known limitations or filed as a follow-up (the feature doc's `Threat model` and
-`Known limitations` sections, `docs/features/TEMPLATE.md`). A spec with no threat model has no
-guarantees to test against, so write the threat model before the next round, not another round (L-68).
+The bar is the GUARANTEES block (`.claude/skills/work-ticket/SKILL.md` → The guarantees): a baseline that holds
+with or without a threat model, the invariants, the acceptance lines, and the threat model when one is stated.
+The round cap and the cluster signal live in the same skill, Phase 5 → Rounds 2 and 3. Read them there; this
+file does not restate them.
+
+Another round runs only when the last one found a finding that breaks a line of that block. Anything else is
+fixed in the same diff if it is cheap and in scope; otherwise it is recorded in the spec's known limitations
+or filed as a follow-up (L-68).
+
+A review never writes a threat model. A feature doc that is still being shaped states its `Threat model` and
+`Known limitations` first (`docs/features/TEMPLATE.md`); a review of a change with none is held to the baseline.
 
 Findings that start with "when the environment has…" (a credential helper, a symlinked parent, a fork, a
 platform setting) are limitations until the spec promises otherwise. When a round finds only these,

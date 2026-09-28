@@ -167,3 +167,21 @@ test('nothing slipway ships calls the skills user-level or installed elsewhere, 
   }
   assert.deepEqual(hits, [], 'these files still describe the shipped skills as installed elsewhere');
 });
+
+// One stop rule (L-68): the round cap, the cluster signal and the bar live in /work-ticket; cold-review.md
+// points there, and neither file tells an agent to write a threat model the skill forbids.
+test('process/cold-review.md and work-ticket give one answer to "does another round run?"', () => {
+  const flat = (t) => t.replace(/\s+/g, ' ');
+  const skill = flat(read(skillPath('work-ticket')));
+  const stop = flat(section(read('process/cold-review.md'), 'When to stop', 2) ?? '');
+  assert.ok(stop, 'process/cold-review.md has no ## When to stop');
+  assert.match(skill, /Another round runs only when the last one broke a line of the GUARANTEES block\*\*, threat model or none/, 'work-ticket must state that a baseline break runs another round with no threat model');
+  assert.match(skill, /`breaks: none` findings end the review/, 'work-ticket must say a round of only `breaks: none` findings ends the review');
+  assert.match(skill, /Three rounds at most: a guarantee still broken after round 3 stops the run/, 'work-ticket must keep the round cap');
+  assert.match(skill, /Cluster signal\.\*\* .*remove it, narrow it, or, when the acceptance needs it, move the surface/, 'the cluster signal must offer moving the surface');
+  assert.match(stop, /work-ticket\/SKILL\.md` → The guarantees/, 'cold-review must take its bar from work-ticket → The guarantees');
+  assert.match(stop, /Another round runs only when the last one found a finding that breaks a line of that block/, 'cold-review must give the same answer as work-ticket');
+  assert.doesNotMatch(stop, /(three|3) rounds at most|stop patching/i, 'the cap and the cluster signal are stated once, in work-ticket');
+  assert.doesNotMatch(stop, /write the threat model before/i, 'cold-review must not tell an agent to write a threat model');
+  assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
+});
