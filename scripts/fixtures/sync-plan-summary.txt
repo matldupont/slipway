@@ -30,6 +30,6 @@ Needs you (4):
   keep (edited)               process/kept.md
     next: npx github:matldupont/slipway#main sync --apply leaves your file as it is; port slipway's change by hand if you want it
   stale override              .slipway/overrides.yaml:4  path: process/kept.md
-    next: after npx github:matldupont/slipway#main sync --apply, delete this entry on the sync branch: slipway no longer ships this file, so the entry excuses nothing and D1 flags it
+    next: after npx github:matldupont/slipway#main sync --apply, delete this entry on the sync branch: slipway no longer maintains this file, so the entry excuses nothing and D1 flags it
 
 Plan only — nothing was written. Carry it out with: npx github:matldupont/slipway#main sync --apply

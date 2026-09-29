@@ -769,6 +769,16 @@ test('a merge of an edit slipway shipped with more: the result is slipway\'s cop
   assert.equal(d1(dir).status, 0);
 });
 
+test('a plan that --apply would refuse stops with the same reason, saying --apply would refuse it too, and writes nothing', () => {
+  const dir = pristine((d) => put(d, { 'package.json': null })); // slipway adds a script key; there is no package.json to add it to
+  const before = treeHash(dir);
+  const r = sync(dir);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stderr, /package\.json is missing[^\n]*\n--apply would refuse this too, so the plan stops here\.\n$/);
+  assert.equal(treeHash(dir), before);
+  assert.match(sync(dir, '--apply').stderr, /package\.json is missing/);
+});
+
 test('apply never writes through a symlink: a diff path or the manifest that is one is refused, and the file it points to is intact', () => {
   for (const at of ['.slipway/upstream/docs/PRD.md.diff', MANIFEST]) {
     const outside = join(mkdtempSync(join(root, 'outside-')), 'precious.txt');

@@ -58,8 +58,16 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     const ctx = { ...preflight(cwd), verbose: argv.includes('--verbose') };
     const rows = plan(ctx);
     if (!argv.includes('--apply')) {
-      // The plan lists the stale overrides --apply will, so it computes the same writes, in its temp dir only.
-      print(out, ctx, rows, { plan: true, stale: compute(ctx, rows, { check: false }).stale });
+      // The plan lists the stale overrides --apply will, so it computes the same writes, in its temp dir
+      // only. What stops that stops --apply too, and the owner hears it now.
+      let stale;
+      try {
+        ({ stale } = compute(ctx, rows, { check: false }));
+      } catch (e) {
+        if (e instanceof Refusal) throw new Refusal(`${e.message}\n--apply would refuse this too, so the plan stops here.`);
+        throw e;
+      }
+      print(out, ctx, rows, { plan: true, stale });
       out.write(ctx.verbose ? 'Plan only — nothing was written.\n' : `Plan only — nothing was written. Carry it out with: ${syncCommand(ctx.root)} --apply\n`);
       return 0;
     }
@@ -363,7 +371,7 @@ const MEANING = {
 
 // Why an override is stale after --apply, as D1 will judge it on the sync branch.
 const STALE_WHY = {
-  gone: 'slipway no longer ships this file, so the entry excuses nothing and D1 flags it',
+  gone: 'slipway no longer maintains this file, so the entry excuses nothing and D1 flags it',
   absorbed: "your file is slipway's copy then, so the entry excuses nothing and D1 flags it",
 };
 const staleLine = (s) => `${OVERRIDES}:${s.line}  path: ${s.path}`;
