@@ -28,9 +28,10 @@ try {
 }
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-// Project text quoted in the Next line: one line, at most 60 characters, cut at a word boundary.
+// Project text quoted in the Next line: one line, at most 60 characters, cut at a word boundary. Control
+// characters (a terminal escape) are dropped and `"` becomes `'`, so the text cannot close its own quotes.
 const excerpt = (text, max = 60) => {
-  const flat = text.replace(/\s+/g, ' ').trim();
+  const flat = text.replace(/\s+/g, ' ').replace(/[\x00-\x1f\x7f-\x9f]/g, '').replace(/"/g, "'").trim();
   if (flat.length <= max) return flat;
   const cut = flat.slice(0, max - 1);
   return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;
@@ -183,7 +184,7 @@ function next() {
   }
   if (cur) {
     const risk = untestedValue.length ? ` Meanwhile (yours): ${riskLine}.${riskFile}` : '';
-    const lead = `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${cur.title}`;
+    const lead = `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${excerpt(cur.title)}`;
     // The command is built from the id and the item's number, never from its text, and only for an id the
     // skill accepts (process/intake.md → Milestone item): this line enters every session through the hook.
     const items = contents(cur.md).filter((i) => !i.text.trim().startsWith('<'));

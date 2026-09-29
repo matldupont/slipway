@@ -47,7 +47,8 @@ export function contents(md) {
 // An issue named before the citation is a constraint on the slice (`accepts only allowed Origins (#23)`), not
 // the slice's own; `M1#2` is not an issue. /log-feature writes the marker as ` · #{issue}`
 // (process/intake.md → Milestone item).
-const CITATION = /\([^()]*\bF-\d+[^)]*\)|\(\s*no feature:[^)]*\)/gi;
+// `[^()]*` on both sides of the F-ID keeps the match linear: status runs this in every session's hook.
+const CITATION = /\([^()]*\bF-\d+[^()]*\)|\(\s*no feature:[^)]*\)/gi;
 const ISSUE = /(?:^|[\s(,;·])(?:[\w.-]+\/[\w.-]+)?#\d+\b/;
 export function started(text) {
   const cites = [...text.matchAll(CITATION)];

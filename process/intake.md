@@ -248,9 +248,10 @@ before it matches; anything else is an idea.
    `status: active` ("M2 is still being shaped: activate it first, or describe the idea"); when no item, or
    more than one, is numbered {n} (list the items there are); or when the item is started: the text after
    its last `(F-…)` or `(no feature: …)` group names an issue ("Item 2 already has #41: `/work-ticket 41`").
-2. **Already filed?** Search open issues naming the item's F-IDs or `{id} item {n}`, as Ripple searches. Show
-   each hit; the owner says whether it is this item. Yes: write the started marker (step 6) on a doc branch,
-   open its PR, and stop.
+2. **Already filed?** Search open issues as Ripple searches, for the item's F-IDs and for the fixed text
+   `{id} item {n}`, which is built from the checked argument and matched inside the `--jq` program even though
+   it holds spaces. Show each hit; the owner says whether it is this item. Yes: write the started marker
+   (step 6) and stop.
 3. **Phase 1, seeded.** The ask is the Contents line, quoted. Problem, who and job story come from the cited
    F-IDs' PRD §5 entries and the milestone's Why; evidence is `{id}'s bet (Contents item {n})`, and why now its
    appetite. Show them and go on: the owner corrects them at the next question, and nothing written there is
@@ -259,14 +260,16 @@ before it matches; anything else is an idea.
    cut.` Phase 3 runs in full, Decisions included.
 5. **Phase 4.** The MVP cut is the Contents line; anything beyond it goes to Out of scope, and the milestone's
    no-gos and rabbit holes apply. A bounded item, as most `(no feature: …)` items are, goes to `/log-followup`
-   with the Contents line as its frame and `Milestone: {id} item {n}` in its Links. A feature item gets one
+   with the Contents line as its frame and `Milestone: {id} item {n}` in its Links; once it has filed, step 6
+   runs here. A feature item gets one
    doc, named for the first F-ID the line cites; an existing doc with that `prd-ref` is extended (Contract
    amended, a Changes line). Other F-IDs the line cites are covered in it as `Also builds: F-{nn} ({the part
    this slice builds})`. They are all in PRD §5 already, so no F-ID is added and the PRD version is not
    bumped. Schedule is skipped: `Scheduled: {id} Contents item {n} (already)`.
 6. **Started marker.** Once the issue is filed, append ` · #{issue}` to the item's last line in the milestone
-   doc, on the doc branch, in the commit that adds the Changes line. The issue's Links gain
-   `Milestone: {id} item {n}`. `pnpm status` then names the next unstarted item.
+   doc, and its Links gain `Milestone: {id} item {n}`. A feature item: on the doc branch, in the commit that
+   adds the Changes line. A bounded item, or a hit from step 2: on `docs/{id}-item-{n}`, lower case, made from
+   the default branch, in a PR of its own (Pull request). `pnpm status` then names the next unstarted item.
 7. Phases 5–7 and Ripple as for an idea.
 
 ## Ripple

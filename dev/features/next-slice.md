@@ -181,6 +181,9 @@ It does not defend against an owner who writes a misleading decision or marks an
 - Conflict detection is the model reading two texts. The probe fixture and the owner probe are its evidence;
   no check proves it for every project.
 - `/log-bug` and `/log-followup` do not read `decisions.md` yet.
+- An issue named after an item's last parenthesised citation counts as its marker, as does any issue on an
+  item with no parenthesised citation (a bare `F-02` is not one). The "Active milestone" line still prints the
+  milestone's title whole (#110).
 
 ## Acceptance
 

@@ -352,6 +352,8 @@ test('process/intake.md → Milestone item: the argument is matched before use, 
   assert.match(m, /no F-ID is added and the PRD version is not bumped/, 'an item already in the PRD adds no F-ID');
   assert.match(m, /append ` · #\{issue\}` to the item's last line/, 'the started marker is written on the item\'s line');
   assert.match(m, /Phase 3 runs in full, Decisions included/, 'a milestone item reads the decisions record too');
+  assert.match(m, /the fixed text `\{id\} item \{n\}`, which is built from the checked argument and matched inside the `--jq` program/, 'the already-filed search must run the item term, spaces and all');
+  assert.match(m, /A bounded item, or a hit from step 2: on `docs\/\{id\}-item-\{n\}`/, 'a bounded item handed to /log-followup still gets its started marker');
 });
 
 test('/log-feature reads decisions.md before Phase 1 and cites both sections; /log-followup takes a Contents line as a frame', () => {
