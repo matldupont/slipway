@@ -21,7 +21,8 @@ GitHub through this skill.
 ## Selection: the user picks, always
 
 Never post a comment the user did not explicitly select, and never post
-before asking. **SKILL.md Step 6 defines the ask** — option labels,
+before asking. Posting is not pre-approved either: each `gh api` call below
+asks the user for permission when it runs. **SKILL.md Step 6 defines the ask** — option labels,
 ordering, and the "None" option. Run it from there; this doc only covers
 what happens once the user has chosen.
 
@@ -56,9 +57,12 @@ a commit nobody reviewed.
 
 **2. Post one review via a JSON request body:**
 
-```bash
-payload=$(mktemp) && echo "$payload"   # never a fixed /tmp path; note it, shell variables don't survive between calls
-cat > "$payload" <<'EOF'
+Write the body with your file-writing tool (Claude Code: Write), never a
+shell heredoc: it carries the author's file paths and quoted code. Put it
+in the review folder, so Step 7 deletes it:
+
+```jsonc
+// <reviewDir.path>/review-payload.json
 {
   "commit_id": "<head sha>",
   "event": "COMMENT",
@@ -71,10 +75,11 @@ cat > "$payload" <<'EOF'
     }
   ]
 }
-EOF
+```
 
+```bash
 gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" \
-  -X POST --input "$payload"
+  -X POST --input "<reviewDir.path>/review-payload.json"
 ```
 
 Batching every selected finding into one `comments[]` array and one
@@ -115,7 +120,7 @@ report which finding failed rather than retrying the batch blindly, since
 resubmitting the same bad line just fails again:
 
 ```bash
-gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input "<the mktemp path from step 2>"
+gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input "<reviewDir.path>/review-payload.json"
 # non-zero exit / "Unprocessable Entity" → re-check `diff.changedLines` for
 # the offending finding's file:line before retrying
 ```
@@ -126,10 +131,10 @@ to confirm placement afterward — but a successful `POST` to `/reviews`
 is itself the confirmation; GitHub doesn't accept the request and silently
 drop the position the way GitLab's discussions API could.
 
-## Run `gh` from inside the repo or worktree
+## Pass `-R` on every `gh` call
 
 `gh api` resolves its default repo from the local git remote when you
 omit `-R`. Prefer passing `-R "${OWNER}/${REPO}"` explicitly on every call
 in this doc rather than relying on cwd — it's one flag and it means the
-posting step works the same whether you're in the worktree, the main
-checkout, or neither.
+posting step works the same whether you're in the repo's checkout or
+not.

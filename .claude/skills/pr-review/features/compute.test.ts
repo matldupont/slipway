@@ -3,9 +3,9 @@
  *
  * Most tests target pure functions (CLI parsing, URL/number extraction,
  * ticket extraction, readiness signal computation, diff parsing, slipway
- * detection) because they cover all logic the agent depends on. Worktree
- * setup is exercised against a real temporary git repo standing in for
- * GitHub (a `refs/pull/<n>/head` ref pushed to a local bare "remote").
+ * detection) because they cover all logic the agent depends on. Fetching
+ * the PR's commits is exercised against a real temporary git repo standing
+ * in for GitHub (a `refs/pull/<n>/head` ref pushed to a local bare "remote").
  * `gh` and its GraphQL/REST calls are not mocked end-to-end; their callers
  * are tested through the pure sub-functions they decompose into.
  *
@@ -14,8 +14,8 @@
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
-import { execSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
+import { execSync, execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, lstatSync, statSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -49,8 +49,6 @@ import {
   toLineRanges,
   computeReadiness,
   detectHardHalt,
-  setupWorktree,
-  resolveMainWorktreeRoot,
   isFeatureOutput,
   runGh,
   GhNotFoundError,
@@ -63,7 +61,14 @@ import {
   parseSlipwayPath,
   resolveHeadReviewed,
   gitSlipwayReader,
-  fetchBaseCommit,
+  fetchCommit,
+  fetchPRCommits,
+  writeReviewDir,
+  cleanupReviewDir,
+  REVIEW_DIR_PREFIX,
+  GIT_ALLOWED,
+  GH_ALLOWED,
+  NO_CHECKOUT,
   resolveIssueTicket,
   runGit,
   isInPrCheckout,
@@ -109,21 +114,19 @@ test("detectReviewMode: falls back to peer when gh returns nothing", () => {
 test("parseArgs: no arguments means current-branch resolution", () => {
   const opts = parseArgs([]);
   assert.equal(opts.prInput, null);
-  assert.equal(opts.withWorktree, false);
   assert.equal(opts.skipTicket, false);
 });
 
 test("parseArgs: options with no positional still means current-branch resolution", () => {
-  const opts = parseArgs(["--worktree", "--tone", "formal"]);
+  const opts = parseArgs(["--skip-ticket", "--tone", "formal"]);
   assert.equal(opts.prInput, null);
-  assert.equal(opts.withWorktree, true);
+  assert.equal(opts.skipTicket, true);
   assert.equal(opts.tone, "formal");
 });
 
 test("parseArgs: accepts URL as positional", () => {
   const opts = parseArgs(["https://github.com/owner/repo/pull/123"]);
   assert.equal(opts.prInput, "https://github.com/owner/repo/pull/123");
-  assert.equal(opts.withWorktree, false);
   assert.equal(opts.skipTicket, false);
 });
 
@@ -131,19 +134,24 @@ test("parseArgs: parses all flags", () => {
   const opts = parseArgs([
     "42",
     "--project-path", "owner/repo",
-    "--worktree",
-    "--worktree-dir", "/tmp/worktrees",
-    "--output-path", "/tmp/out.json",
     "--skip-ticket",
     "--verbose",
   ]);
   assert.equal(opts.prInput, "42");
   assert.equal(opts.projectPath, "owner/repo");
-  assert.equal(opts.withWorktree, true);
-  assert.equal(opts.worktreeDir, "/tmp/worktrees");
-  assert.equal(opts.outputPath, "/tmp/out.json");
   assert.equal(opts.skipTicket, true);
   assert.equal(opts.verbose, true);
+});
+
+test("parseArgs: asked for a checkout of the PR, fails naming the replacement", () => {
+  for (const argv of [["42", "--worktree"], ["42", "--worktree-dir", "/tmp/x"]]) {
+    assert.throws(() => parseArgs(argv), (err: Error) => {
+      assert.match(err.message, /was removed/);
+      assert.match(err.message, /reviewDir/);
+      assert.match(err.message, /Read and Grep tools/);
+      return true;
+    });
+  }
 });
 
 test("parseArgs: throws on unknown flag", () => {
@@ -177,7 +185,7 @@ test("parseArgs: 'none' turns each slipway input off rather than defaulting", ()
 test("parseArgs: a slipway path flag with no value is an error, never the default", () => {
   assert.throws(() => parseArgs(["42", "--invariants"]), /needs a path or 'none'/);
   assert.throws(() => parseArgs(["42", "--invariants", ""]), /needs a path or 'none'/);
-  assert.throws(() => parseArgs(["42", "--milestones", "--worktree"]), /needs a path or 'none'/);
+  assert.throws(() => parseArgs(["42", "--milestones", "--verbose"]), /needs a path or 'none'/);
 });
 
 test("parseSlipwayPath: refuses paths that leave the checkout", () => {
@@ -857,11 +865,10 @@ test("computeReadiness: HIGH for unresolved threads", () => {
 
 test("isFeatureOutput: validates shape", () => {
   const good: FeatureOutput = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     tone: "casual",
     reviewMode: "peer",
     pr: mkPR(),
-    worktree: { created: false, path: null, branch: null, reason: "x" },
     ticket: null,
     ticketLookupFailure: null,
     diff: { filesChanged: 1, linesAdded: 5, linesRemoved: 2, changedLines: {}, removedHunks: {} },
@@ -869,6 +876,7 @@ test("isFeatureOutput: validates shape", () => {
     checks: NO_CHECKS,
     readiness: { passed: true, blockers: [] },
     unresolvedThreads: [],
+    reviewDir: null,
     slipway: {
       present: false,
       lane: null,
@@ -884,7 +892,7 @@ test("isFeatureOutput: validates shape", () => {
   assert.equal(isFeatureOutput(good), true);
   assert.equal(isFeatureOutput(null), false);
   assert.equal(isFeatureOutput({}), false);
-  assert.equal(isFeatureOutput({ ...good, schemaVersion: 1 }), false);
+  assert.equal(isFeatureOutput({ ...good, schemaVersion: 2 }), false);
   assert.equal(isFeatureOutput({ ...good, tone: "snarky" }), false);
   // pr can be null when hardHalt.reason === "pr_not_found"
   assert.equal(isFeatureOutput({ ...good, pr: null }), true);
@@ -1180,7 +1188,7 @@ test("runGh: surfaces a nonexistent PR as GhNotFoundError", () => {
 });
 
 // ============================================================================
-// Worktree setup (against a real temp git repo standing in for GitHub)
+// Git, against a real temp git repo standing in for GitHub
 // ============================================================================
 
 function createFixtureRepo(): string {
@@ -1217,42 +1225,6 @@ function publishPullRef(repoDir: string, number: number, branch: string): void {
   const remoteUrl = execSync("git remote get-url origin", { cwd: repoDir, encoding: "utf8" }).trim();
   execSync(`git push -q "${remoteUrl}" ${branch}:refs/pull/${number}/head`, { cwd: repoDir, stdio: "pipe" });
 }
-
-test("setupWorktree: returns not-created when withWorktree is false", () => {
-  const repo = createFixtureRepo();
-  const meta = mkPR({ number: 1, sourceBranch: "feature/x" });
-  const got = setupWorktree(meta, false, null, repo);
-  assert.equal(got.created, false);
-  assert.equal(got.path, null);
-  assert.match(got.reason ?? "", /not requested/);
-});
-
-test("setupWorktree: creates worktree at sibling default from the pull/N/head ref", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 7, "feature/x");
-  const meta = mkPR({ number: 7, sourceBranch: "feature/x" });
-  const got = setupWorktree(meta, true, null, repo);
-  assert.equal(got.created, true);
-  assert.ok(got.path);
-  assert.equal(got.branch, "pr-7");
-  assert.equal(existsSync(got.path!), true);
-  assert.equal(path.basename(got.path!), `${path.basename(repo)}-pr-7`);
-});
-
-test("setupWorktree: records the commit it checked out", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 9, "feature/x");
-  const meta = mkPR({ number: 9, sourceBranch: "feature/x" });
-  const got = setupWorktree(meta, true, null, repo);
-  const expected = execSync("git rev-parse refs/heads/feature/x", { cwd: repo, encoding: "utf8" }).trim();
-  assert.equal(got.headSha, expected);
-});
-
-test("resolveHeadReviewed: the worktree's commit, flagged when the PR moved under it", () => {
-  const wt = { created: true, path: "/x", branch: "pr-1", headSha: "bbb" };
-  assert.deepEqual(resolveHeadReviewed("aaa", wt), { sha: "bbb", source: "worktree", moved: true });
-  assert.deepEqual(resolveHeadReviewed("bbb", wt), { sha: "bbb", source: "worktree", moved: false });
-});
 
 test("isInPrCheckout: someone else's PR, from its own checkout or current-branch mode", () => {
   assert.equal(isInPrCheckout("peer", "42", "abc", "abc"), true);
@@ -1293,148 +1265,6 @@ test("reviewerFilesMatchBase: any head of the PR that touches what Claude Code l
   writeFileSync(path.join(repo, "src.txt"), "elsewhere\n"); // outside what Claude Code loads: fine
   assert.equal(reviewerFilesMatchBase(repo, base), true);
   assert.equal(reviewerFilesMatchBase(repo, null), false);
-});
-
-test("resolveHeadReviewed: without a worktree, the head gh reported", () => {
-  const wt = { created: false, path: null, branch: null };
-  assert.deepEqual(resolveHeadReviewed("aaa", wt), { sha: "aaa", source: "pr", moved: false });
-});
-
-test("setupWorktree: honors worktreeDir override", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 8, "feature/x");
-  const customParent = workspaceMkdtemp("custom-");
-  const meta = mkPR({ number: 8, sourceBranch: "feature/x" });
-  const got = setupWorktree(meta, true, customParent, repo);
-  assert.equal(got.created, true);
-  assert.equal(path.dirname(got.path!), customParent);
-});
-
-test("setupWorktree: reuses existing worktree when re-run (picks up a re-push)", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 9, "feature/x");
-  const meta = mkPR({ number: 9, sourceBranch: "feature/x" });
-  const first = setupWorktree(meta, true, null, repo);
-  assert.equal(first.created, true);
-
-  // Simulate a force-push to the PR (e.g. a rebase) landing new commits on
-  // the same pull/N/head ref, then re-running the review. The commit must
-  // land on feature/x itself (not whatever the repo's own checkout is on)
-  // since publishPullRef reads the branch's ref, not the working tree.
-  execSync("git checkout -q feature/x", { cwd: repo });
-  writeFileSync(path.join(repo, "f2.txt"), "more\n");
-  execSync("git add f2.txt", { cwd: repo });
-  execSync("git commit -q -m 'more work'", { cwd: repo });
-  execSync("git checkout -q main", { cwd: repo });
-  publishPullRef(repo, 9, "feature/x");
-
-  const second = setupWorktree(meta, true, null, repo);
-  assert.equal(first.path, second.path);
-  assert.equal(second.created, true);
-  assert.equal(existsSync(path.join(second.path!, "f2.txt")), true);
-});
-
-test("setupWorktree: reuses the worktree after the PR is rebased (the old head is not local work)", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 31, "feature/x");
-  const meta = mkPR({ number: 31, sourceBranch: "feature/x" });
-  const first = setupWorktree(meta, true, null, repo);
-  assert.equal(first.created, true);
-  // Rewrite the PR's history: a fresh branch off main replaces feature/x's commit.
-  execSync("git checkout -q -b feature/rebased main", { cwd: repo });
-  writeFileSync(path.join(repo, "g.txt"), "rebased\n");
-  execSync("git add g.txt && git commit -q -m rebased", { cwd: repo });
-  execSync("git checkout -q main", { cwd: repo });
-  const remoteUrl = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
-  execSync(`git push -q -f "${remoteUrl}" feature/rebased:refs/pull/31/head`, { cwd: repo, stdio: "pipe" });
-  const second = setupWorktree(meta, true, null, repo);
-  assert.equal(second.created, true, second.reason);
-  assert.equal(existsSync(path.join(second.path!, "g.txt")), true);
-});
-
-test("setupWorktree: when not in a git repo, returns reason", () => {
-  const empty = mkdtempSync(path.join(tmpdir(), "pr-review-empty-"));
-  const meta = mkPR({ sourceBranch: "feature/x" });
-  const got = setupWorktree(meta, true, null, empty);
-  assert.equal(got.created, false);
-  assert.match(got.reason ?? "", /not inside a git repository/);
-});
-
-test("setupWorktree: refuses a relative worktreeDir that resolves inside the repo", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 30, "feature/x");
-  const meta = mkPR({ number: 30, sourceBranch: "feature/x" });
-
-  const got = setupWorktree(meta, true, ".pr-review-worktrees", repo);
-
-  assert.equal(got.created, false);
-  assert.equal(got.path, null);
-  assert.match(got.reason ?? "", /refusing to create a worktree inside the repository/);
-  assert.equal(existsSync(path.join(repo, ".pr-review-worktrees")), false);
-});
-
-test("setupWorktree: refuses an absolute worktreeDir inside the repo", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 31, "feature/x");
-  const meta = mkPR({ number: 31, sourceBranch: "feature/x" });
-
-  const got = setupWorktree(meta, true, path.join(repo, "tmp", "reviews"), repo);
-
-  assert.equal(got.created, false);
-  assert.match(got.reason ?? "", /must resolve outside the working tree/);
-});
-
-test("setupWorktree: refuses the repo root itself as worktreeDir", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 32, "feature/x");
-  const meta = mkPR({ number: 32, sourceBranch: "feature/x" });
-
-  const got = setupWorktree(meta, true, repo, repo);
-
-  assert.equal(got.created, false);
-  assert.match(got.reason ?? "", /refusing to create a worktree inside the repository/);
-});
-
-test("setupWorktree: anchors on the main worktree when run from inside a review worktree", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 20, "feature/x");
-  publishPullRef(repo, 21, "feature/x");
-  const first = setupWorktree(mkPR({ number: 20, sourceBranch: "feature/x" }), true, null, repo);
-  assert.equal(first.created, true);
-
-  // Re-run from inside the worktree we just made, as happens when a review
-  // chat is started in a previous review worktree.
-  const second = setupWorktree(mkPR({ number: 21, sourceBranch: "feature/x" }), true, null, first.path!);
-
-  assert.equal(second.created, true);
-  assert.equal(path.basename(second.path!), `${path.basename(repo)}-pr-21`);
-  assert.equal(path.dirname(second.path!), path.dirname(repo));
-  assert.equal(second.path!.startsWith(first.path! + path.sep), false);
-});
-
-test("resolveMainWorktreeRoot: returns the repo itself when already in the main worktree", () => {
-  const repo = createFixtureRepo();
-  assert.equal(resolveMainWorktreeRoot(repo, repo), repo);
-});
-
-test("resolveMainWorktreeRoot: falls back to the given root outside a git repo", () => {
-  const empty = mkdtempSync(path.join(tmpdir(), "pr-review-nogit-"));
-  assert.equal(resolveMainWorktreeRoot(empty, empty), empty);
-});
-
-test("setupWorktree: bails when reusing a worktree holding commits the PR does not have", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 21, "feature/x");
-  const meta = mkPR({ number: 21, sourceBranch: "feature/x" });
-  const first = setupWorktree(meta, true, null, repo);
-  assert.equal(first.created, true);
-  writeFileSync(path.join(first.path!, "local.txt"), "mine\n");
-  execSync('git add local.txt && git -c user.email=t@example.com -c user.name=T -c commit.gpgSign=false commit -q -m local', { cwd: first.path!, stdio: "pipe" });
-  const before = execSync("git rev-parse HEAD", { cwd: first.path!, encoding: "utf8" }).trim();
-  const second = setupWorktree(meta, true, null, repo);
-  assert.equal(second.created, false);
-  assert.match(second.reason ?? "", /commit\(s\) the PR does not/);
-  assert.equal(execSync("git rev-parse HEAD", { cwd: first.path!, encoding: "utf8" }).trim(), before);
 });
 
 // The review's bar comes from the PR's base commit, never its head or a working tree.
@@ -1492,39 +1322,305 @@ test("gitSlipwayReader: lists and reads plain files in a folder", () => {
   assert.equal(reader.list("docs/absent"), null);
 });
 
-test("fetchBaseCommit: the sha GitHub reports, fetched by sha; null when it cannot be read", () => {
+test("fetchCommit: the base sha GitHub reports, fetched by sha; null when it cannot be read", () => {
   const repo = createFixtureRepo();
   const remoteMain = execSync("git ls-remote origin refs/heads/main", { cwd: repo, encoding: "utf8" }).split("\t")[0];
-  assert.equal(fetchBaseCommit(repo, remoteMain), remoteMain);
+  assert.equal(fetchCommit(repo, remoteMain), remoteMain);
   // A branch whose name ends like the base cannot stand in for it: nothing is looked up by name.
   execSync("git push -q origin main:refs/heads/a/refs/heads/main", { cwd: repo, stdio: "pipe" });
-  assert.equal(fetchBaseCommit(repo, remoteMain), remoteMain);
-  assert.equal(fetchBaseCommit(repo, "0".repeat(40)), null); // not on origin
-  assert.equal(fetchBaseCommit(repo, "main"), null); // a name, not a sha
-  assert.equal(fetchBaseCommit(repo, ""), null);
+  assert.equal(fetchCommit(repo, remoteMain), remoteMain);
+  assert.equal(fetchCommit(repo, "0".repeat(40)), null); // not on origin
+  assert.equal(fetchCommit(repo, "main"), null); // a name, not a sha
+  assert.equal(fetchCommit(repo, ""), null);
 });
 
-test("runGit: a PR's hooks never run, even with a relative core.hooksPath", () => {
+test("fetchCommit: the PR's head lands as objects only — git show reads it, nothing is on disk", () => {
+  const repo = createFixtureRepo();
+  // The PR's head exists only under refs/pull/<n>/head, as on GitHub; the reviewer's clone lacks it.
+  execSync("git checkout -q -b pr-only main", { cwd: repo });
+  mkdirSync(path.join(repo, "src"), { recursive: true });
+  writeFileSync(path.join(repo, "src", "pages.js"), "export const pages = (n) => Math.floor(n / 10);\n");
+  execSync("ln -s /etc/hosts src/link", { cwd: repo });
+  const head = commitAll(repo, "pr head");
+  publishPullRef(repo, 12, "pr-only");
+  const remote = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
+  const clone = workspaceMkdtemp("clone-");
+  execSync(`git clone -q --no-local "${remote}" "${clone}"`, { stdio: "pipe" });
+  assert.throws(() => execSync(`git cat-file -e ${head}`, { cwd: clone, stdio: "pipe" }), undefined, "fixture: the clone starts without the head");
+  const before = readdirSync(clone).sort();
+
+  assert.equal(fetchCommit(clone, head), head);
+  assert.match(execSync(`git show ${head}:src/pages.js`, { cwd: clone, encoding: "utf8" }), /Math\.floor/);
+  // A symlink is its target's path as text; nothing is followed.
+  assert.equal(execSync(`git show ${head}:src/link`, { cwd: clone, encoding: "utf8" }), "/etc/hosts");
+  assert.deepEqual(readdirSync(clone).sort(), before, "no PR file reached the working tree");
+  assert.equal(execSync("git rev-parse --abbrev-ref HEAD", { cwd: clone, encoding: "utf8" }).trim(), "main");
+});
+
+test("runGit: refuses every command that writes a working tree, naming the replacement", () => {
+  const repo = createFixtureRepo();
+  publishPullRef(repo, 3, "feature/x");
+  const target = path.join(repo, "..", `review-${path.basename(repo)}`);
+  for (const args of [
+    ["worktree", "add", target, "feature/x"],
+    ["checkout", "feature/x"],
+    ["switch", "feature/x"],
+    ["restore", "--source", "feature/x", "."],
+    ["reset", "--hard", "feature/x"],
+    ["clone", repo, target],
+    ["stash"],
+    ["merge", "feature/x"],
+  ]) {
+    assert.throws(() => runGit(args, repo), (err: Error) => {
+      assert.match(err.message, new RegExp(`git ${args[0]} is not run here`));
+      assert.ok(err.message.includes(NO_CHECKOUT));
+      return true;
+    }, args[0]);
+  }
+  assert.equal(existsSync(target), false);
+  assert.equal(existsSync(path.join(repo, "f.txt")), false, "feature/x's file never reached the working tree");
+  assert.equal(execSync("git rev-parse --abbrev-ref HEAD", { cwd: repo, encoding: "utf8" }).trim(), "main");
+});
+
+test("compute.ts: runGit is its only way to git, and every git command it names is allowed", () => {
+  const src = readFileSync(path.join(import.meta.dirname, "compute.ts"), "utf8");
+  // child_process is named once, importing execFileSync alone: no exec, spawn, namespace or dynamic import to reach git another way.
+  const uses = [...src.matchAll(/^.*child_process.*$/gm)].map((m) => m[0].trim());
+  assert.deepEqual(uses, ['import { execFileSync } from "node:child_process";']);
+  // execFileSync runs git in runGit alone and gh in execGh alone, each behind its allowlist.
+  const programs = [...src.matchAll(/execFileSync\(\s*("[^"]*"|[^,)]+)/g)].map((m) => m[1]).sort();
+  assert.deepEqual(programs, ['"gh"', '"git"']);
+  // Every git and gh command a code path names, exercised by a test or not.
+  const named = [...src.matchAll(/(?:runGit|tryRunGit|execGit)\(\s*\[\s*"([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(named.length >= 5, `found ${named.length} git calls`);
+  for (const cmd of named) assert.ok(GIT_ALLOWED.has(cmd), `compute.ts runs git ${cmd}`);
+  for (const cmd of ["worktree", "checkout", "switch", "restore", "reset", "clone"]) assert.equal(GIT_ALLOWED.has(cmd), false, cmd);
+  const ghNamed = [...src.matchAll(/(?:runGh|tryRunGh|runGhAllowNonZero)\(\s*\[\s*"([^"]+)"(?:\s*,\s*"([^"]+)")?/g)]
+    .map((m) => (m[1] === "api" ? "api" : `${m[1]} ${m[2]}`));
+  assert.ok(ghNamed.length >= 4, `found ${ghNamed.length} gh calls`);
+  for (const cmd of ghNamed) assert.ok(GH_ALLOWED.has(cmd), `compute.ts runs gh ${cmd}`);
+  for (const cmd of ["pr checkout", "repo clone", "repo sync"]) assert.equal(GH_ALLOWED.has(cmd), false, cmd);
+});
+
+test("runGh: refuses gh commands that check out or clone, before running gh", () => {
+  for (const args of [["pr", "checkout", "7", "-R", "owner/repo"], ["repo", "clone", "owner/repo"], ["repo", "sync"]]) {
+    assert.throws(() => runGh(args), (err: Error) => {
+      assert.match(err.message, new RegExp(`gh ${args[0]} ${args[1]} is not run here`));
+      assert.ok(err.message.includes(NO_CHECKOUT));
+      return true;
+    }, args.join(" "));
+  }
+});
+
+test("fetchPRCommits: base and head fetched as objects; each one missing halts the review", () => {
+  const repo = createFixtureRepo();
+  execSync("git checkout -q -b pr-only-2 main", { cwd: repo });
+  writeFileSync(path.join(repo, "g.txt"), "pr\n");
+  const head = commitAll(repo, "pr head");
+  publishPullRef(repo, 14, "pr-only-2");
+  const base = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+  const remote = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
+  const clone = workspaceMkdtemp("clone-");
+  execSync(`git clone -q --no-local "${remote}" "${clone}"`, { stdio: "pipe" });
+
+  const got = fetchPRCommits(clone, { baseSha: base, headSha: head });
+  assert.deepEqual(got, { baseCommit: base, headCommit: head, halt: null });
+  assert.equal(existsSync(path.join(clone, "g.txt")), false, "the head's file never reached the working tree");
+  assert.equal(fetchPRCommits(clone, { baseSha: base, headSha: "0".repeat(40) }).halt?.reason, "head_unreadable");
+  assert.equal(fetchPRCommits(clone, { baseSha: "0".repeat(40), headSha: head }).halt?.reason, "base_unreadable");
+  assert.equal(fetchPRCommits(null, { baseSha: base, headSha: head }).halt?.reason, "base_unreadable");
+});
+
+// A PR whose file names are built to break a shell command, and whose texts include a link and binary bytes.
+function hostilePR(): { clone: string; base: string; head: string; names: string[] } {
+  const repo = createFixtureRepo();
+  execSync("git checkout -q -b hostile main", { cwd: repo });
+  const names = ["$(touch PWNED).txt", "a\nb.txt", "it's.txt", "-rf.txt", "[id].tsx", "sp ace.md"];
+  for (const n of names) writeFileSync(path.join(repo, n), `text of ${JSON.stringify(n)}\n`);
+  execSync("ln -s /etc/hosts link", { cwd: repo });
+  writeFileSync(path.join(repo, "bin.dat"), Buffer.from([0x50, 0, 0xff, 0x0a]));
+  writeFileSync(path.join(repo, "README.md"), "# fixture, changed\n");
+  const head = commitAll(repo, "hostile head");
+  publishPullRef(repo, 15, "hostile");
+  const base = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+  const remote = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
+  const clone = workspaceMkdtemp("clone-");
+  execSync(`git clone -q --no-local "${remote}" "${clone}"`, { stdio: "pipe" });
+  assert.equal(fetchPRCommits(clone, { baseSha: base, headSha: head }).halt, null);
+  return { clone, base, head, names };
+}
+
+test("writeReviewDir: hostile names arrive as data, texts as plain numbered files, nothing runs", () => {
+  const { clone, base, head, names } = hostilePR();
+  const before = readdirSync(clone).sort();
+  const rd = writeReviewDir(clone, base, head);
+  try {
+    // A fresh owner-only folder in the temp directory, outside the repository.
+    assert.equal(path.dirname(rd.path), realpathSync(tmpdir()));
+    assert.ok(path.basename(rd.path).startsWith(REVIEW_DIR_PREFIX));
+    assert.equal(statSync(rd.path).mode & 0o777, 0o700);
+    assert.equal(rd.path.startsWith(realpathSync(clone)), false);
+
+    const index = JSON.parse(readFileSync(rd.index, "utf8"));
+    assert.equal(index.head, head);
+    const byPath = new Map(index.files.map((f: { path: string }) => [f.path, f]));
+    for (const n of names) {
+      const f = byPath.get(n) as { head: string; base: string | null; status: string };
+      assert.ok(f, `index lists ${JSON.stringify(n)} verbatim`);
+      assert.equal(f.status, "A");
+      assert.equal(f.base, null);
+      assert.match(f.head, /^files\/\d+\.head$/);
+      assert.equal(readFileSync(path.join(rd.path, f.head), "utf8"), `text of ${JSON.stringify(n)}\n`);
+    }
+    const link = byPath.get("link") as { head: string; symlink: boolean; headMode: string };
+    assert.equal(link.symlink, true);
+    assert.equal(link.headMode, "120000");
+    assert.equal(lstatSync(path.join(rd.path, link.head)).isSymbolicLink(), false, "a link is written as its target's text");
+    assert.equal(readFileSync(path.join(rd.path, link.head), "utf8"), "/etc/hosts");
+    const bin = byPath.get("bin.dat") as { head: string; binary: boolean };
+    assert.equal(bin.binary, true);
+    assert.deepEqual([...readFileSync(path.join(rd.path, bin.head))], [0x50, 0, 0xff, 0x0a]);
+    const readme = byPath.get("README.md") as { status: string; head: string; base: string };
+    assert.equal(readme.status, "M");
+    assert.equal(readFileSync(path.join(rd.path, readme.base), "utf8"), "# fixture\n");
+    assert.match(readFileSync(rd.diff, "utf8"), /# fixture, changed/);
+
+    // Every file in the folder has a name compute.ts chose, and none is executable.
+    for (const f of readdirSync(path.join(rd.path, "files"))) {
+      assert.match(f, /^\d+\.(head|base)$/);
+      assert.equal(statSync(path.join(rd.path, "files", f)).mode & 0o111, 0);
+    }
+    // Nothing the names spell ran: no PWNED anywhere, and the clone's working tree is untouched.
+    for (const where of [process.cwd(), clone, rd.path, path.join(rd.path, "files"), FIXTURE_ROOT]) {
+      assert.equal(existsSync(path.join(where, "PWNED")), false, where);
+    }
+    assert.deepEqual(readdirSync(clone).sort(), before);
+  } finally {
+    cleanupReviewDir(rd.path);
+  }
+  assert.equal(existsSync(rd.path), false, "cleanup deletes the folder");
+});
+
+test("writeReviewDir: a failure part-way leaves no folder behind", () => {
+  const { clone, base } = hostilePR();
+  const listReviewDirs = () => readdirSync(realpathSync(tmpdir())).filter((n) => n.startsWith(REVIEW_DIR_PREFIX)).sort();
+  const before = listReviewDirs();
+  assert.throws(() => writeReviewDir(clone, base, "0".repeat(40))); // a head this clone does not have
+  assert.deepEqual(listReviewDirs(), before);
+});
+
+test("cleanupReviewDir: deletes only a review folder this script made", () => {
+  const { clone, base, head } = hostilePR();
+  const bare = mkdtempSync(path.join(tmpdir(), REVIEW_DIR_PREFIX)); // the prefix, no index
+  const other = mkdtempSync(path.join(tmpdir(), "not-a-review-"));
+  writeFileSync(path.join(other, "index.json"), '{"prReview":3}');
+  const inside = path.join(clone, `${REVIEW_DIR_PREFIX}x`);
+  mkdirSync(inside);
+  writeFileSync(path.join(inside, "index.json"), '{"prReview":3}');
+  try {
+    for (const dir of [bare, other, inside, clone, tmpdir(), path.join(tmpdir(), `${REVIEW_DIR_PREFIX}absent`)]) {
+      assert.throws(() => cleanupReviewDir(dir), /refusing to delete|no review folder/, dir);
+      if (dir !== path.join(tmpdir(), `${REVIEW_DIR_PREFIX}absent`)) assert.equal(existsSync(dir), true, dir);
+    }
+    const rd = writeReviewDir(clone, base, head);
+    cleanupReviewDir(rd.path);
+    assert.equal(existsSync(rd.path), false);
+  } finally {
+    rmSync(bare, { recursive: true, force: true });
+    rmSync(other, { recursive: true, force: true });
+  }
+});
+
+test("parseArgs: --output-path is refused — compute.ts runs pre-approved and writes nowhere but its folder", () => {
+  assert.throws(() => parseArgs(["42", "--output-path", "/tmp/out.json"]), /--output-path was removed/);
+});
+
+test("writeReviewDir: names that are not valid UTF-8 keep their own texts", () => {
+  const repo = createFixtureRepo();
+  // Built from git objects: a filesystem (APFS) may refuse such names, and a PR's tree need not come from one.
+  const git = (args: string[], input?: Buffer | string) =>
+    execFileSync("git", args, { cwd: repo, input, stdio: ["pipe", "pipe", "pipe"] });
+  const blob = (text: string) => git(["hash-object", "-w", "--stdin"], text).toString().trim();
+  const entry = (oid: string, name: Buffer) =>
+    Buffer.concat([Buffer.from(`100644 blob ${oid}\t`), name, Buffer.from([0])]);
+  const tree = git(["mktree", "-z"], Buffer.concat([
+    git(["ls-tree", "-z", "main"]),
+    entry(blob("MALICIOUS\n"), Buffer.from([0x78, 0xfe, 0x2e, 0x6a, 0x73])), // x\xfe.js
+    entry(blob("benign\n"), Buffer.from([0x78, 0xff, 0x2e, 0x6a, 0x73])), // x\xff.js
+  ])).toString().trim();
+  const head = git(["-c", "user.email=t@example.com", "-c", "user.name=T", "commit-tree", tree, "-p", "main", "-m", "bytes"]).toString().trim();
+  const base = git(["rev-parse", "main"]).toString().trim();
+  const rd = writeReviewDir(repo, base, head);
+  try {
+    const odd = rd.files.filter((f) => f.pathNotUtf8);
+    assert.equal(odd.length, 2);
+    const texts = odd.map((f) => readFileSync(path.join(rd.path, f.head!), "utf8")).sort();
+    assert.deepEqual(texts, ["MALICIOUS\n", "benign\n"]);
+  } finally {
+    cleanupReviewDir(rd.path);
+  }
+});
+
+test("writeReviewDir: one blob behind many paths writes no more than the limits allow", () => {
+  const repo = createFixtureRepo();
+  execSync("git checkout -q -b many main", { cwd: repo });
+  const big = Buffer.alloc(2 * 1024 * 1024 - 1, 0x61); // just under the per-file limit
+  for (let i = 0; i < 40; i++) writeFileSync(path.join(repo, `copy-${i}.txt`), big);
+  const head = commitAll(repo, "many copies of one blob");
+  const base = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+  const rd = writeReviewDir(repo, base, head);
+  try {
+    const bytes = readdirSync(path.join(rd.path, "files")).reduce((t, f) => t + statSync(path.join(rd.path, "files", f)).size, 0);
+    assert.ok(bytes <= 64 * 1024 * 1024, `wrote ${bytes} bytes`);
+    assert.equal(rd.truncated, true);
+    assert.ok(rd.files.some((f) => f.tooLarge && f.head === null));
+    assert.equal(rd.files.length, 40, "every changed name is still listed");
+  } finally {
+    cleanupReviewDir(rd.path);
+  }
+});
+
+test("writeReviewDir: base texts come from the merge-base, not the base branch's later commits", () => {
+  const repo = createFixtureRepo();
+  execSync("git checkout -q -b forked main", { cwd: repo });
+  writeFileSync(path.join(repo, "README.md"), "# fixture, by the PR\n");
+  const head = commitAll(repo, "pr edits README");
+  execSync("git checkout -q main", { cwd: repo });
+  writeFileSync(path.join(repo, "README.md"), "# fixture, main moved on\n");
+  const base = commitAll(repo, "main edits README after the fork");
+  const rd = writeReviewDir(repo, base, head);
+  try {
+    const readme = rd.files.find((f) => f.path === "README.md")!;
+    assert.equal(readFileSync(path.join(rd.path, readme.base!), "utf8"), "# fixture\n");
+    assert.match(readFileSync(rd.diff, "utf8"), /^-# fixture$/m);
+    assert.equal(rd.mergeBase, execSync(`git merge-base ${base} ${head}`, { cwd: repo, encoding: "utf8" }).trim());
+  } finally {
+    cleanupReviewDir(rd.path);
+  }
+});
+
+test("parseArgs: --cleanup takes the folder; without one it is an error", () => {
+  assert.equal(parseArgs(["--cleanup", "/tmp/pr-review-abc"]).cleanup, "/tmp/pr-review-abc");
+  assert.throws(() => parseArgs(["--cleanup"]), /needs the review folder/);
+});
+
+test("resolveHeadReviewed: the head gh reported, flagged when GitHub moved on before the diff was read", () => {
+  assert.deepEqual(resolveHeadReviewed("aaa", "aaa"), { sha: "aaa", moved: false });
+  assert.deepEqual(resolveHeadReviewed("aaa", "bbb"), { sha: "aaa", moved: true });
+  assert.deepEqual(resolveHeadReviewed("aaa", ""), { sha: "aaa", moved: false }); // unknown is not a move
+});
+
+test("runGit: hooks never run, even with a relative core.hooksPath", () => {
   const repo = createFixtureRepo();
   mkdirSync(path.join(repo, ".hooks"), { recursive: true });
   const marker = path.join(repo, "..", `hook-ran-${path.basename(repo)}`);
-  writeFileSync(path.join(repo, ".hooks", "post-checkout"), `#!/bin/sh\ntouch "${marker}"\n`, { mode: 0o755 });
+  writeFileSync(path.join(repo, ".hooks", "reference-transaction"), `#!/bin/sh\ntouch "${marker}"\n`, { mode: 0o755 });
   execSync("git add .hooks && git commit -q -m hooks && git config core.hooksPath .hooks", { cwd: repo, stdio: "pipe" });
-  execSync("git checkout -q -b probe", { cwd: repo });
+  publishPullRef(repo, 4, "feature/x");
+  execSync("git fetch -q origin refs/pull/4/head:refs/remotes/origin/pr-a", { cwd: repo, stdio: "pipe" });
   assert.equal(existsSync(marker), true, "fixture: the hook runs under plain git");
   rmSync(marker);
-  runGit(["checkout", "-q", "main"], repo);
+  runGit(["fetch", "-q", "origin", "refs/pull/4/head:refs/remotes/origin/pr-b"], repo);
   assert.equal(existsSync(marker), false);
 });
 
-test("setupWorktree: bails when reusing a worktree with uncommitted changes", () => {
-  const repo = createFixtureRepo();
-  publishPullRef(repo, 11, "feature/x");
-  const meta = mkPR({ number: 11, sourceBranch: "feature/x" });
-  const first = setupWorktree(meta, true, null, repo);
-  assert.equal(first.created, true);
-  writeFileSync(path.join(first.path!, "dirty.txt"), "uncommitted\n");
-  const second = setupWorktree(meta, true, null, repo);
-  assert.equal(second.created, false);
-  assert.match(second.reason ?? "", /uncommitted changes/);
-});

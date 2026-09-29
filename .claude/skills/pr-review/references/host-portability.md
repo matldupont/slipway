@@ -10,7 +10,7 @@ mentions a capability, use whatever your host provides.
 |------------|-------------------|
 | **Subagent dispatch** | Use your host's task primitive for parallel subagents (Cursor: `Task` with `subagent_type: code-analyzer`, falling back to `generalPurpose`; Claude Code: `Task` with no `subagent_type`; Codex: equivalent). Foreground, ≤2 in flight — see "Why the dispatch cap is load-bearing" below for how much that matters on your host. |
 | **Linked-issue fetch** | `compute.ts` shells out to `gh issue view` directly — no API key, no MCP fallback needed. If `gh` itself is unauthenticated or unreachable, the calling agent should fall back to the host's GitHub MCP integration using `ticketLookupFailure.extractedNumber`. |
-| **Moving the agent's root** | **Don't** — see below. Pass `output.worktree.path` to subagents and have them `cd` there. |
+| **Reading the PR** | Nothing to check out and no root to move: compute.ts writes a review folder, read with the host's file-read and search tools (see below). |
 | **Asking the user which comments to post** | Structured multi-select if the host has one (Cursor: `AskQuestion` with `allow_multiple: true`); otherwise a numbered list the user replies to. See `references/posting.md`. |
 
 ## Does your host detach? (Step 3's concurrency cap)
@@ -31,38 +31,25 @@ into the same turn, dispatch a layer's lenses together and skip the cap.
 Confirm that rather than assuming it: guessing wrong costs you a review
 that does all the work and then vanishes.
 
-## Don't redirect the agent's root at the worktree
+## The PR is never on disk
 
-It reads like the obvious move, and it fails. The `--worktree` branch
-(`pr-<number>`) is deliberately local-only — fetched from GitHub's
-`pull/<number>/head` ref rather than checked out against the author's
-own remote branch, so the review can never push to or interfere with
-their work (and works identically for a fork PR, which has no
-remote-tracking ref on `origin` at all). But hosts that redirect the
-agent's working root generally re-resolve the destination's branch
-against the remote first (Cursor's `move_agent_to_root` runs `git fetch
-origin <current-branch>`), and a branch that exists nowhere on origin as
-a normal ref makes that fail every time.
-
-It is not recoverable by retrying with different arguments — the failure
-is structural, not a call-signature problem. Stay in the original
-workspace and drive the worktree by absolute path instead:
-
-- Shell: set the working directory to `output.worktree.path`, or use
-  `git -C "<worktree>" …`
-- File reads and searches: absolute paths under the worktree
-- Subagents: pass the path and have them `cd` first (their shells don't
-  inherit the parent's)
-
-The workspace root staying on the user's main checkout is expected. What
-matters is that no PR code is ever read from it.
+The review reads the pull request without checking it out: compute.ts
+fetches its head and base commits into the clone the skill runs in, as
+objects, and writes a review folder in the system temp directory — the
+diff, each changed file's head and base text under numbered names, and an
+index. Subagents read that folder with the host's file-read and search
+tools (Claude Code: Read, Grep), by absolute path, and run no shell
+command. Stay in the original workspace; don't move the agent's root to
+the folder. The workspace root holds the user's own branch, so a PR file
+is never read from it. `compute.ts --cleanup <reviewDir.path>` deletes the
+folder at the end.
 
 ## Required environment
 
 ### `gh` authentication
 
-`compute.ts` and every subagent shell out to `gh` directly — there's no
-API-key fallback. Before invoking the skill, confirm:
+`compute.ts` and the review's own setup and posting steps shell out to `gh`
+directly — there's no API-key fallback; subagents run no command. Before invoking the skill, confirm:
 
 ```bash
 gh auth status
@@ -76,11 +63,12 @@ output instead of a clean failure.
 
 ### `git` safety for reviewers
 
-Set `git config --global safe.bareRepository explicit` on every machine
-that reviews. A PR can commit a folder laid out as a bare repository whose
-config names a command; with this setting, git never treats such a folder
-as a repository on its own. The subagent prompts pass it on every call
-too, as a second layer.
+The review never writes a PR's files to disk, so a folder the PR commits
+laid out as a bare repository, with a command in its config, is never a
+place the review runs git. Still set
+`git config --global safe.bareRepository explicit` on every machine that
+reviews: it covers a checkout of someone else's branch you made yourself,
+including one the review is started from by mistake.
 
 ### GitHub Enterprise
 
@@ -94,12 +82,6 @@ gh auth status   # confirms you're authenticated against GH_HOST, not github.com
 Unlike GitLab's self-hosted story, `gh` reads `GH_HOST` itself and there's
 no separate "REST endpoint vs. login host" mismatch to derive — the one
 env var is the whole story.
-
-## Optional environment
-
-| Variable | Effect |
-|----------|--------|
-| `PR_REVIEW_WORKTREE_DIR` | Default parent directory for `--worktree` (overridden by `--worktree-dir`). |
 
 ## Tone in different hosts
 

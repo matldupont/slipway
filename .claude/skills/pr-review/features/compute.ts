@@ -2,9 +2,17 @@
 /**
  * PR review feature extractor.
  *
- * Deterministically resolves PR identity, optional worktree setup, linked
- * GitHub issue lookup, readiness signals, and slipway-repo context for a
- * GitHub pull request. Emits JSON on stdout (or to --output-path).
+ * Deterministically resolves PR identity, the PR's head and base commits
+ * (fetched as objects into this clone, never checked out), linked GitHub
+ * issue lookup, readiness signals, and slipway-repo context for a GitHub
+ * pull request. Emits JSON on stdout.
+ *
+ * Nothing from the PR is ever a working tree. compute.ts is the one place
+ * that reads the PR's files: it writes the pinned diff and each changed
+ * file's head and base text to a fresh review folder outside the repo, under
+ * numbered names with an index (`reviewDir`). Reviewers read that folder with
+ * their Read and Grep tools; no command they run carries the author's text.
+ * `--cleanup <reviewDir.path>` deletes it at the end of the review.
  *
  * Usage:
  *   node <script-path>/compute.ts [<pr-url-or-number-or-branch>] [options]
@@ -16,10 +24,6 @@
  *
  * Options:
  *   --project-path <owner/repo>       GitHub repo; defaults to detection from origin
- *   --worktree                        Create a worktree for the PR (default: off)
- *   --worktree-dir <parent>           Parent directory for the worktree
- *                                     (default: $PR_REVIEW_WORKTREE_DIR or sibling of repo root)
- *   --output-path <file>              Write JSON to file instead of stdout
  *   --skip-ticket                     Don't attempt linked-issue fetch (still extract the number)
  *   --tone {casual|formal}            Tone hint for downstream rendering (default: casual)
  *   --issue-repo <owner/repo>         The configured Issue repo: the one other repo a linked issue may come from
@@ -28,10 +32,10 @@
  *   --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)
  *                                     `none` turns that input off; it never falls back to the default.
  *   --verbose                         Diagnostic logs to stderr (includes swallowed gh/git stderr)
+ *   --cleanup <dir>                   Delete a review folder this script made, and exit
  *
  * Environment:
  *   GH_HOST                 GitHub host for `gh` (e.g. github.example.com, for GitHub Enterprise)
- *   PR_REVIEW_WORKTREE_DIR  Default parent directory for worktrees
  *
  * Requirements:
  *   - `gh` (authenticated) and `git` on PATH
@@ -40,8 +44,19 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { dirname, basename, join, resolve, sep } from "node:path";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, dirname, join, sep } from "node:path";
 
 // ============================================================================
 // Output types
@@ -68,24 +83,14 @@ export interface PRMetadata {
   draft: boolean;
 }
 
-export interface WorktreeInfo {
-  created: boolean;
-  path: string | null;
-  branch: string | null;
-  /** `git rev-parse HEAD` in the worktree once it is checked out. */
-  headSha?: string | null;
-  reason?: string;
-}
-
 /**
- * The commit this review reads. With a worktree it is the commit checked out
- * there; without one, the head `gh pr view` reported. `moved` is true when
- * the two differ: the PR was pushed to between the metadata read and the
- * fetch, so the metadata, diff and checkout may describe different commits.
+ * The commit this review reads: the head `gh pr view` reported, fetched into
+ * this clone so `git show <sha>:<path>` reads its files. `moved` is true when
+ * the PR's head had changed by the time the diff was read, so the metadata
+ * and the diff may describe different commits.
  */
 export interface HeadReviewed {
   sha: string;
-  source: "worktree" | "pr";
   moved: boolean;
 }
 
@@ -221,6 +226,7 @@ export interface HardHalt {
     | "empty_diff"
     | "no_description_no_ticket"
     | "base_unreadable"
+    | "head_unreadable"
     | "running_in_pr_checkout";
   detail: string;
 }
@@ -229,7 +235,7 @@ export type Tone = "casual" | "formal";
 export type ReviewMode = "self" | "peer";
 
 export interface FeatureOutput {
-  schemaVersion: 2;
+  schemaVersion: 3;
   /** Tone the calling skill should use when rendering human output. */
   tone: Tone;
   /**
@@ -243,7 +249,6 @@ export interface FeatureOutput {
    * always populated.
    */
   pr: PRMetadata | null;
-  worktree: WorktreeInfo;
   ticket: IssueTicket | null;
   ticketLookupFailure: IssueLookupFailure | null;
   diff: DiffStats;
@@ -259,6 +264,8 @@ export interface FeatureOutput {
   slipway: SlipwayContext;
   /** null only when `pr` is null. */
   headReviewed: HeadReviewed | null;
+  /** The review folder the reviewers read; null when the review halts. */
+  reviewDir: ReviewDir | null;
   hardHalt: HardHalt | null;
 }
 
@@ -266,16 +273,16 @@ export function isFeatureOutput(value: unknown): value is FeatureOutput {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return (
-    v.schemaVersion === 2 &&
+    v.schemaVersion === 3 &&
     (v.tone === "casual" || v.tone === "formal") &&
     (v.pr === null || typeof v.pr === "object") &&
-    typeof v.worktree === "object" &&
     typeof v.diff === "object" &&
     typeof v.diffFetchFailed === "boolean" &&
     typeof v.checks === "object" &&
     typeof v.readiness === "object" &&
     Array.isArray(v.unresolvedThreads) &&
-    typeof v.slipway === "object"
+    typeof v.slipway === "object" &&
+    typeof v.reviewDir === "object"
   );
 }
 
@@ -306,13 +313,18 @@ interface CLIOptions {
   /** The configured Issue repo; with the PR's own, the only repos a linked issue is loaded from. */
   issueRepo: string | null;
   slipwayPaths: SlipwayPaths;
-  withWorktree: boolean;
-  worktreeDir: string | null;
-  outputPath: string | null;
   skipTicket: boolean;
   verbose: boolean;
   tone: Tone;
+  /** Set by --cleanup: delete this review folder and exit. */
+  cleanup: string | null;
 }
+
+/** Why a checkout is refused, and what replaces it. */
+export const NO_CHECKOUT =
+  "the review never checks the PR out, so there is no worktree: compute.ts writes the diff and " +
+  "each changed file's head and base text to reviewDir (read with the Read and Grep tools), " +
+  "reading the head (headReviewed.sha) and the merge-base with pr.baseSha as git objects with git cat-file";
 
 export function parseArgs(argv: string[]): CLIOptions {
   const opts: CLIOptions = {
@@ -320,12 +332,10 @@ export function parseArgs(argv: string[]): CLIOptions {
     projectPath: null,
     issueRepo: null,
     slipwayPaths: { ...DEFAULT_SLIPWAY_PATHS },
-    withWorktree: false,
-    worktreeDir: process.env.PR_REVIEW_WORKTREE_DIR ?? null,
-    outputPath: null,
     skipTicket: false,
     verbose: false,
     tone: "casual",
+    cleanup: null,
   };
   let i = 0;
   if (argv.length > 0 && !argv[0].startsWith("--")) {
@@ -339,8 +349,8 @@ export function parseArgs(argv: string[]): CLIOptions {
         opts.projectPath = argv[++i] ?? null;
         break;
       case "--worktree":
-        opts.withWorktree = true;
-        break;
+      case "--worktree-dir":
+        throw new Error(`${arg} was removed: ${NO_CHECKOUT}`);
       case "--issue-repo": {
         const v = argv[++i];
         if (!v || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(v)) {
@@ -358,12 +368,15 @@ export function parseArgs(argv: string[]): CLIOptions {
       case "--cold-review":
         opts.slipwayPaths.coldReview = parseSlipwayPath(arg, argv[++i]);
         break;
-      case "--worktree-dir":
-        opts.worktreeDir = argv[++i] ?? null;
+      case "--cleanup": {
+        const v = argv[++i];
+        if (!v || v.startsWith("--")) throw new Error("--cleanup needs the review folder's path");
+        opts.cleanup = v;
         break;
+      }
       case "--output-path":
-        opts.outputPath = argv[++i] ?? null;
-        break;
+        // compute.ts runs pre-approved, so it writes nowhere but its own review folder.
+        throw new Error("--output-path was removed: compute.ts writes JSON to stdout only");
       case "--skip-ticket":
         opts.skipTicket = true;
         break;
@@ -418,19 +431,36 @@ export function _setVerboseLog(fn: ((msg: string) => void) | null): void {
 }
 
 /**
- * Hooks are off for every git call: the review worktree is the PR's own
- * files, and a relative core.hooksPath (husky, lefthook) would run the
- * PR's hooks on checkout with the reviewer's token. Nothing in the PR's
- * checkout is run, only read.
+ * Hooks are off for every git call: a relative core.hooksPath (husky,
+ * lefthook) runs whatever the working tree holds, with the reviewer's token.
  */
 export const GIT_SAFE_ARGS = ["-c", "core.hooksPath=/dev/null"];
 
-export function runGit(args: string[], cwd?: string): string {
+/**
+ * The only git commands compute.ts runs: each reads objects or refs, fetches
+ * them, or compares the reviewer's own checkout with the base. Nothing that
+ * writes or adds a working tree (checkout, switch, reset, restore, clone,
+ * merge, stash…) is on it, so no code path can put the PR's files on disk.
+ */
+export const GIT_ALLOWED = new Set(["rev-parse", "fetch", "ls-tree", "cat-file", "diff", "merge-base", "status", "remote"]);
+
+/**
+ * Every git call goes through here: an argv array (no shell), an allowed
+ * command, hooks off. Raw bytes, so a blob's content is never re-encoded.
+ */
+function execGit(args: string[], cwd?: string): Buffer {
+  if (!GIT_ALLOWED.has(args[0] ?? "")) {
+    throw new Error(`git ${args[0] ?? "(none)"} is not run here: ${NO_CHECKOUT}`);
+  }
   return execFileSync("git", [...GIT_SAFE_ARGS, ...args], {
     cwd,
-    encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+    maxBuffer: 128 * 1024 * 1024,
+  });
+}
+
+export function runGit(args: string[], cwd?: string): string {
+  return execGit(args, cwd).toString("utf8").trim();
 }
 
 function tryRunGit(args: string[], cwd?: string): string {
@@ -452,12 +482,29 @@ export class GhNotFoundError extends Error {
   }
 }
 
+/**
+ * The only gh commands compute.ts runs: reads of the PR, its checks and its
+ * issue, and the API reads. `gh pr checkout`, `gh repo clone` and the like
+ * run git checkout underneath, so they are not on it.
+ */
+export const GH_ALLOWED = new Set(["pr view", "pr diff", "pr checks", "issue view", "api"]);
+
+function assertGhAllowed(args: string[]): void {
+  const cmd = args[0] === "api" ? "api" : `${args[0] ?? ""} ${args[1] ?? ""}`;
+  if (!GH_ALLOWED.has(cmd)) {
+    throw new Error(`gh ${cmd.trim() || "(none)"} is not run here: ${NO_CHECKOUT}`);
+  }
+}
+
+/** Every gh call goes through here, checked against GH_ALLOWED first. */
+function execGh(args: string[]): string {
+  assertGhAllowed(args);
+  return execFileSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
 export function runGh(args: string[]): string {
   try {
-    return execFileSync("gh", args, {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    return execGh(args);
   } catch (err) {
     const stderr =
       err && typeof err === "object" && "stderr" in err
@@ -488,8 +535,9 @@ function tryRunGh(args: string[]): string {
  * is the answer, not noise to discard.
  */
 function runGhAllowNonZero(args: string[]): string {
+  assertGhAllowed(args); // outside the try: a refusal is never read as empty output
   try {
-    return execFileSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return execGh(args);
   } catch (err) {
     const stdout =
       err && typeof err === "object" && "stdout" in err
@@ -617,16 +665,23 @@ interface RawPR {
  * exist — callers convert this into a `HardHalt`. Throws for other `gh`
  * failures (auth, network, etc.).
  */
+/**
+ * `-R owner/repo` for a gh call about the PR. A full URL already encodes
+ * owner/repo; passing -R too is redundant and, on some gh versions, rejected
+ * as conflicting.
+ */
+function ghRepoArgs(prRef: string | null, projectPath: string | null): string[] {
+  const isUrl = prRef !== null && extractPrNumberFromUrl(prRef) !== null;
+  return projectPath && !isUrl ? ["-R", projectPath] : [];
+}
+
 export function fetchPRMetadata(
   prRef: string | null,
   projectPath: string | null,
 ): PRMetadata | null {
   const args = ["pr", "view"];
   if (prRef !== null) args.push(prRef);
-  // A full URL already encodes owner/repo; passing -R too is redundant and,
-  // on some gh versions, rejected as conflicting.
-  const isUrl = prRef !== null && extractPrNumberFromUrl(prRef) !== null;
-  if (projectPath && !isUrl) args.push("-R", projectPath);
+  args.push(...ghRepoArgs(prRef, projectPath));
   args.push(
     "--json",
     "number,url,title,body,headRefName,baseRefName,headRefOid,baseRefOid,author,isDraft,mergeable,mergeStateStatus",
@@ -665,138 +720,188 @@ export function fetchPRMetadata(
 }
 
 // ============================================================================
-// Worktree
+// The review folder: the one place the PR's files are read
 // ============================================================================
 
-function isInside(root: string, candidate: string): boolean {
+export interface ReviewFile {
+  /** The number its texts are filed under: files/<n>.head, files/<n>.base. */
+  n: number;
+  /** The author's name for the file: data, never put into a command. */
+  path: string;
+  /** A added, D deleted, M modified, T type changed. */
+  status: string;
+  /** Relative to the review folder; null when the file is absent on that side or has no text. */
+  head: string | null;
+  base: string | null;
+  headMode: string | null;
+  baseMode: string | null;
+  /** Mode 120000 on either side: the text is the link's target, never followed. */
+  symlink: boolean;
+  /** A NUL byte in the first 8000 bytes of either side. */
+  binary: boolean;
+  /** Over a limit (MAX_REVIEW_FILE_BYTES, MAX_REVIEW_BYTES or MAX_REVIEW_FILES): that side's text is not written. */
+  tooLarge: boolean;
+  /** The name is not valid UTF-8: `path` shows it with U+FFFD, and its texts are still its own. */
+  pathNotUtf8: boolean;
+}
+
+export interface ReviewDir {
+  /** A fresh folder outside the repository, owner-only (0700). */
+  path: string;
+  /** index.json: the head, the base and every changed file, as data. */
+  index: string;
+  /** diff.patch: `git diff <base>...<head>`, pinned to headReviewed.sha. */
+  diff: string;
+  /** Where the PR forked from the base branch: files/<n>.base is the text there, the diff's pre-image. */
+  mergeBase: string;
+  files: ReviewFile[];
+  /** Some text was not written because a limit was reached. */
+  truncated: boolean;
+}
+
+export const REVIEW_DIR_PREFIX = "pr-review-";
+/** Limits on what one review writes, so a PR cannot fill the reviewer's disk. */
+export const MAX_REVIEW_FILE_BYTES = 2 * 1024 * 1024;
+export const MAX_REVIEW_BYTES = 64 * 1024 * 1024;
+export const MAX_REVIEW_FILES = 2000;
+
+/*
+ * Paths are kept as latin1 strings while they are matched: one character per
+ * byte, so two names that differ only in bytes that are not valid UTF-8 stay
+ * two names. They are decoded as UTF-8 only for the index.
+ */
+
+/** `git ls-tree -r -z` of a whole commit: path → mode and object id. No path is passed. */
+export function readTree(repoRoot: string, commit: string): Map<string, { mode: string; oid: string }> {
+  const out = execGit(["ls-tree", "-r", "-z", "--full-tree", commit], repoRoot).toString("latin1");
+  const tree = new Map<string, { mode: string; oid: string }>();
+  for (const entry of out.split("\0")) {
+    if (!entry) continue;
+    const tab = entry.indexOf("\t");
+    const [mode, , oid] = entry.slice(0, tab).split(" ");
+    tree.set(entry.slice(tab + 1), { mode, oid });
+  }
+  return tree;
+}
+
+/** `git diff --name-status -z <base>...<head>`: the changed paths, NUL-separated, never re-quoted. */
+export function readChangedPaths(repoRoot: string, base: string, head: string): { status: string; path: string }[] {
+  const out = execGit(
+    ["diff", "--name-status", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", `${base}...${head}`],
+    repoRoot,
+  ).toString("latin1");
+  const parts = out.split("\0");
+  const changed: { status: string; path: string }[] = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    if (parts[i]) changed.push({ status: parts[i], path: parts[i + 1] });
+  }
+  return changed;
+}
+
+function isInsideDir(root: string, candidate: string): boolean {
   return candidate === root || candidate.startsWith(root + sep);
 }
 
 /**
- * Resolve the main worktree's root, given the root of the worktree we're
- * currently in. `git worktree list --porcelain` always lists the main
- * worktree first.
- *
- * Without this, running the skill from inside a previous review worktree
- * nests names (`repo-pr-1` -> `repo-pr-1-pr-2`) and scatters review
- * worktrees under each other instead of alongside the repo.
+ * Writes the review folder: a fresh owner-only folder in the system temp
+ * directory, never inside the repository. Only commit and object ids reach
+ * git; every path the author chose arrives on stdout, NUL-separated, and
+ * leaves only as a JSON string in index.json. Texts are written as plain
+ * files under numbered names, so no name, link or mode the PR chose
+ * reaches the disk.
  */
-export function resolveMainWorktreeRoot(repoRoot: string, cwd?: string): string {
-  const list = tryRunGit(["worktree", "list", "--porcelain"], cwd);
-  const first = list.split("\n").find((line) => line.startsWith("worktree "));
-  if (!first) return repoRoot;
-  const mainRoot = first.slice("worktree ".length).trim();
-  return mainRoot && existsSync(mainRoot) ? mainRoot : repoRoot;
+export function writeReviewDir(repoRoot: string, base: string, head: string): ReviewDir {
+  const root = realpathSync(tmpdir());
+  const repo = realpathSync(repoRoot);
+  if (isInsideDir(repo, root)) {
+    throw new Error(`the temp directory ${root} is inside the repository; set TMPDIR outside it`);
+  }
+  const dir = mkdtempSync(join(root, REVIEW_DIR_PREFIX));
+  try {
+    return fillReviewDir(dir, repoRoot, base, head);
+  } catch (err) {
+    rmSync(dir, { recursive: true, force: true }); // a half-written folder is never left behind
+    throw err;
+  }
 }
 
-export function setupWorktree(
-  meta: PRMetadata,
-  withWorktree: boolean,
-  worktreeDir: string | null,
-  cwd?: string,
-): WorktreeInfo {
-  if (!withWorktree) {
-    return {
-      created: false,
-      path: null,
-      branch: null,
-      reason: "worktree creation not requested (pass --worktree to enable)",
+function fillReviewDir(dir: string, repoRoot: string, base: string, head: string): ReviewDir {
+  chmodSync(dir, 0o700);
+  mkdirSync(join(dir, "files"), { mode: 0o700 });
+
+  // The diff is taken from the merge-base, so the base texts are too: the
+  // base branch's own later changes are not the PR's.
+  const mergeBase = runGit(["merge-base", base, head], repoRoot);
+  if (!/^[0-9a-f]{40,64}$/.test(mergeBase)) throw new Error(`no merge-base between ${base} and ${head}`);
+  const headTree = readTree(repoRoot, head);
+  const baseTree = readTree(repoRoot, mergeBase);
+  let written = 0;
+  let truncated = false;
+  const files: ReviewFile[] = readChangedPaths(repoRoot, base, head).map(({ status, path: raw }, i) => {
+    const n = i + 1;
+    const path = Buffer.from(raw, "latin1").toString("utf8");
+    const file: ReviewFile = {
+      n, path, status, head: null, base: null, headMode: null, baseMode: null,
+      symlink: false, binary: false, tooLarge: false,
+      pathNotUtf8: Buffer.from(path, "utf8").toString("latin1") !== raw,
     };
-  }
-
-  const currentRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd);
-  if (!currentRoot) {
-    return {
-      created: false,
-      path: null,
-      branch: null,
-      reason: "not inside a git repository; cannot create worktree",
-    };
-  }
-  const repoRoot = resolveMainWorktreeRoot(currentRoot, cwd);
-  const repoName = basename(repoRoot);
-
-  // A relative --worktree-dir resolves against the caller's cwd, which is
-  // usually the repo itself — that silently drops a full second checkout
-  // inside the working tree, where it shows up as untracked files and is one
-  // `git add -A` away from being committed.
-  const parentDir = worktreeDir
-    ? resolve(cwd ?? process.cwd(), worktreeDir)
-    : dirname(repoRoot);
-
-  const enclosing = [repoRoot, currentRoot].find((root) => isInside(root, parentDir));
-  if (enclosing) {
-    return {
-      created: false,
-      path: null,
-      branch: null,
-      reason:
-        `refusing to create a worktree inside the repository at ${enclosing}; ` +
-        `--worktree-dir must resolve outside the working tree ` +
-        `(got ${parentDir}). Omit it to use the repo's sibling directory.`,
-    };
-  }
-
-  const worktreePath = join(parentDir, `${repoName}-pr-${meta.number}`);
-  const branchName = `pr-${meta.number}`;
-  // Where the PR head this worktree checked out is recorded (refs are shared across worktrees).
-  const reviewedRef = `refs/pr-review/${branchName}`;
-  // GitHub exposes every PR's commits (including from forks, which have no
-  // remote-tracking ref on `origin`) under this synthetic ref on the origin
-  // remote, regardless of where the head branch actually lives.
-  const pullRefspec = `pull/${meta.number}/head`;
-
-  const worktreeList = tryRunGit(["worktree", "list", "--porcelain"], repoRoot);
-  const reuse = worktreeList
-    .split("\n")
-    .some((line) => line === `worktree ${worktreePath}`);
-
-  if (reuse) {
-    // Bail if the existing worktree has uncommitted edits — force-checkout
-    // would silently nuke user changes.
-    const dirty = tryRunGit(["status", "--porcelain"], worktreePath);
-    if (dirty.length > 0) {
-      return {
-        created: false,
-        path: worktreePath,
-        branch: branchName,
-        reason:
-          `existing worktree at ${worktreePath} has uncommitted changes; ` +
-          `clean it or pass --worktree-dir to a fresh location`,
-      };
+    for (const side of ["head", "base"] as const) {
+      const entry = (side === "head" ? headTree : baseTree).get(raw);
+      if (!entry) continue;
+      file[`${side}Mode`] = entry.mode;
+      if (entry.mode === "120000") file.symlink = true;
+      if (!/^1[02]0[0-7]{3}$/.test(entry.mode)) continue; // a submodule's commit: no text
+      // The size first, so a blob over a limit is never read into memory.
+      const size = Number(runGit(["cat-file", "-s", entry.oid], repoRoot));
+      if (n > MAX_REVIEW_FILES || size > MAX_REVIEW_FILE_BYTES || written + size > MAX_REVIEW_BYTES) {
+        file.tooLarge = true;
+        truncated = true;
+        continue;
+      }
+      const blob = execGit(["cat-file", "blob", entry.oid], repoRoot);
+      written += blob.length;
+      if (blob.subarray(0, 8000).includes(0)) file.binary = true;
+      const rel = `files/${n}.${side}`;
+      writeFileSync(join(dir, rel), blob, { mode: 0o600 });
+      file[side] = rel;
     }
-    // Can't fetch straight into `branchName` here — git refuses to update a
-    // ref that's checked out in a worktree (this one). Land on FETCH_HEAD
-    // instead, then move the branch with checkout -B, which git allows for
-    // a worktree's own current branch.
-    runGit(["fetch", "origin", pullRefspec], worktreePath);
-    // Commits made in the review worktree that the PR does not have would be
-    // reset away by checkout -B: refuse, as for uncommitted edits.
-    // Counted against the PR head this worktree last checked out, so a
-    // force-pushed or rebased PR is not mistaken for local work.
-    const recorded = tryRunGit(["rev-parse", "--verify", "--quiet", `${reviewedRef}^{commit}`], repoRoot);
-    const local = tryRunGit(["rev-list", "--count", `${recorded || "FETCH_HEAD"}..HEAD`], worktreePath);
-    if (local !== "" && local !== "0") {
-      return {
-        created: false,
-        path: worktreePath,
-        branch: branchName,
-        reason:
-          `existing worktree at ${worktreePath} has ${local} commit(s) the PR does not; ` +
-          `push or move them, or pass --worktree-dir to a fresh location`,
-      };
-    }
-    runGit(["checkout", "-B", branchName, "FETCH_HEAD"], worktreePath);
-  } else {
-    if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
-    runGit(["fetch", "origin", `${pullRefspec}:${branchName}`], repoRoot);
-    runGit(["worktree", "add", worktreePath, branchName], repoRoot);
-  }
+    return file;
+  });
 
-  const headSha = tryRunGit(["rev-parse", "HEAD"], worktreePath) || null;
-  if (headSha) tryRunGit(["update-ref", reviewedRef, headSha], repoRoot);
-  return { created: true, path: worktreePath, branch: branchName, headSha };
+  const patch = execGit(["diff", "--no-ext-diff", "--no-textconv", "--no-color", `${base}...${head}`], repoRoot);
+  writeFileSync(join(dir, "diff.patch"), patch, { mode: 0o600 });
+  const index = { prReview: 3, head, base, mergeBase, truncated, files };
+  writeFileSync(join(dir, "index.json"), JSON.stringify(index, null, 2) + "\n", { mode: 0o600 });
+  return { path: dir, index: join(dir, "index.json"), diff: join(dir, "diff.patch"), mergeBase, files, truncated };
 }
+
+/**
+ * Deletes a review folder writeReviewDir made, and nothing else: a direct
+ * child of the temp directory, named with the prefix, holding its index.
+ */
+export function cleanupReviewDir(dir: string): void {
+  let real: string;
+  try {
+    real = realpathSync(dir);
+  } catch {
+    throw new Error(`no review folder at ${dir}`);
+  }
+  const root = realpathSync(tmpdir());
+  let marked = false;
+  try {
+    marked = (JSON.parse(readFileSync(join(real, "index.json"), "utf8")) as { prReview?: unknown }).prReview === 3;
+  } catch {
+    marked = false;
+  }
+  if (dirname(real) !== root || !basename(real).startsWith(REVIEW_DIR_PREFIX) || !marked) {
+    throw new Error(`refusing to delete ${dir}: not a review folder this script made`);
+  }
+  rmSync(real, { recursive: true, force: true });
+}
+
+// ============================================================================
+// The reviewer's checkout, and the head reviewed
+// ============================================================================
 
 /**
  * True when someone else's PR would be reviewed from its own checkout:
@@ -839,12 +944,47 @@ export function reviewerFilesMatchBase(repoRoot: string, baseSha: string | null)
   return untracked === "";
 }
 
-/** The commit the review reads, and whether the PR moved under it. */
-export function resolveHeadReviewed(prHeadSha: string, worktree: WorktreeInfo): HeadReviewed {
-  if (worktree.created && worktree.headSha) {
-    return { sha: worktree.headSha, source: "worktree", moved: worktree.headSha !== prHeadSha };
+/**
+ * The commit the review reads, and whether the PR moved under it: `headNow`
+ * is the head GitHub reported after the diff was read ("" when unknown).
+ */
+export function resolveHeadReviewed(prHeadSha: string, headNow: string): HeadReviewed {
+  return { sha: prHeadSha, moved: headNow !== "" && headNow !== prHeadSha };
+}
+
+/** The PR's head as GitHub reports it now; "" when gh fails. */
+export function fetchPRHeadSha(prRef: string, projectPath: string): string {
+  return tryRunGh(["pr", "view", prRef, ...ghRepoArgs(prRef, projectPath), "--json", "headRefOid", "--jq", ".headRefOid"]).trim();
+}
+
+/**
+ * The PR's base and head commits, fetched into this clone as objects (never
+ * checked out), and the halt when either cannot be read: the bar comes from
+ * the base, and the files are read from the head with `git show`.
+ */
+export function fetchPRCommits(
+  repoRoot: string | null,
+  meta: Pick<PRMetadata, "baseSha" | "headSha">,
+): { baseCommit: string | null; headCommit: string | null; halt: HardHalt | null } {
+  const baseCommit = repoRoot ? fetchCommit(repoRoot, meta.baseSha) : null;
+  const headCommit = repoRoot ? fetchCommit(repoRoot, meta.headSha) : null;
+  let halt: HardHalt | null = null;
+  if (!baseCommit) {
+    halt = {
+      reason: "base_unreadable",
+      detail:
+        `the PR's base commit ${meta.baseSha || "(not reported)"} could not be read from origin; ` +
+        `the review's bar comes from it, so the review stops rather than run without it`,
+    };
+  } else if (!headCommit) {
+    halt = {
+      reason: "head_unreadable",
+      detail:
+        `the PR's head commit ${meta.headSha || "(not reported)"} could not be fetched from origin; ` +
+        `its files are read from it with git show, so the review stops rather than read something else`,
+    };
   }
-  return { sha: prHeadSha, source: "pr", moved: false };
+  return { baseCommit, headCommit, halt };
 }
 
 // ============================================================================
@@ -1585,17 +1725,19 @@ export function gitSlipwayReader(repoRoot: string, commit: string): SlipwayReade
 }
 
 /**
- * Makes the PR's base commit (GitHub's baseRefOid) readable here: fetched
- * from origin by sha, never found by branch name, which a pushed branch
- * could shadow. null when it cannot be read — the caller stops the review
- * (fail closed) rather than run it without its bar.
+ * Makes a commit GitHub reported (the PR's baseRefOid or headRefOid)
+ * readable here as objects: fetched from origin by sha, never found by
+ * branch name, which a pushed branch could shadow, and never checked out.
+ * GitHub serves a PR's head by sha, a fork's included, since
+ * `pull/<n>/head` makes it reachable. null when it cannot be read: the
+ * caller stops the review (fail closed).
  */
-export function fetchBaseCommit(repoRoot: string, baseSha: string): string | null {
-  if (!/^[0-9a-f]{40,64}$/.test(baseSha)) return null;
-  const have = () => tryRunGit(["rev-parse", "--verify", "--quiet", `${baseSha}^{commit}`], repoRoot) === baseSha;
-  if (have()) return baseSha;
-  tryRunGit(["fetch", "--no-tags", "origin", baseSha], repoRoot);
-  return have() ? baseSha : null;
+export function fetchCommit(repoRoot: string, sha: string): string | null {
+  if (!/^[0-9a-f]{40,64}$/.test(sha)) return null;
+  const have = () => tryRunGit(["rev-parse", "--verify", "--quiet", `${sha}^{commit}`], repoRoot) === sha;
+  if (have()) return sha;
+  tryRunGit(["fetch", "--no-tags", "origin", sha], repoRoot);
+  return have() ? sha : null;
 }
 
 /**
@@ -1673,18 +1815,14 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const cwdHead = tryRunGit(["rev-parse", "HEAD"], cwd);
   // The bar comes from the PR's base commit, never its head or a working tree.
   const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
-  const baseCommit = repoRoot ? fetchBaseCommit(repoRoot, meta.baseSha) : null;
+  // Base and head as objects only: the review folder is written from them.
+  const { baseCommit, headCommit, halt: commitHalt } = fetchPRCommits(repoRoot, meta);
   // On someone else's PR, what Claude Code loaded here must be the base's:
   // a checkout at an older head of the PR has a different HEAD but the
   // PR's files.
   const inPrCheckout =
     isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha) ||
     (reviewMode === "peer" && !!repoRoot && !!baseCommit && !reviewerFilesMatchBase(repoRoot, baseCommit));
-
-  const worktree = inPrCheckout
-    ? { created: false, path: null, branch: null, reason: "skipped: running in the PR's own checkout" }
-    : setupWorktree(meta, opts.withWorktree, opts.worktreeDir, cwd);
-  if (worktree.created) logVerbose(opts, `worktree at ${worktree.path}`);
 
   const [owner, repo] = meta.projectPath.split("/");
   const { threads, closingIssues } = fetchReviewThreadsAndClosingIssues(owner, repo, meta.number);
@@ -1703,6 +1841,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   );
 
   const diffResult = fetchDiffStats(prRef ?? String(meta.number), meta.projectPath);
+  const headNow = fetchPRHeadSha(prRef ?? String(meta.number), meta.projectPath);
   const diff: DiffStats = diffResult ?? {
     filesChanged: 0,
     linesAdded: 0,
@@ -1731,14 +1870,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
         `Run from a clean checkout of ${meta.targetBranch}, passing the PR number.`,
     };
   }
-  if (!hardHalt && !baseCommit) {
-    hardHalt = {
-      reason: "base_unreadable",
-      detail:
-        `the PR's base commit ${meta.baseSha || "(not reported)"} could not be read from origin; ` +
-        `the review's bar comes from it, so the review stops rather than run without it`,
-    };
-  }
+  if (!hardHalt) hardHalt = commitHalt;
   const slipway = detectSlipwayContext(
     repoRoot && baseCommit ? gitSlipwayReader(repoRoot, baseCommit) : null,
     meta.description,
@@ -1748,22 +1880,25 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   );
   logVerbose(opts, `slipway: present=${slipway.present} lane=${slipway.lane ?? "none"}`);
 
-  const headReviewed = resolveHeadReviewed(meta.headSha, worktree);
+  const headReviewed = resolveHeadReviewed(meta.headSha, headNow);
   if (headReviewed.moved) {
     readiness.blockers.push({
       check: "head_moved",
       severity: "HIGH",
-      detail: `PR head moved during setup: metadata read ${meta.headSha}, worktree has ${headReviewed.sha}. Re-run to review one commit.`,
+      detail: `PR head moved during setup: metadata read ${meta.headSha}, GitHub now reports ${headNow}. Re-run to review one commit.`,
     });
     readiness.passed = false;
   }
 
+  const reviewDir =
+    !hardHalt && repoRoot && baseCommit && headCommit ? writeReviewDir(repoRoot, baseCommit, headCommit) : null;
+  if (reviewDir) logVerbose(opts, `review folder at ${reviewDir.path}`);
+
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     tone: opts.tone,
     reviewMode,
     pr: meta,
-    worktree,
     ticket,
     ticketLookupFailure: failure,
     diff,
@@ -1773,6 +1908,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     unresolvedThreads: unresolved,
     slipway,
     headReviewed,
+    reviewDir,
     hardHalt,
   };
 }
@@ -1784,16 +1920,10 @@ function prNotFoundOutput(
   tone: Tone,
 ): FeatureOutput {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     tone,
     reviewMode: "peer",
     pr: null,
-    worktree: {
-      created: false,
-      path: null,
-      branch: null,
-      reason: "skipped because PR was not found",
-    },
     ticket: null,
     ticketLookupFailure: null,
     diff: {
@@ -1819,6 +1949,7 @@ function prNotFoundOutput(
       activeMilestones: [],
     },
     headReviewed: null,
+    reviewDir: null,
     hardHalt: {
       reason: "pr_not_found",
       detail: `PR ${prRef ?? "(current branch)"} not found${projectPath ? ` in ${projectPath}` : ""} (gh reported not-found)`,
@@ -1838,18 +1969,26 @@ async function main(): Promise<void> {
         "       (bun / npx tsx also work; omit the ref to use the current branch)\n" +
         "Options:\n" +
         "  --project-path <owner/repo>       GitHub repo; defaults to detection from origin\n" +
-        "  --worktree                        Create a worktree for the PR (default: off)\n" +
-        "  --worktree-dir <parent>           Parent directory for the worktree\n" +
-        "  --output-path <file>              Write JSON to file instead of stdout\n" +
         "  --skip-ticket                     Don't attempt linked-issue fetch\n" +
         "  --tone {casual|formal}            Tone hint for downstream rendering (default: casual)\n" +
         "  --issue-repo <owner/repo>         The configured Issue repo (the one other repo an issue may come from)\n" +
         "  --invariants <path|none>          Domain invariants doc (default: docs/domain-invariants.md)\n" +
         "  --milestones <dir|none>           Milestones folder (default: docs/milestones)\n" +
         "  --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)\n" +
-        "  --verbose                         Diagnostic logs to stderr\n",
+        "  --verbose                         Diagnostic logs to stderr\n" +
+        "  --cleanup <dir>                   Delete a review folder this script made, and exit\n",
     );
     process.exit(1);
+  }
+
+  if (opts.cleanup) {
+    try {
+      cleanupReviewDir(opts.cleanup);
+    } catch (err) {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      process.exit(1);
+    }
+    return;
   }
 
   let output: FeatureOutput;
@@ -1862,12 +2001,7 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  const json = JSON.stringify(output, null, 2);
-  if (opts.outputPath) {
-    writeFileSync(opts.outputPath, json + "\n");
-  } else {
-    process.stdout.write(json + "\n");
-  }
+  process.stdout.write(JSON.stringify(output, null, 2) + "\n");
 }
 
 declare const Bun: { main: string } | undefined;

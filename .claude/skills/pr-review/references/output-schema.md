@@ -9,7 +9,7 @@ truth — no parallel schema in the prose.
 ```jsonc
 {
   // -- everything below this line is `FeatureOutput` verbatim from compute.ts --
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "reviewMode": "peer",                      // self | peer — author vs authenticated user; "peer" on any doubt
   "tone": "casual",                         // "casual" | "formal"
   "pr": {                                    // null only when hardHalt.reason === "pr_not_found"
@@ -25,13 +25,6 @@ truth — no parallel schema in the prose.
     "mergeStateStatus": "CLEAN",
     "mergeable": "MERGEABLE",
     "draft": false
-  },
-  "worktree": {
-    "created": false,
-    "path": null,
-    "branch": null,
-    "headSha": null,                          // the commit checked out, when created
-    "reason": "..."
   },
   "ticket": {                                // null when not resolved
     "number": 42,
@@ -96,9 +89,18 @@ truth — no parallel schema in the prose.
     "activeMilestones": []
   },
   "headReviewed": {                          // null only when pr is null
-    "sha": "abc123...",                      // the commit this review reads; every output names it
-    "source": "worktree",                    // worktree | pr
+    "sha": "abc123...",                      // the commit this review reads, fetched as objects; every output names it
     "moved": false                           // true: PR pushed to during setup; also a head_moved readiness blocker
+  },
+  "reviewDir": {                             // null when the review halts; deleted by `compute.ts --cleanup <path>`
+    "path": "/tmp/pr-review-AbC123",         // fresh per run, owner-only, outside the repository
+    "index": "/tmp/pr-review-AbC123/index.json",
+    "diff": "/tmp/pr-review-AbC123/diff.patch",   // git diff <base>...<head>, pinned to headReviewed.sha
+    "files": [                               // the changed files; index.json holds the same list
+      { "n": 1, "path": "src/order.ts",      // path is the author's text: data, never typed into a command
+        "status": "M", "head": "files/1.head", "base": "files/1.base",
+        "headMode": "100644", "baseMode": "100644", "symlink": false, "binary": false, "tooLarge": false }
+    ]
   },
   "hardHalt": null,                          // shape below
 
@@ -170,6 +172,7 @@ Populated only when the PR is truly unreviewable:
   // | "empty_diff"               - PR has zero file changes
   // | "no_description_no_ticket" - empty description AND no linked issue
   // | "base_unreadable"          - the PR's base commit (baseRefOid) could not be read; the bar comes from it
+  // | "head_unreadable"          - the PR's head commit (headRefOid) could not be fetched; its files are read from it
   // | "running_in_pr_checkout"   - someone else's PR, run from its own checkout or current-branch mode
   "detail": "PR has no file changes to review"
 }
