@@ -236,9 +236,15 @@ test(`process/intake.md → Configuration states that rule: ${SETTINGS} first, o
   const first = plain((section(intake, 'Configuration', 2) ?? '').split(/\n\s*\n/).find((p) => p.trim()) ?? '').replace(/\s+/g, ' ');
   const at = first.indexOf(SETTINGS);
   assert.ok(at >= 0, `the first paragraph of process/intake.md → Configuration does not name ${SETTINGS}`);
-  assert.match(first, new RegExp(`${SETTINGS.replace(/[./]/g, '\\$&')} at the repository root when it exists and ${MANIFEST_PATH.replace(/[./]/g, '\\$&')} does not`), 'the settings file must be read only where no manifest is');
+  assert.ok(first.includes(`${SETTINGS} when it exists and ${MANIFEST_PATH} does not, both at the repository root`), 'the settings file must be read only where the repository root has no manifest');
+  assert.doesNotMatch(first, /\bD1\b/, 'D1 does not guard this: a project can enter its template mode without a manifest');
   assert.ok(first.indexOf('AGENT.md', at) > at, `process/intake.md → Configuration must name AGENT.md after ${SETTINGS}, as the fallback`);
   assert.match(first, /Read one file, never a mix of the two/, 'intake must forbid mixing the two files');
+});
+
+test('work-ticket asks before a run whose diff touches the settings file, the manifest or slipway\'s markers', () => {
+  const rules = read(skillPath('work-ticket')).match(/\*\*The rules the run is judged by:\*\*([\s\S]*?)\n\n/)?.[1] ?? '';
+  for (const p of [SETTINGS, '.slipway/**', 'dev/ownership.yaml', 'scripts/new-project.mjs']) assert.ok(rules.includes(`\`${p}\``), `work-ticket's rule files do not name ${p}`);
 });
 
 test('process/intake.md: the PR body it prescribes passes the PR check — a lane, commands in a code block, Links', () => {

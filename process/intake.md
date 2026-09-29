@@ -18,11 +18,11 @@ issue reference is `#` and digits; a title is read from a file (Commands).
 
 ## Configuration
 
-Read `§Skill Configuration` from `dev/skill-configuration.md` at the repository root when it exists and
-`.slipway/manifest.json` does not: slipway's own settings, which no project receives. Every project has a
-manifest, and D1 fails without one, so a file a project adds there is never read. Otherwise read it from the
-`AGENT.md` nearest the working directory that has one, walking up to the repository root. Read one file, never
-a mix of the two: a row missing from the one read follows the two rules below. A key's value is its row's second cell, the Value column; the third column
+Read `§Skill Configuration` from `dev/skill-configuration.md` when it exists and `.slipway/manifest.json` does
+not, both at the repository root: slipway's own settings, which no project receives. A project has a manifest,
+and `/work-ticket` asks before any run whose diff touches either file. Otherwise read it from the `AGENT.md`
+nearest the working directory that has one, walking up to the repository root. Read one file, never a mix of
+the two: a row missing from the one read follows the two rules below. A key's value is its row's second cell, the Value column; the third column
 only explains it.
 
 - **A row below with no default, missing or still `<…>`:** stop and ask the owner the question in its row,
