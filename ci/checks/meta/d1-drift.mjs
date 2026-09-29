@@ -52,7 +52,7 @@ if (!manifest) {
       unit: 'files slipway maintains',
       broken: `manifest/missing — ${MANIFEST} is missing. It is the record of what slipway installed, so an edit to one of slipway's files cannot be told from an update; run /sync-slipway once to create it${
         hasTemplateMarkers(root)
-          ? `. ${TEMPLATE_MARKERS.join(' and ')} are here, but this is not slipway's own checkout: that needs this folder at the top of a git history whose only root is ${SLIPWAY_ROOT_COMMIT.slice(0, 7)}, and a shallow clone cannot show one`
+          ? `. ${TEMPLATE_MARKERS.join(' and ')} are here, but this is not slipway's own full checkout (isTemplate, ci/checks/lib/manifest.mjs); a shallow clone never is`
           : ''
       }`,
     })

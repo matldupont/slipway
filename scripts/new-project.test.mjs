@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest, sha256, TEMPLATE_MARKERS } from '../ci/checks/lib/manifest.mjs';
+import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest, sha256, SLIPWAY_ROOT_COMMIT, TEMPLATE_MARKERS } from '../ci/checks/lib/manifest.mjs';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
 import { blobSha, derivePackageJson, publicSource, resolveSlipway } from './lib/install.mjs';
 
@@ -95,7 +95,8 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   assert.equal(JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8')).scripts['use-slipway'], 'npx github:matldupont/slipway#main');
   assert.match(readme, /`pnpm use-slipway sync`/);
 
-  for (const f of ['d1-drift.mjs', 'w1-declared-vs-invoked.mjs']) {
+  // PC1 too: every known-bad fixture the project gets must go red there as it does in slipway (#123).
+  for (const f of ['d1-drift.mjs', 'w1-declared-vs-invoked.mjs', 'pc1-positive-control.mjs']) {
     const r = check(dest, f);
     assert.equal(r.status, 0, `${f} in a fresh project:\n${r.stdout}`);
   }
@@ -152,13 +153,26 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
   for (const env of [{}, { SLIPWAY_TEMPLATE_FIXTURE: '1' }, { GIT_DIR: slipwayGitDir }]) {
     const r = check(dest, 'd1-drift.mjs', env);
     assert.equal(r.status, 2, `${JSON.stringify(env)}:\n${r.stdout}`);
-    assert.match(r.stdout, /BROKEN — manifest\/missing — .* are here, but this is not slipway's own checkout/);
+    assert.match(r.stdout, /BROKEN — manifest\/missing — .* are here, but this is not slipway's own full checkout/);
   }
   assert.doesNotMatch(check(dest, 'w1-declared-vs-invoked.mjs').stdout, /slipway tests/);
+
+  // A graft can give the project's HEAD slipway's root as its only parent; git here reads no grafts file.
+  git(dest, 'fetch', '-q', SRC, 'HEAD');
+  writeFileSync(join(git(dest, 'rev-parse', '--absolute-git-dir'), 'info', 'grafts'), `${git(dest, 'rev-parse', 'HEAD')} ${SLIPWAY_ROOT_COMMIT}\n`);
+  assert.equal(git(dest, 'rev-list', '--max-parents=0', 'HEAD'), SLIPWAY_ROOT_COMMIT, 'the graft takes');
+  const r = check(dest, 'd1-drift.mjs');
+  assert.equal(r.status, 2, `grafted:\n${r.stdout}`);
+  assert.match(r.stdout, /BROKEN — manifest\/missing/);
 });
 
 test('isTemplate: slipway\'s own checkout, never a shallow clone of it or a folder inside it', () => {
   assert.equal(isTemplate(SRC), true, 'slipway itself, with its full history');
+  const full = join(tmp(), 'full');
+  git(tmpdir(), 'clone', '-q', `file://${SRC}`, full);
+  assert.equal(isTemplate(full), true, 'a full clone is slipway');
+  unlinkSync(join(full, TEMPLATE_MARKERS[0]));
+  assert.equal(isTemplate(full), false, 'without its markers it is not');
   const shallow = join(tmp(), 'shallow');
   git(tmpdir(), 'clone', '-q', '--depth', '1', `file://${SRC}`, shallow);
   assert.equal(hasTemplateMarkers(shallow), true);

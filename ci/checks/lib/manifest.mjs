@@ -28,8 +28,8 @@ export const RECORDED = ['managed', 'seeded', 'merged'];
 //     known-bad fixtures inside slipway's own checkout; a project's history still fails the next one;
 //   - that checkout's history has exactly one root commit, SLIPWAY_ROOT_COMMIT. A project can add files;
 //     it cannot make a commit id. A shallow clone lists its boundary commit as a root, so it is not slipway.
-// Git runs with every GIT_* variable dropped and replace refs ignored: the environment cannot point it
-// at another repository or rewrite a parent.
+// Git runs with every GIT_* variable dropped, and replace refs and grafts ignored: the environment cannot
+// point it at another repository, and no local file can give a commit other parents.
 //
 // SLIPWAY_ROOT_COMMIT is the root of slipway's history after the 2026-09-24 rewrite. A project starts
 // its own history (new-project runs git init). Any future rewrite of slipway's history must update it.
@@ -37,7 +37,8 @@ export const SLIPWAY_ROOT_COMMIT = 'fa6b1b7468259792180683f6e7cd360475ba04fd';
 export const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
 export const hasTemplateMarkers = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
 
-const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
+// No grafts file either: .git/info/grafts can give a commit any parents, as replace refs can.
+const gitEnv = () => ({ ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))), GIT_GRAFT_FILE: '/dev/null' });
 const gitOut = (cwd, args) =>
   execFileSync('git', ['--no-replace-objects', ...args], { cwd, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 const slipwayHistory = new Map();
