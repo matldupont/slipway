@@ -154,6 +154,7 @@ Populated when `ticket` is `null`:
   // | "skipped"               - --skip-ticket passed
   // | "issue_not_found"       - gh reported the issue doesn't exist
   // | "api_error"             - gh returned an error fetching the issue
+  // | "repo_not_allowed"      - the reference names a repo other than the PR's or --issue-repo; never loaded
   "errorMessage": "optional details for api_error"
 }
 ```
@@ -168,6 +169,8 @@ Populated only when the PR is truly unreviewable:
   //   "pr_not_found"             - gh reported the PR doesn't exist (pr is null)
   // | "empty_diff"               - PR has zero file changes
   // | "no_description_no_ticket" - empty description AND no linked issue
+  // | "base_unreadable"          - the PR's base commit (baseRefOid) could not be read; the bar comes from it
+  // | "running_in_pr_checkout"   - someone else's PR, run from its own checkout or current-branch mode
   "detail": "PR has no file changes to review"
 }
 ```

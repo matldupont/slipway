@@ -83,21 +83,25 @@ node pr-review/features/compute.ts 123 --verbose
 
 # Configuration from the project's AGENT.md (SKILL.md → Configuration).
 # `none` turns an input off; it never falls back to the default path.
-node pr-review/features/compute.ts 123 \
+node pr-review/features/compute.ts 123 --issue-repo owner/issues \
   --invariants none --milestones docs/milestones --cold-review process/cold-review.md
 ```
 
 | Flag | Default | `none` |
 |------|---------|--------|
+| `--issue-repo <owner/repo>` | none: only the PR's own repo | — |
 | `--invariants <path>` | `docs/domain-invariants.md` | no invariants read |
 | `--milestones <dir>` | `docs/milestones` | no milestones read |
 | `--cold-review <path>` | `process/cold-review.md` | no checklist; `coldReviewApplies` false |
 
 Paths are relative to the repository root and may not start with `/` or
-contain `..`. They are read from the PR's base commit (`slipway.readFrom`),
-never its head or a working tree, and a committed symlink is never
-followed. The linked issue is read from the repository its reference names
-(`owner/repo#N`, or the closing reference's own); `#N` is the PR's repo.
+contain `..`. They are read from the PR's base commit (GitHub's `baseRefOid`, fetched
+by sha; `slipway.readFrom`), never its head, a working tree or a branch
+looked up by name, and a committed symlink is never followed. When that
+commit cannot be read the output carries `hardHalt: base_unreadable`.
+The linked issue is loaded only from the PR's own repo or `--issue-repo`;
+a reference to any other gives `ticketLookupFailure.reason:
+"repo_not_allowed"`. Every git call runs with `core.hooksPath=/dev/null`.
 
 ## Environment
 
@@ -217,6 +221,7 @@ When `ticket` is `null`, `ticketLookupFailure` is populated:
   // | "skipped"             - --skip-ticket passed
   // | "issue_not_found"     - gh reported the issue doesn't exist
   // | "api_error"           - gh returned an error fetching the issue
+  // | "repo_not_allowed"    - a repo other than the PR's or --issue-repo; never loaded
   "errorMessage": "optional details for api_error"
 }
 ```
@@ -227,7 +232,7 @@ When the PR is truly unreviewable, the agent should stop and ask the user:
 
 ```jsonc
 {
-  "reason": "empty_diff",          // pr_not_found | empty_diff | no_description_no_ticket
+  "reason": "empty_diff",          // pr_not_found | empty_diff | no_description_no_ticket | base_unreadable | running_in_pr_checkout
   "detail": "PR has no file changes to review"
 }
 ```

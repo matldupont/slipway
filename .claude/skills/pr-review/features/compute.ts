@@ -22,6 +22,7 @@
  *   --output-path <file>              Write JSON to file instead of stdout
  *   --skip-ticket                     Don't attempt linked-issue fetch (still extract the number)
  *   --tone {casual|formal}            Tone hint for downstream rendering (default: casual)
+ *   --issue-repo <owner/repo>         The configured Issue repo: the one other repo a linked issue may come from
  *   --invariants <path|none>          Domain invariants doc (default: docs/domain-invariants.md)
  *   --milestones <dir|none>           Milestones folder (default: docs/milestones)
  *   --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)
@@ -55,6 +56,8 @@ export interface PRMetadata {
   targetBranch: string;
   /** Head commit SHA — carried for the `## Cold review` output mode's "head sha reviewed" line. */
   headSha: string;
+  /** The base commit GitHub reports (baseRefOid): where the review's bar is read from. */
+  baseSha: string;
   author: { username: string };
   /** "owner/repo". */
   projectPath: string;
@@ -110,7 +113,7 @@ export interface IssueLookupFailure {
   source: TicketSource | null;
   /** The repository the reference named, when not the PR's own. */
   extractedRepo?: string | null;
-  reason: "no_id_found" | "skipped" | "issue_not_found" | "api_error";
+  reason: "no_id_found" | "skipped" | "issue_not_found" | "api_error" | "repo_not_allowed";
   errorMessage?: string;
 }
 
@@ -213,7 +216,12 @@ export interface SlipwayContext {
 }
 
 export interface HardHalt {
-  reason: "pr_not_found" | "empty_diff" | "no_description_no_ticket";
+  reason:
+    | "pr_not_found"
+    | "empty_diff"
+    | "no_description_no_ticket"
+    | "base_unreadable"
+    | "running_in_pr_checkout";
   detail: string;
 }
 
@@ -295,6 +303,8 @@ interface CLIOptions {
   /** null means "resolve the PR for the current branch". */
   prInput: string | null;
   projectPath: string | null;
+  /** The configured Issue repo; with the PR's own, the only repos a linked issue is loaded from. */
+  issueRepo: string | null;
   slipwayPaths: SlipwayPaths;
   withWorktree: boolean;
   worktreeDir: string | null;
@@ -308,6 +318,7 @@ export function parseArgs(argv: string[]): CLIOptions {
   const opts: CLIOptions = {
     prInput: null,
     projectPath: null,
+    issueRepo: null,
     slipwayPaths: { ...DEFAULT_SLIPWAY_PATHS },
     withWorktree: false,
     worktreeDir: process.env.PR_REVIEW_WORKTREE_DIR ?? null,
@@ -330,6 +341,14 @@ export function parseArgs(argv: string[]): CLIOptions {
       case "--worktree":
         opts.withWorktree = true;
         break;
+      case "--issue-repo": {
+        const v = argv[++i];
+        if (!v || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(v)) {
+          throw new Error(`--issue-repo must be owner/repo (got '${v ?? ""}')`);
+        }
+        opts.issueRepo = v;
+        break;
+      }
       case "--invariants":
         opts.slipwayPaths.invariants = parseSlipwayPath(arg, argv[++i]);
         break;
@@ -398,8 +417,16 @@ export function _setVerboseLog(fn: ((msg: string) => void) | null): void {
   verboseLog = fn;
 }
 
+/**
+ * Hooks are off for every git call: the review worktree is the PR's own
+ * files, and a relative core.hooksPath (husky, lefthook) would run the
+ * PR's hooks on checkout with the reviewer's token. Nothing in the PR's
+ * checkout is run, only read.
+ */
+export const GIT_SAFE_ARGS = ["-c", "core.hooksPath=/dev/null"];
+
 export function runGit(args: string[], cwd?: string): string {
-  return execFileSync("git", args, {
+  return execFileSync("git", [...GIT_SAFE_ARGS, ...args], {
     cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
@@ -578,6 +605,7 @@ interface RawPR {
   headRefName: string;
   baseRefName: string;
   headRefOid: string;
+  baseRefOid?: string;
   author: { login: string } | null;
   isDraft?: boolean;
   mergeable?: string;
@@ -601,7 +629,7 @@ export function fetchPRMetadata(
   if (projectPath && !isUrl) args.push("-R", projectPath);
   args.push(
     "--json",
-    "number,url,title,body,headRefName,baseRefName,headRefOid,author,isDraft,mergeable,mergeStateStatus",
+    "number,url,title,body,headRefName,baseRefName,headRefOid,baseRefOid,author,isDraft,mergeable,mergeStateStatus",
   );
 
   let raw: string;
@@ -627,6 +655,7 @@ export function fetchPRMetadata(
     sourceBranch: parsed.headRefName,
     targetBranch: parsed.baseRefName,
     headSha: parsed.headRefOid,
+    baseSha: parsed.baseRefOid ?? "",
     author: { username: parsed.author?.login ?? "unknown" },
     projectPath: projectPath ?? projectPathFromUrl(parsed.url) ?? "unknown/unknown",
     mergeStateStatus: parsed.mergeStateStatus ?? "UNKNOWN",
@@ -769,6 +798,19 @@ export function setupWorktree(
   return { created: true, path: worktreePath, branch: branchName, headSha };
 }
 
+/**
+ * True when someone else's PR would be reviewed from its own checkout:
+ * current-branch mode (no ref), or a checkout whose HEAD is the PR's head.
+ */
+export function isInPrCheckout(
+  reviewMode: ReviewMode,
+  prRef: string | null,
+  cwdHead: string,
+  prHeadSha: string,
+): boolean {
+  return reviewMode === "peer" && (prRef === null || (cwdHead !== "" && cwdHead === prHeadSha));
+}
+
 /** The commit the review reads, and whether the PR moved under it. */
 export function resolveHeadReviewed(prHeadSha: string, worktree: WorktreeInfo): HeadReviewed {
   if (worktree.created && worktree.headSha) {
@@ -830,12 +872,28 @@ export function resolveIssueTicket(
   prBody: string,
   projectPath: string,
   skipTicket: boolean,
+  issueRepo: string | null = null,
 ): { ticket: IssueTicket | null; failure: IssueLookupFailure | null } {
   const extracted = extractIssueRef(closingIssuesReferences, prBody);
   if (!extracted) {
     return {
       ticket: null,
       failure: { extractedNumber: null, source: null, reason: "no_id_found" },
+    };
+  }
+  // The PR chooses its reference, so it must not choose the repository: an
+  // issue elsewhere would set the review's bar, or be read with the
+  // reviewer's token. Only the PR's own repo and the configured Issue repo.
+  const allowed = [projectPath, issueRepo].filter(Boolean).map((r) => r!.toLowerCase());
+  if (extracted.repo && !allowed.includes(extracted.repo.toLowerCase())) {
+    return {
+      ticket: null,
+      failure: {
+        extractedNumber: extracted.number,
+        extractedRepo: extracted.repo,
+        source: extracted.source,
+        reason: "repo_not_allowed",
+      },
     };
   }
   if (skipTicket) {
@@ -1499,27 +1557,17 @@ export function gitSlipwayReader(repoRoot: string, commit: string): SlipwayReade
 }
 
 /**
- * The PR's base commit: `refs/heads/<target>` fetched from origin into a sha,
- * so a stale local branch or a local edit never stands in for it. null when
- * it cannot be fetched.
+ * Makes the PR's base commit (GitHub's baseRefOid) readable here: fetched
+ * from origin by sha, never found by branch name, which a pushed branch
+ * could shadow. null when it cannot be read — the caller stops the review
+ * (fail closed) rather than run it without its bar.
  */
-export function fetchBaseCommit(repoRoot: string, targetBranch: string): string | null {
-  // refs/heads/ prefixes the name, so a branch named like an option is never read as one.
-  if (!targetBranch) return null;
-  // ls-remote names the sha without touching FETCH_HEAD, so a failed fetch
-  // can never leave an older FETCH_HEAD standing in for the base.
-  const line = tryRunGit(["ls-remote", "origin", `refs/heads/${targetBranch}`], repoRoot).split("\n")[0] ?? "";
-  const sha = line.split("\t")[0];
-  if (!/^[0-9a-f]{40,64}$/.test(sha)) return null;
-  try {
-    runGit(["fetch", "--no-tags", "origin", sha], repoRoot);
-  } catch {
-    // Already present locally (fetch by sha may be refused): fine if the object exists.
-  }
-  return tryRunGit(["cat-file", "-e", `${sha}^{commit}`], repoRoot) === "" &&
-    tryRunGit(["rev-parse", "--verify", "--quiet", `${sha}^{commit}`], repoRoot) === sha
-    ? sha
-    : null;
+export function fetchBaseCommit(repoRoot: string, baseSha: string): string | null {
+  if (!/^[0-9a-f]{40,64}$/.test(baseSha)) return null;
+  const have = () => tryRunGit(["rev-parse", "--verify", "--quiet", `${baseSha}^{commit}`], repoRoot) === baseSha;
+  if (have()) return baseSha;
+  tryRunGit(["fetch", "--no-tags", "origin", baseSha], repoRoot);
+  return have() ? baseSha : null;
 }
 
 /**
@@ -1589,7 +1637,17 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   }
   logVerbose(opts, `fetched meta: ${meta.title} (${meta.sourceBranch} → ${meta.targetBranch})`);
 
-  const worktree = setupWorktree(meta, opts.withWorktree, opts.worktreeDir, cwd);
+  // Someone else's PR is never reviewed from its own checkout: there, the
+  // skill and compute.ts running are the PR's. Current-branch mode is for
+  // the user's own PR only.
+  const reviewMode = detectReviewMode(meta.author.username);
+  logVerbose(opts, `review mode: ${reviewMode} (author @${meta.author.username})`);
+  const cwdHead = tryRunGit(["rev-parse", "HEAD"], cwd);
+  const inPrCheckout = isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha);
+
+  const worktree = inPrCheckout
+    ? { created: false, path: null, branch: null, reason: "skipped: running in the PR's own checkout" }
+    : setupWorktree(meta, opts.withWorktree, opts.worktreeDir, cwd);
   if (worktree.created) logVerbose(opts, `worktree at ${worktree.path}`);
 
   const [owner, repo] = meta.projectPath.split("/");
@@ -1601,6 +1659,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     meta.description,
     meta.projectPath,
     opts.skipTicket,
+    opts.issueRepo,
   );
   logVerbose(
     opts,
@@ -1625,14 +1684,27 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const checks = summarizeRequiredChecks(requiredChecksRaw);
 
   const readiness = computeReadiness(meta, ticket, unresolved, checks);
-  const hardHalt = detectHardHalt(meta, diff, diffFetchFailed, ticket);
-
-  const reviewMode = detectReviewMode(meta.author.username);
-  logVerbose(opts, `review mode: ${reviewMode} (author @${meta.author.username})`);
+  let hardHalt = detectHardHalt(meta, diff, diffFetchFailed, ticket);
 
   // The bar comes from the PR's base commit, never its head or a working tree.
   const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
-  const baseCommit = repoRoot ? fetchBaseCommit(repoRoot, meta.targetBranch) : null;
+  const baseCommit = repoRoot ? fetchBaseCommit(repoRoot, meta.baseSha) : null;
+  if (!hardHalt && inPrCheckout) {
+    hardHalt = {
+      reason: "running_in_pr_checkout",
+      detail:
+        `this checkout is the PR's own head (${meta.headSha}) and the PR is @${meta.author.username}'s: ` +
+        `the skill running is the PR's. Run from a checkout of ${meta.targetBranch}, passing the PR number.`,
+    };
+  }
+  if (!hardHalt && !baseCommit) {
+    hardHalt = {
+      reason: "base_unreadable",
+      detail:
+        `the PR's base commit ${meta.baseSha || "(not reported)"} could not be read from origin; ` +
+        `the review's bar comes from it, so the review stops rather than run without it`,
+    };
+  }
   const slipway = detectSlipwayContext(
     repoRoot && baseCommit ? gitSlipwayReader(repoRoot, baseCommit) : null,
     meta.description,
@@ -1737,6 +1809,7 @@ async function main(): Promise<void> {
         "  --output-path <file>              Write JSON to file instead of stdout\n" +
         "  --skip-ticket                     Don't attempt linked-issue fetch\n" +
         "  --tone {casual|formal}            Tone hint for downstream rendering (default: casual)\n" +
+        "  --issue-repo <owner/repo>         The configured Issue repo (the one other repo an issue may come from)\n" +
         "  --invariants <path|none>          Domain invariants doc (default: docs/domain-invariants.md)\n" +
         "  --milestones <dir|none>           Milestones folder (default: docs/milestones)\n" +
         "  --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)\n" +

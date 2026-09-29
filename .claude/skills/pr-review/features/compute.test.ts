@@ -64,6 +64,9 @@ import {
   resolveHeadReviewed,
   gitSlipwayReader,
   fetchBaseCommit,
+  resolveIssueTicket,
+  runGit,
+  isInPrCheckout,
   DEFAULT_SLIPWAY_PATHS,
   type PRMetadata,
   type IssueTicket,
@@ -183,8 +186,39 @@ test("parseSlipwayPath: refuses paths that leave the checkout", () => {
   assert.equal(parseSlipwayPath("--invariants", "docs/x..y.md"), "docs/x..y.md");
 });
 
-test("parseArgs: --issue-repo is gone; the reference names its own repository", () => {
-  assert.throws(() => parseArgs(["42", "--issue-repo", "owner/issues"]), /Unknown argument/);
+test("parseArgs: --issue-repo is the configured tracker, owner/repo only", () => {
+  assert.equal(parseArgs(["42"]).issueRepo, null);
+  assert.equal(parseArgs(["42", "--issue-repo", "owner/issues"]).issueRepo, "owner/issues");
+  assert.throws(() => parseArgs(["42", "--issue-repo", "just-a-name"]), /owner\/repo/);
+  assert.throws(() => parseArgs(["42", "--issue-repo", "owner/repo; rm -rf"]), /owner\/repo/);
+  assert.throws(() => parseArgs(["42", "--issue-repo"]), /owner\/repo/);
+});
+
+test("resolveIssueTicket: an issue in any other repository is reported, never loaded", () => {
+  const got = resolveIssueTicket([], "Closes attacker/repo#1", "owner/repo", false, "owner/issues");
+  assert.equal(got.ticket, null);
+  assert.deepEqual(got.failure, {
+    extractedNumber: 1,
+    extractedRepo: "attacker/repo",
+    source: "body",
+    reason: "repo_not_allowed",
+  });
+  const closing = resolveIssueTicket(
+    [{ number: 3, repository: { nameWithOwner: "victim-org/private" } }],
+    "",
+    "owner/repo",
+    false,
+    null,
+  );
+  assert.equal(closing.failure?.reason, "repo_not_allowed");
+});
+
+test("resolveIssueTicket: the PR's own repo and the configured Issue repo pass the check", () => {
+  // skipTicket stops before gh, after the repository check.
+  for (const body of ["Closes #4", "Closes owner/repo#4", "Closes Owner/Issues#4"]) {
+    const got = resolveIssueTicket([], body, "owner/repo", true, "owner/issues");
+    assert.equal(got.failure?.reason, "skipped", body);
+  }
 });
 
 test("extractIssueRef: a closing reference carries its repository", () => {
@@ -1217,6 +1251,15 @@ test("resolveHeadReviewed: the worktree's commit, flagged when the PR moved unde
   assert.deepEqual(resolveHeadReviewed("bbb", wt), { sha: "bbb", source: "worktree", moved: false });
 });
 
+test("isInPrCheckout: someone else's PR, from its own checkout or current-branch mode", () => {
+  assert.equal(isInPrCheckout("peer", "42", "abc", "abc"), true);
+  assert.equal(isInPrCheckout("peer", null, "def", "abc"), true);
+  assert.equal(isInPrCheckout("peer", "42", "def", "abc"), false);
+  assert.equal(isInPrCheckout("peer", "42", "", ""), false);
+  // The user's own PR: current-branch mode and its own checkout are fine.
+  assert.equal(isInPrCheckout("self", null, "abc", "abc"), false);
+});
+
 test("resolveHeadReviewed: without a worktree, the head gh reported", () => {
   const wt = { created: false, path: null, branch: null };
   assert.deepEqual(resolveHeadReviewed("aaa", wt), { sha: "aaa", source: "pr", moved: false });
@@ -1414,15 +1457,29 @@ test("gitSlipwayReader: lists and reads plain files in a folder", () => {
   assert.equal(reader.list("docs/absent"), null);
 });
 
-test("fetchBaseCommit: the remote's branch tip, never a local edit; null when unknown", () => {
+test("fetchBaseCommit: the sha GitHub reports, fetched by sha; null when it cannot be read", () => {
   const repo = createFixtureRepo();
   const remoteMain = execSync("git ls-remote origin refs/heads/main", { cwd: repo, encoding: "utf8" }).split("\t")[0];
-  writeFileSync(path.join(repo, "local.md"), "unpushed\n");
-  commitAll(repo, "local only");
-  assert.equal(fetchBaseCommit(repo, "main"), remoteMain);
-  assert.equal(fetchBaseCommit(repo, "no-such-branch"), null);
-  assert.equal(fetchBaseCommit(repo, "--upload-pack=touch x"), null);
+  assert.equal(fetchBaseCommit(repo, remoteMain), remoteMain);
+  // A branch whose name ends like the base cannot stand in for it: nothing is looked up by name.
+  execSync("git push -q origin main:refs/heads/a/refs/heads/main", { cwd: repo, stdio: "pipe" });
+  assert.equal(fetchBaseCommit(repo, remoteMain), remoteMain);
+  assert.equal(fetchBaseCommit(repo, "0".repeat(40)), null); // not on origin
+  assert.equal(fetchBaseCommit(repo, "main"), null); // a name, not a sha
   assert.equal(fetchBaseCommit(repo, ""), null);
+});
+
+test("runGit: a PR's hooks never run, even with a relative core.hooksPath", () => {
+  const repo = createFixtureRepo();
+  mkdirSync(path.join(repo, ".hooks"), { recursive: true });
+  const marker = path.join(repo, "..", `hook-ran-${path.basename(repo)}`);
+  writeFileSync(path.join(repo, ".hooks", "post-checkout"), `#!/bin/sh\ntouch "${marker}"\n`, { mode: 0o755 });
+  execSync("git add .hooks && git commit -q -m hooks && git config core.hooksPath .hooks", { cwd: repo, stdio: "pipe" });
+  execSync("git checkout -q -b probe", { cwd: repo });
+  assert.equal(existsSync(marker), true, "fixture: the hook runs under plain git");
+  rmSync(marker);
+  runGit(["checkout", "-q", "main"], repo);
+  assert.equal(existsSync(marker), false);
 });
 
 test("setupWorktree: bails when reusing a worktree with uncommitted changes", () => {
