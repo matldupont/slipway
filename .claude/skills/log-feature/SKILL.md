@@ -25,10 +25,10 @@ Resolve per `process/intake.md` → Configuration, before Phase 1.
 
 Read before Phase 1, and do not work from memory: the `Product frame` (its question and risks), the PRD (its
 principles, §4 scope and §5 features), the active milestone (`Milestone roadmap`), `decisions.md`, the
-`Domain invariants doc` unless none, and the `Marketing context` unless none.
+`Domain invariants doc` unless none, and the `Marketing context` unless none. Where `PRD path` says `none` and why, the feature docs in `Feature docs dir` stand in for the PRD (`process/intake.md` → Settings in slipway itself).
 
 Every file this skill writes goes through the doc PR (Phase 7), never straight onto the default branch.
-Answers for `AGENT.md` are held for the doc branch Phase 4 makes; a run ending sooner lists them for the owner.
+Answers for the settings file (the one Configuration read) are held for the doc branch Phase 4 makes; a run ending sooner lists them for the owner.
 
 ## Phase 1 — Problem
 
@@ -128,9 +128,9 @@ Decisions: {id — what it decides · how this touches it} · Conflicts: {A vs B
 **Branch.** `{name}` is lowercase letters, digits and `-` only: it goes into branch names, paths and
 commands. `git status` must be empty (dirty: stop and ask, never stash silently). `git fetch`, then
 `git switch -c docs/feature-{name} origin/{default branch}`; with no remote, from the local default branch,
-and say so. Write any held `AGENT.md` answers now, in their own commit.
+and say so. Write any held settings answers now, in their own commit.
 
-**Feature doc.** Copy `{Feature docs dir}/TEMPLATE.md` to `{Feature docs dir}/{name}.md`, named for the
+**Feature doc.** Copy `{Feature docs dir}/TEMPLATE.md` (slipway's own: `docs/features/TEMPLATE.md`) to `{Feature docs dir}/{name}.md`, named for the
 feature, not the slice: later iterations extend the same doc. If that file exists, extend it instead (Edge
 cases). Fill every section:
 
@@ -151,7 +151,7 @@ cases). Fill every section:
 With a `Domain invariants doc` and checked math touched: an acceptance line says which rule holds across all
 legal inputs, and Verify names the property test that proves it.
 
-**PRD.** Add `### F-{nn} — {name}` to §5 (next number after the highest real one, replacing `F-01 — <name>`): a
+**PRD.** Where `PRD path` says `none` and why, skip this and Schedule (`process/intake.md` → Settings in slipway itself). Otherwise add `### F-{nn} — {name}` to §5 (next number after the highest real one, replacing `F-01 — <name>`): a
 one-paragraph what, its acceptance, the doc's path. Version bump and Change log: `process/intake.md` → PRD entry.
 
 **Schedule.** A §5 feature that no live milestone cites is unscheduled, and the repository's checks fail on it.
@@ -168,7 +168,7 @@ summary}), or a later milestone?" With no active milestone, name the one being s
   the owner its name, and give them the §4 line.
 
 Commit on the branch, and run the repository's checks (R1 as PRD entry says). On a draft PRD the milestone
-check only confirms the PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents.
+check only confirms the PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`).
 
 ```bash
 pnpm meta
@@ -180,8 +180,8 @@ MVP cut:   {one line}
 Deferred:  {item — why}
 Build map: 1. {step} — {layer}, ~{size} …
 Lane:      feature | bounded → /log-followup
-Doc:       {Feature docs dir}/{name}.md · PRD §5 F-{nn} (Version {old} → {new})
-Scheduled: {milestone id} Contents item {n} | DEFER — stopped, branch {name} unpushed
+Doc:       {Feature docs dir}/{name}.md · PRD §5 F-{nn} (Version {old} → {new}) | F-{nn} in its title, PRD: none by design — "{row}"
+Scheduled: {milestone id} Contents item {n} | none by design — "{row}" | DEFER — stopped, branch {name} unpushed
 Review:    {PRD entry's owner message, when R1 reports it} | none
 Branch:    docs/feature-{name} (committed, not pushed)
 ```
@@ -214,7 +214,7 @@ PHASE 5: FILED
 Issue:       #{n} — {title} · Milestone: {title | none} · Board: {project | none}
 Parent:      #{parent} sub-issue ✓ | none
 Designation: Shape {…} · Build {…}
-Defaults used: {rows missing from AGENT.md, and the default each took | none}
+Defaults used: {rows missing from the settings file, and the default each took | none}
 Split:       → Phase 6 | not needed — {one step fits one session and one PR} → Phase 7
 ```
 
@@ -297,4 +297,4 @@ Declined: {row numbers | none}
   second one; a new doc only when the capability has an identity of its own. Cross-reference the others.
 - **Reshaped heavily.** The doc and issue use the new name; the ask is an alternatives row, "rejected — reshaped".
 - **The PRD is a draft, or does not cover the area.** Add the §5 entry anyway; if its §4 scope needs a wider
-  look, say so in the issue. No PRD file at all: the project is not kicked off; stop, point at `/kickoff`.
+  look, say so in the issue. No PRD file at all: the project is not kicked off; stop, point at `/kickoff`, unless `PRD path` says `none` and why in slipway's own settings.
