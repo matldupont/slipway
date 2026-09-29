@@ -20,10 +20,10 @@ issue reference is `#` and digits; a title is read from a file (Commands).
 
 Read `§Skill Configuration` from `dev/skill-configuration.md` when it exists and `.slipway/manifest.json` does
 not, both at the repository root: slipway's own settings, which no project receives. A project has a manifest,
-and `/work-ticket` asks before any run whose diff touches either file. Otherwise read it from the `AGENT.md`
-nearest the working directory that has one, walking up to the repository root. Read one file, never a mix of
-the two: a row missing from the one read follows the two rules below. A key's value is its row's second cell, the Value column; the third column
-only explains it.
+and `/work-ticket` asks before it reads either file when the branch's changes touch one; a no ends the run.
+Otherwise read it from the `AGENT.md` nearest the working directory that has one, walking up to the repository
+root. Read one file, never a mix of the two: a row missing from the one read follows the two rules below. A
+key's value is its row's second cell, the Value column; the third column only explains it.
 
 - **A row below with no default, missing or still `<…>`:** stop and ask the owner the question in its row,
   in those words. Never ask for a key by its name alone, and never guess: no other product's values exist to

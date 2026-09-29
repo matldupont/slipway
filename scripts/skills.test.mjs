@@ -242,9 +242,42 @@ test(`process/intake.md → Configuration states that rule: ${SETTINGS} first, o
   assert.match(first, /Read one file, never a mix of the two/, 'intake must forbid mixing the two files');
 });
 
-test('work-ticket asks before a run whose diff touches the settings file, the manifest or slipway\'s markers', () => {
+test('work-ticket\'s rule files name the settings file, the manifest and slipway\'s markers', () => {
   const rules = read(skillPath('work-ticket')).match(/\*\*The rules the run is judged by:\*\*([\s\S]*?)\n\n/)?.[1] ?? '';
   for (const p of [SETTINGS, '.slipway/**', 'dev/ownership.yaml', 'scripts/new-project.mjs']) assert.ok(rules.includes(`\`${p}\``), `work-ticket's rule files do not name ${p}`);
+});
+
+// #124: a reused branch's planted settings ran their gate before the owner was asked. The rule-file check is
+// Configuration's first paragraph, before a setting is resolved or read and before the first gate run.
+test('work-ticket checks its rule files before it reads a setting or runs the gate', () => {
+  const md = read(skillPath('work-ticket'));
+  const conf = section(md, 'Configuration', 2) ?? '';
+  const first = (conf.split(/\n\s*\n/).find((p) => p.trim()) ?? '').replace(/\s+/g, ' ');
+  assert.match(first, /^\*\*First, before any setting is read or any command it names runs\.\*\*/, 'Configuration must open with the rule-file check');
+  assert.ok(first.includes('**The rules the run is judged by:**'), 'the first paragraph of Configuration must be the rule-file check');
+  assert.ok(first.includes('`git diff --name-only --no-renames origin/{base}`'), 'the rule-file check must run the diff');
+  for (const p of ['each `AGENT.md` and `CLAUDE.md` at any depth', '`process/harness/**`']) assert.ok(first.includes(p), `the rule files must name ${p}`);
+  assert.match(first, /again on checking out an existing branch before a file on it is read/, 'a reused branch must be checked before it is read');
+  assert.match(first, /A check that cannot run is not a pass: stop\. With no remote, ask the owner for `\{base\}`/, 'a failed check must stop the run, not pass it');
+  assert.match(first, /A no ends the run: name the rule files the branch changed and stop/, 'a no must end the run');
+  // First hits over the whole file, any case, across line breaks: nothing above Configuration resolves the settings
+  // or runs the gate.
+  const flat = md.replace(/\s+/g, ' ');
+  const at = (re) => flat.search(re);
+  const check = flat.indexOf('`git diff --name-only --no-renames origin/{base}`');
+  const resolve = at(/resolve[^.]*?`process\/intake\.md` → Configuration/i);
+  const gate = at(/\brun[^.]*?`Quality gate`/i);
+  assert.ok(resolve > 0 && gate > 0, 'work-ticket must resolve its settings and run `Quality gate`');
+  assert.ok(check < resolve, 'work-ticket resolves its settings before its rule-file check');
+  assert.ok(check < at(/read before Phase 1/i), 'work-ticket reads the docs its settings name before its rule-file check');
+  assert.ok(resolve < gate, 'work-ticket runs `Quality gate` before resolving it');
+  assert.match(section(md, 'Phase 3 — Build', 2) ?? '', /\*\*Branch\*\* per [^\n]*an existing one gets the rule-file check first/, 'Phase 3 must check a reused branch before building on it');
+});
+
+test('process/intake.md says when /work-ticket\'s rule-file check fires: before either settings file is read', () => {
+  const first = plain((section(intake, 'Configuration', 2) ?? '').split(/\n\s*\n/).find((p) => p.trim()) ?? '').replace(/\s+/g, ' ');
+  assert.match(first, /\/work-ticket asks before it reads either file when the branch's changes touch one; a no ends the run/);
+  assert.doesNotMatch(first, /asks before any run whose diff touches/, 'the check fires before a read, not only before a run');
 });
 
 test('process/intake.md: the PR body it prescribes passes the PR check — a lane, commands in a code block, Links', () => {
