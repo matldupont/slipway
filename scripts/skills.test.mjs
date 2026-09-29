@@ -247,6 +247,32 @@ test('work-ticket asks before a run whose diff touches the settings file, the ma
   for (const p of [SETTINGS, '.slipway/**', 'dev/ownership.yaml', 'scripts/new-project.mjs']) assert.ok(rules.includes(`\`${p}\``), `work-ticket's rule files do not name ${p}`);
 });
 
+// #124: a reused branch's planted settings ran their gate before the owner was asked. The rule-file check is
+// Configuration's first paragraph, before a setting is resolved or read and before the first gate run.
+test('work-ticket checks its rule files before it reads a setting or runs the gate', () => {
+  const md = read(skillPath('work-ticket'));
+  const conf = section(md, 'Configuration', 2) ?? '';
+  const first = (conf.split(/\n\s*\n/).find((p) => p.trim()) ?? '').replace(/\s+/g, ' ');
+  assert.match(first, /^\*\*First, before any setting is read or any command it names runs\.\*\*/, 'Configuration must open with the rule-file check');
+  assert.ok(first.includes('**The rules the run is judged by:**'), 'the first paragraph of Configuration must be the rule-file check');
+  assert.ok(first.includes('`git diff --name-only --no-renames origin/{base}`'), 'the rule-file check must run the diff');
+  assert.match(first, /A no ends the run: name the rule files the branch changed and stop/, 'a no must end the run');
+  const at = (s) => md.indexOf(s);
+  const check = at('`git diff --name-only --no-renames origin/{base}`');
+  const resolve = at('resolve per `process/intake.md` → Configuration');
+  const gate = at('Run `Quality gate`');
+  assert.ok(resolve > 0 && gate > 0, 'work-ticket must resolve its settings and run `Quality gate`');
+  assert.ok(check < resolve, 'work-ticket resolves its settings before its rule-file check');
+  assert.ok(check < at('read before Phase 1'), 'work-ticket reads the docs its settings name before its rule-file check');
+  assert.ok(resolve < gate, 'work-ticket runs `Quality gate` before resolving it');
+});
+
+test('process/intake.md says when /work-ticket\'s rule-file check fires: before either settings file is read', () => {
+  const first = plain((section(intake, 'Configuration', 2) ?? '').split(/\n\s*\n/).find((p) => p.trim()) ?? '').replace(/\s+/g, ' ');
+  assert.match(first, /\/work-ticket asks before it reads either file when the branch's changes touch one; a no ends the run/);
+  assert.doesNotMatch(first, /asks before any run whose diff touches/, 'the check fires before a read, not only before a run');
+});
+
 test('process/intake.md: the PR body it prescribes passes the PR check — a lane, commands in a code block, Links', () => {
   const pr = section(intake, 'Pull request', 2) ?? '';
   const body = pr.match(/^\s*~~~markdown\n([\s\S]*?)^\s*~~~/m)?.[1]?.replace(/^ {2}/gm, '');
