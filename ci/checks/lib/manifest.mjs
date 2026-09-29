@@ -13,7 +13,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CONTROL, escapeControl } from './report.mjs';
 import { readList } from './yaml-list.mjs';
 
@@ -39,13 +39,15 @@ export const SLIPWAY_ROOT_COMMIT = 'fa6b1b7468259792180683f6e7cd360475ba04fd';
 export const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
 export const hasTemplateMarkers = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
 
-// Git comes from PATH without any entry inside the repository or any node_modules: `pnpm run` puts
-// node_modules/.bin first, and a `git` committed there would answer for the project. It runs from outside
-// the repository (-C), so no platform finds a git in the folder it runs in. No grafts file either:
-// .git/info/grafts can give a commit any parents, as replace refs can.
+// Git comes from PATH without any entry inside the repository or under any node_modules: `pnpm run` puts
+// node_modules/.bin first, and a `git` committed there would answer for the project. The repository is
+// found on disk, the nearest folder up that holds .git, never by asking git. Paths are compared as the
+// disk spells them, so a case-insensitive disk hides nothing. With nothing left on PATH the answer is
+// "not slipway", never a git found in the folder it runs from; it runs from outside the repository (-C).
+// No grafts file either: .git/info/grafts can give a commit any parents, as replace refs can.
 const real = (p) => {
   try {
-    return realpathSync(p);
+    return realpathSync.native(p);
   } catch {
     return resolve(p);
   }
@@ -54,30 +56,40 @@ const inside = (dir, p) => {
   const r = relative(dir, real(p));
   return r === '' || (r !== '..' && !r.startsWith(`..${sep}`) && !isAbsolute(r));
 };
-function gitEnv(dir) {
+function diskTop(dir) {
+  for (let d = dir; ; d = dirname(d)) {
+    if (existsSync(join(d, '.git'))) return d;
+    if (dirname(d) === d) return null;
+  }
+}
+function gitEnv(top) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_/i.test(k)));
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
   env[key] = (env[key] ?? '')
     .split(delimiter)
-    .filter((p) => isAbsolute(p) && !p.split(/[\\/]/).includes('node_modules') && !inside(dir, p))
+    .filter((p) => isAbsolute(p) && !p.split(/[\\/]/).some((s) => s.toLowerCase() === 'node_modules') && !inside(top, p))
     .join(delimiter);
+  if (!env[key]) throw new Error('no PATH entry outside the repository');
   return { ...env, GIT_GRAFT_FILE: '/dev/null' };
 }
-const gitOut = (dir, args) =>
-  execFileSync('git', ['--no-replace-objects', '-C', dir, ...args], { cwd: tmpdir(), env: gitEnv(dir), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+const gitOut = (at, top, args) =>
+  execFileSync('git', ['--no-replace-objects', '-C', at, ...args], { cwd: tmpdir(), env: gitEnv(top), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 const slipwayHistory = new Map();
 function isSlipwayHistory(root) {
   let dir;
   try {
-    dir = realpathSync(root);
+    dir = realpathSync.native(root);
   } catch {
     return false;
   }
   if (!slipwayHistory.has(dir)) {
     let yes = false;
     try {
-      const top = realpathSync(gitOut(dir, ['rev-parse', '--show-toplevel']));
-      yes = (top === dir || process.env.SLIPWAY_TEMPLATE_FIXTURE === '1') && gitOut(top, ['rev-list', '--max-parents=0', 'HEAD']) === SLIPWAY_ROOT_COMMIT;
+      const top = diskTop(dir);
+      yes =
+        top !== null &&
+        (top === dir || process.env.SLIPWAY_TEMPLATE_FIXTURE === '1') &&
+        gitOut(top, top, ['rev-list', '--max-parents=0', 'HEAD']) === SLIPWAY_ROOT_COMMIT;
     } catch {}
     slipwayHistory.set(dir, yes);
   }

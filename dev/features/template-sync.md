@@ -113,6 +113,9 @@ starting another round:
   itself, enters template mode. Both are edits to the project's history or its gate, not files a change adds.
 - In a shallow clone of slipway, sync does not say "this is slipway itself": it asks for `sync --adopt`, as in
   a project with no manifest. A shallow clone is not slipway (#123).
+- Files a pull request can commit that change which programs or settings the gate runs (`.npmrc`, `.pnpmfile.cjs`,
+  the settings in `pnpm-workspace.yaml` that change how pnpm or node run, anything under `node_modules/`) can
+  change what every check runs, this one included. #133 makes them gate files.
 - With no `slipway` hint, several slipway commits can hold the manifest's managed blobs exactly (the
   commits between them touched only seeded or merged files); sync takes the newest. Tied commits share
   managed content, so the choice changes only advisory seeded diffs and reported `package.json` keys.
