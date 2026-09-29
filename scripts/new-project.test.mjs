@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -178,6 +178,19 @@ test('the created decisions.md holds the header and D-001–D-014 only: no slipw
   assert.match(text, /add this project's own as `PD-<n>`/);
   assert.doesNotMatch(text, /roadmap-page|#62|#63|D-01[5-9]/);
   assert.match(readFileSync(join(SRC, 'decisions.md'), 'utf8'), /^## D-017 /m, 'slipway keeps its own records');
+});
+
+// #117: slipway's own skill settings stay in slipway; a project starts from AGENT.md's placeholders, filled.
+test('a project gets no copy of dev/skill-configuration.md, and its AGENT.md is the template filled in', () => {
+  const dest = join(tmp(), 'probe');
+  newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
+  assert.equal(classify(rules, 'dev/skill-configuration.md'), 'internal');
+  assert.equal(existsSync(join(dest, 'dev', 'skill-configuration.md')), false, 'the project received slipway\'s settings');
+  assert.match(readFileSync(join(SRC, 'AGENT.md'), 'utf8'), /^\| Product name \| `<Product>` \|/m, 'slipway\'s AGENT.md must keep <Product> for new-project to fill');
+  const agent = readFileSync(join(dest, 'AGENT.md'), 'utf8');
+  assert.match(agent, /^\| Product name \| `Probe` \|/m);
+  assert.match(agent, /^\| Issue repo \| `<owner\/repo>` \|/m, '--no-github leaves the repository for the owner');
+  assert.doesNotMatch(agent, /matldupont\/slipway/);
 });
 
 test('under npx, untracked inside another repository: no sha from the enclosing HEAD, no network — null plus version', () => {
