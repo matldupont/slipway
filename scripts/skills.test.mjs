@@ -368,3 +368,22 @@ test('/log-feature reads decisions.md before Phase 1 and cites both sections; /l
   assert.match(section(lf, 'Phase 3 — What already exists', 2) ?? '', /^Decisions: /m, 'Phase 3\'s output block must carry a Decisions line');
   assert.match(read(skillPath('log-followup')).replace(/\s+/g, ' '), /milestone Contents line handed over by `\/log-feature` is a frame/, '/log-followup must accept a Contents line as its frame');
 });
+
+// #122: in slipway `AGENT.md` is the template every new project gets, so no intake skill may name it as where an
+// answer goes. Each says "the settings file", the one process/intake.md → Configuration read.
+test('no /log-* skill names AGENT.md as where an answer is held, written or listed', () => {
+  for (const s of INTAKE) {
+    const bad = read(skillPath(s)).split(/\n|(?<=\.) /).filter((l) => /AGENT\.md/.test(l) && /answer|writ|held|hold|rows? missing|Defaults used/i.test(l));
+    assert.deepEqual(bad, [], `${s} names AGENT.md where the settings file was read from; say "the settings file"`);
+  }
+});
+
+test('/log-bug and /log-feature route slipway\'s own settings through process/intake.md → Settings in slipway itself', () => {
+  const s = (section(intake, 'Settings in slipway itself', 2) ?? '').replace(/\s+/g, ' ');
+  assert.ok(s, 'process/intake.md has no ## Settings in slipway itself');
+  assert.match(s, /never into `AGENT\.md` by name/, 'an answer goes to the file Configuration read');
+  assert.match(s, /no `\/kickoff`\s+stop/, 'a `none` PRD path does not stop at /kickoff');
+  assert.match(s, /nothing is being built right now/, 'a `none` milestone roadmap is not asked about');
+  assert.match(s, /`docs\/PRD\.md` is not edited/, 'the F-ID does not go in the PRD');
+  for (const k of ['log-bug', 'log-feature']) assert.match(read(skillPath(k)), /Settings in slipway itself/, `${k} must cite Settings in slipway itself`);
+});

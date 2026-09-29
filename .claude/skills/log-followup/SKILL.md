@@ -112,7 +112,7 @@ Parent:    #{parent} — sub-issue ✓ {completed}/{total} | other repository: P
 Milestone: {title | none}
 Board:     {project | none} · fields: {set | none}
 Designation: {mode} / {model} / {effort}
-Defaults used: {rows missing from AGENT.md, and the default each took | none}
+Defaults used: {rows missing from the settings file, and the default each took | none}
 ```
 
 ## Ripple

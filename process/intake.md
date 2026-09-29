@@ -60,6 +60,29 @@ key's value is its row's second cell, the Value column; the third column only ex
 data-integrity rules stand in: every row is scoped to its owner, quantities are never negative, a locked state
 stays locked, and a retried write repeats nothing.
 
+## Settings in slipway itself
+
+An answer a skill holds, writes or lists for the settings (a row it asked for, a value the owner agreed to) goes
+into the file Configuration read, never into `AGENT.md` by name. In a project that file is `AGENT.md`. In
+slipway it is `dev/skill-configuration.md`, because the root `AGENT.md` is the template every new project gets.
+
+Where Configuration read `dev/skill-configuration.md`, a `PRD path` or `Milestone roadmap` value that says `none`
+and why is an answer, not a gap. A project has a manifest, so none of this reaches it. `/log-bug` and
+`/log-feature` then:
+
+- **Stop at nothing and ask nothing** about the missing PRD or the missing active milestone: no `/kickoff`
+  stop, no "no written requirements yet", no "nothing is being built right now". Quote the row where the PRD or
+  the milestone would be cited (`PRD: none by design — "{row}"`, `Milestone: none by design — "{row}"`).
+- **Read the feature docs in `Feature docs dir` and `decisions.md`** wherever a skill reads or searches the PRD:
+  they carry the requirements, so a search for an area's expected behaviour searches them.
+- **Put the F-ID in the feature doc,** as `# F-{nn} — {name}`, with `prd-ref:` the decision the row names.
+  `{nn}` is one past the highest `F-` number in the doc titles under `Feature docs dir`. `docs/PRD.md` is not
+  edited: no §5 entry, no `Version:` bump, no Change log line, and PRD entry does not apply. A line that would
+  go into the PRD's §4 is shown to the owner as text.
+- **Copy the doc from `docs/features/TEMPLATE.md`** when `Feature docs dir` holds no `TEMPLATE.md`.
+- **Skip the schedule question.** No Contents item is added and no milestone doc is written. The issue's
+  parent is the epic the `Milestone roadmap` row names.
+
 ## Issue body
 
 The body reads as the repository's issue form would render it, so the checks that read issues accept it.
