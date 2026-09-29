@@ -207,12 +207,15 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
 
    The manifest after a sync must let the next one find its base exactly (#17). By the target's classes:
    - a managed path the target ships is recorded at the target's `blob`. Its `sha256` is the target's too,
-     except a `merge` or `keep (edited)` row keeps its old one, and a `collision` holds slipway's — D1
+     except a `merge` or `keep (edited)` row whose file still differs from slipway's copy keeps its old
+     one (one that equals it, after the merge or already, is slipway's again, #132), and a `collision` holds slipway's — D1
      flags it until the owner overrides it (keeping theirs) or copies slipway's file over theirs.
      Recording the project's hash instead would make the next sync replace that file.
    - a managed path the target no longer ships leaves the manifest: a kept file is the project's now.
-     An override that names no managed file afterwards is stale; sync lists each one by line and never
-     edits `overrides.yaml` (seeded).
+     An override is stale afterwards when it names no managed file, or its file matches the new hash
+     (slipway absorbed the edit, #132): D1's own rule on the new manifest. The plan and `--apply` list
+     the same ones by line, and the owner deletes each on the sync branch; sync never edits
+     `overrides.yaml` (seeded) or asks for a hand-edit of the manifest.
    - seeded and merged entries stay; one the target adds is recorded as written.
 6. **Exit** 1 when any row needs the owner: a merge left markers, a `collision`, a `merged: key reported`,
    a `keep (edited)`, a stale override, or an edited harness copy. 0 otherwise.
