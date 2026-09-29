@@ -13,7 +13,7 @@ import { join, relative } from 'node:path';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
-import { parseAppetite, readMilestones } from './checks/lib/milestones.mjs';
+import { contents, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -28,6 +28,13 @@ try {
 }
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+// Project text quoted in the Next line: one line, at most 60 characters, cut at a word boundary.
+const excerpt = (text, max = 60) => {
+  const flat = text.replace(/\s+/g, ' ').trim();
+  if (flat.length <= max) return flat;
+  const cut = flat.slice(0, max - 1);
+  return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;
+};
 
 // ---- facts
 const agent = read('AGENT.md') ?? '';
@@ -76,7 +83,7 @@ const decisions = read('decisions.md') ?? '';
 const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*\((open[^)]*)\)\*/gm)].map((m) => `${m[1]} ${m[2]} (${m[3]})`);
 
 const { milestones } = readMilestones(root);
-const ms = milestones.filter((m) => m.fm?.id).map((m) => ({ ...m.fm, file: m.file, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));
+const ms = milestones.filter((m) => m.fm?.id).map((m) => ({ ...m.fm, file: m.file, md: m.md, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));
 const active = ms.filter((m) => m.status === 'active');
 const cur = active[0];
 const curAppetite = cur && parseAppetite(cur.appetite);
@@ -176,7 +183,16 @@ function next() {
   }
   if (cur) {
     const risk = untestedValue.length ? ` Meanwhile (yours): ${riskLine}.${riskFile}` : '';
-    return `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${cur.title}. Next slice from its Contents; pick the lane (process/slipway-rules.md#Lanes).${risk}`;
+    const lead = `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${cur.title}`;
+    // The command is built from the id and the item's number, never from its text, and only for an id the
+    // skill accepts (process/intake.md → Milestone item): this line enters every session through the hook.
+    const items = contents(cur.md).filter((i) => !i.text.trim().startsWith('<'));
+    if (items.length && /^M\d+$/.test(String(cur.id))) {
+      const item = items.find((i) => !started(i.text));
+      if (!item) return `${lead}. Every Contents item has an issue: finish them, then run /close-milestone once its Gate is green.${risk}`;
+      return `${lead}. Next slice: item ${item.n}, "${excerpt(item.text)}". Start it in a fresh session with /log-feature ${cur.id}#${item.n}.${risk}`;
+    }
+    return `${lead}. Next slice from its Contents; pick the lane (process/slipway-rules.md#Lanes).${risk}`;
   }
   const shaping = ms.filter((m) => m.status === 'shaping');
   if (shaping.some((m) => m.kind === 'skeleton')) {
