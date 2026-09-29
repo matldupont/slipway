@@ -21,7 +21,8 @@ GitHub through this skill.
 ## Selection: the user picks, always
 
 Never post a comment the user did not explicitly select, and never post
-before asking. **SKILL.md Step 6 defines the ask** — option labels,
+before asking. Posting is not pre-approved either: each `gh api` call below
+asks the user for permission when it runs. **SKILL.md Step 6 defines the ask** — option labels,
 ordering, and the "None" option. Run it from there; this doc only covers
 what happens once the user has chosen.
 

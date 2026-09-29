@@ -7,9 +7,12 @@
  * issue lookup, readiness signals, and slipway-repo context for a GitHub
  * pull request. Emits JSON on stdout (or to --output-path).
  *
- * Nothing from the PR is ever a working tree: the review reads the change
- * with `gh pr diff` and any file with `git show <sha>:<path>`, so there is
- * no PR checkout for git, a hook or a tool to execute or follow.
+ * Nothing from the PR is ever a working tree. compute.ts is the one place
+ * that reads the PR's files: it writes the pinned diff and each changed
+ * file's head and base text to a fresh review folder outside the repo, under
+ * numbered names with an index (`reviewDir`). Reviewers read that folder with
+ * their Read and Grep tools; no command they run carries the author's text.
+ * `--cleanup <reviewDir.path>` deletes it at the end of the review.
  *
  * Usage:
  *   node <script-path>/compute.ts [<pr-url-or-number-or-branch>] [options]
@@ -30,6 +33,7 @@
  *   --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)
  *                                     `none` turns that input off; it never falls back to the default.
  *   --verbose                         Diagnostic logs to stderr (includes swallowed gh/git stderr)
+ *   --cleanup <dir>                   Delete a review folder this script made, and exit
  *
  * Environment:
  *   GH_HOST                 GitHub host for `gh` (e.g. github.example.com, for GitHub Enterprise)
@@ -41,8 +45,19 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { basename, dirname, join, sep } from "node:path";
 
 // ============================================================================
 // Output types
@@ -250,6 +265,8 @@ export interface FeatureOutput {
   slipway: SlipwayContext;
   /** null only when `pr` is null. */
   headReviewed: HeadReviewed | null;
+  /** The review folder the reviewers read; null when the review halts. */
+  reviewDir: ReviewDir | null;
   hardHalt: HardHalt | null;
 }
 
@@ -265,7 +282,8 @@ export function isFeatureOutput(value: unknown): value is FeatureOutput {
     typeof v.checks === "object" &&
     typeof v.readiness === "object" &&
     Array.isArray(v.unresolvedThreads) &&
-    typeof v.slipway === "object"
+    typeof v.slipway === "object" &&
+    typeof v.reviewDir === "object"
   );
 }
 
@@ -300,13 +318,15 @@ interface CLIOptions {
   skipTicket: boolean;
   verbose: boolean;
   tone: Tone;
+  /** Set by --cleanup: delete this review folder and exit. */
+  cleanup: string | null;
 }
 
 /** Why a checkout is refused, and what replaces it. */
 export const NO_CHECKOUT =
-  "the review never checks the PR out, so there is no worktree: read the change with " +
-  "`gh pr diff` and any file with `git show <sha>:<path>` from this clone, " +
-  "using headReviewed.sha or pr.baseSha";
+  "the review never checks the PR out, so there is no worktree: compute.ts writes the diff and " +
+  "each changed file's head and base text to reviewDir (read with the Read and Grep tools), " +
+  "using git show on headReviewed.sha and pr.baseSha as objects";
 
 export function parseArgs(argv: string[]): CLIOptions {
   const opts: CLIOptions = {
@@ -318,6 +338,7 @@ export function parseArgs(argv: string[]): CLIOptions {
     skipTicket: false,
     verbose: false,
     tone: "casual",
+    cleanup: null,
   };
   let i = 0;
   if (argv.length > 0 && !argv[0].startsWith("--")) {
@@ -350,6 +371,12 @@ export function parseArgs(argv: string[]): CLIOptions {
       case "--cold-review":
         opts.slipwayPaths.coldReview = parseSlipwayPath(arg, argv[++i]);
         break;
+      case "--cleanup": {
+        const v = argv[++i];
+        if (!v || v.startsWith("--")) throw new Error("--cleanup needs the review folder's path");
+        opts.cleanup = v;
+        break;
+      }
       case "--output-path":
         opts.outputPath = argv[++i] ?? null;
         break;
@@ -420,15 +447,23 @@ export const GIT_SAFE_ARGS = ["-c", "core.hooksPath=/dev/null"];
  */
 export const GIT_ALLOWED = new Set(["rev-parse", "fetch", "ls-tree", "cat-file", "diff", "status", "remote"]);
 
-export function runGit(args: string[], cwd?: string): string {
+/**
+ * Every git call goes through here: an argv array (no shell), an allowed
+ * command, hooks off. Raw bytes, so a blob's content is never re-encoded.
+ */
+function execGit(args: string[], cwd?: string): Buffer {
   if (!GIT_ALLOWED.has(args[0] ?? "")) {
     throw new Error(`git ${args[0] ?? "(none)"} is not run here: ${NO_CHECKOUT}`);
   }
   return execFileSync("git", [...GIT_SAFE_ARGS, ...args], {
     cwd,
-    encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+    maxBuffer: 512 * 1024 * 1024,
+  });
+}
+
+export function runGit(args: string[], cwd?: string): string {
+  return execGit(args, cwd).toString("utf8").trim();
 }
 
 function tryRunGit(args: string[], cwd?: string): string {
@@ -685,6 +720,150 @@ export function fetchPRMetadata(
     mergeable: parsed.mergeable ?? "UNKNOWN",
     draft: parsed.isDraft ?? false,
   };
+}
+
+// ============================================================================
+// The review folder: the one place the PR's files are read
+// ============================================================================
+
+export interface ReviewFile {
+  /** The number its texts are filed under: files/<n>.head, files/<n>.base. */
+  n: number;
+  /** The author's name for the file: data, never put into a command. */
+  path: string;
+  /** A added, D deleted, M modified, T type changed. */
+  status: string;
+  /** Relative to the review folder; null when the file is absent on that side or has no text. */
+  head: string | null;
+  base: string | null;
+  headMode: string | null;
+  baseMode: string | null;
+  /** Mode 120000 on either side: the text is the link's target, never followed. */
+  symlink: boolean;
+  /** A NUL byte in the first 8000 bytes of either side. */
+  binary: boolean;
+  /** Over MAX_REVIEW_FILE_BYTES on a side: that side's text is not written. */
+  tooLarge: boolean;
+}
+
+export interface ReviewDir {
+  /** A fresh folder outside the repository, owner-only (0700). */
+  path: string;
+  /** index.json: the head, the base and every changed file, as data. */
+  index: string;
+  /** diff.patch: `git diff <base>...<head>`, pinned to headReviewed.sha. */
+  diff: string;
+  files: ReviewFile[];
+}
+
+export const REVIEW_DIR_PREFIX = "pr-review-";
+export const MAX_REVIEW_FILE_BYTES = 2 * 1024 * 1024;
+
+/** `git ls-tree -r -z` of a whole commit: path → mode and object id. No path is passed. */
+export function readTree(repoRoot: string, commit: string): Map<string, { mode: string; oid: string }> {
+  const out = execGit(["ls-tree", "-r", "-z", "--full-tree", commit], repoRoot).toString("utf8");
+  const tree = new Map<string, { mode: string; oid: string }>();
+  for (const entry of out.split("\0")) {
+    if (!entry) continue;
+    const tab = entry.indexOf("\t");
+    const [mode, , oid] = entry.slice(0, tab).split(" ");
+    tree.set(entry.slice(tab + 1), { mode, oid });
+  }
+  return tree;
+}
+
+/** `git diff --name-status -z <base>...<head>`: the changed paths, NUL-separated, never re-quoted. */
+export function readChangedPaths(repoRoot: string, base: string, head: string): { status: string; path: string }[] {
+  const out = execGit(
+    ["diff", "--name-status", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", `${base}...${head}`],
+    repoRoot,
+  ).toString("utf8");
+  const parts = out.split("\0");
+  const changed: { status: string; path: string }[] = [];
+  for (let i = 0; i + 1 < parts.length; i += 2) {
+    if (parts[i]) changed.push({ status: parts[i], path: parts[i + 1] });
+  }
+  return changed;
+}
+
+function isInsideDir(root: string, candidate: string): boolean {
+  return candidate === root || candidate.startsWith(root + sep);
+}
+
+/**
+ * Writes the review folder: a fresh owner-only folder in the system temp
+ * directory, never inside the repository. Only commit and object ids reach
+ * git; every path the author chose arrives on stdout, NUL-separated, and
+ * leaves only as a JSON string in index.json. Texts are written as plain
+ * files under numbered names, so no name, link or mode the PR chose
+ * reaches the disk.
+ */
+export function writeReviewDir(repoRoot: string, base: string, head: string): ReviewDir {
+  const root = realpathSync(tmpdir());
+  const repo = realpathSync(repoRoot);
+  if (isInsideDir(repo, root)) {
+    throw new Error(`the temp directory ${root} is inside the repository; set TMPDIR outside it`);
+  }
+  const dir = mkdtempSync(join(root, REVIEW_DIR_PREFIX));
+  chmodSync(dir, 0o700);
+  mkdirSync(join(dir, "files"), { mode: 0o700 });
+
+  const headTree = readTree(repoRoot, head);
+  const baseTree = readTree(repoRoot, base);
+  const files: ReviewFile[] = readChangedPaths(repoRoot, base, head).map(({ status, path }, i) => {
+    const n = i + 1;
+    const file: ReviewFile = {
+      n, path, status, head: null, base: null, headMode: null, baseMode: null,
+      symlink: false, binary: false, tooLarge: false,
+    };
+    for (const side of ["head", "base"] as const) {
+      const entry = (side === "head" ? headTree : baseTree).get(path);
+      if (!entry) continue;
+      file[`${side}Mode`] = entry.mode;
+      if (entry.mode === "120000") file.symlink = true;
+      if (!/^1[02]0[0-7]{3}$/.test(entry.mode)) continue; // a submodule's commit: no text
+      const blob = execGit(["cat-file", "blob", entry.oid], repoRoot);
+      if (blob.length > MAX_REVIEW_FILE_BYTES) {
+        file.tooLarge = true;
+        continue;
+      }
+      if (blob.subarray(0, 8000).includes(0)) file.binary = true;
+      const rel = `files/${n}.${side}`;
+      writeFileSync(join(dir, rel), blob, { mode: 0o600 });
+      file[side] = rel;
+    }
+    return file;
+  });
+
+  const patch = execGit(["diff", "--no-ext-diff", "--no-textconv", "--no-color", `${base}...${head}`], repoRoot);
+  writeFileSync(join(dir, "diff.patch"), patch, { mode: 0o600 });
+  const index = { prReview: 3, head, base, files };
+  writeFileSync(join(dir, "index.json"), JSON.stringify(index, null, 2) + "\n", { mode: 0o600 });
+  return { path: dir, index: join(dir, "index.json"), diff: join(dir, "diff.patch"), files };
+}
+
+/**
+ * Deletes a review folder writeReviewDir made, and nothing else: a direct
+ * child of the temp directory, named with the prefix, holding its index.
+ */
+export function cleanupReviewDir(dir: string): void {
+  let real: string;
+  try {
+    real = realpathSync(dir);
+  } catch {
+    throw new Error(`no review folder at ${dir}`);
+  }
+  const root = realpathSync(tmpdir());
+  let marked = false;
+  try {
+    marked = (JSON.parse(readFileSync(join(real, "index.json"), "utf8")) as { prReview?: unknown }).prReview === 3;
+  } catch {
+    marked = false;
+  }
+  if (dirname(real) !== root || !basename(real).startsWith(REVIEW_DIR_PREFIX) || !marked) {
+    throw new Error(`refusing to delete ${dir}: not a review folder this script made`);
+  }
+  rmSync(real, { recursive: true, force: true });
 }
 
 // ============================================================================
@@ -1603,8 +1782,8 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const cwdHead = tryRunGit(["rev-parse", "HEAD"], cwd);
   // The bar comes from the PR's base commit, never its head or a working tree.
   const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
-  // Base and head as objects only: files are read with `git show <sha>:<path>`.
-  const { baseCommit, halt: commitHalt } = fetchPRCommits(repoRoot, meta);
+  // Base and head as objects only: the review folder is written from them.
+  const { baseCommit, headCommit, halt: commitHalt } = fetchPRCommits(repoRoot, meta);
   // On someone else's PR, what Claude Code loaded here must be the base's:
   // a checkout at an older head of the PR has a different HEAD but the
   // PR's files.
@@ -1678,6 +1857,10 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     readiness.passed = false;
   }
 
+  const reviewDir =
+    !hardHalt && repoRoot && baseCommit && headCommit ? writeReviewDir(repoRoot, baseCommit, headCommit) : null;
+  if (reviewDir) logVerbose(opts, `review folder at ${reviewDir.path}`);
+
   return {
     schemaVersion: 3,
     tone: opts.tone,
@@ -1692,6 +1875,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     unresolvedThreads: unresolved,
     slipway,
     headReviewed,
+    reviewDir,
     hardHalt,
   };
 }
@@ -1732,6 +1916,7 @@ function prNotFoundOutput(
       activeMilestones: [],
     },
     headReviewed: null,
+    reviewDir: null,
     hardHalt: {
       reason: "pr_not_found",
       detail: `PR ${prRef ?? "(current branch)"} not found${projectPath ? ` in ${projectPath}` : ""} (gh reported not-found)`,
@@ -1758,9 +1943,20 @@ async function main(): Promise<void> {
         "  --invariants <path|none>          Domain invariants doc (default: docs/domain-invariants.md)\n" +
         "  --milestones <dir|none>           Milestones folder (default: docs/milestones)\n" +
         "  --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)\n" +
-        "  --verbose                         Diagnostic logs to stderr\n",
+        "  --verbose                         Diagnostic logs to stderr\n" +
+        "  --cleanup <dir>                   Delete a review folder this script made, and exit\n",
     );
     process.exit(1);
+  }
+
+  if (opts.cleanup) {
+    try {
+      cleanupReviewDir(opts.cleanup);
+    } catch (err) {
+      process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
+      process.exit(1);
+    }
+    return;
   }
 
   let output: FeatureOutput;

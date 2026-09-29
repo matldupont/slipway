@@ -6,13 +6,22 @@ extracts the linked GitHub issue, computes readiness signals, and reads
 slipway-repo context — emitting a typed JSON output the skill prompt
 consumes.
 
-It never checks the PR out. The review reads the change with `gh pr diff`
-and any file with `git show <sha>:<path>`, using `headReviewed.sha` or
-`pr.baseSha`, so none of the PR's files is ever on disk for git, a hook or
-a tool to execute or follow. Every git call goes through `runGit`, which
+It never checks the PR out. It is the one place that reads the PR's files:
+it writes a **review folder** (`reviewDir`) in the system temp directory,
+fresh per run and owner-only (0700) — `diff.patch` (the pinned
+`git diff <base>...<head>`), `files/<n>.head` and `files/<n>.base` (each
+changed file's text, under numbered names), and `index.json` mapping each
+number to the author's file name as data. Reviewers read it with their
+Read and Grep tools; `--cleanup <reviewDir.path>` deletes it.
+
+No name the author chose reaches a command: git gets only commit and
+object ids, as argv arrays with no shell, and returns paths NUL-separated
+(`-z`). A link is written as its target's text, never as a link, and no
+file is written executable. Every git call goes through `execGit`, which
 runs only the commands in `GIT_ALLOWED` (reads, fetches and the reviewer's
-own-checkout comparison) with hooks off; a test fails if any other path to
-git appears.
+own-checkout comparison) with hooks off; every gh call goes through
+`execGh` and `GH_ALLOWED` (reads only). A test fails if any other path to
+git or gh appears.
 
 The deterministic work happens in TypeScript so the agent only does the
 synthesis steps (brief, parallel subagent dispatch, consolidation,
@@ -106,6 +115,12 @@ The PR's head is fetched by sha (`headRefOid`) as objects, never checked
 out; when it cannot be fetched the output carries `hardHalt:
 head_unreadable`. Asking for a checkout (`--worktree`, `--worktree-dir`)
 fails with a message naming the replacement.
+
+```bash
+# At the end of the review: delete the folder. Refuses anything that is not
+# a pr-review-… folder in the temp directory holding its index.
+node pr-review/features/compute.ts --cleanup /path/from/reviewDir.path
+```
 
 ## Environment
 
@@ -201,6 +216,16 @@ there validates the shape.
     "activeMilestones": []         // --milestones/*.md with status: active, plus their No-gos bullets
   },
   "headReviewed": { "sha": "abc123...", "moved": false },   // moved: GitHub reported another head after the diff was read
+  "reviewDir": {                   // null when the review halts
+    "path": "/tmp/pr-review-AbC123",
+    "index": "/tmp/pr-review-AbC123/index.json",
+    "diff": "/tmp/pr-review-AbC123/diff.patch",
+    "files": [
+      { "n": 1, "path": "src/order.ts", "status": "M",   // path: the author's text, data only
+        "head": "files/1.head", "base": "files/1.base", "headMode": "100644", "baseMode": "100644",
+        "symlink": false, "binary": false, "tooLarge": false }
+    ]
+  },
   "hardHalt": null   // populated only when truly unreviewable
 }
 ```

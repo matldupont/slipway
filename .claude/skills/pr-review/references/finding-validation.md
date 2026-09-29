@@ -89,7 +89,7 @@ the PR, nothing falsified it, and `[FOLLOW-UP]` is the correct lane.
 
 Read the finding's lines **from the diff hunk**.
 
-`git diff <BASE_SHA>...<HEAD_SHA> -- <file>`, or that file's hunks in `gh pr diff`.
+Read that file's hunks in the review folder's `diff.patch`, with the Read tool, never a command.
 Specifically check:
 
 - **Did the author already fix this?** Fire-and-forget rewritten as
@@ -177,7 +177,7 @@ Cheapest order — each gate can eliminate work for the next:
 
 1. **Anchor** every finding first (one lookup each, no file reads).
 2. **Post-image** read the surviving ones, grouped by file so one
-   `git diff <BASE_SHA>...<HEAD_SHA> -- <file>` serves several findings.
+   Read of `diff.patch` serves several findings.
 3. **Snippet** check whatever still carries a `suggested_snippet`.
 4. **Label** relabel the final set together, so the labels are consistent
    relative to each other and not just to the table.

@@ -92,6 +92,16 @@ truth — no parallel schema in the prose.
     "sha": "abc123...",                      // the commit this review reads, fetched as objects; every output names it
     "moved": false                           // true: PR pushed to during setup; also a head_moved readiness blocker
   },
+  "reviewDir": {                             // null when the review halts; deleted by `compute.ts --cleanup <path>`
+    "path": "/tmp/pr-review-AbC123",         // fresh per run, owner-only, outside the repository
+    "index": "/tmp/pr-review-AbC123/index.json",
+    "diff": "/tmp/pr-review-AbC123/diff.patch",   // git diff <base>...<head>, pinned to headReviewed.sha
+    "files": [                               // the changed files; index.json holds the same list
+      { "n": 1, "path": "src/order.ts",      // path is the author's text: data, never typed into a command
+        "status": "M", "head": "files/1.head", "base": "files/1.base",
+        "headMode": "100644", "baseMode": "100644", "symlink": false, "binary": false, "tooLarge": false }
+    ]
+  },
   "hardHalt": null,                          // shape below
 
   // -- skill-added fields (Step 5 output) --

@@ -15,7 +15,7 @@
 import test from "node:test";
 import { strict as assert } from "node:assert";
 import { execSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, lstatSync, statSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -63,6 +63,9 @@ import {
   gitSlipwayReader,
   fetchCommit,
   fetchPRCommits,
+  writeReviewDir,
+  cleanupReviewDir,
+  REVIEW_DIR_PREFIX,
   GIT_ALLOWED,
   GH_ALLOWED,
   NO_CHECKOUT,
@@ -146,8 +149,8 @@ test("parseArgs: asked for a checkout of the PR, fails naming the replacement", 
   for (const argv of [["42", "--worktree"], ["42", "--worktree-dir", "/tmp/x"]]) {
     assert.throws(() => parseArgs(argv), (err: Error) => {
       assert.match(err.message, /was removed/);
-      assert.match(err.message, /gh pr diff/);
-      assert.match(err.message, /git show <sha>:<path>/);
+      assert.match(err.message, /reviewDir/);
+      assert.match(err.message, /Read and Grep tools/);
       return true;
     });
   }
@@ -875,6 +878,7 @@ test("isFeatureOutput: validates shape", () => {
     checks: NO_CHECKS,
     readiness: { passed: true, blockers: [] },
     unresolvedThreads: [],
+    reviewDir: null,
     slipway: {
       present: false,
       lane: null,
@@ -1389,7 +1393,7 @@ test("compute.ts: runGit is its only way to git, and every git command it names 
   const programs = [...src.matchAll(/execFileSync\(\s*("[^"]*"|[^,)]+)/g)].map((m) => m[1]).sort();
   assert.deepEqual(programs, ['"gh"', '"git"']);
   // Every git and gh command a code path names, exercised by a test or not.
-  const named = [...src.matchAll(/(?:runGit|tryRunGit)\(\s*\[\s*"([^"]+)"/g)].map((m) => m[1]);
+  const named = [...src.matchAll(/(?:runGit|tryRunGit|execGit)\(\s*\[\s*"([^"]+)"/g)].map((m) => m[1]);
   assert.ok(named.length >= 5, `found ${named.length} git calls`);
   for (const cmd of named) assert.ok(GIT_ALLOWED.has(cmd), `compute.ts runs git ${cmd}`);
   for (const cmd of ["worktree", "checkout", "switch", "restore", "reset", "clone"]) assert.equal(GIT_ALLOWED.has(cmd), false, cmd);
@@ -1427,6 +1431,103 @@ test("fetchPRCommits: base and head fetched as objects; each one missing halts t
   assert.equal(fetchPRCommits(clone, { baseSha: base, headSha: "0".repeat(40) }).halt?.reason, "head_unreadable");
   assert.equal(fetchPRCommits(clone, { baseSha: "0".repeat(40), headSha: head }).halt?.reason, "base_unreadable");
   assert.equal(fetchPRCommits(null, { baseSha: base, headSha: head }).halt?.reason, "base_unreadable");
+});
+
+// A PR whose file names are built to break a shell command, and whose texts include a link and binary bytes.
+function hostilePR(): { clone: string; base: string; head: string; names: string[] } {
+  const repo = createFixtureRepo();
+  execSync("git checkout -q -b hostile main", { cwd: repo });
+  const names = ["$(touch PWNED).txt", "a\nb.txt", "it's.txt", "-rf.txt", "[id].tsx", "sp ace.md"];
+  for (const n of names) writeFileSync(path.join(repo, n), `text of ${JSON.stringify(n)}\n`);
+  execSync("ln -s /etc/hosts link", { cwd: repo });
+  writeFileSync(path.join(repo, "bin.dat"), Buffer.from([0x50, 0, 0xff, 0x0a]));
+  writeFileSync(path.join(repo, "README.md"), "# fixture, changed\n");
+  const head = commitAll(repo, "hostile head");
+  publishPullRef(repo, 15, "hostile");
+  const base = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+  const remote = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
+  const clone = workspaceMkdtemp("clone-");
+  execSync(`git clone -q --no-local "${remote}" "${clone}"`, { stdio: "pipe" });
+  assert.equal(fetchPRCommits(clone, { baseSha: base, headSha: head }).halt, null);
+  return { clone, base, head, names };
+}
+
+test("writeReviewDir: hostile names arrive as data, texts as plain numbered files, nothing runs", () => {
+  const { clone, base, head, names } = hostilePR();
+  const before = readdirSync(clone).sort();
+  const rd = writeReviewDir(clone, base, head);
+  try {
+    // A fresh owner-only folder in the temp directory, outside the repository.
+    assert.equal(path.dirname(rd.path), realpathSync(tmpdir()));
+    assert.ok(path.basename(rd.path).startsWith(REVIEW_DIR_PREFIX));
+    assert.equal(statSync(rd.path).mode & 0o777, 0o700);
+    assert.equal(rd.path.startsWith(realpathSync(clone)), false);
+
+    const index = JSON.parse(readFileSync(rd.index, "utf8"));
+    assert.equal(index.head, head);
+    const byPath = new Map(index.files.map((f: { path: string }) => [f.path, f]));
+    for (const n of names) {
+      const f = byPath.get(n) as { head: string; base: string | null; status: string };
+      assert.ok(f, `index lists ${JSON.stringify(n)} verbatim`);
+      assert.equal(f.status, "A");
+      assert.equal(f.base, null);
+      assert.match(f.head, /^files\/\d+\.head$/);
+      assert.equal(readFileSync(path.join(rd.path, f.head), "utf8"), `text of ${JSON.stringify(n)}\n`);
+    }
+    const link = byPath.get("link") as { head: string; symlink: boolean; headMode: string };
+    assert.equal(link.symlink, true);
+    assert.equal(link.headMode, "120000");
+    assert.equal(lstatSync(path.join(rd.path, link.head)).isSymbolicLink(), false, "a link is written as its target's text");
+    assert.equal(readFileSync(path.join(rd.path, link.head), "utf8"), "/etc/hosts");
+    const bin = byPath.get("bin.dat") as { head: string; binary: boolean };
+    assert.equal(bin.binary, true);
+    assert.deepEqual([...readFileSync(path.join(rd.path, bin.head))], [0x50, 0, 0xff, 0x0a]);
+    const readme = byPath.get("README.md") as { status: string; head: string; base: string };
+    assert.equal(readme.status, "M");
+    assert.equal(readFileSync(path.join(rd.path, readme.base), "utf8"), "# fixture\n");
+    assert.match(readFileSync(rd.diff, "utf8"), /# fixture, changed/);
+
+    // Every file in the folder has a name compute.ts chose, and none is executable.
+    for (const f of readdirSync(path.join(rd.path, "files"))) {
+      assert.match(f, /^\d+\.(head|base)$/);
+      assert.equal(statSync(path.join(rd.path, "files", f)).mode & 0o111, 0);
+    }
+    // Nothing the names spell ran: no PWNED anywhere, and the clone's working tree is untouched.
+    for (const where of [process.cwd(), clone, rd.path, path.join(rd.path, "files"), FIXTURE_ROOT]) {
+      assert.equal(existsSync(path.join(where, "PWNED")), false, where);
+    }
+    assert.deepEqual(readdirSync(clone).sort(), before);
+  } finally {
+    cleanupReviewDir(rd.path);
+  }
+  assert.equal(existsSync(rd.path), false, "cleanup deletes the folder");
+});
+
+test("cleanupReviewDir: deletes only a review folder this script made", () => {
+  const { clone, base, head } = hostilePR();
+  const bare = mkdtempSync(path.join(tmpdir(), REVIEW_DIR_PREFIX)); // the prefix, no index
+  const other = mkdtempSync(path.join(tmpdir(), "not-a-review-"));
+  writeFileSync(path.join(other, "index.json"), '{"prReview":3}');
+  const inside = path.join(clone, `${REVIEW_DIR_PREFIX}x`);
+  mkdirSync(inside);
+  writeFileSync(path.join(inside, "index.json"), '{"prReview":3}');
+  try {
+    for (const dir of [bare, other, inside, clone, tmpdir(), path.join(tmpdir(), `${REVIEW_DIR_PREFIX}absent`)]) {
+      assert.throws(() => cleanupReviewDir(dir), /refusing to delete|no review folder/, dir);
+      if (dir !== path.join(tmpdir(), `${REVIEW_DIR_PREFIX}absent`)) assert.equal(existsSync(dir), true, dir);
+    }
+    const rd = writeReviewDir(clone, base, head);
+    cleanupReviewDir(rd.path);
+    assert.equal(existsSync(rd.path), false);
+  } finally {
+    rmSync(bare, { recursive: true, force: true });
+    rmSync(other, { recursive: true, force: true });
+  }
+});
+
+test("parseArgs: --cleanup takes the folder; without one it is an error", () => {
+  assert.equal(parseArgs(["--cleanup", "/tmp/pr-review-abc"]).cleanup, "/tmp/pr-review-abc");
+  assert.throws(() => parseArgs(["--cleanup"]), /needs the review folder/);
 });
 
 test("resolveHeadReviewed: the head gh reported, flagged when GitHub moved on before the diff was read", () => {
