@@ -450,12 +450,29 @@ export class GhNotFoundError extends Error {
   }
 }
 
+/**
+ * The only gh commands compute.ts runs: reads of the PR, its checks and its
+ * issue, and the API reads. `gh pr checkout`, `gh repo clone` and the like
+ * run git checkout underneath, so they are not on it.
+ */
+export const GH_ALLOWED = new Set(["pr view", "pr diff", "pr checks", "issue view", "api"]);
+
+function assertGhAllowed(args: string[]): void {
+  const cmd = args[0] === "api" ? "api" : `${args[0] ?? ""} ${args[1] ?? ""}`;
+  if (!GH_ALLOWED.has(cmd)) {
+    throw new Error(`gh ${cmd.trim() || "(none)"} is not run here: ${NO_CHECKOUT}`);
+  }
+}
+
+/** Every gh call goes through here, checked against GH_ALLOWED first. */
+function execGh(args: string[]): string {
+  assertGhAllowed(args);
+  return execFileSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+}
+
 export function runGh(args: string[]): string {
   try {
-    return execFileSync("gh", args, {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    return execGh(args);
   } catch (err) {
     const stderr =
       err && typeof err === "object" && "stderr" in err
@@ -486,8 +503,9 @@ function tryRunGh(args: string[]): string {
  * is the answer, not noise to discard.
  */
 function runGhAllowNonZero(args: string[]): string {
+  assertGhAllowed(args); // outside the try: a refusal is never read as empty output
   try {
-    return execFileSync("gh", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return execGh(args);
   } catch (err) {
     const stdout =
       err && typeof err === "object" && "stdout" in err
@@ -615,16 +633,23 @@ interface RawPR {
  * exist — callers convert this into a `HardHalt`. Throws for other `gh`
  * failures (auth, network, etc.).
  */
+/**
+ * `-R owner/repo` for a gh call about the PR. A full URL already encodes
+ * owner/repo; passing -R too is redundant and, on some gh versions, rejected
+ * as conflicting.
+ */
+function ghRepoArgs(prRef: string | null, projectPath: string | null): string[] {
+  const isUrl = prRef !== null && extractPrNumberFromUrl(prRef) !== null;
+  return projectPath && !isUrl ? ["-R", projectPath] : [];
+}
+
 export function fetchPRMetadata(
   prRef: string | null,
   projectPath: string | null,
 ): PRMetadata | null {
   const args = ["pr", "view"];
   if (prRef !== null) args.push(prRef);
-  // A full URL already encodes owner/repo; passing -R too is redundant and,
-  // on some gh versions, rejected as conflicting.
-  const isUrl = prRef !== null && extractPrNumberFromUrl(prRef) !== null;
-  if (projectPath && !isUrl) args.push("-R", projectPath);
+  args.push(...ghRepoArgs(prRef, projectPath));
   args.push(
     "--json",
     "number,url,title,body,headRefName,baseRefName,headRefOid,baseRefOid,author,isDraft,mergeable,mergeStateStatus",
@@ -717,9 +742,37 @@ export function resolveHeadReviewed(prHeadSha: string, headNow: string): HeadRev
 
 /** The PR's head as GitHub reports it now; "" when gh fails. */
 export function fetchPRHeadSha(prRef: string, projectPath: string): string {
-  const isUrl = extractPrNumberFromUrl(prRef) !== null;
-  const args = ["pr", "view", prRef, ...(isUrl ? [] : ["-R", projectPath]), "--json", "headRefOid", "--jq", ".headRefOid"];
-  return tryRunGh(args).trim();
+  return tryRunGh(["pr", "view", prRef, ...ghRepoArgs(prRef, projectPath), "--json", "headRefOid", "--jq", ".headRefOid"]).trim();
+}
+
+/**
+ * The PR's base and head commits, fetched into this clone as objects (never
+ * checked out), and the halt when either cannot be read: the bar comes from
+ * the base, and the files are read from the head with `git show`.
+ */
+export function fetchPRCommits(
+  repoRoot: string | null,
+  meta: Pick<PRMetadata, "baseSha" | "headSha">,
+): { baseCommit: string | null; headCommit: string | null; halt: HardHalt | null } {
+  const baseCommit = repoRoot ? fetchCommit(repoRoot, meta.baseSha) : null;
+  const headCommit = repoRoot ? fetchCommit(repoRoot, meta.headSha) : null;
+  let halt: HardHalt | null = null;
+  if (!baseCommit) {
+    halt = {
+      reason: "base_unreadable",
+      detail:
+        `the PR's base commit ${meta.baseSha || "(not reported)"} could not be read from origin; ` +
+        `the review's bar comes from it, so the review stops rather than run without it`,
+    };
+  } else if (!headCommit) {
+    halt = {
+      reason: "head_unreadable",
+      detail:
+        `the PR's head commit ${meta.headSha || "(not reported)"} could not be fetched from origin; ` +
+        `its files are read from it with git show, so the review stops rather than read something else`,
+    };
+  }
+  return { baseCommit, headCommit, halt };
 }
 
 // ============================================================================
@@ -1550,9 +1603,8 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const cwdHead = tryRunGit(["rev-parse", "HEAD"], cwd);
   // The bar comes from the PR's base commit, never its head or a working tree.
   const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
-  const baseCommit = repoRoot ? fetchCommit(repoRoot, meta.baseSha) : null;
-  // The head, as objects only: files are read with `git show <sha>:<path>`.
-  const headCommit = repoRoot ? fetchCommit(repoRoot, meta.headSha) : null;
+  // Base and head as objects only: files are read with `git show <sha>:<path>`.
+  const { baseCommit, halt: commitHalt } = fetchPRCommits(repoRoot, meta);
   // On someone else's PR, what Claude Code loaded here must be the base's:
   // a checkout at an older head of the PR has a different HEAD but the
   // PR's files.
@@ -1606,22 +1658,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
         `Run from a clean checkout of ${meta.targetBranch}, passing the PR number.`,
     };
   }
-  if (!hardHalt && !baseCommit) {
-    hardHalt = {
-      reason: "base_unreadable",
-      detail:
-        `the PR's base commit ${meta.baseSha || "(not reported)"} could not be read from origin; ` +
-        `the review's bar comes from it, so the review stops rather than run without it`,
-    };
-  }
-  if (!hardHalt && !headCommit) {
-    hardHalt = {
-      reason: "head_unreadable",
-      detail:
-        `the PR's head commit ${meta.headSha || "(not reported)"} could not be fetched from origin; ` +
-        `its files are read from it with git show, so the review stops rather than read something else`,
-    };
-  }
+  if (!hardHalt) hardHalt = commitHalt;
   const slipway = detectSlipwayContext(
     repoRoot && baseCommit ? gitSlipwayReader(repoRoot, baseCommit) : null,
     meta.description,

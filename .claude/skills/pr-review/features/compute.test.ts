@@ -62,7 +62,9 @@ import {
   resolveHeadReviewed,
   gitSlipwayReader,
   fetchCommit,
+  fetchPRCommits,
   GIT_ALLOWED,
+  GH_ALLOWED,
   NO_CHECKOUT,
   resolveIssueTicket,
   runGit,
@@ -1383,14 +1385,48 @@ test("compute.ts: runGit is its only way to git, and every git command it names 
   // child_process is named once, importing execFileSync alone: no exec, spawn, namespace or dynamic import to reach git another way.
   const uses = [...src.matchAll(/^.*child_process.*$/gm)].map((m) => m[0].trim());
   assert.deepEqual(uses, ['import { execFileSync } from "node:child_process";']);
-  // execFileSync runs git in runGit alone; the other calls run gh.
-  const programs = [...src.matchAll(/execFileSync\(\s*("[^"]*"|[^,)]+)/g)].map((m) => m[1]);
-  assert.deepEqual(programs.filter((p) => p !== '"gh"'), ['"git"']);
-  // Every git command a code path names, exercised by a test or not.
+  // execFileSync runs git in runGit alone and gh in execGh alone, each behind its allowlist.
+  const programs = [...src.matchAll(/execFileSync\(\s*("[^"]*"|[^,)]+)/g)].map((m) => m[1]).sort();
+  assert.deepEqual(programs, ['"gh"', '"git"']);
+  // Every git and gh command a code path names, exercised by a test or not.
   const named = [...src.matchAll(/(?:runGit|tryRunGit)\(\s*\[\s*"([^"]+)"/g)].map((m) => m[1]);
   assert.ok(named.length >= 5, `found ${named.length} git calls`);
   for (const cmd of named) assert.ok(GIT_ALLOWED.has(cmd), `compute.ts runs git ${cmd}`);
   for (const cmd of ["worktree", "checkout", "switch", "restore", "reset", "clone"]) assert.equal(GIT_ALLOWED.has(cmd), false, cmd);
+  const ghNamed = [...src.matchAll(/(?:runGh|tryRunGh|runGhAllowNonZero)\(\s*\[\s*"([^"]+)"(?:\s*,\s*"([^"]+)")?/g)]
+    .map((m) => (m[1] === "api" ? "api" : `${m[1]} ${m[2]}`));
+  assert.ok(ghNamed.length >= 4, `found ${ghNamed.length} gh calls`);
+  for (const cmd of ghNamed) assert.ok(GH_ALLOWED.has(cmd), `compute.ts runs gh ${cmd}`);
+  for (const cmd of ["pr checkout", "repo clone", "repo sync"]) assert.equal(GH_ALLOWED.has(cmd), false, cmd);
+});
+
+test("runGh: refuses gh commands that check out or clone, before running gh", () => {
+  for (const args of [["pr", "checkout", "7", "-R", "owner/repo"], ["repo", "clone", "owner/repo"], ["repo", "sync"]]) {
+    assert.throws(() => runGh(args), (err: Error) => {
+      assert.match(err.message, new RegExp(`gh ${args[0]} ${args[1]} is not run here`));
+      assert.ok(err.message.includes(NO_CHECKOUT));
+      return true;
+    }, args.join(" "));
+  }
+});
+
+test("fetchPRCommits: base and head fetched as objects; each one missing halts the review", () => {
+  const repo = createFixtureRepo();
+  execSync("git checkout -q -b pr-only-2 main", { cwd: repo });
+  writeFileSync(path.join(repo, "g.txt"), "pr\n");
+  const head = commitAll(repo, "pr head");
+  publishPullRef(repo, 14, "pr-only-2");
+  const base = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+  const remote = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
+  const clone = workspaceMkdtemp("clone-");
+  execSync(`git clone -q --no-local "${remote}" "${clone}"`, { stdio: "pipe" });
+
+  const got = fetchPRCommits(clone, { baseSha: base, headSha: head });
+  assert.deepEqual(got, { baseCommit: base, headCommit: head, halt: null });
+  assert.equal(existsSync(path.join(clone, "g.txt")), false, "the head's file never reached the working tree");
+  assert.equal(fetchPRCommits(clone, { baseSha: base, headSha: "0".repeat(40) }).halt?.reason, "head_unreadable");
+  assert.equal(fetchPRCommits(clone, { baseSha: "0".repeat(40), headSha: head }).halt?.reason, "base_unreadable");
+  assert.equal(fetchPRCommits(null, { baseSha: base, headSha: head }).halt?.reason, "base_unreadable");
 });
 
 test("resolveHeadReviewed: the head gh reported, flagged when GitHub moved on before the diff was read", () => {

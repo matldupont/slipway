@@ -7,12 +7,12 @@ modes each gate exists to stop.
 
 **The premise:** subagents return plausible findings. Plausible is cheap.
 What survives review is what you can *anchor* — and the instinct to
-validate by opening the file at `HEAD` and reading the cited line
+validate by opening the file at the PR's head and reading the cited line
 confirms only the thing that was never in doubt. The line exists. It says
 what the agent said. Neither fact tells you the PR introduced it, nor
 that the author hasn't already fixed exactly what you're flagging.
 
-Validate against the **diff**, not the checkout.
+Validate against the **diff**, not the file at the PR's head.
 
 ## Gate 1: Anchor
 
@@ -39,7 +39,7 @@ Two ways this gate is worth more than it looks:
   reaching a toast, an `aria-label` that omits state — all real, none
   caused by the diff in front of you.
 - It is the only gate that cannot be satisfied by reading harder. No
-  amount of care while reading `HEAD` distinguishes a line the PR added
+  amount of care while reading the PR's head distinguishes a line the PR added
   from a line it merely sits beside.
 
 ### Deleted code is the exception — mind it
@@ -50,7 +50,7 @@ fail Gate 1 while being entirely real. Anchor these to
 
 Take this gate's exception seriously, because deletion-based findings are
 routinely the strongest in a review — a removed guard clause, a dropped
-test, a deleted early return. They're invisible to anyone reading `HEAD`,
+test, a deleted early return. They're invisible to anyone reading the PR's head,
 which means the subagents mostly miss them too, and a mechanical
 anchor-in-post-image rule would throw away the few that surface. The
 classic shape:
@@ -59,7 +59,7 @@ classic shape:
 > guard — is left untouched, and now asserts behaviour the code no longer
 > has. The test that covered it is deleted in the same hunk.
 
-Nothing at `HEAD` looks wrong. The diff shows all three at once.
+Nothing at the PR's head looks wrong. The diff shows all three at once.
 
 ### A comment the diff falsified is the other exception
 

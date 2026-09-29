@@ -7,7 +7,7 @@ description: >-
   "review pull request", "help me review", "prep for review",
   "review my coworker's PR", "look over this PR", "review my own PR",
   "validate my PR", "sanity-check my PR".
-allowed-tools: Bash(gh:*), Bash(git:*), Bash(sed:*), Bash(head:*), Bash(rg:*), Bash(jq:*), Bash(node .claude/skills/pr-review/features/compute.ts:*), Read, Grep, Glob, Task
+allowed-tools: Bash(gh:*), Bash(git show:*), Bash(git diff:*), Bash(git ls-tree:*), Bash(git grep:*), Bash(git cat-file:*), Bash(git fetch:*), Bash(git -c core.hooksPath=/dev/null fetch:*), Bash(git rev-parse:*), Bash(git status:*), Bash(sed:*), Bash(head:*), Bash(rg:*), Bash(jq:*), Bash(node .claude/skills/pr-review/features/compute.ts:*), Read, Grep, Glob, Task
 ---
 
 # PR Review
@@ -87,7 +87,7 @@ parent gets findings and decides what to do with them.
 ```bash
 gh pr view <pr-url-or-number> --json author,headRefOid,headRefName,baseRefOid
 gh api user --jq .login
-git fetch origin <baseRefOid>
+git -c core.hooksPath=/dev/null fetch origin <baseRefOid>
 git diff --quiet <baseRefOid> -- .claude AGENT.md process/intake.md   # exit 0: the base's
 git status --porcelain --untracked-files=all -- .claude AGENT.md process/intake.md   # prints nothing
 ```
@@ -745,7 +745,7 @@ request shape and the response check in that doc are not optional.
 - Don't let the anchor gate eat findings about **deleted** code — a
   removed guard clause or a dropped test has no post-image line and
   cites `diff.removedHunks` instead. These are often the best findings
-  in the review, since a deletion is invisible to anyone reading `HEAD`
+  in the review, since a deletion is invisible to anyone reading the PR's head
 - Don't let it eat a comment the diff **falsified** either. When a change
   makes an untouched comment or doc line wrong, anchor to the changed
   line that falsified it and cite the comment's line as the evidence —

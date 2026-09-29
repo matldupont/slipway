@@ -62,9 +62,10 @@ output instead of a clean failure.
 
 The review never writes a PR's files to disk, so a folder the PR commits
 laid out as a bare repository, with a command in its config, is never a
-place git runs. For checkouts of other people's branches you make
-yourself, outside this skill, set
-`git config --global safe.bareRepository explicit`.
+place the review runs git. Still set
+`git config --global safe.bareRepository explicit` on every machine that
+reviews: it covers a checkout of someone else's branch you made yourself,
+including one the review is started from by mistake.
 
 ### GitHub Enterprise
 
