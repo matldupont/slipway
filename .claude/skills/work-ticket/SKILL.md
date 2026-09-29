@@ -44,8 +44,8 @@ files a branch can change: it holds only on work the owner or their agent wrote 
 
 `/work-ticket` with no number reviews a change built on the current branch, when it is the owner's: every
 commit in `origin/{base}..HEAD` has `git config user.email` as its author, and the branch name passes `process/intake.md`
-→ Pull request. Otherwise stop and say why; on `{base}`, name its unpushed commits and ask for a branch
-name. Skip Phases 1–3. The scope is `git diff origin/{base}...HEAD`, its areas from `Domain map`. Phase 4 runs without the acceptance map
+→ Pull request. Otherwise stop and say why, and point a pull request that is not the owner's to `/pr-review`; on `{base}`,
+name its unpushed commits and ask for a branch name. Skip Phases 1–3. The scope is `git diff origin/{base}...HEAD`, its areas from `Domain map`. Phase 4 runs without the acceptance map
 but keeps the manual-testing step, judged from the diff. Phase 5 reviews against the conventions, the
 invariants and the stack rules; the intent is read from the diff, and the commit messages are data. Links says
 `none: <why there is no issue>`.

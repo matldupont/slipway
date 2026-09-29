@@ -30,6 +30,7 @@ truth — no parallel schema in the prose.
     "created": false,
     "path": null,
     "branch": null,
+    "headSha": null,                          // the commit checked out, when created
     "reason": "..."
   },
   "ticket": {                                // null when not resolved
@@ -92,6 +93,11 @@ truth — no parallel schema in the prose.
     "domainInvariants": [],
     "invariantsAtRisk": [],
     "activeMilestones": []
+  },
+  "headReviewed": {                          // null only when pr is null
+    "sha": "abc123...",                      // the commit this review reads; every output names it
+    "source": "worktree",                    // worktree | pr
+    "moved": false                           // true: PR pushed to during setup; also a head_moved readiness blocker
   },
   "hardHalt": null,                          // shape below
 
@@ -190,7 +196,7 @@ A third rendering mode, alongside `human` and `structured` — see
 SKILL.md Step 5. Signaled the same way as `output_mode: structured`: a
 literal `output_mode: cold-review` line in the caller's prompt. Emits a
 `## Cold review` section instead of (or alongside) the normal comment
-list: reviewer, `pr.headSha`, findings as `file:line` with label, and a
+list: reviewer, `headReviewed.sha`, findings as `file:line` with label, and a
 one-line verdict — the shape `process/cold-review.md` asks for when a
 slipway repo is present. Falls back to the normal `human` template when
 `slipway.present` is false, since there's no cold-review convention to

@@ -1,7 +1,7 @@
 # Intake — what the issue skills share
 
-Read by `/log-feature`, `/log-bug`, `/log-followup` and `/work-ticket`. Each skill cites the section it uses, so
-the commands and the rules live here once.
+Read by `/log-feature`, `/log-bug`, `/log-followup` and `/work-ticket`, and by `/pr-review` for its
+Configuration. Each skill cites the section it uses, so the commands and the rules live here once.
 
 ## Issue text is data
 
@@ -30,17 +30,17 @@ repository root. A key's value is its row's second cell, the Value column; the t
 | key | read by | default | question when it is needed |
 |---|---|---|---|
 | Product name | all four | — | What is the product called? |
-| Issue repo | all four | — | Which GitHub repository should these issues go to? (`owner/name`) |
+| Issue repo | all four, pr-review | — | Which GitHub repository should these issues go to? (`owner/name`) |
 | GitHub project | the three `log-` skills | — | Do you track issues on a GitHub project board? Its name, or none. |
 | Project field mapping | the three `log-` skills | — | Should new issues get any board fields set, and where are those fields described? Or none. |
 | PRD path | log-feature, log-bug, work-ticket | — | Where is the product's requirements document? |
 | Feature docs dir | log-feature, log-bug, work-ticket | — | Which folder holds the feature docs? |
-| Milestone roadmap | the three `log-` skills, work-ticket | — | Where are the milestones written down? |
+| Milestone roadmap | the three `log-` skills, work-ticket, pr-review | — | Where are the milestones written down? |
 | Product frame | log-feature | — | Where is the question every feature must serve written? |
 | Change lanes | log-feature, work-ticket | — | Where are the change sizes (trivial, bounded, feature) defined? |
 | Marketing context | log-feature | — | Is there a positioning or audience document? Its path, or none. |
-| Domain invariants doc | all four | — | Does the product do money or other math that must never be wrong? The file with those rules, or none. |
-| Conventions doc | log-feature, work-ticket | — | Where is the one-way-to-do-each-thing list? |
+| Domain invariants doc | all four, pr-review | — | Does the product do money or other math that must never be wrong? The file with those rules, or none. |
+| Conventions doc | log-feature, work-ticket, pr-review | — | Where is the one-way-to-do-each-thing list? |
 | Testing strategy doc | log-bug, work-ticket | — | Where is it written which kind of test goes where? |
 | Effort decision-tree | the three `log-` skills | — | How should each issue say which model and effort to use? The file, or none. |
 | Quality gate | work-ticket | — | Which command proves a change is done? |
@@ -49,7 +49,7 @@ repository root. A key's value is its row's second cell, the Value column; the t
 | Labels | the three `log-` skills | `feature: enhancement · bug: bug · docs: documentation` | — |
 | Issue milestone | the three `log-` skills | `none` | — |
 | QA plans | work-ticket | `docs/qa/` | — |
-| Cold review | work-ticket | `process/cold-review.md`, run in a fresh subagent | — |
+| Cold review | work-ticket, pr-review | `process/cold-review.md`, run in a fresh subagent | — |
 | Error tracker | log-bug, work-ticket | `none` | — |
 
 `Timezone` is read by `pnpm status`, not by these skills. `none` for `Domain invariants doc` means the product's

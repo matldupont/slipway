@@ -11,6 +11,8 @@ confident. Independent review pays best on exactly the claims the author was sur
 - **Refute by default.** Each claim is wrong until the diff or a command shows otherwise.
 - Output a `## Cold review` section in the PR: the reviewer, the head sha reviewed, findings with
   `file:line`, a verdict. Every finding is fixed in the diff or explicitly waived there.
+- `/work-ticket` runs this on the pull requests it opens. Any other pull request, by hand or by a
+  teammate, is reviewed with `/pr-review`, whose `output_mode: cold-review` writes that section.
 
 ## When to stop
 

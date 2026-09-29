@@ -48,10 +48,11 @@ either anchors the comment on the diff or rejects the whole request with
 can fail every comment in the batch if you post them together carelessly,
 so build the payload deliberately and check the response.
 
-**1. Get the head commit SHA.** Use `pr.headSha` from `compute.ts`'s
-output (or `gh pr view <n> --json headRefOid --jq .headRefOid` if you
-don't have it to hand) — the review's `commit_id` must be the exact SHA
-the diff was read against, not a branch name.
+**1. Get the head commit SHA.** Use `headReviewed.sha` from
+`compute.ts`'s output — the review's `commit_id` must be the exact SHA
+the diff was read against, not a branch name, and never a fresh
+`gh pr view` read: a push since the review would attach the comments to
+a commit nobody reviewed.
 
 **2. Post one review via a JSON request body:**
 
