@@ -252,8 +252,9 @@ before it matches; anything else is an idea.
    each hit; the owner says whether it is this item. Yes: write the started marker (step 6) on a doc branch,
    open its PR, and stop.
 3. **Phase 1, seeded.** The ask is the Contents line, quoted. Problem, who and job story come from the cited
-   F-IDs' PRD §5 entries and the milestone's Why; evidence is `{id}'s bet (Contents item {n})`. Show them for
-   the owner to correct; nothing written there is asked for again.
+   F-IDs' PRD §5 entries and the milestone's Why; evidence is `{id}'s bet (Contents item {n})`, and why now its
+   appetite. Show them and go on: the owner corrects them at the next question, and nothing written there is
+   asked for again.
 4. **Phase 2, skipped,** with one line: `{id} already made this bet (Contents item {n}); its no-gos bound the
    cut.` Phase 3 runs in full, Decisions included.
 5. **Phase 4.** The MVP cut is the Contents line; anything beyond it goes to Out of scope, and the milestone's
