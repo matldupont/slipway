@@ -146,6 +146,24 @@ rationale; the FRAME and evidence templates say so. Declined: a free-text ration
 can refute) and putting the refutation in the Threshold cell (prose in a table, and "set before" would mean
 nothing there). Spec: `dev/features/experience-evidence.md`; #47.
 
+## D-020 — A milestone's next slice starts from its Contents line, and intake reads the decisions record *(decided 2026-09-29)*
+
+Starting a Contents item the milestone already bet on had no path: `pnpm status` said "pick the lane", and
+`/log-feature` argued against the bet again. No intake skill read `decisions.md`: on a project's first
+milestone a slice touched two decisions that disagreed, and only a hand read found it.
+
+- **One command, not a new skill:** `/log-feature M1#2` (D-016: nothing new to learn). It seeds the problem
+  from the Contents line and its PRD entries, skips the argument and the scheduling, and otherwise shapes and
+  files as for an idea. A bounded item goes to `/log-followup` with the line as its frame.
+- **Started is written on the line.** After filing, the skill appends the issue to the item's line; `pnpm
+  status` names the first item without one and the command that starts it. Status stays offline.
+- **`/log-feature` reads `decisions.md` in full,** lists the decisions a feature touches, and, when two
+  disagree or one forbids what the feature needs, asks the owner which stands before any doc is written.
+
+Declined: a new skill (a second command and a copy of the pipeline); `/work-ticket M1#2` (it builds from a
+contract the item does not have yet); a check that finds conflicting decisions (the disagreement is in
+words, and the real pair cited no shared id). Spec: `dev/features/next-slice.md`; #118.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
