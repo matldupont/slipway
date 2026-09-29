@@ -22,12 +22,14 @@ The base is the slipway commit these files last matched. Sync needs it to tell "
   1 script kept, yours differs          a package.json script you changed: --apply keeps yours and shows slipway's
   5 unchanged                           the same on both sides: nothing to do
 
-Needs you (3):
+Needs you (4):
   script kept, yours differs  package.json scripts.b
     next: npx github:matldupont/slipway#main sync --apply keeps your value and prints slipway's; edit the key by hand to take it
   collision                   process/clash.md
     next: to keep yours, list it in .slipway/overrides.yaml with a reason; to take slipway's, copy its file from <B> over yours
   keep (edited)               process/kept.md
     next: npx github:matldupont/slipway#main sync --apply leaves your file as it is; port slipway's change by hand if you want it
+  stale override              .slipway/overrides.yaml:4  path: process/kept.md
+    next: after npx github:matldupont/slipway#main sync --apply, delete this entry on the sync branch: slipway no longer ships this file, so the entry excuses nothing and D1 flags it
 
 Plan only — nothing was written. Carry it out with: npx github:matldupont/slipway#main sync --apply
