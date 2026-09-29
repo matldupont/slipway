@@ -27,10 +27,11 @@ Read before Phase 1, and do not work from memory: the PRD, the `Testing strategy
 (`Milestone roadmap`), and the `Domain invariants doc` unless none. No PRD file at all: the project is not
 kicked off; stop, and point at `/kickoff`. A PRD that is still the template (§5 holds only its placeholder),
 or no active milestone, ask: "{Product name} has no written requirements yet (or: nothing is being built right
-now). File this bug anyway?"
+now). File this bug anyway?" Not when `PRD path` or `Milestone roadmap` says `none` and why in slipway's own
+settings: that is an answer, so neither stop nor ask; `process/intake.md` → Settings in slipway itself.
 
 Every file this skill writes goes through a doc PR (Phase 5), never straight onto the default branch.
-Answers the owner agrees to put in `AGENT.md` are held and written on the doc branch once Phase 4 creates it;
+Answers the owner agrees to put in the settings file (the one Configuration read) are held and written on the doc branch once Phase 4 creates it;
 a run with no doc branch lists them in its last output for the owner to add.
 
 **Never written anywhere** (the issue, the doc stub, the doc PR, a commit): user data (names, emails, ids,
@@ -153,6 +154,7 @@ Rule:     {the invariant or data-integrity rule the bug breaks | none}
 A bug breaks a requirement. When the requirement was never written, the gap is part of the bug.
 
 1. Search the PRD for the area: quote the lines that define the expected behaviour, with its ids (F-, PRIN-).
+   In slipway's own settings the feature docs and `decisions.md` stand in for it.
 2. Search `Feature docs dir` for a doc covering the feature this bug lives in.
 3. Decide:
    - **A — written.** A feature doc, the PRD itself precisely, or the acceptance of the issue that promised
@@ -171,14 +173,15 @@ extend it (a Changes line, an acceptance line) instead of starting another.
 - **Branch.** `{name}` is lowercase letters, digits and `-` only. `git status` must be empty (dirty: stop and
   ask, never stash silently). `git remote` prints nothing: there is no remote; branch from the local default
   branch, and say so. Otherwise `git fetch`, then `git switch -c docs/bug-{name} origin/{default branch}`.
-  Write any held `AGENT.md` answers now, in their own commit.
+  Write any held settings answers now, in their own commit.
 - **Write** `{Feature docs dir}/{name}.md` from `{Feature docs dir}/TEMPLATE.md`, `status: draft`, and fill
   every section: Problem (what the feature is for, citing the PRD ids), Contract (the behaviour as it should
   be, this bug's case among its states and error cases), Acceptance (`Given / When / Then`, unhappy and empty
   states included), Verify, and the rest. A section with nothing to say says why (`none beyond baseline`,
   `none`: {why}). Everything you cannot derive from the PRD or the code is an **Open question** for the owner
   (their GitHub login), never an invented rule.
-- **C also adds the PRD entry:** `### F-{nn} — {name}` in §5 (the next free number; the template's whole
+- **C also adds the PRD entry** (in slipway's own settings the F-ID goes in the doc's title, no PRD edit, no
+  schedule question: `process/intake.md` → Settings in slipway itself): `### F-{nn} — {name}` in §5 (the next free number; the template's whole
   placeholder block is replaced), a one-paragraph what and the doc's path, and the `Version:` bump and Change
   log line (`process/intake.md` → PRD entry). Then ask: "Is fixing this part of what you are building now ({active milestone's summary}), or a
   later milestone?"; with no active milestone, name the one being shaped next instead. Add a Contents item
@@ -187,7 +190,7 @@ extend it (a Changes line, an acceptance line) instead of starting another.
   file nothing, leave the branch unpushed, tell the owner its name, and give them the §4 *Out, explicitly*
   line instead.
 - **Commit** on the branch, and run `pnpm meta` (R1 as PRD entry says). On a draft PRD the milestone check only confirms the PRD
-  exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents. Push in Phase 5,
+  exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). Push in Phase 5,
   once the issue number exists.
 
 The stub is a draft of intent. The bug's acceptance says it is reviewed first (Phase 5); there is no separate
@@ -195,9 +198,9 @@ review issue.
 
 ```
 PHASE 4: WRITTEN DOWN
-PRD:      {§ and ids} "{quoted lines}" | not found
+PRD:      {§ and ids} "{quoted lines}" | none by design — "{row}" | not found
 Doc:      A {path | #n} | B/C drafted {path} (draft, committed on docs/bug-{name}) | C → not a bug | C → /log-feature
-PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none
+PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none (milestone: none by design — "{row}")
 Review:   {PRD entry's owner message, when R1 reports it} | none
 ```
 
@@ -254,8 +257,8 @@ Issue:     #{n} — {title} · Milestone: {title | none} · Board: {project | no
 Parent:    #{parent} sub-issue ✓ | none
 Doc PR:    #{pr} | branch ready, no remote | none (A)
 Designation: {mode} / {model} / {effort}
-Defaults used: {rows missing from AGENT.md, and the default each took | none}
-AGENT.md:  {answers written on the doc branch | held, for the owner to add: {row → answer} | none}
+Defaults used: {rows missing from the settings file, and the default each took | none}
+Settings:  {answers written on the doc branch | held, for the owner to add: {row → answer} | none}
 ```
 
 ## Ripple
