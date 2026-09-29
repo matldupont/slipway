@@ -16,7 +16,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { classify, loadOwnership } from '../ci/checks/lib/ownership.mjs';
-import { MANIFEST, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { ownDecisions } from './adopt.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
 import { shellQuote } from './sync.mjs';
@@ -104,7 +104,7 @@ put(slip, {
   '.gitattributes': '* text=auto eol=lf\n',
   'README.md': '# slipway\n',
   'package.json': pkg({ a: 'echo a', b: 'echo b', d: 'echo d', e: 'echo e', drop: 'echo drop', gone: 'node scripts/x.mjs' }),
-  'process/replace.md': 'v1\n',
+  'process/replace.md': 'v1\nkeep\nkeep\nkeep\nend1\n', // two hunks upstream: one project can take part of
   'process/same.md': 'same\n',
   'process/merge.md': 'one\ntwo\n',
   'process/delete.md': 'delete me\n',
@@ -122,7 +122,7 @@ put(slip, { 'process/new.md': 'new\n' });
 const A1 = commit(slip, 'A1: one slipway file added');
 put(slip, {
   'package.json': pkg({ a: 'echo a2', b: 'echo b2', c: 'echo c', d: 'echo d', e: 'echo e2', gone: 'node scripts/y.mjs' }),
-  'process/replace.md': 'v2\n',
+  'process/replace.md': 'v2\nkeep\nkeep\nkeep\nend2\n',
   'process/merge.md': 'one\ntwo, upstream\n',
   'process/delete.md': null,
   'process/kept.md': null,
@@ -680,6 +680,104 @@ for (const [why, edit, code] of [
     assert.equal(r.status, code, r.stdout + r.stderr);
   });
 }
+
+// An override slipway has absorbed (#132): the owner's edit is slipway's copy now. Sync records slipway's
+// hash for it, lists the override as stale in the plan and the apply, and the owner removes that entry and
+// nothing else: the manifest is only ever sync's, and D1 is green once the entry is gone.
+const d1 = (dir) => spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), dir], { encoding: 'utf8' });
+const removeOverride = (dir, p) => {
+  const kept = readOverrides(dir).filter((o) => o.path !== p);
+  put(dir, { '.slipway/overrides.yaml': kept.length ? `overrides:\n${kept.map((o) => `  - path: ${o.path}\n    reason: ${o.reason}\n`).join('')}` : null });
+  commit(dir, `drop the override on ${p}`);
+};
+const staleLine = (p) => new RegExp(`stale override — slipway's copy now equals yours[^\\n]*\\n(?: {2}[^\\n]*\\n)*? {2}\\.slipway\\/overrides\\.yaml:\\d+ {2}path: ${p.replaceAll('.', '\\.')}\\n`);
+
+test('a merge whose result equals slipway\'s copy: recorded at slipway\'s hash, its override listed stale in the plan and the apply, and D1 green once the owner removes it', () => {
+  const dir = pristine((d) => put(d, {
+    'process/replace.md': show(B, 'process/replace.md'), // the owner's edit is the one slipway shipped
+    'process/merge.md': 'one\ntwo\nthree, ours\n', // still differs from slipway's copy after the merge
+    '.slipway/overrides.yaml': 'overrides:\n  - path: process/replace.md\n    reason: ours\n  - path: process/merge.md\n    reason: ours\n',
+  }));
+  const planned = sync(dir);
+  assert.match(planned.stdout, /stale override +\.slipway\/overrides\.yaml:2 {2}path: process\/replace\.md\n {4}next: [^\n]*slipway's copy/);
+  assert.doesNotMatch(planned.stdout, /stale override +[^\n]*process\/merge\.md/);
+
+  const before = manifestOf(dir);
+  const r = sync(dir, '--apply', '--verbose');
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.equal(rows(r.stdout)['process/replace.md'], 'merge');
+  assert.match(r.stdout, staleLine('process/replace.md'));
+  assert.doesNotMatch(r.stdout, staleLine('process/merge.md'));
+  const after = manifestOf(dir);
+  assert.deepEqual(bytes(dir, 'process/replace.md'), show(B, 'process/replace.md'));
+  assert.equal(after.files['process/replace.md'].sha256, sha256(show(B, 'process/replace.md')));
+  // A file that still differs keeps its own hash, and D1 still flags it without its override.
+  assert.equal(after.files['process/merge.md'].sha256, before.files['process/merge.md'].sha256);
+  assert.match(d1(dir).stdout, /override\/stale\/process\/replace\.md/);
+
+  const recorded = bytes(dir, MANIFEST);
+  removeOverride(dir, 'process/replace.md');
+  const green = d1(dir);
+  assert.equal(green.status, 0, green.stdout);
+  assert.deepEqual(bytes(dir, MANIFEST), recorded, 'the manifest is sync\'s only');
+  removeOverride(dir, 'process/merge.md');
+  assert.match(d1(dir).stdout, /drift\/process\/merge\.md/);
+});
+
+test('an override on a file slipway did not change, kept at an old hash by a sync before #132, is listed stale by the next sync, which records slipway\'s hash; D1 green once it is removed', () => {
+  const dir = pristine((d) => put(d, { 'process/replace.md': show(B, 'process/replace.md'), '.slipway/overrides.yaml': override('process/replace.md') }));
+  const old = manifestOf(dir).files['process/replace.md'].sha256;
+  sync(dir, '--apply');
+  git(dir, 'switch', '-q', 'main');
+  git(dir, 'merge', '-q', '--ff-only', BRANCH);
+  git(dir, 'branch', '-q', '-D', BRANCH);
+  // The record a sync before #132 left: the merge kept the project's old hash. A project's real state,
+  // written here only because this sync no longer produces it.
+  const m = manifestOf(dir);
+  m.files['process/replace.md'].sha256 = old;
+  put(dir, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+  commit(dir, 'as a sync before #132 recorded it');
+  assert.equal(d1(dir).status, 0);
+
+  const planned = sync(dir, '--verbose');
+  assert.equal(rows(planned.stdout)['process/replace.md'], 'unchanged');
+  assert.match(sync(dir).stdout, /stale override +\.slipway\/overrides\.yaml:2 {2}path: process\/replace\.md\n/);
+  const r = sync(dir, '--apply');
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, staleLine('process/replace.md'));
+  assert.equal(manifestOf(dir).files['process/replace.md'].sha256, sha256(show(B, 'process/replace.md')));
+
+  const recorded = bytes(dir, MANIFEST);
+  removeOverride(dir, 'process/replace.md');
+  const green = d1(dir);
+  assert.equal(green.status, 0, green.stdout);
+  assert.deepEqual(bytes(dir, MANIFEST), recorded);
+});
+
+test('a merge of an edit slipway shipped with more: the result is slipway\'s copy though the project\'s was not; recorded at slipway\'s hash, listed stale, exit 1', () => {
+  const partial = show(B, 'process/replace.md').toString('utf8').replace('end2', 'end1'); // slipway's first hunk only
+  const dir = pristine((d) => put(d, { 'process/replace.md': partial, '.slipway/overrides.yaml': override('process/replace.md') }));
+  assert.notDeepEqual(bytes(dir, 'process/replace.md'), show(B, 'process/replace.md'));
+  assert.match(sync(dir).stdout, /stale override +\.slipway\/overrides\.yaml:2 {2}path: process\/replace\.md\n/);
+  const r = sync(dir, '--apply', '--verbose');
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.equal(rows(r.stdout)['process/replace.md'], 'merge');
+  assert.deepEqual(bytes(dir, 'process/replace.md'), show(B, 'process/replace.md'));
+  assert.equal(manifestOf(dir).files['process/replace.md'].sha256, sha256(show(B, 'process/replace.md')));
+  assert.match(r.stdout, staleLine('process/replace.md'));
+  removeOverride(dir, 'process/replace.md');
+  assert.equal(d1(dir).status, 0);
+});
+
+test('a plan that --apply would refuse stops with the same reason, saying --apply would refuse it too, and writes nothing', () => {
+  const dir = pristine((d) => put(d, { 'package.json': null })); // slipway adds a script key; there is no package.json to add it to
+  const before = treeHash(dir);
+  const r = sync(dir);
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stderr, /package\.json is missing[^\n]*\n--apply would refuse this too, so the plan stops here\.\n$/);
+  assert.equal(treeHash(dir), before);
+  assert.match(sync(dir, '--apply').stderr, /package\.json is missing/);
+});
 
 test('apply never writes through a symlink: a diff path or the manifest that is one is refused, and the file it points to is intact', () => {
   for (const at of ['.slipway/upstream/docs/PRD.md.diff', MANIFEST]) {

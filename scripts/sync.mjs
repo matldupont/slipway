@@ -58,7 +58,16 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     const ctx = { ...preflight(cwd), verbose: argv.includes('--verbose') };
     const rows = plan(ctx);
     if (!argv.includes('--apply')) {
-      print(out, ctx, rows, true);
+      // The plan lists the stale overrides --apply will, so it computes the same writes, in its temp dir
+      // only. What stops that stops --apply too, and the owner hears it now.
+      let stale;
+      try {
+        ({ stale } = compute(ctx, rows, { check: false }));
+      } catch (e) {
+        if (e instanceof Refusal) throw new Refusal(`${e.message}\n--apply would refuse this too, so the plan stops here.`);
+        throw e;
+      }
+      print(out, ctx, rows, { plan: true, stale });
       out.write(ctx.verbose ? 'Plan only — nothing was written.\n' : `Plan only — nothing was written. Carry it out with: ${syncCommand(ctx.root)} --apply\n`);
       return 0;
     }
@@ -360,6 +369,13 @@ const MEANING = {
   unchanged: 'the same on both sides: nothing to do',
 };
 
+// Why an override is stale after --apply, as D1 will judge it on the sync branch.
+const STALE_WHY = {
+  gone: 'slipway no longer maintains this file, so the entry excuses nothing and D1 flags it',
+  absorbed: "your file is slipway's copy then, so the entry excuses nothing and D1 flags it",
+};
+const staleLine = (s) => `${OVERRIDES}:${s.line}  path: ${s.path}`;
+
 // The next command for a row that needs the owner (OWNER_ROWS).
 function nextStep(r, targetSha, cmd) {
   const from = targetSha ? targetSha.slice(0, 12) : 'the target';
@@ -368,7 +384,7 @@ function nextStep(r, targetSha, cmd) {
   return `${cmd} --apply leaves your file as it is; port slipway's change by hand if you want it`;
 }
 
-function print(out, { root, branch, remote, source, base, targetSha, notes, log, verbose }, rows, plan = false) {
+function print(out, { root, branch, remote, source, base, targetSha, notes, log, verbose }, rows, { plan = false, stale = [] } = {}) {
   const width = Math.max(...KINDS.map((k) => label(k).length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
@@ -385,8 +401,12 @@ function print(out, { root, branch, remote, source, base, targetSha, notes, log,
     return;
   }
   out.write(`${BASE_WHY}\n\n${rows.length} rows:\n${bucketLines(counts.map(([k, n]) => ({ n, label: label(k), meaning: MEANING[k] })))}\n`);
-  const owed = rows.filter((r) => OWNER_ROWS.includes(r.kind));
-  if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed.map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, syncCommand(root)) })))}\n`);
+  const cmd = syncCommand(root);
+  const owed = [
+    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd) })),
+    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `after ${cmd} --apply, delete this entry on the sync branch: ${STALE_WHY[s.why]}` })),
+  ];
+  if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed)}\n`);
   else if (plan) out.write('Nothing needs you.\n');
 }
 
@@ -428,7 +448,9 @@ function apply(out, ctx, rows) {
   say(`collision — slipway ships this path now; your file was not touched, and D1 flags it. To keep yours, override it with a reason; to take slipway's, copy its file from ${short(targetSha)} over yours:`, rows.filter((r) => r.kind === 'collision').map((r) => r.path));
   say('keep (edited) — slipway removed it; your file stays and is yours now:', todo.kept.gone);
   say(`keep (edited) — slipway changed it, but your copy is missing, not a file, or was your own file until now, so slipway's change was not applied. Copy slipway's from ${short(targetSha)}, or override it with a reason:`, todo.kept.shipped);
-  say(`stale override — it names no file of slipway's now, so D1 flags it; remove it from ${OVERRIDES}:`, todo.stale);
+  const stale = (why) => todo.stale.filter((s) => s.why === why).map(staleLine);
+  say(`stale override — it names no file of slipway's now, so D1 flags it; remove it from ${OVERRIDES}:`, stale('gone'));
+  say(`stale override — slipway's copy now equals yours, so the entry excuses nothing and D1 flags it; remove it from ${OVERRIDES}:`, stale('absorbed'));
   say(`${label('merged: key reported')} — your value stays; slipway's is shown:`, todo.reported);
   say(`${label('seeded: upstream changed')} — slipway's own diff (base → target): a reference to apply by hand, not a patch (it is against the template's copy, not yours). /sync-slipway walks you through them. The file was not touched:`, todo.diffs);
   if (todo.harness) out.write(`\nharness — ${todo.harness.text}\n`);
@@ -439,8 +461,9 @@ function apply(out, ctx, rows) {
 
 // Every write --apply makes, and nothing written yet. Throws a Refusal on anything that would break
 // the invariant or that git cannot do: a changed file, a symlink or directory where a file goes, a path
-// the project ignores, a failed merge.
-function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows) {
+// the project ignores, a failed merge. The plan calls it with `check: false` for the stale overrides:
+// it writes only inside the clone's temp dir, and skips the checks of where each write lands.
+function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows, { check = true } = {}) {
   const tmp = mkdtempSync(join(dirname(gitDir), 'apply-')); // inside the clone's temp dir: removed on exit
   const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
   const pristine = (p) => {
@@ -511,12 +534,20 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
     todo.harness = { text: `${HARNESS} now holds your edits and slipway's changes together; once any conflicts in it are resolved, install it with: cp ${HARNESS} ${INSTALLED}` };
   }
 
-  const next = nextManifest({ manifest, target, targetRules, targetSha }, rows);
+  // Each path's bytes once --apply has run.
+  const after = (p) => (todo.writes.has(p) ? todo.writes.get(p).bytes : todo.removes.includes(p) ? null : readProjectFile(root, p));
+  const next = nextManifest({ manifest, target, targetRules, targetSha }, rows, after);
   todo.manifest = Buffer.from(`${JSON.stringify(next, null, 2)}\n`);
-  // D1 was green, so every override named a managed file; one that no longer does was made stale here.
-  todo.stale = overrides.filter((o) => hasReason(o) && next.files[o.path]?.class !== 'managed').map((o) => `${OVERRIDES}:${o.line}  path: ${o.path}`);
+  // D1 was green, so every override named a managed file that differed from its hash. D1's own rule on
+  // the new manifest: one that names no managed file now, or whose file matches its new hash, is stale.
+  todo.stale = overrides.filter(hasReason).flatMap((o) => {
+    const f = next.files[o.path];
+    const now = after(o.path);
+    if (f?.class !== 'managed') return [{ line: o.line, path: o.path, why: 'gone' }];
+    return Buffer.isBuffer(now) && sha256(now) === f.sha256 ? [{ line: o.line, path: o.path, why: 'absorbed' }] : [];
+  });
 
-  checkWrites(root, [...todo.writes.keys(), MANIFEST], todo.removes);
+  if (check) checkWrites(root, [...todo.writes.keys(), MANIFEST], todo.removes);
   return todo;
 }
 
@@ -577,12 +608,13 @@ export function land(root, from, name, message, { writes, removes = [] }) {
 /**
  * The manifest after the sync, by the target's classes. Each managed path the target ships is recorded
  * at the target's blob, so the next sync finds this target as its base exactly; its sha256 is the
- * target's too, except a merged or kept file keeps its own (F-01: until resolved) and a collision
- * holds slipway's, so D1 flags it until the owner overrides it or takes slipway's copy. A managed path
+ * target's too, except a merged or kept file that still differs from the target's copy keeps its own
+ * (F-01: until resolved; one that equals it is slipway's again, #132), and a collision holds slipway's,
+ * so D1 flags it until the owner overrides it or takes slipway's copy. A managed path
  * the target no longer ships leaves the manifest, and so does a seeded one: the file, if kept, is the
  * project's. Merged entries stay as they are; one the target adds is recorded as written.
  */
-function nextManifest({ manifest, target, targetRules, targetSha }, rows) {
+function nextManifest({ manifest, target, targetRules, targetSha }, rows, after) {
   const kind = new Map(rows.map((r) => [r.path, r.kind]));
   const version = JSON.parse(target.get('package.json')?.toString('utf8') ?? '{}').version ?? manifest.version;
   const next = buildManifest(null, [...target.keys()], {
@@ -600,7 +632,9 @@ function nextManifest({ manifest, target, targetRules, targetSha }, rows) {
     if (!t) {
       if (m && m.class === 'merged') files[p] = m;
     } else if (t.class === 'managed') {
-      files[p] = m && (kind.get(p) === 'merge' || kind.get(p) === 'keep (edited)') ? { ...t, sha256: m.sha256 } : t;
+      const own = m && (kind.get(p) === 'merge' || kind.get(p) === 'keep (edited)');
+      const now = after(p);
+      files[p] = own && !(Buffer.isBuffer(now) && now.equals(target.get(p))) ? { ...t, sha256: m.sha256 } : t;
     } else if (m) {
       files[p] = { ...m, class: t.class };
     } else if (kind.get(p) === 'add') {
