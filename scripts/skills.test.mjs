@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The intake and ticket skills slipway ships (F-04, dev/features/intake-skills.md): each fits in 300 lines,
+// The intake, ticket and review skills slipway ships (F-04, dev/features/intake-skills.md; #93): each fits in 300 lines,
 // each intake skill ends by asking what else the new issue changes, and every AGENT.md key a skill reads is a
 // documented row; no command names a repository or label of its own. Internal: `pnpm meta` runs it in
 // slipway, never in a project.
@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -20,8 +20,13 @@ const read = (p) => readFileSync(join(SRC, p), 'utf8');
 
 const FOUR = ['log-feature', 'log-bug', 'log-followup', 'work-ticket'];
 const INTAKE = FOUR.filter((s) => s.startsWith('log-'));
-const REQUIRED = FOUR;
+// /pr-review (#93) ships the owner's proven skill whole, references and features/ beside it.
+const REVIEW = 'pr-review';
+const SKILLS = [...FOUR, REVIEW];
+const REQUIRED = SKILLS;
 const MAX_LINES = 300;
+// Exempt from the cap by name: it ships whole rather than rewritten to fit (#93). The cap is not raised.
+const UNCAPPED = [REVIEW];
 // Reference sections a skill may keep below its last step.
 const AFTER_RIPPLE = ['Edge cases'];
 
@@ -31,12 +36,13 @@ function hardCoded(md) {
   for (const m of md.matchAll(/--(repo|label|milestone|add-project)[ =]+"?([^\s"`]+)/g)) {
     if (!m[2].startsWith('{')) found.push(`--${m[1]} ${m[2]}`);
   }
-  for (const m of md.matchAll(/\brepos\/(\{repo\}|[^\s"`/{]+\/[^\s"`/]+)\//g)) if (m[1] !== '{repo}') found.push(`repos/${m[1]}/`);
+  // A shell variable (`${OWNER}`) is filled at run time, like a {placeholder}; neither is a repository written in.
+  for (const m of md.matchAll(/\brepos\/(\{repo\}|[^\s"`/{$]+\/[^\s"`/]+)\//g)) if (m[1] !== '{repo}') found.push(`repos/${m[1]}/`);
   return found;
 }
 
 const skillPath = (s) => `.claude/skills/${s}/SKILL.md`;
-const present = FOUR.filter((s) => existsSync(join(SRC, skillPath(s))));
+const present = SKILLS.filter((s) => existsSync(join(SRC, skillPath(s))));
 
 // AGENT.md §Skill Configuration: key → what it controls.
 const agentRows = new Map(
@@ -47,8 +53,8 @@ const agentRows = new Map(
 const intake = read('process/intake.md');
 const readersOf = (cell) => {
   const c = plain(cell);
-  if (/^all four$/i.test(c)) return new Set(FOUR);
-  const names = new Set(FOUR.filter((s) => new RegExp(`(^|[^\\w-])${s}([^\\w-]|$)`).test(c)));
+  const names = new Set(SKILLS.filter((s) => new RegExp(`(^|[^\\w-])${s}([^\\w-]|$)`).test(c)));
+  if (/^all four\b/i.test(c)) FOUR.forEach((s) => names.add(s));
   if (/the three log- skills/i.test(c)) INTAKE.forEach((s) => names.add(s));
   return names;
 };
@@ -66,7 +72,7 @@ const reads = (md) => {
   return [...line.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
 };
 
-test('the four skills are present', () => {
+test('the four skills and /pr-review are present', () => {
   for (const s of REQUIRED) assert.ok(present.includes(s), `${skillPath(s)} is missing`);
 });
 
@@ -78,9 +84,9 @@ test('the tables the skills read parse', () => {
 for (const s of present) {
   const md = read(skillPath(s));
 
-  test(`${s}: at most ${MAX_LINES} lines, and named for its folder`, () => {
+  test(`${s}: at most ${MAX_LINES} lines${UNCAPPED.includes(s) ? ' (exempt by name)' : ''}, and named for its folder`, () => {
     const lines = md.split('\n').length - (md.endsWith('\n') ? 1 : 0);
-    assert.ok(lines <= MAX_LINES, `${skillPath(s)} is ${lines} lines; move shared steps to process/intake.md`);
+    if (!UNCAPPED.includes(s)) assert.ok(lines <= MAX_LINES, `${skillPath(s)} is ${lines} lines; move shared steps to process/intake.md`);
     assert.match(md, new RegExp(`^---\\nname: ${s}\\n`), `${skillPath(s)} frontmatter must start with name: ${s}`);
   });
 
@@ -122,10 +128,49 @@ for (const s of present) {
   }
 }
 
+// Every markdown file /pr-review ships, not only its SKILL.md: its references carry commands too.
+const reviewFiles = (exts) => {
+  const out = [];
+  const walk = (rel) => {
+    for (const e of readdirSync(join(SRC, rel), { withFileTypes: true })) {
+      const p = `${rel}/${e.name}`;
+      if (e.isDirectory()) walk(p);
+      else if (exts.some((x) => e.name.endsWith(x))) out.push(p);
+    }
+  };
+  if (existsSync(join(SRC, `.claude/skills/${REVIEW}`))) walk(`.claude/skills/${REVIEW}`);
+  return out;
+};
+
 test('no command in a skill or process/intake.md names a repository, label, milestone or board', () => {
-  for (const p of [...present.map(skillPath), 'process/intake.md']) {
+  for (const p of [...new Set([...present.map(skillPath), ...reviewFiles(['.md']), 'process/intake.md'])]) {
     assert.deepEqual(hardCoded(read(p)), [], `${p} writes these into commands; read them from AGENT.md as {placeholders}`);
   }
+});
+
+// /pr-review came from one owner's install: what it ships names no real repository or person. Example repositories
+// use placeholder owners, and the test fixtures use made-up handles. Private project names are checked by eye before
+// each push; a list of them here would publish them.
+const EXAMPLE_OWNERS = new Set(['owner', 'a', 'g', 'some', 'cli']);
+const EXAMPLE_HANDLES = new Set(['octo-author', 'octo-peer', 'alice', 'bob', 'cody']);
+test('/pr-review names no real repository, and its fixtures no real person', () => {
+  const hits = [];
+  for (const p of reviewFiles(['.md', '.ts'])) {
+    for (const m of read(p).matchAll(/github\.com[/:](?:\d+\/)?([A-Za-z0-9_.-]+)\/[A-Za-z0-9_.-]+/g)) {
+      if (!EXAMPLE_OWNERS.has(m[1])) hits.push(`${p}: ${m[0]}`);
+    }
+  }
+  const tests = reviewFiles(['.test.ts']);
+  assert.ok(tests.length > 0, `/pr-review ships no test file`);
+  for (const p of tests) {
+    const t = read(p);
+    const handles = [
+      ...[...t.matchAll(/\b(?:login|username):\s*"([^"]+)"/g)].map((m) => m[1]),
+      ...[...t.matchAll(/detectReviewMode\(([^)]*\))/g)].flatMap((m) => [...m[1].matchAll(/"([^"]*)"/g)].map((q) => q[1])),
+    ];
+    for (const h of handles) if (h && !EXAMPLE_HANDLES.has(h.toLowerCase())) hits.push(`${p}: handle "${h}"`);
+  }
+  assert.deepEqual(hits, [], 'use owner/repo and the made-up handles instead');
 });
 
 test('process/intake.md: every key is an AGENT.md row, with either a default or a question', () => {
@@ -153,8 +198,9 @@ test('process/intake.md: the PR body it prescribes passes the PR check — a lan
 // Shipped text still speaking of the skills as someone's own install, or of a review skill slipway does not ship.
 // Matched across line breaks, since the docs are hard-wrapped. History (decisions, feature docs, lessons, filled
 // reviews) keeps its wording.
-const STALE = [/\buser-level\b/i, /where (it is )?installed/i, /\/pr-review\b/, /live outside slipway/i];
-test('nothing slipway ships calls the skills user-level or installed elsewhere, or names /pr-review', () => {
+// /pr-review was on this list until #93 shipped it (revised 2026-09-28).
+const STALE = [/\buser-level\b/i, /where (it is )?installed/i, /live outside slipway/i];
+test('nothing slipway ships calls the skills user-level or installed elsewhere', () => {
   const files = execFileSync('git', ['ls-files', '*.md', '*.mjs', '*.sh', '*.html', '*.yml', '*.yaml', '*.json'], { cwd: SRC, encoding: 'utf8' })
     .split('\n')
     .filter((f) => f && !/^(decisions\.md|dev\/|process\/lessons\/|scripts\/skills\.test\.mjs)/.test(f))

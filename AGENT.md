@@ -4,7 +4,7 @@ Agent instructions: `CLAUDE.md`.
 
 ## Skill Configuration
 
-Read by `/log-feature`, `/log-bug`, `/log-followup` and `/work-ticket`. **Fill every `<…>` at bootstrap.**
+Read by `/log-feature`, `/log-bug`, `/log-followup`, `/work-ticket` and `/pr-review`. **Fill every `<…>` at bootstrap.**
 A row left as `<…>` or deleted, the skills stop and ask for it. A row added in a later slipway and missing here
 takes the default in `process/intake.md` → Configuration; add the row to change it.
 
