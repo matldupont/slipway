@@ -22,7 +22,6 @@
  *   --output-path <file>              Write JSON to file instead of stdout
  *   --skip-ticket                     Don't attempt linked-issue fetch (still extract the number)
  *   --tone {casual|formal}            Tone hint for downstream rendering (default: casual)
- *   --issue-repo <owner/repo>         Repo the linked issue lives in (default: the PR's repo)
  *   --invariants <path|none>          Domain invariants doc (default: docs/domain-invariants.md)
  *   --milestones <dir|none>           Milestones folder (default: docs/milestones)
  *   --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)
@@ -109,6 +108,8 @@ export interface IssueTicket {
 export interface IssueLookupFailure {
   extractedNumber: number | null;
   source: TicketSource | null;
+  /** The repository the reference named, when not the PR's own. */
+  extractedRepo?: string | null;
   reason: "no_id_found" | "skipped" | "issue_not_found" | "api_error";
   errorMessage?: string;
 }
@@ -192,6 +193,12 @@ export interface SlipwayMilestone {
 export interface SlipwayContext {
   /** True when the repo carries slipway markers (cold-review checklist, domain invariants, or a milestones dir). */
   present: boolean;
+  /**
+   * The base commit the markers were read from — never the PR's head, so the
+   * PR cannot lower its own bar. null when the base could not be fetched: the
+   * markers then read as absent, and the review must say so.
+   */
+  readFrom: string | null;
   /** Parsed from a `Lane: trivial|bounded|feature` line in the PR body. */
   lane: "trivial" | "bounded" | "feature" | null;
   /** Raw text of the PR body's "## Verification" section, if present. */
@@ -288,8 +295,6 @@ interface CLIOptions {
   /** null means "resolve the PR for the current branch". */
   prInput: string | null;
   projectPath: string | null;
-  /** null means the PR's own repo. */
-  issueRepo: string | null;
   slipwayPaths: SlipwayPaths;
   withWorktree: boolean;
   worktreeDir: string | null;
@@ -303,7 +308,6 @@ export function parseArgs(argv: string[]): CLIOptions {
   const opts: CLIOptions = {
     prInput: null,
     projectPath: null,
-    issueRepo: null,
     slipwayPaths: { ...DEFAULT_SLIPWAY_PATHS },
     withWorktree: false,
     worktreeDir: process.env.PR_REVIEW_WORKTREE_DIR ?? null,
@@ -326,14 +330,6 @@ export function parseArgs(argv: string[]): CLIOptions {
       case "--worktree":
         opts.withWorktree = true;
         break;
-      case "--issue-repo": {
-        const v = argv[++i];
-        if (!v || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(v)) {
-          throw new Error(`--issue-repo must be owner/repo (got '${v ?? ""}')`);
-        }
-        opts.issueRepo = v;
-        break;
-      }
       case "--invariants":
         opts.slipwayPaths.invariants = parseSlipwayPath(arg, argv[++i]);
         break;
@@ -743,6 +739,19 @@ export function setupWorktree(
     // instead, then move the branch with checkout -B, which git allows for
     // a worktree's own current branch.
     runGit(["fetch", "origin", pullRefspec], worktreePath);
+    // Commits made in the review worktree that the PR does not have would be
+    // reset away by checkout -B: refuse, as for uncommitted edits.
+    const local = tryRunGit(["rev-list", "--count", "FETCH_HEAD..HEAD"], worktreePath);
+    if (local !== "" && local !== "0") {
+      return {
+        created: false,
+        path: worktreePath,
+        branch: branchName,
+        reason:
+          `existing worktree at ${worktreePath} has ${local} commit(s) the PR does not; ` +
+          `push or move them, or pass --worktree-dir to a fresh location`,
+      };
+    }
     runGit(["checkout", "-B", branchName, "FETCH_HEAD"], worktreePath);
   } else {
     if (!existsSync(parentDir)) mkdirSync(parentDir, { recursive: true });
@@ -768,11 +777,14 @@ export function resolveHeadReviewed(prHeadSha: string, worktree: WorktreeInfo): 
 
 export interface ClosingIssueRef {
   number: number;
+  repository?: { nameWithOwner: string } | null;
 }
 
 export interface ExtractedIssueRef {
   number: number;
   source: TicketSource;
+  /** The repository the reference names; null means the PR's own, as `#N` does on GitHub. */
+  repo: string | null;
 }
 
 /**
@@ -785,10 +797,16 @@ export function extractIssueRef(
   body: string,
 ): ExtractedIssueRef | null {
   if (closingIssuesReferences.length > 0) {
-    return { number: closingIssuesReferences[0].number, source: "closingIssuesReferences" };
+    const first = closingIssuesReferences[0];
+    return {
+      number: first.number,
+      source: "closingIssuesReferences",
+      repo: first.repository?.nameWithOwner ?? null,
+    };
   }
-  const m = body.match(/\b(?:closes?|closed|fix(?:es|ed)?|part of)\s*:?\s*#(\d+)/i);
-  if (m) return { number: Number(m[1]), source: "body" };
+  // `#N` is the PR's own repository on GitHub; `owner/repo#N` names another.
+  const m = body.match(/\b(?:closes?|closed|fix(?:es|ed)?|part of)\s*:?\s*(?:([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+))?#(\d+)/i);
+  if (m) return { number: Number(m[2]), source: "body", repo: m[1] ?? null };
   return null;
 }
 
@@ -819,6 +837,7 @@ export function resolveIssueTicket(
       ticket: null,
       failure: {
         extractedNumber: extracted.number,
+        extractedRepo: extracted.repo,
         source: extracted.source,
         reason: "skipped",
       },
@@ -830,7 +849,7 @@ export function resolveIssueTicket(
       "view",
       String(extracted.number),
       "-R",
-      projectPath,
+      extracted.repo ?? projectPath,
       "--json",
       "number,title,body,state,url,parent",
     ]);
@@ -858,6 +877,8 @@ export function resolveIssueTicket(
         ticket: null,
         failure: {
           extractedNumber: extracted.number,
+          extractedRepo: extracted.repo,
+        extractedRepo: extracted.repo,
           source: extracted.source,
           reason: "issue_not_found",
         },
@@ -868,6 +889,7 @@ export function resolveIssueTicket(
       ticket: null,
       failure: {
         extractedNumber: extracted.number,
+        extractedRepo: extracted.repo,
         source: extracted.source,
         reason: "api_error",
         errorMessage: msg,
@@ -1229,7 +1251,7 @@ const REVIEW_THREADS_QUERY = `
     repository(owner: $owner, name: $repo) {
       pullRequest(number: $number) {
         closingIssuesReferences(first: 10) {
-          nodes { number }
+          nodes { number repository { nameWithOwner } }
         }
         reviewThreads(first: 50, after: $cursor) {
           pageInfo { hasNextPage endCursor }
@@ -1403,60 +1425,138 @@ export function extractLane(body: string): "trivial" | "bounded" | "feature" | n
 }
 
 /**
- * Reads slipway-repo context off the checkout at `checkoutRoot` (the review
- * worktree when one was created, otherwise the caller's own checkout).
- * Every marker is optional — a repo without them gets `present: false` and
- * the skill behaves exactly as it does for any other repo.
+ * Where the slipway inputs are read from. `read` returns a file's text, or
+ * null when it is absent or not a plain file; `list` returns a folder's
+ * plain-file names, or null when the folder is absent.
+ */
+export interface SlipwayReader {
+  read(rel: string): string | null;
+  list(rel: string): string[] | null;
+}
+
+/** Reads a directory on disk. Tests and callers with no base commit. */
+export function fsSlipwayReader(root: string): SlipwayReader {
+  return {
+    read(rel) {
+      try {
+        const full = join(root, rel);
+        return existsSync(full) ? readFileSync(full, "utf8") : null;
+      } catch {
+        return null;
+      }
+    },
+    list(rel) {
+      try {
+        const full = join(root, rel);
+        return existsSync(full) ? readdirSync(full) : null;
+      } catch {
+        return null;
+      }
+    },
+  };
+}
+
+/**
+ * Reads a commit's tree, never a working tree. The review's bar (invariants,
+ * milestones, the cold-review checklist) comes from the PR's base commit, so
+ * the PR cannot lower its own bar by editing those files, and a symlink the
+ * PR commits is never followed: only plain blobs (mode 100644/100755) read.
+ */
+export function gitSlipwayReader(repoRoot: string, commit: string): SlipwayReader {
+  const entries = (rel: string, asDir: boolean) => {
+    const out = tryRunGit(["ls-tree", commit, "--", asDir ? `${rel}/` : rel], repoRoot);
+    return out
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const [meta, path] = line.split("\t");
+        const [mode, type] = meta.split(" ");
+        return { mode, type, path };
+      });
+  };
+  const plain = (e: { mode: string; type: string }) => e.type === "blob" && (e.mode === "100644" || e.mode === "100755");
+  return {
+    read(rel) {
+      const e = entries(rel, false).find((x) => x.path === rel);
+      if (!e || !plain(e)) return null;
+      try {
+        return runGit(["cat-file", "blob", `${commit}:${rel}`], repoRoot);
+      } catch {
+        return null;
+      }
+    },
+    list(rel) {
+      const es = entries(rel, true);
+      if (es.length === 0) return null;
+      return es.filter(plain).map((e) => basename(e.path));
+    },
+  };
+}
+
+/**
+ * The PR's base commit: `refs/heads/<target>` fetched from origin into a sha,
+ * so a stale local branch or a local edit never stands in for it. null when
+ * it cannot be fetched.
+ */
+export function fetchBaseCommit(repoRoot: string, targetBranch: string): string | null {
+  if (!targetBranch || targetBranch.startsWith("-")) return null;
+  // ls-remote names the sha without touching FETCH_HEAD, so a failed fetch
+  // can never leave an older FETCH_HEAD standing in for the base.
+  const line = tryRunGit(["ls-remote", "origin", `refs/heads/${targetBranch}`], repoRoot).split("\n")[0] ?? "";
+  const sha = line.split("\t")[0];
+  if (!/^[0-9a-f]{40,64}$/.test(sha)) return null;
+  try {
+    runGit(["fetch", "--no-tags", "origin", sha], repoRoot);
+  } catch {
+    // Already present locally (fetch by sha may be refused): fine if the object exists.
+  }
+  return tryRunGit(["cat-file", "-e", `${sha}^{commit}`], repoRoot) === "" &&
+    tryRunGit(["rev-parse", "--verify", "--quiet", `${sha}^{commit}`], repoRoot) === sha
+    ? sha
+    : null;
+}
+
+/**
+ * Reads slipway-repo context through `source`: the PR's base commit in
+ * normal use (`gitSlipwayReader`), a directory in tests. Every marker is
+ * optional — a repo without them gets `present: false` and the skill
+ * behaves exactly as it does for any other repo.
  */
 export function detectSlipwayContext(
-  checkoutRoot: string | null,
+  source: string | SlipwayReader | null,
   prBody: string,
   diff: DiffStats,
   paths: SlipwayPaths = DEFAULT_SLIPWAY_PATHS,
+  readFrom: string | null = null,
 ): SlipwayContext {
+  const reader = typeof source === "string" ? fsSlipwayReader(source) : source;
   // A path turned off (null) is never read, whatever the checkout holds.
-  const at = (rel: string | null) => (checkoutRoot && rel ? join(checkoutRoot, rel) : null);
-  const coldReviewPath = at(paths.coldReview);
-  const invariantsPath = at(paths.invariants);
-  const milestonesDir = at(paths.milestones);
+  const read = (rel: string | null) => (reader && rel ? reader.read(rel) : null);
+  const coldReviewText = read(paths.coldReview);
+  const invariantsText = read(paths.invariants);
+  const milestoneFiles = reader && paths.milestones ? reader.list(paths.milestones) : null;
 
-  const hasColdReview = !!coldReviewPath && existsSync(coldReviewPath);
-  const hasInvariants = !!invariantsPath && existsSync(invariantsPath);
-  const hasMilestonesDir = !!milestonesDir && existsSync(milestonesDir);
-  const present = hasColdReview || hasInvariants || hasMilestonesDir;
+  const hasColdReview = coldReviewText !== null;
+  const present = hasColdReview || invariantsText !== null || milestoneFiles !== null;
 
   const changedFiles = Object.keys(diff.changedLines);
   const coldReviewApplies = hasColdReview && diffTouchesRiskPaths(changedFiles);
 
-  let domainInvariants: SlipwayInvariant[] = [];
-  if (hasInvariants) {
-    try {
-      domainInvariants = parseDomainInvariants(readFileSync(invariantsPath!, "utf8"));
-    } catch {
-      domainInvariants = [];
-    }
-  }
+  const domainInvariants = invariantsText !== null ? parseDomainInvariants(invariantsText) : [];
   const invariantsAtRisk = findInvariantsAtRisk(domainInvariants, diff.removedHunks);
 
   const activeMilestones: SlipwayMilestone[] = [];
-  if (hasMilestonesDir) {
-    try {
-      for (const f of readdirSync(milestonesDir!)) {
-        if (!f.endsWith(".md") || f === "TEMPLATE.md") continue;
-        const full = join(milestonesDir!, f);
-        const parsedMilestone = parseActiveMilestone(
-          readFileSync(full, "utf8"),
-          join(paths.milestones!, f),
-        );
-        if (parsedMilestone) activeMilestones.push(parsedMilestone);
-      }
-    } catch {
-      // milestonesDir existed at the existsSync check but became unreadable — behave as absent.
-    }
+  for (const f of milestoneFiles ?? []) {
+    if (!f.endsWith(".md") || f === "TEMPLATE.md") continue;
+    const rel = join(paths.milestones!, f);
+    const text = reader!.read(rel);
+    const parsedMilestone = text !== null ? parseActiveMilestone(text, rel) : null;
+    if (parsedMilestone) activeMilestones.push(parsedMilestone);
   }
 
   return {
     present,
+    readFrom,
     lane: extractLane(prBody),
     verificationSection: extractMarkdownSection(prBody, "Verification"),
     coldReviewApplies,
@@ -1493,7 +1593,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const { ticket, failure } = resolveIssueTicket(
     closingIssues,
     meta.description,
-    opts.issueRepo ?? meta.projectPath,
+    meta.projectPath,
     opts.skipTicket,
   );
   logVerbose(
@@ -1524,8 +1624,16 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const reviewMode = detectReviewMode(meta.author.username);
   logVerbose(opts, `review mode: ${reviewMode} (author @${meta.author.username})`);
 
-  const checkoutRoot = worktree.created ? worktree.path : tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
-  const slipway = detectSlipwayContext(checkoutRoot, meta.description, diff, opts.slipwayPaths);
+  // The bar comes from the PR's base commit, never its head or a working tree.
+  const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
+  const baseCommit = repoRoot ? fetchBaseCommit(repoRoot, meta.targetBranch) : null;
+  const slipway = detectSlipwayContext(
+    repoRoot && baseCommit ? gitSlipwayReader(repoRoot, baseCommit) : null,
+    meta.description,
+    diff,
+    opts.slipwayPaths,
+    baseCommit,
+  );
   logVerbose(opts, `slipway: present=${slipway.present} lane=${slipway.lane ?? "none"}`);
 
   const headReviewed = resolveHeadReviewed(meta.headSha, worktree);
@@ -1589,6 +1697,7 @@ function prNotFoundOutput(
     unresolvedThreads: [],
     slipway: {
       present: false,
+      readFrom: null,
       lane: null,
       verificationSection: null,
       coldReviewApplies: false,
@@ -1622,7 +1731,6 @@ async function main(): Promise<void> {
         "  --output-path <file>              Write JSON to file instead of stdout\n" +
         "  --skip-ticket                     Don't attempt linked-issue fetch\n" +
         "  --tone {casual|formal}            Tone hint for downstream rendering (default: casual)\n" +
-        "  --issue-repo <owner/repo>         Repo the linked issue lives in (default: the PR's repo)\n" +
         "  --invariants <path|none>          Domain invariants doc (default: docs/domain-invariants.md)\n" +
         "  --milestones <dir|none>           Milestones folder (default: docs/milestones)\n" +
         "  --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)\n" +

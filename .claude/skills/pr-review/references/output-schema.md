@@ -86,6 +86,7 @@ truth — no parallel schema in the prose.
   ],
   "slipway": {
     "present": false,
+    "readFrom": null,                         // base commit the markers were read from, never the PR's head
     "lane": null,                             // trivial | bounded | feature — from a `Lane:` line in the PR body
     "verificationSection": null,               // the PR body's "## Verification" section
     "coldReviewApplies": false,

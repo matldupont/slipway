@@ -83,19 +83,21 @@ node pr-review/features/compute.ts 123 --verbose
 
 # Configuration from the project's AGENT.md (SKILL.md → Configuration).
 # `none` turns an input off; it never falls back to the default path.
-node pr-review/features/compute.ts 123 --issue-repo owner/repo \
+node pr-review/features/compute.ts 123 \
   --invariants none --milestones docs/milestones --cold-review process/cold-review.md
 ```
 
 | Flag | Default | `none` |
 |------|---------|--------|
-| `--issue-repo <owner/repo>` | the PR's repo | — |
 | `--invariants <path>` | `docs/domain-invariants.md` | no invariants read |
 | `--milestones <dir>` | `docs/milestones` | no milestones read |
 | `--cold-review <path>` | `process/cold-review.md` | no checklist; `coldReviewApplies` false |
 
-Paths are relative to the checkout and may not leave it (no leading `/`,
-no `..`).
+Paths are relative to the repository root and may not start with `/` or
+contain `..`. They are read from the PR's base commit (`slipway.readFrom`),
+never its head or a working tree, and a committed symlink is never
+followed. The linked issue is read from the repository its reference names
+(`owner/repo#N`, or the closing reference's own); `#N` is the PR's repo.
 
 ## Environment
 
@@ -188,6 +190,7 @@ there validates the shape.
   ],
   "slipway": {
     "present": false,             // true when the repo carries slipway markers
+    "readFrom": null,              // the base commit the markers were read from; null: base not fetched
     "lane": null,                  // "trivial" | "bounded" | "feature", from a `Lane:` line in the PR body
     "verificationSection": null,   // the PR body's "## Verification" section, if present
     "coldReviewApplies": false,    // the --cold-review checklist exists AND diff touches a money/auth/schema/deletion path

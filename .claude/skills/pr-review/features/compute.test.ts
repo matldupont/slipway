@@ -62,6 +62,8 @@ import {
   detectSlipwayContext,
   parseSlipwayPath,
   resolveHeadReviewed,
+  gitSlipwayReader,
+  fetchBaseCommit,
   DEFAULT_SLIPWAY_PATHS,
   type PRMetadata,
   type IssueTicket,
@@ -144,21 +146,18 @@ test("parseArgs: throws on unknown flag", () => {
   assert.throws(() => parseArgs(["42", "--unknown"]), /Unknown argument/);
 });
 
-test("parseArgs: slipway paths default to slipway's layout, issue repo to the PR's", () => {
+test("parseArgs: slipway paths default to slipway's layout", () => {
   const opts = parseArgs(["42"]);
   assert.deepEqual(opts.slipwayPaths, DEFAULT_SLIPWAY_PATHS);
-  assert.equal(opts.issueRepo, null);
 });
 
-test("parseArgs: configured paths and issue repo are taken as given", () => {
+test("parseArgs: configured paths are taken as given", () => {
   const opts = parseArgs([
     "42",
-    "--issue-repo", "owner/issues",
     "--invariants", "docs/rules.md",
     "--milestones", "plan/milestones/",
     "--cold-review", "process/review.md",
   ]);
-  assert.equal(opts.issueRepo, "owner/issues");
   assert.deepEqual(opts.slipwayPaths, {
     invariants: "docs/rules.md",
     milestones: "plan/milestones",
@@ -184,10 +183,18 @@ test("parseSlipwayPath: refuses paths that leave the checkout", () => {
   assert.equal(parseSlipwayPath("--invariants", "docs/x..y.md"), "docs/x..y.md");
 });
 
-test("parseArgs: --issue-repo must be owner/repo", () => {
-  assert.throws(() => parseArgs(["42", "--issue-repo", "just-a-name"]), /owner\/repo/);
-  assert.throws(() => parseArgs(["42", "--issue-repo", "owner/repo; rm -rf"]), /owner\/repo/);
-  assert.throws(() => parseArgs(["42", "--issue-repo"]), /owner\/repo/);
+test("parseArgs: --issue-repo is gone; the reference names its own repository", () => {
+  assert.throws(() => parseArgs(["42", "--issue-repo", "owner/issues"]), /Unknown argument/);
+});
+
+test("extractIssueRef: a closing reference carries its repository", () => {
+  const got = extractIssueRef([{ number: 7, repository: { nameWithOwner: "owner/issues" } }], "");
+  assert.deepEqual(got, { number: 7, source: "closingIssuesReferences", repo: "owner/issues" });
+});
+
+test("extractIssueRef: owner/repo#N in the body names that repository; #N the PR's own", () => {
+  assert.deepEqual(extractIssueRef([], "Closes owner/issues#12"), { number: 12, source: "body", repo: "owner/issues" });
+  assert.deepEqual(extractIssueRef([], "Closes #12"), { number: 12, source: "body", repo: null });
 });
 
 test("parseArgs: --tone defaults to casual", () => {
@@ -318,31 +325,32 @@ test("resolvePRInput: explicit branch name requires project path", () => {
 
 test("extractIssueRef: closingIssuesReferences wins over body keywords", () => {
   const got = extractIssueRef([{ number: 99 }], "Closes #42 as well");
-  assert.deepEqual(got, { number: 99, source: "closingIssuesReferences" });
+  assert.deepEqual(got, { number: 99, source: "closingIssuesReferences", repo: null });
 });
 
 test("extractIssueRef: falls back to 'Closes #N' in body", () => {
   const got = extractIssueRef([], "Closes #42");
-  assert.deepEqual(got, { number: 42, source: "body" });
+  assert.deepEqual(got, { number: 42, source: "body", repo: null });
 });
 
 test("extractIssueRef: recognizes 'Fixes #N'", () => {
-  assert.deepEqual(extractIssueRef([], "Fixes #7"), { number: 7, source: "body" });
+  assert.deepEqual(extractIssueRef([], "Fixes #7"), { number: 7, source: "body", repo: null });
 });
 
 test("extractIssueRef: recognizes 'Fixed #N'", () => {
-  assert.deepEqual(extractIssueRef([], "Fixed #7"), { number: 7, source: "body" });
+  assert.deepEqual(extractIssueRef([], "Fixed #7"), { number: 7, source: "body", repo: null });
 });
 
 test("extractIssueRef: recognizes 'Part of #N'", () => {
   assert.deepEqual(extractIssueRef([], "Part of #123, follow-up to come"), {
     number: 123,
     source: "body",
+    repo: null,
   });
 });
 
 test("extractIssueRef: case-insensitive keyword match", () => {
-  assert.deepEqual(extractIssueRef([], "closes #5"), { number: 5, source: "body" });
+  assert.deepEqual(extractIssueRef([], "closes #5"), { number: 5, source: "body", repo: null });
 });
 
 test("extractIssueRef: returns null when nothing matches", () => {
@@ -1316,6 +1324,87 @@ test("resolveMainWorktreeRoot: returns the repo itself when already in the main 
 test("resolveMainWorktreeRoot: falls back to the given root outside a git repo", () => {
   const empty = mkdtempSync(path.join(tmpdir(), "pr-review-nogit-"));
   assert.equal(resolveMainWorktreeRoot(empty, empty), empty);
+});
+
+test("setupWorktree: bails when reusing a worktree holding commits the PR does not have", () => {
+  const repo = createFixtureRepo();
+  publishPullRef(repo, 21, "feature/x");
+  const meta = mkPR({ number: 21, sourceBranch: "feature/x" });
+  const first = setupWorktree(meta, true, null, repo);
+  assert.equal(first.created, true);
+  writeFileSync(path.join(first.path!, "local.txt"), "mine\n");
+  execSync('git add local.txt && git -c user.email=t@example.com -c user.name=T -c commit.gpgSign=false commit -q -m local', { cwd: first.path!, stdio: "pipe" });
+  const before = execSync("git rev-parse HEAD", { cwd: first.path!, encoding: "utf8" }).trim();
+  const second = setupWorktree(meta, true, null, repo);
+  assert.equal(second.created, false);
+  assert.match(second.reason ?? "", /commit\(s\) the PR does not/);
+  assert.equal(execSync("git rev-parse HEAD", { cwd: first.path!, encoding: "utf8" }).trim(), before);
+});
+
+// The review's bar comes from the PR's base commit, never its head or a working tree.
+function commitAll(repo: string, msg: string): string {
+  execSync(`git add -A && git commit -q -m "${msg}"`, { cwd: repo, stdio: "pipe" });
+  return execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf8" }).trim();
+}
+
+test("gitSlipwayReader: a PR that deletes an invariant row and its test is still caught", () => {
+  const repo = createFixtureRepo();
+  mkdirSync(path.join(repo, "docs"), { recursive: true });
+  writeFileSync(
+    path.join(repo, "docs", "domain-invariants.md"),
+    ["| ID | Invariant | Enforced by | Since |", "|---|---|---|---|", "| INV-1 | x | `packages/billing/charge.test.ts` | 2026-01-01 |"].join("\n"),
+  );
+  writeFileSync(path.join(repo, "cold.md"), "# checklist\n");
+  const base = commitAll(repo, "base");
+  // The PR's head: row and checklist gone. The working tree says the same.
+  writeFileSync(path.join(repo, "docs", "domain-invariants.md"), "| ID | Invariant | Enforced by | Since |\n|---|---|---|---|\n");
+  rmSync(path.join(repo, "cold.md"));
+  commitAll(repo, "pr lowers its bar");
+  const paths = { invariants: "docs/domain-invariants.md", milestones: null, coldReview: "cold.md" };
+  const got = detectSlipwayContext(gitSlipwayReader(repo, base), "## What\nx", billingDiff, paths, base);
+  assert.deepEqual(got.invariantsAtRisk, ["INV-1"]);
+  assert.equal(got.coldReviewApplies, true);
+  assert.equal(got.readFrom, base);
+  // Read from the working tree, the same PR would have switched both off.
+  const head = detectSlipwayContext(repo, "## What\nx", billingDiff, paths);
+  assert.deepEqual(head.invariantsAtRisk, []);
+  assert.equal(head.coldReviewApplies, false);
+});
+
+test("gitSlipwayReader: never follows a committed symlink", () => {
+  const repo = createFixtureRepo();
+  const outside = workspaceMkdtemp("outside-");
+  writeFileSync(path.join(outside, "secret.md"), "| S | leaked | `x` | now |\n");
+  mkdirSync(path.join(repo, "docs"), { recursive: true });
+  execSync(`ln -s "${path.join(outside, "secret.md")}" docs/domain-invariants.md`, { cwd: repo });
+  execSync(`ln -s "${outside}" docs/milestones`, { cwd: repo });
+  const base = commitAll(repo, "symlinks");
+  const reader = gitSlipwayReader(repo, base);
+  assert.equal(reader.read("docs/domain-invariants.md"), null);
+  assert.deepEqual(reader.list("docs/milestones"), null);
+});
+
+test("gitSlipwayReader: lists and reads plain files in a folder", () => {
+  const repo = createFixtureRepo();
+  mkdirSync(path.join(repo, "docs", "milestones"), { recursive: true });
+  writeFileSync(path.join(repo, "docs", "milestones", "M1.md"), ["---", "id: M1", "status: active", "---"].join("\n"));
+  const base = commitAll(repo, "milestone");
+  const reader = gitSlipwayReader(repo, base);
+  assert.deepEqual(reader.list("docs/milestones"), ["M1.md"]);
+  assert.match(reader.read("docs/milestones/M1.md") ?? "", /status: active/);
+  assert.equal(reader.read("docs/absent.md"), null);
+  assert.equal(reader.list("docs/absent"), null);
+});
+
+test("fetchBaseCommit: the remote's branch tip, never a local edit; null when unknown", () => {
+  const repo = createFixtureRepo();
+  const remoteMain = execSync("git ls-remote origin refs/heads/main", { cwd: repo, encoding: "utf8" }).split("\t")[0];
+  writeFileSync(path.join(repo, "local.md"), "unpushed\n");
+  commitAll(repo, "local only");
+  assert.equal(fetchBaseCommit(repo, "main"), remoteMain);
+  assert.equal(fetchBaseCommit(repo, "no-such-branch"), null);
+  assert.equal(fetchBaseCommit(repo, "--upload-pack=touch x"), null);
+  assert.equal(fetchBaseCommit(repo, ""), null);
 });
 
 test("setupWorktree: bails when reusing a worktree with uncommitted changes", () => {

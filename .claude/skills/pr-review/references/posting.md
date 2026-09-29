@@ -57,7 +57,8 @@ a commit nobody reviewed.
 **2. Post one review via a JSON request body:**
 
 ```bash
-cat > /tmp/pr-review.json <<'EOF'
+payload=$(mktemp)   # never a fixed /tmp path another user could plant
+cat > "$payload" <<'EOF'
 {
   "commit_id": "<head sha>",
   "event": "COMMENT",
@@ -73,7 +74,7 @@ cat > /tmp/pr-review.json <<'EOF'
 EOF
 
 gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" \
-  -X POST --input /tmp/pr-review.json
+  -X POST --input "$payload"
 ```
 
 Batching every selected finding into one `comments[]` array and one
@@ -114,7 +115,7 @@ report which finding failed rather than retrying the batch blindly, since
 resubmitting the same bad line just fails again:
 
 ```bash
-gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input /tmp/pr-review.json
+gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input "$payload"
 # non-zero exit / "Unprocessable Entity" → re-check `diff.changedLines` for
 # the offending finding's file:line before retrying
 ```
