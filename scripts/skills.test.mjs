@@ -354,6 +354,7 @@ test('process/intake.md → Milestone item: the argument is matched before use, 
   assert.match(m, /Phase 3 runs in full, Decisions included/, 'a milestone item reads the decisions record too');
   assert.match(m, /the fixed text `\{id\} item \{n\}`, which is built from the checked argument and matched inside the `--jq` program/, 'the already-filed search must run the item term, spaces and all');
   assert.match(m, /A bounded item, or a hit from step 2: on `docs\/\{id\}-item-\{n\}`/, 'a bounded item handed to /log-followup still gets its started marker');
+  assert.match(m, /A line already ending with ` · #\{issue\}` is done/, 'a retried marker write skips only what status reads as started: the end-of-line marker');
 });
 
 test('/log-feature reads decisions.md before Phase 1 and cites both sections; /log-followup takes a Contents line as a frame', () => {
