@@ -28,10 +28,10 @@ try {
 }
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-// Project text quoted in the Next line: one line, at most 60 characters, cut at a word boundary. Control
-// characters (a terminal escape) are dropped and `"` becomes `'`, so the text cannot close its own quotes.
+// Project text quoted in the Next line: one line, at most 60 characters, cut at a word boundary. Control and
+// invisible format characters (a terminal escape, a bidi override, tag characters) are dropped and `"` becomes `'`, so the text cannot close its own quotes.
 const excerpt = (text, max = 60) => {
-  const flat = text.replace(/\s+/g, ' ').replace(/[\x00-\x1f\x7f-\x9f]/g, '').replace(/"/g, "'").trim();
+  const flat = text.replace(/\s+/g, ' ').replace(/[\x00-\x1f\x7f-\x9f\p{Cf}\u{E0000}-\u{E007F}]/gu, '').replace(/"/g, "'").trim();
   if (flat.length <= max) return flat;
   const cut = flat.slice(0, max - 1);
   return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;

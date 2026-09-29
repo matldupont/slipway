@@ -47,10 +47,14 @@ export function contents(md) {
 // An issue named before the citation is a constraint on the slice (`accepts only allowed Origins (#23)`), not
 // the slice's own; `M1#2` is not an issue. /log-feature writes the marker as ` · #{issue}`
 // (process/intake.md → Milestone item).
-// `[^()]*` on both sides of the F-ID keeps the match linear: status runs this in every session's hook.
-const CITATION = /\([^()]*\bF-\d+[^()]*\)|\(\s*no feature:[^)]*\)/gi;
+// A citation may hold one level of parentheses of its own (`(F-02 (see #7))`, `(no feature: ops (cron))`); an
+// issue inside it is a constraint, not the marker. Status runs this in every session's hook, so the text is cut
+// to 2000 characters first: the match is bounded per parenthesis group, not linear.
+const NESTED = String.raw`[^()]*(?:\([^()]*\)[^()]*)*`;
+const CITATION = new RegExp(String.raw`\([^()]*\bF-\d+${NESTED}\)|\(\s*no feature:${NESTED}\)`, 'gi');
 const ISSUE = /(?:^|[\s(,;·])(?:[\w.-]+\/[\w.-]+)?#\d+\b/;
-export function started(text) {
+export function started(full) {
+  const text = full.slice(0, 2000);
   const cites = [...text.matchAll(CITATION)];
   const last = cites.at(-1);
   return ISSUE.test(last ? text.slice(last.index + last[0].length) : text);

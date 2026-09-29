@@ -267,7 +267,7 @@ before it matches; anything else is an idea.
    this slice builds})`. They are all in PRD §5 already, so no F-ID is added and the PRD version is not
    bumped. Schedule is skipped: `Scheduled: {id} Contents item {n} (already)`.
 6. **Started marker.** Once the issue is filed, append ` · #{issue}` to the item's last line in the milestone
-   doc, and its Links gain `Milestone: {id} item {n}`. A feature item: on the doc branch, in the commit that
+   doc, and the issue's Links gain `Milestone: {id} item {n}`. A line already naming the issue is done. A feature item: on the doc branch, in the commit that
    adds the Changes line. A bounded item, or a hit from step 2: on `docs/{id}-item-{n}`, lower case, made from
    the default branch, in a PR of its own (Pull request). `pnpm status` then names the next unstarted item.
 7. Phases 5–7 and Ripple as for an idea.
