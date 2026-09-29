@@ -1,9 +1,18 @@
 # pr-review/features/compute.ts
 
 Deterministic feature extractor for the `pr-review` skill. Resolves PR
-identity, optionally sets up a review worktree, extracts the linked GitHub
-issue, computes readiness signals, and reads slipway-repo context — emitting
-a typed JSON output the skill prompt consumes.
+identity, fetches the PR's head and base commits into this clone as objects,
+extracts the linked GitHub issue, computes readiness signals, and reads
+slipway-repo context — emitting a typed JSON output the skill prompt
+consumes.
+
+It never checks the PR out. The review reads the change with `gh pr diff`
+and any file with `git show <sha>:<path>`, using `headReviewed.sha` or
+`pr.baseSha`, so none of the PR's files is ever on disk for git, a hook or
+a tool to execute or follow. Every git call goes through `runGit`, which
+runs only the commands in `GIT_ALLOWED` (reads, fetches and the reviewer's
+own-checkout comparison) with hooks off; a test fails if any other path to
+git appears.
 
 The deterministic work happens in TypeScript so the agent only does the
 synthesis steps (brief, parallel subagent dispatch, consolidation,
@@ -11,7 +20,7 @@ casual/formal output).
 
 ## Why a separate script
 
-The first four steps of PR review — identify the PR, set up a worktree, find
+The first four steps of PR review — identify the PR, fetch its commits, find
 the linked issue, evaluate readiness — are mechanical. Running them inside
 the prompt burns LLM tokens, makes silent bugs more likely (e.g. a
 zero-match query returning null and reading as "no issue" instead of "lookup
@@ -23,7 +32,7 @@ failed"), and ties the skill to a specific host's MCP ecosystem. The script:
   validate
 - Runs the same way in any host (Claude Code, Cursor, Codex, CI) that has
   `gh` and `git` on PATH
-- Is unit-tested (110+ tests, see Testing section)
+- Is unit-tested (120+ tests, see Testing section)
 
 ## Runtime
 
@@ -55,16 +64,6 @@ node pr-review/features/compute.ts 123
 
 # Omit the ref entirely to resolve the PR for the current branch
 node pr-review/features/compute.ts
-
-# With a worktree (default is no worktree; interactive reviews should
-# always pass this)
-node pr-review/features/compute.ts 123 --worktree
-
-# Custom worktree parent directory (override $PR_REVIEW_WORKTREE_DIR).
-# Must resolve OUTSIDE the repo — a relative path resolves against your cwd,
-# so `--worktree-dir .reviews` from the repo root is rejected. Prefer the
-# default (the repo's sibling directory) unless you have a reason not to.
-node pr-review/features/compute.ts 123 --worktree --worktree-dir ~/work/wt
 
 # Force project path (e.g. when running from outside the target repo)
 node pr-review/features/compute.ts 123 --project-path owner/repo
@@ -103,12 +102,16 @@ The linked issue is loaded only from the PR's own repo or `--issue-repo`;
 a reference to any other gives `ticketLookupFailure.reason:
 "repo_not_allowed"`. Every git call runs with `core.hooksPath=/dev/null`.
 
+The PR's head is fetched by sha (`headRefOid`) as objects, never checked
+out; when it cannot be fetched the output carries `hardHalt:
+head_unreadable`. Asking for a checkout (`--worktree`, `--worktree-dir`)
+fails with a message naming the replacement.
+
 ## Environment
 
 | Variable | Purpose |
 |----------|---------|
 | `GH_HOST` | GitHub host for `gh` (e.g. `github.example.com`). Required for GitHub Enterprise |
-| `PR_REVIEW_WORKTREE_DIR` | Default parent directory for worktrees (overridden by `--worktree-dir`) |
 
 `gh` must already be authenticated (`gh auth status`) — the script has no
 API-key fallback; it shells out to `gh` for everything, including the linked
@@ -122,7 +125,7 @@ there validates the shape.
 
 ```jsonc
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "tone": "casual",                 // "casual" | "formal" (echoes the --tone flag)
   "reviewMode": "peer",             // self | peer — author vs authenticated user
   "pr": {                            // null only when hardHalt.reason === "pr_not_found"
@@ -138,12 +141,6 @@ there validates the shape.
     "mergeStateStatus": "CLEAN",     // GitHub's mergeStateStatus
     "mergeable": "MERGEABLE",        // GitHub's mergeable
     "draft": false
-  },
-  "worktree": {
-    "created": false,
-    "path": null,
-    "branch": null,
-    "reason": "worktree creation not requested (pass --worktree to enable)"
   },
   "ticket": {
     "number": 42,
@@ -203,7 +200,7 @@ there validates the shape.
     "invariantsAtRisk": [],        // invariant IDs whose enforcing test path was touched by a removed hunk
     "activeMilestones": []         // --milestones/*.md with status: active, plus their No-gos bullets
   },
-  "headReviewed": { "sha": "abc123...", "source": "worktree", "moved": false },
+  "headReviewed": { "sha": "abc123...", "moved": false },   // moved: GitHub reported another head after the diff was read
   "hardHalt": null   // populated only when truly unreviewable
 }
 ```
@@ -232,7 +229,7 @@ When the PR is truly unreviewable, the agent should stop and ask the user:
 
 ```jsonc
 {
-  "reason": "empty_diff",          // pr_not_found | empty_diff | no_description_no_ticket | base_unreadable | running_in_pr_checkout
+  "reason": "empty_diff",          // pr_not_found | empty_diff | no_description_no_ticket | base_unreadable | head_unreadable | running_in_pr_checkout
   "detail": "PR has no file changes to review"
 }
 ```
@@ -267,6 +264,9 @@ headings), unresolved-review-thread filtering, required-check bucketing
 `GhNotFoundError` class, hard-halt detection that distinguishes "gh fetch
 failed" from "PR is genuinely empty", unified-diff parsing including a
 deleted-lines-only diff and a pure rename, slipway-context detection
-(present vs absent, domain-invariant risk, active-milestone No-gos), and
-worktree setup against a real temporary git repo (including reuse via a
-re-pushed `pull/N/head` ref, and the dirty-tree bail).
+(present vs absent, domain-invariant risk, active-milestone No-gos), and,
+against a real temporary git repo, fetching a head that exists only under
+`pull/N/head` without writing a file to the working tree, hooks staying
+off, and `runGit` refusing every command that writes a working tree. A
+source scan fails if compute.ts reaches git other than through `runGit`,
+or names a git command outside `GIT_ALLOWED`.

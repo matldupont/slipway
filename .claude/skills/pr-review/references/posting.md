@@ -126,10 +126,10 @@ to confirm placement afterward — but a successful `POST` to `/reviews`
 is itself the confirmation; GitHub doesn't accept the request and silently
 drop the position the way GitLab's discussions API could.
 
-## Run `gh` from inside the repo or worktree
+## Pass `-R` on every `gh` call
 
 `gh api` resolves its default repo from the local git remote when you
 omit `-R`. Prefer passing `-R "${OWNER}/${REPO}"` explicitly on every call
 in this doc rather than relying on cwd — it's one flag and it means the
-posting step works the same whether you're in the worktree, the main
-checkout, or neither.
+posting step works the same whether you're in the repo's checkout or
+not.
