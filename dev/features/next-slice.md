@@ -119,10 +119,9 @@ a frame may be a milestone Contents line handed over by `/log-feature`.
 
 - **One reading of Contents.** F1's `contents(md)` moves to `ci/checks/lib/milestones.mjs`, returning
   `[{ n, text }]`; F1 and status import it.
-- **Started:** the item's tail, the text after its last `(F-…)` or `(no feature: …)` group (the whole text
-  when it has none), names an issue: `#\d+`, optionally `owner/repo#\d+`. An issue named inside the line
-  before its citation (a constraint, "whose `/ws` upgrade accepts only allowed Origins (#23)") does not
-  count.
+- **Started:** the item's line ends with the marker the skill writes, ` · #\d+` or ` · owner/repo#\d+`.
+  An issue named anywhere else in the line (a constraint, "whose `/ws` upgrade accepts only allowed Origins
+  (#23)") does not count.
 - **Next line** for the active milestone, skeleton and build loop alike, where `{lead}` is today's
   `Step 4 (agent) — Walking skeleton: {title}` or `Step 5 (agent) — Build loop: {title}` and `{risk}` is
   today's Meanwhile tail:
@@ -181,10 +180,9 @@ It does not defend against an owner who writes a misleading decision or marks an
 - Conflict detection is the model reading two texts. The probe fixture and the owner probe are its evidence;
   no check proves it for every project.
 - `/log-bug` and `/log-followup` do not read `decisions.md` yet.
-- An issue named after an item's last parenthesised citation counts as its marker, as does any issue on an
-  item with no parenthesised citation (a bare `F-02` is not one). A citation holding parentheses two deep
-  stops being one. The "Active milestone" line still prints the
-  milestone's title whole (#110).
+- Only the ` · #{issue}` marker at the end of the line counts: an item started by hand in another form shows
+  as next until the marker is added. The "Active milestone" line still prints the milestone's title whole
+  (#110).
 
 ## Acceptance
 
@@ -280,4 +278,6 @@ none
 - 2026-09-29 · ADDED · shaped from #118
 - 2026-09-29 · CHANGED · at build (#118): status names no command for an id `/log-feature` refuses (S1
   `build-loop-free-id`) and skips a template `<…>` item; two items sharing a number stop the skill; a seeded
-  Phase 1 takes why now from the appetite and goes on to the next question (found by the agent probe)
+  Phase 1 takes why now from the appetite and goes on to the next question (found by the agent probe);
+  started is the end-of-line marker only, not any issue after the citation (the owner's call, after two review
+  rounds found faults in the citation parser)

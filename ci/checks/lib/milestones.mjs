@@ -42,20 +42,12 @@ export function contents(md) {
   return items;
 }
 
-// A Contents item is started when its tail — the text after its last `(F-…)` or `(no feature: …)` group, or
-// all of it when it has none — names an issue: `#12` or `owner/repo#12`, after a space, `(`, `,`, `;` or `·`.
-// An issue named before the citation is a constraint on the slice (`accepts only allowed Origins (#23)`), not
-// the slice's own; `M1#2` is not an issue. /log-feature writes the marker as ` · #{issue}`
-// (process/intake.md → Milestone item).
-// A citation may hold one level of parentheses of its own (`(F-02 (see #7))`, `(no feature: ops (cron))`); an
-// issue inside it is a constraint, not the marker. Status runs this in every session's hook, so the text is cut
-// to 2000 characters first: the match is bounded per parenthesis group, not linear.
-const NESTED = String.raw`[^()]*(?:\([^()]*\)[^()]*)*`;
-const CITATION = new RegExp(String.raw`\([^()]*\bF-\d+${NESTED}\)|\(\s*no feature:${NESTED}\)`, 'gi');
-const ISSUE = /(?:^|[\s(,;·])(?:[\w.-]+\/[\w.-]+)?#\d+\b/;
-export function started(full) {
-  const text = full.slice(0, 2000);
-  const cites = [...text.matchAll(CITATION)];
-  const last = cites.at(-1);
-  return ISSUE.test(last ? text.slice(last.index + last[0].length) : text);
+// A Contents item is started when its line ends with the marker /log-feature writes once the item's issue is
+// filed (process/intake.md → Milestone item): ` · #12`, or ` · owner/repo#12`. Only the marker counts: an issue
+// named anywhere else in the line is a constraint on the slice (`accepts only allowed Origins (#23)`). Status
+// runs this in every session's hook, so it reads only the line's last 200 characters, and the pattern is
+// anchored at the end.
+const MARKER = /(?:^|\s)·\s*(?:[\w.-]+\/[\w.-]+)?#\d+$/;
+export function started(text) {
+  return MARKER.test(text.trimEnd().slice(-200));
 }

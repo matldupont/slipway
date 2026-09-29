@@ -246,8 +246,8 @@ before it matches; anything else is an idea.
 1. **Resolve.** The milestone doc whose frontmatter has that `id:` (`Milestone roadmap`); its Contents items are
    the lines that start `{n}.`, indented lines continuing them. Stop, saying why, when the milestone is not
    `status: active` ("M2 is still being shaped: activate it first, or describe the idea"); when no item, or
-   more than one, is numbered {n} (list the items there are); or when the item is started: the text after
-   its last `(F-…)` or `(no feature: …)` group names an issue ("Item 2 already has #41: `/work-ticket 41`").
+   more than one, is numbered {n} (list the items there are); or when the item is started: its line
+   ends with the marker ` · #{issue}` of step 6 ("Item 2 already has #41: `/work-ticket 41`").
 2. **Already filed?** Search open issues as Ripple searches, for the item's F-IDs and for the fixed text
    `{id} item {n}`, which is built from the checked argument and matched inside the `--jq` program even though
    it holds spaces. Show each hit; the owner says whether it is this item. Yes: write the started marker
