@@ -168,7 +168,7 @@ summary}), or a later milestone?" With no active milestone, name the one being s
   the owner its name, and give them the §4 line.
 
 Commit on the branch, and run the repository's checks (R1 as PRD entry says). On a draft PRD the milestone
-check only confirms the PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents.
+check only confirms the PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`).
 
 ```bash
 pnpm meta
@@ -180,8 +180,8 @@ MVP cut:   {one line}
 Deferred:  {item — why}
 Build map: 1. {step} — {layer}, ~{size} …
 Lane:      feature | bounded → /log-followup
-Doc:       {Feature docs dir}/{name}.md · PRD §5 F-{nn} (Version {old} → {new})
-Scheduled: {milestone id} Contents item {n} | DEFER — stopped, branch {name} unpushed
+Doc:       {Feature docs dir}/{name}.md · PRD §5 F-{nn} (Version {old} → {new}) | F-{nn} in its title, PRD: none by design — "{row}"
+Scheduled: {milestone id} Contents item {n} | none by design — "{row}" | DEFER — stopped, branch {name} unpushed
 Review:    {PRD entry's owner message, when R1 reports it} | none
 Branch:    docs/feature-{name} (committed, not pushed)
 ```

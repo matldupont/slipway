@@ -190,7 +190,7 @@ extend it (a Changes line, an acceptance line) instead of starting another.
   file nothing, leave the branch unpushed, tell the owner its name, and give them the §4 *Out, explicitly*
   line instead.
 - **Commit** on the branch, and run `pnpm meta` (R1 as PRD entry says). On a draft PRD the milestone check only confirms the PRD
-  exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents. Push in Phase 5,
+  exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). Push in Phase 5,
   once the issue number exists.
 
 The stub is a draft of intent. The bug's acceptance says it is reviewed first (Phase 5); there is no separate
@@ -198,9 +198,9 @@ review issue.
 
 ```
 PHASE 4: WRITTEN DOWN
-PRD:      {§ and ids} "{quoted lines}" | not found
+PRD:      {§ and ids} "{quoted lines}" | none by design — "{row}" | not found
 Doc:      A {path | #n} | B/C drafted {path} (draft, committed on docs/bug-{name}) | C → not a bug | C → /log-feature
-PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none
+PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none (milestone: none by design — "{row}")
 Review:   {PRD entry's owner message, when R1 reports it} | none
 ```
 
