@@ -242,7 +242,7 @@ test(`process/intake.md → Configuration states that rule: ${SETTINGS} first, o
   assert.match(first, /Read one file, never a mix of the two/, 'intake must forbid mixing the two files');
 });
 
-test('work-ticket asks before a run whose diff touches the settings file, the manifest or slipway\'s markers', () => {
+test('work-ticket\'s rule files name the settings file, the manifest and slipway\'s markers', () => {
   const rules = read(skillPath('work-ticket')).match(/\*\*The rules the run is judged by:\*\*([\s\S]*?)\n\n/)?.[1] ?? '';
   for (const p of [SETTINGS, '.slipway/**', 'dev/ownership.yaml', 'scripts/new-project.mjs']) assert.ok(rules.includes(`\`${p}\``), `work-ticket's rule files do not name ${p}`);
 });
@@ -256,15 +256,20 @@ test('work-ticket checks its rule files before it reads a setting or runs the ga
   assert.match(first, /^\*\*First, before any setting is read or any command it names runs\.\*\*/, 'Configuration must open with the rule-file check');
   assert.ok(first.includes('**The rules the run is judged by:**'), 'the first paragraph of Configuration must be the rule-file check');
   assert.ok(first.includes('`git diff --name-only --no-renames origin/{base}`'), 'the rule-file check must run the diff');
+  for (const p of ['each `AGENT.md` and `CLAUDE.md` at any depth', '`process/harness/**`']) assert.ok(first.includes(p), `the rule files must name ${p}`);
+  assert.match(first, /again on checking out an existing branch before a file on it is read/, 'a reused branch must be checked before it is read');
+  assert.match(first, /A check that cannot run is not a pass: stop/, 'a failed check must stop the run, not pass it');
   assert.match(first, /A no ends the run: name the rule files the branch changed and stop/, 'a no must end the run');
-  const at = (s) => md.indexOf(s);
-  const check = at('`git diff --name-only --no-renames origin/{base}`');
-  const resolve = at('resolve per `process/intake.md` → Configuration');
-  const gate = at('Run `Quality gate`');
+  // First hits over the whole file, any case: nothing above Configuration resolves the settings or runs the gate.
+  const at = (re) => md.search(re);
+  const check = md.indexOf('`git diff --name-only --no-renames origin/{base}`');
+  const resolve = at(/resolve[^\n]*`process\/intake\.md` → Configuration/i);
+  const gate = at(/\brun[^\n.]*`Quality gate`/i);
   assert.ok(resolve > 0 && gate > 0, 'work-ticket must resolve its settings and run `Quality gate`');
   assert.ok(check < resolve, 'work-ticket resolves its settings before its rule-file check');
-  assert.ok(check < at('read before Phase 1'), 'work-ticket reads the docs its settings name before its rule-file check');
+  assert.ok(check < at(/read before Phase 1/i), 'work-ticket reads the docs its settings name before its rule-file check');
   assert.ok(resolve < gate, 'work-ticket runs `Quality gate` before resolving it');
+  assert.match(section(md, 'Phase 3 — Build', 2) ?? '', /\*\*Branch\*\* per [^\n]*an existing one gets the rule-file check first/, 'Phase 3 must check a reused branch before building on it');
 });
 
 test('process/intake.md says when /work-ticket\'s rule-file check fires: before either settings file is read', () => {
