@@ -107,8 +107,9 @@ this form; anything else is today's idea. The argument is used only after that m
    line cites is already in PRD §5 (F1 fails otherwise), so no F-ID is added and the PRD version is not
    bumped. Schedule is skipped: `Scheduled: {id} Contents item {n} (already)`.
 6. **Started marker.** After Phase 5 files the issue, append ` · #{issue}` to the item's last line in the
-   milestone doc, on the doc branch, in the commit that adds the Changes line. Its Links gain
-   `Milestone: {id} item {n}`.
+   milestone doc, and the issue's Links gain `Milestone: {id} item {n}`. A feature item: on the doc branch, in
+   the commit that adds the Changes line. A bounded item, or an already-filed hit: on `docs/{id}-item-{n}`, in
+   a PR of its own. A line already ending with ` · #{issue}` is done.
 7. Phases 5–7 and Ripple as for an idea.
 
 `.claude/skills/log-feature/SKILL.md` gains the argument form and one line at Phases 1, 2 and 4 citing

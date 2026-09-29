@@ -1,0 +1,6 @@
+{
+  "_note": "Only a marker at the very end of the line starts an item: item 1's ' · #12' is followed by more text, so item 1 is still next.",
+  "today": "2026-03-10",
+  "next": "Step 5 (agent) — Build loop: Booking. Next slice: item 1, \"A walker sees tomorrow's walks (F-01) · #12 (reverted)\". Start it in a fresh session with /log-feature M2#1.",
+  "frame": "framed · risks: RISK-1 tested"
+}
