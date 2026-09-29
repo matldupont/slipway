@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # slipway is told apart by its root commit; a shallow clone cannot show it (#123)
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -36,6 +38,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # slipway is told apart by its root commit; a shallow clone cannot show it (#123)
       # Before any install: with no app there is nothing to verify, and this says so (BROKEN, pointing at
       # BOOTSTRAP §1) instead of failing later on a missing lockfile. Needs no dependencies.
       - name: Require an app

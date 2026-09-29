@@ -9,9 +9,11 @@
 //     - path: ci/checks/meta/k1-frame.mjs
 //       reason: our FRAME.md has no metrics section
 
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CONTROL, escapeControl } from './report.mjs';
 import { readList } from './yaml-list.mjs';
 
@@ -20,10 +22,80 @@ export const OVERRIDES = '.slipway/overrides.yaml';
 // The classes a manifest can record: `internal` never ships, so it is never in one.
 export const RECORDED = ['managed', 'seeded', 'merged'];
 
-// Slipway itself, not an install: internal files new-project never copies, so a project's own `dev/`
-// folder alone is not enough. D1 goes green in template mode on them; W1 checks slipway's own tests.
+// Slipway itself, not an install. D1 goes green in template mode; W1 checks slipway's own tests; sync
+// refuses to run. All three conditions hold, and anything this cannot tell is "not slipway":
+//   - both markers: internal files new-project never copies, so a project's own `dev/` folder is not enough;
+//   - `root` is the top of its git checkout. SLIPWAY_TEMPLATE_FIXTURE=1 lifts this one condition, for the
+//     known-bad fixtures inside slipway's own checkout; a project's history still fails the next one;
+//   - that checkout's history has exactly one root commit, SLIPWAY_ROOT_COMMIT. A project can add files;
+//     it cannot make a commit id. A shallow clone lists its boundary commit as a root, so it is not slipway.
+// Git is found outside the repository and runs with every GIT_* variable dropped, and replace refs and
+// grafts ignored: nothing the repository holds or the environment sets can stand in for git, point it at
+// another repository, or give a commit other parents.
+//
+// SLIPWAY_ROOT_COMMIT is the root of slipway's history after the 2026-09-24 rewrite. A project starts
+// its own history (new-project runs git init). Any future rewrite of slipway's history must update it.
+export const SLIPWAY_ROOT_COMMIT = 'fa6b1b7468259792180683f6e7cd360475ba04fd';
 export const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
-export const isTemplate = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
+export const hasTemplateMarkers = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
+
+// Git comes from PATH without any entry inside the repository or under any node_modules: `pnpm run` puts
+// node_modules/.bin first, and a `git` committed there would answer for the project. The repository is
+// found on disk, the nearest folder up that holds .git, never by asking git. Paths are compared as the
+// disk spells them, so a case-insensitive disk hides nothing. With nothing left on PATH the answer is
+// "not slipway", never a git found in the folder it runs from; it runs from outside the repository (-C).
+// No grafts file either: .git/info/grafts can give a commit any parents, as replace refs can.
+const real = (p) => {
+  try {
+    return realpathSync.native(p);
+  } catch {
+    return resolve(p);
+  }
+};
+const inside = (dir, p) => {
+  const r = relative(dir, real(p));
+  return r === '' || (r !== '..' && !r.startsWith(`..${sep}`) && !isAbsolute(r));
+};
+function diskTop(dir) {
+  for (let d = dir; ; d = dirname(d)) {
+    if (existsSync(join(d, '.git'))) return d;
+    if (dirname(d) === d) return null;
+  }
+}
+function gitEnv(top) {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_/i.test(k)));
+  const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
+  env[key] = (env[key] ?? '')
+    .split(delimiter)
+    .filter((p) => isAbsolute(p) && !p.split(/[\\/]/).some((s) => s.toLowerCase() === 'node_modules') && !inside(top, p))
+    .join(delimiter);
+  if (!env[key]) throw new Error('no PATH entry outside the repository');
+  return { ...env, GIT_GRAFT_FILE: '/dev/null' };
+}
+const gitOut = (at, top, args) =>
+  execFileSync('git', ['--no-replace-objects', '-C', at, ...args], { cwd: tmpdir(), env: gitEnv(top), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+const slipwayHistory = new Map();
+function isSlipwayHistory(root) {
+  let dir;
+  try {
+    dir = realpathSync.native(root);
+  } catch {
+    return false;
+  }
+  if (!slipwayHistory.has(dir)) {
+    let yes = false;
+    try {
+      const top = diskTop(dir);
+      yes =
+        top !== null &&
+        (top === dir || process.env.SLIPWAY_TEMPLATE_FIXTURE === '1') &&
+        gitOut(top, top, ['rev-list', '--max-parents=0', 'HEAD']) === SLIPWAY_ROOT_COMMIT;
+    } catch {}
+    slipwayHistory.set(dir, yes);
+  }
+  return slipwayHistory.get(dir);
+}
+export const isTemplate = (root) => hasTemplateMarkers(root) && isSlipwayHistory(root);
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 

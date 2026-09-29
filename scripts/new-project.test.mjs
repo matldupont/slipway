@@ -9,10 +9,10 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { MANIFEST, readManifest, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest, sha256, SLIPWAY_ROOT_COMMIT, TEMPLATE_MARKERS } from '../ci/checks/lib/manifest.mjs';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
 import { blobSha, derivePackageJson, publicSource, resolveSlipway } from './lib/install.mjs';
 
@@ -38,7 +38,7 @@ const tmp = () => {
   return d;
 };
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-const check = (dir, file) => spawnSync(process.execPath, [join(dir, 'ci', 'checks', 'meta', file), dir], { encoding: 'utf8' });
+const check = (dir, file, env = {}) => spawnSync(process.execPath, [join(dir, 'ci', 'checks', 'meta', file), dir], { encoding: 'utf8', env: { ...process.env, ...env } });
 
 function newProject(src, dest, env = {}) {
   const r = spawnSync(process.execPath, [join(src, 'scripts', 'new-project.mjs'), dest, '--no-github', '--no-harness'], {
@@ -95,7 +95,8 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   assert.equal(JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8')).scripts['use-slipway'], 'npx github:matldupont/slipway#main');
   assert.match(readme, /`pnpm use-slipway sync`/);
 
-  for (const f of ['d1-drift.mjs', 'w1-declared-vs-invoked.mjs']) {
+  // PC1 too: every known-bad fixture the project gets must go red there as it does in slipway (#123).
+  for (const f of ['d1-drift.mjs', 'w1-declared-vs-invoked.mjs', 'pc1-positive-control.mjs']) {
     const r = check(dest, f);
     assert.equal(r.status, 0, `${f} in a fresh project:\n${r.stdout}`);
   }
@@ -133,6 +134,92 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 2);
   assert.match(r.stdout, /BROKEN — manifest\/missing/);
+});
+
+// #123: two files a project can add were once all it took.
+test('a project cannot enter template mode: no manifest plus slipway\'s marker files is still manifest/missing', () => {
+  const dest = join(tmp(), 'faker');
+  newProject(SRC, dest);
+  unlinkSync(join(dest, MANIFEST));
+  for (const m of TEMPLATE_MARKERS) {
+    mkdirSync(dirname(join(dest, m)), { recursive: true });
+    writeFileSync(join(dest, m), '');
+  }
+  git(dest, 'add', '-A');
+  git(dest, 'commit', '-q', '-m', 'look like slipway');
+
+  // The fixture switch lifts only "top of the checkout"; GIT_DIR cannot lend the project slipway's history.
+  const slipwayGitDir = git(SRC, 'rev-parse', '--absolute-git-dir');
+  for (const env of [{}, { SLIPWAY_TEMPLATE_FIXTURE: '1' }, { GIT_DIR: slipwayGitDir }]) {
+    const r = check(dest, 'd1-drift.mjs', env);
+    assert.equal(r.status, 2, `${JSON.stringify(env)}:\n${r.stdout}`);
+    assert.match(r.stdout, /BROKEN — manifest\/missing — .* are here, but this is not slipway's own full checkout/);
+  }
+  assert.doesNotMatch(check(dest, 'w1-declared-vs-invoked.mjs').stdout, /slipway tests/);
+
+  // A git committed inside the project, first on PATH as `pnpm run` puts node_modules/.bin, would say
+  // slipway's root commit; the check never runs a git from inside the repository.
+  const sq = (v) => `'${v.replace(/'/g, "'\\''")}'`;
+  const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  const fakeGit = (file, top = null) => {
+    mkdirSync(dirname(file), { recursive: true });
+    const lie = top ? `*show-toplevel*) echo ${sq(top)}; exit 0;; ` : '';
+    writeFileSync(file, `#!/bin/sh\ncase "$*" in ${lie}*rev-list*) echo ${SLIPWAY_ROOT_COMMIT}; exit 0;; esac\nexec ${sq(realGit)} "$@"\n`, { mode: 0o755 });
+  };
+  const onPath = (d) => `${d}${delimiter}${process.env.PATH}`;
+  for (const bin of ['node_modules/.bin', 'tools']) {
+    fakeGit(join(dest, bin, 'git'));
+    const PATH = onPath(join(dest, bin));
+    assert.equal(execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: dest, env: { ...process.env, PATH }, encoding: 'utf8' }).trim(), SLIPWAY_ROOT_COMMIT, 'the fake answers');
+    const r = check(dest, 'd1-drift.mjs', { PATH });
+    assert.equal(r.status, 2, `git in ${bin}:\n${r.stdout}`);
+    assert.match(r.stdout, /BROKEN — manifest\/missing/);
+  }
+  // The same folder spelled in another case, where the disk ignores case (macOS, Windows).
+  const otherCase = join(dirname(dest), 'FAKER', 'tools');
+  if (existsSync(otherCase)) assert.equal(check(dest, 'd1-drift.mjs', { PATH: onPath(otherCase) }).status, 2, 'git on a PATH entry spelled in another case');
+  // With the fixture switch, D1 on a folder inside the project: a git elsewhere in the project, outside
+  // that folder, that names slipway as the top of the checkout.
+  const sub = join(dest, 'sub');
+  for (const m of TEMPLATE_MARKERS) {
+    mkdirSync(dirname(join(sub, m)), { recursive: true });
+    writeFileSync(join(sub, m), '');
+  }
+  for (const bin of ['node_modules/.bin', 'tools']) {
+    fakeGit(join(dest, bin, 'git'), SRC);
+    const sr = spawnSync(process.execPath, [join(dest, 'ci', 'checks', 'meta', 'd1-drift.mjs'), sub], {
+      encoding: 'utf8',
+      env: { ...process.env, SLIPWAY_TEMPLATE_FIXTURE: '1', PATH: onPath(join(dest, bin)) },
+    });
+    assert.equal(sr.status, 2, `fixture switch, git in ${bin}:\n${sr.stdout}`);
+  }
+  // Nothing left on PATH: never a git from the folder it runs in (the temp folder).
+  const tmpGit = tmp();
+  fakeGit(join(tmpGit, 'git'), dest);
+  assert.equal(check(dest, 'd1-drift.mjs', { PATH: '', TMPDIR: tmpGit }).status, 2, 'empty PATH, a git in TMPDIR');
+  for (const d of ['node_modules', 'tools', 'sub']) rmSync(join(dest, d), { recursive: true });
+
+  // A graft can give the project's HEAD slipway's root as its only parent; git here reads no grafts file.
+  git(dest, 'fetch', '-q', SRC, 'HEAD');
+  writeFileSync(join(git(dest, 'rev-parse', '--absolute-git-dir'), 'info', 'grafts'), `${git(dest, 'rev-parse', 'HEAD')} ${SLIPWAY_ROOT_COMMIT}\n`);
+  assert.equal(git(dest, 'rev-list', '--max-parents=0', 'HEAD'), SLIPWAY_ROOT_COMMIT, 'the graft takes');
+  const r = check(dest, 'd1-drift.mjs');
+  assert.equal(r.status, 2, `grafted:\n${r.stdout}`);
+  assert.match(r.stdout, /BROKEN — manifest\/missing/);
+});
+
+test('isTemplate: slipway\'s own checkout, never a shallow clone of it or a folder inside it', () => {
+  assert.equal(isTemplate(SRC), true, 'slipway itself, with its full history');
+  const full = join(tmp(), 'full');
+  git(tmpdir(), 'clone', '-q', `file://${SRC}`, full);
+  assert.equal(isTemplate(full), true, 'a full clone is slipway');
+  unlinkSync(join(full, TEMPLATE_MARKERS[0]));
+  assert.equal(isTemplate(full), false, 'without its markers it is not');
+  const shallow = join(tmp(), 'shallow');
+  git(tmpdir(), 'clone', '-q', '--depth', '1', `file://${SRC}`, shallow);
+  assert.equal(hasTemplateMarkers(shallow), true);
+  assert.equal(isTemplate(shallow), false, 'a shallow clone cannot show its root commit');
+  assert.equal(isTemplate(join(SRC, 'ci', 'fixtures', 'known-bad', 'd1', 'markers-faked')), false);
 });
 
 test('ci/before-verify.sh: the project\'s own (seeded, never shipped), run by the verify job when present, named by D1 for an edited ci.yml', () => {

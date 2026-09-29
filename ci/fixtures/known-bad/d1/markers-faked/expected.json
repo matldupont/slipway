@@ -1,0 +1,5 @@
+{
+  "_note": "A project that deleted its manifest and added slipway's two marker files, empty. Not slipway's checkout: a subfolder of it, so not the top of a git history.",
+  "exit": 2,
+  "broken": "manifest/missing"
+}

@@ -6,7 +6,7 @@
 //   1. every gated script (check, lint, test, build, typecheck, and their `:sub` forms)
 //      declared by any workspace package is invoked by a CI workflow;
 //   2. every check in ci/checks/meta/ is run by a CI workflow;
-//   3. in slipway itself (lib/manifest.mjs TEMPLATE_MARKERS), every `scripts/**/*.test.mjs` is run
+//   3. in slipway itself (lib/manifest.mjs isTemplate), every `scripts/**/*.test.mjs` is run
 //      by a CI workflow — they prove new-project and sync, and never ship. A project's own scripts/
 //      is not read: its tests usually run through a runner W1 cannot see into.
 //

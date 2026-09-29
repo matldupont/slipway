@@ -38,6 +38,9 @@ paths:
     class: internal
   - glob: ci/fixtures/known-bad/o1/**
     class: internal
+  # W1's template-mode case: only slipway's own checkout can be slipway (#123), so it goes red in a project
+  - glob: ci/fixtures/known-bad/w1/tests/**
+    class: internal
   # S1 pins slipway's own status output. status.mjs is managed: a project's edit to it is an override, and S1's
   # coverage of that edit is slipway's concern, not the project's, so S1 and its fixtures never ship
   - glob: ci/checks/meta/s1-status.mjs

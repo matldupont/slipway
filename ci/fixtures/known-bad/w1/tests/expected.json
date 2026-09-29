@@ -1,5 +1,6 @@
 {
-  "_note": "Slipway itself (dev/ownership.yaml and scripts/new-project.mjs present). Covered: scripts/run.test.mjs, called by the root meta script CI runs. Traps: scripts/lib/orphan.test.mjs nothing runs; scripts/commented.test.mjs only in a shell comment; scripts/trailing.test.mjs only in a trailing comment; scripts/echoed.test.mjs only as an echo argument; scripts/fallback.test.mjs only right of `||`. Covered: scripts/quoted.test.mjs (a `#` inside quotes truncates nothing).",
+  "_note": "Slipway itself (dev/ownership.yaml and scripts/new-project.mjs present; SLIPWAY_TEMPLATE_FIXTURE=1 lets this subfolder of slipway's checkout count, and scripts/new-project.test.mjs proves the switch cannot flip a project). Covered: scripts/run.test.mjs, called by the root meta script CI runs. Traps: scripts/lib/orphan.test.mjs nothing runs; scripts/commented.test.mjs only in a shell comment; scripts/trailing.test.mjs only in a trailing comment; scripts/echoed.test.mjs only as an echo argument; scripts/fallback.test.mjs only right of `||`. Covered: scripts/quoted.test.mjs (a `#` inside quotes truncates nothing).",
+  "env": { "SLIPWAY_TEMPLATE_FIXTURE": "1" },
   "exit": 1,
   "findings": [
     "test:scripts/commented.test.mjs",
