@@ -10,7 +10,7 @@ It never checks the PR out. It is the one place that reads the PR's files:
 it writes a **review folder** (`reviewDir`) in the system temp directory,
 fresh per run and owner-only (0700) — `diff.patch` (the pinned
 `git diff <base>...<head>`), `files/<n>.head` and `files/<n>.base` (each
-changed file's text, under numbered names), and `index.json` mapping each
+changed file's text at the head and at the merge-base, under numbered names), and `index.json` mapping each
 number to the author's file name as data. Reviewers read it with their
 Read and Grep tools; `--cleanup <reviewDir.path>` deletes it.
 
@@ -83,9 +83,6 @@ node pr-review/features/compute.ts 123 --skip-ticket
 # Tone hint for downstream rendering (default: casual)
 node pr-review/features/compute.ts 123 --tone formal
 
-# Write to a file instead of stdout
-node pr-review/features/compute.ts 123 --output-path /tmp/features.json
-
 # Diagnostic logging to stderr (includes swallowed gh/git stderr)
 node pr-review/features/compute.ts 123 --verbose
 
@@ -134,7 +131,7 @@ GitHub issue.
 
 ## Output schema
 
-The script emits a single JSON object on stdout (or to `--output-path`).
+The script emits a single JSON object on stdout. It writes no file but its review folder: `--output-path` is refused, since the script runs pre-approved.
 The TypeScript schema is in `compute.ts`; `isFeatureOutput()` exported from
 there validates the shape.
 
@@ -266,7 +263,7 @@ When `reason: "pr_not_found"`, `pr` will be `null` — always check
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success — JSON written to stdout (or `--output-path`) |
+| `0` | Success — JSON written to stdout |
 | `1` | Bad arguments (unknown flag, invalid `--tone`) |
 | `2` | Compute failure (`gh` error, project path unresolvable, PR not found) |
 
@@ -293,5 +290,5 @@ deleted-lines-only diff and a pure rename, slipway-context detection
 against a real temporary git repo, fetching a head that exists only under
 `pull/N/head` without writing a file to the working tree, hooks staying
 off, and `runGit` refusing every command that writes a working tree. A
-source scan fails if compute.ts reaches git other than through `runGit`,
+source scan fails if compute.ts reaches git other than through `execGit`,
 or names a git command outside `GIT_ALLOWED`.

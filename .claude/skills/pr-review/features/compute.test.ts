@@ -14,7 +14,7 @@
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, lstatSync, statSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -134,13 +134,11 @@ test("parseArgs: parses all flags", () => {
   const opts = parseArgs([
     "42",
     "--project-path", "owner/repo",
-    "--output-path", "/tmp/out.json",
     "--skip-ticket",
     "--verbose",
   ]);
   assert.equal(opts.prInput, "42");
   assert.equal(opts.projectPath, "owner/repo");
-  assert.equal(opts.outputPath, "/tmp/out.json");
   assert.equal(opts.skipTicket, true);
   assert.equal(opts.verbose, true);
 });
@@ -1530,6 +1528,74 @@ test("cleanupReviewDir: deletes only a review folder this script made", () => {
   } finally {
     rmSync(bare, { recursive: true, force: true });
     rmSync(other, { recursive: true, force: true });
+  }
+});
+
+test("parseArgs: --output-path is refused — compute.ts runs pre-approved and writes nowhere but its folder", () => {
+  assert.throws(() => parseArgs(["42", "--output-path", "/tmp/out.json"]), /--output-path was removed/);
+});
+
+test("writeReviewDir: names that are not valid UTF-8 keep their own texts", () => {
+  const repo = createFixtureRepo();
+  // Built from git objects: a filesystem (APFS) may refuse such names, and a PR's tree need not come from one.
+  const git = (args: string[], input?: Buffer | string) =>
+    execFileSync("git", args, { cwd: repo, input, stdio: ["pipe", "pipe", "pipe"] });
+  const blob = (text: string) => git(["hash-object", "-w", "--stdin"], text).toString().trim();
+  const entry = (oid: string, name: Buffer) =>
+    Buffer.concat([Buffer.from(`100644 blob ${oid}\t`), name, Buffer.from([0])]);
+  const tree = git(["mktree", "-z"], Buffer.concat([
+    git(["ls-tree", "-z", "main"]),
+    entry(blob("MALICIOUS\n"), Buffer.from([0x78, 0xfe, 0x2e, 0x6a, 0x73])), // x\xfe.js
+    entry(blob("benign\n"), Buffer.from([0x78, 0xff, 0x2e, 0x6a, 0x73])), // x\xff.js
+  ])).toString().trim();
+  const head = git(["-c", "user.email=t@example.com", "-c", "user.name=T", "commit-tree", tree, "-p", "main", "-m", "bytes"]).toString().trim();
+  const base = git(["rev-parse", "main"]).toString().trim();
+  const rd = writeReviewDir(repo, base, head);
+  try {
+    const odd = rd.files.filter((f) => f.pathNotUtf8);
+    assert.equal(odd.length, 2);
+    const texts = odd.map((f) => readFileSync(path.join(rd.path, f.head!), "utf8")).sort();
+    assert.deepEqual(texts, ["MALICIOUS\n", "benign\n"]);
+  } finally {
+    cleanupReviewDir(rd.path);
+  }
+});
+
+test("writeReviewDir: one blob behind many paths writes no more than the limits allow", () => {
+  const repo = createFixtureRepo();
+  execSync("git checkout -q -b many main", { cwd: repo });
+  const big = Buffer.alloc(2 * 1024 * 1024 - 1, 0x61); // just under the per-file limit
+  for (let i = 0; i < 40; i++) writeFileSync(path.join(repo, `copy-${i}.txt`), big);
+  const head = commitAll(repo, "many copies of one blob");
+  const base = execSync("git rev-parse main", { cwd: repo, encoding: "utf8" }).trim();
+  const rd = writeReviewDir(repo, base, head);
+  try {
+    const bytes = readdirSync(path.join(rd.path, "files")).reduce((t, f) => t + statSync(path.join(rd.path, "files", f)).size, 0);
+    assert.ok(bytes <= 64 * 1024 * 1024, `wrote ${bytes} bytes`);
+    assert.equal(rd.truncated, true);
+    assert.ok(rd.files.some((f) => f.tooLarge && f.head === null));
+    assert.equal(rd.files.length, 40, "every changed name is still listed");
+  } finally {
+    cleanupReviewDir(rd.path);
+  }
+});
+
+test("writeReviewDir: base texts come from the merge-base, not the base branch's later commits", () => {
+  const repo = createFixtureRepo();
+  execSync("git checkout -q -b forked main", { cwd: repo });
+  writeFileSync(path.join(repo, "README.md"), "# fixture, by the PR\n");
+  const head = commitAll(repo, "pr edits README");
+  execSync("git checkout -q main", { cwd: repo });
+  writeFileSync(path.join(repo, "README.md"), "# fixture, main moved on\n");
+  const base = commitAll(repo, "main edits README after the fork");
+  const rd = writeReviewDir(repo, base, head);
+  try {
+    const readme = rd.files.find((f) => f.path === "README.md")!;
+    assert.equal(readFileSync(path.join(rd.path, readme.base!), "utf8"), "# fixture\n");
+    assert.match(readFileSync(rd.diff, "utf8"), /^-# fixture$/m);
+    assert.equal(rd.mergeBase, execSync(`git merge-base ${base} ${head}`, { cwd: repo, encoding: "utf8" }).trim());
+  } finally {
+    cleanupReviewDir(rd.path);
   }
 });
 

@@ -48,8 +48,8 @@ folder at the end.
 
 ### `gh` authentication
 
-`compute.ts` and every subagent shell out to `gh` directly — there's no
-API-key fallback. Before invoking the skill, confirm:
+`compute.ts` and the review's own setup and posting steps shell out to `gh`
+directly — there's no API-key fallback; subagents run no command. Before invoking the skill, confirm:
 
 ```bash
 gh auth status

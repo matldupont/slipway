@@ -5,7 +5,7 @@
  * Deterministically resolves PR identity, the PR's head and base commits
  * (fetched as objects into this clone, never checked out), linked GitHub
  * issue lookup, readiness signals, and slipway-repo context for a GitHub
- * pull request. Emits JSON on stdout (or to --output-path).
+ * pull request. Emits JSON on stdout.
  *
  * Nothing from the PR is ever a working tree. compute.ts is the one place
  * that reads the PR's files: it writes the pinned diff and each changed
@@ -24,7 +24,6 @@
  *
  * Options:
  *   --project-path <owner/repo>       GitHub repo; defaults to detection from origin
- *   --output-path <file>              Write JSON to file instead of stdout
  *   --skip-ticket                     Don't attempt linked-issue fetch (still extract the number)
  *   --tone {casual|formal}            Tone hint for downstream rendering (default: casual)
  *   --issue-repo <owner/repo>         The configured Issue repo: the one other repo a linked issue may come from
@@ -314,7 +313,6 @@ interface CLIOptions {
   /** The configured Issue repo; with the PR's own, the only repos a linked issue is loaded from. */
   issueRepo: string | null;
   slipwayPaths: SlipwayPaths;
-  outputPath: string | null;
   skipTicket: boolean;
   verbose: boolean;
   tone: Tone;
@@ -326,7 +324,7 @@ interface CLIOptions {
 export const NO_CHECKOUT =
   "the review never checks the PR out, so there is no worktree: compute.ts writes the diff and " +
   "each changed file's head and base text to reviewDir (read with the Read and Grep tools), " +
-  "using git show on headReviewed.sha and pr.baseSha as objects";
+  "reading headReviewed.sha and pr.baseSha as git objects with git cat-file";
 
 export function parseArgs(argv: string[]): CLIOptions {
   const opts: CLIOptions = {
@@ -334,7 +332,6 @@ export function parseArgs(argv: string[]): CLIOptions {
     projectPath: null,
     issueRepo: null,
     slipwayPaths: { ...DEFAULT_SLIPWAY_PATHS },
-    outputPath: null,
     skipTicket: false,
     verbose: false,
     tone: "casual",
@@ -378,8 +375,8 @@ export function parseArgs(argv: string[]): CLIOptions {
         break;
       }
       case "--output-path":
-        opts.outputPath = argv[++i] ?? null;
-        break;
+        // compute.ts runs pre-approved, so it writes nowhere but its own review folder.
+        throw new Error("--output-path was removed: compute.ts writes JSON to stdout only");
       case "--skip-ticket":
         opts.skipTicket = true;
         break;
@@ -445,7 +442,7 @@ export const GIT_SAFE_ARGS = ["-c", "core.hooksPath=/dev/null"];
  * writes or adds a working tree (checkout, switch, reset, restore, clone,
  * merge, stash…) is on it, so no code path can put the PR's files on disk.
  */
-export const GIT_ALLOWED = new Set(["rev-parse", "fetch", "ls-tree", "cat-file", "diff", "status", "remote"]);
+export const GIT_ALLOWED = new Set(["rev-parse", "fetch", "ls-tree", "cat-file", "diff", "merge-base", "status", "remote"]);
 
 /**
  * Every git call goes through here: an argv array (no shell), an allowed
@@ -458,7 +455,7 @@ function execGit(args: string[], cwd?: string): Buffer {
   return execFileSync("git", [...GIT_SAFE_ARGS, ...args], {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
-    maxBuffer: 512 * 1024 * 1024,
+    maxBuffer: 128 * 1024 * 1024,
   });
 }
 
@@ -742,8 +739,10 @@ export interface ReviewFile {
   symlink: boolean;
   /** A NUL byte in the first 8000 bytes of either side. */
   binary: boolean;
-  /** Over MAX_REVIEW_FILE_BYTES on a side: that side's text is not written. */
+  /** Over a limit (MAX_REVIEW_FILE_BYTES, MAX_REVIEW_BYTES or MAX_REVIEW_FILES): that side's text is not written. */
   tooLarge: boolean;
+  /** The name is not valid UTF-8: `path` shows it with U+FFFD, and its texts are still its own. */
+  pathNotUtf8: boolean;
 }
 
 export interface ReviewDir {
@@ -753,15 +752,28 @@ export interface ReviewDir {
   index: string;
   /** diff.patch: `git diff <base>...<head>`, pinned to headReviewed.sha. */
   diff: string;
+  /** Where the PR forked from the base branch: files/<n>.base is the text there, the diff's pre-image. */
+  mergeBase: string;
   files: ReviewFile[];
+  /** Some text was not written because a limit was reached. */
+  truncated: boolean;
 }
 
 export const REVIEW_DIR_PREFIX = "pr-review-";
+/** Limits on what one review writes, so a PR cannot fill the reviewer's disk. */
 export const MAX_REVIEW_FILE_BYTES = 2 * 1024 * 1024;
+export const MAX_REVIEW_BYTES = 64 * 1024 * 1024;
+export const MAX_REVIEW_FILES = 2000;
+
+/*
+ * Paths are kept as latin1 strings while they are matched: one character per
+ * byte, so two names that differ only in bytes that are not valid UTF-8 stay
+ * two names. They are decoded as UTF-8 only for the index.
+ */
 
 /** `git ls-tree -r -z` of a whole commit: path → mode and object id. No path is passed. */
 export function readTree(repoRoot: string, commit: string): Map<string, { mode: string; oid: string }> {
-  const out = execGit(["ls-tree", "-r", "-z", "--full-tree", commit], repoRoot).toString("utf8");
+  const out = execGit(["ls-tree", "-r", "-z", "--full-tree", commit], repoRoot).toString("latin1");
   const tree = new Map<string, { mode: string; oid: string }>();
   for (const entry of out.split("\0")) {
     if (!entry) continue;
@@ -777,7 +789,7 @@ export function readChangedPaths(repoRoot: string, base: string, head: string): 
   const out = execGit(
     ["diff", "--name-status", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", `${base}...${head}`],
     repoRoot,
-  ).toString("utf8");
+  ).toString("latin1");
   const parts = out.split("\0");
   const changed: { status: string; path: string }[] = [];
   for (let i = 0; i + 1 < parts.length; i += 2) {
@@ -817,25 +829,37 @@ function fillReviewDir(dir: string, repoRoot: string, base: string, head: string
   chmodSync(dir, 0o700);
   mkdirSync(join(dir, "files"), { mode: 0o700 });
 
+  // The diff is taken from the merge-base, so the base texts are too: the
+  // base branch's own later changes are not the PR's.
+  const mergeBase = runGit(["merge-base", base, head], repoRoot);
+  if (!/^[0-9a-f]{40,64}$/.test(mergeBase)) throw new Error(`no merge-base between ${base} and ${head}`);
   const headTree = readTree(repoRoot, head);
-  const baseTree = readTree(repoRoot, base);
-  const files: ReviewFile[] = readChangedPaths(repoRoot, base, head).map(({ status, path }, i) => {
+  const baseTree = readTree(repoRoot, mergeBase);
+  let written = 0;
+  let truncated = false;
+  const files: ReviewFile[] = readChangedPaths(repoRoot, base, head).map(({ status, path: raw }, i) => {
     const n = i + 1;
+    const path = Buffer.from(raw, "latin1").toString("utf8");
     const file: ReviewFile = {
       n, path, status, head: null, base: null, headMode: null, baseMode: null,
       symlink: false, binary: false, tooLarge: false,
+      pathNotUtf8: Buffer.from(path, "utf8").toString("latin1") !== raw,
     };
     for (const side of ["head", "base"] as const) {
-      const entry = (side === "head" ? headTree : baseTree).get(path);
+      const entry = (side === "head" ? headTree : baseTree).get(raw);
       if (!entry) continue;
       file[`${side}Mode`] = entry.mode;
       if (entry.mode === "120000") file.symlink = true;
       if (!/^1[02]0[0-7]{3}$/.test(entry.mode)) continue; // a submodule's commit: no text
-      const blob = execGit(["cat-file", "blob", entry.oid], repoRoot);
-      if (blob.length > MAX_REVIEW_FILE_BYTES) {
+      // The size first, so a blob over a limit is never read into memory.
+      const size = Number(runGit(["cat-file", "-s", entry.oid], repoRoot));
+      if (n > MAX_REVIEW_FILES || size > MAX_REVIEW_FILE_BYTES || written + size > MAX_REVIEW_BYTES) {
         file.tooLarge = true;
+        truncated = true;
         continue;
       }
+      const blob = execGit(["cat-file", "blob", entry.oid], repoRoot);
+      written += blob.length;
       if (blob.subarray(0, 8000).includes(0)) file.binary = true;
       const rel = `files/${n}.${side}`;
       writeFileSync(join(dir, rel), blob, { mode: 0o600 });
@@ -846,9 +870,9 @@ function fillReviewDir(dir: string, repoRoot: string, base: string, head: string
 
   const patch = execGit(["diff", "--no-ext-diff", "--no-textconv", "--no-color", `${base}...${head}`], repoRoot);
   writeFileSync(join(dir, "diff.patch"), patch, { mode: 0o600 });
-  const index = { prReview: 3, head, base, files };
+  const index = { prReview: 3, head, base, mergeBase, truncated, files };
   writeFileSync(join(dir, "index.json"), JSON.stringify(index, null, 2) + "\n", { mode: 0o600 });
-  return { path: dir, index: join(dir, "index.json"), diff: join(dir, "diff.patch"), files };
+  return { path: dir, index: join(dir, "index.json"), diff: join(dir, "diff.patch"), mergeBase, files, truncated };
 }
 
 /**
@@ -1945,7 +1969,6 @@ async function main(): Promise<void> {
         "       (bun / npx tsx also work; omit the ref to use the current branch)\n" +
         "Options:\n" +
         "  --project-path <owner/repo>       GitHub repo; defaults to detection from origin\n" +
-        "  --output-path <file>              Write JSON to file instead of stdout\n" +
         "  --skip-ticket                     Don't attempt linked-issue fetch\n" +
         "  --tone {casual|formal}            Tone hint for downstream rendering (default: casual)\n" +
         "  --issue-repo <owner/repo>         The configured Issue repo (the one other repo an issue may come from)\n" +
@@ -1978,12 +2001,7 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
-  const json = JSON.stringify(output, null, 2);
-  if (opts.outputPath) {
-    writeFileSync(opts.outputPath, json + "\n");
-  } else {
-    process.stdout.write(json + "\n");
-  }
+  process.stdout.write(JSON.stringify(output, null, 2) + "\n");
 }
 
 declare const Bun: { main: string } | undefined;

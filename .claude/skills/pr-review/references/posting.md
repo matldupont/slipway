@@ -57,9 +57,12 @@ a commit nobody reviewed.
 
 **2. Post one review via a JSON request body:**
 
-```bash
-payload=$(mktemp) && echo "$payload"   # never a fixed /tmp path; note it, shell variables don't survive between calls
-cat > "$payload" <<'EOF'
+Write the body with your file-writing tool (Claude Code: Write), never a
+shell heredoc: it carries the author's file paths and quoted code. Put it
+in the review folder, so Step 7 deletes it:
+
+```jsonc
+// <reviewDir.path>/review-payload.json
 {
   "commit_id": "<head sha>",
   "event": "COMMENT",
@@ -72,10 +75,11 @@ cat > "$payload" <<'EOF'
     }
   ]
 }
-EOF
+```
 
+```bash
 gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" \
-  -X POST --input "$payload"
+  -X POST --input "<reviewDir.path>/review-payload.json"
 ```
 
 Batching every selected finding into one `comments[]` array and one
