@@ -258,13 +258,15 @@ test('work-ticket checks its rule files before it reads a setting or runs the ga
   assert.ok(first.includes('`git diff --name-only --no-renames origin/{base}`'), 'the rule-file check must run the diff');
   for (const p of ['each `AGENT.md` and `CLAUDE.md` at any depth', '`process/harness/**`']) assert.ok(first.includes(p), `the rule files must name ${p}`);
   assert.match(first, /again on checking out an existing branch before a file on it is read/, 'a reused branch must be checked before it is read');
-  assert.match(first, /A check that cannot run is not a pass: stop/, 'a failed check must stop the run, not pass it');
+  assert.match(first, /A check that cannot run is not a pass: stop\. With no remote, ask the owner for `\{base\}`/, 'a failed check must stop the run, not pass it');
   assert.match(first, /A no ends the run: name the rule files the branch changed and stop/, 'a no must end the run');
-  // First hits over the whole file, any case: nothing above Configuration resolves the settings or runs the gate.
-  const at = (re) => md.search(re);
-  const check = md.indexOf('`git diff --name-only --no-renames origin/{base}`');
-  const resolve = at(/resolve[^\n]*`process\/intake\.md` → Configuration/i);
-  const gate = at(/\brun[^\n.]*`Quality gate`/i);
+  // First hits over the whole file, any case, across line breaks: nothing above Configuration resolves the settings
+  // or runs the gate.
+  const flat = md.replace(/\s+/g, ' ');
+  const at = (re) => flat.search(re);
+  const check = flat.indexOf('`git diff --name-only --no-renames origin/{base}`');
+  const resolve = at(/resolve[^.]*?`process\/intake\.md` → Configuration/i);
+  const gate = at(/\brun[^.]*?`Quality gate`/i);
   assert.ok(resolve > 0 && gate > 0, 'work-ticket must resolve its settings and run `Quality gate`');
   assert.ok(check < resolve, 'work-ticket resolves its settings before its rule-file check');
   assert.ok(check < at(/read before Phase 1/i), 'work-ticket reads the docs its settings name before its rule-file check');

@@ -22,9 +22,9 @@ yes (their asking for it is one). When `git diff --name-only --no-renames origin
 `git ls-files --others --exclude-standard`, run at the repository root, lists one, say which and ask: now, again on
 checking out an existing branch before a file on it is read, and before the gate or the reviewers run if the list
 grew. The invariants and cold-review files the settings name are checked before either is opened. A check that cannot
-run is not a pass: stop. A no ends the run: name the rule files the branch changed and stop. The reviewers get
-`{base}`'s copies. This guard lives in files a branch can change: it holds only on work the owner or their agent wrote
-(Without an issue).
+run is not a pass: stop. With no remote, ask the owner for `{base}` and diff against it. A no ends the run: name the
+rule files the branch changed and stop. The reviewers get `{base}`'s copies. This guard lives in files a branch can
+change: it holds only on work the owner or their agent wrote (Without an issue).
 
 **Reads:** `Product name`, `Issue repo`, `PRD path`, `Feature docs dir`, `Milestone roadmap`, `Change lanes`,
 `Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Domain map`,
