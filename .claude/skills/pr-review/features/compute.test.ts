@@ -219,6 +219,8 @@ test("resolveIssueTicket: the PR's own repo and the configured Issue repo pass t
     const got = resolveIssueTicket([], body, "owner/repo", true, "owner/issues");
     assert.equal(got.failure?.reason, "skipped", body);
   }
+  // Configured in another case than the reference: still the same repository.
+  assert.equal(resolveIssueTicket([], "Closes owner/issues#4", "owner/repo", true, "Owner/Issues").failure?.reason, "skipped");
 });
 
 test("extractIssueRef: a closing reference carries its repository", () => {
