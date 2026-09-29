@@ -694,6 +694,7 @@ If the user asks you to clean up:
 ```bash
 git worktree remove "<output.worktree.path>"
 git branch -D "<output.worktree.branch>"
+git update-ref -d "refs/pr-review/<output.worktree.branch>"
 ```
 
 If `output.worktree.created` is false, skip this step.
