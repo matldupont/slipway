@@ -9,7 +9,8 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -188,22 +189,56 @@ test('AGENT.md: every row says what it controls', () => {
 // Slipway's own settings (#117): read before AGENT.md, whose placeholders stay for new projects. Internal, so this
 // guard runs in slipway only. A key intake.md gains later is a missing row here, not a silent fallback.
 const SETTINGS = 'dev/skill-configuration.md';
+const MANIFEST_PATH = '.slipway/manifest.json';
+const rowsOf = (md) => new Map((table(section(md, 'Skill Configuration', 2))?.rows ?? []).map((r) => [plain(r[0]), plain(r[1] ?? '')]));
+// process/intake.md → Configuration's rule, as code: the settings file only where no manifest is, and one file, never
+// a mix. A project always has a manifest, so a settings file it adds is never read.
+function settingsFor(root) {
+  const has = (p) => existsSync(join(root, p));
+  const file = has(SETTINGS) && !has(MANIFEST_PATH) ? SETTINGS : 'AGENT.md';
+  return { file, rows: rowsOf(readFileSync(join(root, file), 'utf8')) };
+}
+
 test(`${SETTINGS}: every key process/intake.md lists, each filled, none outside AGENT.md`, () => {
-  const rows = new Map((table(section(read(SETTINGS), 'Skill Configuration', 2))?.rows ?? []).map((r) => [plain(r[0]), r[1] ?? '']));
-  assert.ok(rows.size > 0, `${SETTINGS} §Skill Configuration has no table`);
+  const { file, rows } = settingsFor(SRC);
+  assert.equal(file, SETTINGS, `slipway has no ${MANIFEST_PATH}, so its skills read ${SETTINGS}`);
   for (const k of intakeRows.keys()) {
     assert.ok(rows.has(k), `${SETTINGS} lacks \`${k}\`, which process/intake.md lists`);
-    assert.ok(plain(rows.get(k)) !== '', `${SETTINGS} row \`${k}\` has no value`);
+    assert.ok(rows.get(k) !== '', `${SETTINGS} row \`${k}\` has no value`);
     assert.doesNotMatch(rows.get(k), /<[^>\n]*>/, `${SETTINGS} row \`${k}\` still holds a <…> placeholder`);
   }
   for (const k of rows.keys()) assert.ok(agentRows.has(k), `${SETTINGS} has \`${k}\`, which is not a row of AGENT.md §Skill Configuration`);
 });
 
-test(`process/intake.md → Configuration reads ${SETTINGS} first, and AGENT.md as the fallback`, () => {
-  const first = (section(intake, 'Configuration', 2) ?? '').split(/\n\s*\n/).find((p) => p.trim()) ?? '';
+test(`a project with a manifest reads AGENT.md even when it has ${SETTINGS}; without one, only the settings file`, () => {
+  const root = mkdtempSync(join(tmpdir(), 'slipway-settings-'));
+  try {
+    const conf = (repo, gate) => `## Skill Configuration\n\n| Key | Value | What |\n|---|---|---|\n| Issue repo | \`${repo}\` | x |\n${gate ? `| Quality gate | \`${gate}\` | x |\n` : ''}`;
+    writeFileSync(join(root, 'AGENT.md'), conf('owner/project', 'pnpm verify'));
+    mkdirSync(join(root, 'dev'));
+    writeFileSync(join(root, SETTINGS), conf('someone/else', null));
+    mkdirSync(join(root, '.slipway'));
+    writeFileSync(join(root, MANIFEST_PATH), '{}');
+    let got = settingsFor(root);
+    assert.equal(got.file, 'AGENT.md');
+    assert.equal(got.rows.get('Issue repo'), 'owner/project');
+    rmSync(join(root, MANIFEST_PATH));
+    got = settingsFor(root);
+    assert.equal(got.file, SETTINGS);
+    assert.equal(got.rows.get('Issue repo'), 'someone/else');
+    assert.equal(got.rows.has('Quality gate'), false, 'a row the settings file lacks is not taken from AGENT.md');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test(`process/intake.md → Configuration states that rule: ${SETTINGS} first, only without a manifest, never a mix`, () => {
+  const first = plain((section(intake, 'Configuration', 2) ?? '').split(/\n\s*\n/).find((p) => p.trim()) ?? '').replace(/\s+/g, ' ');
   const at = first.indexOf(SETTINGS);
   assert.ok(at >= 0, `the first paragraph of process/intake.md → Configuration does not name ${SETTINGS}`);
+  assert.match(first, new RegExp(`${SETTINGS.replace(/[./]/g, '\\$&')} at the repository root when it exists and ${MANIFEST_PATH.replace(/[./]/g, '\\$&')} does not`), 'the settings file must be read only where no manifest is');
   assert.ok(first.indexOf('AGENT.md', at) > at, `process/intake.md → Configuration must name AGENT.md after ${SETTINGS}, as the fallback`);
+  assert.match(first, /Read one file, never a mix of the two/, 'intake must forbid mixing the two files');
 });
 
 test('process/intake.md: the PR body it prescribes passes the PR check — a lane, commands in a code block, Links', () => {
