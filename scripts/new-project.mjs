@@ -153,7 +153,7 @@ if (!opts.dryRun) {
   for (const f of PLACEHOLDER_FILES) edit(f, (s) => s.replaceAll('<Product>', name).replaceAll('<owner/repo>', repo ?? '<owner/repo>'));
   // decisions.md is seeded: the project owns it from here. Slipway's own records (D-015 onward) cite
   // files and issues a project does not have, so the project starts with D-001–D-014 only.
-  edit('decisions.md', (s) => s.replace(/^## D-01[5-9] [^\n]*\n[\s\S]*?(?=^## )/gm, '').replace(' (D-015)', ''));
+  edit('decisions.md', (s) => s.replace(/^## D-(?:01[5-9]|0[2-9]\d) [^\n]*\n[\s\S]*?(?=^## )/gm, '').replace(' (D-015)', ''));
   edit('package.json', (s) => JSON.stringify(derivePackageJson(JSON.parse(s), { name: slug, rules }), null, 2) + '\n');
   writeFileSync(join(dest, 'process', 'anchor'), today + '\n');
   writeFileSync(join(dest, '.gitignore'), gitignoreText(SRC));
