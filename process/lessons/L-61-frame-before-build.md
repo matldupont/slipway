@@ -1,7 +1,7 @@
 ---
 id: L-61
 date: 2026-09-21
-rule: No milestone starts before the frame names the job, the question and the risks; nothing past the skeleton starts before each value risk is tested against a bar set first.
+rule: No milestone starts before the frame names the job, the question and the risks; nothing past the skeleton starts before each value risk is tested against a bar set first, or settled by experience with what would prove it wrong written down.
 failure: Building starts before anyone names the question the product answers or tests whether people want it; scope follows the loudest idea.
 enforcement:
   status: check

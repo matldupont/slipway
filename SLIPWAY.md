@@ -20,7 +20,7 @@ sessions get the same output automatically when they start.
 |---|---|---|---|
 | **0 · Bootstrap** · you + agent, ~1–2h | `new-project` (repo, harness, label, protection), then `/bootstrap` (app, PR, probes) | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
 | **1 · Frame** · you with `/kickoff`, an afternoon | answer one question at a time; park what you can build without | [`docs/product/FRAME.md`](docs/product/FRAME.md) — job story, the question the product answers, risks | `status: framed`; **K1** blocks any milestone until then |
-| **2 · Test the risk** · **yours**, days to weeks | talk to people or run the job by hand, against a bar written first — an agent prepares the materials, you run it | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result |
+| **2 · Test the risk** · **yours**, days to weeks | talk to people or run the job by hand, against a bar written first — an agent prepares the materials, you run it | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result, or is settled by experience with what would prove it wrong written down |
 | **3 · Shape** · you with `/kickoff`, 1–2 days | finish `/kickoff`: PRD, week-1 decisions, milestones; then `/review-doc` in a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green: the PRD's current version has a review |
 | **4 · Walking skeleton** · agent, days — **runs in parallel with step 2** | activate [M1](docs/milestones/M1-walking-skeleton.md): thinnest core path, deployed by CI | a live URL, analytics and errors wired | its gate: an end-to-end test against production |
 | **5 · Build loop** · agent | one active milestone; every change through its lane | small PRs with evidence | `verify` · `meta` · `pr-body` per PR; the Stop hook per agent turn; **MS1** |
@@ -212,8 +212,8 @@ merged by judgment file by file:
 | L1 | every lesson points at a home that exists, and none is past its review date | lessons enforced by nothing get re-learned |
 | MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro; each `summary:` matches its PRD milestones row; warns when a PRD estimate is more than the appetite holds | milestones left open after their work ends, new surfaces started before launch, and the same fact drifting between the PRD and a milestone |
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
-| K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); every untested value risk names a tracker once a milestone is underway; nothing past the skeleton before each value risk is tested against a bar set first | building before anyone names the question the product answers or tests whether people want it |
-| S1 | `ci/status.mjs` prints the expected Next and Frame lines — each risk tested, scheduled, overran, window unreadable or untested — for its fixture roots | status telling the owner a risk is on schedule while its evidence is no longer read |
+| K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); every untested value risk names a tracker once a milestone is underway; nothing past the skeleton before each value risk is tested against a bar set first, or settled by experience with what would prove it wrong written down | building before anyone names the question the product answers or tests whether people want it |
+| S1 | `ci/status.mjs` prints the expected Next and Frame lines — each risk tested, settled by experience, scheduled, overran, window unreadable or untested — for its fixture roots | status telling the owner a risk is on schedule while its evidence is no longer read |
 | Stop hook | an agent turn does not end while `verify:fast` is red | agents declaring done work that was never run |
 
 `verify` exits BROKEN on an empty workspace and fails, before running anything, when no package declares
@@ -267,10 +267,8 @@ FO1 turns red on an exception that is undated, expired, stale, or keyed to a pos
 
 ### Validation
 
-**Harness.** PC1 green over 10 checks and 22 fixture cases. On the template itself W1, FO1, R1, L1 (60
-lessons), MS1, K1 and F1 are green, and `pnpm meta` is green with nothing installed. The PR template is
-byte-identical to P1's `placeholder.md` fixture and the FRAME template to K1's `draft-underway` fixture, so
-an unfilled template is proven to fail.
+**Harness.** PC1 green over 12 checks and 40 fixture cases. On the template itself W1, FO1, R1, L1 (62
+lessons), MS1, K1 and F1 are green, and `pnpm meta` is green with nothing installed.
 
 **`verify`, including real `pnpm -r` runs in scratch workspaces:**
 

@@ -18,6 +18,11 @@
 
 export const EXIT = { GREEN: 0, FINDINGS: 1, BROKEN: 2 };
 
+// Text from a project file with each C0/C1 control character shown as \uXXXX, so a finding or an error
+// quoting it prints nothing raw: no terminal escape, no CI log command.
+export const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
+export const escapeControl = (s) => s.replace(/[\u0000-\u001f\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+
 /**
  * @param {object} o
  * @param {string} o.id        check id, e.g. "FO1"

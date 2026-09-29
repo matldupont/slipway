@@ -45,10 +45,19 @@ Work through, in order:
 6. **Press release and hard questions.** Draft them; the user edits. If the release cannot
    say why this beats the habit, stop and say so — the idea is not ready.
 7. **Risks.** List 4–8 assumptions that could kill it, each tagged value / usability /
-   feasibility / viability / ethical. Rank by impact × how little evidence exists. Propose
-   the cheapest test for the top value risk — interviews about past behaviour, a concierge
-   run done by hand, a fake door — and ask the user for the **Threshold** before anything
-   runs. Leave Result empty.
+   feasibility / viability / ethical. Rank by impact × how little evidence exists. Then, for
+   each **value** risk, one question per message:
+   1. "Do you test this, or does experience already settle it?"
+   2. If experience: "Which is it: table stakes, you are the user, or domain expertise?" These
+      three, no other. The Result reads `experience: table stakes`, `experience: creator is the
+      user` or `experience: domain expertise`.
+   3. "What would prove it wrong?" Write the answer verbatim as a `Wrong if:` line in its
+      evidence file (`docs/product/evidence/RISK-n-<short>.md`). No answer, or "nothing": the
+      risk is not settled; clear the Result and treat it as a test.
+
+   For a test, propose the cheapest one — interviews about past behaviour, a concierge run
+   done by hand, a fake door — and ask the user for the **Threshold** before anything runs.
+   Leave Result empty. Never propose a rationale or a refutation: both are the user's words.
 
 Write FRAME.md with `status: draft`. When no placeholder or clarification remains, ask the
 user to confirm, then set `status: framed`.
@@ -62,14 +71,16 @@ You cannot run interviews; the user can. Produce what they need:
 - a results table and the threshold, copied from FRAME, dated today;
 - for a concierge test: exactly what the user will do by hand, for how many people, for how
   long;
+- nothing for a risk settled by experience: no interview guide, only its `Wrong if:` line. A
+  `Wrong if:` that comes true reopens the risk: clear its Result and test it;
 - the issue that runs the test, once the user agrees to run it: put its number in FRAME's Tracker
   column and a `Tracked: #n` line (with `Window:`) in the evidence file. `pnpm status` then shows the
   risk as scheduled, and K1 requires the tracker for every untested value risk once the skeleton is
   active.
 
 Tell the user plainly: **no milestone past the walking skeleton can start until each value risk has
-a Result, or a decision in `decisions.md` to build ahead of it with that decision's id in the risk's
-Result.** The skeleton may be built in parallel
+a Result, is settled by experience with what would prove it wrong written down, or has a decision
+in `decisions.md` to build ahead of it with that decision's id in the risk's Result.** The skeleton may be built in parallel
 with the test. When results come back, record them in FRAME's Result column and in
 `evidence/`; if the threshold was missed, the options are reframe (back to phase 1) or proceed
 anyway with a decision in `decisions.md` that says why.
