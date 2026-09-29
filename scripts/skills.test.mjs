@@ -185,6 +185,27 @@ test('AGENT.md: every row says what it controls', () => {
   for (const [k, controls] of agentRows) assert.ok(plain(controls) !== '', `AGENT.md row \`${k}\` has an empty "What it controls" cell`);
 });
 
+// Slipway's own settings (#117): read before AGENT.md, whose placeholders stay for new projects. Internal, so this
+// guard runs in slipway only. A key intake.md gains later is a missing row here, not a silent fallback.
+const SETTINGS = 'dev/skill-configuration.md';
+test(`${SETTINGS}: every key process/intake.md lists, each filled, none outside AGENT.md`, () => {
+  const rows = new Map((table(section(read(SETTINGS), 'Skill Configuration', 2))?.rows ?? []).map((r) => [plain(r[0]), r[1] ?? '']));
+  assert.ok(rows.size > 0, `${SETTINGS} §Skill Configuration has no table`);
+  for (const k of intakeRows.keys()) {
+    assert.ok(rows.has(k), `${SETTINGS} lacks \`${k}\`, which process/intake.md lists`);
+    assert.ok(plain(rows.get(k)) !== '', `${SETTINGS} row \`${k}\` has no value`);
+    assert.doesNotMatch(rows.get(k), /<[^>\n]*>/, `${SETTINGS} row \`${k}\` still holds a <…> placeholder`);
+  }
+  for (const k of rows.keys()) assert.ok(agentRows.has(k), `${SETTINGS} has \`${k}\`, which is not a row of AGENT.md §Skill Configuration`);
+});
+
+test(`process/intake.md → Configuration reads ${SETTINGS} first, and AGENT.md as the fallback`, () => {
+  const first = (section(intake, 'Configuration', 2) ?? '').split(/\n\s*\n/).find((p) => p.trim()) ?? '';
+  const at = first.indexOf(SETTINGS);
+  assert.ok(at >= 0, `the first paragraph of process/intake.md → Configuration does not name ${SETTINGS}`);
+  assert.ok(first.indexOf('AGENT.md', at) > at, `process/intake.md → Configuration must name AGENT.md after ${SETTINGS}, as the fallback`);
+});
+
 test('process/intake.md: the PR body it prescribes passes the PR check — a lane, commands in a code block, Links', () => {
   const pr = section(intake, 'Pull request', 2) ?? '';
   const body = pr.match(/^\s*~~~markdown\n([\s\S]*?)^\s*~~~/m)?.[1]?.replace(/^ {2}/gm, '');
