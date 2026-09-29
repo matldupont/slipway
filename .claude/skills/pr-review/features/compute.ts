@@ -1499,7 +1499,8 @@ export function gitSlipwayReader(repoRoot: string, commit: string): SlipwayReade
  * it cannot be fetched.
  */
 export function fetchBaseCommit(repoRoot: string, targetBranch: string): string | null {
-  if (!targetBranch || targetBranch.startsWith("-")) return null;
+  // refs/heads/ prefixes the name, so a branch named like an option is never read as one.
+  if (!targetBranch) return null;
   // ls-remote names the sha without touching FETCH_HEAD, so a failed fetch
   // can never leave an older FETCH_HEAD standing in for the base.
   const line = tryRunGit(["ls-remote", "origin", `refs/heads/${targetBranch}`], repoRoot).split("\n")[0] ?? "";
