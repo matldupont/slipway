@@ -131,7 +131,7 @@ a frame may be a milestone Contents line handed over by `/log-feature`.
     boundary to at most 60 characters with `…` when cut.
   - every item started: `{lead}. Every Contents item has an issue: finish them, then run /close-milestone
     once its Gate is green.{risk}`
-  - no Contents items: today's line, unchanged.
+  - no Contents items, or a milestone id the skill would refuse (not `M` and digits): today's line, unchanged.
 - **S1 cases** under `ci/fixtures/status/`: `build-loop-next-item` (an active `mvp` milestone; item 1 ends
   `· #12`; item 2 names `#7` before its `(F-02)`; the Next line names item 2 and `/log-feature M2#2`) and
   `build-loop-all-started`. `skeleton-active` keeps its expected text (its milestone has no Contents).
@@ -274,3 +274,6 @@ none
 ## Changes
 
 - 2026-09-29 · ADDED · shaped from #118
+- 2026-09-29 · CHANGED · at build (#118): status names no command for an id `/log-feature` refuses (S1
+  `build-loop-free-id`) and skips a template `<…>` item; two items sharing a number stop the skill; a seeded
+  Phase 1 takes why now from the appetite and goes on to the next question (found by the agent probe)
