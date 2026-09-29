@@ -1,10 +1,11 @@
 # slipway — skill configuration
 
-Slipway's own settings for `/log-feature`, `/log-bug`, `/log-followup`, `/work-ticket` and `/pr-review`,
-read first by `process/intake.md` → Configuration, where no `.slipway/manifest.json` exists. The root `AGENT.md` is the template every new project
-fills in, so its placeholders stay; this file is `internal` in `dev/ownership.yaml` and no project receives
-it. `scripts/skills.test.mjs` fails when a key `process/intake.md` lists is missing here, or a value is still
-`<…>`. `Timezone` is not a skill key: `pnpm status` reads it from `AGENT.md`.
+Slipway's own settings for `/log-feature`, `/log-bug`, `/log-followup`, `/work-ticket` and `/pr-review`, read
+first by `process/intake.md` → Configuration, where no `.slipway/manifest.json` exists. The root `AGENT.md` is
+the template every new project fills in, so its placeholders stay; this file is `internal` in
+`dev/ownership.yaml` and no project receives it. `scripts/skills.test.mjs` fails when a key
+`process/intake.md` lists is missing here, or a value is still `<…>`. `Timezone` is not a skill key: `pnpm
+status` reads it from `AGENT.md`.
 
 ## Skill Configuration
 
