@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { MANIFEST, readManifest, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest, sha256, TEMPLATE_MARKERS } from '../ci/checks/lib/manifest.mjs';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
 import { blobSha, derivePackageJson, publicSource, resolveSlipway } from './lib/install.mjs';
 
@@ -38,7 +38,7 @@ const tmp = () => {
   return d;
 };
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
-const check = (dir, file) => spawnSync(process.execPath, [join(dir, 'ci', 'checks', 'meta', file), dir], { encoding: 'utf8' });
+const check = (dir, file, env = {}) => spawnSync(process.execPath, [join(dir, 'ci', 'checks', 'meta', file), dir], { encoding: 'utf8', env: { ...process.env, ...env } });
 
 function newProject(src, dest, env = {}) {
   const r = spawnSync(process.execPath, [join(src, 'scripts', 'new-project.mjs'), dest, '--no-github', '--no-harness'], {
@@ -133,6 +133,37 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 2);
   assert.match(r.stdout, /BROKEN — manifest\/missing/);
+});
+
+// #123: two files a project can add were once all it took.
+test('a project cannot enter template mode: no manifest plus slipway\'s marker files is still manifest/missing', () => {
+  const dest = join(tmp(), 'faker');
+  newProject(SRC, dest);
+  unlinkSync(join(dest, MANIFEST));
+  for (const m of TEMPLATE_MARKERS) {
+    mkdirSync(dirname(join(dest, m)), { recursive: true });
+    writeFileSync(join(dest, m), '');
+  }
+  git(dest, 'add', '-A');
+  git(dest, 'commit', '-q', '-m', 'look like slipway');
+
+  // The fixture switch lifts only "top of the checkout"; GIT_DIR cannot lend the project slipway's history.
+  const slipwayGitDir = git(SRC, 'rev-parse', '--absolute-git-dir');
+  for (const env of [{}, { SLIPWAY_TEMPLATE_FIXTURE: '1' }, { GIT_DIR: slipwayGitDir }]) {
+    const r = check(dest, 'd1-drift.mjs', env);
+    assert.equal(r.status, 2, `${JSON.stringify(env)}:\n${r.stdout}`);
+    assert.match(r.stdout, /BROKEN — manifest\/missing — .* are here, but this is not slipway's own checkout/);
+  }
+  assert.doesNotMatch(check(dest, 'w1-declared-vs-invoked.mjs').stdout, /slipway tests/);
+});
+
+test('isTemplate: slipway\'s own checkout, never a shallow clone of it or a folder inside it', () => {
+  assert.equal(isTemplate(SRC), true, 'slipway itself, with its full history');
+  const shallow = join(tmp(), 'shallow');
+  git(tmpdir(), 'clone', '-q', '--depth', '1', `file://${SRC}`, shallow);
+  assert.equal(hasTemplateMarkers(shallow), true);
+  assert.equal(isTemplate(shallow), false, 'a shallow clone cannot show its root commit');
+  assert.equal(isTemplate(join(SRC, 'ci', 'fixtures', 'known-bad', 'd1', 'markers-faked')), false);
 });
 
 test('ci/before-verify.sh: the project\'s own (seeded, never shipped), run by the verify job when present, named by D1 for an edited ci.yml', () => {

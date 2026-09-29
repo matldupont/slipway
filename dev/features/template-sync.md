@@ -109,6 +109,8 @@ What the lock defends, so a review has a bar to stop at (`process/cold-review.md
 starting another round:
 - D1 checks the last path component for symlinks, so a symlinked parent directory is still followed.
 - The owner can forge the manifest or overrides.
+- A project that rewrites its history onto slipway's root commit, or runs D1 on a slipway clone instead of
+  itself, enters template mode. Both are edits to the project's history or its gate, not files a change adds.
 - With no `slipway` hint, several slipway commits can hold the manifest's managed blobs exactly (the
   commits between them touched only seeded or merged files); sync takes the newest. Tied commits share
   managed content, so the choice changes only advisory seeded diffs and reported `package.json` keys.
@@ -138,9 +140,13 @@ starting another round:
 | `override/reason/<path>` | an override has an empty reason; it excuses nothing, so the file's drift is reported too |
 | `manifest/missing` | no manifest (BROKEN, not green): the fix is `sync --adopt` |
 
-**In slipway itself** (settled in step 2, #15): template mode. With no manifest and both `dev/ownership.yaml`
+**In slipway itself** (settled in step 2, #15): template mode. With no manifest, both `dev/ownership.yaml`
 and `scripts/new-project.mjs` present — internal files `new-project` never copies, so a project's own
-`dev/` folder is not enough — D1 exits green with that exact claim. Adding `d1` to the
+`dev/` folder is not enough — and the folder at the top of a git history whose only root is slipway's
+first commit, D1 exits green with that exact claim. The files alone were once enough, so a project could
+switch D1 off by adding them (#123); a commit id is what a project cannot make, since `new-project` starts
+it a history of its own. A shallow clone cannot show its root, so it is not slipway: slipway's CI checks
+out full history. `isTemplate` in `ci/checks/lib/manifest.mjs` holds the rule, for D1, W1 and sync. Adding `d1` to the
 project's `meta` only was the alternative, but W1 in slipway fails on a check file no workflow runs.
 What proves D1 on a real install is `scripts/new-project.test.mjs` (internal, in slipway's `meta`): it
 creates a project, runs D1 and W1 in it, then drifts a file and deletes the manifest.

@@ -9,8 +9,9 @@
 //     - path: ci/checks/meta/k1-frame.mjs
 //       reason: our FRAME.md has no metrics section
 
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONTROL, escapeControl } from './report.mjs';
 import { readList } from './yaml-list.mjs';
@@ -20,10 +21,44 @@ export const OVERRIDES = '.slipway/overrides.yaml';
 // The classes a manifest can record: `internal` never ships, so it is never in one.
 export const RECORDED = ['managed', 'seeded', 'merged'];
 
-// Slipway itself, not an install: internal files new-project never copies, so a project's own `dev/`
-// folder alone is not enough. D1 goes green in template mode on them; W1 checks slipway's own tests.
+// Slipway itself, not an install. D1 goes green in template mode; W1 checks slipway's own tests; sync
+// refuses to run. All three conditions hold, and anything this cannot tell is "not slipway":
+//   - both markers: internal files new-project never copies, so a project's own `dev/` folder is not enough;
+//   - `root` is the top of its git checkout. SLIPWAY_TEMPLATE_FIXTURE=1 lifts this one condition, for the
+//     known-bad fixtures inside slipway's own checkout; a project's history still fails the next one;
+//   - that checkout's history has exactly one root commit, SLIPWAY_ROOT_COMMIT. A project can add files;
+//     it cannot make a commit id. A shallow clone lists its boundary commit as a root, so it is not slipway.
+// Git runs with every GIT_* variable dropped and replace refs ignored: the environment cannot point it
+// at another repository or rewrite a parent.
+//
+// SLIPWAY_ROOT_COMMIT is the root of slipway's history after the 2026-09-24 rewrite. A project starts
+// its own history (new-project runs git init). Any future rewrite of slipway's history must update it.
+export const SLIPWAY_ROOT_COMMIT = 'fa6b1b7468259792180683f6e7cd360475ba04fd';
 export const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
-export const isTemplate = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
+export const hasTemplateMarkers = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
+
+const gitEnv = () => Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_')));
+const gitOut = (cwd, args) =>
+  execFileSync('git', ['--no-replace-objects', ...args], { cwd, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+const slipwayHistory = new Map();
+function isSlipwayHistory(root) {
+  let dir;
+  try {
+    dir = realpathSync(root);
+  } catch {
+    return false;
+  }
+  if (!slipwayHistory.has(dir)) {
+    let yes = false;
+    try {
+      const top = realpathSync(gitOut(dir, ['rev-parse', '--show-toplevel']));
+      yes = (top === dir || process.env.SLIPWAY_TEMPLATE_FIXTURE === '1') && gitOut(top, ['rev-list', '--max-parents=0', 'HEAD']) === SLIPWAY_ROOT_COMMIT;
+    } catch {}
+    slipwayHistory.set(dir, yes);
+  }
+  return slipwayHistory.get(dir);
+}
+export const isTemplate = (root) => hasTemplateMarkers(root) && isSlipwayHistory(root);
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 

@@ -15,12 +15,11 @@
 // not a promise the project made. A file the manifest does not list is the project's.
 //
 // TEMPLATE MODE. Slipway itself is the source, not an install, so it has no manifest. With no
-// manifest and both `dev/ownership.yaml` and `scripts/new-project.mjs` present — internal files
-// new-project never copies; a project's own `dev/` folder alone is not enough — D1 claims exactly
-// that and exits green. What proves D1 against a real install is slipway's own
-// scripts/new-project.test.mjs, which creates a project and runs D1 in it.
+// manifest and isTemplate (lib/manifest.mjs: the markers, and slipway's own git history, which a
+// project cannot make) D1 claims exactly that and exits green. What proves D1 against a real install,
+// and that a project cannot enter template mode, is slipway's own scripts/new-project.test.mjs.
 
-import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256, TEMPLATE_MARKERS } from '../lib/manifest.mjs';
+import { hasReason, hasTemplateMarkers, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256, SLIPWAY_ROOT_COMMIT, TEMPLATE_MARKERS } from '../lib/manifest.mjs';
 import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
@@ -38,7 +37,7 @@ if (!manifest && isTemplate(root)) {
   process.exit(
     report({
       id: 'D1',
-      claim: `template mode — this is slipway itself (${TEMPLATE_MARKERS.join(' and ')} present, no ${MANIFEST}), the source files are the base, so nothing can drift; every project new-project creates is checked against its own manifest`,
+      claim: `template mode — this is slipway itself (${TEMPLATE_MARKERS.join(' and ')} present, history rooted at ${SLIPWAY_ROOT_COMMIT.slice(0, 7)}, no ${MANIFEST}), the source files are the base, so nothing can drift; every project new-project creates is checked against its own manifest`,
       scanned: TEMPLATE_MARKERS.length,
       unit: 'template markers (template mode)',
     })
@@ -51,7 +50,11 @@ if (!manifest) {
       claim: '',
       scanned: 0,
       unit: 'files slipway maintains',
-      broken: `manifest/missing — ${MANIFEST} is missing. It is the record of what slipway installed, so an edit to one of slipway's files cannot be told from an update; run /sync-slipway once to create it`,
+      broken: `manifest/missing — ${MANIFEST} is missing. It is the record of what slipway installed, so an edit to one of slipway's files cannot be told from an update; run /sync-slipway once to create it${
+        hasTemplateMarkers(root)
+          ? `. ${TEMPLATE_MARKERS.join(' and ')} are here, but this is not slipway's own checkout: that needs this folder at the top of a git history whose only root is ${SLIPWAY_ROOT_COMMIT.slice(0, 7)}, and a shallow clone cannot show one`
+          : ''
+      }`,
     })
   );
 }
