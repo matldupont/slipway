@@ -107,8 +107,9 @@ this form; anything else is today's idea. The argument is used only after that m
    line cites is already in PRD §5 (F1 fails otherwise), so no F-ID is added and the PRD version is not
    bumped. Schedule is skipped: `Scheduled: {id} Contents item {n} (already)`.
 6. **Started marker.** After Phase 5 files the issue, append ` · #{issue}` to the item's last line in the
-   milestone doc, on the doc branch, in the commit that adds the Changes line. Its Links gain
-   `Milestone: {id} item {n}`.
+   milestone doc, and the issue's Links gain `Milestone: {id} item {n}`. A feature item: on the doc branch, in
+   the commit that adds the Changes line. A bounded item, or an already-filed hit: on `docs/{id}-item-{n}`, in
+   a PR of its own. A line already ending with ` · #{issue}` is done.
 7. Phases 5–7 and Ripple as for an idea.
 
 `.claude/skills/log-feature/SKILL.md` gains the argument form and one line at Phases 1, 2 and 4 citing
@@ -119,10 +120,9 @@ a frame may be a milestone Contents line handed over by `/log-feature`.
 
 - **One reading of Contents.** F1's `contents(md)` moves to `ci/checks/lib/milestones.mjs`, returning
   `[{ n, text }]`; F1 and status import it.
-- **Started:** the item's tail, the text after its last `(F-…)` or `(no feature: …)` group (the whole text
-  when it has none), names an issue: `#\d+`, optionally `owner/repo#\d+`. An issue named inside the line
-  before its citation (a constraint, "whose `/ws` upgrade accepts only allowed Origins (#23)") does not
-  count.
+- **Started:** the item's line ends with the marker the skill writes, ` · #\d+` or ` · owner/repo#\d+`.
+  An issue named anywhere else in the line (a constraint, "whose `/ws` upgrade accepts only allowed Origins
+  (#23)") does not count.
 - **Next line** for the active milestone, skeleton and build loop alike, where `{lead}` is today's
   `Step 4 (agent) — Walking skeleton: {title}` or `Step 5 (agent) — Build loop: {title}` and `{risk}` is
   today's Meanwhile tail:
@@ -131,7 +131,7 @@ a frame may be a milestone Contents line handed over by `/log-feature`.
     boundary to at most 60 characters with `…` when cut.
   - every item started: `{lead}. Every Contents item has an issue: finish them, then run /close-milestone
     once its Gate is green.{risk}`
-  - no Contents items: today's line, unchanged.
+  - no Contents items, or a milestone id the skill would refuse (not `M` and digits): today's line, unchanged.
 - **S1 cases** under `ci/fixtures/status/`: `build-loop-next-item` (an active `mvp` milestone; item 1 ends
   `· #12`; item 2 names `#7` before its `(F-02)`; the Next line names item 2 and `/log-feature M2#2`) and
   `build-loop-all-started`. `skeleton-active` keeps its expected text (its milestone has no Contents).
@@ -181,6 +181,9 @@ It does not defend against an owner who writes a misleading decision or marks an
 - Conflict detection is the model reading two texts. The probe fixture and the owner probe are its evidence;
   no check proves it for every project.
 - `/log-bug` and `/log-followup` do not read `decisions.md` yet.
+- Only the ` · #{issue}` marker at the end of the line counts: an item started by hand in another form shows
+  as next until the marker is added. The "Active milestone" line still prints the milestone's title whole
+  (#110).
 
 ## Acceptance
 
@@ -274,3 +277,8 @@ none
 ## Changes
 
 - 2026-09-29 · ADDED · shaped from #118
+- 2026-09-29 · CHANGED · at build (#118): status names no command for an id `/log-feature` refuses (S1
+  `build-loop-free-id`) and skips a template `<…>` item; two items sharing a number stop the skill; a seeded
+  Phase 1 takes why now from the appetite and goes on to the next question (found by the agent probe);
+  started is the end-of-line marker only, not any issue after the citation (the owner's call, after two review
+  rounds found faults in the citation parser)

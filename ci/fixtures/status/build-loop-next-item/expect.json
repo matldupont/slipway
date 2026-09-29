@@ -1,0 +1,6 @@
+{
+  "_note": "An active mvp milestone: item 1 is started (its line ends · #12); item 2 names #7 inside the line, before its (F-02), which is a constraint on the slice and not its issue, so item 2 is next. Its text runs over two lines and past 60 characters, so the excerpt is one line cut at a word boundary. The closed M1's unstarted item is not next. The title carries a BEL and item 2 a pair of double quotes: the Next line drops the control character and turns \" into ', so project text cannot close its own quotes. The title also holds a right-to-left override (U+202E), dropped the same way. Item 2 names #7 and ends with a bare #8, not the ` · #n` marker, so it is not started.",
+  "today": "2026-03-10",
+  "next": "Step 5 (agent) — Build loop: Booking. Next slice: item 2, \"A client books a 'walk' from the walker's link, whose…\". Start it in a fresh session with /log-feature M2#2.",
+  "frame": "framed · risks: RISK-1 tested"
+}

@@ -327,3 +327,44 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   assert.match(stop, /A review never writes a threat model/, 'cold-review must forbid a review-written threat model, as work-ticket does');
   assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
 });
+
+// F-06 (#118, D-020): /log-feature reads the decisions record in every run and asks about a conflict before it
+// writes anything; `/log-feature M1#2` shapes a milestone's Contents item. The steps live in process/intake.md,
+// since the skill is at its cap; these pin the lines that make the two fire.
+test('process/intake.md → Decisions: read in full, a conflict asked before any branch, "neither yet" writes nothing', () => {
+  const d = (section(intake, 'Decisions', 2) ?? '').replace(/\s+/g, ' ');
+  assert.ok(d, 'process/intake.md has no ## Decisions');
+  assert.match(d, /`decisions\.md`/, 'Decisions must name the record it reads');
+  assert.match(d, /Read it in full/, 'Decisions must read the whole record, not only the ids the work cites');
+  assert.match(d, /never by id alone/, 'a touched decision is judged by what it says, not by citation');
+  assert.match(d, /Ask before any branch or doc exists/, 'a conflict is asked about before anything is written');
+  assert.match(d, /\*\*neither yet\*\*/, 'the owner can answer that neither decision stands yet');
+  assert.match(d, /Neither yet:\*\* stop\. Nothing is written/, '"neither yet" ends the run with nothing written');
+  assert.match(d, /`Decisions: \{id\}/, 'Phase 3 prints a Decisions line');
+});
+
+test('process/intake.md → Milestone item: the argument is matched before use, and a started item names its issue', () => {
+  const m = (section(intake, 'Milestone item', 2) ?? '').replace(/\s+/g, ' ');
+  assert.ok(m, 'process/intake.md has no ## Milestone item');
+  assert.match(m, /matching `\^M\\d\+#\\d\+\$` selects this form, and is used for nothing before it matches/, 'the argument is checked before it reaches anything');
+  assert.match(m, /not `status: active`/, 'a milestone still being shaped stops the run');
+  assert.match(m, /Phase 2, skipped,\*\* with one line: `\{id\} already made this bet/, 'the argument against building is replaced by one line');
+  assert.match(m, /no F-ID is added and the PRD version is not bumped/, 'an item already in the PRD adds no F-ID');
+  assert.match(m, /append ` · #\{issue\}` to the item's last line/, 'the started marker is written on the item\'s line');
+  assert.match(m, /Phase 3 runs in full, Decisions included/, 'a milestone item reads the decisions record too');
+  assert.match(m, /the fixed text `\{id\} item \{n\}`, which is built from the checked argument and matched inside the `--jq` program/, 'the already-filed search must run the item term, spaces and all');
+  assert.match(m, /A bounded item, or a hit from step 2: on `docs\/\{id\}-item-\{n\}`/, 'a bounded item handed to /log-followup still gets its started marker');
+  assert.match(m, /A line already ending with ` · #\{issue\}` is done/, 'a retried marker write skips only what status reads as started: the end-of-line marker');
+});
+
+test('/log-feature reads decisions.md before Phase 1 and cites both sections; /log-followup takes a Contents line as a frame', () => {
+  const lf = read(skillPath('log-feature'));
+  const before = (lf.match(/^Read before Phase 1[\s\S]*?\n\s*\n/m)?.[0] ?? '').replace(/\s+/g, ' ');
+  assert.match(before, /`decisions\.md`/, '/log-feature must read decisions.md before Phase 1');
+  assert.match(lf, /`\/log-feature M1#2`/, '/log-feature must name the milestone-item form');
+  for (const [phase, re] of [['Phase 1 — Problem', /Milestone item/], ['Phase 2 — Argue against it', /Milestone item/], ['Phase 3 — What already exists', /`process\/intake\.md` → Decisions/], ['Phase 4 — Cut, spec, schedule', /`process\/intake\.md` → Milestone item/]]) {
+    assert.match((section(lf, phase, 2) ?? '').replace(/\s+/g, ' '), re, `/log-feature ${phase} must cite ${re}`);
+  }
+  assert.match(section(lf, 'Phase 3 — What already exists', 2) ?? '', /^Decisions: /m, 'Phase 3\'s output block must carry a Decisions line');
+  assert.match(read(skillPath('log-followup')).replace(/\s+/g, ' '), /milestone Contents line handed over by `\/log-feature` is a frame/, '/log-followup must accept a Contents line as its frame');
+});

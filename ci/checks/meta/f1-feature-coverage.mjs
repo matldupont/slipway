@@ -23,7 +23,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { section } from '../lib/markdown.mjs';
-import { readMilestones } from '../lib/milestones.mjs';
+import { contents, readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
@@ -39,17 +39,6 @@ const num = (id) => Number(id.slice(2));
 const features = new Map();
 for (const m of (section(prd, '5. Features', 2) ?? '').matchAll(/^###\s+(F-\d+)\s+—\s+(.+)$/gm)) {
   if (!m[2].trim().startsWith('<')) features.set(num(m[1]), m[1]);
-}
-
-// Contents items: a line starting `N.` opens an item; indented lines continue it.
-function contents(md) {
-  const items = [];
-  for (const line of (section(md, 'Contents', 2) ?? '').split(/\r?\n/)) {
-    const open = line.match(/^(\d+)\.\s+(.*)$/);
-    if (open) items.push({ n: Number(open[1]), text: open[2] });
-    else if (items.length && /^\s+\S/.test(line)) items[items.length - 1].text += ' ' + line.trim();
-  }
-  return items;
 }
 
 const { milestones } = readMilestones(root);

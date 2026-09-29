@@ -1,0 +1,6 @@
+{
+  "_note": "The active milestone's id is not M and a number, so /log-feature would refuse the command: status names none, and keeps the line it printed before items were read. Item 1 in the closed M1 is also not next.",
+  "today": "2026-03-10",
+  "next": "Step 5 (agent) — Build loop: Booking. Next slice from its Contents; pick the lane (process/slipway-rules.md#Lanes).",
+  "frame": "framed · risks: RISK-1 tested"
+}

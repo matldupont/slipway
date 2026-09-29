@@ -1,0 +1,6 @@
+{
+  "_note": "Every Contents item names its issue after its citation: a plain #12, a cross-repo issue on a continuation line, and a (no feature: …) reason with parentheses of its own. Next says so and points at /close-milestone. Item 4 is the template's placeholder, which is never a slice.",
+  "today": "2026-03-10",
+  "next": "Step 5 (agent) — Build loop: Booking. Every Contents item has an issue: finish them, then run /close-milestone once its Gate is green.",
+  "frame": "framed · risks: RISK-1 tested"
+}
