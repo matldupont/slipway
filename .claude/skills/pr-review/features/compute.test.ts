@@ -1503,6 +1503,14 @@ test("writeReviewDir: hostile names arrive as data, texts as plain numbered file
   assert.equal(existsSync(rd.path), false, "cleanup deletes the folder");
 });
 
+test("writeReviewDir: a failure part-way leaves no folder behind", () => {
+  const { clone, base } = hostilePR();
+  const listReviewDirs = () => readdirSync(realpathSync(tmpdir())).filter((n) => n.startsWith(REVIEW_DIR_PREFIX)).sort();
+  const before = listReviewDirs();
+  assert.throws(() => writeReviewDir(clone, base, "0".repeat(40))); // a head this clone does not have
+  assert.deepEqual(listReviewDirs(), before);
+});
+
 test("cleanupReviewDir: deletes only a review folder this script made", () => {
   const { clone, base, head } = hostilePR();
   const bare = mkdtempSync(path.join(tmpdir(), REVIEW_DIR_PREFIX)); // the prefix, no index

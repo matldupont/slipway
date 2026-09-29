@@ -805,6 +805,15 @@ export function writeReviewDir(repoRoot: string, base: string, head: string): Re
     throw new Error(`the temp directory ${root} is inside the repository; set TMPDIR outside it`);
   }
   const dir = mkdtempSync(join(root, REVIEW_DIR_PREFIX));
+  try {
+    return fillReviewDir(dir, repoRoot, base, head);
+  } catch (err) {
+    rmSync(dir, { recursive: true, force: true }); // a half-written folder is never left behind
+    throw err;
+  }
+}
+
+function fillReviewDir(dir: string, repoRoot: string, base: string, head: string): ReviewDir {
   chmodSync(dir, 0o700);
   mkdirSync(join(dir, "files"), { mode: 0o700 });
 
