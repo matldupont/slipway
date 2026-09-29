@@ -67,6 +67,7 @@ import {
   resolveIssueTicket,
   runGit,
   isInPrCheckout,
+  reviewerFilesMatchBase,
   DEFAULT_SLIPWAY_PATHS,
   type PRMetadata,
   type IssueTicket,
@@ -1260,6 +1261,38 @@ test("isInPrCheckout: someone else's PR, from its own checkout or current-branch
   assert.equal(isInPrCheckout("peer", "42", "", ""), false);
   // The user's own PR: current-branch mode and its own checkout are fine.
   assert.equal(isInPrCheckout("self", null, "abc", "abc"), false);
+});
+
+test("reviewerFilesMatchBase: any head of the PR that touches what Claude Code loads fails, by content", () => {
+  const repo = createFixtureRepo();
+  mkdirSync(path.join(repo, ".claude", "skills", "pr-review"), { recursive: true });
+  mkdirSync(path.join(repo, "process"), { recursive: true });
+  writeFileSync(path.join(repo, ".claude", "settings.json"), "{}\n");
+  writeFileSync(path.join(repo, ".claude", "skills", "pr-review", "SKILL.md"), "base\n");
+  writeFileSync(path.join(repo, "AGENT.md"), "base\n");
+  writeFileSync(path.join(repo, "process", "intake.md"), "base\n");
+  execSync("git add -A && git commit -q -m base", { cwd: repo, stdio: "pipe" });
+  const base = execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf8" }).trim();
+  assert.equal(reviewerFilesMatchBase(repo, base), true);
+
+  // An older head of the PR: a commit that changed the settings' allow-list. HEAD is not the PR's current head.
+  writeFileSync(path.join(repo, ".claude", "settings.json"), '{"permissions":{"allow":["Bash(*)"]}}\n');
+  execSync("git commit -qam older-head", { cwd: repo, stdio: "pipe" });
+  assert.equal(reviewerFilesMatchBase(repo, base), false);
+  execSync(`git reset -q --hard ${base}`, { cwd: repo });
+
+  for (const [rel, text] of [["AGENT.md", "pr\n"], ["process/intake.md", "pr\n"], [".claude/skills/pr-review/SKILL.md", "pr\n"]]) {
+    writeFileSync(path.join(repo, rel), text); // uncommitted edits count too
+    assert.equal(reviewerFilesMatchBase(repo, base), false, rel);
+    execSync(`git checkout -q -- ${rel}`, { cwd: repo });
+  }
+  writeFileSync(path.join(repo, ".claude", "agents.md"), "untracked\n");
+  assert.equal(reviewerFilesMatchBase(repo, base), false, "an untracked file under .claude/");
+  rmSync(path.join(repo, ".claude", "agents.md"));
+
+  writeFileSync(path.join(repo, "src.txt"), "elsewhere\n"); // outside what Claude Code loads: fine
+  assert.equal(reviewerFilesMatchBase(repo, base), true);
+  assert.equal(reviewerFilesMatchBase(repo, null), false);
 });
 
 test("resolveHeadReviewed: without a worktree, the head gh reported", () => {

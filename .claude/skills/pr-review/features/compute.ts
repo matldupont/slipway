@@ -811,6 +811,34 @@ export function isInPrCheckout(
   return reviewMode === "peer" && (prRef === null || (cwdHead !== "" && cwdHead === prHeadSha));
 }
 
+/**
+ * What Claude Code loads from the checkout it runs in: the skill itself,
+ * settings (allow-list, hooks), agents, and the configuration the skill
+ * reads. On someone else's PR they must be the base commit's, byte for byte.
+ */
+export const REVIEWER_FILES = [".claude", "AGENT.md", "process/intake.md"];
+
+/**
+ * True when the checkout at `repoRoot` holds exactly the base commit's
+ * REVIEWER_FILES: no tracked difference (committed or not) and no
+ * untracked, unignored file among them. Compared by content, so a checkout
+ * at any head of the PR — current or older — fails it. False when the
+ * base commit is unknown.
+ */
+export function reviewerFilesMatchBase(repoRoot: string, baseSha: string | null): boolean {
+  if (!baseSha) return false;
+  try {
+    runGit(["diff", "--quiet", baseSha, "--", ...REVIEWER_FILES], repoRoot);
+  } catch {
+    return false; // exit 1: differs (or git failed): not the base's
+  }
+  const untracked = tryRunGit(
+    ["status", "--porcelain", "--untracked-files=all", "--", ...REVIEWER_FILES],
+    repoRoot,
+  );
+  return untracked === "";
+}
+
 /** The commit the review reads, and whether the PR moved under it. */
 export function resolveHeadReviewed(prHeadSha: string, worktree: WorktreeInfo): HeadReviewed {
   if (worktree.created && worktree.headSha) {
@@ -1643,7 +1671,15 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const reviewMode = detectReviewMode(meta.author.username);
   logVerbose(opts, `review mode: ${reviewMode} (author @${meta.author.username})`);
   const cwdHead = tryRunGit(["rev-parse", "HEAD"], cwd);
-  const inPrCheckout = isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha);
+  // The bar comes from the PR's base commit, never its head or a working tree.
+  const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
+  const baseCommit = repoRoot ? fetchBaseCommit(repoRoot, meta.baseSha) : null;
+  // On someone else's PR, what Claude Code loaded here must be the base's:
+  // a checkout at an older head of the PR has a different HEAD but the
+  // PR's files.
+  const inPrCheckout =
+    isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha) ||
+    (reviewMode === "peer" && !!repoRoot && !!baseCommit && !reviewerFilesMatchBase(repoRoot, baseCommit));
 
   const worktree = inPrCheckout
     ? { created: false, path: null, branch: null, reason: "skipped: running in the PR's own checkout" }
@@ -1686,15 +1722,13 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const readiness = computeReadiness(meta, ticket, unresolved, checks);
   let hardHalt = detectHardHalt(meta, diff, diffFetchFailed, ticket);
 
-  // The bar comes from the PR's base commit, never its head or a working tree.
-  const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
-  const baseCommit = repoRoot ? fetchBaseCommit(repoRoot, meta.baseSha) : null;
   if (!hardHalt && inPrCheckout) {
     hardHalt = {
       reason: "running_in_pr_checkout",
       detail:
-        `this checkout is the PR's own head (${meta.headSha}) and the PR is @${meta.author.username}'s: ` +
-        `the skill running is the PR's. Run from a checkout of ${meta.targetBranch}, passing the PR number.`,
+        `this checkout's ${REVIEWER_FILES.join(", ")} are not the base commit's, or it is the PR's own head, ` +
+        `and the PR is @${meta.author.username}'s: what runs here may be the PR's. ` +
+        `Run from a clean checkout of ${meta.targetBranch}, passing the PR number.`,
     };
   }
   if (!hardHalt && !baseCommit) {

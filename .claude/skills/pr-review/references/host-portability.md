@@ -74,6 +74,14 @@ call (PR view, diff, checks, issue view, the reviewThreads GraphQL query)
 depends on it, and a half-authenticated run produces confusing partial
 output instead of a clean failure.
 
+### `git` safety for reviewers
+
+Set `git config --global safe.bareRepository explicit` on every machine
+that reviews. A PR can commit a folder laid out as a bare repository whose
+config names a command; with this setting, git never treats such a folder
+as a repository on its own. The subagent prompts pass it on every call
+too, as a second layer.
+
 ### GitHub Enterprise
 
 Set `GH_HOST` before invoking the skill so `gh` targets the right server:

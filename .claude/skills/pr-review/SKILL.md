@@ -83,15 +83,21 @@ parent gets findings and decides what to do with them.
 ```bash
 gh pr view <pr-url-or-number> --json author,headRefOid,headRefName,baseRefOid
 gh api user --jq .login
-git rev-parse HEAD
+git fetch origin <baseRefOid>
+git diff --quiet <baseRefOid> -- .claude AGENT.md process/intake.md   # exit 0: the base's
+git status --porcelain --untracked-files=all -- .claude AGENT.md process/intake.md   # prints nothing
 ```
 
-When the PR is someone else's and this checkout's `HEAD` is its
-`headRefOid`, stop: in the PR's own checkout, the skill and `compute.ts`
-you would run are the PR's. Say so, and ask the user to run the review
-from a checkout of the base branch, passing the PR number. Omitting the PR
-(current-branch mode) is only for the user's own PR. compute.ts refuses
-both cases too (`running_in_pr_checkout`), but by then its own copy has run.
+On someone else's PR, both checks must pass: everything Claude Code loads
+from this checkout (`.claude/` — this skill, the settings' allow-list and
+hooks, agents — plus `AGENT.md` and `process/intake.md`) is the base
+commit's, compared by content. A checkout at any head of the PR, current
+or older, fails it. When either fails, stop before running anything: the
+skill and `compute.ts` you would run may be the PR's. Say so, and ask the
+user to run the review from a clean checkout of the base branch, passing
+the PR number. Omitting the PR (current-branch mode) is only for the
+user's own PR. compute.ts refuses too (`running_in_pr_checkout`), but by
+then its own copy has run.
 
 Then resolve per `process/intake.md` → Configuration, before Step 1, from
 the PR's **base commit**: `git fetch origin <baseRefOid>`, then
