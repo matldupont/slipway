@@ -60,6 +60,9 @@ import {
   findInvariantsAtRisk,
   parseActiveMilestone,
   detectSlipwayContext,
+  parseSlipwayPath,
+  resolveHeadReviewed,
+  DEFAULT_SLIPWAY_PATHS,
   type PRMetadata,
   type IssueTicket,
   type UnresolvedThread,
@@ -139,6 +142,52 @@ test("parseArgs: parses all flags", () => {
 
 test("parseArgs: throws on unknown flag", () => {
   assert.throws(() => parseArgs(["42", "--unknown"]), /Unknown argument/);
+});
+
+test("parseArgs: slipway paths default to slipway's layout, issue repo to the PR's", () => {
+  const opts = parseArgs(["42"]);
+  assert.deepEqual(opts.slipwayPaths, DEFAULT_SLIPWAY_PATHS);
+  assert.equal(opts.issueRepo, null);
+});
+
+test("parseArgs: configured paths and issue repo are taken as given", () => {
+  const opts = parseArgs([
+    "42",
+    "--issue-repo", "owner/issues",
+    "--invariants", "docs/rules.md",
+    "--milestones", "plan/milestones/",
+    "--cold-review", "process/review.md",
+  ]);
+  assert.equal(opts.issueRepo, "owner/issues");
+  assert.deepEqual(opts.slipwayPaths, {
+    invariants: "docs/rules.md",
+    milestones: "plan/milestones",
+    coldReview: "process/review.md",
+  });
+});
+
+test("parseArgs: 'none' turns each slipway input off rather than defaulting", () => {
+  const opts = parseArgs(["42", "--invariants", "none", "--milestones", "None", "--cold-review", "none"]);
+  assert.deepEqual(opts.slipwayPaths, { invariants: null, milestones: null, coldReview: null });
+});
+
+test("parseArgs: a slipway path flag with no value is an error, never the default", () => {
+  assert.throws(() => parseArgs(["42", "--invariants"]), /needs a path or 'none'/);
+  assert.throws(() => parseArgs(["42", "--invariants", ""]), /needs a path or 'none'/);
+  assert.throws(() => parseArgs(["42", "--milestones", "--worktree"]), /needs a path or 'none'/);
+});
+
+test("parseSlipwayPath: refuses paths that leave the checkout", () => {
+  assert.throws(() => parseSlipwayPath("--invariants", "/etc/passwd"), /inside the repository/);
+  assert.throws(() => parseSlipwayPath("--invariants", "../other/docs.md"), /inside the repository/);
+  assert.throws(() => parseSlipwayPath("--invariants", "docs/../../x.md"), /inside the repository/);
+  assert.equal(parseSlipwayPath("--invariants", "docs/x..y.md"), "docs/x..y.md");
+});
+
+test("parseArgs: --issue-repo must be owner/repo", () => {
+  assert.throws(() => parseArgs(["42", "--issue-repo", "just-a-name"]), /owner\/repo/);
+  assert.throws(() => parseArgs(["42", "--issue-repo", "owner/repo; rm -rf"]), /owner\/repo/);
+  assert.throws(() => parseArgs(["42", "--issue-repo"]), /owner\/repo/);
 });
 
 test("parseArgs: --tone defaults to casual", () => {
@@ -951,6 +1000,73 @@ test("detectSlipwayContext: coldReviewApplies is false when diff doesn't touch a
   assert.equal(got.coldReviewApplies, false);
 });
 
+function fullSlipwayCheckout(prefix: string): string {
+  const dir = workspaceMkdtemp(prefix);
+  mkdirSync(path.join(dir, "process"), { recursive: true });
+  writeFileSync(path.join(dir, "process", "cold-review.md"), "# Cold review\n");
+  mkdirSync(path.join(dir, "docs", "milestones"), { recursive: true });
+  writeFileSync(
+    path.join(dir, "docs", "domain-invariants.md"),
+    [
+      "| ID | Invariant | Enforced by | Since |",
+      "|---|---|---|---|",
+      "| INV-1 | x | `packages/billing/charge.test.ts` | 2026-01-01 |",
+    ].join("\n"),
+  );
+  writeFileSync(
+    path.join(dir, "docs", "milestones", "M1.md"),
+    ["---", "id: M1", "status: active", "---", "", "## No-gos", "", "- payments"].join("\n"),
+  );
+  return dir;
+}
+
+const billingDiff: DiffStats = {
+  filesChanged: 1,
+  linesAdded: 1,
+  linesRemoved: 1,
+  changedLines: { "packages/billing/charge.ts": [[10, 10]] },
+  removedHunks: { "packages/billing/charge.test.ts": [[3, 3]] },
+};
+
+test("detectSlipwayContext: invariants set to none reads no invariants, though docs/domain-invariants.md exists", () => {
+  const dir = fullSlipwayCheckout("slipway-no-inv-");
+  const got = detectSlipwayContext(dir, "## What\nx", billingDiff, { ...DEFAULT_SLIPWAY_PATHS, invariants: null });
+  assert.deepEqual(got.domainInvariants, []);
+  assert.deepEqual(got.invariantsAtRisk, []);
+  assert.equal(got.activeMilestones.length, 1); // the other inputs still read
+  assert.equal(got.coldReviewChecklistPath, "process/cold-review.md");
+});
+
+test("detectSlipwayContext: every input set to none reads nothing and is not a slipway repo", () => {
+  const dir = fullSlipwayCheckout("slipway-all-none-");
+  const got = detectSlipwayContext(dir, "## What\nx", billingDiff, { invariants: null, milestones: null, coldReview: null });
+  assert.equal(got.present, false);
+  assert.deepEqual(got.domainInvariants, []);
+  assert.deepEqual(got.activeMilestones, []);
+  assert.equal(got.coldReviewApplies, false);
+  assert.equal(got.coldReviewChecklistPath, null);
+});
+
+test("detectSlipwayContext: reads configured paths, not the default ones", () => {
+  const dir = workspaceMkdtemp("slipway-custom-");
+  mkdirSync(path.join(dir, "rules", "plan"), { recursive: true });
+  writeFileSync(
+    path.join(dir, "rules", "money.md"),
+    ["| ID | Invariant | Enforced by | Since |", "|---|---|---|---|", "| INV-9 | y | `packages/billing/charge.test.ts` | 2026-01-01 |"].join("\n"),
+  );
+  writeFileSync(path.join(dir, "rules", "review.md"), "# Cold review\n");
+  writeFileSync(path.join(dir, "rules", "plan", "M2.md"), ["---", "id: M2", "status: active", "---"].join("\n"));
+  const got = detectSlipwayContext(dir, "## What\nx", billingDiff, {
+    invariants: "rules/money.md",
+    milestones: "rules/plan",
+    coldReview: "rules/review.md",
+  });
+  assert.equal(got.present, true);
+  assert.deepEqual(got.invariantsAtRisk, ["INV-9"]);
+  assert.equal(got.activeMilestones[0].path, path.join("rules", "plan", "M2.md"));
+  assert.equal(got.coldReviewChecklistPath, "rules/review.md");
+});
+
 test("detectSlipwayContext: null checkoutRoot behaves as absent", () => {
   const got = detectSlipwayContext(null, "## What\nx", emptyDiff());
   assert.equal(got.present, false);
@@ -1076,6 +1192,26 @@ test("setupWorktree: creates worktree at sibling default from the pull/N/head re
   assert.equal(got.branch, "pr-7");
   assert.equal(existsSync(got.path!), true);
   assert.equal(path.basename(got.path!), `${path.basename(repo)}-pr-7`);
+});
+
+test("setupWorktree: records the commit it checked out", () => {
+  const repo = createFixtureRepo();
+  publishPullRef(repo, 9, "feature/x");
+  const meta = mkPR({ number: 9, sourceBranch: "feature/x" });
+  const got = setupWorktree(meta, true, null, repo);
+  const expected = execSync("git rev-parse refs/heads/feature/x", { cwd: repo, encoding: "utf8" }).trim();
+  assert.equal(got.headSha, expected);
+});
+
+test("resolveHeadReviewed: the worktree's commit, flagged when the PR moved under it", () => {
+  const wt = { created: true, path: "/x", branch: "pr-1", headSha: "bbb" };
+  assert.deepEqual(resolveHeadReviewed("aaa", wt), { sha: "bbb", source: "worktree", moved: true });
+  assert.deepEqual(resolveHeadReviewed("bbb", wt), { sha: "bbb", source: "worktree", moved: false });
+});
+
+test("resolveHeadReviewed: without a worktree, the head gh reported", () => {
+  const wt = { created: false, path: null, branch: null };
+  assert.deepEqual(resolveHeadReviewed("aaa", wt), { sha: "aaa", source: "pr", moved: false });
 });
 
 test("setupWorktree: honors worktreeDir override", () => {

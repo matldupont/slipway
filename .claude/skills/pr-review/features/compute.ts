@@ -22,6 +22,11 @@
  *   --output-path <file>              Write JSON to file instead of stdout
  *   --skip-ticket                     Don't attempt linked-issue fetch (still extract the number)
  *   --tone {casual|formal}            Tone hint for downstream rendering (default: casual)
+ *   --issue-repo <owner/repo>         Repo the linked issue lives in (default: the PR's repo)
+ *   --invariants <path|none>          Domain invariants doc (default: docs/domain-invariants.md)
+ *   --milestones <dir|none>           Milestones folder (default: docs/milestones)
+ *   --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)
+ *                                     `none` turns that input off; it never falls back to the default.
  *   --verbose                         Diagnostic logs to stderr (includes swallowed gh/git stderr)
  *
  * Environment:
@@ -65,7 +70,21 @@ export interface WorktreeInfo {
   created: boolean;
   path: string | null;
   branch: string | null;
+  /** `git rev-parse HEAD` in the worktree once it is checked out. */
+  headSha?: string | null;
   reason?: string;
+}
+
+/**
+ * The commit this review reads. With a worktree it is the commit checked out
+ * there; without one, the head `gh pr view` reported. `moved` is true when
+ * the two differ: the PR was pushed to between the metadata read and the
+ * fetch, so the metadata, diff and checkout may describe different commits.
+ */
+export interface HeadReviewed {
+  sha: string;
+  source: "worktree" | "pr";
+  moved: boolean;
 }
 
 export type TicketSource = "closingIssuesReferences" | "body";
@@ -122,7 +141,8 @@ export type ReadinessCheck =
   | "checks"
   | "draft"
   | "description"
-  | "unresolved_threads";
+  | "unresolved_threads"
+  | "head_moved";
 
 export interface ReadinessBlocker {
   check: ReadinessCheck;
@@ -176,7 +196,7 @@ export interface SlipwayContext {
   lane: "trivial" | "bounded" | "feature" | null;
   /** Raw text of the PR body's "## Verification" section, if present. */
   verificationSection: string | null;
-  /** True when `process/cold-review.md` exists AND the diff touches a money/auth/schema/deletion path — always 3 lenses. */
+  /** True when the cold-review checklist exists AND the diff touches a money/auth/schema/deletion path — always 3 lenses. */
   coldReviewApplies: boolean;
   coldReviewChecklistPath: string | null;
   domainInvariants: SlipwayInvariant[];
@@ -222,6 +242,8 @@ export interface FeatureOutput {
   readiness: ReadinessSignals;
   unresolvedThreads: UnresolvedThread[];
   slipway: SlipwayContext;
+  /** null only when `pr` is null. */
+  headReviewed: HeadReviewed | null;
   hardHalt: HardHalt | null;
 }
 
@@ -246,10 +268,29 @@ export function isFeatureOutput(value: unknown): value is FeatureOutput {
 // CLI args
 // ============================================================================
 
+/**
+ * Where the slipway inputs live, relative to the checkout. null turns that
+ * input off (the owner's configuration said `none`).
+ */
+export interface SlipwayPaths {
+  invariants: string | null;
+  milestones: string | null;
+  coldReview: string | null;
+}
+
+export const DEFAULT_SLIPWAY_PATHS: SlipwayPaths = {
+  invariants: "docs/domain-invariants.md",
+  milestones: "docs/milestones",
+  coldReview: "process/cold-review.md",
+};
+
 interface CLIOptions {
   /** null means "resolve the PR for the current branch". */
   prInput: string | null;
   projectPath: string | null;
+  /** null means the PR's own repo. */
+  issueRepo: string | null;
+  slipwayPaths: SlipwayPaths;
   withWorktree: boolean;
   worktreeDir: string | null;
   outputPath: string | null;
@@ -262,6 +303,8 @@ export function parseArgs(argv: string[]): CLIOptions {
   const opts: CLIOptions = {
     prInput: null,
     projectPath: null,
+    issueRepo: null,
+    slipwayPaths: { ...DEFAULT_SLIPWAY_PATHS },
     withWorktree: false,
     worktreeDir: process.env.PR_REVIEW_WORKTREE_DIR ?? null,
     outputPath: null,
@@ -282,6 +325,23 @@ export function parseArgs(argv: string[]): CLIOptions {
         break;
       case "--worktree":
         opts.withWorktree = true;
+        break;
+      case "--issue-repo": {
+        const v = argv[++i];
+        if (!v || !/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(v)) {
+          throw new Error(`--issue-repo must be owner/repo (got '${v ?? ""}')`);
+        }
+        opts.issueRepo = v;
+        break;
+      }
+      case "--invariants":
+        opts.slipwayPaths.invariants = parseSlipwayPath(arg, argv[++i]);
+        break;
+      case "--milestones":
+        opts.slipwayPaths.milestones = parseSlipwayPath(arg, argv[++i]);
+        break;
+      case "--cold-review":
+        opts.slipwayPaths.coldReview = parseSlipwayPath(arg, argv[++i]);
         break;
       case "--worktree-dir":
         opts.worktreeDir = argv[++i] ?? null;
@@ -308,6 +368,24 @@ export function parseArgs(argv: string[]): CLIOptions {
     }
   }
   return opts;
+}
+
+/**
+ * A configured slipway path: `none` turns the input off (null), anything else
+ * must be a relative path that stays inside the checkout. A missing value is
+ * an error, never the default — a flag given empty must not read the file the
+ * owner turned off.
+ */
+export function parseSlipwayPath(flag: string, value: string | undefined): string | null {
+  if (value === undefined || value.trim() === "" || value.startsWith("--")) {
+    throw new Error(`${flag} needs a path or 'none'`);
+  }
+  const v = value.trim();
+  if (v.toLowerCase() === "none") return null;
+  if (v.startsWith("/") || /^[A-Za-z]:/.test(v) || v.split(/[\\/]/).includes("..")) {
+    throw new Error(`${flag} must be a path inside the repository (got '${v}')`);
+  }
+  return v.replace(/\/+$/, "");
 }
 
 function logVerbose(opts: { verbose: boolean }, msg: string): void {
@@ -672,7 +750,16 @@ export function setupWorktree(
     runGit(["worktree", "add", worktreePath, branchName], repoRoot);
   }
 
-  return { created: true, path: worktreePath, branch: branchName };
+  const headSha = tryRunGit(["rev-parse", "HEAD"], worktreePath) || null;
+  return { created: true, path: worktreePath, branch: branchName, headSha };
+}
+
+/** The commit the review reads, and whether the PR moved under it. */
+export function resolveHeadReviewed(prHeadSha: string, worktree: WorktreeInfo): HeadReviewed {
+  if (worktree.created && worktree.headSha) {
+    return { sha: worktree.headSha, source: "worktree", moved: worktree.headSha !== prHeadSha };
+  }
+  return { sha: prHeadSha, source: "pr", moved: false };
 }
 
 // ============================================================================
@@ -1325,10 +1412,13 @@ export function detectSlipwayContext(
   checkoutRoot: string | null,
   prBody: string,
   diff: DiffStats,
+  paths: SlipwayPaths = DEFAULT_SLIPWAY_PATHS,
 ): SlipwayContext {
-  const coldReviewPath = checkoutRoot ? join(checkoutRoot, "process", "cold-review.md") : null;
-  const invariantsPath = checkoutRoot ? join(checkoutRoot, "docs", "domain-invariants.md") : null;
-  const milestonesDir = checkoutRoot ? join(checkoutRoot, "docs", "milestones") : null;
+  // A path turned off (null) is never read, whatever the checkout holds.
+  const at = (rel: string | null) => (checkoutRoot && rel ? join(checkoutRoot, rel) : null);
+  const coldReviewPath = at(paths.coldReview);
+  const invariantsPath = at(paths.invariants);
+  const milestonesDir = at(paths.milestones);
 
   const hasColdReview = !!coldReviewPath && existsSync(coldReviewPath);
   const hasInvariants = !!invariantsPath && existsSync(invariantsPath);
@@ -1356,7 +1446,7 @@ export function detectSlipwayContext(
         const full = join(milestonesDir!, f);
         const parsedMilestone = parseActiveMilestone(
           readFileSync(full, "utf8"),
-          join("docs", "milestones", f),
+          join(paths.milestones!, f),
         );
         if (parsedMilestone) activeMilestones.push(parsedMilestone);
       }
@@ -1370,7 +1460,7 @@ export function detectSlipwayContext(
     lane: extractLane(prBody),
     verificationSection: extractMarkdownSection(prBody, "Verification"),
     coldReviewApplies,
-    coldReviewChecklistPath: hasColdReview ? "process/cold-review.md" : null,
+    coldReviewChecklistPath: hasColdReview ? paths.coldReview : null,
     domainInvariants,
     invariantsAtRisk,
     activeMilestones,
@@ -1403,7 +1493,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const { ticket, failure } = resolveIssueTicket(
     closingIssues,
     meta.description,
-    meta.projectPath,
+    opts.issueRepo ?? meta.projectPath,
     opts.skipTicket,
   );
   logVerbose(
@@ -1435,8 +1525,18 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   logVerbose(opts, `review mode: ${reviewMode} (author @${meta.author.username})`);
 
   const checkoutRoot = worktree.created ? worktree.path : tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
-  const slipway = detectSlipwayContext(checkoutRoot, meta.description, diff);
+  const slipway = detectSlipwayContext(checkoutRoot, meta.description, diff, opts.slipwayPaths);
   logVerbose(opts, `slipway: present=${slipway.present} lane=${slipway.lane ?? "none"}`);
+
+  const headReviewed = resolveHeadReviewed(meta.headSha, worktree);
+  if (headReviewed.moved) {
+    readiness.blockers.push({
+      check: "head_moved",
+      severity: "HIGH",
+      detail: `PR head moved during setup: metadata read ${meta.headSha}, worktree has ${headReviewed.sha}. Re-run to review one commit.`,
+    });
+    readiness.passed = false;
+  }
 
   return {
     schemaVersion: 2,
@@ -1452,6 +1552,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     readiness,
     unresolvedThreads: unresolved,
     slipway,
+    headReviewed,
     hardHalt,
   };
 }
@@ -1496,6 +1597,7 @@ function prNotFoundOutput(
       invariantsAtRisk: [],
       activeMilestones: [],
     },
+    headReviewed: null,
     hardHalt: {
       reason: "pr_not_found",
       detail: `PR ${prRef ?? "(current branch)"} not found${projectPath ? ` in ${projectPath}` : ""} (gh reported not-found)`,
@@ -1520,6 +1622,10 @@ async function main(): Promise<void> {
         "  --output-path <file>              Write JSON to file instead of stdout\n" +
         "  --skip-ticket                     Don't attempt linked-issue fetch\n" +
         "  --tone {casual|formal}            Tone hint for downstream rendering (default: casual)\n" +
+        "  --issue-repo <owner/repo>         Repo the linked issue lives in (default: the PR's repo)\n" +
+        "  --invariants <path|none>          Domain invariants doc (default: docs/domain-invariants.md)\n" +
+        "  --milestones <dir|none>           Milestones folder (default: docs/milestones)\n" +
+        "  --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)\n" +
         "  --verbose                         Diagnostic logs to stderr\n",
     );
     process.exit(1);
