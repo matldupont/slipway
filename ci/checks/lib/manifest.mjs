@@ -12,7 +12,8 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, realpathSync } from 'node:fs';
-import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { delimiter, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { CONTROL, escapeControl } from './report.mjs';
 import { readList } from './yaml-list.mjs';
 
@@ -28,8 +29,9 @@ export const RECORDED = ['managed', 'seeded', 'merged'];
 //     known-bad fixtures inside slipway's own checkout; a project's history still fails the next one;
 //   - that checkout's history has exactly one root commit, SLIPWAY_ROOT_COMMIT. A project can add files;
 //     it cannot make a commit id. A shallow clone lists its boundary commit as a root, so it is not slipway.
-// Git runs with every GIT_* variable dropped, and replace refs and grafts ignored: the environment cannot
-// point it at another repository, and no local file can give a commit other parents.
+// Git is found outside the repository and runs with every GIT_* variable dropped, and replace refs and
+// grafts ignored: nothing the repository holds or the environment sets can stand in for git, point it at
+// another repository, or give a commit other parents.
 //
 // SLIPWAY_ROOT_COMMIT is the root of slipway's history after the 2026-09-24 rewrite. A project starts
 // its own history (new-project runs git init). Any future rewrite of slipway's history must update it.
@@ -37,10 +39,32 @@ export const SLIPWAY_ROOT_COMMIT = 'fa6b1b7468259792180683f6e7cd360475ba04fd';
 export const TEMPLATE_MARKERS = ['dev/ownership.yaml', 'scripts/new-project.mjs'];
 export const hasTemplateMarkers = (root) => TEMPLATE_MARKERS.every((m) => existsSync(join(root, m)));
 
-// No grafts file either: .git/info/grafts can give a commit any parents, as replace refs can.
-const gitEnv = () => ({ ...Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith('GIT_'))), GIT_GRAFT_FILE: '/dev/null' });
-const gitOut = (cwd, args) =>
-  execFileSync('git', ['--no-replace-objects', ...args], { cwd, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+// Git comes from PATH without any entry inside the repository or any node_modules: `pnpm run` puts
+// node_modules/.bin first, and a `git` committed there would answer for the project. It runs from outside
+// the repository (-C), so no platform finds a git in the folder it runs in. No grafts file either:
+// .git/info/grafts can give a commit any parents, as replace refs can.
+const real = (p) => {
+  try {
+    return realpathSync(p);
+  } catch {
+    return resolve(p);
+  }
+};
+const inside = (dir, p) => {
+  const r = relative(dir, real(p));
+  return r === '' || (r !== '..' && !r.startsWith(`..${sep}`) && !isAbsolute(r));
+};
+function gitEnv(dir) {
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_/i.test(k)));
+  const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
+  env[key] = (env[key] ?? '')
+    .split(delimiter)
+    .filter((p) => isAbsolute(p) && !p.split(/[\\/]/).includes('node_modules') && !inside(dir, p))
+    .join(delimiter);
+  return { ...env, GIT_GRAFT_FILE: '/dev/null' };
+}
+const gitOut = (dir, args) =>
+  execFileSync('git', ['--no-replace-objects', '-C', dir, ...args], { cwd: tmpdir(), env: gitEnv(dir), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 const slipwayHistory = new Map();
 function isSlipwayHistory(root) {
   let dir;

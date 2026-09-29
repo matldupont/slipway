@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest, sha256, SLIPWAY_ROOT_COMMIT, TEMPLATE_MARKERS } from '../ci/checks/lib/manifest.mjs';
@@ -156,6 +156,38 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
     assert.match(r.stdout, /BROKEN — manifest\/missing — .* are here, but this is not slipway's own full checkout/);
   }
   assert.doesNotMatch(check(dest, 'w1-declared-vs-invoked.mjs').stdout, /slipway tests/);
+
+  // A git committed inside the project, first on PATH as `pnpm run` puts node_modules/.bin, would say
+  // slipway's root commit; the check never runs a git from inside the repository.
+  const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  for (const bin of ['node_modules/.bin', 'tools']) {
+    const fake = join(dest, bin, 'git');
+    mkdirSync(dirname(fake), { recursive: true });
+    writeFileSync(fake, `#!/bin/sh\ncase "$*" in *rev-list*) echo ${SLIPWAY_ROOT_COMMIT}; exit 0;; esac\nexec ${realGit} "$@"\n`, { mode: 0o755 });
+    const PATH = `${join(dest, bin)}${delimiter}${process.env.PATH}`;
+    assert.equal(execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: dest, env: { ...process.env, PATH }, encoding: 'utf8' }).trim(), SLIPWAY_ROOT_COMMIT, 'the fake answers');
+    const r = check(dest, 'd1-drift.mjs', { PATH });
+    assert.equal(r.status, 2, `git in ${bin}:\n${r.stdout}`);
+    assert.match(r.stdout, /BROKEN — manifest\/missing/);
+    rmSync(join(dest, bin.split('/')[0]), { recursive: true });
+  }
+  // With the fixture switch, D1 on a folder inside the project: a git in the project's node_modules/.bin,
+  // outside that folder, would name slipway as the top of the checkout. No node_modules entry is used.
+  const sub = join(dest, 'sub');
+  for (const m of TEMPLATE_MARKERS) {
+    mkdirSync(dirname(join(sub, m)), { recursive: true });
+    writeFileSync(join(sub, m), '');
+  }
+  const liar = join(dest, 'node_modules', '.bin', 'git');
+  mkdirSync(dirname(liar), { recursive: true });
+  writeFileSync(liar, `#!/bin/sh\ncase "$*" in *show-toplevel*) echo ${SRC}; exit 0;; *rev-list*) echo ${SLIPWAY_ROOT_COMMIT}; exit 0;; esac\nexec ${realGit} "$@"\n`, { mode: 0o755 });
+  const sr = spawnSync(process.execPath, [join(dest, 'ci', 'checks', 'meta', 'd1-drift.mjs'), sub], {
+    encoding: 'utf8',
+    env: { ...process.env, SLIPWAY_TEMPLATE_FIXTURE: '1', PATH: `${dirname(liar)}${delimiter}${process.env.PATH}` },
+  });
+  assert.equal(sr.status, 2, `fixture switch, git in node_modules/.bin:\n${sr.stdout}`);
+  rmSync(join(dest, 'node_modules'), { recursive: true });
+  rmSync(sub, { recursive: true });
 
   // A graft can give the project's HEAD slipway's root as its only parent; git here reads no grafts file.
   git(dest, 'fetch', '-q', SRC, 'HEAD');
