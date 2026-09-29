@@ -131,7 +131,7 @@ GitHub issue.
 
 ## Output schema
 
-The script emits a single JSON object on stdout. It writes no file but its review folder: `--output-path` is refused, since the script runs pre-approved.
+The script emits a single JSON object on stdout. It writes no file but its review folder (it also fetches the PR's commits into the clone's object store, which runs nothing): `--output-path` is refused, since the script runs pre-approved.
 The TypeScript schema is in `compute.ts`; `isFeatureOutput()` exported from
 there validates the shape.
 

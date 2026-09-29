@@ -120,7 +120,7 @@ report which finding failed rather than retrying the batch blindly, since
 resubmitting the same bad line just fails again:
 
 ```bash
-gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input "<the mktemp path from step 2>"
+gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input "<reviewDir.path>/review-payload.json"
 # non-zero exit / "Unprocessable Entity" → re-check `diff.changedLines` for
 # the offending finding's file:line before retrying
 ```

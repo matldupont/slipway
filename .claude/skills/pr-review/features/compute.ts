@@ -324,7 +324,7 @@ interface CLIOptions {
 export const NO_CHECKOUT =
   "the review never checks the PR out, so there is no worktree: compute.ts writes the diff and " +
   "each changed file's head and base text to reviewDir (read with the Read and Grep tools), " +
-  "reading headReviewed.sha and pr.baseSha as git objects with git cat-file";
+  "reading the head (headReviewed.sha) and the merge-base with pr.baseSha as git objects with git cat-file";
 
 export function parseArgs(argv: string[]): CLIOptions {
   const opts: CLIOptions = {
