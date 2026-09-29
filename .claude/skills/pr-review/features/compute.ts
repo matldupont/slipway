@@ -710,6 +710,8 @@ export function setupWorktree(
 
   const worktreePath = join(parentDir, `${repoName}-pr-${meta.number}`);
   const branchName = `pr-${meta.number}`;
+  // Where the PR head this worktree checked out is recorded (refs are shared across worktrees).
+  const reviewedRef = `refs/pr-review/${branchName}`;
   // GitHub exposes every PR's commits (including from forks, which have no
   // remote-tracking ref on `origin`) under this synthetic ref on the origin
   // remote, regardless of where the head branch actually lives.
@@ -741,7 +743,10 @@ export function setupWorktree(
     runGit(["fetch", "origin", pullRefspec], worktreePath);
     // Commits made in the review worktree that the PR does not have would be
     // reset away by checkout -B: refuse, as for uncommitted edits.
-    const local = tryRunGit(["rev-list", "--count", "FETCH_HEAD..HEAD"], worktreePath);
+    // Counted against the PR head this worktree last checked out, so a
+    // force-pushed or rebased PR is not mistaken for local work.
+    const recorded = tryRunGit(["rev-parse", "--verify", "--quiet", `${reviewedRef}^{commit}`], repoRoot);
+    const local = tryRunGit(["rev-list", "--count", `${recorded || "FETCH_HEAD"}..HEAD`], worktreePath);
     if (local !== "" && local !== "0") {
       return {
         created: false,
@@ -760,6 +765,7 @@ export function setupWorktree(
   }
 
   const headSha = tryRunGit(["rev-parse", "HEAD"], worktreePath) || null;
+  if (headSha) tryRunGit(["update-ref", reviewedRef, headSha], repoRoot);
   return { created: true, path: worktreePath, branch: branchName, headSha };
 }
 
@@ -878,7 +884,6 @@ export function resolveIssueTicket(
         failure: {
           extractedNumber: extracted.number,
           extractedRepo: extracted.repo,
-        extractedRepo: extracted.repo,
           source: extracted.source,
           reason: "issue_not_found",
         },

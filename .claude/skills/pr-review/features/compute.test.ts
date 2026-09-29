@@ -1256,6 +1256,24 @@ test("setupWorktree: reuses existing worktree when re-run (picks up a re-push)",
   assert.equal(existsSync(path.join(second.path!, "f2.txt")), true);
 });
 
+test("setupWorktree: reuses the worktree after the PR is rebased (the old head is not local work)", () => {
+  const repo = createFixtureRepo();
+  publishPullRef(repo, 31, "feature/x");
+  const meta = mkPR({ number: 31, sourceBranch: "feature/x" });
+  const first = setupWorktree(meta, true, null, repo);
+  assert.equal(first.created, true);
+  // Rewrite the PR's history: a fresh branch off main replaces feature/x's commit.
+  execSync("git checkout -q -b feature/rebased main", { cwd: repo });
+  writeFileSync(path.join(repo, "g.txt"), "rebased\n");
+  execSync("git add g.txt && git commit -q -m rebased", { cwd: repo });
+  execSync("git checkout -q main", { cwd: repo });
+  const remoteUrl = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
+  execSync(`git push -q -f "${remoteUrl}" feature/rebased:refs/pull/31/head`, { cwd: repo, stdio: "pipe" });
+  const second = setupWorktree(meta, true, null, repo);
+  assert.equal(second.created, true, second.reason);
+  assert.equal(existsSync(path.join(second.path!, "g.txt")), true);
+});
+
 test("setupWorktree: when not in a git repo, returns reason", () => {
   const empty = mkdtempSync(path.join(tmpdir(), "pr-review-empty-"));
   const meta = mkPR({ sourceBranch: "feature/x" });

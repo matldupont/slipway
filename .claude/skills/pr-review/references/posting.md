@@ -57,7 +57,7 @@ a commit nobody reviewed.
 **2. Post one review via a JSON request body:**
 
 ```bash
-payload=$(mktemp)   # never a fixed /tmp path another user could plant
+payload=$(mktemp) && echo "$payload"   # never a fixed /tmp path; note it, shell variables don't survive between calls
 cat > "$payload" <<'EOF'
 {
   "commit_id": "<head sha>",
@@ -115,7 +115,7 @@ report which finding failed rather than retrying the batch blindly, since
 resubmitting the same bad line just fails again:
 
 ```bash
-gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input "$payload"
+gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input "<the mktemp path from step 2>"
 # non-zero exit / "Unprocessable Entity" → re-check `diff.changedLines` for
 # the offending finding's file:line before retrying
 ```
