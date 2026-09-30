@@ -230,8 +230,8 @@ Step 1 — the `Touches:` line:
 ```
 Given process/intake.md on the step-1 branch
 When  its Issue body → Links rule is read
-Then  it lists `Touches:` with the entry rules, the folder-when-unsure rule and "omit when unknown",
-      and scripts/skills.test.mjs fails when that text is removed
+Then  it lists `Touches:` with the entry rules, the folder-when-unsure rule and "omit when unknown"
+And   `node scripts/skills.test.mjs` fails when that text is removed
 ```
 
 ```
@@ -309,9 +309,9 @@ PR.
 
 ## Build map
 
-1. The `Touches:` line: `process/intake.md` → Issue body, the three `log-` skills' Links lines, the two issue
+1. #157 — The `Touches:` line: `process/intake.md` → Issue body, the three `log-` skills' Links lines, the two issue
    forms' Links description, `scripts/skills.test.mjs`. — rules and skills, ~60 lines.
-2. The page: `ci/work-order.mjs`, `ci/checks/lib/html.mjs` (and `ci/roadmap.mjs` switched to it), the PATH
+2. #158 — The page: `ci/work-order.mjs`, `ci/checks/lib/html.mjs` (and `ci/roadmap.mjs` switched to it), the PATH
    filter exported from `ci/checks/lib/manifest.mjs`, the `work-order` script in `package.json`,
    `scripts/work-order.test.mjs` and fixtures, wired into `pnpm meta`. — checks lib and a script, ~450 lines
    with tests. Blocked by #68 (it reuses `appetiteClock` and #68's escaping) and by step 1.
@@ -332,4 +332,4 @@ none
 
 ## Changes
 
-- 2026-09-30 · ADDED · spec · #ISSUE
+- 2026-09-30 · ADDED · spec · #156 (steps #157, #158)
