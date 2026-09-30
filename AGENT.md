@@ -25,6 +25,7 @@ takes the default in `process/intake.md` → Configuration; add the row to chang
 | Effort decision-tree | `process/designation.md` | the mode, model and effort line on every issue |
 | Quality gate | `pnpm verify && pnpm meta` | the commands `/work-ticket` runs before a PR is called done |
 | Timezone | `<local, or an IANA zone like America/Toronto>` | the day `pnpm status` and the date checks call "today"; CI runs in UTC, so `local` there is UTC |
+| Roadmap page | `off` — or `public`: CI publishes docs/milestones/ as a page (F-02). Public means anyone with the URL can read it | whether `ci/roadmap.mjs` renders the milestone page; no row or `off` renders nothing, and any other value fails |
 | Domain map | `apps/web/**` → frontend · `packages/**` → shared | how `/work-ticket` splits a change into areas and orders them |
 | Stack constraints | `CLAUDE.md`, then the nearest `AGENT.md` walking up from the working directory | the rules each area's code follows |
 | Project field mapping | none | the board fields set on each new issue; none sets none. Add fields only when a check or a person actually reads them |
