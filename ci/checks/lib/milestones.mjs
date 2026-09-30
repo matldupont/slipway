@@ -73,12 +73,24 @@ export function noGos(md) {
   return items;
 }
 
+// The title without reading the body: frontmatter `title:`, else the body's first line when it is a plain
+// `# M<n> — <title>` (or `# <title>`) heading, the template's shape. Anything before it (a comment, a fence, text)
+// means no title: a line further down could be anything.
+function titleOf(md, fm) {
+  if (fm.title) return fm.title;
+  const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
+  const first = body.split(/\r?\n/).find((l) => l.trim() !== '') ?? '';
+  const h1 = first.match(/^#\s+(.+?)\s*$/)?.[1];
+  return h1 ? h1.replace(/^M\d+\s*[—–-]\s*/, '') : null;
+}
+
 // The milestones as data, for a view to project from: each document with a frontmatter `id` and a known status,
 // in file order. Text is plain (markdown.mjs plain()), on one line, and a value still holding a template
 // placeholder is null (or left out of a list). `clock` is set for an active milestone with a valid appetite.
 //
 // This holds no allowlist, and a view must not pass it through whole. Each view picks the fields it shows by name
-// (ci/roadmap.mjs → project()), so a field added here for one view reaches no other.
+// (ci/roadmap.mjs → project()), so a field added here for one view reaches no other. Only `noGos` is read from
+// the body's sections; a public view must not show it (D-017, revised 2026-09-30).
 export function readMilestoneModel(root, today) {
   const text = (v) => {
     if (typeof v !== 'string') return null;
@@ -89,12 +101,10 @@ export function readMilestoneModel(root, today) {
     .milestones.filter((m) => m.fm?.id && MILESTONE_STATUSES.includes(m.fm.status))
     .map(({ file, md, fm }) => {
       const appetite = parseAppetite(fm.appetite);
-      // The H1 of the prose: a `# ` line in the frontmatter, a comment or a fence is not a heading.
-      const h1 = prose(md).match(/^#\s+(.+)$/m)?.[1] ?? '';
       return {
         file,
         id: text(fm.id),
-        title: text(h1.replace(/^M\d+\s*[—–-]\s*/, '')),
+        title: text(titleOf(md, fm)),
         status: fm.status,
         kind: MILESTONE_KINDS.includes(fm.kind) ? fm.kind : null,
         summary: text(fm.summary),

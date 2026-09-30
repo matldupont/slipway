@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test, { after } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { appetiteClock, readMilestoneModel } from '../ci/checks/lib/milestones.mjs';
+import { appetiteClock, noGos, readMilestoneModel } from '../ci/checks/lib/milestones.mjs';
 import { project, renderPage } from '../ci/roadmap.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -73,6 +73,10 @@ test('a public row that is not a live Skill Configuration row leaves the page of
     'outside the Skill Configuration section': (a) => `${a}\n## Examples\n\n| Key | Value | What |\n|---|---|---|\n${row}\n`,
     'after an indented Skill Configuration heading in an example': (a) =>
       `## Examples\n\n    ## Skill Configuration\n\n${row}\n\n${a.replace(/^# .*\n/, '')}`,
+    'in a fence, after a <!-- in inline code and a --> inside the fence': (a) =>
+      `${a}\nWrite \`<!--\` to hide a note, like this:\n\n\`\`\`html\n<!-- a note -->\n${row}\n\`\`\`\n`,
+    'after a setext heading ends the section': (a) => `${a}\nOther\n-----\n\n${row}\n`,
+    'after an empty ## heading ends the section': (a) => `${a}\n##\n\n${row}\n`,
   };
   for (const [name, edit] of Object.entries(shapes)) {
     const root = tmp();
@@ -97,11 +101,12 @@ test('public: Now, Next, Done and Stopped, the sha, noindex, and no script', () 
   const now = section(html, 'Now');
   assert.match(now, /M1<\/span> Online booking/);
   assert.match(now, /day 3 of 7 · time budget ends 2026-03-15/);
-  assert.match(now, /Not in this one[\s\S]*Refunds wait for M2[\s\S]*No mobile app/);
   const next = section(html, 'Next');
   assert.match(next, /M2<\/span> Refunds/);
-  assert.match(next, /No partial refunds/);
+  assert.match(next, /Clients cancel and get their money back\./);
   assert.doesNotMatch(next, /\d{4}-\d{2}-\d{2}/, 'a shaping milestone shows no dates');
+  // No-gos are read from the body, so they stay off the public page (D-017, revised 2026-09-30).
+  for (const nogo of ['Refunds wait for M2', 'No mobile app', 'No partial refunds', 'Not in this one']) assert.doesNotMatch(html, new RegExp(nogo));
   assert.match(section(html, 'Done'), /M0<\/span>[\s\S]*Ended 2026-02-14/);
   assert.match(section(html, 'Stopped'), /M3<\/span> Marketplace/);
   assert.match(html, /from 0123456\./);
@@ -124,32 +129,38 @@ test('no sentinel from an excluded source reaches the page', () => {
   assert.deepEqual(html.match(/SENTINEL[\w-]*/g) ?? [], []);
 });
 
-test('a heading-shaped line in frontmatter, a comment or a code fence is never read as the title or a no-go', () => {
+test('the title is frontmatter title:, else a plain H1 on the body\'s first line, and nothing further down', () => {
+  const fmTitle = render(variant('M1-booking.md', (md) => md.replace(/^summary:/m, 'title: Book a lesson\nsummary:')));
+  assert.match(fmTitle, /M1<\/span> Book a lesson</, 'title: wins over the H1');
   const cases = {
     'a frontmatter comment': (md) => md.replace(/^summary:/m, '# SENTINEL-fm-comment\nsummary:'),
     'an HTML comment before the H1': (md) => md.replace(/^# M1 — /m, '<!--\n# SENTINEL-html-comment\n-->\n\n# M1 — '),
-    'a fence in Contents, with no H1': (md) => md.replace(/^# M1 — .*$/m, '').replace('## Contents\n', '## Contents\n\n```\n# SENTINEL-fence-title\n```\n'),
-    'a fenced No-gos example in Why': (md) => md.replace('## Why\n', '## Why\n\n```\n## No-gos\n\n- SENTINEL-fence-nogo\n```\n'),
-    'a No-gos heading in an HTML comment': (md) => md.replace('## Why\n', '## Why\n\n<!--\n## No-gos\n- SENTINEL-comment-nogo\n-->\n'),
-    'an indented No-gos heading under a Why list': (md) => md.replace('## Why\n', '## Why\n\n- intro\n  ## No-gos\n- SENTINEL-indented-nogo\n'),
+    'a fence before the H1': (md) => md.replace(/^# M1 — /m, '```\n# SENTINEL-fence-title\n```\n\n# M1 — '),
+    'no H1, a heading line in Contents': (md) => md.replace(/^# M1 — .*$/m, '').replace('## Contents\n', '## Contents\n\n# SENTINEL-contents-h1\n'),
+    'a paragraph before the H1': (md) => md.replace(/^# M1 — /m, 'SENTINEL-para\n\n# M1 — '),
   };
-  // Lines that look like a fence opener but are not one, and so must not swallow the H1 after them.
-  const notFences = {
-    'inline code with backticks on one line': (md) => md.replace(/^# M1 — /m, '``` x ```\n\n# M1 — '),
-    'a tab-indented fence (a code block line)': (md) => md.replace(/^# M1 — /m, '\t```\n\n# M1 — '),
-  };
-  for (const [name, edit] of Object.entries(notFences)) {
-    assert.match(render(variant('M1-booking.md', edit)), /M1<\/span> Online booking</, name);
-  }
   for (const [name, edit] of Object.entries(cases)) {
     const html = render(variant('M1-booking.md', edit));
     assert.deepEqual(html.match(/SENTINEL[\w-]*/g) ?? [], [], name);
     assert.match(section(html, 'Now'), /M1<\/span>/, name);
   }
-  const titled = render(variant('M1-booking.md', cases['a frontmatter comment']));
-  assert.match(titled, /M1<\/span> Online booking</, 'the real H1 is still the title');
-  const nogos = render(variant('M1-booking.md', cases['a fenced No-gos example in Why']));
-  assert.match(section(nogos, 'Now'), /Refunds wait for M2/, 'the real No-gos still show');
+  assert.match(render(variant('M1-booking.md', cases['a frontmatter comment'])), /M1<\/span> Online booking</, 'the real H1 is still the title');
+  assert.match(render(variant('M1-booking.md', cases['an HTML comment before the H1'])), /M1<\/span><\/h3>/, 'not first: no title, the id stands');
+});
+
+test('the model still reads no-gos for owner-only views, from prose only', () => {
+  const m1 = readFileSync(join(FIX, 'full', 'docs', 'milestones', 'M1-booking.md'), 'utf8');
+  assert.deepEqual(noGos(m1), ['Refunds wait for M2', 'No mobile app']);
+  const hidden = {
+    'a fenced No-gos example in Why': '## Why\n\n```\n## No-gos\n\n- SENTINEL\n```\n',
+    'a No-gos heading in an HTML comment': '## Why\n\n<!--\n## No-gos\n- SENTINEL\n-->\n',
+    'an indented No-gos heading under a Why list': '## Why\n\n- intro\n  ## No-gos\n- SENTINEL\n',
+    'a <!-- in inline code, a --> inside a later fence': '## Contents\n\nWrite `<!--` to hide a note:\n\n```html\n<!-- a note -->\n## No-gos\n- SENTINEL\n```\n',
+  };
+  for (const [name, before] of Object.entries(hidden)) assert.deepEqual(noGos(m1.replace('## Why\n', `${before}\n## Why\n`)), ['Refunds wait for M2', 'No mobile app'], name);
+  // Lines that look like a fence opener but are not one, and so must not swallow what follows.
+  for (const opener of ['``` x ```', '\t```']) assert.deepEqual(noGos(`${opener}\n\n## No-gos\n\n- real\n`), ['real'], opener);
+  for (const end of ['Other\n-----', '##', '# Retro']) assert.deepEqual(noGos(`## No-gos\n\n- real\n${end}\n\n- SENTINEL\n`), ['real'], end);
 });
 
 function readdir(m) {
@@ -169,15 +180,13 @@ test('a field added to a model entry never reaches the page: only project() deci
   assert.deepEqual(html.match(/SENTINEL[\w-]*/g) ?? [], []);
 });
 
-test('project() returns exactly the allowlist, and no-gos and dates only where the page shows them', () => {
+test('project() returns exactly the allowlist: frontmatter fields, and dates only where the page shows them', () => {
   const byId = Object.fromEntries(readMilestoneModel(join(FIX, 'full'), '2026-03-11').map((m) => [m.id, { ...m, why: 'x', contents: ['x'] }]));
-  const keys = ['id', 'title', 'status', 'kind', 'summary', 'appetite', 'extended', 'clock', 'noGos'];
+  assert.deepEqual(byId.M1.noGos, ['Refunds wait for M2', 'No mobile app'], 'the model has no-gos; the page must not');
+  const keys = ['id', 'title', 'status', 'kind', 'summary', 'appetite', 'extended', 'clock'];
   for (const m of Object.values(byId)) assert.deepEqual(Object.keys(project(m)), keys, m.id);
   assert.deepEqual(project(byId.M1).clock, { day: 3, of: 7, end: '2026-03-15', overrun: false });
-  assert.deepEqual(project(byId.M1).noGos, ['Refunds wait for M2', 'No mobile app']);
-  assert.deepEqual(project(byId.M2).noGos, ['No partial refunds']);
   assert.equal(project(byId.M2).appetite, null, 'a shaping appetite is a guess: no dates');
-  for (const id of ['M0', 'M3']) assert.deepEqual(project(byId[id]).noGos, [], `${id}: no-gos only for active and shaping`);
   for (const id of ['M0', 'M2', 'M3']) assert.equal(project(byId[id]).clock, null);
 });
 

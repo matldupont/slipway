@@ -29,9 +29,9 @@ export function roadmapSwitch(root) {
 
 // The allowlist (dev/features/roadmap-page.md → The allowlist). Every field the page shows is named here, and
 // nothing else in a model entry reaches the page: a field added to readMilestoneModel for another view stays out.
-// No-gos only for active and shaping milestones; appetite dates never for shaping ones.
+// Only frontmatter-backed fields: nothing read from the body's sections, so no-gos stay off (D-017, revised
+// 2026-09-30). Appetite dates never for shaping milestones.
 export function project(m) {
-  const planned = m.status === 'active' || m.status === 'shaping';
   return {
     id: m.id,
     title: m.title,
@@ -41,7 +41,6 @@ export function project(m) {
     appetite: m.status === 'shaping' || !m.appetite ? null : { start: m.appetite.start, end: m.appetite.end },
     extended: m.status === 'active' ? m.extended : null,
     clock: m.status === 'active' && m.clock ? { day: m.clock.day, of: m.clock.of, end: m.clock.end, overrun: m.clock.overrun } : null,
-    noGos: planned ? [...m.noGos] : [],
   };
 }
 
@@ -58,7 +57,6 @@ function card(m, when) {
   const meta = [m.kind && KIND[m.kind], when].filter(Boolean);
   if (meta.length) h.push(`<p class="meta">${meta.map((t) => `<span>${escapeHtml(t)}</span>`).join(' · ')}</p>`);
   h.push(`<p>${escapeHtml(m.summary ?? (m.status === 'shaping' ? 'Being shaped' : ''))}</p>`);
-  if (m.noGos.length) h.push(`<h4>Not in this one</h4>`, `<ul>${m.noGos.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`);
   h.push(`</article>`);
   return h.join('\n');
 }
@@ -107,13 +105,11 @@ main { max-width: 42rem; margin: 0 auto; padding: 2rem 1rem 3rem; }
 h1 { font-size: 1.5rem; margin: 0 0 1.5rem; }
 h2 { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 2rem 0 0.75rem; }
 h3 { font-size: 1.1rem; margin: 0 0 0.25rem; }
-h4 { font-size: 0.9rem; margin: 0.75rem 0 0.25rem; }
 .id { color: var(--accent); }
 article { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; margin: 0 0 0.75rem; }
 article p { margin: 0.25rem 0 0; }
 .meta { color: var(--muted); font-size: 0.9rem; }
 .meta span { white-space: nowrap; }
-ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
 footer { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); margin-top: 2rem; padding-top: 1rem; }
 </style>
 </head>
