@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import test, { after } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { appetiteClock, readMilestoneModel } from '../ci/checks/lib/milestones.mjs';
-import { renderPage } from '../ci/roadmap.mjs';
+import { project, renderPage } from '../ci/roadmap.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const ROADMAP = join(SRC, 'ci', 'roadmap.mjs');
@@ -112,6 +112,18 @@ test('a field added to a model entry never reaches the page: only project() deci
   const html = renderPage({ product: 'Harbour', milestones, today: '2026-03-11', sha: SHA });
   assert.match(html, /Online booking/, 'the page rendered');
   assert.deepEqual(html.match(/SENTINEL[\w-]*/g) ?? [], []);
+});
+
+test('project() returns exactly the allowlist, and no-gos and dates only where the page shows them', () => {
+  const byId = Object.fromEntries(readMilestoneModel(join(FIX, 'full'), '2026-03-11').map((m) => [m.id, { ...m, why: 'x', contents: ['x'] }]));
+  const keys = ['id', 'title', 'status', 'kind', 'summary', 'appetite', 'extended', 'clock', 'noGos'];
+  for (const m of Object.values(byId)) assert.deepEqual(Object.keys(project(m)), keys, m.id);
+  assert.deepEqual(project(byId.M1).clock, { day: 3, of: 7, end: '2026-03-15', overrun: false });
+  assert.deepEqual(project(byId.M1).noGos, ['Refunds wait for M2', 'No mobile app']);
+  assert.deepEqual(project(byId.M2).noGos, ['No partial refunds']);
+  assert.equal(project(byId.M2).appetite, null, 'a shaping appetite is a guess: no dates');
+  for (const id of ['M0', 'M3']) assert.deepEqual(project(byId[id]).noGos, [], `${id}: no-gos only for active and shaping`);
+  for (const id of ['M0', 'M2', 'M3']) assert.equal(project(byId[id]).clock, null);
 });
 
 test('a summary with markup is escaped, and control and bidi characters are dropped', () => {

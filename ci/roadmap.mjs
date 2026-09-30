@@ -52,12 +52,13 @@ export const escapeHtml = (s) => String(s).replace(DROP, '').replace(/[&<>"']/g,
 const KIND = { skeleton: 'First end-to-end version', mvp: 'First usable version', release: 'Release', bet: 'Improvement' };
 const byNumber = (a, b) => (milestoneNumber(a.id) || 0) - (milestoneNumber(b.id) || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
-function card(m, { when, noGos }) {
+// A projected milestone: it prints what project() left in it, so project() is the one gate.
+function card(m, when) {
   const h = [`<article>`, `<h3><span class="id">${escapeHtml(m.id)}</span>${m.title ? ` ${escapeHtml(m.title)}` : ''}</h3>`];
   const meta = [m.kind && KIND[m.kind], when].filter(Boolean);
-  if (meta.length) h.push(`<p class="meta">${meta.map(escapeHtml).join(' · ')}</p>`);
+  if (meta.length) h.push(`<p class="meta">${meta.map((t) => `<span>${escapeHtml(t)}</span>`).join(' · ')}</p>`);
   h.push(`<p>${escapeHtml(m.summary ?? (m.status === 'shaping' ? 'Being shaped' : ''))}</p>`);
-  if (noGos && m.noGos.length) h.push(`<h4>Not in this one</h4>`, `<ul>${m.noGos.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`);
+  if (m.noGos.length) h.push(`<h4>Not in this one</h4>`, `<ul>${m.noGos.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>`);
   h.push(`</article>`);
   return h.join('\n');
 }
@@ -83,10 +84,10 @@ export function renderPage({ product, milestones, today, sha }) {
   const sections = [];
   if (!ms.length) sections.push('<section><p>No milestones yet.</p></section>');
   else {
-    sections.push(`<section><h2>Now</h2>\n${now.length ? now.map((m) => card(m, { when: nowLine(m), noGos: true })).join('\n') : '<p>Nothing is being built right now.</p>'}</section>`);
-    if (next.length) sections.push(`<section><h2>Next</h2>\n${next.map((m) => card(m, { noGos: true })).join('\n')}</section>`);
-    if (done.length) sections.push(`<section><h2>Done</h2>\n${done.map((m) => card(m, { when: m.appetite && `Ended ${m.appetite.end}` })).join('\n')}</section>`);
-    if (stopped.length) sections.push(`<section><h2>Stopped</h2>\n${stopped.map((m) => card(m, {})).join('\n')}</section>`);
+    sections.push(`<section><h2>Now</h2>\n${now.length ? now.map((m) => card(m, nowLine(m))).join('\n') : '<p>Nothing is being built right now.</p>'}</section>`);
+    if (next.length) sections.push(`<section><h2>Next</h2>\n${next.map((m) => card(m)).join('\n')}</section>`);
+    if (done.length) sections.push(`<section><h2>Done</h2>\n${done.map((m) => card(m, m.appetite && `Ended ${m.appetite.end}`)).join('\n')}</section>`);
+    if (stopped.length) sections.push(`<section><h2>Stopped</h2>\n${stopped.map((m) => card(m)).join('\n')}</section>`);
   }
   const from = sha ? ` from ${escapeHtml(sha.slice(0, 7))}` : '';
   return `<!doctype html>
@@ -101,7 +102,7 @@ export function renderPage({ product, milestones, today, sha }) {
 @media (prefers-color-scheme: dark) { :root { --bg: #161615; --fg: #ececea; --muted: #a3a39c; --card: #1f1f1d; --line: #34342f; --accent: #8bb4dc; } }
 html { scrollbar-gutter: stable; }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-wrap: anywhere; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-wrap: break-word; }
 main { max-width: 42rem; margin: 0 auto; padding: 2rem 1rem 3rem; }
 h1 { font-size: 1.5rem; margin: 0 0 1.5rem; }
 h2 { font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 2rem 0 0.75rem; }
@@ -111,6 +112,7 @@ h4 { font-size: 0.9rem; margin: 0.75rem 0 0.25rem; }
 article { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; margin: 0 0 0.75rem; }
 article p { margin: 0.25rem 0 0; }
 .meta { color: var(--muted); font-size: 0.9rem; }
+.meta span { white-space: nowrap; }
 ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
 footer { color: var(--muted); font-size: 0.85rem; border-top: 1px solid var(--line); margin-top: 2rem; padding-top: 1rem; }
 </style>
