@@ -59,14 +59,15 @@ a commit nobody reviewed.
 
 Write the body with your file-writing tool (Claude Code: Write), never a
 shell heredoc: it carries the author's file paths and quoted code. Put it
-in the review folder, so Step 7 deletes it:
+in the review folder, so Step 7 deletes it. The top-level `"body"` line is
+there only when the linked issue was not loaded; otherwise leave it out:
 
 ```jsonc
 // <reviewDir.path>/review-payload.json
 {
   "commit_id": "<head sha>",
   "event": "COMMENT",
-  "body": "not verified: linked issue not loaded",   // only when the linked issue was not loaded; otherwise omit
+  "body": "not verified: linked issue not loaded",
   "comments": [
     {
       "path": "src/order.ts",
@@ -134,7 +135,7 @@ A non-zero exit with "Unprocessable Entity" means that: re-check
 retrying the same command.
 
 A `2xx` response's body includes `id` (the review id) and each comment's
-own id under `/repos/{owner}/{repo}/pulls/{number}/comments` if you need
+own id under `repos/{projectPath}/pulls/{number}/comments` if you need
 to confirm placement afterward — but a successful `POST` to `/reviews`
 is itself the confirmation; GitHub doesn't accept the request and silently
 drop the position the way GitLab's discussions API could.

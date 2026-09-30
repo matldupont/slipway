@@ -320,7 +320,8 @@ comment.
 
 Write a short brief (≤10 lines):
 
-1. **Ticket**: `#<number> — <title>` + 1-line problem summary
+1. **Ticket**: `#<number> — <title>` + 1-line problem summary, or
+   `#<n> not loaded: <reason>` when compute.ts could not load it (Step 1)
 2. **Acceptance criteria**: bullets from `ticket.acceptance` (if present)
 3. **What the PR does**: 2–4 sentences on the approach, plain English —
    built from the diff, not from the author's description. Where the two
@@ -746,7 +747,8 @@ one-line **Verdict**.
 - **No greetings** — never open a comment with "heya", "hey", "hi", or
   any other salutation. Start with the substance. Each comment is read
   on its own line in a diff, not as the start of a conversation
-- **Verdict line** — one sentence
+- **Verdict line** — one sentence, plus `not verified: linked issue not
+  loaded` when the linked issue was not loaded (Step 1)
 - **Head reviewed** — every mode names `headReviewed.sha`; structured
   output carries it in the FeatureOutput
 

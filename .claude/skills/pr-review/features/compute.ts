@@ -2132,7 +2132,8 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     const list = fetchOpenIssueTitles(tracker);
     try {
       reviewDir.issues = list ? writeIssueTitles(reviewDir.path, tracker, list) : null;
-    } catch {
+    } catch (err) {
+      logVerbose(opts, `issues.json not written: ${err instanceof Error ? err.message : String(err)}`);
       reviewDir.issues = null; // the folder is still returned, so Step 7 removes it
     }
   }
