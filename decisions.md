@@ -182,6 +182,22 @@ Declined: exiting 0 whenever rows need the owner (the exit code is how the skill
 "needs you" from "done"); `pnpm dlx` in the script (its cache can serve a day-old `#main`). Spec:
 `dev/features/template-sync.md`; #135.
 
+## D-023 — The trust line: defend against other people's content, not the owner's own tree *(decided 2026-09-30)*
+
+Slipway's gates and skills defend against content from other people: their pull requests, issues, fixtures
+and dependencies. A defence against the owner's own working tree, a hand-set environment or a deliberate local
+action is a known limitation, written in the PR with one line on why a pull request cannot cause it. It is not
+a fix, an issue or a commit.
+
+The line was applied before it was written down: #123 (switching the drift check off), #124 (a reused branch's
+planted settings), #126 (a branch's own hook scripts) and #133 (files a pull request can commit that change which programs the gate runs) were
+each judged by one question, "can a pull request's committed files cause it?" A yes was fixed or tracked; a
+no became a known limitation.
+
+Why: the owner can already change anything on their own machine. A defence there prompts on ordinary work and
+stops nobody who means it. Declined: guarding the local `.git` directory and hand-edited workflow or script
+keys, which a reviewer sees in the diff. Written up as §3 of `process/decision-defaults.md`; #152.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,

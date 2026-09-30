@@ -406,3 +406,39 @@ test('/log-bug and /log-feature skip the /kickoff stop, the milestone ask and th
   assert.match(feat, /Where `PRD path` says `none` and why, skip this and Schedule/, '/log-feature must skip the PRD edit and Schedule in slipway');
   assert.match(feat, /unless `PRD path` says `none` and why in slipway's own settings/, '/log-feature must not stop at /kickoff in slipway');
 });
+
+// #152: the defaults a session applies before asking the owner. The file holds them in order, each with its reason,
+// and names what they never settle; every skill that asks the owner a design question applies them first.
+const DEFAULTS = 'process/decision-defaults.md';
+const DEFAULT_TITLES = [
+  'Reuse before inventing',
+  'Fix it once, at the boundary',
+  'The trust line',
+  'Fail closed',
+  'Stricter when both work',
+  'Security work builds the defence only',
+  'The review cap holds',
+  'Out of scope is a follow-up',
+  'Prove it on real data',
+  'Prove a change where it runs',
+];
+test(`${DEFAULTS}: §1–§10 in order, each with a reason, and what they never settle`, () => {
+  const md = read(DEFAULTS);
+  const heads = [...md.matchAll(/^## §(\d+) — (.+)$/gm)].map((m) => [Number(m[1]), m[2]]);
+  assert.deepEqual(heads, DEFAULT_TITLES.map((t, i) => [i + 1, t]), 'the ten defaults, numbered and titled in order');
+  for (const [n, t] of heads) {
+    assert.match(section(md, `§${n} — ${t}`, 2) ?? '', /\*\*Why:\*\* \S/, `§${n} needs a one-line reason`);
+  }
+  const never = plain(section(md, 'What these never settle', 2) ?? '');
+  for (const re of [/edit the harness asks about/, /Spending money/, /outside the repository/, /Product decisions/]) {
+    assert.match(never, re, `"What these never settle" must name ${re}`);
+  }
+  assert.match(md.replace(/\s+/g, ' '), /`decided by decision-defaults §n`/, 'the file says how a decision is recorded');
+});
+
+test('the four skills apply the decision defaults before asking; the working rules and decisions.md point at them', () => {
+  const sentence = /Before asking the owner a design question, apply `process\/decision-defaults\.md`: a question it settles is decided, not asked, and recorded as "decided by decision-defaults §n"\./;
+  for (const s of FOUR) assert.match(read(skillPath(s)).replace(/\s+/g, ' '), sentence, `${s} must apply the decision defaults`);
+  assert.match(section(read('process/slipway-rules.md'), 'Working rules', 2) ?? '', /`process\/decision-defaults\.md`/, 'Working rules must point at the defaults');
+  assert.match(read('decisions.md'), /^## D-\d+ — The trust line\b.*\n[\s\S]*?`process\/decision-defaults\.md`/m, 'decisions.md must record §3');
+});

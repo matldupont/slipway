@@ -56,6 +56,8 @@ Each rule below is a lesson in `process/lessons/`, which records where it fires.
 - Never rebase- or squash-merge a PR that others are stacked on; merge it with a merge commit, and read
   `git cherry` before force-pushing a child (L-21).
 
+Before asking the owner a design question, apply `process/decision-defaults.md`; it names what is always asked.
+
 ## Agents
 
 - State the absolute working path in every spawned-agent prompt, twice. After the agent reports, run

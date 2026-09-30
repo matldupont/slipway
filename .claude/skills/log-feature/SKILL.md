@@ -29,6 +29,8 @@ principles, §4 scope and §5 features), the active milestone (`Milestone roadma
 
 Every file this skill writes goes through the doc PR (Phase 7), never straight onto the default branch.
 Answers for the settings file (the one Configuration read) are held for the doc branch Phase 4 makes; a run ending sooner lists them for the owner.
+Before asking the owner a design question, apply `process/decision-defaults.md`: a question it settles is decided, not
+asked, and recorded as "decided by decision-defaults §n".
 
 ## Phase 1 — Problem
 
@@ -61,10 +63,9 @@ it may be a solution looking for a problem.
 Most requests solve the wrong problem, are already solvable, or are a weaker version of a better idea. Run all
 five, with specifics; be honest, not polite. A milestone item skips this phase (Milestone item, step 4).
 
-1. **Do we need this?** Does it serve the question in the `Product frame`? A feature that does not is a later
-   bet. What happens if nothing ships; is the workaround fine; does the product already do this and the person
-   did not find it; is one request a pattern? With a `Marketing context`, is this the audience it names, or a
-   loud few outside it?
+1. **Do we need this?** Does it serve the question in the `Product frame`? A feature that does not is a later bet.
+   What happens if nothing ships; is the workaround fine; does the product already do this and the person did not
+   find it; is one request a pattern? With a `Marketing context`, is this the audience it names, or a loud few outside it?
 2. **Is the framing right?** Does the job story point at a deeper problem? Is this a symptom of a step that
    should not exist, or a bug in disguise ("let me do X" meaning "stop blocking X")?
 3. **Is there a better idea?** The obvious solution, and the second one. Improving an existing feature instead
@@ -278,10 +279,9 @@ every issue this skill filed: in the search, `select(.number | IN({n},{a},{b}) |
 open PR; re-run `pnpm meta` and update the PR's Verification (`gh pr edit {pr} --repo {checkout} --body-file
 {prdir}/pr.md`). With no remote, say the commit is local.
 
-**Terms:** any parent; the paths in the Contract and the Build map; the new F-ID, the RISK- ids from
-Challenge 5, every D-, PD-, PRIN- and OD- id the doc cites, the milestone it was scheduled in, and every `#n`
-the body names. A new feature most often changes an open issue on the same files, or a milestone step that
-assumed it did not exist.
+**Terms:** any parent; the paths in the Contract and the Build map; the new F-ID, the RISK- ids from Challenge 5,
+every D-, PD-, PRIN- and OD- id the doc cites, the milestone it was scheduled in, and every `#n` the body names. A
+new feature most often changes an open issue on the same files, or a milestone step that assumed it did not exist.
 
 ```
 RIPPLE

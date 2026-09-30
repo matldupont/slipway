@@ -33,6 +33,8 @@ settings: that is an answer, so neither stop nor ask; `process/intake.md` → Se
 Every file this skill writes goes through a doc PR (Phase 5), never straight onto the default branch.
 Answers the owner agrees to put in the settings file (the one Configuration read) are held and written on the doc branch once Phase 4 creates it;
 a run with no doc branch lists them in its last output for the owner to add.
+Before asking the owner a design question, apply `process/decision-defaults.md`: a question it settles is decided, not
+asked, and recorded as "decided by decision-defaults §n".
 
 **Never written anywhere** (the issue, the doc stub, the doc PR, a commit): user data (names, emails, ids,
 IP addresses, URLs with their query strings, request bodies) or a credential. Replace each with
