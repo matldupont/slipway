@@ -164,9 +164,14 @@ The URL (`<owner>.github.io/<repo>/`) is guessable. Anything in a published fiel
 - A milestone file that is a symlink is read through to its target, as MS1 and `pnpm status` read it. Only a
   committer can add one, and a committer can already edit any published field; the target still passes the
   allowlist, so only its frontmatter `id`, status and allowed fields can show.
-- The switch is read from AGENT.md by a small markdown reader (`prose()`, `strictSection()` in
-  `ci/checks/lib/markdown.mjs`), not a full parser. Where it cannot tell, it ends the section early or hides
-  the line, which reads as off.
+- **Open until #168, which blocks publishing (#69).** The switch and the title still go through a small
+  markdown reader (`prose()`, `strictSection()` in `ci/checks/lib/markdown.mjs`), and review found shapes it
+  misreads. A `public` row inside an HTML comment can win over a visible `off` row (a second `<!--` on a line, or
+  backtick runs of unequal length). A comment on a first-line H1 reaches the title, escaped. A single-dash setext
+  heading or an indented ATX heading does not end the Skill Configuration section. `strictSection()` and
+  `prose()` are quadratic on one very long line. Unclosed frontmatter plus a later `---` lets body `title:` and
+  `summary:` lines through. Step 1 only renders locally, so none of these publishes anything; #168 replaces
+  both reads with line-based, fail-closed ones.
 - The page shows the milestone's words. A `summary` written in jargon reads as jargon; the page does not
   rewrite it.
 
