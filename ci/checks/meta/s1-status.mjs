@@ -23,6 +23,7 @@
 //   <case>#expect               expect.json is missing, unreadable, lacks next or frame, or has no
 //                               yyyy-mm-dd today — without a fixed clock, overran depends on the run date
 //   <case>#run                  status exited non-zero
+//   <case>#raw                  status printed a control, bidi or separator character raw (lib/raw-output.mjs)
 //
 // Only the risk-bearing lines are compared, not the whole output: a snapshot of everything turns red
 // on every wording change and gets regenerated without being read.
@@ -35,6 +36,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rawCharacters } from '../lib/raw-output.mjs';
 import { report } from '../lib/report.mjs';
 
 const dir = process.argv[2];
@@ -93,11 +95,13 @@ for (const name of cases) {
     findings.push({ where: `${name}#run`, detail: `status exited ${r.status}: ${tail}` });
     continue;
   }
+  const raw = rawCharacters(r.stdout, r.stderr);
+  if (raw) findings.push({ where: `${name}#raw`, detail: `status printed ${raw} raw: its output reaches every session through the hook` });
   const out = r.stdout.split('\n');
   for (const [key, prefix] of LINES) {
     const got = out.find((l) => l.startsWith(prefix))?.slice(prefix.length);
     if (got === undefined) findings.push({ where: `${name}#${key}`, detail: `status printed no "${prefix.trim()}" line` });
-    else if (got !== expect[key]) findings.push({ where: `${name}#${key}`, detail: `\n  expected: ${expect[key]}\n  got:      ${got}` });
+    else if (got !== expect[key]) findings.push({ where: `${name}#${key}`, detail: `expected "${expect[key]}" · got "${got}"` });
   }
   const stamped = out[0]?.match(/on (\d{4}-\d{2}-\d{2})\./)?.[1];
   if (stamped !== expect.today) findings.push({ where: `${name}#today`, detail: `status stamped ${stamped ?? 'no date'}, expected ${expect.today}` });
@@ -105,7 +109,7 @@ for (const name of cases) {
     const from = out.indexOf('## Needs attention');
     const got = from < 0 ? [] : out.slice(from + 1).filter((l) => l.startsWith('- ')).map((l) => l.slice(2));
     if (JSON.stringify(got) !== JSON.stringify(expect.attention)) {
-      findings.push({ where: `${name}#attention`, detail: `\n  expected: ${JSON.stringify(expect.attention)}\n  got:      ${JSON.stringify(got)}` });
+      findings.push({ where: `${name}#attention`, detail: `expected ${JSON.stringify(expect.attention)} · got ${JSON.stringify(got)}` });
     }
   }
 }

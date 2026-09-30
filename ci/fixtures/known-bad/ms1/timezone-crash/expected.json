@@ -1,0 +1,5 @@
+{
+  "_note": "AGENT.md's Timezone value is no IANA zone, and it holds an ESC and two line breaks, each followed by a line a CI log or PC1 would act on (::error, @@json). MS1 stops on the error: it must print it as one BROKEN line through report(), escaped, never Node's raw uncaught-error print. PC1 fails the case on a raw character or a line report() did not write.",
+  "exit": 2,
+  "broken": "stopped on an error: AGENT.md Timezone \"Bad"
+}

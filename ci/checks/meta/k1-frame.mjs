@@ -64,14 +64,14 @@ import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section } from '../lib/markdown.mjs';
 import { readMilestones } from '../lib/milestones.mjs';
-import { escapeControl, report } from '../lib/report.mjs';
+import { report } from '../lib/report.mjs';
 import { EXPERIENCE, filled, milestoneNumber, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
-// A Result quoted in a finding: control characters escaped, and cut like a parked question, by code point
-// so a character is never split.
+// A Result quoted in a finding, cut like a parked question, by code point so a character is never split.
+// report() escapes what it prints.
 const quote = (s) => {
   const chars = Array.from(s);
-  return escapeControl(chars.length > 60 ? `${chars.slice(0, 60).join('')}…` : s);
+  return chars.length > 60 ? `${chars.slice(0, 60).join('')}…` : s;
 };
 
 const root = process.argv[2] ?? '.';

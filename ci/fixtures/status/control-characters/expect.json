@@ -1,0 +1,6 @@
+{
+  "_note": "The ID header sits over the second column, whose cell holds an ESC (a terminal colour escape) and a lone CR; the active milestone's title holds an OSC window-title sequence (ESC ] … BEL) and a first-strong isolate (U+2066). The Frame line shows the id with each character as \\uXXXX, and S1 fails the case when any control, bidi or separator character reaches status's output raw, the Active milestone line included. The Next line's excerpt drops them, as it did before.",
+  "today": "2026-03-10",
+  "next": "Step 4 (agent) — Walking skeleton: Walking ]0;pwnedskeleton. Next slice: item 1, \"Deploy a hello page (no feature: skeleton)\". Start it in a fresh session with /log-feature M1#1.",
+  "frame": "framed · risks: \\u001b[31mX\\u000dY tested"
+}

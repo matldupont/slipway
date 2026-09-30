@@ -1,0 +1,5 @@
+{
+  "_note": "The manifest is not JSON, and the parse error quotes it: a line break followed by ::stop-commands::. D1 is BROKEN, and its message prints on one line with the break escaped, so the CI log never reads a command. PC1 fails the case on a line report() did not write.",
+  "exit": 2,
+  "broken": ".slipway/manifest.json is not valid JSON"
+}

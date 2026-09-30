@@ -1,0 +1,8 @@
+{
+  "_note": "The ID header sits over the second column. RISK-1's ID cell holds an ESC (a terminal colour escape) and a BEL, and a Result with no Threshold, so its id is printed in a finding. RISK-2's Result names no experience reason and holds every bidi embedding, override and isolate (U+202A-U+202E, U+2066-U+2069) and both separators (U+2028, U+2029), so the finding quotes them. PC1 fails the case when any of those characters reaches K1's output raw: this pins each range of the escaper. A lone CR is not here: a shipped file never carries a CR byte (scripts/new-project.test.mjs); scripts/report.test.mjs and S1's control-characters case prove it.",
+  "exit": 1,
+  "findings": [
+    "\u001b[31mX\u0007Y#risk/no-threshold",
+    "RISK-2#risk/experience-rationale"
+  ]
+}

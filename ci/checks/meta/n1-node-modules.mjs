@@ -15,7 +15,7 @@
 
 import { canonical } from '../lib/gate-files.mjs';
 import { trustedGit } from '../lib/manifest.mjs';
-import { escapeControl, report } from '../lib/report.mjs';
+import { report } from '../lib/report.mjs';
 
 const dir = process.argv[2] ?? '.';
 
@@ -32,10 +32,10 @@ try {
 const findings = paths.flatMap((p) => {
   const segs = p.split('/');
   if (segs.includes('node_modules')) {
-    return [{ where: `tracked/${escapeControl(p)}`, detail: 'git tracks a file under node_modules/; a program there can run in place of a gate tool — remove it from the index (git rm --cached)' }];
+    return [{ where: `tracked/${p}`, detail: 'git tracks a file under node_modules/; a program there can run in place of a gate tool — remove it from the index (git rm --cached)' }];
   }
   if (segs.some((s) => canonical(s) === 'node_modules')) {
-    return [{ where: `lookalike/${escapeControl(p)}`, detail: "looks like node_modules but isn't spelled that way; a case-insensitive disk opens it as node_modules/ — remove it" }];
+    return [{ where: `lookalike/${p}`, detail: "looks like node_modules but isn't spelled that way; a case-insensitive disk opens it as node_modules/ — remove it" }];
   }
   return [];
 });
