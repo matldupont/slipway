@@ -13,7 +13,7 @@ import { join, relative } from 'node:path';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
-import { contents, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { appetiteClock, contents, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { escapeControl, UNSAFE } from './checks/lib/report.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
@@ -232,8 +232,8 @@ L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placehol
 L.push(`- Frame: ${frame}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · ${riskBlocks}` : ''}` : ''}`);
 L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
 if (cur) {
-  const a = curAppetite;
-  const clock = a ? `day ${days(a.start, today) + 1} of ${days(a.start, a.end) + 1}, last day ${a.end}${a.end < today ? ' — OVERRUN' : ''}` : 'no appetite';
+  const c = curAppetite && appetiteClock(curAppetite, today);
+  const clock = c ? `day ${c.day} of ${c.of}, last day ${c.end}${c.overrun ? ' — OVERRUN' : ''}` : 'no appetite';
   L.push(`- Active milestone: **${cur.title}** (${cur.kind ?? 'no kind'}) · ${clock}`);
 } else L.push('- Active milestone: none');
 L.push('');

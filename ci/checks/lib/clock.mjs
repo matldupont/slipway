@@ -11,12 +11,18 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export function zone(root) {
+// The value of an AGENT.md §Skill Configuration row: the cell's first `code` span, or its first word; the rest of
+// the cell may explain it. '' when there is no row. `row` is matched as written, whole and case-insensitive.
+export function agentRow(root, row) {
   const p = join(root, 'AGENT.md');
   const agent = existsSync(p) ? readFileSync(p, 'utf8') : '';
-  // The value is the cell's first `code` span, or its first word; the rest of the cell may explain it.
-  const cell = agent.match(/^\|\s*Timezone\s*\|\s*([^|]*?)\s*\|/im)?.[1] ?? '';
-  const value = (cell.match(/`([^`]+)`/)?.[1] ?? cell.split(/\s/)[0]).trim();
+  const name = row.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const cell = agent.match(new RegExp(`^\\|\\s*${name}\\s*\\|\\s*([^|]*?)\\s*\\|`, 'im'))?.[1] ?? '';
+  return (cell.match(/`([^`]+)`/)?.[1] ?? cell.split(/\s/)[0]).trim();
+}
+
+export function zone(root) {
+  const value = agentRow(root, 'Timezone');
   return !value || value === 'local' || value.startsWith('<') ? undefined : value;
 }
 
