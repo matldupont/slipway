@@ -100,7 +100,11 @@ node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts -
 
 It exits 0 only when that checkout is the base branch's, with nothing
 changed or added: what Claude Code runs there (settings hooks and the
-scripts they call, `CLAUDE.md` and its imports, skills) reaches any file.
+scripts they call, `CLAUDE.md` and its imports, skills) reaches any file. The
+ignored files Claude Code loads are judged too: a `.claude/settings.local.json`
+holding more than permissions and MCP approvals fails, and each one that
+passes is listed for you to confirm. Never reuse a PR's checkout by
+resetting it to the base.
 
 **First, where you are running.** Using `git` and `gh` only. The `gh pr
 view` and the git line each ask once; `<baseRefOid>` is used only when it

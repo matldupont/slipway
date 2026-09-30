@@ -938,12 +938,55 @@ export function isInPrCheckout(
 }
 
 export interface CheckoutComparison {
-  /** True only when the checkout is the base commit's: nothing differs, anywhere in the tree. */
+  /** True only when the checkout is the base commit's and no ignored file it loads could run code. */
   matches: boolean;
   /** The paths that differ, as git printed them: the author's text, data only. */
   differing: string[];
+  /** Ignored files Claude Code loads that fail the check, and why. */
+  refused: { path: string; why: string }[];
+  /** Ignored files Claude Code loads that pass unread by the comparison: the owner confirms they are theirs. */
+  unchecked: string[];
   /** Why the comparison could not run; the check then fails. */
   error: string | null;
+}
+
+/**
+ * Ignored files are not in the comparison, but Claude Code loads some of
+ * them, and a PR can leave its own there: force-committed, then kept on disk
+ * by a `git reset <base>`. Claude Code writes `.claude/settings.local.json`
+ * itself, so that file passes when it holds only the keys it writes that run
+ * nothing (settings reference: permissions, the project `.mcp.json`
+ * approvals, spinner tips); any other key (hooks, statusLine, apiKeyHelper,
+ * env…) runs code or changes how it runs, and fails, as does a file that
+ * does not parse. An ignored `.mcp.json` defines servers that run, and
+ * fails. An ignored `CLAUDE.local.md` is instructions, not code: it is listed.
+ */
+const IGNORED_LOADED = [
+  ":(icase,glob)**/.claude/settings.local.json",
+  ":(icase,glob)**/CLAUDE.local.md",
+  ":(icase,glob)**/.mcp.json",
+];
+export const LOCAL_SETTINGS_KEYS = new Set([
+  "permissions",
+  "enableAllProjectMcpServers",
+  "enabledMcpjsonServers",
+  "disabledMcpjsonServers",
+  "spinnerTipsEnabled",
+]);
+
+function judgeIgnored(repoRoot: string, rel: string): string | null {
+  const name = rel.toLowerCase();
+  if (name.endsWith(".mcp.json")) return "an ignored .mcp.json defines MCP servers, which run code";
+  if (!name.endsWith("settings.local.json")) return null;
+  let settings: unknown;
+  try {
+    settings = JSON.parse(readFileSync(join(repoRoot, rel), "utf8"));
+  } catch {
+    return "it does not parse as JSON";
+  }
+  if (typeof settings !== "object" || settings === null || Array.isArray(settings)) return "it is not a JSON object";
+  const other = Object.keys(settings).filter((k) => !LOCAL_SETTINGS_KEYS.has(k));
+  return other.length > 0 ? `it sets ${other.map(printable).join(", ")}, beyond what Claude Code writes there` : null;
 }
 
 /**
@@ -955,10 +998,12 @@ export interface CheckoutComparison {
  * files is the set it runs, so any difference fails. A checkout at any head
  * of the PR, current or older, fails it. It fails closed: an unknown base,
  * or a git command that errors, is a failure. Ignored files are not
- * compared: the owner's own local settings live there.
+ * compared, since the owner's own local settings live there; the ones Claude
+ * Code loads are judged instead (IGNORED_LOADED).
  */
 export function compareWithBase(repoRoot: string, baseSha: string | null): CheckoutComparison {
-  if (!baseSha) return { matches: false, differing: [], error: "the base commit is unknown" };
+  const none = { differing: [], refused: [], unchecked: [] };
+  if (!baseSha) return { matches: false, ...none, error: "the base commit is unknown" };
   try {
     const tracked = execGit(
       ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", "--ignore-submodules=none", baseSha, "--"],
@@ -970,10 +1015,21 @@ export function compareWithBase(repoRoot: string, baseSha: string | null): Check
       repoRoot,
     ).toString("utf8").split("\0").map((e) => e.slice(3));
     const differing = [...new Set([...tracked, ...status])].filter((p) => p !== "");
-    return { matches: differing.length === 0, differing, error: null };
+    const ignored = execGit(
+      ["status", "--porcelain", "-z", "--ignored=matching", "--untracked-files=all", "--no-renames", "--", ...IGNORED_LOADED],
+      repoRoot,
+    ).toString("utf8").split("\0").filter((e) => e.startsWith("!! ")).map((e) => e.slice(3));
+    const refused: { path: string; why: string }[] = [];
+    const unchecked: string[] = [];
+    for (const rel of ignored) {
+      const why = judgeIgnored(repoRoot, rel);
+      if (why) refused.push({ path: rel, why });
+      else unchecked.push(rel);
+    }
+    return { matches: differing.length === 0 && refused.length === 0, differing, refused, unchecked, error: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);
-    return { matches: false, differing: [], error: `git failed: ${msg}` };
+    return { matches: false, ...none, error: `git failed: ${msg}` };
   }
 }
 
@@ -991,10 +1047,15 @@ function printable(p: string): string {
  * The pre-launch check, `--check-checkout <dir> [--base <ref>]`: run from
  * outside `<dir>`, before Claude Code starts there, since the checkout's
  * settings hooks run at start-up, before any skill. 0 when `<dir>` is
- * `<ref>`'s (default: `origin/HEAD`) with nothing changed or added, 1 when
- * it is not or the comparison cannot run.
+ * `<ref>`'s with nothing changed or added, 1 when it is not or the
+ * comparison cannot run. `<ref>` (default `origin/HEAD`) is read in `home`,
+ * the checkout this compute.ts runs from; a full commit id is taken as is.
  */
-export function checkCheckout(dir: string, baseRef: string | null): { code: number; lines: string[] } {
+export function checkCheckout(
+  dir: string,
+  baseRef: string | null,
+  home: string = import.meta.dirname,
+): { code: number; lines: string[] } {
   const ref = baseRef ?? "refs/remotes/origin/HEAD";
   const label = printable(baseRef ?? "origin/HEAD");
   if (ref.startsWith("-")) return { code: 1, lines: [`--base must be a ref or commit (got ${label})`] };
@@ -1004,27 +1065,42 @@ export function checkCheckout(dir: string, baseRef: string | null): { code: numb
   } catch {
     return { code: 1, lines: [`${printable(dir)} is not a git checkout.`] };
   }
+  // A ref is read in the checkout this command runs from, never in the one it checks: a clone of the author's
+  // fork has the author's commits under origin/. A full commit id names itself.
   let base: string;
+  if (/^[0-9a-f]{40}$/.test(ref)) {
+    base = ref;
+  } else {
+    try {
+      base = runGit(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], home);
+    } catch {
+      return {
+        code: 1,
+        lines: [
+          `${label} is not a commit in the checkout this command runs from: fetch it there, or pass --base <the base commit's full id>.`,
+        ],
+      };
+    }
+  }
   try {
-    base = runGit(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], repoRoot);
+    runGit(["rev-parse", "--verify", "--quiet", `${base}^{commit}`], repoRoot);
   } catch {
-    return {
-      code: 1,
-      lines: [
-        baseRef
-          ? `${label} is not a commit in ${printable(repoRoot)}: fetch it first.`
-          : `${printable(repoRoot)} has no origin/HEAD: pass --base origin/<the PR's base branch>.`,
-      ],
-    };
+    return { code: 1, lines: [`${printable(repoRoot)} does not hold ${label} (${base.slice(0, 12)}): fetch the base repository into it first.`] };
   }
   const result = compareWithBase(repoRoot, base);
+  const unchecked = result.unchecked.map((p) => `  not compared (ignored; confirm it is yours): ${printable(p)}`);
   if (result.matches) {
-    return { code: 0, lines: [`ok: ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}), with nothing changed or added.`] };
+    return {
+      code: 0,
+      lines: [`ok: ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}), with nothing changed or added.`, ...unchecked],
+    };
   }
   const lines = [`Do not start Claude Code in ${printable(repoRoot)}: it is not ${label}'s (${base.slice(0, 12)}), and what Claude Code runs there may not be either.`];
   if (result.error) lines.push(`The comparison could not run: ${result.error}`);
   for (const p of result.differing.slice(0, 20)) lines.push(`  differs: ${printable(p)}`);
   if (result.differing.length > 20) lines.push(`  …and ${result.differing.length - 20} more`);
+  for (const r of result.refused) lines.push(`  refused: ${printable(r.path)}: ${r.why}`);
+  lines.push(...unchecked);
   lines.push("Review from a clean checkout of the base branch instead, with nothing changed, passing the PR number to /pr-review.");
   return { code: 1, lines };
 }

@@ -132,8 +132,12 @@ node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts -
 node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts --check-checkout /path/to/that-checkout --base origin/release
 ```
 
-It exits 0 only when the checkout is the base's (`--base`, default
-`origin/HEAD`; fetch first) with nothing changed or added: no tracked file
+It exits 0 only when the checkout is the base's with nothing changed or
+added. The base is `--base`, default `origin/HEAD`, read in **your** clean
+checkout, where the command runs, never in the one it checks: a clone of the
+author's fork has the author's commits under `origin/`. A full commit id is
+taken as is, and the checked checkout must hold it (fetch the base repository
+into it first). Nothing changed or added means: no tracked file
 differs, committed or not, no submodule moved or changed (whatever
 `.gitmodules` says to ignore), and no untracked file is left unignored. The
 whole tree, not a list of files: Claude Code loads `.claude/`, `CLAUDE.md`
@@ -147,10 +151,26 @@ makes the same comparison with the PR's base commit (`hardHalt:
 running_in_pr_checkout`), so review from a clean checkout, without your own
 uncommitted work.
 
-Files the checkout's ignore rules hide are not compared: the owner's own
-`.claude/settings.local.json` stays theirs, and a file the PR's code wrote
-there (an install script run in that checkout) is not seen. Run nothing from
-a PR in a checkout before this check.
+Files the checkout's ignore rules hide are not compared, since your own
+local settings live there. A PR can leave its own there too: it
+force-commits an ignored file, and a `git reset <base>` keeps it on disk.
+So the ignored files Claude Code loads are judged instead:
+
+- `.claude/settings.local.json` passes only when it holds keys Claude Code
+  writes there itself and that run nothing: `permissions`,
+  `enableAllProjectMcpServers`, `enabledMcpjsonServers`,
+  `disabledMcpjsonServers` and `spinnerTipsEnabled` (the settings
+  reference). Any other key (`hooks`, `statusLine`, `apiKeyHelper`, `env`…)
+  runs code or changes how it runs, and fails; so does a file that does not
+  parse.
+- An ignored `.mcp.json` defines servers, which run code: it fails.
+- An ignored `CLAUDE.local.md` is instructions, not code: it passes, and is
+  listed.
+
+Every ignored file that passes is printed as `not compared (ignored; confirm
+it is yours)`. Any other ignored file is not seen, including one a PR's code
+wrote (an install script run in that checkout). Never reuse a PR's checkout
+by resetting it, and run nothing from a PR in a checkout before this check.
 
 ## Environment
 

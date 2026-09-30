@@ -1264,7 +1264,7 @@ function baseRepo(): { repo: string; base: string } {
 
 test("compareWithBase: any head of the PR fails, whatever file it changes; only ignored files are not compared", () => {
   const { repo, base } = baseRepo();
-  assert.deepEqual(compareWithBase(repo, base), { matches: true, differing: [], error: null });
+  assert.deepEqual(compareWithBase(repo, base), { matches: true, differing: [], refused: [], unchecked: [], error: null });
   const changed = [
     ".claude/settings.json", ".claude/skills/pr-review/SKILL.md", "AGENT.md", "process/intake.md", "CLAUDE.md",
     "process/rules.md", "docs/deep.md", // CLAUDE.md's import, and that file's own
@@ -1290,10 +1290,55 @@ test("compareWithBase: any head of the PR fails, whatever file it changes; only 
     assert.deepEqual(compareWithBase(repo, base).differing, [rel], `${rel}, untracked`);
     rmSync(path.join(repo, rel));
   }
-  // The owner's own CLAUDE.local.md, ignored, is theirs.
+  // The owner's own CLAUDE.local.md, ignored: instructions, not code. It passes, listed as not compared.
   writeFileSync(path.join(repo, "CLAUDE.local.md"), "mine\n");
-  assert.equal(checkoutMatchesBase(repo, base), true, "the owner's ignored CLAUDE.local.md");
+  assert.deepEqual(compareWithBase(repo, base), { matches: true, differing: [], refused: [], unchecked: ["CLAUDE.local.md"], error: null });
   assert.equal(checkoutMatchesBase(repo, null), false);
+});
+
+test("compareWithBase: an ignored settings.local.json passes with only what Claude Code writes there; a hook fails", () => {
+  // A base that ignores the local settings and keeps .mcp.json local.
+  const { repo } = baseRepo();
+  writeFileSync(path.join(repo, ".gitignore"), "/CLAUDE.local.md\n.claude/settings.local.json\n/.mcp.json\n");
+  execSync("git rm -q --cached .mcp.json", { cwd: repo });
+  rmSync(path.join(repo, ".mcp.json"));
+  const base2 = commitAll(repo, "local settings stay local");
+  assert.equal(checkoutMatchesBase(repo, base2), true);
+  const local = path.join(repo, ".claude", "settings.local.json");
+
+  // What Claude Code writes itself: a permission approval, the .mcp.json approvals, spinner tips.
+  writeFileSync(local, JSON.stringify({
+    permissions: { allow: ["Bash(pnpm meta)"] }, enabledMcpjsonServers: ["docs"], disabledMcpjsonServers: [],
+    enableAllProjectMcpServers: false, spinnerTipsEnabled: false,
+  }));
+  assert.deepEqual(compareWithBase(repo, base2), { matches: true, differing: [], refused: [], unchecked: [".claude/settings.local.json"], error: null });
+
+  // Anything else runs code or changes how it runs; a file that does not parse fails too.
+  for (const [text, why] of [
+    [JSON.stringify({ permissions: {}, hooks: { SessionStart: [{ hooks: [{ type: "command", command: "touch /tmp/x" }] }] } }), /sets "hooks"/],
+    [JSON.stringify({ statusLine: { type: "command", command: "x" } }), /sets "statusLine"/],
+    [JSON.stringify({ apiKeyHelper: "x", env: {} }), /sets "apiKeyHelper", "env"/],
+    ["{ permissions: }", /does not parse/],
+    ["[]", /not a JSON object/],
+  ] as const) {
+    writeFileSync(local, text);
+    const result = compareWithBase(repo, base2);
+    assert.equal(result.matches, false, text);
+    assert.equal(result.refused[0]?.path, ".claude/settings.local.json", text);
+    assert.match(result.refused[0]?.why ?? "", why, text);
+  }
+  rmSync(local);
+
+  // An ignored .mcp.json defines servers, which run code.
+  writeFileSync(path.join(repo, ".mcp.json"), '{"mcpServers":{}}\n');
+  assert.match(compareWithBase(repo, base2).refused[0]?.why ?? "", /MCP servers/);
+  rmSync(path.join(repo, ".mcp.json"));
+
+  // The reset flow: a PR force-commits an ignored settings.local.json with a hook; `git reset <base>` keeps it on disk.
+  writeFileSync(local, JSON.stringify({ hooks: { SessionStart: [] } }));
+  execSync("git add -f .claude/settings.local.json && git commit -q -m 'pr plants a hook' && git reset -q " + base2, { cwd: repo });
+  assert.equal(existsSync(local), true);
+  assert.equal(checkoutMatchesBase(repo, base2), false, "a PR's ignored settings, left by a reset");
 });
 
 test("compareWithBase: a PR's file under a differently cased .claude folder fails, on a case-insensitive disk too", () => {
@@ -1373,15 +1418,33 @@ test("compareWithBase: fails closed when git status or git diff exits non-zero",
 
 test("--check-checkout: the pre-launch command exits 0 on a clean checkout of the base, non-zero on each case", () => {
   const { repo, base } = baseRepo();
-  execSync("git push -q origin main && git fetch -q origin && git remote set-head origin main", { cwd: repo, stdio: "pipe" });
-  const compute = path.join(import.meta.dirname, "compute.ts");
-  const outside = workspaceMkdtemp("outside-"); // run from outside the checkout
+  execSync("git push -q origin main && git fetch -q origin", { cwd: repo, stdio: "pipe" });
+  // The owner's own clean clone of the base repository, holding the compute.ts that runs: outside the checkout.
+  const owner = workspaceMkdtemp("owner-");
+  const remote = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
+  execSync(`git clone -q --template="" "${remote}" "${owner}"`, { stdio: "pipe" });
+  const compute = path.join(owner, "compute.ts");
+  writeFileSync(compute, readFileSync(path.join(import.meta.dirname, "compute.ts")));
   const run = (...args: string[]) => {
-    const r = spawnSync(process.execPath, [compute, "--check-checkout", repo, ...args], { cwd: outside, encoding: "utf8" });
+    const r = spawnSync(process.execPath, [compute, "--check-checkout", repo, ...args], { cwd: owner, encoding: "utf8" });
     return { code: r.status, out: `${r.stdout}${r.stderr}` };
   };
   assert.equal(run().code, 0, run().out);
   assert.equal(run("--base", base).code, 0);
+  writeFileSync(path.join(repo, "CLAUDE.local.md"), "mine\n");
+  const listed = run();
+  assert.equal(listed.code, 0);
+  assert.match(listed.out, /not compared \(ignored; confirm it is yours\): "CLAUDE\.local\.md"/);
+  rmSync(path.join(repo, "CLAUDE.local.md"));
+  assert.equal(run("--base", "origin/main").code, 0);
+
+  // A clone of the author's fork: its own origin/HEAD is the PR's head. The base is read where the command runs.
+  execSync("git checkout -q -b fork", { cwd: repo });
+  writeFileSync(path.join(repo, ".claude", "settings.json"), '{"hooks":{}}\n');
+  const forkHead = commitAll(repo, "the fork's main");
+  execSync(`git update-ref refs/remotes/origin/fork ${forkHead} && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/fork`, { cwd: repo });
+  assert.equal(run().code, 1, "a fork's own origin/HEAD is not the base");
+  execSync(`git checkout -q main && git symbolic-ref -d refs/remotes/origin/HEAD`, { cwd: repo });
 
   for (const rel of ["docs/deep.md", "ci/status.mjs"]) { // coverage: an import of an import; a start-up hook's script
     writeFileSync(path.join(repo, rel), "pr\n");
@@ -1396,12 +1459,16 @@ test("--check-checkout: the pre-launch command exits 0 on a clean checkout of th
   assert.match(cased.out, /differs: "\.CLAUDE\/settings\.local\.json"/);
   execSync(`git reset -q --hard ${base} && git clean -qfd`, { cwd: repo });
 
-  assert.equal(withFailingGit("status", () => run().code), 1); // failing open
+  const failed = withFailingGit("status", () => run()); // failing open
+  assert.equal(failed.code, 1);
+  assert.match(failed.out, /could not run: git failed/);
   assert.equal(run("--base", "no-such-ref").code, 1);
-  execSync("git remote set-head origin -d", { cwd: repo });
+  assert.equal(run("--base", "f".repeat(40)).code, 1, "a commit the checkout does not hold");
+  execSync("git remote set-head origin -d", { cwd: owner });
   const noHead = run();
   assert.equal(noHead.code, 1);
   assert.match(noHead.out, /pass --base/);
+  const outside = workspaceMkdtemp("outside-");
   assert.equal(spawnSync(process.execPath, [compute, "--check-checkout", outside], { encoding: "utf8" }).status, 1, "not a checkout");
 });
 
