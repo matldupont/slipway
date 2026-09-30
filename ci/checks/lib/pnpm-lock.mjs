@@ -12,10 +12,12 @@
 // judged. What has no entry there is judged where it is written: a `link:` in an importer or in a snapshot
 // (a `pnpm.overrides` link lands there), and a version no entry answers to. pnpm writes a `link:` for every
 // workspace dependency; that is the project's own code (reviewed in its diff), so a `link:` passes when its
-// target is a workspace package folder: inside the repository root, matched by a `pnpm-workspace.yaml`
-// `packages` glob, with its own package.json. A link outside the root, or to any other folder, is a problem.
+// target is a workspace package folder: inside the repository root (`workspaceFolders`, by where the folder
+// really is), matched by a `pnpm-workspace.yaml` `packages` glob, with its own package.json. A link outside
+// the root, an absolute one, or to any other folder is a problem.
 
-import { posix } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { isAbsolute, join, posix, relative, sep } from 'node:path';
 import { LOCKFILE, parseLockfile } from './lockfile-yaml.mjs';
 
 export { LOCKFILE, parseLockfile };
@@ -65,6 +67,31 @@ const show = (v) =>
   v instanceof Map ? `{${[...v].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, x]) => `${esc(k)}=${show(x)}`).join(';')}}` : Array.isArray(v) ? `[${v.map(show).join(';')}]` : esc(v);
 const source = (res) => show(new Map(res instanceof Map ? [...res].filter(([k]) => k !== 'integrity') : []));
 
+/**
+ * The folders a `link:` may land on: workspace package folders that are inside the repository root, as pnpm
+ * lays it out. `pnpm-workspace.yaml` can name a folder outside the root (`../x`), and a folder can be a
+ * symlink to one; pnpm counts both as workspace packages, and a link to them leaves the checkout. pnpm skips
+ * `node_modules` and `bower_components` folders, and the root itself is not a package to link to.
+ * @param {string} root  the repository root
+ * @param {string[]} dirs  the folders `discoverWorkspace` found, relative to root
+ */
+export function workspaceFolders(root, dirs) {
+  const top = realpathSync(root);
+  const inside = (d) => {
+    try {
+      const real = relative(top, realpathSync(join(root, d)));
+      return real !== '' && real !== '..' && !real.startsWith(`..${sep}`) && !isAbsolute(real);
+    } catch {
+      return false;
+    }
+  };
+  return new Set(
+    dirs
+      .map((d) => d.split('\\').join('/'))
+      .filter((d) => d !== '' && d !== '.' && !isAbsolute(d) && !d.split('/').some((seg) => ['..', 'node_modules', 'bower_components'].includes(seg)) && inside(d))
+  );
+}
+
 const mapOf = (v, name) => {
   if (v == null) return new Map();
   if (v instanceof Map) return v;
@@ -98,8 +125,11 @@ export function checkLockfile(doc, workspaceDirs) {
   // null when the reference is fine, else the problem's kind
   const badReference = (name, value, { importer }) => {
     if (value.startsWith('link:')) {
+      const target = value.slice('link:'.length);
+      // an absolute or Windows path is not relative to anything: pnpm resolves it as written, so it is never a workspace folder
+      if (/^[\\/]|\\|^[A-Za-z]:/.test(target)) return 'link';
       // relative to the importer's folder (a snapshot's, to the repository root); a workspace package folder passes
-      return workspaceDirs.has(posix.normalize(posix.join(importer, value.slice('link:'.length)))) ? null : 'link';
+      return workspaceDirs.has(posix.normalize(posix.join(importer, target))) ? null : 'link';
     }
     // a version names its entry as `x.y.z` (with the dependency's name), or in full as `name@…`
     const base = value.split('(')[0];

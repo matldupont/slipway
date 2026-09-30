@@ -5,34 +5,11 @@
 // it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { readFileSync, symlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
 import { expiryProblem } from '../ci/checks/lib/exceptions.mjs';
-import { HASH, HEAD, lockfile, registry } from './lib/lk1-lockfile.mjs';
-
-const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-
-// A project folder: package.json, pnpm-lock.yaml, and whatever else `files` names.
-const project = (files) => {
-  const dir = mkdtempSync(join(tmpdir(), 'lk1-'));
-  for (const [p, body] of Object.entries({ 'package.json': JSON.stringify({ name: 'p', private: true, dependencies: { a: '^1.0.0' } }), ...files })) {
-    if (body === null) continue;
-    mkdirSync(dirname(join(dir, p)), { recursive: true });
-    writeFileSync(join(dir, p), body);
-  }
-  return dir;
-};
-const run = (script, dir, env = {}) => {
-  const r = spawnSync(process.execPath, [join(SRC, script), dir], { encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1', ...env } });
-  const line = r.stdout.split('\n').findLast((l) => l.startsWith('@@json '));
-  return { status: r.status, out: r.stdout, json: line ? JSON.parse(line.slice('@@json '.length)) : null };
-};
-const lk1 = (dir, env) => run('ci/checks/meta/lk1-lockfile.mjs', dir, env);
-const done = (dir) => rmSync(dir, { recursive: true, force: true });
+import { done, HASH, HEAD, lk1, lockfile, monorepo, project, registry, run, SRC } from './lib/lk1-lockfile.mjs';
 
 // --- the check ---
 
@@ -140,14 +117,6 @@ test('an entry that names a package by a different address excuses nothing', () 
   }
 });
 
-// A monorepo: pnpm writes a link: for each workspace dependency and LK1 passes it, counting it as an entry.
-const monorepo = (specifier) => ({
-  'package.json': JSON.stringify({ name: 'root', private: true }),
-  'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n  - 'packages/*'\n",
-  'apps/api/package.json': JSON.stringify({ name: '@s/api', dependencies: { '@s/db': specifier, a: '^1.0.0' } }),
-  'packages/db/package.json': JSON.stringify({ name: '@s/db' }),
-  'pnpm-lock.yaml': `${HEAD}importers:\n\n  .: {}\n\n  apps/api:\n    dependencies:\n      '@s/db':\n        specifier: ${specifier}\n        version: link:../../packages/db\n      a:\n        specifier: ^1.0.0\n        version: 1.0.0\n\n  packages/db: {}\n\npackages:\n\n${registry()}snapshots:\n\n  a@1.0.0: {}\n`,
-});
 test('a two-package workspace passes, whether its dependency says workspace:* or link:', () => {
   for (const specifier of ['workspace:*', 'link:../../packages/db']) {
     const dir = project(monorepo(specifier));

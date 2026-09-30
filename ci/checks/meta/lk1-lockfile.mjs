@@ -25,7 +25,7 @@ import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { today as localToday } from '../lib/clock.mjs';
 import { expiryProblem, loadRegistry } from '../lib/exceptions.mjs';
-import { checkLockfile, ID_PREFIX, KINDS, LOCKFILE, parseLockfile } from '../lib/pnpm-lock.mjs';
+import { checkLockfile, ID_PREFIX, KINDS, LOCKFILE, parseLockfile, workspaceFolders } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
 import { discoverWorkspace } from '../lib/workspace.mjs';
 
@@ -58,7 +58,7 @@ const st = lstatOrNull(path);
 if (st) {
   if (!st.isFile()) stop(`${LOCKFILE} is not a regular file (a link or folder), so what it lists cannot be read from here`);
   try {
-    const workspaceDirs = new Set(ws.packages.map((p) => p.dir.split('\\').join('/')));
+    const workspaceDirs = workspaceFolders(root, ws.packages.map((p) => p.dir));
     ({ entries, problems } = checkLockfile(parseLockfile(readFileSync(path, 'utf8')), workspaceDirs));
   } catch (e) {
     stop(e.message);
