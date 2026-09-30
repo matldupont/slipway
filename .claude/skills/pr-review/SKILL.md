@@ -98,7 +98,9 @@ checkout's copy (`features/README.md` → `--check-checkout`):
 node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts --check-checkout /path/to/that-checkout
 ```
 
-It exits 0 only when what Claude Code loads there is the base branch's.
+It exits 0 only when that checkout is the base branch's, with nothing
+changed or added: what Claude Code runs there (settings hooks and the
+scripts they call, `CLAUDE.md` and its imports, skills) reaches any file.
 
 **First, where you are running.** Using `git` and `gh` only. The `gh pr
 view` and the git line each ask once; `<baseRefOid>` is used only when it
@@ -107,22 +109,22 @@ is 40 hex characters:
 ```bash
 gh pr view <pr-url-or-number> --json author,headRefOid,headRefName,baseRefOid
 gh api user --jq .login
-git -c core.hooksPath=/dev/null fetch -q origin <baseRefOid> && git diff --quiet <baseRefOid> -- ':(icase).claude' ':(icase)AGENT.md' ':(icase)process/intake.md' && git status --porcelain --untracked-files=all -- ':(icase).claude' ':(icase)AGENT.md' ':(icase)process/intake.md' && git show <baseRefOid>:AGENT.md
+git -c core.hooksPath=/dev/null fetch -q origin <baseRefOid> && git diff --quiet --ignore-submodules=none <baseRefOid> && git status --porcelain --untracked-files=all --ignore-submodules=none && git show <baseRefOid>:AGENT.md
 ```
 
 It prints only the base's `AGENT.md`: the fetch is quiet, `git diff --quiet`
-exits 0 when those files are the base's, and `git status` prints nothing
-when none is untracked. `:(icase)` matches names in any case, as a
-case-insensitive disk reads them: a PR's `.CLAUDE/` lands in `.claude/`
-there. Anything else before `AGENT.md`, or a non-zero exit, fails the check.
+exits 0 when the checkout's files are the base's, and `git status` prints
+nothing when none is untracked. Anything else before `AGENT.md`, or a
+non-zero exit, fails the check.
 
-On someone else's PR, both checks must pass. The git line proves this skill
-and `compute.ts` are the base commit's; compute.ts then compares the rest of
-what Claude Code loads (every `CLAUDE.md` and `CLAUDE.local.md` and the files
-they import, `.mcp.json`, `.claude/` at any depth), with names folded as a
-case-insensitive disk folds them, and fails closed when git errors. Compared
-by content, so a checkout at any head of the PR, current or older, fails
-it. When either fails, stop before running anything: the skill and
+On someone else's PR, both checks must pass: the whole checkout is the base
+commit's, compared by content, with nothing changed or added (ignored files
+aside). No list of files would do: this skill, the settings and their hooks,
+`CLAUDE.md` and its imports reach scripts, symlink targets and submodules
+anywhere in the tree, and a PR's `.CLAUDE/` folder lands in `.claude/` on a
+case-insensitive disk. A checkout at any head of the PR, current or older,
+fails it, and so does your own uncommitted work: review from a clean
+checkout. When either fails, stop before running anything: the skill and
 `compute.ts` you would run may be the PR's. Say so, and ask the
 user to run the review from a clean checkout of the base branch, passing
 the PR number. Omitting the PR (current-branch mode) is only for the

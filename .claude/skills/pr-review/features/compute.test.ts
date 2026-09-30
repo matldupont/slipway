@@ -72,11 +72,9 @@ import {
   resolveIssueTicket,
   runGit,
   isInPrCheckout,
-  reviewerFilesMatchBase,
-  compareLoadedFiles,
+  compareWithBase,
+  checkoutMatchesBase,
   checkCheckout,
-  foldPath,
-  importsOf,
   DEFAULT_SLIPWAY_PATHS,
   type PRMetadata,
   type IssueTicket,
@@ -1239,43 +1237,12 @@ test("isInPrCheckout: someone else's PR, from its own checkout or current-branch
   assert.equal(isInPrCheckout("self", null, "abc", "abc"), false);
 });
 
-test("reviewerFilesMatchBase: any head of the PR that touches what Claude Code loads fails, by content", () => {
+// A base commit holding what Claude Code loads and what that runs: the skill's folder and settings, the configuration
+// it reads, CLAUDE.md importing a file that imports another, a nested CLAUDE.md, .mcp.json, and the hook scripts,
+// ci/ and package.json a project's settings run at start-up.
+function baseRepo(): { repo: string; base: string } {
   const repo = createFixtureRepo();
-  mkdirSync(path.join(repo, ".claude", "skills", "pr-review"), { recursive: true });
-  mkdirSync(path.join(repo, "process"), { recursive: true });
-  writeFileSync(path.join(repo, ".claude", "settings.json"), "{}\n");
-  writeFileSync(path.join(repo, ".claude", "skills", "pr-review", "SKILL.md"), "base\n");
-  writeFileSync(path.join(repo, "AGENT.md"), "base\n");
-  writeFileSync(path.join(repo, "process", "intake.md"), "base\n");
-  execSync("git add -A && git commit -q -m base", { cwd: repo, stdio: "pipe" });
-  const base = execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf8" }).trim();
-  assert.equal(reviewerFilesMatchBase(repo, base), true);
-
-  // An older head of the PR: a commit that changed the settings' allow-list. HEAD is not the PR's current head.
-  writeFileSync(path.join(repo, ".claude", "settings.json"), '{"permissions":{"allow":["Bash(*)"]}}\n');
-  execSync("git commit -qam older-head", { cwd: repo, stdio: "pipe" });
-  assert.equal(reviewerFilesMatchBase(repo, base), false);
-  execSync(`git reset -q --hard ${base}`, { cwd: repo });
-
-  for (const [rel, text] of [["AGENT.md", "pr\n"], ["process/intake.md", "pr\n"], [".claude/skills/pr-review/SKILL.md", "pr\n"]]) {
-    writeFileSync(path.join(repo, rel), text); // uncommitted edits count too
-    assert.equal(reviewerFilesMatchBase(repo, base), false, rel);
-    execSync(`git checkout -q -- ${rel}`, { cwd: repo });
-  }
-  writeFileSync(path.join(repo, ".claude", "agents.md"), "untracked\n");
-  assert.equal(reviewerFilesMatchBase(repo, base), false, "an untracked file under .claude/");
-  rmSync(path.join(repo, ".claude", "agents.md"));
-
-  writeFileSync(path.join(repo, "src.txt"), "elsewhere\n"); // outside what Claude Code loads: fine
-  assert.equal(reviewerFilesMatchBase(repo, base), true);
-  assert.equal(reviewerFilesMatchBase(repo, null), false);
-});
-
-// A base commit holding every file Claude Code loads: the skill's folder and settings, the configuration it reads,
-// CLAUDE.md importing a file that imports another, a nested CLAUDE.md, and .mcp.json.
-function loadedFilesRepo(): { repo: string; base: string } {
-  const repo = createFixtureRepo();
-  for (const dir of [".claude/skills/pr-review", "process", "docs"]) mkdirSync(path.join(repo, dir), { recursive: true });
+  for (const dir of [".claude/skills/pr-review", "process/harness/hooks", "docs", "ci"]) mkdirSync(path.join(repo, dir), { recursive: true });
   const files: Record<string, string> = {
     ".claude/settings.json": "{}\n",
     ".claude/skills/pr-review/SKILL.md": "base\n",
@@ -1285,52 +1252,52 @@ function loadedFilesRepo(): { repo: string; base: string } {
     "process/rules.md": "See @../docs/deep.md.\n",
     "docs/deep.md": "base\n",
     "docs/CLAUDE.md": "base\n",
-    "docs/owner-import.md": "base\n",
     ".mcp.json": "{}\n",
+    "process/harness/hooks/session-state.sh": "node ci/status.mjs\n",
+    "ci/status.mjs": "// base\n",
+    "package.json": "{}\n",
     ".gitignore": "/CLAUDE.local.md\n",
   };
   for (const [rel, text] of Object.entries(files)) writeFileSync(path.join(repo, rel), text);
   return { repo, base: commitAll(repo, "base") };
 }
 
-test("compareLoadedFiles: each file Claude Code loads, changed in turn, fails; any other file does not", () => {
-  const { repo, base } = loadedFilesRepo();
-  assert.deepEqual(compareLoadedFiles(repo, base), { matches: true, differing: [], error: null });
-  const loaded = [
-    ".claude/settings.json", "AGENT.md", "process/intake.md", "CLAUDE.md",
+test("compareWithBase: any head of the PR fails, whatever file it changes; only ignored files are not compared", () => {
+  const { repo, base } = baseRepo();
+  assert.deepEqual(compareWithBase(repo, base), { matches: true, differing: [], error: null });
+  const changed = [
+    ".claude/settings.json", ".claude/skills/pr-review/SKILL.md", "AGENT.md", "process/intake.md", "CLAUDE.md",
     "process/rules.md", "docs/deep.md", // CLAUDE.md's import, and that file's own
     "docs/CLAUDE.md", ".mcp.json",
+    "process/harness/hooks/session-state.sh", "ci/status.mjs", "package.json", // what the settings run at start-up
+    "README.md",
   ];
-  for (const rel of loaded) {
+  for (const rel of changed) {
     writeFileSync(path.join(repo, rel), "pr\n"); // uncommitted
-    assert.deepEqual(compareLoadedFiles(repo, base).differing, [rel], `${rel}, uncommitted`);
-    commitAll(repo, `pr changes ${rel}`); // committed: a head of the PR
-    assert.equal(reviewerFilesMatchBase(repo, base), false, `${rel}, committed`);
+    assert.deepEqual(compareWithBase(repo, base).differing, [rel], `${rel}, uncommitted`);
+    commitAll(repo, `pr changes ${rel}`); // committed: an older head of the PR, whose HEAD is not the PR's
+    assert.equal(checkoutMatchesBase(repo, base), false, `${rel}, committed`);
     execSync(`git reset -q --hard ${base}`, { cwd: repo });
   }
-  // CLAUDE.local.md: committed by the PR (tracked, though ignored), or untracked where nothing ignores it.
+  // CLAUDE.local.md committed by the PR (tracked, though ignored), and any untracked, unignored file.
   writeFileSync(path.join(repo, "CLAUDE.local.md"), "pr\n");
   execSync("git add -f CLAUDE.local.md", { cwd: repo });
-  assert.equal(reviewerFilesMatchBase(repo, base), false, "CLAUDE.local.md, committed");
+  assert.equal(checkoutMatchesBase(repo, base), false, "CLAUDE.local.md, committed");
   execSync(`git reset -q --hard ${base}`, { cwd: repo });
-  writeFileSync(path.join(repo, "docs", "CLAUDE.local.md"), "pr\n");
-  assert.deepEqual(compareLoadedFiles(repo, base).differing, ["docs/CLAUDE.local.md"], "CLAUDE.local.md, untracked");
-  rmSync(path.join(repo, "docs", "CLAUDE.local.md"));
-
-  // The owner's own CLAUDE.local.md (ignored) is theirs; what it imports is still compared.
-  writeFileSync(path.join(repo, "CLAUDE.local.md"), "Mine: @docs/owner-import.md\n");
-  assert.equal(reviewerFilesMatchBase(repo, base), true, "the owner's ignored CLAUDE.local.md");
-  writeFileSync(path.join(repo, "docs", "owner-import.md"), "pr\n");
-  assert.equal(reviewerFilesMatchBase(repo, base), false, "a file the owner's CLAUDE.local.md imports");
-  execSync("git checkout -q -- docs/owner-import.md", { cwd: repo });
-
-  writeFileSync(path.join(repo, "README.md"), "pr\n");
-  writeFileSync(path.join(repo, "docs", "other.md"), "pr\n");
-  assert.equal(reviewerFilesMatchBase(repo, base), true, "files Claude Code does not load");
+  for (const rel of ["docs/CLAUDE.local.md", ".claude/agents/new.md", "src.txt"]) {
+    mkdirSync(path.dirname(path.join(repo, rel)), { recursive: true });
+    writeFileSync(path.join(repo, rel), "untracked\n");
+    assert.deepEqual(compareWithBase(repo, base).differing, [rel], `${rel}, untracked`);
+    rmSync(path.join(repo, rel));
+  }
+  // The owner's own CLAUDE.local.md, ignored, is theirs.
+  writeFileSync(path.join(repo, "CLAUDE.local.md"), "mine\n");
+  assert.equal(checkoutMatchesBase(repo, base), true, "the owner's ignored CLAUDE.local.md");
+  assert.equal(checkoutMatchesBase(repo, null), false);
 });
 
-test("compareLoadedFiles: a PR's file under a differently cased .claude folder fails, on a case-insensitive disk too", () => {
-  const { repo, base } = loadedFilesRepo();
+test("compareWithBase: a PR's file under a differently cased .claude folder fails, on a case-insensitive disk too", () => {
+  const { repo, base } = baseRepo();
   // Built with plumbing, as a PR's author on a case-sensitive disk would commit it. On a case-insensitive disk (the
   // macOS default) the checkout writes it into .claude/, where Claude Code loads it as settings.
   const blob = execSync("git hash-object -w --stdin", { cwd: repo, input: '{"hooks":{}}\n', encoding: "utf8" }).trim();
@@ -1338,7 +1305,7 @@ test("compareLoadedFiles: a PR's file under a differently cased .claude folder f
     execSync(`git update-index --add --cacheinfo 100644,${blob},${rel}`, { cwd: repo });
     execSync(`git commit -q -m "pr adds ${rel}"`, { cwd: repo });
     execSync("git checkout -q -f HEAD", { cwd: repo });
-    const result = compareLoadedFiles(repo, base);
+    const result = compareWithBase(repo, base);
     assert.equal(result.matches, false, rel);
     assert.ok(result.differing.includes(rel), `${rel}: ${JSON.stringify(result.differing)}`);
     execSync(`git reset -q --hard ${base}`, { cwd: repo });
@@ -1346,20 +1313,34 @@ test("compareLoadedFiles: a PR's file under a differently cased .claude folder f
   }
 });
 
-test("foldPath: names a case-insensitive disk reads as one fold to one", () => {
-  assert.equal(foldPath(".CLAUDE/Settings.JSON"), ".claude/settings.json");
-  assert.equal(foldPath("process/intaKe.md"), "process/intake.md"); // KELVIN SIGN
-  assert.equal(foldPath("proceſſ/intake.md"), "process/intake.md"); // LONG S
-  assert.equal(foldPath(".cla‌ude/x"), ".claude/x"); // a code point HFS+ ignores
-  assert.equal(foldPath("．claude/x"), ".claude/x"); // FULLWIDTH FULL STOP
-});
+test("compareWithBase: a PR that changes a symlink's target, or a submodule, fails", () => {
+  const { repo, base } = baseRepo();
+  // The settings are a link to a shared file: the PR changes the file, never the link.
+  mkdirSync(path.join(repo, "shared"));
+  writeFileSync(path.join(repo, "shared", "settings.json"), "{}\n");
+  rmSync(path.join(repo, ".claude", "settings.json"));
+  execSync("ln -s ../shared/settings.json .claude/settings.json", { cwd: repo });
+  const linked = commitAll(repo, "linked settings");
+  writeFileSync(path.join(repo, "shared", "settings.json"), '{"hooks":{}}\n');
+  assert.deepEqual(compareWithBase(repo, linked).differing, ["shared/settings.json"]);
+  execSync(`git reset -q --hard ${base}`, { cwd: repo });
 
-test("importsOf: @ imports resolve from the importing file; home and outside paths are dropped", () => {
-  assert.deepEqual(importsOf("# r\n@process/rules.md\n", "CLAUDE.md", "/r"), ["process/rules.md"]);
-  assert.deepEqual(importsOf("see @../a.md.", "docs/CLAUDE.md", "/r"), ["a.md.", "a.md"]);
-  assert.deepEqual(importsOf("@~/mine.md @../../out.md @/elsewhere/x.md @/r/in.md", "d/CLAUDE.md", "/r"), ["in.md"]);
-  assert.deepEqual(importsOf("mail a@b.c", "CLAUDE.md", "/r"), []);
-  assert.deepEqual(importsOf("@my\\ notes.md", "CLAUDE.md", "/r"), ["my notes.md"]);
+  // A submodule holding a CLAUDE.md and a skill: its content changed, or the PR moves it to another commit.
+  const sub = workspaceMkdtemp("sub-");
+  execSync('git init -q --template="" --initial-branch=main && git config user.email t@example.com && git config user.name T', { cwd: sub });
+  writeFileSync(path.join(sub, "CLAUDE.md"), "base\n");
+  commitAll(sub, "sub base");
+  execSync(`git -c protocol.file.allow=always submodule add -q "${sub}" vendor`, { cwd: repo, stdio: "pipe" });
+  // .gitmodules can tell git to ignore the submodule; a comparison that honours it sees nothing below.
+  execSync("git config -f .gitmodules submodule.vendor.ignore all", { cwd: repo });
+  const withSub = commitAll(repo, "add vendor");
+  assert.equal(checkoutMatchesBase(repo, withSub), true);
+  writeFileSync(path.join(repo, "vendor", "CLAUDE.md"), "pr\n");
+  assert.deepEqual(compareWithBase(repo, withSub).differing, ["vendor"], "the submodule's content");
+  commitAll(path.join(repo, "vendor"), "pr moves the submodule");
+  assert.deepEqual(compareWithBase(repo, withSub).differing, ["vendor"], "the submodule's commit");
+  commitAll(repo, "pr bumps vendor");
+  assert.equal(checkoutMatchesBase(repo, withSub), false, "the bump, committed");
 });
 
 // A git that fails the one command named, and runs every other: a real non-zero exit, through compute.ts's own git.
@@ -1380,19 +1361,18 @@ function withFailingGit<T>(command: string, fn: () => T): T {
   }
 }
 
-test("compareLoadedFiles: fails closed when git status or git diff exits non-zero", () => {
-  const { repo, base } = loadedFilesRepo();
-  assert.equal(reviewerFilesMatchBase(repo, base), true);
-  for (const command of ["status", "diff", "ls-tree"]) {
-    const result = withFailingGit(command, () => compareLoadedFiles(repo, base));
+test("compareWithBase: fails closed when git status or git diff exits non-zero", () => {
+  const { repo, base } = baseRepo();
+  assert.equal(checkoutMatchesBase(repo, base), true);
+  for (const command of ["status", "diff"]) {
+    const result = withFailingGit(command, () => compareWithBase(repo, base));
     assert.equal(result.matches, false, command);
     assert.match(result.error ?? "", /git failed/, command);
   }
-  assert.equal(compareLoadedFiles(repo, null).matches, false);
 });
 
 test("--check-checkout: the pre-launch command exits 0 on a clean checkout of the base, non-zero on each case", () => {
-  const { repo, base } = loadedFilesRepo();
+  const { repo, base } = baseRepo();
   execSync("git push -q origin main && git fetch -q origin && git remote set-head origin main", { cwd: repo, stdio: "pipe" });
   const compute = path.join(import.meta.dirname, "compute.ts");
   const outside = workspaceMkdtemp("outside-"); // run from outside the checkout
@@ -1403,9 +1383,11 @@ test("--check-checkout: the pre-launch command exits 0 on a clean checkout of th
   assert.equal(run().code, 0, run().out);
   assert.equal(run("--base", base).code, 0);
 
-  writeFileSync(path.join(repo, "docs", "deep.md"), "pr\n"); // coverage: an import of an import
-  assert.equal(run().code, 1);
-  execSync("git checkout -q -- docs/deep.md", { cwd: repo });
+  for (const rel of ["docs/deep.md", "ci/status.mjs"]) { // coverage: an import of an import; a start-up hook's script
+    writeFileSync(path.join(repo, rel), "pr\n");
+    assert.equal(run().code, 1, rel);
+    execSync(`git checkout -q -- ${rel}`, { cwd: repo });
+  }
 
   const blob = execSync("git hash-object -w --stdin", { cwd: repo, input: "{}\n", encoding: "utf8" }).trim();
   execSync(`git update-index --add --cacheinfo 100644,${blob},.CLAUDE/settings.local.json && git commit -q -m case && git checkout -q -f HEAD`, { cwd: repo });
@@ -1424,7 +1406,7 @@ test("--check-checkout: the pre-launch command exits 0 on a clean checkout of th
 });
 
 test("--check-checkout: a path the author chose prints escaped, never as terminal control text", () => {
-  const { repo, base } = loadedFilesRepo();
+  const { repo, base } = baseRepo();
   const name = ".claude/\u001b]0;pwned\u0007‮.md";
   writeFileSync(path.join(repo, name), "pr\n");
   const { code, lines } = checkCheckout(repo, base);

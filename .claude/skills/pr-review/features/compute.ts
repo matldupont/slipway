@@ -34,7 +34,7 @@
  *   --verbose                         Diagnostic logs to stderr (includes swallowed gh/git stderr)
  *   --cleanup <dir>                   Delete a review folder this script made, and exit
  *   --check-checkout <dir>            Pre-launch check, run from outside <dir> before Claude Code starts there:
- *     [--base <ref>]                    exit 0 only when what Claude Code loads in <dir> is <ref>'s (default: origin/HEAD)
+ *     [--base <ref>]                    exit 0 only when <dir> is <ref>'s with nothing changed or added (default: origin/HEAD)
  *
  * Environment:
  *   GH_HOST                 GitHub host for `gh` (e.g. github.example.com, for GitHub Enterprise)
@@ -58,7 +58,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, join, posix, relative, sep } from "node:path";
+import { basename, dirname, join, sep } from "node:path";
 
 // ============================================================================
 // Output types
@@ -937,140 +937,39 @@ export function isInPrCheckout(
   return reviewMode === "peer" && (prRef === null || (cwdHead !== "" && cwdHead === prHeadSha));
 }
 
-/**
- * What Claude Code loads from the checkout it runs in: `.claude/` at any
- * depth (this skill, settings with their allow-list and hooks, agents,
- * rules), every `CLAUDE.md` and `CLAUDE.local.md` and the files they import,
- * `.mcp.json`, and the configuration this skill reads. On someone else's PR
- * they must be the base commit's, byte for byte.
- */
-export const LOADED_FILES = [".claude/", "CLAUDE.md", "CLAUDE.local.md", "their imports", ".mcp.json", "AGENT.md", "process/intake.md"];
-const LOADED_AT_ROOT = [".mcp.json", "agent.md", "process/intake.md"];
-const MEMORY_FILES = new Set(["claude.md", "claude.local.md"]);
-/** Claude Code follows imports five hops deep. */
-const IMPORT_DEPTH = 5;
-
-/**
- * A path as a case-insensitive disk compares it (APFS, HFS+, NTFS): Unicode
- * compatibility forms and case folded, and the code points HFS+ ignores
- * dropped. It folds more than any one disk does, so two names it keeps
- * apart are never one file.
- */
-export function foldPath(p: string): string {
-  return p
-    .normalize("NFKC")
-    .replace(/[‌-‏‪-‮⁪-⁯﻿]/g, "")
-    .toUpperCase()
-    .toLowerCase();
-}
-
-/**
- * The repository paths a memory file at `from` imports with `@path`, resolved
- * as Claude Code resolves them: relative to the importing file. Home and
- * outside-the-repository paths are dropped; a PR cannot change them. Every
- * `@` token counts, even in a code span, and a trailing punctuation mark
- * gives a second reading: reading too much costs nothing.
- */
-export function importsOf(text: string, from: string, repoRoot: string): string[] {
-  const out = new Set<string>();
-  for (const m of text.matchAll(/(?:^|\s)@((?:[^\s\\]|\\ )+)/g)) {
-    const raw = m[1].replace(/\\ /g, " ");
-    for (const token of new Set([raw, raw.replace(/[.,;:!?)\]}>'"`*_]+$/, "")])) {
-      if (!token || token.startsWith("~")) continue;
-      const rel = isAbsolute(token) ? relative(repoRoot, token).split(sep).join("/") : posix.join(posix.dirname(from), token);
-      const norm = posix.normalize(rel);
-      if (norm === ".." || norm.startsWith("../") || posix.isAbsolute(norm)) continue;
-      out.add(norm.replace(/\/+$/, ""));
-    }
-  }
-  return [...out];
-}
-
-/** The loaded files a path names in a checkout: itself, or a folder or link that holds one. */
-function isLoadedPath(path: string, imported: Set<string>): boolean {
-  const f = foldPath(path);
-  const segs = f.split("/");
-  if (segs.includes(".claude") || MEMORY_FILES.has(segs[segs.length - 1])) return true;
-  for (const t of imported) if (t === f || t.startsWith(`${f}/`)) return true;
-  return false;
-}
-
-/**
- * Every repository path the memory files import, folded, with the loaded
- * files at the root. Read from the base commit, where the file exists
- * there: a memory file the checkout changed fails the comparison anyway. A
- * memory file only on disk (the owner's own `CLAUDE.local.md`) is read from
- * disk, as text.
- */
-function loadedTargets(repoRoot: string, baseSha: string): Set<string> {
-  const tree = new Map<string, string>();
-  for (const entry of execGit(["ls-tree", "-r", "-z", "--full-tree", baseSha], repoRoot).toString("utf8").split("\0")) {
-    const tab = entry.indexOf("\t");
-    if (tab > 0) tree.set(entry.slice(tab + 1), entry.slice(0, tab).split(" ")[2]);
-  }
-  const read = (rel: string): string | null => {
-    const oid = tree.get(rel);
-    if (oid) return execGit(["cat-file", "blob", oid], repoRoot).toString("utf8");
-    try {
-      return readFileSync(join(repoRoot, rel), "utf8");
-    } catch {
-      return null;
-    }
-  };
-  const targets = new Set(LOADED_AT_ROOT);
-  const seen = new Set<string>();
-  let hop = [...tree.keys()].filter((p) => {
-    const f = foldPath(p);
-    return MEMORY_FILES.has(f.split("/").pop() ?? "") || /(^|\/)\.claude\/rules\/.*\.md$/.test(f);
-  });
-  hop.push("CLAUDE.local.md", ".claude/CLAUDE.local.md");
-  for (let depth = 0; depth <= IMPORT_DEPTH && hop.length > 0; depth++) {
-    const next: string[] = [];
-    for (const file of hop) {
-      if (seen.has(file)) continue;
-      seen.add(file);
-      const text = read(file);
-      if (text === null) continue;
-      for (const target of importsOf(text, file, repoRoot)) {
-        targets.add(foldPath(target));
-        next.push(target);
-      }
-    }
-    hop = next;
-  }
-  return targets;
-}
-
-export interface LoadedFilesCheck {
-  /** True only when every file Claude Code loads in the checkout is the base commit's. */
+export interface CheckoutComparison {
+  /** True only when the checkout is the base commit's: nothing differs, anywhere in the tree. */
   matches: boolean;
-  /** The loaded paths that differ, as git printed them: the author's text, data only. */
+  /** The paths that differ, as git printed them: the author's text, data only. */
   differing: string[];
   /** Why the comparison could not run; the check then fails. */
   error: string | null;
 }
 
 /**
- * Compares the checkout at `repoRoot` with the base commit: every path that
- * differs, tracked (committed or not) or untracked and unignored, across the
- * whole tree, then the ones Claude Code loads, matched as a case-insensitive
- * disk would. A checkout at any head of the PR — current or older — fails it.
- * It fails closed: an unknown base, or a git command that errors, is a failure.
+ * Compares the checkout at `repoRoot` with the base commit, across the whole
+ * tree: every tracked difference (committed or not, submodules included) and
+ * every untracked, unignored file. Claude Code loads `.claude/`, `CLAUDE.md`
+ * and its imports and `.mcp.json`, and those run hook scripts, `ci/`,
+ * `package.json` and the tests, through symlinks and submodules: no list of
+ * files is the set it runs, so any difference fails. A checkout at any head
+ * of the PR, current or older, fails it. It fails closed: an unknown base,
+ * or a git command that errors, is a failure. Ignored files are not
+ * compared: the owner's own local settings live there.
  */
-export function compareLoadedFiles(repoRoot: string, baseSha: string | null): LoadedFilesCheck {
+export function compareWithBase(repoRoot: string, baseSha: string | null): CheckoutComparison {
   if (!baseSha) return { matches: false, differing: [], error: "the base commit is unknown" };
   try {
-    const imported = loadedTargets(repoRoot, baseSha);
     const tracked = execGit(
-      ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", baseSha, "--"],
+      ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", "--ignore-submodules=none", baseSha, "--"],
       repoRoot,
     ).toString("utf8").split("\0");
     // `XY path` per entry; with renames off, one path each.
-    const status = execGit(["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames"], repoRoot)
-      .toString("utf8")
-      .split("\0")
-      .map((e) => e.slice(3));
-    const differing = [...new Set([...tracked, ...status])].filter((p) => p && isLoadedPath(p, imported));
+    const status = execGit(
+      ["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames", "--ignore-submodules=none"],
+      repoRoot,
+    ).toString("utf8").split("\0").map((e) => e.slice(3));
+    const differing = [...new Set([...tracked, ...status])].filter((p) => p !== "");
     return { matches: differing.length === 0, differing, error: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);
@@ -1078,9 +977,9 @@ export function compareLoadedFiles(repoRoot: string, baseSha: string | null): Lo
   }
 }
 
-/** True when the checkout's loaded files are exactly the base commit's (compareLoadedFiles). */
-export function reviewerFilesMatchBase(repoRoot: string, baseSha: string | null): boolean {
-  return compareLoadedFiles(repoRoot, baseSha).matches;
+/** True when the checkout is exactly the base commit's (compareWithBase). */
+export function checkoutMatchesBase(repoRoot: string, baseSha: string | null): boolean {
+  return compareWithBase(repoRoot, baseSha).matches;
 }
 
 /** A path the author chose, safe to print to a terminal: printable ASCII, the rest escaped. */
@@ -1091,9 +990,9 @@ function printable(p: string): string {
 /**
  * The pre-launch check, `--check-checkout <dir> [--base <ref>]`: run from
  * outside `<dir>`, before Claude Code starts there, since the checkout's
- * settings hooks run at start-up, before any skill. 0 when every file Claude
- * Code would load in `<dir>` is `<ref>`'s (default: `origin/HEAD`), 1 when
- * one is not or the comparison cannot run.
+ * settings hooks run at start-up, before any skill. 0 when `<dir>` is
+ * `<ref>`'s (default: `origin/HEAD`) with nothing changed or added, 1 when
+ * it is not or the comparison cannot run.
  */
 export function checkCheckout(dir: string, baseRef: string | null): { code: number; lines: string[] } {
   const ref = baseRef ?? "refs/remotes/origin/HEAD";
@@ -1118,15 +1017,15 @@ export function checkCheckout(dir: string, baseRef: string | null): { code: numb
       ],
     };
   }
-  const result = compareLoadedFiles(repoRoot, base);
+  const result = compareWithBase(repoRoot, base);
   if (result.matches) {
-    return { code: 0, lines: [`ok: what Claude Code loads in ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}).`] };
+    return { code: 0, lines: [`ok: ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}), with nothing changed or added.`] };
   }
-  const lines = [`Do not start Claude Code in ${printable(repoRoot)}: what it loads there is not ${label}'s (${base.slice(0, 12)}).`];
+  const lines = [`Do not start Claude Code in ${printable(repoRoot)}: it is not ${label}'s (${base.slice(0, 12)}), and what Claude Code runs there may not be either.`];
   if (result.error) lines.push(`The comparison could not run: ${result.error}`);
   for (const p of result.differing.slice(0, 20)) lines.push(`  differs: ${printable(p)}`);
   if (result.differing.length > 20) lines.push(`  …and ${result.differing.length - 20} more`);
-  lines.push("Review from a clean checkout of the base branch instead, passing the PR number to /pr-review.");
+  lines.push("Review from a clean checkout of the base branch instead, with nothing changed, passing the PR number to /pr-review.");
   return { code: 1, lines };
 }
 
@@ -2003,12 +1902,12 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
   // Base and head as objects only: the review folder is written from them.
   const { baseCommit, headCommit, halt: commitHalt } = fetchPRCommits(repoRoot, meta);
-  // On someone else's PR, what Claude Code loaded here must be the base's:
-  // a checkout at an older head of the PR has a different HEAD but the
-  // PR's files.
+  // On someone else's PR, this checkout must be the base's, whole: a
+  // checkout at an older head of the PR has a different HEAD but the PR's
+  // files, and what Claude Code runs here reaches any of them.
   const inPrCheckout =
     isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha) ||
-    (reviewMode === "peer" && !!repoRoot && !!baseCommit && !reviewerFilesMatchBase(repoRoot, baseCommit));
+    (reviewMode === "peer" && !!repoRoot && !!baseCommit && !checkoutMatchesBase(repoRoot, baseCommit));
 
   const [owner, repo] = meta.projectPath.split("/");
   const { threads, closingIssues } = fetchReviewThreadsAndClosingIssues(owner, repo, meta.number);
@@ -2051,7 +1950,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     hardHalt = {
       reason: "running_in_pr_checkout",
       detail:
-        `this checkout's ${LOADED_FILES.join(", ")} are not the base commit's, or it is the PR's own head, ` +
+        `this checkout differs from the base commit (a changed, added or untracked file), or it is the PR's own head, ` +
         `and the PR is @${meta.author.username}'s: what runs here may be the PR's. ` +
         `Run from a clean checkout of ${meta.targetBranch}, passing the PR number.`,
     };
@@ -2165,7 +2064,7 @@ async function main(): Promise<void> {
         "  --cleanup <dir>                   Delete a review folder this script made, and exit\n" +
         "  --check-checkout <dir> [--base <ref>]\n" +
         "                                    Pre-launch check, run from outside <dir> before starting Claude Code there:\n" +
-        "                                    exit 0 only when what Claude Code loads in <dir> is <ref>'s (default: origin/HEAD)\n",
+        "                                    exit 0 only when <dir> is <ref>'s with nothing changed or added (default: origin/HEAD)\n",
     );
     process.exit(1);
   }

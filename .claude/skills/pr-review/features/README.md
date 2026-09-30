@@ -132,17 +132,20 @@ node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts -
 node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts --check-checkout /path/to/that-checkout --base origin/release
 ```
 
-It exits 0 only when everything Claude Code loads there is the base's
-(`--base`, default `origin/HEAD`; fetch first): `.claude/` at any depth,
-every `CLAUDE.md` and `CLAUDE.local.md` and the files they import (five hops,
-from the base's copies, and from an owner's own ignored `CLAUDE.local.md`),
-`.mcp.json`, `AGENT.md` and `process/intake.md`. Every path that differs from
-the base, tracked or untracked, is matched as a case-insensitive disk reads
-it, so a PR's `.CLAUDE/settings.local.json` counts as `.claude/`'s. A git
-command that fails, an unknown base, or a folder that is not a checkout is
-exit 1. It prints each differing path escaped, and runs git with hooks off,
-as every call here does. The review makes the same comparison with the PR's
-base commit (`hardHalt: running_in_pr_checkout`).
+It exits 0 only when the checkout is the base's (`--base`, default
+`origin/HEAD`; fetch first) with nothing changed or added: no tracked file
+differs, committed or not, no submodule moved or changed (whatever
+`.gitmodules` says to ignore), and no untracked file is left unignored. The
+whole tree, not a list of files: Claude Code loads `.claude/`, `CLAUDE.md`
+and its imports and `.mcp.json`, and those run hook scripts, `ci/`,
+`package.json` and the tests, through symlinks and submodules. That also
+covers a PR's `.CLAUDE/settings.local.json`, which a case-insensitive disk
+writes into `.claude/`. A git command that fails, an unknown base, or a
+folder that is not a checkout is exit 1. It prints each differing path
+escaped, and runs git with hooks off, as every call here does. The review
+makes the same comparison with the PR's base commit (`hardHalt:
+running_in_pr_checkout`), so review from a clean checkout, without your own
+uncommitted work.
 
 Files the checkout's ignore rules hide are not compared: the owner's own
 `.claude/settings.local.json` stays theirs, and a file the PR's code wrote
@@ -320,8 +323,8 @@ deleted-lines-only diff and a pure rename, slipway-context detection
 against a real temporary git repo, fetching a head that exists only under
 `pull/N/head` without writing a file to the working tree, hooks staying
 off, `runGit` refusing every command that writes a working tree, and the
-checkout comparison (each loaded file changed in turn, a differently cased
-`.claude/` folder, a failing `git status`, and `--check-checkout`'s exit
-codes). A
+checkout comparison (each loaded file and start-up hook script changed in
+turn, a differently cased `.claude/` folder, a symlink's target, a
+submodule, a failing `git status`, and `--check-checkout`'s exit codes). A
 source scan fails if compute.ts reaches git other than through `execGit`,
 or names a git command outside `GIT_ALLOWED`.
