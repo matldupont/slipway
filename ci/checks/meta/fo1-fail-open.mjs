@@ -24,12 +24,17 @@
 // BROKEN (2) instead of guessing. Wrong-and-silent is the outcome it must not have.
 //
 // `expires` is the first day an exception no longer applies.
+//
+// The registry also holds LK1's entries (`pnpm-lock.yaml#<entry>`, a lockfile entry that may resolve from
+// somewhere other than the registry). Those are LK1's to judge; FO1 skips them.
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { today as localToday } from '../lib/clock.mjs';
+import { loadRegistry } from '../lib/exceptions.mjs';
+import { ID_PREFIX } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
-import { readList, scalar, skippable } from '../lib/yaml-list.mjs';
+import { scalar, skippable } from '../lib/yaml-list.mjs';
 
 const KEY = /^([A-Za-z0-9_.-]+|"[^"]*"|'[^']*')\s*:(?:\s+(.*))?$/;
 const indentOf = (s) => s.length - s.trimStart().length;
@@ -146,11 +151,6 @@ function siteId(rel, s) {
   return { id: `${rel}#${s.job}/step[${s.step.index}]`, positional: true };
 }
 
-function loadRegistry(path) {
-  if (!existsSync(path)) return [];
-  return readList(readFileSync(path, 'utf8'), ['id', 'expires', 'reason', 'owner']);
-}
-
 function workflowFiles(dir) {
   if (!existsSync(dir)) return [];
   return readdirSync(dir).flatMap((e) => {
@@ -195,6 +195,7 @@ const live = new Set();
 const siteIds = new Set(sites.map((s) => s.id));
 
 for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
+  if (e.id.startsWith(ID_PREFIX)) continue; // a lockfile entry's excuse: LK1 judges it
   const where = `registry:${e.id}`;
   if (!e.expires) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
   else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'the entry names its step by position, which moves on any edit — give the step an id: and key the entry to it' });

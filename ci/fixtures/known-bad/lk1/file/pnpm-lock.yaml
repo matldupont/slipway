@@ -1,0 +1,38 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      fixture-dir:
+        specifier: file:./vendor/fixture-dir
+        version: fixture-dir@file:vendor/fixture-dir
+      fixture-ok:
+        specifier: ^1.0.0
+        version: 1.0.0
+      fixture-tgz:
+        specifier: file:./vendor/fixture-tgz-1.0.0.tgz
+        version: fixture-tgz@file:vendor/fixture-tgz-1.0.0.tgz
+
+packages:
+
+  fixture-dir@file:vendor/fixture-dir:
+    resolution: {directory: vendor/fixture-dir, type: directory}
+
+  fixture-tgz@file:vendor/fixture-tgz-1.0.0.tgz:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==, tarball: file:vendor/fixture-tgz-1.0.0.tgz}
+
+  fixture-ok@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}
+
+snapshots:
+
+  fixture-dir@file:vendor/fixture-dir: {}
+
+  fixture-tgz@file:vendor/fixture-tgz-1.0.0.tgz: {}
+
+  fixture-ok@1.0.0: {}

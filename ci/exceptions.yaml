@@ -13,4 +13,14 @@
 #     reason: detection must fail open or the whole matrix is skipped
 #     owner: build lead
 #     expires: 2026-12-31
+#
+# The same registry excuses a lockfile entry that resolves from somewhere other than the registry (LK1). Its id
+# is `pnpm-lock.yaml#` and the entry as LK1 names it, which includes where it comes from, so a change of source
+# needs a new entry: the key under `packages:` (`fork@https://…/tar.gz/<sha>`), or for a link,
+# `importers/<folder>/<name>@<version>`. `reason` is required. LK1 prints the id to copy.
+#
+#   - id: pnpm-lock.yaml#fork@https://codeload.github.com/acme/fork/tar.gz/0123456789abcdef
+#     reason: the fork carries a fix the registry release lacks (acme/fork#12)
+#     owner: build lead
+#     expires: 2026-12-31
 exceptions: []

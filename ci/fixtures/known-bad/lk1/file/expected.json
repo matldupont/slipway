@@ -1,0 +1,8 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. pnpm writes an integrity beside the tarball for a file: archive, so an integrity alone does not make an entry a registry release.",
+  "exit": 1,
+  "findings": [
+    "pnpm-lock.yaml#fixture-dir@file:vendor/fixture-dir",
+    "pnpm-lock.yaml#fixture-tgz@file:vendor/fixture-tgz-1.0.0.tgz"
+  ]
+}
