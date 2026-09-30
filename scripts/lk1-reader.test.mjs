@@ -52,6 +52,17 @@ test('a resolution written another way is still read as what it is', () => {
   assert.deepEqual(kinds(`    engines: {node: '>=1'}`), ['other'], 'no resolution at all');
 });
 
+test('an integrity hash does not make a registry release of an entry whose key names another source', () => {
+  const kind = (key) => checkLockfile(parseLockfile(lockfile({ deps: [], packages: `  ${key}:\n    resolution: {integrity: ${HASH}}\n\n`, snapshots: '' })), new Set(['.'])).problems.map((p) => `${p.kind}:${p.id}`);
+  assert.deepEqual(kind('a@1.0.0'), []);
+  assert.deepEqual(kind('a@https://example.invalid/a.tgz'), ['tarball:a@https://example.invalid/a.tgz']);
+  assert.deepEqual(kind('a@file:a.tgz'), ['file:a@file:a.tgz']);
+  assert.deepEqual(kind('a@git+https://example.invalid/a.git#abc'), ['git:a@git+https://example.invalid/a.git#abc']);
+  assert.deepEqual(kind('a@github:acme/a'), ['git:a@github:acme/a']);
+  assert.deepEqual(kind('a@latest'), ['other:a@latest']);
+  assert.deepEqual(kind("'@s/a@1.0.0'"), []);
+});
+
 test('a package named __proto__ is an entry, not the prototype', () => {
   const { entries, problems } = checkLockfile(parseLockfile(lockfile({ deps: [], packages: registry('__proto__'), snapshots: '' })), new Set(['.']));
   assert.equal(entries, 1);
@@ -67,6 +78,7 @@ const refused = {
   'an alias': [`${HEAD}packages:\n  a@1.0.0:\n    resolution: *r\n`, /anchor, alias, tag/],
   'a tag': [`${HEAD}packages:\n  a@1.0.0:\n    resolution: !!map {integrity: ${HASH}}\n`, /anchor, alias, tag/],
   'a block scalar': [`${HEAD}packages:\n  a@1.0.0:\n    deprecated: |\n      text\n`, /block scalar/],
+  'a value that is an indicator': [`${HEAD}packages:\n  a@1.0.0:\n    deprecated: - x\n`, /anchor, alias, tag/],
   'a merge key': [`${HEAD}packages:\n  <<: {a: b}\n`, /key this reader does not take/],
   'a multi-line quoted value': [`${HEAD}packages:\n  a@1.0.0:\n    deprecated: 'one\n      two'\n`, /quoted value/],
   'a backslash in a double-quoted value': [`${HEAD}packages:\n  a@1.0.0:\n    deprecated: "a\\nb"\n`, /quoted value/],
