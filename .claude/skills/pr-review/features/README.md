@@ -119,6 +119,70 @@ fails with a message naming the replacement.
 node pr-review/features/compute.ts --cleanup /path/from/reviewDir.path
 ```
 
+### Before starting Claude Code: `--check-checkout`
+
+A checkout's settings hooks run when Claude Code starts in it, before any
+skill, so a check inside the review comes too late for the checkout it runs
+in. Before starting Claude Code in a checkout that may hold someone else's
+PR, run the pre-launch check **from outside it**, with the compute.ts of
+your own clean checkout of the base branch:
+
+```bash
+node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts --check-checkout /path/to/that-checkout
+node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts --check-checkout /path/to/that-checkout --base origin/release
+```
+
+It exits 0 only when the checkout is the base's with nothing changed or
+added. The base is `--base`, default `origin/HEAD`, read in **your** clean
+checkout, where the command runs, never in the one it checks: a clone of the
+author's fork has the author's commits under `origin/`. A full commit id is
+taken as is, and the checked checkout must hold it (fetch the base repository
+into it first). Nothing changed or added means: no tracked file
+differs, committed or not, no submodule moved or changed (whatever
+`.gitmodules` says to ignore), and no untracked file is left unignored. The
+whole tree, not a list of files: Claude Code loads `.claude/`, `CLAUDE.md`
+and its imports and `.mcp.json`, and those run hook scripts, `ci/`,
+`package.json` and the tests, through symlinks and submodules. That also
+covers a PR's `.CLAUDE/settings.local.json`, which a case-insensitive disk
+writes into `.claude/`. A git command that fails, an unknown base, or a
+folder that is not a checkout is exit 1. It prints each differing path
+escaped, and runs git with hooks off, as every call here does. The review
+makes the same comparison with the PR's base commit (`hardHalt:
+running_in_pr_checkout`), so review from a clean checkout, without your own
+uncommitted work.
+
+Files the checkout's ignore rules hide are not compared, since your own
+local settings and `node_modules/` live there. A PR can leave its own there
+too: it force-commits files, and a `git reset <base>` keeps them on disk,
+hidden by the base's ignore rules or by a `.gitignore` of the PR's own, or
+named as a case-insensitive disk folds them. So the check also reads git's
+record of where HEAD has been (`logs/HEAD` in the checkout's git folder),
+which a PR cannot write: when HEAD has ever been on a commit outside the
+base's history, the checkout is refused, however the files left behind hide. It is read
+from the file itself, since git's own reflog commands fall back to HEAD's
+commit when the record is missing. A record that is missing, empty or
+unreadable, or switched off (`core.logAllRefUpdates=false`), refuses too.
+
+That refuses a checkout where you have checked out your own branches as
+well. Review from a fresh worktree off the base; every refusal prints the
+one command that makes it:
+
+```bash
+git -c core.hooksPath=/dev/null -C '/path/to/checkout' worktree add --detach '/path/to/checkout-review-1a2b3c4d' <base sha>
+```
+
+Hooks are off in that command: `worktree add` runs `post-checkout`, and a
+relative `core.hooksPath` (husky, lefthook) would run the refused
+checkout's, which may be the PR's.
+
+Still not seen: a PR's files that git wrote while HEAD stayed on the base
+(`git restore --source=<pr>`, `git checkout <pr> -- .`, `git cherry-pick -n`,
+`git apply` of its diff), whose ignored files outlive undoing it; a file a
+PR's code wrote into an ignored path (an install script you ran there); and
+a record git has already pruned (`gc.reflogExpireUnreachable`, 30 days by
+default). Bring nothing from a PR into a checkout you review from, and run
+nothing from one there.
+
 ## Environment
 
 | Variable | Purpose |
@@ -263,8 +327,8 @@ When `reason: "pr_not_found"`, `pr` will be `null` — always check
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success — JSON written to stdout |
-| `1` | Bad arguments (unknown flag, invalid `--tone`) |
+| `0` | Success — JSON written to stdout; with `--check-checkout`, the checkout's loaded files are the base's |
+| `1` | Bad arguments (unknown flag, invalid `--tone`); with `--check-checkout`, a checkout whose loaded files are not the base's, or a comparison that could not run |
 | `2` | Compute failure (`gh` error, project path unresolvable, PR not found) |
 
 ## Testing
@@ -289,6 +353,12 @@ deleted-lines-only diff and a pure rename, slipway-context detection
 (present vs absent, domain-invariant risk, active-milestone No-gos), and,
 against a real temporary git repo, fetching a head that exists only under
 `pull/N/head` without writing a file to the working tree, hooks staying
-off, and `runGit` refusing every command that writes a working tree. A
+off, `runGit` refusing every command that writes a working tree, and the
+checkout comparison (each loaded file and start-up hook script changed in
+turn, a differently cased `.claude/` folder, a symlink's target, a
+submodule, a checkout reset to the base after holding the PR, HEAD's record
+missing, empty or switched off, a failing git command, and
+`--check-checkout`'s exit codes, including pasting the worktree command it
+prints). A
 source scan fails if compute.ts reaches git other than through `execGit`,
 or names a git command outside `GIT_ALLOWED`.
