@@ -812,6 +812,15 @@ test('withoutOverrides: drops only the entries on the given lines — CRLF, a he
   const flush = 'overrides:\n- path: a.md\n  reason: x\n- path: b.md\n  reason: y';
   list = at(flush);
   assert.equal(withoutOverrides(dir, list, [list[1]]).toString('utf8'), 'overrides:\n- path: a.md\n  reason: x\n');
+  // A top-level line after a dropped entry ends it, and stays.
+  const late = '- path: a.md\n  reason: x\noverrides:\n- path: b.md\n  reason: y\n';
+  list = at(late);
+  assert.equal(withoutOverrides(dir, list, [list[0]]).toString('utf8'), 'overrides:\n- path: b.md\n  reason: y\n');
+  // Bytes that are not UTF-8 (a Windows-1252 é) on kept lines are kept as they are.
+  const legacy = Buffer.from('# caf\xE9\noverrides:\n  - path: a.md\n    reason: x\n  - path: b.md\n    reason: caf\xE9\n', 'latin1');
+  put(dir, { '.slipway/overrides.yaml': legacy });
+  list = readOverrides(dir);
+  assert.deepEqual(withoutOverrides(dir, list, [list[0]]), Buffer.from('# caf\xE9\noverrides:\n  - path: b.md\n    reason: caf\xE9\n', 'latin1'));
   // The file on disk moved since `list` was read: an entry was added above.
   put(dir, { '.slipway/overrides.yaml': `overrides:\n  - path: new.md\n    reason: z\n${flush.slice('overrides:\n'.length)}` });
   assert.throws(() => withoutOverrides(dir, list, [list[0]]), /changed after it was planned — nothing was written/);
@@ -881,7 +890,7 @@ test('apply refuses under an agent (CLAUDECODE set), writing nothing; the harnes
   const asks = JSON.parse(readFileSync(join(SRC, 'process/harness/settings.json'), 'utf8')).permissions.ask
     .filter((a) => a.startsWith('Bash('))
     .map((a) => new RegExp(`^${a.slice(5, -1).replace(/:\*$/, '*').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*')}$`));
-  for (const cmd of ['pnpm use-slipway sync --apply', 'npx github:matldupont/slipway#main sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply', 'npx github:matldupont/slipway#main sync --adopt --apply --base abc', 'node ../slipway/scripts/new-project.mjs sync --apply --adopt']) {
+  for (const cmd of ['pnpm -s use-slipway sync --apply', 'pnpm use-slipway sync --apply', 'npx github:matldupont/slipway#main sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply', 'npx github:matldupont/slipway#main sync --adopt --apply --base abc', 'node ../slipway/scripts/new-project.mjs sync --apply --adopt']) {
     assert.ok(asks.some((re) => re.test(cmd)), `no ask rule matches: ${cmd}`);
   }
 });

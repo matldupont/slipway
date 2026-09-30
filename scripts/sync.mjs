@@ -555,31 +555,40 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
 
 /**
  * The project's overrides file without the entries that start on `drop`'s lines: each one's own lines
- * go, and every other line, comments and blank lines included, stays byte for byte. Read back before it
- * is used: the entries left must be `overrides` less `drop`, or nothing is written.
+ * go, and every other line, comments and blank lines included, stays byte for byte. Lines are cut from
+ * the bytes and only read as UTF-8, as readList reads them, so a byte that is not UTF-8 is kept as it is.
+ * Read back before it is used: the entries left must be `overrides` less `drop`, or nothing is written.
  */
 export function withoutOverrides(root, overrides, drop) {
   const cur = readProjectFile(root, OVERRIDES);
+  const lines = [];
+  if (Buffer.isBuffer(cur)) {
+    for (let at = 0; at < cur.length;) {
+      const end = cur.indexOf(0x0a, at);
+      lines.push(cur.subarray(at, end < 0 ? cur.length : end + 1));
+      at = end < 0 ? cur.length : end + 1;
+    }
+  }
   const heads = new Set(drop.map((d) => d.line));
   let dropping = false;
-  const text = Buffer.isBuffer(cur) ? cur.toString('utf8').split(/(?<=\n)/).filter((l, i) => {
-    const bare = l.replace(/\r?\n$/, '');
+  const bytes = Buffer.concat(lines.filter((l, i) => {
+    const bare = l.toString('utf8').replace(/\r?\n$/, '');
     if (skippable(bare)) return true;
     if (/^\s*-/.test(bare)) dropping = heads.has(i + 1);
     else if (!/^\s/.test(bare)) dropping = false;
     return !dropping;
-  }).join('') : '';
+  }));
   const entries = (list) => JSON.stringify(list.map((o) => [o.path, o.reason ?? null]));
   let left;
   try {
-    left = readList(text, ['path', 'reason'], { strict: true });
+    left = readList(bytes.toString('utf8'), ['path', 'reason'], { strict: true });
   } catch {
     left = null;
   }
   if (!left || entries(left) !== entries(overrides.filter((o) => !heads.has(o.line)))) {
     throw new Refusal(`${OVERRIDES} changed after it was planned — nothing was written`);
   }
-  return Buffer.from(text);
+  return bytes;
 }
 
 /**
