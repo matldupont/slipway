@@ -21,8 +21,9 @@ export function agentRow(root, row, within) {
   const text = prose(existsSync(p) ? readFileSync(p, 'utf8') : '');
   const agent = within ? section(text, within, 2) ?? '' : text;
   const name = row.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  // One line, and one unambiguous run per cell (trimmed after), so a long cell with no closing `|` cannot backtrack.
-  const cell = (agent.match(new RegExp(`^\\|[ \\t]*${name}[ \\t]*\\|([^|\\n]*)\\|`, 'im'))?.[1] ?? '').trim();
+  // The cell is one greedy run up to the next `|` (a line break included, as before), trimmed after: with no `\s*`
+  // on either side to trade characters with, a long cell with no closing `|` cannot backtrack.
+  const cell = (agent.match(new RegExp(`^\\|[ \\t]*${name}[ \\t]*\\|([^|]*)\\|`, 'im'))?.[1] ?? '').trim();
   return (cell.match(/`([^`]+)`/)?.[1] ?? cell.split(/\s/)[0]).trim();
 }
 
