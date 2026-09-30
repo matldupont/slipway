@@ -58,7 +58,7 @@ const st = lstatOrNull(path);
 if (st) {
   if (!st.isFile()) stop(`${LOCKFILE} is not a regular file (a link or folder), so what it lists cannot be read from here`);
   try {
-    const workspaceDirs = new Set(['.', ...ws.packages.map((p) => p.dir.split('\\').join('/'))]);
+    const workspaceDirs = new Set(ws.packages.map((p) => p.dir.split('\\').join('/')));
     ({ entries, problems } = checkLockfile(parseLockfile(readFileSync(path, 'utf8')), workspaceDirs));
   } catch (e) {
     stop(e.message);

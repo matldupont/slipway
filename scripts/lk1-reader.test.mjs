@@ -17,7 +17,7 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 test('a real pnpm 10.25 lockfile is read whole, and only what is not a registry release is a problem', () => {
   const doc = parseLockfile(readFileSync(join(SRC, 'scripts/fixtures/lk1/pnpm10-real.lock.yaml'), 'utf8'));
-  const { entries, problems } = checkLockfile(doc, new Set(['.', 'packages/a', 'packages/b']));
+  const { entries, problems } = checkLockfile(doc, new Set(['packages/a', 'packages/b']));
   assert.deepEqual(
     problems.map((p) => [p.kind, p.id]).sort(),
     [
@@ -32,12 +32,35 @@ test('a real pnpm 10.25 lockfile is read whole, and only what is not a registry 
   assert.equal(entries, doc.get('packages').size + [...doc.get('importers').values()].reduce((n, i) => n + (i.get('dependencies')?.size ?? 0), 0));
 });
 
-test('a workspace: dependency passes only when its link lands on a workspace package folder', () => {
-  const text = lockfile({ deps: [['w', 'workspace:*', 'link:packages/w']], packages: '', snapshots: '' }).replace('packages:\n\nsnapshots', 'packages: {}\n\nsnapshots');
-  assert.deepEqual(checkLockfile(parseLockfile(text), new Set(['.', 'packages/w'])).problems, []);
-  assert.deepEqual(checkLockfile(parseLockfile(text), new Set(['.'])).problems.map((p) => p.kind), ['link']);
-  const sneaky = text.replace('workspace:*', '^1.0.0');
-  assert.deepEqual(checkLockfile(parseLockfile(sneaky), new Set(['.', 'packages/w'])).problems.map((p) => p.kind), ['link'], 'a link: without a workspace: specifier is a link');
+// pnpm writes `link:<path>` for every workspace dependency, whatever the specifier says (`workspace:*`, `link:…`, a range).
+// A link passes when its target is a workspace package folder: inside the repository root, matched by a
+// `pnpm-workspace.yaml` glob, with its own package.json. LK1 hands the folders it found in `dirs`.
+const WORKSPACE = ['apps/api', 'packages/db'];
+const linkKinds = (importer, version, { specifier = 'workspace:*', dirs = WORKSPACE, snapshot = false } = {}) => {
+  const text = snapshot
+    ? lockfile({ deps: [], packages: registry(), snapshots: `  a@1.0.0:\n    dependencies:\n      db: ${version}\n` })
+    : `${HEAD}importers:\n\n  ${importer}:\n    dependencies:\n      db:\n        specifier: ${specifier}\n        version: ${version}\n\npackages: {}\n\nsnapshots: {}\n`;
+  return checkLockfile(parseLockfile(text), new Set(dirs)).problems.map((p) => p.kind);
+};
+
+test('a link: passes when its target is a workspace package folder, whatever the specifier', () => {
+  assert.deepEqual(linkKinds('apps/api', 'link:../../packages/db'), [], 'the shape pnpm writes for a workspace dependency');
+  assert.deepEqual(linkKinds('apps/api', 'link:../../packages/db', { specifier: 'link:../../packages/db' }), [], 'a link: specifier');
+  assert.deepEqual(linkKinds('apps/api', 'link:../../packages/db', { specifier: '^1.0.0' }), [], 'the target decides, not the specifier');
+  assert.deepEqual(linkKinds('.', 'link:packages/db'), [], 'from the root importer');
+  assert.deepEqual(linkKinds('apps/api', 'link:../../packages/../packages/db'), [], 'a path that folds to the folder');
+  assert.deepEqual(linkKinds('x', 'link:packages/db', { snapshot: true }), [], 'an override link in a snapshot, relative to the root');
+});
+
+test('a link: to anything but a workspace package folder is a problem', () => {
+  assert.deepEqual(linkKinds('apps/api', 'link:../../../outside'), ['link'], 'outside the repository root');
+  assert.deepEqual(linkKinds('apps/api', 'link:../../tools/x'), ['link'], 'a folder in the repository that no workspace glob covers');
+  assert.deepEqual(linkKinds('apps/api', 'link:../../packages/db/src'), ['link'], 'a folder inside a workspace package');
+  assert.deepEqual(linkKinds('apps/api', 'link:../..'), ['link'], 'the repository root');
+  assert.deepEqual(linkKinds('apps/api', 'link:../../packages/db', { dirs: ['apps/api'] }), ['link'], 'a folder the workspace does not include');
+  assert.deepEqual(linkKinds('apps/api', 'link:../../packages/db', { dirs: [] }), ['link'], 'no workspace at all');
+  assert.deepEqual(linkKinds('x', 'link:ext', { snapshot: true }), ['link'], 'an override link to a folder outside the workspace');
+  assert.deepEqual(linkKinds('x', 'link:../../packages/db', { snapshot: true }), ['link'], 'a snapshot link that leaves the root');
 });
 
 test('a resolution written another way is still read as what it is', () => {

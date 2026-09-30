@@ -10,9 +10,10 @@
 // `tarball:` beside an integrity is a problem, because `file:x.tgz` is written that way too.
 // Dependencies point at `packages` entries by key, so a `packages` problem is reported once, where it is
 // judged. What has no entry there is judged where it is written: a `link:` in an importer or in a snapshot
-// (a `pnpm.overrides` link lands there), and a version no entry answers to. A `workspace:` dependency's
-// `link:` is the project's own code (reviewed in its diff) and passes only when it lands on a workspace
-// package folder.
+// (a `pnpm.overrides` link lands there), and a version no entry answers to. pnpm writes a `link:` for every
+// workspace dependency; that is the project's own code (reviewed in its diff), so a `link:` passes when its
+// target is a workspace package folder: inside the repository root, matched by a `pnpm-workspace.yaml`
+// `packages` glob, with its own package.json. A link outside the root, or to any other folder, is a problem.
 
 import { posix } from 'node:path';
 import { LOCKFILE, parseLockfile } from './lockfile-yaml.mjs';
@@ -73,7 +74,7 @@ const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies']
 
 /**
  * @param {Map<string, any>} doc  from parseLockfile
- * @param {Set<string>} workspaceDirs  folders of the workspace packages, posix, relative to the repository root
+ * @param {Set<string>} workspaceDirs  folders of the workspace packages, posix, relative to the repository root (not the root itself)
  * @returns {{ entries: number, problems: Array<{ id: string, kind: string }> }}
  */
 export function checkLockfile(doc, workspaceDirs) {
@@ -95,10 +96,10 @@ export function checkLockfile(doc, workspaceDirs) {
   }
 
   // null when the reference is fine, else the problem's kind
-  const badReference = (name, value, { specifier, importer } = {}) => {
+  const badReference = (name, value, { importer }) => {
     if (value.startsWith('link:')) {
-      const target = importer === undefined ? null : posix.normalize(posix.join(importer, value.slice('link:'.length)));
-      return specifier?.startsWith('workspace:') && workspaceDirs.has(target) ? null : 'link';
+      // relative to the importer's folder (a snapshot's, to the repository root); a workspace package folder passes
+      return workspaceDirs.has(posix.normalize(posix.join(importer, value.slice('link:'.length)))) ? null : 'link';
     }
     // a version names its entry as `x.y.z` (with the dependency's name), or in full as `name@…`
     const base = value.split('(')[0];
@@ -108,7 +109,7 @@ export function checkLockfile(doc, workspaceDirs) {
     for (const [name, d] of mapOf(deps, where)) {
       const value = d instanceof Map ? d.get('version') : d;
       if (typeof value !== 'string') throw new Error(`${LOCKFILE}: ${where}/${name} has no version this check can read`);
-      const kind = badReference(name, value, { ...ctx, specifier: d instanceof Map ? d.get('specifier') : undefined });
+      const kind = badReference(name, value, ctx);
       if (kind) problems.push({ id: `${where}/${name}@${value}`, kind });
     }
   };
@@ -120,7 +121,7 @@ export function checkLockfile(doc, workspaceDirs) {
     }
   }
   for (const [key, snapshot] of snapshots) {
-    for (const section of ['dependencies', 'optionalDependencies']) walk(mapOf(snapshot, `snapshots/${key}`).get(section), `snapshots/${key}`, {});
+    for (const section of ['dependencies', 'optionalDependencies']) walk(mapOf(snapshot, `snapshots/${key}`).get(section), `snapshots/${key}`, { importer: '.' });
   }
   return { entries, problems };
 }

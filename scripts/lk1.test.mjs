@@ -140,6 +140,27 @@ test('an entry that names a package by a different address excuses nothing', () 
   }
 });
 
+// A monorepo: pnpm writes a link: for each workspace dependency and LK1 passes it, counting it as an entry.
+const monorepo = (specifier) => ({
+  'package.json': JSON.stringify({ name: 'root', private: true }),
+  'pnpm-workspace.yaml': "packages:\n  - 'apps/*'\n  - 'packages/*'\n",
+  'apps/api/package.json': JSON.stringify({ name: '@s/api', dependencies: { '@s/db': specifier, a: '^1.0.0' } }),
+  'packages/db/package.json': JSON.stringify({ name: '@s/db' }),
+  'pnpm-lock.yaml': `${HEAD}importers:\n\n  .: {}\n\n  apps/api:\n    dependencies:\n      '@s/db':\n        specifier: ${specifier}\n        version: link:../../packages/db\n      a:\n        specifier: ^1.0.0\n        version: 1.0.0\n\n  packages/db: {}\n\npackages:\n\n${registry()}snapshots:\n\n  a@1.0.0: {}\n`,
+});
+test('a two-package workspace passes, whether its dependency says workspace:* or link:', () => {
+  for (const specifier of ['workspace:*', 'link:../../packages/db']) {
+    const dir = project(monorepo(specifier));
+    try {
+      const r = lk1(dir);
+      assert.equal(r.status, 0, `${specifier}: ${r.out}`);
+      assert.match(r.out, /LK1: scanned 3 lockfile entries/, 'one package and two importer dependencies');
+    } finally {
+      done(dir);
+    }
+  }
+});
+
 // A registry-shaped key says nothing about where the package comes from, so the excuse names the resolution too.
 const MIRROR = 'https://mirror.example.invalid/m-1.0.0.tgz';
 const mirrored = (resolution) => lockfile({ deps: [['m', '1.0.0', '1.0.0']], packages: `  m@1.0.0:\n    resolution: ${resolution}\n\n`, snapshots: '  m@1.0.0: {}\n' });
