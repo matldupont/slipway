@@ -73,7 +73,15 @@ function gitEnv(top) {
   return { ...env, GIT_GRAFT_FILE: '/dev/null' };
 }
 const gitOut = (at, top, args) =>
-  execFileSync('git', ['--no-replace-objects', '-C', at, ...args], { cwd: tmpdir(), env: gitEnv(top), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  execFileSync('git', ['--no-replace-objects', '-C', at, ...args], { cwd: tmpdir(), env: gitEnv(top), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 256 << 20 }).trim();
+
+// The same git, for another check: `args` run at `dir`, whose checkout is found on disk (`top` names it for a
+// `git init`). Throws when there is none, or when git cannot answer; its output is returned untrimmed.
+export function trustedGit(dir, args, top = diskTop(real(dir))) {
+  const at = real(dir);
+  if (top === null) throw new Error(`no git checkout at or above ${dir}`);
+  return execFileSync('git', ['--no-replace-objects', '-C', at, ...args], { cwd: tmpdir(), env: gitEnv(top), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 256 << 20 });
+}
 const slipwayHistory = new Map();
 function isSlipwayHistory(root) {
   let dir;

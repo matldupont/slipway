@@ -1,0 +1,6 @@
+{
+  "_note": "A tracked path that leaves the throwaway repository. PC1 refuses it before writing anything.",
+  "exit": 1,
+  "tracked": ["../outside.txt"],
+  "findings": []
+}

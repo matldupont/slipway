@@ -28,6 +28,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
+      # Before pnpm runs anything: `pnpm run` and the install's lifecycle scripts put the repository's
+      # node_modules/.bin first on PATH, so N1 runs here, with the runner's node, before a tracked program
+      # there could stand in for node or a gate tool (#133).
+      - name: Nothing under node_modules/ is tracked
+        run: node ci/checks/meta/n1-node-modules.mjs .
       - run: pnpm meta
 
   verify:
@@ -49,6 +54,11 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      # Before pnpm runs anything: `pnpm run` and the install's lifecycle scripts put the repository's
+      # node_modules/.bin first on PATH, so N1 runs here, with the runner's node, before a tracked program
+      # there could stand in for node or a gate tool (#133).
+      - name: Nothing under node_modules/ is tracked
+        run: node ci/checks/meta/n1-node-modules.mjs .
       - run: pnpm install --frozen-lockfile
       # What the project's tests need before verify (a database service, an env var) goes in
       # ci/before-verify.sh, the project's own file: never edit this workflow for it. It can append

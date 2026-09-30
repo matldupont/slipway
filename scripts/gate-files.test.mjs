@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { changes, gateGlobs, gateMatcher, missingWriteTwins, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
+import { canonical, changes, gateGlobs, gateMatcher, missingWriteTwins, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const settings = readFileSync(SETTINGS, 'utf8');
@@ -24,12 +24,12 @@ test('every gate path the harness asks before editing asks before creating', () 
 
 test('the matcher covers the harness paths, at any depth, and nothing else', () => {
   const gate = gateMatcher(settings);
-  for (const p of ['tsconfig.json', 'packages/api/tsconfig.base.json', '.oxlintrc.json', 'apps/web/vite.config.ts', '.github/workflows/ci.yml', 'ci/verify.mjs', 'ci/fixtures/known-bad/p1/a.json', 'process/harness/settings.json', '.claude/settings.json']) {
+  for (const p of ['tsconfig.json', 'packages/api/tsconfig.base.json', '.oxlintrc.json', 'apps/web/vite.config.ts', '.github/workflows/ci.yml', 'ci/verify.mjs', 'ci/fixtures/known-bad/p1/a.json', 'process/harness/settings.json', '.claude/settings.json', '.npmrc', 'apps/web/.npmrc', '.pnpmfile.cjs', 'pnpm-workspace.yaml', 'node_modules/x.txt', 'packages/api/node_modules/.bin/tsc', '.envrc', 'mise.toml', '.mise.toml', 'packages/x/package.yaml', 'package.json5', 'mise.local.toml', '.mise.local.toml', 'mise.ci.toml', '.config/mise.toml', '.config/mise/config.toml', '.config/mise/conf.d/node.toml', 'mise/config.toml', '.mise/config.toml', 'mise/config.local.toml', '.mise/config.ci.toml']) {
     assert.ok(gate(p), `${p} should be a gate file`);
   }
   assert.ok(gate('ci/a\nb.mjs') && gate('.github/workflows/x\r.yml'), 'a line break in a name hides nothing');
   assert.ok(gateMatcher(settings, ['**/legacy-gate.cfg'])('x/legacy-gate.cfg'), 'extra globs (the base branch\'s) are added');
-  for (const p of ['src/ci.ts', 'src/tsconfig.ts', 'ci/README.md', 'docs/ci/notes.md', 'process/harness/README.md', 'ci/fixtures/known-bad/p1/gate-none.md', 'package.json', 'README.md']) assert.ok(!gate(p), `${p} should not be`);
+  for (const p of ['src/ci.ts', 'src/tsconfig.ts', 'ci/README.md', 'docs/ci/notes.md', 'process/harness/README.md', 'ci/fixtures/known-bad/p1/gate-none.md', 'package.json', 'README.md', '.nvmrc', '.node-version', '.tool-versions', 'src/node_modules.ts']) assert.ok(!gate(p), `${p} should not be`);
 });
 
 const repo = mkdtempSync(join(tmpdir(), 'gate-files-'));
@@ -47,6 +47,10 @@ put('package.json', pkg({ test: 'vitest', lint: 'oxlint' }));
 put('apps/web/package.json', pkg({ test: 'vitest' }));
 put('tsconfig.json', '{}');
 put('old/tsconfig.json', '{}');
+put('tools/pm/package.json', pkg({}, { packageManager: 'pnpm@10.0.0' }));
+put('tools/settings/package.json', pkg({}, { pnpm: { overrides: { a: '1' } } }));
+put('tools/empty/package.json', JSON.stringify({ name: 'x' }));
+for (const d of ['engines', 'resolutions', 'local-dep', 'registry-dep', 'workspace-dep', 'bin']) put(`tools/${d}/package.json`, pkg({}, { devDependencies: { left: '^1.0.0' } }));
 put('process/harness/settings.json', JSON.stringify({ permissions: { ask: ['Edit(**/x.cfg)'] } }));
 git('add', '-A');
 git('commit', '-q', '-m', 'base');
@@ -56,15 +60,44 @@ put('package.json', pkg({ lint: 'oxlint', test: 'vitest' }, { version: '1.0.0' }
 put('apps/web/package.json', pkg({ test: 'true' })); // scripts changed
 put('packages/api/package.json', pkg({ test: 'true' })); // new package, scripts declared
 put('packages/api/tsconfig.json', '{}'); // new gate file
+put('tools/pm/package.json', pkg({}, { packageManager: 'pnpm@10.1.0' })); // another pnpm runs the gate
+put('tools/settings/package.json', pkg({}, { pnpm: { overrides: { a: '2' } } })); // pnpm's settings changed
+put('tools/empty/package.json', pkg({}, { version: '2.0.0' })); // an empty scripts is no scripts: the same
+put('tools/bom/package.json', `\uFEFF${pkg({ test: 'true' })}`); // JSON.parse refuses it, pnpm may not: listed
+put('tools/engines/package.json', pkg({}, { devEngines: { runtime: { name: 'node', version: '24.1.0' } } })); // another node runs it
+put('tools/resolutions/package.json', pkg({}, { resolutions: { a: '2' } })); // pnpm reads it as overrides
+put('tools/local-dep/package.json', pkg({}, { devDependencies: { vitest: 'link:../vitest', left: '^1.0.0' } })); // a program from the repository
+put('tools/registry-dep/package.json', pkg({}, { devDependencies: { left: '^2.0.0' } })); // a registry bump: the lockfile's question (#138)
+put('tools/workspace-dep/package.json', pkg({}, { devDependencies: { left: '^1.0.0', tsc: 'workspace:*' } })); // the repository's own package
+put('tools/bin/package.json', pkg({}, { devDependencies: { left: '^1.0.0' }, bin: { tsc: 'x.js' } })); // a program under a gate tool's name
 git('rm', '-q', 'old/tsconfig.json'); // deleted gate file
 git('add', '-A');
 git('commit', '-q', '-m', 'work');
 const head = git('rev-parse', 'HEAD');
 
-test('changes lists every changed path, deletions included, and a package.json only when its scripts differ', () => {
+test('a path that only reads as a gate path in canonical form is a lookalike, never a gate file', () => {
+  const gate = gateMatcher(settings);
+  const like = {
+    '.NPMRC': '**/.npmrc',
+    'PNPM-WORKSPACE.YAML': '**/pnpm-workspace.yaml',
+    'pnpm-work\u017fpace.yaml': '**/pnpm-workspace.yaml', // a long s: NFKC reads it as s
+    'NODE_MODULES/x.txt': '**/node_modules/**',
+    'pkg/node_module\u017f/.bin/tsc': '**/node_modules/**',
+    'tools/PACKAGE.JSON': 'package.json',
+    'CI/verify.mjs': '**/ci/**',
+  };
+  for (const [p, g] of Object.entries(like)) {
+    assert.ok(!gate(p), `${p} is not a gate file`);
+    assert.equal(gate.lookalike(p), g, p);
+  }
+  for (const p of ['.npmrc', 'package.json', 'src/app.ts', 'docs/NOTES.MD', 'README.md', 'ci/README.MD']) assert.equal(gate.lookalike(p), null, p);
+  assert.equal(canonical('node_module\u017f'), 'node_modules');
+});
+
+test('changes lists every changed path, deletions included, and a package.json only when its run keys or a dependency on local code differ', () => {
   const c = changes(base, head, repo);
-  assert.deepEqual(c.files.sort(), ['apps/web/package.json', 'old/tsconfig.json', 'package.json', 'packages/api/package.json', 'packages/api/tsconfig.json']);
-  assert.deepEqual(c.scripts.sort(), ['apps/web/package.json', 'packages/api/package.json']);
+  assert.deepEqual(c.files.sort(), ['apps/web/package.json', 'old/tsconfig.json', 'package.json', 'packages/api/package.json', 'packages/api/tsconfig.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/empty/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/pm/package.json', 'tools/registry-dep/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/workspace-dep/package.json']);
+  assert.deepEqual(c.scripts.sort(), ['apps/web/package.json', 'packages/api/package.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/pm/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/workspace-dep/package.json']);
   assert.deepEqual(c.globs, ['**/x.cfg']); // the base commit's harness, not the PR's
   const gate = gateMatcher(settings);
   assert.deepEqual(c.files.filter(gate).sort(), ['old/tsconfig.json', 'packages/api/tsconfig.json']);
