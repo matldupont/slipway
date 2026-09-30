@@ -8,7 +8,8 @@
 // merge keys, multi-line quoted scalars, document markers, a tab in indentation, a repeated key, a sequence
 // level with the key above it, any control or line-break character (a carriage return too: pnpm writes LF
 // only), and any hidden or formatting character (UNSAFE) on a line that is read. Text that is never read may
-// hold them: a comment, the lines of a block scalar, a `deprecated:` message. A package name or address never can. The file is hostile input — a pull request
+// hold them: a comment, the lines of a block scalar, and the value of a key named `deprecated` (the key is the
+// test, so a dependency of that name is exempt too: the reference is still judged as any other). The file is hostile input — a pull request
 // can change it — and a program that reads it differently from pnpm is a way to hide an entry, so a construct the
 // reader could take two ways is never accepted. Mappings are Maps, so a package named `__proto__` is a key.
 
