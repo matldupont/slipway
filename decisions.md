@@ -223,6 +223,22 @@ Why: the owner can already change anything on their own machine. A defence there
 stops nobody who means it. Declined: guarding the local `.git` directory and hand-edited workflow or script
 keys, which a reviewer sees in the diff. Written up as §3 of `process/decision-defaults.md`; #152.
 
+## D-024 — A check deferred to after merge is written on its Contents item until its result is recorded *(decided 2026-09-30)*
+
+A PR that can only prove part of its issue once `main` deploys closed the issue on merge, and the check it
+moved to after merge was never run: twice in a row on a real project's first milestone.
+
+- **The issue stays open.** That PR links `Part of #n`, and its diff adds an `Owed:` line under the milestone's
+  Contents item. `pnpm status` lists it; `pnpm meta` fails a closed milestone that still has one.
+- **A result is a comment, and the line points at it.** The run is posted as a comment on the issue (date,
+  environment, each journey's result); a trivial PR turns `Owed:` into `Ran:` with that comment's URL. A
+  `fail` stays owed until a later pass or a linked bug.
+- **No waiver.** A check that will never run is removed in a PR that records a decision.
+
+Declined: a follow-up issue per deferred check (status would still need a repo line); GitHub state alone
+(status reads no network, D-022); status without a failing check (advisory only). Spec:
+`dev/features/deferred-checks.md`; #176.
+
 
 ## Week 1 — decide before M1 closes
 
