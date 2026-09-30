@@ -1,9 +1,10 @@
 // Which files of a pull request are gate files: the paths the harness asks before editing
-// (process/harness/settings.json, `Edit(...)` rules), plus a `package.json` whose `scripts` changed.
-// Read by P1. One list: a gate path added to the harness is a gate path here.
+// (process/harness/settings.json, `Edit(...)` rules), plus a `package.json` whose `scripts`, `packageManager` or
+// `pnpm` key changed: what a gate command runs, the pnpm that runs it, and pnpm's settings. Read by P1. One list:
+// a gate path added to the harness is a gate path here.
 //
 // As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…]}` for the pull
-// request's diff (base...head): every changed path, each package.json whose `scripts` differ, and the gate
+// request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, and the gate
 // paths the base branch's harness asked about.
 // pr-body.yml writes it beside the PR body.
 //
@@ -53,6 +54,20 @@ export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more 
 
 const SHA = /^[0-9a-f]{7,64}$/;
 
+// The package.json keys that decide what a gate command runs. The sidecar still calls the list `scripts`.
+export const RUN_KEYS = ['scripts', 'packageManager', 'pnpm'];
+
+const sorted = (v) =>
+  Array.isArray(v) ? v.map(sorted) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v;
+// A package.json's run keys, key order ignored; absent, `null` and an empty `{}` are the same.
+const runKeys = (pkg) =>
+  JSON.stringify(
+    RUN_KEYS.map((k) => {
+      const v = pkg?.[k];
+      return v == null || (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) ? null : sorted(v);
+    })
+  );
+
 export function changes(base, head, cwd = process.cwd()) {
   if (!SHA.test(base) || !SHA.test(head)) throw new Error('base and head must be commit ids');
   const git = (...a) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8', maxBuffer: 256 << 20 });
@@ -60,10 +75,9 @@ export function changes(base, head, cwd = process.cwd()) {
   const from = git('merge-base', base, head).trim();
   const scriptsAt = (rev, path) => {
     try {
-      const s = JSON.parse(git('show', `${rev}:${path}`)).scripts ?? {};
-      return JSON.stringify(Object.entries(s).sort(([a], [b]) => (a < b ? -1 : 1)));
+      return runKeys(JSON.parse(git('show', `${rev}:${path}`)));
     } catch {
-      return '[]'; // absent at that revision, or not JSON
+      return runKeys(null); // absent at that revision, or not JSON
     }
   };
   let globs = [];

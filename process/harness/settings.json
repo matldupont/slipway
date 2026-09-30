@@ -39,7 +39,21 @@
       "Edit(**/.claude/settings*.json)",
       "Write(**/.claude/settings*.json)",
       "Edit(**/.slipway/**)",
-      "Write(**/.slipway/**)"
+      "Write(**/.slipway/**)",
+      "Edit(**/.npmrc)",
+      "Write(**/.npmrc)",
+      "Edit(**/.pnpmfile.cjs)",
+      "Write(**/.pnpmfile.cjs)",
+      "Edit(**/pnpm-workspace.yaml)",
+      "Write(**/pnpm-workspace.yaml)",
+      "Edit(**/node_modules/**)",
+      "Write(**/node_modules/**)",
+      "Edit(**/.envrc)",
+      "Write(**/.envrc)",
+      "Edit(**/mise.toml)",
+      "Write(**/mise.toml)",
+      "Edit(**/.mise.toml)",
+      "Write(**/.mise.toml)"
     ],
     "allow": [
       "Bash(git stash list:*)",

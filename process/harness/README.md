@@ -27,6 +27,27 @@ type and test-runner configs, workflows, `ci/**`, this directory and `.claude/se
 so changing a gate is always a human decision, and so is creating one: each edit rule has a matching write rule. A PR that touches a gate file also says, in a `## Gate changes` section, whether each file got stricter, stayed the same or loosens. Adding a check is legitimate work — approve it knowingly.
 Under `bypassPermissions` nothing asks; required checks on `main` remain the backstop.
 
+**So are the files that change which program a gate command runs, or how pnpm and node start it** (#133).
+Each is a gate file here and in the PR check:
+
+| path | why it is a gate file |
+|---|---|
+| `**/node_modules/**` | `pnpm run` puts `node_modules/.bin` first on PATH, installed or not: a committed program there runs in place of the tool a gate command calls. N1 (`pnpm meta`) also fails when git tracks any file under it |
+| `**/.npmrc` | pnpm reads its settings from it, among them the shell scripts run in and the options node starts with |
+| `**/.pnpmfile.cjs` | pnpm runs it as code on every install |
+| `**/pnpm-workspace.yaml` | holds pnpm's settings as well as the package list; the whole file, since any key may change how pnpm runs |
+| `**/.envrc` | direnv runs it as shell once trusted, and can set PATH or `NODE_OPTIONS` for every command |
+| `**/mise.toml`, `**/.mise.toml` | mise can set PATH, environment variables and tasks once trusted |
+| a `package.json`'s `scripts`, `packageManager` and `pnpm` keys | what a gate command runs, the pnpm version that runs it, and pnpm's settings (the PR check reads the keys; the file itself is not ask-level) |
+
+Known limitations — these pick a version and run nothing, so they are not gate files:
+
+| path | what it can change |
+|---|---|
+| `.nvmrc` | the node version nvm or fnm switch to locally; CI pins node 24 |
+| `.node-version` | the same, for fnm, nodenv and others; CI pins node 24 |
+| `.tool-versions` | the node or pnpm version asdf or mise pick locally; CI pins both |
+
 ## Hooks
 
 ### Blocking and state

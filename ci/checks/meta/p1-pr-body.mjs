@@ -10,7 +10,7 @@
 //                            "tested locally" is a claim, not evidence
 //   links/missing            `## Links` has no issue reference (#123) and no `none: <reason>`
 //   gate-changes/missing     the PR touches a gate file (a path the harness asks before editing, or a
-//                            package.json `scripts` key) and has no `## Gate changes` section
+//                            package.json `scripts`, `packageManager` or `pnpm` key) and has no `## Gate changes` section
 //   gate-changes/unmentioned:<path>  a gate file the section has no line for
 //   gate-changes/no-verdict:<path>   its line says neither stricter, the same, nor loosens
 //   gate-changes/loosens-uncited:<path>  it loosens the gate and cites no decision or exception
