@@ -1,7 +1,7 @@
 // sync — take a newer slipway into a project (F-01, dev/features/template-sync.md). Steps 3–4.
 //
-//   pnpm use-slipway sync [--plan]   run in the project: the plan, the default
-//   pnpm use-slipway sync --apply    carry it out on a branch, in one commit
+//   pnpm -s use-slipway sync [--plan]   run in the project: the plan, the default
+//   pnpm -s use-slipway sync --apply    carry it out on a branch, in one commit
 //   (the script is `npx github:matldupont/slipway#main`; a project without it yet runs that, #<ref> for another ref)
 //   node <slipway>/scripts/new-project.mjs sync …
 //
@@ -31,6 +31,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
+import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
 import { BASE_WHY, bucketLines, needsLines } from './lib/summary.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
@@ -58,16 +59,16 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     const ctx = { ...preflight(cwd), verbose: argv.includes('--verbose') };
     const rows = plan(ctx);
     if (!argv.includes('--apply')) {
-      // The plan lists the stale overrides --apply will, so it computes the same writes, in its temp dir
-      // only. What stops that stops --apply too, and the owner hears it now.
-      let stale;
+      // The plan lists the stale overrides --apply will, and the ones it removes, so it computes the same
+      // writes, in its temp dir only. What stops that stops --apply too, and the owner hears it now.
+      let stale, absorbed;
       try {
-        ({ stale } = compute(ctx, rows, { check: false }));
+        ({ stale, absorbed } = compute(ctx, rows, { check: false }));
       } catch (e) {
         if (e instanceof Refusal) throw new Refusal(`${e.message}\n--apply would refuse this too, so the plan stops here.`);
         throw e;
       }
-      print(out, ctx, rows, { plan: true, stale });
+      print(out, ctx, rows, { plan: true, stale, absorbed });
       out.write(ctx.verbose ? 'Plan only — nothing was written.\n' : `Plan only — nothing was written. Carry it out with: ${syncCommand(ctx.root)} --apply\n`);
       return 0;
     }
@@ -369,11 +370,10 @@ const MEANING = {
   unchanged: 'the same on both sides: nothing to do',
 };
 
-// Why an override is stale after --apply, as D1 will judge it on the sync branch.
-const STALE_WHY = {
-  gone: 'slipway no longer maintains this file, so the entry excuses nothing and D1 flags it',
-  absorbed: "your file is slipway's copy then, so the entry excuses nothing and D1 flags it",
-};
+// An override that is stale after --apply, as D1 will judge it on the sync branch: it names a file slipway
+// no longer maintains. One whose file is slipway's copy then is removed by --apply instead (D-021).
+const STALE_WHY = 'slipway no longer maintains this file, so the entry excuses nothing and D1 flags it';
+const ABSORBED_WHY = "slipway's copy now equals yours, so the entry excuses nothing";
 const staleLine = (s) => `${OVERRIDES}:${s.line}  path: ${s.path}`;
 
 // The next command for a row that needs the owner (OWNER_ROWS).
@@ -384,7 +384,7 @@ function nextStep(r, targetSha, cmd) {
   return `${cmd} --apply leaves your file as it is; port slipway's change by hand if you want it`;
 }
 
-function print(out, { root, branch, remote, source, base, targetSha, notes, log, verbose }, rows, { plan = false, stale = [] } = {}) {
+function print(out, { root, branch, remote, source, base, targetSha, notes, log, verbose }, rows, { plan = false, stale = [], absorbed = [] } = {}) {
   const width = Math.max(...KINDS.map((k) => label(k).length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
@@ -404,8 +404,9 @@ function print(out, { root, branch, remote, source, base, targetSha, notes, log,
   const cmd = syncCommand(root);
   const owed = [
     ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd) })),
-    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `after ${cmd} --apply, delete this entry on the sync branch: ${STALE_WHY[s.why]}` })),
+    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `after ${cmd} --apply, delete this entry on the sync branch: ${STALE_WHY}` })),
   ];
+  if (plan && absorbed.length) out.write(`--apply removes these overrides — ${ABSORBED_WHY}:\n${absorbed.map((s) => `  ${staleLine(s)}\n`).join('')}\n`);
   if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed)}\n`);
   else if (plan) out.write('Nothing needs you.\n');
 }
@@ -448,9 +449,8 @@ function apply(out, ctx, rows) {
   say(`collision — slipway ships this path now; your file was not touched, and D1 flags it. To keep yours, override it with a reason; to take slipway's, copy its file from ${short(targetSha)} over yours:`, rows.filter((r) => r.kind === 'collision').map((r) => r.path));
   say('keep (edited) — slipway removed it; your file stays and is yours now:', todo.kept.gone);
   say(`keep (edited) — slipway changed it, but your copy is missing, not a file, or was your own file until now, so slipway's change was not applied. Copy slipway's from ${short(targetSha)}, or override it with a reason:`, todo.kept.shipped);
-  const stale = (why) => todo.stale.filter((s) => s.why === why).map(staleLine);
-  say(`stale override — it names no file of slipway's now, so D1 flags it; remove it from ${OVERRIDES}:`, stale('gone'));
-  say(`stale override — slipway's copy now equals yours, so the entry excuses nothing and D1 flags it; remove it from ${OVERRIDES}:`, stale('absorbed'));
+  say(`override removed — ${ABSORBED_WHY}:`, todo.absorbed.map(staleLine));
+  say(`stale override — it names no file of slipway's now, so D1 flags it; remove it from ${OVERRIDES}:`, todo.stale.map(staleLine));
   say(`${label('merged: key reported')} — your value stays; slipway's is shown:`, todo.reported);
   say(`${label('seeded: upstream changed')} — slipway's own diff (base → target): a reference to apply by hand, not a patch (it is against the template's copy, not yours). /sync-slipway walks you through them. The file was not touched:`, todo.diffs);
   if (todo.harness) out.write(`\nharness — ${todo.harness.text}\n`);
@@ -461,7 +461,7 @@ function apply(out, ctx, rows) {
 
 // Every write --apply makes, and nothing written yet. Throws a Refusal on anything that would break
 // the invariant or that git cannot do: a changed file, a symlink or directory where a file goes, a path
-// the project ignores, a failed merge. The plan calls it with `check: false` for the stale overrides:
+// the project ignores, a failed merge. The plan calls it with `check: false` for the overrides:
 // it writes only inside the clone's temp dir, and skips the checks of where each write lands.
 function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows, { check = true } = {}) {
   const tmp = mkdtempSync(join(dirname(gitDir), 'apply-')); // inside the clone's temp dir: removed on exit
@@ -473,7 +473,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   // The executable bit, as slipway ships it: a hook it adds must still run.
   const exec = (p) => existsSync(join(SRC, p)) && (statSync(join(SRC, p)).mode & 0o111) !== 0;
   const moved = (p) => new Refusal(`${p} changed after it was planned — nothing was written`);
-  const todo = { writes: new Map(), removes: [], conflicts: [], diffs: [], kept: { gone: [], shipped: [] }, stale: [], reported: [], harness: null, manifest: null };
+  const todo = { writes: new Map(), removes: [], conflicts: [], diffs: [], kept: { gone: [], shipped: [] }, stale: [], absorbed: [], reported: [], harness: null, manifest: null };
   let pkg = null; // the project's package.json, once a key is updated
   let n = 0;
 
@@ -539,16 +539,47 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   const next = nextManifest({ manifest, target, targetRules, targetSha }, rows, after);
   todo.manifest = Buffer.from(`${JSON.stringify(next, null, 2)}\n`);
   // D1 was green, so every override named a managed file that differed from its hash. D1's own rule on
-  // the new manifest: one that names no managed file now, or whose file matches its new hash, is stale.
-  todo.stale = overrides.filter(hasReason).flatMap((o) => {
+  // the new manifest: one that names no managed file now is stale, and the owner decides it; one whose
+  // file matches its new hash excuses nothing, so --apply removes it in the same commit (D-021).
+  for (const o of overrides.filter(hasReason)) {
     const f = next.files[o.path];
     const now = after(o.path);
-    if (f?.class !== 'managed') return [{ line: o.line, path: o.path, why: 'gone' }];
-    return Buffer.isBuffer(now) && sha256(now) === f.sha256 ? [{ line: o.line, path: o.path, why: 'absorbed' }] : [];
-  });
+    if (f?.class !== 'managed') todo.stale.push({ line: o.line, path: o.path });
+    else if (Buffer.isBuffer(now) && sha256(now) === f.sha256) todo.absorbed.push({ line: o.line, path: o.path });
+  }
+  if (todo.absorbed.length) todo.writes.set(OVERRIDES, { bytes: withoutOverrides(root, overrides, todo.absorbed) });
 
   if (check) checkWrites(root, [...todo.writes.keys(), MANIFEST], todo.removes);
   return todo;
+}
+
+/**
+ * The project's overrides file without the entries that start on `drop`'s lines: each one's own lines
+ * go, and every other line, comments and blank lines included, stays byte for byte. Read back before it
+ * is used: the entries left must be `overrides` less `drop`, or nothing is written.
+ */
+export function withoutOverrides(root, overrides, drop) {
+  const cur = readProjectFile(root, OVERRIDES);
+  const heads = new Set(drop.map((d) => d.line));
+  let dropping = false;
+  const text = Buffer.isBuffer(cur) ? cur.toString('utf8').split(/(?<=\n)/).filter((l, i) => {
+    const bare = l.replace(/\r?\n$/, '');
+    if (skippable(bare)) return true;
+    if (/^\s*-/.test(bare)) dropping = heads.has(i + 1);
+    else if (!/^\s/.test(bare)) dropping = false;
+    return !dropping;
+  }).join('') : '';
+  const entries = (list) => JSON.stringify(list.map((o) => [o.path, o.reason ?? null]));
+  let left;
+  try {
+    left = readList(text, ['path', 'reason'], { strict: true });
+  } catch {
+    left = null;
+  }
+  if (!left || entries(left) !== entries(overrides.filter((o) => !heads.has(o.line)))) {
+    throw new Refusal(`${OVERRIDES} changed after it was planned — nothing was written`);
+  }
+  return Buffer.from(text);
 }
 
 /**

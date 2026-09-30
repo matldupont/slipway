@@ -19,7 +19,8 @@ import { classify, loadOwnership } from '../ci/checks/lib/ownership.mjs';
 import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { ownDecisions } from './adopt.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
-import { shellQuote } from './sync.mjs';
+import { syncCommand } from './lib/install.mjs';
+import { shellQuote, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -212,19 +213,45 @@ test('the default plan is a summary: no per-path row for a bucket that needs not
   assert.doesNotMatch(r.stdout, /process\/same\.md/);
 });
 
-test('a project with the use-slipway script is told `pnpm use-slipway sync --apply`, and one without it the long form (#90)', () => {
+test('a project with the use-slipway script is told `pnpm -s use-slipway sync --apply`, and one without it the long form (#90)', () => {
   const dir = project((d) => {
     const pkg = JSON.parse(readFileSync(join(d, 'package.json'), 'utf8'));
-    pkg.scripts['use-slipway'] = 'npx github:matldupont/slipway#main';
+    pkg.scripts['use-slipway'] = 'npx --loglevel=error github:matldupont/slipway#main';
     writeFileSync(join(d, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
     commit(d, 'add the use-slipway script');
   });
   const r = sync(dir);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /Carry it out with: pnpm use-slipway sync --apply\n$/);
-  assert.match(r.stdout, /next: pnpm use-slipway sync --apply keeps your value/);
+  assert.match(r.stdout, /Carry it out with: pnpm -s use-slipway sync --apply\n$/);
+  assert.match(r.stdout, /next: pnpm -s use-slipway sync --apply keeps your value/);
   assert.doesNotMatch(r.stdout, /npx github:/);
   assert.match(sync(project()).stdout, /Carry it out with: npx github:matldupont\/slipway#main sync --apply\n$/);
+});
+
+// The command the owner is told to run, with slipway's shipped script, when sync exits 1 for a row that
+// needs them (#135): sync's own output and exit code, and no package-manager line after it. The script's
+// package is swapped for a local stand-in that prints and exits 1, so nothing reaches a network.
+test('`pnpm -s use-slipway sync` with the shipped script: exit 1 kept, no ELIFECYCLE line and no npm warn lines', () => {
+  const script = JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).scripts['use-slipway'];
+  const spec = 'github:matldupont/slipway#main';
+  assert.ok(script.startsWith('npx ') && script.endsWith(` ${spec}`), script);
+  const stand = mkdtempSync(join(root, 'stand-in-'));
+  put(stand, {
+    'package.json': '{ "name": "stand-in", "version": "1.0.0", "bin": { "stand-in": "cli.mjs" } }\n',
+    'cli.mjs': '#!/usr/bin/env node\nconsole.log(`Sync exits 1: ${process.argv.slice(2).join(" ")}`);\nprocess.exitCode = 1;\n',
+  });
+  chmodSync(join(stand, 'cli.mjs'), 0o755);
+  const dir = mkdtempSync(join(root, 'use-slipway-'));
+  writeFileSync(join(dir, 'package.json'), `${JSON.stringify({ name: 'p', private: true, scripts: { 'use-slipway': script.replace(spec, stand) } })}\n`);
+  const [bin, ...args] = syncCommand(dir).split(' ');
+  assert.equal(bin, 'pnpm');
+  // As an owner's terminal has it: none of the npm_* settings a package manager running this test set.
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^npm_/i.test(k)));
+  const r = spawnSync(bin, [...args, '--apply'], { cwd: dir, encoding: 'utf8', env: { ...env, npm_config_cache: join(root, 'npm-cache') } });
+  const all = r.stdout + r.stderr;
+  assert.equal(r.status, 1, all);
+  assert.match(r.stdout, /^Sync exits 1: sync --apply\n$/);
+  assert.doesNotMatch(all, /ELIFECYCLE|npm warn/i);
 });
 
 test('the owner sees none of the ownership words: not in the plan, the verbose plan, the adopt plan or an apply (D-016)', () => {
@@ -682,91 +709,112 @@ for (const [why, edit, code] of [
 }
 
 // An override slipway has absorbed (#132): the owner's edit is slipway's copy now. Sync records slipway's
-// hash for it, lists the override as stale in the plan and the apply, and the owner removes that entry and
-// nothing else: the manifest is only ever sync's, and D1 is green once the entry is gone.
+// hash for it and, since the entry excuses nothing, --apply removes it from the overrides in the same
+// commit (#135, D-021): the plan says so ahead, not under "Needs you", and D1 is green with no hand edit.
 const d1 = (dir) => spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), dir], { encoding: 'utf8' });
-const removeOverride = (dir, p) => {
-  const kept = readOverrides(dir).filter((o) => o.path !== p);
-  put(dir, { '.slipway/overrides.yaml': kept.length ? `overrides:\n${kept.map((o) => `  - path: ${o.path}\n    reason: ${o.reason}\n`).join('')}` : null });
-  commit(dir, `drop the override on ${p}`);
-};
-const staleLine = (p) => new RegExp(`stale override — slipway's copy now equals yours[^\\n]*\\n(?: {2}[^\\n]*\\n)*? {2}\\.slipway\\/overrides\\.yaml:\\d+ {2}path: ${p.replaceAll('.', '\\.')}\\n`);
+const removed = (p) => new RegExp(`override removed — slipway's copy now equals yours[^\\n]*\\n(?: {2}[^\\n]*\\n)*? {2}\\.slipway\\/overrides\\.yaml:\\d+ {2}path: ${p.replaceAll('.', '\\.')}\\n`);
+const toRemove = (p) => new RegExp(`--apply removes these overrides[^\\n]*\\n(?: {2}[^\\n]*\\n)*? {2}\\.slipway\\/overrides\\.yaml:\\d+ {2}path: ${p.replaceAll('.', '\\.')}\\n`);
 
-test('a merge whose result equals slipway\'s copy: recorded at slipway\'s hash, its override listed stale in the plan and the apply, and D1 green once the owner removes it', () => {
+test('a mixed overrides file: --apply removes the absorbed entry in the same commit, keeps the one still differing and every comment; the plan said so, not under Needs you; D1 green, exit 0', () => {
+  const mixed = [
+    '# why we keep our own copies\n',
+    'overrides:\n',
+    '  # slipway took this edit upstream\n',
+    '  - path: process/replace.md\n',
+    '    # the entry\'s own comment stays too\n',
+    '    reason: ours # until slipway ships it\n',
+    '\n',
+    '  - path: process/merge.md\n',
+    '    reason: ours\n',
+    '# end\n',
+  ];
   const dir = pristine((d) => put(d, {
     'process/replace.md': show(B, 'process/replace.md'), // the owner's edit is the one slipway shipped
-    'process/merge.md': 'one\ntwo\nthree, ours\n', // still differs from slipway's copy after the merge
-    '.slipway/overrides.yaml': 'overrides:\n  - path: process/replace.md\n    reason: ours\n  - path: process/merge.md\n    reason: ours\n',
+    'process/merge.md': 'zero, ours\none\ntwo\n', // merges clean, and still differs from slipway's copy
+    '.slipway/overrides.yaml': mixed.join(''),
   }));
   const planned = sync(dir);
-  assert.match(planned.stdout, /stale override +\.slipway\/overrides\.yaml:2 {2}path: process\/replace\.md\n {4}next: [^\n]*slipway's copy/);
-  assert.doesNotMatch(planned.stdout, /stale override +[^\n]*process\/merge\.md/);
+  assert.equal(planned.status, 0, planned.stderr);
+  assert.match(planned.stdout, toRemove('process/replace.md'));
+  assert.doesNotMatch(planned.stdout, toRemove('process/merge.md'));
+  assert.doesNotMatch(planned.stdout, /Needs you/);
+  assert.match(planned.stdout, /Nothing needs you\.\n/);
 
   const before = manifestOf(dir);
   const r = sync(dir, '--apply', '--verbose');
-  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.equal(rows(r.stdout)['process/replace.md'], 'merge');
-  assert.match(r.stdout, staleLine('process/replace.md'));
-  assert.doesNotMatch(r.stdout, staleLine('process/merge.md'));
+  assert.match(r.stdout, removed('process/replace.md'));
+  assert.doesNotMatch(r.stdout, removed('process/merge.md'));
+  assert.doesNotMatch(r.stdout, /stale override/);
+  // The entry's own lines go; every comment and the other entry stay byte for byte.
+  assert.equal(bytes(dir, '.slipway/overrides.yaml').toString('utf8'), mixed.filter((_, i) => i !== 3 && i !== 5).join(''));
+  assert.equal(git(dir, 'rev-parse', 'HEAD~1'), git(dir, 'rev-parse', 'main'), 'one commit');
+  assert.match(git(dir, 'show', '--name-only', '--format=', 'HEAD'), /^\.slipway\/overrides\.yaml$/m);
   const after = manifestOf(dir);
-  assert.deepEqual(bytes(dir, 'process/replace.md'), show(B, 'process/replace.md'));
   assert.equal(after.files['process/replace.md'].sha256, sha256(show(B, 'process/replace.md')));
-  // A file that still differs keeps its own hash, and D1 still flags it without its override.
+  // A file that still differs keeps its own hash, and its override.
   assert.equal(after.files['process/merge.md'].sha256, before.files['process/merge.md'].sha256);
-  assert.match(d1(dir).stdout, /override\/stale\/process\/replace\.md/);
-
-  const recorded = bytes(dir, MANIFEST);
-  removeOverride(dir, 'process/replace.md');
   const green = d1(dir);
   assert.equal(green.status, 0, green.stdout);
-  assert.deepEqual(bytes(dir, MANIFEST), recorded, 'the manifest is sync\'s only');
-  removeOverride(dir, 'process/merge.md');
-  assert.match(d1(dir).stdout, /drift\/process\/merge\.md/);
 });
 
-test('an override on a file slipway did not change, kept at an old hash by a sync before #132, is listed stale by the next sync, which records slipway\'s hash; D1 green once it is removed', () => {
+test('an override on a file slipway did not change, kept at an old hash by a sync before #132: the next sync records slipway\'s hash and removes the entry, and exits 0 with D1 green', () => {
   const dir = pristine((d) => put(d, { 'process/replace.md': show(B, 'process/replace.md'), '.slipway/overrides.yaml': override('process/replace.md') }));
   const old = manifestOf(dir).files['process/replace.md'].sha256;
   sync(dir, '--apply');
   git(dir, 'switch', '-q', 'main');
   git(dir, 'merge', '-q', '--ff-only', BRANCH);
   git(dir, 'branch', '-q', '-D', BRANCH);
-  // The record a sync before #132 left: the merge kept the project's old hash. A project's real state,
-  // written here only because this sync no longer produces it.
+  // The record a sync before #132 left: the merge kept the project's old hash, and the override stayed.
+  // A project's real state, written here only because this sync no longer produces it.
   const m = manifestOf(dir);
   m.files['process/replace.md'].sha256 = old;
-  put(dir, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+  put(dir, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n`, '.slipway/overrides.yaml': override('process/replace.md') });
   commit(dir, 'as a sync before #132 recorded it');
   assert.equal(d1(dir).status, 0);
 
   const planned = sync(dir, '--verbose');
   assert.equal(rows(planned.stdout)['process/replace.md'], 'unchanged');
-  assert.match(sync(dir).stdout, /stale override +\.slipway\/overrides\.yaml:2 {2}path: process\/replace\.md\n/);
+  assert.match(sync(dir).stdout, toRemove('process/replace.md'));
   const r = sync(dir, '--apply');
-  assert.equal(r.status, 1, r.stdout + r.stderr);
-  assert.match(r.stdout, staleLine('process/replace.md'));
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, removed('process/replace.md'));
   assert.equal(manifestOf(dir).files['process/replace.md'].sha256, sha256(show(B, 'process/replace.md')));
-
-  const recorded = bytes(dir, MANIFEST);
-  removeOverride(dir, 'process/replace.md');
+  assert.equal(bytes(dir, '.slipway/overrides.yaml').toString('utf8'), 'overrides:\n');
   const green = d1(dir);
   assert.equal(green.status, 0, green.stdout);
-  assert.deepEqual(bytes(dir, MANIFEST), recorded);
 });
 
-test('a merge of an edit slipway shipped with more: the result is slipway\'s copy though the project\'s was not; recorded at slipway\'s hash, listed stale, exit 1', () => {
+test('a merge of an edit slipway shipped with more: the result is slipway\'s copy though the project\'s was not; recorded at slipway\'s hash, the entry removed, exit 0', () => {
   const partial = show(B, 'process/replace.md').toString('utf8').replace('end2', 'end1'); // slipway's first hunk only
   const dir = pristine((d) => put(d, { 'process/replace.md': partial, '.slipway/overrides.yaml': override('process/replace.md') }));
   assert.notDeepEqual(bytes(dir, 'process/replace.md'), show(B, 'process/replace.md'));
-  assert.match(sync(dir).stdout, /stale override +\.slipway\/overrides\.yaml:2 {2}path: process\/replace\.md\n/);
+  assert.match(sync(dir).stdout, toRemove('process/replace.md'));
   const r = sync(dir, '--apply', '--verbose');
-  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.equal(rows(r.stdout)['process/replace.md'], 'merge');
   assert.deepEqual(bytes(dir, 'process/replace.md'), show(B, 'process/replace.md'));
   assert.equal(manifestOf(dir).files['process/replace.md'].sha256, sha256(show(B, 'process/replace.md')));
-  assert.match(r.stdout, staleLine('process/replace.md'));
-  removeOverride(dir, 'process/replace.md');
+  assert.match(r.stdout, removed('process/replace.md'));
   assert.equal(d1(dir).status, 0);
+});
+
+test('withoutOverrides: drops only the entries on the given lines — CRLF, a head at column 0, no final newline — and refuses a file that no longer holds what was planned', () => {
+  const dir = mkdtempSync(join(root, 'overrides-'));
+  const at = (text) => {
+    put(dir, { '.slipway/overrides.yaml': text });
+    return readOverrides(dir);
+  };
+  const crlf = 'overrides:\r\n  - path: a.md\r\n    # kept\r\n    reason: x\r\n  - path: b.md\r\n    reason: y\r\n';
+  let list = at(crlf);
+  assert.equal(withoutOverrides(dir, list, [list[0]]).toString('utf8'), 'overrides:\r\n    # kept\r\n  - path: b.md\r\n    reason: y\r\n');
+  const flush = 'overrides:\n- path: a.md\n  reason: x\n- path: b.md\n  reason: y';
+  list = at(flush);
+  assert.equal(withoutOverrides(dir, list, [list[1]]).toString('utf8'), 'overrides:\n- path: a.md\n  reason: x\n');
+  // The file on disk moved since `list` was read: an entry was added above.
+  put(dir, { '.slipway/overrides.yaml': `overrides:\n  - path: new.md\n    reason: z\n${flush.slice('overrides:\n'.length)}` });
+  assert.throws(() => withoutOverrides(dir, list, [list[0]]), /changed after it was planned — nothing was written/);
 });
 
 test('a plan that --apply would refuse stops with the same reason, saying --apply would refuse it too, and writes nothing', () => {
