@@ -493,3 +493,42 @@ test('the harness asks before an edit or a write to every path on the owner-only
   assert.ok(paths.includes('.claude/**') && paths.includes('process/slipway-rules.md'), 'the list must name .claude/** and process/slipway-rules.md');
   for (const p of paths) for (const tool of ['Edit', 'Write']) assert.ok(ask.includes(`${tool}(**/${p})`), `process/harness/settings.json has no ${tool}(**/${p}) ask rule`);
 });
+
+// #157 (F-07, dev/features/work-order.md): an issue's Links line may say which files its PR changes, so the work-order
+// page can tell which ready issues are safe to run side by side. The format is written once, in process/intake.md →
+// Issue body; each log- skill names it where it lists the Links line, and so do the two issue forms.
+test('process/intake.md → Issue body: the Touches: rule — entries, folder when unsure, omit when unknown', () => {
+  const flat = (section(intake, 'Issue body', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(flat, /`Touches:`\*\* \(optional/, 'the Links rule must document `Touches:` as optional');
+  assert.match(flat, /repository paths or globs, comma-separated, each made of `A-Z a-z 0-9 \. _ - \/ \*`, no `\.\.`, no leading `\/`/, 'the entry rules');
+  assert.match(flat, /backticks around an entry are ignored/, 'backticks around an entry are allowed');
+  assert.match(flat, /Not sure of the files: write the folder \(`ci\/checks\/\*\*`\), never a narrower guess/, 'the folder-when-unsure rule');
+  assert.match(flat, /Cannot name even a folder: omit the line/, 'omit when unknown');
+  assert.match(flat, /A split gives each sub-issue its own line/, 'a split gives each sub-issue its own line');
+});
+
+test('each log- skill names Touches: on its Links line (log-feature: Phase 5 and the split in Phase 6), and the issue forms mention it', () => {
+  const feat = read(skillPath('log-feature')).replace(/\s+/g, ' ');
+  assert.match(feat, /- `### Links`: `Part of: #n` when there is a parent, `Spec: \{doc path\}`, `Touches:`/, 'log-feature Phase 5 Links line');
+  assert.match(feat, /`### Links` \(`Part of: #\{n\}`, `Blocked by:` the previous step, `Touches:`/, 'log-feature Phase 6 split Links line');
+  assert.match(read(skillPath('log-followup')).replace(/\s+/g, ' '), /`### Links` \(`Part of: #\{parent\}`, `Blocked by:`, `Touches:`/, 'log-followup Links line');
+  assert.match(read(skillPath('log-bug')).replace(/\s+/g, ' '), /- `### Links`: `Regression of: #n`[^\n]*?`Touches:` \(the files the fix changes[^)]*\)/, 'log-bug Links line');
+  for (const f of ['feature', 'bug']) {
+    assert.match(read(`.github/ISSUE_TEMPLATE/${f}.yml`), /label: Links\s+description: "[^"\n]*Touches: /, `${f}.yml's Links description must mention Touches:`);
+  }
+});
+
+test('I1 accepts a feature body with and without a Touches: segment in Links', () => {
+  const body = (links) =>
+    `### Problem\n\nA problem.\n\n### Acceptance\n\n- \`node scripts/skills.test.mjs\` exits 0\n\n### Contract\n\nThe contract, with enough words to count as written in the body itself rather than linked from elsewhere.\n\n### Verify\n\n\`\`\`\nnode scripts/skills.test.mjs      # the rule is in the intake file and each skill\nnode ci/checks/meta/i1-issue-shape.mjs <dir>   # both bodies pass\n\`\`\`\n\n### Seams\n\nnone\n\n### Seams detail\n\nnone: rules only, no person, channel or promise.\n\n### Out of scope\n\nNothing else.\n\n### Links\n\n${links}\n`;
+  const dir = mkdtempSync(join(tmpdir(), 'touches-'));
+  try {
+    writeFileSync(join(dir, 'without.md'), body('Part of: #156 · Lane: feature'));
+    writeFileSync(join(dir, 'with.md'), body('Part of: #156 · Blocked by: #152 · Touches: process/intake.md, `.claude/skills/log-feature/**`, scripts/skills.test.mjs · Lane: feature'));
+    const out = execFileSync('node', [join(SRC, 'ci/checks/meta/i1-issue-shape.mjs'), dir], { encoding: 'utf8' });
+    assert.match(out, /scanned 2 issue bodies/, 'I1 must examine both bodies');
+    assert.doesNotMatch(out, /without\.md|with\.md/, `I1 must pass both bodies:\n${out}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

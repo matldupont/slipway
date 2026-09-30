@@ -105,6 +105,14 @@ The body reads as the repository's issue form would render it, so the checks tha
   that does not survive the re-read is not filed.
 - **Links:** `Part of: #n` for a parent, then `Follows: #n`, `Blocked by: #n`, `Decision: <id>`, and
   `Lane: trivial | bounded | feature`. A bug adds `Regression of: #n` and `Breaks: #n`.
+- **`Touches:`** (optional, after the ids and before `Lane:`): the files the PR will change, so a reader can tell
+  which ready issues are safe to run side by side. Entries are repository paths or globs, comma-separated, each
+  made of `A-Z a-z 0-9 . _ - / *`, no `..`, no leading `/`; backticks around an entry are ignored. Write every
+  path the Contract, root cause or scope says the PR changes. Not sure of the files: write the folder
+  (`ci/checks/**`), never a narrower guess, since a line too narrow reads as safe to run in parallel when it is
+  not. Cannot name even a folder: omit the line. A split gives each sub-issue its own line, for the files that
+  step changes. Nothing checks it: a bad entry reads as unknown.
+  Example: `Part of: #43 · Blocked by: #68 · Touches: ci/work-order.mjs, ci/checks/lib/**, package.json · Lane: feature`
 - **Never in a body, a title or a comment:** a credential, token, environment value or `.env` line, or file
   contents beyond the lines a claim cites. Text quoted from elsewhere has its `@name` mentions written as
   `` `@name` ``, so nobody is notified by a copy.

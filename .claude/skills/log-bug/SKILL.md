@@ -229,7 +229,7 @@ Review:   {PRD entry's owner message, when R1 reports it} | none
   line of why.
 - `### Missing test`: the table from Phase 3.
 - `### Links`: `Regression of: #n` (the PR that broke it; the commit's short sha when no PR was found),
-  `Breaks: #n` (the issue that promised it), `Part of: #n` for a parent, `Spec:` the doc, any `Decision:`,
+  `Breaks: #n` (the issue that promised it), `Part of: #n` for a parent, `Spec:` the doc, `Touches:` (the files the fix changes, per `process/intake.md` → Issue body), any `Decision:`,
   and `Lane:` (a fix in one layer with no new data shape is bounded, however many sites; a class across
   layers, or a new data shape, is feature).
 - The designation block. A root cause not yet found: the strongest model, `plan`, effort `high`, and say that

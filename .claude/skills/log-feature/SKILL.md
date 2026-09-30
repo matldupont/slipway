@@ -198,8 +198,8 @@ Branch:    docs/feature-{name} (committed, not pushed)
   limitations as `####` subsections of Contract. The issue is built from its own body; the build's review
   measures findings against those two.
 - `### Seams`, `### Seams detail`, `### Out of scope`: from the doc.
-- `### Links`: `Part of: #n` when there is a parent, `Spec: {doc path}`, `Lane: feature`, any `Decision:`,
-  and `Blocked by:` an issue, or an F-ID with "(no issue yet)" when it needs a feature nobody has filed.
+- `### Links`: `Part of: #n` when there is a parent, `Spec: {doc path}`, `Touches:` (Issue body), `Lane: feature`,
+  any `Decision:`, and `Blocked by:` an issue, or an F-ID with "(no issue yet)" when it needs a feature nobody has filed.
 - The designation block, with a **Shape:** and a **Build:** line.
 
 Title: `feat({scope}): {what the person can do}`. Label: the feature entry of `Labels`. Milestone: per
@@ -242,7 +242,7 @@ or deletion deserves its own review, apart from the rest).
    line), `### Acceptance` (checkable at this step alone; the last step also carries the parent's end-to-end
    lines), `### Contract` (only the part this step builds, with the Threat model and Known limitations that
    apply, copied), `### Verify`, `### Seams`, `### Seams detail`, `### Out of scope` (the later steps),
-   `### Links` (`Part of: #{n}`, `Blocked by:` the previous step), and a designation per step: a schema step
+   `### Links` (`Part of: #{n}`, `Blocked by:` the previous step, `Touches:` for the files that step changes), and a designation per step: a schema step
    and a screen step rarely share one. A reader of the title alone should expect every file its PR touches.
 3. **Number the plan.** Add each sub-issue's number to its Build map line in the doc, and commit. GitHub lists
    the sub-issues under the feature issue; its body is not edited again.
