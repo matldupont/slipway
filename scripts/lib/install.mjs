@@ -13,16 +13,18 @@ import { sha256 } from '../../ci/checks/lib/manifest.mjs';
 import { classify, listSource, loadOwnership, MAP, shippedPaths } from '../../ci/checks/lib/ownership.mjs';
 
 export const SOURCE = 'github:matldupont/slipway';
-// The script a project's package.json carries so its owner types `pnpm use-slipway sync`, not slipway's
-// repository address (#90). Where the project has no such script yet (a first sync, an adoption), the
-// command an owner is told to run is the long form.
+// The script a project's package.json carries so its owner types `pnpm -s use-slipway sync`, not slipway's
+// repository address (#90). `-s` keeps pnpm from adding a failure line under sync's own when sync exits 1
+// for a row that needs the owner, and the script's `--loglevel=error` keeps npx from warning about the
+// pnpm settings pnpm passes it (#135). Where the project has no such script yet (a first sync, an
+// adoption), the command an owner is told to run is the long form.
 export const USE_SLIPWAY = 'use-slipway';
 export function syncCommand(root) {
   let has = false;
   try {
     has = typeof JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts?.[USE_SLIPWAY] === 'string';
   } catch { /* no package.json, or not JSON: the long form */ }
-  return has ? `pnpm ${USE_SLIPWAY} sync` : `npx ${SOURCE}#main sync`;
+  return has ? `pnpm -s ${USE_SLIPWAY} sync` : `npx ${SOURCE}#main sync`;
 }
 // The source as the manifest and the output may show it: a token in `https://user:token@host/…` is
 // committed and pushed with the manifest otherwise, and so is a `?token=` query. Sync fetches from

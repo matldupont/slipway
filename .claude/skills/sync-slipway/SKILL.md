@@ -19,7 +19,7 @@ writes it. You explain, resolve and record. Run it with the owner present, becau
 - Change a file the project owns beyond what §3 settles or the owner chose. A change that needs a
   project value is never settled.
 
-Every command below is `pnpm use-slipway sync …`: the project's `use-slipway` script runs slipway's `main`.
+Every command below is `pnpm -s use-slipway sync …`: the project's `use-slipway` script runs slipway's `main`.
 When the project has no such script yet (its first sync, or an adoption), or the owner names another target,
 use `npx github:matldupont/slipway#<ref> sync …`, where `<ref>` is `main` or a sha. In slipway's own
 checkout it is `node <slipway>/scripts/new-project.mjs sync …`.
@@ -51,7 +51,7 @@ Ask for a yes before step 2. A no ends the skill, with nothing written.
 Give the owner the exact command, to run in **their own terminal**, not through you:
 
 ```bash
-pnpm use-slipway sync --apply
+pnpm -s use-slipway sync --apply
 ```
 
 It creates `slipway/sync-<target>` from the current branch and commits everything in one commit. Exit 1
@@ -70,6 +70,9 @@ Work through what `--apply` listed, on the sync branch:
 - **Collision**, **keep (edited)**, **stale override**, **script kept, yours differs**, **harness**: follow the line
   sync printed for each, with the owner's choice. Removing a stale override from
   `.slipway/overrides.yaml` is an edit the owner approves.
+- **Override removed**: nothing to do. Sync removed it itself because slipway's copy now equals the
+  project's, so the entry excused nothing (D-021). It is the one edit to `overrides.yaml` sync makes
+  without asking; name each in the PR.
 
 ### Diffs of the project's files: settle, then ask
 
