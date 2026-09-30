@@ -23,7 +23,8 @@
 // keys, flow-style jobs or steps, tab indentation and multi-document files exit
 // BROKEN (2) instead of guessing. Wrong-and-silent is the outcome it must not have.
 //
-// `expires` is the first day an exception no longer applies.
+// `expires` is the first day an exception no longer applies, and must be a real yyyy-mm-dd day
+// (lib/exceptions.mjs, the rule LK1 shares): `never` would sort after every year and excuse forever.
 //
 // The registry also holds LK1's entries (`pnpm-lock.yaml#<entry>`, a lockfile entry that may resolve from
 // somewhere other than the registry). Those are LK1's to judge; FO1 skips them.
@@ -31,7 +32,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { today as localToday } from '../lib/clock.mjs';
-import { loadRegistry } from '../lib/exceptions.mjs';
+import { expiryProblem, loadRegistry } from '../lib/exceptions.mjs';
 import { ID_PREFIX } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
 import { scalar, skippable } from '../lib/yaml-list.mjs';
@@ -197,9 +198,11 @@ const siteIds = new Set(sites.map((s) => s.id));
 for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
   if (e.id.startsWith(ID_PREFIX)) continue; // a lockfile entry's excuse: LK1 judges it
   const where = `registry:${e.id}`;
-  if (!e.expires) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
+  const date = expiryProblem(e.expires, today);
+  if (date === 'none') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
+  else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a yyyy-mm-dd day, so it would never be compared as ending' });
   else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'the entry names its step by position, which moves on any edit — give the step an id: and key the entry to it' });
-  else if (e.expires <= today) findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — fix the job or step, or extend the date with a reason` });
+  else if (date === 'expired') findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — fix the job or step, or extend the date with a reason` });
   else if (!siteIds.has(e.id)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml matches no continue-on-error step or job — remove it' });
   else live.add(e.id);
 }
@@ -216,7 +219,7 @@ for (const s of sites) {
 process.exit(
   report({
     id: 'FO1',
-    claim: 'every continue-on-error job and step is excused by a dated entry in ci/exceptions.yaml keyed to its id, and no entry is stale, expired, positional or undated',
+    claim: 'every continue-on-error job and step is excused by a dated entry in ci/exceptions.yaml keyed to its id, and no entry is stale, expired, positional, undated or dated by anything but a real day',
     scanned: files.length,
     unit: 'workflow files',
     findings,

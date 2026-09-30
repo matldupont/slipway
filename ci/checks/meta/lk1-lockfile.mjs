@@ -24,7 +24,7 @@
 import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { today as localToday } from '../lib/clock.mjs';
-import { loadRegistry } from '../lib/exceptions.mjs';
+import { expiryProblem, loadRegistry } from '../lib/exceptions.mjs';
 import { checkLockfile, ID_PREFIX, KINDS, LOCKFILE, parseLockfile } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
 import { discoverWorkspace } from '../lib/workspace.mjs';
@@ -76,14 +76,12 @@ const live = new Set();
 for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
   if (!e.id.startsWith(ID_PREFIX)) continue;
   const where = `registry:${e.id}`;
-  // A date that is not yyyy-mm-dd compares as text, and `never` sorts after every year: it must be a real day.
-  const day = new Date(`${e.expires}T00:00:00Z`);
-  const realDay = /^\d{4}-\d{2}-\d{2}$/.test(e.expires ?? '') && !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === e.expires;
-  if (!e.expires) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
-  else if (!realDay) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a yyyy-mm-dd day, so it would never be compared as ending' });
+  const date = expiryProblem(e.expires, today);
+  if (date === 'none') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
+  else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a yyyy-mm-dd day, so it would never be compared as ending' });
   else if (!e.reason) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no reason: — say why this package may come from outside the registry' });
   else if (!e.owner) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no owner: — name who answers for this package' });
-  else if (e.expires <= today) findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — move the package to the registry, or extend the date with a reason` });
+  else if (date === 'expired') findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — move the package to the registry, or extend the date with a reason` });
   else if (!ids.has(e.id)) findings.push({ where, detail: `the entry in ci/exceptions.yaml matches no entry of ${LOCKFILE} — remove it` });
   else live.add(e.id);
 }

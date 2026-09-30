@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { expiryProblem } from '../ci/checks/lib/exceptions.mjs';
 import { checkLockfile, parseLockfile } from '../ci/checks/lib/pnpm-lock.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -282,3 +283,28 @@ for (const [what, [body, message]] of Object.entries(unsound)) {
     }
   });
 }
+
+// One rule for a date in ci/exceptions.yaml, whichever check reads the entry.
+test('expiryProblem: only a real day in the future applies; today is already ended', () => {
+  const today = '2026-09-30';
+  assert.equal(expiryProblem('2026-10-01', today), null);
+  assert.equal(expiryProblem('2026-09-30', today), 'expired');
+  assert.equal(expiryProblem('2026-09-29', today), 'expired');
+  for (const v of [undefined, '']) assert.equal(expiryProblem(v, today), 'none');
+  for (const v of ['never', 'soon', '2026-99-99', '2026-02-30', '2026-9-30', '20261231', '2026-12-31T00:00', ' 2026-12-31', '9999-12-31x', '+2026-12-31']) {
+    assert.equal(expiryProblem(v, today), 'not-a-day', v);
+  }
+  assert.equal(expiryProblem('2028-02-29', today), null, 'a leap day is a day');
+});
+
+test('FO1 refuses a continue-on-error excuse dated `never`, as LK1 refuses a lockfile one', () => {
+  const wf = 'name: ci\non: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - id: s\n        run: echo hi\n        continue-on-error: true\n';
+  const dir = project({ '.github/workflows/ci.yml': wf, 'ci/exceptions.yaml': 'exceptions:\n  - id: .github/workflows/ci.yml#a/s\n    expires: never\n' });
+  try {
+    const r = run('ci/checks/meta/fo1-fail-open.mjs', dir, { CHECK_TODAY: '2026-09-30' });
+    assert.equal(r.status, 1, r.out);
+    assert.match(r.json.findings.find((f) => f.where.startsWith('registry:')).detail, /not a yyyy-mm-dd day/);
+  } finally {
+    done(dir);
+  }
+});

@@ -1,0 +1,6 @@
+# 2026-99-99 is not a day and would compare as later than every real one; it must be refused, and the step reported again.
+exceptions:
+  - id: .github/workflows/bad.yml#build/flaky
+    reason: fixture - the date is not a day, so the excuse must be refused
+    owner: fixture
+    expires: 2026-99-99
