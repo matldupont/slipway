@@ -100,6 +100,11 @@ A project's non-technical members need to see where things stand without reading
 Consequences: the first host is GitHub Pages, public but `noindex`, which is not access control. A
 private page (Cloudflare Access) is a later value of the same AGENT.md key. Spec: `dev/features/roadmap-page.md`.
 
+Revised 2026-09-30 (owner, in #68's review, PR #160): **the public page reads frontmatter only.** No-gos and any
+other text from the body's sections stay off it, and the title comes from a frontmatter `title:` or a plain H1 on
+the body's first line. Three review rounds each found a markdown shape that let hidden body text through a
+section reader; reading no body section removes the class. Owner-only views may still read the body.
+
 ## D-018 — Slipway ships its intake and ticket skills *(decided 2026-09-25)*
 
 The build loop (step 5) and the feature lane name `/log-feature`, `/log-bug`, `/log-followup` and

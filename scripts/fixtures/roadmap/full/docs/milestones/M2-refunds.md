@@ -19,6 +19,7 @@ SENTINEL-m2-why
 ## No-gos
 
 - No partial refunds
+- SENTINEL-m2-nogo
 
 ## Rabbit holes
 

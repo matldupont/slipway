@@ -68,22 +68,28 @@ The day count moves into that lib as `appetiteClock(appetite, today)` →
 | field | from |
 |---|---|
 | project name | AGENT.md `Product name` row; omitted while it is `<Product>` |
-| milestone id, title, status, kind | frontmatter, and the H1 with its `M<n> — ` prefix removed |
+| milestone id, status, kind | frontmatter |
+| title | frontmatter `title:`; else the body's first line when it is a plain `# M<n> — <title>` heading (the template's shape), prefix removed; else none |
 | summary | frontmatter `summary` (the line the PRD's milestones table already shows) |
 | appetite | frontmatter `appetite`, as dates and, for the active milestone, the clock |
-| no-gos | the bullets under `## No-gos`, for active and shaping milestones only |
 | build stamp | today, and the short sha |
 
-Never: `## Why`, `## Contents`, `## Rabbit holes`, `## Gate`, `## Kill criteria`, `## Retro`,
-`decisions.md`, the PRD, FRAME, risks, open questions, lessons, issues or PRs. Adding a field is a
-change to this table and to the sentinel test.
+Never: anything read from a section of the body — `## Why`, `## Contents`, `## No-gos`, `## Rabbit holes`,
+`## Gate`, `## Kill criteria`, `## Retro` — nor `decisions.md`, the PRD, FRAME, risks, open questions,
+lessons, issues or PRs. Adding a field is a change to this table and to the sentinel test.
+
+**Frontmatter only** (owner, 2026-09-30, D-017 revised; PR #160). The first build also showed each
+milestone's no-gos and took the title from its H1 wherever it sat. Three rounds of review each found a
+markdown shape (a comment, a code block, an unusual heading) that let hidden body text through. The public page
+now reads nothing from the body's sections. `readMilestoneModel` still reads no-gos, for owner-only views such
+as the work order (#158); `project()` in `ci/roadmap.mjs` leaves them out.
 
 **Layout**, top to bottom:
 
-1. **Now**: the active milestone. Title, summary, "day 5 of 14 · time budget ends 2026-10-08", its
-   no-gos under "Not in this one". Overrun and not extended: "Past its time budget, being wrapped up"
+1. **Now**: the active milestone. Title, summary, "day 5 of 14 · time budget ends 2026-10-08".
+   Overrun and not extended: "Past its time budget, being wrapped up"
    (never a negative or over-100% count). `extended:` set: "Extended", with the dates.
-2. **Next**: shaping milestones, in milestone-number order, with summary and no-gos. No dates: a shaping
+2. **Next**: shaping milestones, in milestone-number order, with summary. No dates: a shaping
    appetite is a guess.
 3. **Done**: closed milestones, newest appetite end first, with summary and end date.
 4. **Stopped**: killed milestones, with summary. Omitted when there are none.
@@ -158,11 +164,11 @@ The URL (`<owner>.github.io/<repo>/`) is guessable. Anything in a published fiel
 - A milestone file that is a symlink is read through to its target, as MS1 and `pnpm status` read it. Only a
   committer can add one, and a committer can already edit any published field; the target still passes the
   allowlist, so only its frontmatter `id`, status and allowed fields can show.
-- Milestone text is read as prose by a small reader, not a full markdown parser. Where it misreads, it hides
-  more than it shows: a stray `<!--` (in inline code, or inside a fence) hides the rest of the file, so a title or
-  no-gos after it are left off the page. Nothing hidden is ever shown.
-- The page shows the milestone's words. A `summary` or no-go written in jargon reads as jargon; the page
-  does not rewrite it.
+- The switch is read from AGENT.md by a small markdown reader (`prose()`, `strictSection()` in
+  `ci/checks/lib/markdown.mjs`), not a full parser. Where it cannot tell, it ends the section early or hides
+  the line, which reads as off.
+- The page shows the milestone's words. A `summary` written in jargon reads as jargon; the page does not
+  rewrite it.
 
 ## Acceptance
 
@@ -176,13 +182,13 @@ Then  it exits 0, prints "roadmap: off (AGENT.md Roadmap page)", and <dir> does 
 ```
 Given `public`, M0 closed, M1 active 2026-03-09..2026-03-15, M2 shaping, M3 killed, CHECK_TODAY=2026-03-11
 When  the renderer runs with --sha 0123456789abcdef
-Then  index.html has Now (M1, "day 3 of 7", its no-gos), Next (M2 with no-gos and no dates), Done (M0),
-      Stopped (M3), "0123456", the noindex meta, and no <script> element
+Then  index.html has Now (M1, "day 3 of 7"), Next (M2 with no dates), Done (M0),
+      Stopped (M3), "0123456", the noindex meta, no <script> element, and no no-gos
 ```
 
 ```
 Given the fixture above with SENTINEL-<source> planted in decisions.md, docs/PRD.md, FRAME.md and each
-      excluded milestone section (Why, Contents, Rabbit holes, Gate, Kill criteria, Retro)
+      excluded milestone section (Why, Contents, No-gos, Rabbit holes, Gate, Kill criteria, Retro)
 When  the renderer runs
 Then  no SENTINEL string appears in index.html
 ```

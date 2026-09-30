@@ -125,6 +125,7 @@ test('no sentinel from an excluded source reaches the page', () => {
     const md = readFileSync(join(FIX, 'full', 'docs', 'milestones', readdir(m)), 'utf8');
     for (const s of ['why', 'contents', 'rabbit-holes', 'gate', 'kill-criteria', 'retro']) assert.match(md, new RegExp(`SENTINEL-${m}-${s}`));
   }
+  assert.match(readFileSync(join(FIX, 'full', 'docs', 'milestones', 'M2-refunds.md'), 'utf8'), /^## No-gos\n\n[\s\S]*SENTINEL-m2-nogo/m);
   const html = render(join(FIX, 'full'));
   assert.deepEqual(html.match(/SENTINEL[\w-]*/g) ?? [], []);
 });
