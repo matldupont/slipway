@@ -80,6 +80,16 @@ test('a public row that is not a live Skill Configuration row leaves the page of
   }
 });
 
+test('a long Roadmap page cell with no closing pipe is read in linear time', () => {
+  const root = tmp();
+  cpSync(join(FIX, 'off'), root, { recursive: true });
+  const agent = readFileSync(join(root, 'AGENT.md'), 'utf8').replace('|-----|-------|------------------|\n', `$&| Roadmap page |${' '.repeat(50000)}x\n`);
+  writeFileSync(join(root, 'AGENT.md'), agent);
+  const started = Date.now();
+  assert.equal(run(root, ['--enabled']).stdout, 'enabled=false\n');
+  assert.ok(Date.now() - started < 5000, `took ${Date.now() - started}ms`);
+});
+
 test('public: Now, Next, Done and Stopped, the sha, noindex, and no script', () => {
   const html = render(join(FIX, 'full'));
   const now = section(html, 'Now');
@@ -119,6 +129,7 @@ test('a heading-shaped line in frontmatter, a comment or a code fence is never r
     'a fence in Contents, with no H1': (md) => md.replace(/^# M1 — .*$/m, '').replace('## Contents\n', '## Contents\n\n```\n# SENTINEL-fence-title\n```\n'),
     'a fenced No-gos example in Why': (md) => md.replace('## Why\n', '## Why\n\n```\n## No-gos\n\n- SENTINEL-fence-nogo\n```\n'),
     'a No-gos heading in an HTML comment': (md) => md.replace('## Why\n', '## Why\n\n<!--\n## No-gos\n- SENTINEL-comment-nogo\n-->\n'),
+    'an indented No-gos heading under a Why list': (md) => md.replace('## Why\n', '## Why\n\n- intro\n  ## No-gos\n- SENTINEL-indented-nogo\n'),
   };
   for (const [name, edit] of Object.entries(cases)) {
     const html = render(variant('M1-booking.md', edit));

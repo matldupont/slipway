@@ -61,10 +61,15 @@ export function started(text) {
 }
 
 // Bullets under `## No-gos`: a line starting `-` or `*` opens one; indented lines continue it. Read from the prose
-// only, so a `## No-gos` example in a code fence or a comment is never taken for the section.
+// only, and the heading must start its line, so a `## No-gos` in a code fence, a comment or indented under another
+// section's list is never taken for the section. It ends at the next `#` or `##` heading that starts a line.
 export function noGos(md) {
+  const lines = prose(md).split(/\r?\n/);
+  const start = lines.findIndex((l) => /^##\s+No-gos\s*$/i.test(l));
+  if (start < 0) return [];
+  const end = lines.findIndex((l, i) => i > start && /^#{1,2}\s/.test(l));
   const items = [];
-  for (const line of (section(prose(md), 'No-gos', 2) ?? '').split(/\r?\n/)) {
+  for (const line of lines.slice(start + 1, end < 0 ? undefined : end)) {
     const open = line.match(/^[-*]\s+(.*)$/);
     if (open) items.push(open[1]);
     else if (items.length && /^\s+\S/.test(line)) items[items.length - 1] += ' ' + line.trim();
