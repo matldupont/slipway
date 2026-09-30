@@ -27,6 +27,11 @@ type and test-runner configs, workflows, `ci/**`, this directory and `.claude/se
 so changing a gate is always a human decision, and so is creating one: each edit rule has a matching write rule. A PR that touches a gate file also says, in a `## Gate changes` section, whether each file got stricter, stayed the same or loosens. Adding a check is legitimate work — approve it knowingly.
 Under `bypassPermissions` nothing asks; required checks on `main` remain the backstop.
 
+**So are the owner-only files** (`process/slipway-rules.md` → Gates, #163): each path that list names has an edit
+and a write rule here, the slipway-only ones included, since a rule for a file a project lacks never fires.
+`scripts/skills.test.mjs` fails when a path on the list has no rule. The two files a setting names (the
+`Domain invariants doc`, the cold-review file) have no fixed path, so they rest on the rule alone.
+
 **So are the files that change which program a gate command runs, or how pnpm and node start it** (#133).
 Each is a gate file here and in the PR check:
 
@@ -52,7 +57,8 @@ Known limitations:
 | `.tool-versions` | the node or pnpm version asdf or mise pick locally; CI pins both |
 | a file a gate setting points at | a pnpmfile path, a script shell, or node options that load a file: once the owner approves the setting, later edits to that file are not asked about. Nothing sets one today |
 | `pnpm-lock.yaml` | not a gate file, since every dependency bump changes it; #138 checks that each entry resolves from the registry with an integrity hash |
-| the ask prompt's case | the harness's own rules match case as Claude Code does; on a case-insensitive disk, `NODE_MODULES/` may not ask where `node_modules/` does. N1 and the PR check still refuse it |
+| a shell write to an owner-only file | `Edit(...)` and `Write(...)` rules cover those tools only: `sed -i`, a redirect or `tee` onto `CLAUDE.md` or `.claude/**` does not ask. The rule in `process/slipway-rules.md` → Gates still holds, and `/work-ticket`'s rule-file check still reads the diff |
+| the ask prompt's case | the harness's own rules match case as Claude Code does; on a case-insensitive disk, `NODE_MODULES/` or `Claude.md` may not ask where `node_modules/` or `CLAUDE.md` does. N1 and the PR check still refuse it |
 | the canonical form | NFKC and lower case approximate how macOS folds names; a folding it misses matters only on a Mac that runs a branch's code, which #114 and #126 exist to prevent |
 
 ## Hooks

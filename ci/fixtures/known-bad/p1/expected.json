@@ -1,5 +1,5 @@
 {
-  "_note": "good.md, none-link.md, gate-good.md, gate-glob-good.md, gate-doc-only.md (a markdown file is never a gate file), gate-base-rule-good.md and gate-none.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count. A `<name>.changes.json` beside a body lists what that PR changed; the gate-* cases are read against the harness's gate paths. A sidecar's `globs` are the gate paths the base branch's harness listed: a PR that removes a rule is held to it. One line may name a directory glob (`ci/fixtures/known-bad/p1/**`): it covers the files it matches and nothing else. A sidecar's `links` are the symlinks and submodule links the PR adds, removes or changes: each is a gate change (#149); a sidecar without that list is unreadable.",
+  "_note": "good.md, none-link.md, gate-good.md, gate-glob-good.md, gate-doc-only.md (a markdown file is not a gate file unless it is owner-only: gate-owner-markdown.md edits a skill and has no Gate changes section), gate-base-rule-good.md and gate-none.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count. A `<name>.changes.json` beside a body lists what that PR changed; the gate-* cases are read against the harness's gate paths. A sidecar's `globs` are the gate paths the base branch's harness listed: a PR that removes a rule is held to it. One line may name a directory glob (`ci/fixtures/known-bad/p1/**`): it covers the files it matches and nothing else. A sidecar's `links` are the symlinks and submodule links the PR adds, removes or changes: each is a gate change (#149); a sidecar without that list is unreadable.",
   "exit": 1,
   "findings": [
     "gate-glob-everything.md#gate-changes/unmentioned:ci/verify.mjs",
@@ -14,6 +14,7 @@
     "gate-missing-section.md#gate-changes/missing",
     "gate-newline-name.md#gate-changes/missing",
     "gate-no-links.md#gate-changes/unreadable",
+    "gate-owner-markdown.md#gate-changes/missing",
     "gate-no-verdict.md#gate-changes/no-verdict:packages/api/tsconfig.json",
     "gate-removed-rule.md#gate-changes/missing",
     "gate-scripts-unmentioned.md#gate-changes/unmentioned:packages/api/package.json scripts",

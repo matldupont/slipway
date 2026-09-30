@@ -4,7 +4,7 @@
 #   sh -c "$(git -C "$CLAUDE_PROJECT_DIR" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh)" base-guard <hook>
 # It runs the working tree's <hook> only when the checkout's gate files are origin/HEAD's. Otherwise that hook does
 # not run: the Stop hook blocks once to say so, SessionStart says so, the advisory hooks stay quiet.
-# Gate files: the base's own ask-level edit globs (settings.json, #133), every package.json, .claude/**,
+# Gate files: the base's own ask-level edit globs (settings.json, #133) but its owner-only prose and tooling, every package.json, .claude/**,
 # .gitmodules and .gitattributes, matched ignoring case, and each gate folder itself (`node_modules`, `.claude`), so
 # a link in its place counts (#148). A changed or untracked name git has to quote (non-ASCII, a quote, a control
 # character) counts too: a Mac disk may open `node_moduleſ` as `node_modules`. So does a symlink or a submodule link
@@ -37,6 +37,9 @@ globs=$(g cat-file blob "$base:process/harness/settings.json" | sed -n 's/^[[:sp
 [ -n "$globs" ] || fail 'no gate paths in origin/HEAD:process/harness/settings.json'
 set --
 for glob in $globs '**/package.json' '.claude/**' '**/.gitmodules' '**/.gitattributes'; do
+  # Owner-only files that don't change what a gate runs (#163): prose (.md) and slipway's own sync tooling. The harness
+  # asks before an edit to each, but owner-only and gate code are two lists, and this guard needs only the second.
+  case "$glob" in *.md|'**/dev/ownership.yaml'|'**/scripts/new-project.mjs') continue ;; esac
   set -- "$@" ":(glob,icase)$glob"
   case "$glob" in */'**') set -- "$@" ":(glob,icase)${glob%/\*\*}" ;; esac # the folder itself: a link in its place
 done

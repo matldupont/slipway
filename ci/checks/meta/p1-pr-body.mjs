@@ -9,9 +9,10 @@
 //   verification/prose-only  names no command, code block, check id or CI run —
 //                            "tested locally" is a claim, not evidence
 //   links/missing            `## Links` has no issue reference (#123) and no `none: <reason>`
-//   gate-changes/missing     the PR touches a gate file (a path the harness asks before editing, or a
-//                            package.json `scripts`, `packageManager` or `pnpm` key, or a symlink or submodule link at
-//                            any path: the folder it stands for may hold gate files) and has no `## Gate changes` section
+//   gate-changes/missing     the PR touches a gate file (a path the harness asks before editing, markdown only
+//                            when owner-only, a package.json `scripts`, `packageManager` or `pnpm` key, or a symlink
+//                            or submodule link at any path: the folder it stands for may hold gate files) and has no
+//                            `## Gate changes` section
 //   gate-changes/unmentioned:<path>  a gate file the section has no line for
 //   gate-changes/no-verdict:<path>   its line says neither stricter, the same, nor loosens
 //   gate-changes/loosens-uncited:<path>  it loosens the gate and cites no decision or exception

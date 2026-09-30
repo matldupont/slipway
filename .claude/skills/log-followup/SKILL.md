@@ -101,7 +101,7 @@ Acceptance:   {lines}
 
 Body, in this order: `### Problem` (a one-line pointer to the parent, the frame from Phase 1, and the
 `Verified against` line when there is one), `### Acceptance`, `### Seams`, `### Seams detail`,
-`### Out of scope`, `### Links` (`Part of: #{parent}`, `Blocked by:`, `Lane:`), then the designation block.
+`### Out of scope`, `### Links` (`Part of: #{parent}`, `Blocked by:`, `Touches:` per `process/intake.md` → Issue body, `Lane:`), then the designation block.
 
 1. Write the body and run the issue check on it (`process/intake.md` → Issue body). Fix every finding.
 2. File it; add it to the board; link it under the parent (`process/intake.md` → Commands). Check the

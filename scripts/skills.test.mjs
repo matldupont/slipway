@@ -441,7 +441,7 @@ test(`${DEFAULTS}: §1–§10 in order, each with a reason, and what they never 
   // Review round 1 (#162): a default fills a gap in the rules, never overrides an ask, a gate or the review cap.
   const flat = md.replace(/\s+/g, ' ');
   assert.match(flat, /A default fills a gap in those rules; it never overrides one\./, 'an ask a skill or the rules name outranks every default');
-  assert.match(flat, /an edit to a rule or gate file\*\* \(`process\/slipway-rules\.md` → Gates\), whether or not the harness prompts/, 'rule files stay the owner\'s under any permission mode');
+  assert.match(flat, /an edit to an owner-only file\*\* \(`process\/slipway-rules\.md` → Gates, Owner-only files\), whether or not the harness prompts/, 'owner-only files stay the owner\'s under any permission mode');
   assert.match(flat, /can a pull request's committed files cause it\?/, '§3 states the pull-request test');
   assert.match(flat, /It never settles loosening a check that exists/, '§5 never loosens an existing check');
   assert.match(flat, /A finding that still breaks a guarantee stops the run and goes to the owner/, '§7 keeps work-ticket\'s stop');
@@ -456,4 +456,79 @@ test('the four skills apply the decision defaults before asking; the working rul
   const title = dec.match(/^## (D-\d+ — The trust line\b.*)$/m)?.[1];
   assert.ok(title, 'decisions.md must record §3, the trust line');
   assert.match(section(dec, title, 2) ?? '', /`process\/decision-defaults\.md`/, 'the trust-line decision must cite the defaults file');
+});
+
+// #163: one list of owner-only files. process/slipway-rules.md → Gates names the files /work-ticket judges a run by,
+// plus the files CLAUDE.md imports, and the harness asks before an edit to each path on it (the owner's decision,
+// 2026-09-30), so a session reading Gates alone, or running where nothing prompts, sees every one.
+const ownerOnly = () => {
+  const gates = section(read('process/slipway-rules.md'), 'Gates', 2) ?? '';
+  const bullet = gates.match(/^- \*\*Owner-only files\.\*\*([\s\S]*?)(?=^- |(?![\s\S]))/m)?.[1] ?? '';
+  // The list ends where the paragraph says what changing one needs; the commands after it are not rule files.
+  const skill = read(skillPath('work-ticket')).match(/\*\*The rules the run is judged by:\*\*([\s\S]*?)Changing one needs the owner's yes/)?.[1] ?? '';
+  const ticks = (md) => new Set([...md.matchAll(/`([^`]+)`/g)].map((m) => m[1]).filter((t) => !/^[/#]/.test(t) && !t.includes('{')));
+  const imports = [...read('CLAUDE.md').matchAll(/^@(\S+)$/gm)].map((m) => m[1]);
+  return { bullet: bullet.replace(/\s+/g, ' '), skill: skill.replace(/\s+/g, ' '), gates: ticks(bullet), rules: ticks(skill), imports };
+};
+
+test('process/slipway-rules.md → Gates names the owner-only files work-ticket checks, and decision-defaults cites it', () => {
+  const { bullet, skill, gates, rules, imports } = ownerOnly();
+  assert.ok(bullet, 'Gates must hold a bullet starting **Owner-only files.**');
+  assert.ok(imports.length > 0, 'CLAUDE.md imports no file, so the list cannot be checked');
+  for (const p of imports) assert.ok(gates.has(p), `Gates must name ${p}, which CLAUDE.md imports`);
+  const expected = [...new Set([...rules, ...imports])].sort();
+  assert.deepEqual([...gates].sort(), expected, 'the Gates list and work-ticket\'s rule files differ');
+  for (const phrase of ['at any depth, and the files they import', 'the cold-review file', 'package scripts, lint, type and test configs, CI workflows']) {
+    assert.ok(bullet.includes(phrase), `Gates must name ${phrase}`);
+    assert.ok(skill.includes(phrase), `work-ticket's rule files must name ${phrase}`);
+  }
+  assert.match(bullet, /whether or not the harness prompts/, 'the list holds under any permission mode');
+  assert.match(read(DEFAULTS).replace(/\s+/g, ' '), /\(`process\/slipway-rules\.md` → Gates, Owner-only files\)/, 'decision-defaults must cite the Gates list');
+});
+
+test('the harness asks before an edit or a write to every path on the owner-only list', () => {
+  const { gates } = ownerOnly();
+  const ask = JSON.parse(read('process/harness/settings.json')).permissions?.ask ?? [];
+  const paths = [...gates].filter((t) => !/\s/.test(t));
+  assert.ok(paths.includes('.claude/**') && paths.includes('process/slipway-rules.md'), 'the list must name .claude/** and process/slipway-rules.md');
+  for (const p of paths) for (const tool of ['Edit', 'Write']) assert.ok(ask.includes(`${tool}(**/${p})`), `process/harness/settings.json has no ${tool}(**/${p}) ask rule`);
+});
+
+// #157 (F-07, dev/features/work-order.md): an issue's Links line may say which files its PR changes, so the work-order
+// page can tell which ready issues are safe to run side by side. The format is written once, in process/intake.md →
+// Issue body; each log- skill names it where it lists the Links line, and so do the two issue forms.
+test('process/intake.md → Issue body: the Touches: rule — entries, folder when unsure, omit when unknown', () => {
+  const flat = (section(intake, 'Issue body', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(flat, /`Touches:`\*\* \(optional/, 'the Links rule must document `Touches:` as optional');
+  assert.match(flat, /repository paths or globs, comma-separated, each made of `A-Z a-z 0-9 \. _ - \/ \*`, no `\.\.`, no leading `\/`/, 'the entry rules');
+  assert.match(flat, /backticks around an entry are ignored/, 'backticks around an entry are allowed');
+  assert.match(flat, /Not sure of the files: write the folder \(`ci\/checks\/\*\*`\), never a narrower guess/, 'the folder-when-unsure rule');
+  assert.match(flat, /Cannot name even a folder: omit the line/, 'omit when unknown');
+  assert.match(flat, /A split gives each sub-issue its own line/, 'a split gives each sub-issue its own line');
+});
+
+test('each log- skill names Touches: on its Links line (log-feature: Phase 5 and the split in Phase 6), and the issue forms mention it', () => {
+  const feat = read(skillPath('log-feature')).replace(/\s+/g, ' ');
+  assert.match(feat, /- `### Links`: `Part of: #n` when there is a parent, `Spec: \{doc path\}`, `Touches:`/, 'log-feature Phase 5 Links line');
+  assert.match(feat, /`### Links` \(`Part of: #\{n\}`, `Blocked by:` the previous step, `Touches:`/, 'log-feature Phase 6 split Links line');
+  assert.match(read(skillPath('log-followup')).replace(/\s+/g, ' '), /`### Links` \(`Part of: #\{parent\}`, `Blocked by:`, `Touches:`/, 'log-followup Links line');
+  assert.match(read(skillPath('log-bug')).replace(/\s+/g, ' '), /- `### Links`: `Regression of: #n`[^\n]*?`Touches:` \(the files the fix changes[^)]*\)/, 'log-bug Links line');
+  for (const f of ['feature', 'bug']) {
+    assert.match(read(`.github/ISSUE_TEMPLATE/${f}.yml`), /label: Links\s+description: "[^"\n]*Touches: /, `${f}.yml's Links description must mention Touches:`);
+  }
+});
+
+test('I1 accepts a feature body with and without a Touches: segment in Links', () => {
+  const body = (links) =>
+    `### Problem\n\nA problem.\n\n### Acceptance\n\n- \`node scripts/skills.test.mjs\` exits 0\n\n### Contract\n\nThe contract, with enough words to count as written in the body itself rather than linked from elsewhere.\n\n### Verify\n\n\`\`\`\nnode scripts/skills.test.mjs      # the rule is in the intake file and each skill\nnode ci/checks/meta/i1-issue-shape.mjs <dir>   # both bodies pass\n\`\`\`\n\n### Seams\n\nnone\n\n### Seams detail\n\nnone: rules only, no person, channel or promise.\n\n### Out of scope\n\nNothing else.\n\n### Links\n\n${links}\n`;
+  const dir = mkdtempSync(join(tmpdir(), 'touches-'));
+  try {
+    writeFileSync(join(dir, 'without.md'), body('Part of: #156 · Lane: feature'));
+    writeFileSync(join(dir, 'with.md'), body('Part of: #156 · Blocked by: #152 · Touches: process/intake.md, `.claude/skills/log-feature/**`, scripts/skills.test.mjs · Lane: feature'));
+    const out = execFileSync('node', [join(SRC, 'ci/checks/meta/i1-issue-shape.mjs'), dir], { encoding: 'utf8' });
+    assert.match(out, /scanned 2 issue bodies/, 'I1 must examine both bodies');
+    assert.doesNotMatch(out, /without\.md|with\.md/, `I1 must pass both bodies:\n${out}`);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
