@@ -410,35 +410,50 @@ test('/log-bug and /log-feature skip the /kickoff stop, the milestone ask and th
 // #152: the defaults a session applies before asking the owner. The file holds them in order, each with its reason,
 // and names what they never settle; every skill that asks the owner a design question applies them first.
 const DEFAULTS = 'process/decision-defaults.md';
-const DEFAULT_TITLES = [
-  'Reuse before inventing',
-  'Fix it once, at the boundary',
-  'The trust line',
-  'Fail closed',
-  'Stricter when both work',
-  'Security work builds the defence only',
-  'The review cap holds',
-  'Out of scope is a follow-up',
-  'Prove it on real data',
-  'Prove a change where it runs',
+// Each default's title, and a phrase from its body that the issue specifies.
+const DEFAULT_BODIES = [
+  ['Reuse before inventing', /already answers the question, use it/],
+  ['Fix it once, at the boundary', /the one place that covers every case/],
+  ['The trust line', /A defence against|known limitation written in the PR, not a fix/],
+  ['Fail closed', /It never passes\./],
+  ['Stricter when both work', /A lookalike of a gate path fails rather than counts/],
+  ['Security work builds the defence only', /Fixtures are inert text/],
+  ['The review cap holds', /never a restarted budget/],
+  ['Out of scope is a follow-up', /except the same bug in code the ticket already touches/],
+  ['Prove it on real data', /run once against a real project's files before it ships/],
+  ['Prove a change where it runs', /machinery only so the template can show a green run/],
 ];
+const DEFAULT_TITLES = DEFAULT_BODIES.map(([t]) => t);
 test(`${DEFAULTS}: §1–§10 in order, each with a reason, and what they never settle`, () => {
   const md = read(DEFAULTS);
   const heads = [...md.matchAll(/^## §(\d+) — (.+)$/gm)].map((m) => [Number(m[1]), m[2]]);
   assert.deepEqual(heads, DEFAULT_TITLES.map((t, i) => [i + 1, t]), 'the ten defaults, numbered and titled in order');
   for (const [n, t] of heads) {
-    assert.match(section(md, `§${n} — ${t}`, 2) ?? '', /\*\*Why:\*\* \S/, `§${n} needs a one-line reason`);
+    const body = (section(md, `§${n} — ${t}`, 2) ?? '').replace(/\s+/g, ' ');
+    assert.match(body, /\*\*Why:\*\* \S/, `§${n} needs a one-line reason`);
+    assert.match(body, DEFAULT_BODIES[n - 1][1], `§${n} must keep the rule #152 states`);
   }
   const never = plain(section(md, 'What these never settle', 2) ?? '');
-  for (const re of [/edit the harness asks about/, /Spending money/, /outside the repository/, /Product decisions/]) {
+  for (const re of [/edit the harness asks about/, /Spending money/, /outside the repository/, /Product decisions: who the users are, what they pay, what they see/]) {
     assert.match(never, re, `"What these never settle" must name ${re}`);
   }
   assert.match(md.replace(/\s+/g, ' '), /`decided by decision-defaults §n`/, 'the file says how a decision is recorded');
+  // Review round 1 (#162): a default fills a gap in the rules, never overrides an ask, a gate or the review cap.
+  const flat = md.replace(/\s+/g, ' ');
+  assert.match(flat, /A default fills a gap in those rules; it never overrides one\./, 'an ask a skill or the rules name outranks every default');
+  assert.match(flat, /an edit to a rule or gate file\*\* \(`process\/slipway-rules\.md` → Gates\), whether or not the harness prompts/, 'rule files stay the owner\'s under any permission mode');
+  assert.match(flat, /can a pull request's committed files cause it\?/, '§3 states the pull-request test');
+  assert.match(flat, /It never settles loosening a check that exists/, '§5 never loosens an existing check');
+  assert.match(flat, /A finding that still breaks a guarantee stops the run and goes to the owner/, '§7 keeps work-ticket\'s stop');
 });
 
 test('the four skills apply the decision defaults before asking; the working rules and decisions.md point at them', () => {
   const sentence = /Before asking the owner a design question, apply `process\/decision-defaults\.md`: a question it settles is decided, not asked, and recorded as "decided by decision-defaults §n"\./;
   for (const s of FOUR) assert.match(read(skillPath(s)).replace(/\s+/g, ' '), sentence, `${s} must apply the decision defaults`);
-  assert.match(section(read('process/slipway-rules.md'), 'Working rules', 2) ?? '', /`process\/decision-defaults\.md`/, 'Working rules must point at the defaults');
-  assert.match(read('decisions.md'), /^## D-\d+ — The trust line\b.*\n[\s\S]*?`process\/decision-defaults\.md`/m, 'decisions.md must record §3');
+  const rules = section(read('process/slipway-rules.md'), 'Working rules', 2) ?? '';
+  assert.equal(rules.split('\n').filter((l) => l.includes('process/decision-defaults.md')).length, 1, 'Working rules must point at the defaults in one line');
+  const dec = read('decisions.md');
+  const title = dec.match(/^## (D-\d+ — The trust line\b.*)$/m)?.[1];
+  assert.ok(title, 'decisions.md must record §3, the trust line');
+  assert.match(section(dec, title, 2) ?? '', /`process\/decision-defaults\.md`/, 'the trust-line decision must cite the defaults file');
 });
