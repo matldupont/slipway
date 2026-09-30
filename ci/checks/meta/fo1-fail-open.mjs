@@ -200,9 +200,9 @@ for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
   const where = `registry:${e.id}`;
   const date = expiryProblem(e.expires, today);
   if (date === 'none') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
-  else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a yyyy-mm-dd day, so it would never be compared as ending' });
+  else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a real day written yyyy-mm-dd, which cannot be compared as ending — set it to a real future day, e.g. 2099-12-31' });
   else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'the entry names its step by position, which moves on any edit — give the step an id: and key the entry to it' });
-  else if (date === 'expired') findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — fix the job or step, or extend the date with a reason` });
+  else if (date === 'expired') findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} (today or earlier ends an excuse) — fix the job or step, or set expires: to a real future day with a reason` });
   else if (!siteIds.has(e.id)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml matches no continue-on-error step or job — remove it' });
   else live.add(e.id);
 }

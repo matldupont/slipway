@@ -78,10 +78,10 @@ for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
   const where = `registry:${e.id}`;
   const date = expiryProblem(e.expires, today);
   if (date === 'none') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
-  else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a yyyy-mm-dd day, so it would never be compared as ending' });
+  else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a real day written yyyy-mm-dd, which cannot be compared as ending — set it to a real future day, e.g. 2099-12-31' });
   else if (!e.reason) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no reason: — say why this package may come from outside the registry' });
   else if (!e.owner) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no owner: — name who answers for this package' });
-  else if (date === 'expired') findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — move the package to the registry, or extend the date with a reason` });
+  else if (date === 'expired') findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} (today or earlier ends an excuse) — move the package to the registry, or set expires: to a real future day with a reason` });
   else if (!ids.has(e.id)) findings.push({ where, detail: `the entry in ci/exceptions.yaml matches no entry of ${LOCKFILE} — remove it` });
   else live.add(e.id);
 }
