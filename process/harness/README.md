@@ -88,7 +88,8 @@ Known limitations:
 | a checkout mid-session | Claude Code reloads `.claude/settings.json` when it changes on disk, so checking out a branch that changes it swaps the hooks, guard included. `/work-ticket` asks before it checks out such a branch; a checkout you make by hand is yours |
 | the agent and the base | moving `origin/HEAD` (`git remote set-head`, `git update-ref`, `git replace`, a fetch into `refs/remotes/origin`) asks first, but a reworded shell command still gets through, and a permission mode that approves by itself approves these too. #145 pins the base at session start |
 | `.gitignore` and local index flags | an untracked file is seen as git sees it, through the working tree's ignore rules; `skip-worktree` and `assume-unchanged` hide a tracked file's edit. A checkout alone brings neither an untracked file nor a flag |
-| a symlink | a gate path that is a symlink is judged by the link, not its target |
+| a symlink or a submodule link at a gate folder | a gate folder `origin/HEAD` does not track (`node_modules`, `.claude`, `.slipway`, `.config/mise`), replaced by a symlink or a submodule link to a folder outside the gate paths, is not seen: the gate patterns match paths under the folder, never the folder itself. #148 counts such links as gate changes |
+| a submodule at another path | the guard compares a submodule at a gate path by its commit and its own changes, but never looks inside one elsewhere |
 | a checkout while a hook runs | the guard checks, then the hook runs; a checkout in between (a background agent) changes what the hook reads |
 | case folding | `icase` catches `.NPMRC`, and a quoted name counts as a gate file; other foldings of plain ASCII names are the canonical-form limitation above |
 | a stale `origin/HEAD` | a gate file merged since the last fetch counts as changed until you fetch |
