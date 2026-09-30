@@ -1,1 +1,1 @@
-{"files": ["packages/api/tsconfig.json", "ci/exceptions.yaml", "package.json", "packages/api/src/index.ts"], "scripts": ["package.json"]}
+{"files": ["packages/api/tsconfig.json", "ci/exceptions.yaml", "package.json", "packages/api/src/index.ts"], "scripts": ["package.json"], "links": []}

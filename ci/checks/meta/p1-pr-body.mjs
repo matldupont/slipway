@@ -10,14 +10,15 @@
 //                            "tested locally" is a claim, not evidence
 //   links/missing            `## Links` has no issue reference (#123) and no `none: <reason>`
 //   gate-changes/missing     the PR touches a gate file (a path the harness asks before editing, or a
-//                            package.json `scripts`, `packageManager` or `pnpm` key) and has no `## Gate changes` section
+//                            package.json `scripts`, `packageManager` or `pnpm` key, or a symlink or submodule link at
+//                            any path: the folder it stands for may hold gate files) and has no `## Gate changes` section
 //   gate-changes/unmentioned:<path>  a gate file the section has no line for
 //   gate-changes/no-verdict:<path>   its line says neither stricter, the same, nor loosens
 //   gate-changes/loosens-uncited:<path>  it loosens the gate and cites no decision or exception
 //   gate-changes/lookalike:<path>    a path that reads as a gate path in canonical form (`.NPMRC`) but is not
 //                            spelled as one: refused, whatever the section says
 //
-// A body's changed files come from a sidecar, `<name>.changes.json` ({files, scripts}, written by
+// A body's changed files come from a sidecar, `<name>.changes.json` ({files, scripts, globs, links}, written by
 // ci/checks/lib/gate-files.mjs). Without one, the gate-changes rules do not run. The check cannot tell
 // whether the sentence is true, only that one exists and that loosening is justified.
 //
@@ -69,9 +70,9 @@ for (const f of bodies) {
     let c;
     try {
       c = JSON.parse(readFileSync(sidecar, 'utf8'));
-      if (!Array.isArray(c.files) || !Array.isArray(c.scripts)) throw new Error('needs files and scripts lists');
+      if (!Array.isArray(c.files) || !Array.isArray(c.scripts) || !Array.isArray(c.links)) throw new Error('needs files, scripts and links lists');
     } catch (e) {
-      c = { files: [], scripts: [], globs: [] };
+      c = { files: [], scripts: [], globs: [], links: [] };
       findings.push({ where: `${f}#gate-changes/unreadable`, detail: `the changed-files list beside the body is unreadable (${String(e.message).split('\n')[0]}); the workflow must write it` });
     }
     if (rules === 0) {
@@ -83,7 +84,7 @@ for (const f of bodies) {
       const like = isGate.lookalike(path);
       if (like) findings.push({ where: `${f}#gate-changes/lookalike:${shown(path)}`, detail: `${shown(path)} looks like ${like} but isn't spelled that way; a case-insensitive disk reads it as the gate file. Rename or remove it: it cannot be declared` });
     }
-    const touched = [...new Set([...c.files.filter(isGate), ...c.scripts.map((p) => `${p} scripts`)])];
+    const touched = [...new Set([...c.files.filter(isGate), ...c.links, ...c.scripts.map((p) => `${p} scripts`)])];
     if (touched.length) {
       const gc = section(md, 'Gate changes', 2);
       const next = 'add `## Gate changes` with one line per file, or per directory glob (`ci/fixtures/x/**`): `path — stricter | the same | loosens (cite a decision or ci/exceptions.yaml): why`';

@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -99,6 +99,7 @@ test('changes lists every changed path, deletions included, and a package.json o
   assert.deepEqual(c.files.sort(), ['apps/web/package.json', 'old/tsconfig.json', 'package.json', 'packages/api/package.json', 'packages/api/tsconfig.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/empty/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/pm/package.json', 'tools/registry-dep/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/workspace-dep/package.json']);
   assert.deepEqual(c.scripts.sort(), ['apps/web/package.json', 'packages/api/package.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/pm/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/workspace-dep/package.json']);
   assert.deepEqual(c.globs, ['**/x.cfg']); // the base commit's harness, not the PR's
+  assert.deepEqual(c.links, []);
   const gate = gateMatcher(settings);
   assert.deepEqual(c.files.filter(gate).sort(), ['old/tsconfig.json', 'packages/api/tsconfig.json']);
 });
@@ -113,13 +114,75 @@ test('changes measures from the merge base, so a change on the base branch is no
   assert.ok(!c.files.includes('tsconfig.json') && !c.scripts.includes('package.json'), JSON.stringify(c));
 });
 
+// P1 on one body with no `## Gate changes` section, beside the sidecar changes() writes for base...tip.
+const p1 = (from, tip) => {
+  const dir = mkdtempSync(join(tmpdir(), 'gate-files-p1-'));
+  try {
+    writeFileSync(join(dir, 'body.md'), '## What\nLane: bounded.\n\n## Verification\n```\npnpm meta\n```\n\n## Links\nCloses #1\n');
+    writeFileSync(join(dir, 'body.changes.json'), JSON.stringify(changes(from, tip, repo)));
+    return spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/p1-pr-body.mjs'), dir], { encoding: 'utf8' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+const missing = (r, path) => {
+  assert.notEqual(r.status, 0, r.stdout);
+  assert.match(r.stdout + r.stderr, new RegExp(`body\\.md#gate-changes/missing: the PR touches gate files \\([^)]*${path.replace(/[.]/g, '\\.')}`));
+};
+
+// A link is committed as its mode and target only: nothing here follows one, clones one or runs one (#149).
+test('a gate folder committed as a symlink is a gate change, and P1 asks for Gate changes naming it', () => {
+  git('switch', '-q', '-c', 'links', head);
+  symlinkSync('docs', join(repo, '.slipway')); // a folder outside the gate paths
+  git('add', '-A');
+  git('commit', '-q', '-m', 'symlink');
+  const tip = git('rev-parse', 'HEAD');
+  const c = changes(head, tip, repo);
+  assert.deepEqual(c.links, ['.slipway']);
+  assert.ok(!gateMatcher(settings)('.slipway'), 'no path rule names the folder itself');
+  missing(p1(head, tip), '.slipway');
+});
+
+test('a gate folder committed as a submodule link, with no .gitmodules change, is a gate change', () => {
+  const from = git('rev-parse', 'HEAD');
+  git('update-index', '--add', '--cacheinfo', `160000,${base},ci`);
+  git('commit', '-q', '-m', 'submodule link');
+  const tip = git('rev-parse', 'HEAD');
+  const c = changes(from, tip, repo);
+  assert.deepEqual(c.files, ['ci']);
+  assert.deepEqual(c.links, ['ci']);
+  missing(p1(from, tip), 'ci');
+});
+
+test('a link outside every gate folder counts too, as the harness counts it since #148', () => {
+  const from = git('rev-parse', 'HEAD');
+  mkdirSync(join(repo, 'docs'), { recursive: true });
+  symlinkSync('../tools', join(repo, 'docs/elsewhere'));
+  git('add', 'docs/elsewhere'); // not -A: the submodule link has no folder on disk, and -A would remove it
+  git('commit', '-q', '-m', 'link elsewhere');
+  const tip = git('rev-parse', 'HEAD');
+  assert.deepEqual(changes(from, tip, repo).links, ['docs/elsewhere']);
+  missing(p1(from, tip), 'docs/elsewhere');
+});
+
+test('a link removed, or replaced by a folder, counts', () => {
+  const from = git('rev-parse', 'HEAD');
+  git('rm', '-q', '.slipway');
+  put('.slipway/notes.txt', 'x');
+  git('add', '.slipway');
+  git('commit', '-q', '-m', 'folder again');
+  const tip = git('rev-parse', 'HEAD');
+  assert.deepEqual(changes(from, tip, repo).links, ['.slipway']);
+  missing(p1(from, tip), '.slipway');
+});
+
 test('the script refuses anything but commit ids', () => {
   const r = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), '--output=x', head], { cwd: repo, encoding: 'utf8' });
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /commit ids/);
   const ok = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), base, head], { cwd: repo, encoding: 'utf8' });
   assert.equal(ok.status, 0, ok.stderr);
-  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts', 'globs']);
+  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts', 'globs', 'links']);
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));

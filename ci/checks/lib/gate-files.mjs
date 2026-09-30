@@ -3,9 +3,9 @@
 // (RUN_KEYS, and a dependency on local code or a runtime): what a gate command runs, the pnpm and node that run
 // it, and pnpm's settings. Read by P1. One list: a gate path added to the harness is a gate path here.
 //
-// As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…]}` for the pull
-// request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, and the gate
-// paths the base branch's harness asked about.
+// As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…]}` for
+// the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
+// gate paths the base branch's harness asked about, and each symlink or submodule link added, removed or changed.
 // pr-body.yml writes it beside the PR body.
 //
 // Not shared with ownership.mjs: that file is slipway's own and never ships to a project.
@@ -104,7 +104,19 @@ const runKeys = (pkg) =>
 export function changes(base, head, cwd = process.cwd()) {
   if (!SHA.test(base) || !SHA.test(head)) throw new Error('base and head must be commit ids');
   const git = (...a) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8', maxBuffer: 256 << 20 });
-  const files = git('diff', '--name-only', '--no-renames', '-z', `${base}...${head}`).split('\0').filter(Boolean);
+  // Every changed path with its modes (`:old new sha sha status\0path\0`). A symlink (120000) or a submodule link
+  // (160000) on either side is a link: the folder it stands for may hold gate files no pattern can name (#149).
+  const raw = git('diff', '--raw', '--no-renames', '--no-abbrev', '--ignore-submodules=none', '-z', `${base}...${head}`).split('\0');
+  raw.pop(); // the trailing NUL
+  if (raw.length % 2) throw new Error('git diff --raw: unexpected output');
+  const files = [];
+  const links = [];
+  for (let i = 0; i < raw.length; i += 2) {
+    const modes = raw[i].match(/^:([0-7]{6}) ([0-7]{6}) /);
+    if (!modes) throw new Error('git diff --raw: unexpected output');
+    files.push(raw[i + 1]);
+    if ([modes[1], modes[2]].some((m) => m === '120000' || m === '160000')) links.push(raw[i + 1]);
+  }
   const from = git('merge-base', base, head).trim();
   const scriptsAt = (rev, path) => {
     let text;
@@ -124,7 +136,7 @@ export function changes(base, head, cwd = process.cwd()) {
     globs = gateGlobs(git('show', `${from}:process/harness/settings.json`)); // absent before the harness existed
   } catch {}
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
-  return { files, scripts, globs };
+  return { files, scripts, globs, links };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
