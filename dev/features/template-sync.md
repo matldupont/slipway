@@ -172,13 +172,16 @@ The entry point is a subcommand of the package's existing bin, so the sync code 
 **target** version:
 
 ```bash
-pnpm use-slipway sync            # plan only, the default
-pnpm use-slipway sync --apply
+pnpm -s use-slipway sync            # plan only, the default
+pnpm -s use-slipway sync --apply
 npx github:matldupont/slipway#<ref> sync --adopt    # a project without a manifest: no script yet
 ```
 
-A project's `package.json` carries `"use-slipway": "npx github:matldupont/slipway#main"`, so its owner types
-a short, stable name, not slipway's repository address (#90). It is a script slipway ships, so a sync adds
+A project's `package.json` carries `"use-slipway": "npx --loglevel=error github:matldupont/slipway#main"`, so
+its owner types a short, stable name, not slipway's repository address (#90). Exit 1 means a row needs the
+owner, not a crash, so neither package manager adds to sync's own output (#135): `-s` stops pnpm printing
+`ELIFECYCLE Command failed` under it, and `--loglevel=error` stops npx warning about the pnpm settings
+pnpm hands it (`npm warn Unknown env config`). It is a script slipway ships, so a sync adds
 it to an existing project as any other `merged` key. Sync's printed next steps name the script when the
 project has it, and the long form (`#<ref>` for another target) when it does not yet. Publishing to npm
 (#91) changes the script's body, not what owners type.
@@ -223,13 +226,17 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
      flags it until the owner overrides it (keeping theirs) or copies slipway's file over theirs.
      Recording the project's hash instead would make the next sync replace that file.
    - a managed path the target no longer ships leaves the manifest: a kept file is the project's now.
-     An override is stale afterwards when it names no managed file, or its file matches the new hash
-     (slipway absorbed the edit, #132): D1's own rule on the new manifest. The plan and `--apply` list
-     the same ones by line, and the owner deletes each on the sync branch; sync never edits
-     `overrides.yaml` (seeded) or asks for a hand-edit of the manifest.
+     An override whose file matches the new hash (slipway absorbed the edit, #132) excuses nothing, so
+     `--apply` removes its entry from `overrides.yaml` in the same commit, one output line per path, and
+     the plan says so ahead of time (D-021, #135). That is the one edit sync makes to `overrides.yaml`
+     (seeded) without asking: every other line of the file stays byte for byte, and an override whose
+     file still differs is never touched. An override that names no managed file is still stale: D1's own
+     rule on the new manifest. The plan and `--apply` list those by line, and the owner deletes each on
+     the sync branch. Sync never asks for a hand-edit of the manifest.
    - seeded and merged entries stay; one the target adds is recorded as written.
 6. **Exit** 1 when any row needs the owner: a merge left markers, a `collision`, a `merged: key reported`,
-   a `keep (edited)`, a stale override, or an edited harness copy. 0 otherwise.
+   a `keep (edited)`, a stale override, or an edited harness copy. 0 otherwise: an override `--apply`
+   removed needs nothing.
 
 **Harness.** When the target changes `process/harness/settings.json`, sync updates both copies only
 because the owner ran it, and it prints that it did, the way `new-project` step 2b does. The skill never
@@ -270,7 +277,8 @@ the target's map (its `fallback`), as adopt did when it wrote the manifest, so s
    shas: conventional-commit subjects, grouped by check, skill or doc. The plan prints those subjects,
    read from sync's own clone, so the skill never clones slipway itself.
 2. On a yes, have the owner run `--apply`, since the harness step needs the owner.
-3. Resolve conflict markers in prose files. For each `seeded: upstream changed` diff, settle the changes
+3. Resolve conflict markers in prose files. Sync removed each absorbed override itself (D-021); a stale
+   one that names no managed file is removed on the owner's yes. For each `seeded: upstream changed` diff, settle the changes
    that need no owner (already there, not there to change, follows from sync), and ask about the rest in
    the project's terms, never the mechanism's (D-016, #62).
 4. On adopt, right after `--adopt --apply` and before any sync or ported diff: move the project's own
@@ -330,6 +338,14 @@ Then  it exits non-zero and git status is byte-identical afterwards
 Given a file the target removed, which the project edited
 When  sync --apply runs
 Then  the file is kept and reported as keep (edited)
+```
+
+```
+Given an overrides file with one entry whose file equals slipway's copy after the sync, one whose file
+      still differs, and comments
+When  sync --apply runs
+Then  the same commit removes the first entry and nothing else, the output names it, and when nothing
+      else needs the owner sync exits 0 with D1 green (#135)
 ```
 
 ```

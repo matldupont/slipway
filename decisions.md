@@ -164,6 +164,24 @@ Declined: a new skill (a second command and a copy of the pipeline); `/work-tick
 contract the item does not have yet); a check that finds conflicting decisions (the disagreement is in
 words, and the real pair cited no shared id). Spec: `dev/features/next-slice.md`; #118.
 
+## D-021 — Sync removes an override slipway has absorbed *(decided 2026-09-30)*
+
+Since #132, an override whose file ends up byte-identical to slipway's copy is recorded at slipway's hash
+and listed stale, and `sync --apply` exited 1 until the owner deleted the entry by hand. There was nothing
+to decide: the entry excuses nothing, and D1 flags it until it is gone.
+
+- **`--apply` removes it** from `.slipway/overrides.yaml` in the sync commit, one output line per path, and
+  the plan says so ahead of time, outside "Needs you". It is the one edit to that seeded file sync makes
+  without asking. Every other line stays byte for byte; an override whose file still differs is never
+  touched, and one that names a file slipway no longer maintains is still the owner's to remove.
+- **Needs-you is not a crash.** Owners run `pnpm -s use-slipway sync`, and the shipped script is
+  `npx --loglevel=error github:…#main`: pnpm adds no `ELIFECYCLE` line under sync's exit 1, and npx no
+  warnings about pnpm's settings. Neither change alone clears both.
+
+Declined: exiting 0 whenever rows need the owner (the exit code is how the skill and an owner's shell tell
+"needs you" from "done"); `pnpm dlx` in the script (its cache can serve a day-old `#main`). Spec:
+`dev/features/template-sync.md`; #135.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
