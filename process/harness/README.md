@@ -63,11 +63,13 @@ Every hook runs through `hooks/base-guard.sh`, loaded from `origin/HEAD`'s commi
 (`git cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh`), so a branch cannot change it
 (#126). The guard runs the working tree's hook only when the checkout's gate files are `origin/HEAD`'s. Gate files
 are the paths the base's own `Edit(...)` ask rules list (above), every `package.json`, `.claude/**`, `.gitmodules`
-and `.gitattributes`, matched ignoring case, documents included: tracked ones through `git diff` against
-`origin/HEAD` (a tracked file `.gitignore` ignores included, a submodule by its commit), and untracked ones. A
-changed or untracked file whose name git has to quote (non-ASCII, a quote, a control character) counts too, since a
-Mac disk may open `node_moduleſ` as `node_modules`; the message lists those names apart. File names are only read
-from git's output, never handed back to git.
+and `.gitattributes`, matched ignoring case, documents included, and each gate folder itself (`node_modules`,
+`.claude`, `ci`), so a symlink in its place counts: tracked ones through `git diff` against `origin/HEAD` (a tracked
+file `.gitignore` ignores included, a submodule by its commit), and untracked ones. A symlink or a submodule link
+added, removed or changed at any path counts too, since the folder it stands for may hold gate files no pattern can
+name (`.config -> elsewhere` holding `mise/config.toml`; #148). So does a changed or untracked file whose name git has
+to quote (non-ASCII, a quote, a control character), since a Mac disk may open `node_moduleſ` as `node_modules`; the
+message lists those names apart. File names are only read from git's output, never handed back to git.
 
 When any differs, that hook does not run: the Stop hook blocks once to say so and name the files, SessionStart says
 so, and the advisory hooks stay quiet. Otherwise a branch's hook scripts, `ci/verify.mjs` and package scripts would
@@ -88,8 +90,8 @@ Known limitations:
 | a checkout mid-session | Claude Code reloads `.claude/settings.json` when it changes on disk, so checking out a branch that changes it swaps the hooks, guard included. `/work-ticket` asks before it checks out such a branch; a checkout you make by hand is yours |
 | the agent and the base | moving `origin/HEAD` (`git remote set-head`, `git update-ref`, `git replace`, a fetch into `refs/remotes/origin`) asks first, but a reworded shell command still gets through, and a permission mode that approves by itself approves these too. #145 pins the base at session start |
 | `.gitignore` and local index flags | an untracked file is seen as git sees it, through the working tree's ignore rules; `skip-worktree` and `assume-unchanged` hide a tracked file's edit. A checkout alone brings neither an untracked file nor a flag |
-| a symlink or a submodule link at a gate folder | a gate folder `origin/HEAD` does not track (`node_modules`, `.claude`, `.slipway`, `.config/mise`), replaced by a symlink or a submodule link to a folder outside the gate paths, is not seen: the gate patterns match paths under the folder, never the folder itself. #148 counts such links as gate changes |
-| a submodule at another path | the guard compares a submodule at a gate path by its commit and its own changes, but never looks inside one elsewhere |
+| a symlink | a tracked symlink, or a submodule link, counts wherever it changes, and a gate folder counts when a link takes its place, tracked or untracked unless the ignore rules hide it (`node_modules` without a trailing slash ignores a link too). A link `origin/HEAD` already has is judged by the link, not by what its target holds now; an untracked link outside the gate folders does not count, since git reports no mode for an untracked file. A checkout alone brings no untracked link |
+| a submodule at another path | a submodule's commit and its own changes count at any path, but the guard never looks inside one: a file its own `.gitignore` ignores, or a file written into a submodule folder that is not checked out as a repository, is not seen |
 | a checkout while a hook runs | the guard checks, then the hook runs; a checkout in between (a background agent) changes what the hook reads |
 | case folding | `icase` catches `.NPMRC`, and a quoted name counts as a gate file; other foldings of plain ASCII names are the canonical-form limitation above |
 | a stale `origin/HEAD` | a gate file merged since the last fetch counts as changed until you fetch |
