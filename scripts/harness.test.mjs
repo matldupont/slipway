@@ -95,10 +95,10 @@ test('control: with the gate files origin/HEAD\'s, every hook runs, as the worki
   for (const h of HOOKS) run(h);
   assert.deepEqual(marks().sort(), [...HOOKS].sort());
   put('src/app.ts', 'export const x = 1;\n');
-  put('process/harness/README.md', '# harness, edited\n');
+  put('docs/notes.md', '# notes\n');
   reset();
   run('stop-verify.sh');
-  assert.deepEqual(marks(), ['stop-verify.sh'], 'code and markdown are not gate files');
+  assert.deepEqual(marks(), ['stop-verify.sh'], 'code and a doc outside the gate paths are not gate files');
 });
 
 test('probe: a branch whose Stop hook writes a marker leaves none, and the Stop hook blocks once', () => {
@@ -112,7 +112,7 @@ test('probe: a branch whose Stop hook writes a marker leaves none, and the Stop 
   const out = JSON.parse(r.out);
   assert.equal(out.decision, 'block');
   assert.match(out.reason, /process\/harness\/hooks\/stop-verify\.sh/);
-  assert.match(out.reason, /the owner has said yes/);
+  assert.match(out.reason, /Ask the owner; once they say yes/);
   assert.equal(run('stop-verify.sh', '{"stop_hook_active":true}').out, '', 'a second block in one stop');
   for (const h of HOOKS.filter((x) => x !== 'stop-verify.sh')) run(h);
   assert.deepEqual(marks(), [], 'another hook ran on the probe branch');
@@ -128,6 +128,10 @@ test('each kind of gate file stops the hooks: a hook, ci/, a package.json, .npmr
     () => put('.NPMRC', 'node-options=--require /tmp/x\n'),
     () => put('.claude/settings.json', '{}\n'),
     () => put('node_modules/.bin/tsc', '#!/bin/sh\n'),
+    () => put('process/harness/README.md', '# a doc under a gate path counts too\n'),
+    () => put('.claude/commands/x.md', '!`echo x`\n'),
+    () => put('.gitmodules', '[submodule "ci/tool"]\n\tpath = ci/tool\n\tignore = all\n'),
+    () => put('.gitattributes', '*.sh text eol=crlf\n'),
   ];
   for (const [i, change] of cases.entries()) {
     clean();
@@ -182,15 +186,59 @@ test('with a clean tree there is nothing to record', () => {
   assert.ok(!existsSync(YES), 'a record directory was made with nothing to record');
 });
 
-test('no origin/HEAD: no hook runs, and the output says why', () => {
+test('no origin/HEAD: no hook runs; the Stop and SessionStart hooks say why, the advisory ones stay quiet', () => {
   clean();
   git('-C', work, 'remote', 'set-head', 'origin', '-d');
   try {
-    for (const h of HOOKS) assert.match(run(h).out, /no hook ran/);
+    for (const h of ['stop-verify.sh', 'session-state.sh']) assert.match(JSON.parse(run(h).out).systemMessage, /no hook ran/);
+    for (const h of ['intake-reminder.sh', 'lessons-first.sh', 'absence-search.sh']) assert.equal(run(h).out, '');
     assert.deepEqual(marks(), []);
   } finally {
     git('-C', work, 'remote', 'set-head', 'origin', 'main');
   }
+});
+
+test('a lookalike name counts as a gate file, is named apart in the message, and a recorded yes covers it', () => {
+  clean();
+  git('-C', work, 'checkout', '-q', '-b', 'lookalike');
+  put('node_moduleſ/.bin/node', '#!/bin/sh\n');
+  git('-C', work, 'add', '-A');
+  git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'lookalike');
+  const out = JSON.parse(run('stop-verify.sh').out);
+  assert.equal(out.decision, 'block');
+  assert.match(out.reason, /Non-ASCII names; on a Mac one may stand in for a gate path like node_modules\/: \?node_module#305#277\/\.bin\/node\?/);
+  assert.deepEqual(marks(), []);
+  assert.equal(recordYes().status, 0);
+  run('stop-verify.sh');
+  assert.deepEqual(marks(), ['stop-verify.sh'], 'the recorded yes did not cover the lookalike');
+  reset();
+  put('src/app.ts', 'export const y = 2;\n');
+  assert.equal(JSON.parse(run('stop-verify.sh').out).decision, 'block', 'with a lookalike present, the yes covers the whole tree');
+});
+
+test('a recorded yes covers exact content: a quoted name\'s content, or content moved between files, asks again', () => {
+  clean();
+  put('ci/a"b.mjs', '// one\n');
+  assert.equal(recordYes().status, 0);
+  run('stop-verify.sh');
+  assert.deepEqual(marks(), ['stop-verify.sh']);
+  reset();
+  put('ci/a"b.mjs', '// two\n');
+  assert.equal(JSON.parse(run('stop-verify.sh').out).decision, 'block', 'a quoted name\'s new content ran on the old yes');
+  clean();
+  put('ci/a.mjs', 'X\nci/b.mjs\nEVIL\n');
+  assert.equal(recordYes().status, 0);
+  reset();
+  put('ci/a.mjs', 'X\n');
+  put('ci/b.mjs', 'EVIL\n');
+  assert.equal(JSON.parse(run('stop-verify.sh').out).decision, 'block', 'content split across files ran on the old yes');
+  assert.deepEqual(marks(), []);
+});
+
+test('the harness asks before an agent records a yes or moves the base the guard trusts', () => {
+  const ask = SETTINGS.permissions.ask;
+  for (const r of ['Bash(*base-guard*--yes*)', 'Bash(git remote set-head:*)', 'Bash(git update-ref:*)', 'Bash(git replace:*)', 'Bash(*refs/remotes/origin*)']) assert.ok(ask.includes(r), `no ask rule ${r}`);
+  for (const t of ['Edit', 'Write']) for (const d of ['//tmp', '//private/tmp']) assert.ok(ask.includes(`${t}(${d}/slipway-gate-yes-*/**)`), `no ask rule ${t}(${d}/…)`);
 });
 
 test.after(() => rmSync(T, { recursive: true, force: true }));

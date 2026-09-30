@@ -276,10 +276,10 @@ test('work-ticket checks its rule files before it reads a setting or runs the ga
 });
 
 // #126: the harness's hooks run origin/HEAD's guard (process/harness/hooks/base-guard.sh, scripts/harness.test.mjs),
-// so the skill can say what still runs before the owner answers: nothing, unless the session started on the branch.
+// so the skill can say what still runs before the owner answers: the branch's tests and code, never its gate files.
 test('work-ticket\'s Configuration says what the harness runs before the rule-file answer', () => {
   const first = ((section(read(skillPath('work-ticket')), 'Configuration', 2) ?? '').split(/\n\s*\n/).find((p) => p.trim()) ?? '').replace(/\s+/g, ' ');
-  assert.match(first, /\*\*What the harness runs before the answer:\*\* nothing from the branch, unless the session started on it \(start on `\{base\}`\); its Stop hook says how to record a yes\./);
+  assert.match(first, /\*\*What the harness runs before the answer:\*\* the branch's tests and code in its Stop hook, never its gate files; a session started on a branch that changes `\.claude\/settings\*\.json` ran its hooks already: say so, and stop\./);
 });
 
 test('process/intake.md says when /work-ticket\'s rule-file check fires: before either settings file is read', () => {

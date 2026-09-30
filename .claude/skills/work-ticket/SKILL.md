@@ -23,9 +23,10 @@ gate runs (package scripts, lint, type and test configs, CI workflows, `ci/**`).
 checking out an existing branch, on its diff to `origin/{base}`, and before the gate or the reviewers run if the list
 grew. The invariants and cold-review files the settings name are checked before either is opened. A check that cannot
 run is not a pass: stop. With no remote, ask the owner for `{base}` and diff against it. A no ends the run: name the
-rule files the branch changed and stop. **What the harness runs before the answer:** nothing from the branch, unless the
-session started on it (start on `{base}`); its Stop hook says how to record a yes. The reviewers get `{base}`'s copies.
-This guard lives in files a branch can change: it holds only on work the owner or their agent wrote (Without an issue).
+rule files the branch changed and stop. **What the harness runs before the answer:** the branch's tests and code in its
+Stop hook, never its gate files; a session started on a branch that changes `.claude/settings*.json` ran its hooks
+already: say so, and stop. The reviewers get `{base}`'s copies. This guard lives in files a branch can change: it holds
+only on work the owner or their agent wrote (Without an issue).
 
 **Reads:** `Product name`, `Issue repo`, `PRD path`, `Feature docs dir`, `Milestone roadmap`, `Change lanes`,
 `Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Domain map`,
@@ -153,8 +154,7 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 4. **Size.** A file this change pushed over 300 lines: split it, or ask.
 5. **Manual testing.** When Phase 2 named a plan, add or amend the journey in `QA plans` now, in the plan's
    own format, with an expected result that can be wrong; a new plan follows that folder's README.
-6. **The checks stay as they are.** The rules the run is judged by change only after the owner says yes
-   (Configuration). Never weaken a check to pass it.
+6. **The checks stay as they are.** Rule files change only on the owner's yes (Configuration); never weaken a check.
 
 ```
 PHASE 4: PROVED
