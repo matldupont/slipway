@@ -1,0 +1,5 @@
+exceptions:
+  - id: pnpm-lock.yaml#fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz{tarball=https://example.invalid/fixture-fork-1.0.0.tgz}
+    reason: the fork carries a fix the registry release lacks
+    owner: build lead
+    expires: 2026-09-30

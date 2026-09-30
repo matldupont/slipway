@@ -1,0 +1,9 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. fixture-app is a workspace: link onto a workspace package folder, and passes; fixture-outside is a workspace: link that lands outside the workspace.",
+  "exit": 1,
+  "findings": [
+    "pnpm-lock.yaml#importers/./fixture-outside@link:../outside",
+    "pnpm-lock.yaml#importers/./linked@link:ext",
+    "pnpm-lock.yaml#snapshots/fixture-ok@1.0.0/kind-of@link:ext"
+  ]
+}

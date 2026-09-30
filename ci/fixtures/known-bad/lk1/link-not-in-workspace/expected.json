@@ -1,0 +1,7 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. tools/x is inside the repository and has a package.json, but no workspace glob (apps/*, packages/*) covers it, so the link is refused.",
+  "exit": 1,
+  "findings": [
+    "pnpm-lock.yaml#importers/apps/api/fixture-db@link:../../tools/x"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-excused": "https://example.invalid/fixture-excused-1.0.0.tgz",
+    "fixture-open": "https://example.invalid/fixture-open-1.0.0.tgz",
+    "fixture-expired": "https://example.invalid/fixture-expired-1.0.0.tgz",
+    "fixture-noreason": "https://example.invalid/fixture-noreason-1.0.0.tgz",
+    "fixture-undated": "https://example.invalid/fixture-undated-1.0.0.tgz",
+    "fixture-ok": "^1.0.0"
+  }
+}

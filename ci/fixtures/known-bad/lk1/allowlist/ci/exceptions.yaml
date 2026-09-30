@@ -1,0 +1,24 @@
+# Inert: the ids name entries of the lockfile beside it, and one workflow job LK1 leaves to FO1.
+exceptions:
+  - id: pnpm-lock.yaml#fixture-excused@https://example.invalid/fixture-excused-1.0.0.tgz{tarball=https://example.invalid/fixture-excused-1.0.0.tgz}
+    reason: the fork carries a fix the registry release lacks
+    owner: build lead
+    expires: 2026-12-31
+  - id: pnpm-lock.yaml#fixture-expired@https://example.invalid/fixture-expired-1.0.0.tgz{tarball=https://example.invalid/fixture-expired-1.0.0.tgz}
+    reason: the fork carries a fix the registry release lacks
+    owner: build lead
+    expires: 2026-06-30
+  - id: pnpm-lock.yaml#fixture-noreason@https://example.invalid/fixture-noreason-1.0.0.tgz{tarball=https://example.invalid/fixture-noreason-1.0.0.tgz}
+    owner: build lead
+    expires: 2026-12-31
+  - id: pnpm-lock.yaml#fixture-undated@https://example.invalid/fixture-undated-1.0.0.tgz{tarball=https://example.invalid/fixture-undated-1.0.0.tgz}
+    reason: the fork carries a fix the registry release lacks
+    owner: build lead
+  - id: pnpm-lock.yaml#fixture-gone@https://example.invalid/fixture-gone-1.0.0.tgz
+    reason: the fork carries a fix the registry release lacks
+    owner: build lead
+    expires: 2026-12-31
+  - id: .github/workflows/ci.yml#detect/filter
+    reason: not a lockfile entry, so LK1 does not read it
+    owner: build lead
+    expires: 2026-12-31
