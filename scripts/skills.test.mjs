@@ -257,7 +257,8 @@ test('work-ticket checks its rule files before it reads a setting or runs the ga
   assert.ok(first.includes('**The rules the run is judged by:**'), 'the first paragraph of Configuration must be the rule-file check');
   assert.ok(first.includes('`git diff --name-only --no-renames origin/{base}`'), 'the rule-file check must run the diff');
   for (const p of ['each `AGENT.md` and `CLAUDE.md` at any depth', '`process/harness/**`']) assert.ok(first.includes(p), `the rule files must name ${p}`);
-  assert.match(first, /again on checking out an existing branch before a file on it is read/, 'a reused branch must be checked before it is read');
+  // #126: a checkout swaps the hooks the harness runs, so a reused branch is asked about before it is checked out.
+  assert.match(first, /before checking out an existing branch, on its diff to `origin\/\{base\}`/, 'a reused branch must be checked before its checkout');
   assert.match(first, /A check that cannot run is not a pass: stop\. With no remote, ask the owner for `\{base\}`/, 'a failed check must stop the run, not pass it');
   assert.match(first, /A no ends the run: name the rule files the branch changed and stop/, 'a no must end the run');
   // First hits over the whole file, any case, across line breaks: nothing above Configuration resolves the settings
@@ -272,6 +273,13 @@ test('work-ticket checks its rule files before it reads a setting or runs the ga
   assert.ok(check < at(/read before Phase 1/i), 'work-ticket reads the docs its settings name before its rule-file check');
   assert.ok(resolve < gate, 'work-ticket runs `Quality gate` before resolving it');
   assert.match(section(md, 'Phase 3 — Build', 2) ?? '', /\*\*Branch\*\* per [^\n]*an existing one gets the rule-file check first/, 'Phase 3 must check a reused branch before building on it');
+});
+
+// #126: the harness's hooks run origin/HEAD's guard (process/harness/hooks/base-guard.sh, scripts/harness.test.mjs),
+// so the skill can say what still runs before the owner answers: nothing, unless the session started on the branch.
+test('work-ticket\'s Configuration says what the harness runs before the rule-file answer', () => {
+  const first = ((section(read(skillPath('work-ticket')), 'Configuration', 2) ?? '').split(/\n\s*\n/).find((p) => p.trim()) ?? '').replace(/\s+/g, ' ');
+  assert.match(first, /\*\*What the harness runs before the answer:\*\* nothing from the branch, unless the session started on it \(start on `\{base\}`\); its Stop hook says how to record a yes\./);
 });
 
 test('process/intake.md says when /work-ticket\'s rule-file check fires: before either settings file is read', () => {

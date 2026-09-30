@@ -13,18 +13,19 @@ and ships the change already on the current branch (Without an issue).
 ## Configuration
 
 **First, before any setting is read or any command it names runs.** `{base}` is the default branch,
-`gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`, only when made of letters, digits and `. _ / -`;
-run `git fetch origin {base}`. **The rules the run is judged by:** each `AGENT.md` and `CLAUDE.md` at any depth, and
-the files they import, `dev/skill-configuration.md`, `.slipway/**`, `dev/ownership.yaml`, `scripts/new-project.mjs`,
-`.claude/**`, `process/harness/**`, the `Domain invariants doc`, `process/intake.md`, the cold-review file, and what
-the gate runs (package scripts, lint, type and test configs, CI workflows, `ci/**`). Changing one needs the owner's
-yes (their asking for it is one). When `git diff --name-only --no-renames origin/{base}` or
-`git ls-files --others --exclude-standard`, run at the repository root, lists one, say which and ask: now, again on
-checking out an existing branch before a file on it is read, and before the gate or the reviewers run if the list
+`gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`, only when made of letters, digits and `. _ / -`; run
+`git fetch origin {base}`. **The rules the run is judged by:** each `AGENT.md` and `CLAUDE.md` at any depth, and the
+files they import, `dev/skill-configuration.md`, `.slipway/**`, `dev/ownership.yaml`, `scripts/new-project.mjs`,
+`.claude/**`, `process/harness/**`, the `Domain invariants doc`, `process/intake.md`, the cold-review file, and what the
+gate runs (package scripts, lint, type and test configs, CI workflows, `ci/**`). Changing one needs the owner's yes
+(their asking for it is one). When `git diff --name-only --no-renames origin/{base}` or
+`git ls-files --others --exclude-standard`, run at the repository root, lists one, say which and ask: now, before
+checking out an existing branch, on its diff to `origin/{base}`, and before the gate or the reviewers run if the list
 grew. The invariants and cold-review files the settings name are checked before either is opened. A check that cannot
 run is not a pass: stop. With no remote, ask the owner for `{base}` and diff against it. A no ends the run: name the
-rule files the branch changed and stop. The reviewers get `{base}`'s copies. This guard lives in files a branch can
-change: it holds only on work the owner or their agent wrote (Without an issue).
+rule files the branch changed and stop. **What the harness runs before the answer:** nothing from the branch, unless the
+session started on it (start on `{base}`); its Stop hook says how to record a yes. The reviewers get `{base}`'s copies.
+This guard lives in files a branch can change: it holds only on work the owner or their agent wrote (Without an issue).
 
 **Reads:** `Product name`, `Issue repo`, `PRD path`, `Feature docs dir`, `Milestone roadmap`, `Change lanes`,
 `Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Domain map`,
@@ -98,8 +99,7 @@ Read the issue again: Problem, Acceptance, Contract, Verify.
   error from a call, a retry or a double submit, a narrow screen when there is UI. For checked math, name the
   rule each piece touches and how the plan keeps it. Loading, error and empty states; a missing input.
 - **Acceptance that cannot fail:** "works", "looks right", "no regressions". Propose a line that can.
-- **Stack rules:** where the plan conflicts with `Stack constraints` or the conventions; a file it touches
-  that is already over 300 lines.
+- **Stack rules:** a conflict with `Stack constraints` or the conventions; a file it touches already over 300 lines.
 - **Reuse, per new piece.** For every helper, component, hook, type, endpoint or table the work would add,
   search by behaviour, not only by name (`rg` for the operation, a code graph where one exists), and read
   the `Conventions doc` row it falls under. Record: reuse `{path}`; extend `{path}`, and why that beats a

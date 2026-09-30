@@ -57,6 +57,40 @@ Known limitations:
 
 ## Hooks
 
+### Base guard
+
+Every hook runs through `hooks/base-guard.sh`, loaded from `origin/HEAD`'s commit rather than the working tree
+(`git cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh`), so a branch cannot change it
+(#126). The guard runs the working tree's hook only when the checkout's gate files are `origin/HEAD`'s: the paths
+the base's own `Edit(...)` ask rules list (above), every `package.json` and `.claude/**`, matched ignoring case,
+tracked or untracked, markdown aside. When one differs, that hook does not run: the Stop hook blocks once to say so
+and name the files, SessionStart says so, and the advisory hooks stay quiet. Otherwise a branch's hook scripts,
+`ci/verify.mjs` and package scripts would run on every command and every turn end, before the owner had been asked
+about them.
+
+Once the owner has said yes to those changes, record it from the repository root:
+
+```bash
+sh -c "$(git cat-file blob origin/HEAD:process/harness/hooks/base-guard.sh)" base-guard --yes
+```
+
+The yes is kept outside the repository, where no branch can write it (`/tmp/slipway-gate-yes-<uid>/`, a directory
+only you can read; `SLIPWAY_GATE_YES_DIR` moves it), as the hash of `origin/HEAD`, the gate-file diff and each
+untracked gate file. Changing any gate file after that makes the hash differ, and the hooks stop again until the
+next yes. With no `origin/HEAD` (a repository made with `git init` and pushed later), no hook runs and SessionStart
+says why; `git remote set-head origin --auto` fixes it, and `new-project` sets it.
+
+Known limitations:
+
+| case | what happens |
+|---|---|
+| a session started on the branch | Claude Code loaded that checkout's `.claude/settings.json` and ran its SessionStart hook before any guard: start sessions on the default branch, and check someone else's checkout with #114's `--check-checkout` first |
+| a checkout mid-session | Claude Code reloads `.claude/settings.json` when it changes on disk, so checking out a branch that changes it swaps the hooks, guard included. `/work-ticket` asks before it checks out such a branch; a checkout you make by hand is yours |
+| the recorded yes | the agent writes it, after the owner's yes; it is as good as the agent's report that the owner said yes |
+| case folding | `icase` pathspecs catch `.NPMRC`; other foldings are the canonical-form limitation above |
+| a stale `origin/HEAD` | a gate file merged since the last fetch counts as changed until you fetch |
+| taking this change in a sync | until the sync's pull request merges, `origin/HEAD` holds no `base-guard.sh`, so a session with the new `.claude/settings.json` runs no hook and says so |
+
 ### Blocking and state
 
 | hook | event | does |
@@ -85,7 +119,7 @@ recognise:
 **Deliberately no more than three, and none load-bearing.** Advisory means ignorable.
 
 The advisory hooks are POSIX `sh` using only `cat`, `grep` and `printf`, and are called through
-`"$CLAUDE_PROJECT_DIR"`, an absolute path. Hooks run under `/bin/sh`, which reads none of your shell
+`"$CLAUDE_PROJECT_DIR"`, an absolute path, by the base guard. Hooks run under `/bin/sh`, which reads none of your shell
 configuration. A hook that depends on a PATH `/bin/sh` does not have fails on every session, and nobody
 notices: a hook that runs cleanly with no output leaves no record, so it looks exactly like one that never
 ran (L-34).
@@ -115,3 +149,10 @@ once there is, make a test fail and it must print `"decision":"block"`.
 In a worktree without `node_modules` (move `apps/web/node_modules` aside, or use a fresh worktree) the
 second must print `"decision":"block"` naming the package and `pnpm install --frozen-lockfile`, and must
 not write `.git/stop-verify-ok`.
+
+The base guard, run as `settings.json` runs it. With a gate file changed (add a line to `ci/verify.mjs`) it must print
+`"decision":"block"` naming the file and run nothing; restored, it must run the Stop hook as above:
+
+```bash
+printf '{}' | env -i HOME="$HOME" PATH=/usr/bin:/bin CLAUDE_PROJECT_DIR="$PWD" sh -c "$(git cat-file blob origin/HEAD:process/harness/hooks/base-guard.sh)" base-guard stop-verify.sh
+```
