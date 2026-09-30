@@ -68,10 +68,10 @@
       "Write(**/.config/mise.*.toml)",
       "Edit(**/.config/mise/**)",
       "Write(**/.config/mise/**)",
-      "Edit(**/mise/config.toml)",
-      "Write(**/mise/config.toml)",
-      "Edit(**/.mise/config.toml)",
-      "Write(**/.mise/config.toml)"
+      "Edit(**/mise/*.toml)",
+      "Write(**/mise/*.toml)",
+      "Edit(**/.mise/*.toml)",
+      "Write(**/.mise/*.toml)"
     ],
     "allow": [
       "Bash(git stash list:*)",

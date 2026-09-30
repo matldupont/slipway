@@ -44,26 +44,46 @@ export function globToRegExp(glob) {
   return new RegExp(`^${body.join('')}$`);
 }
 
+// A name's canonical form: NFKC, then lower case. It approximates how a case-insensitive disk (macOS) folds
+// names, so `.NPMRC`, `NODE_MODULES` and a long-s `node_moduleſ` all read as the name they would open as. An
+// approximation: a folding it misses matters only on a Mac that runs a branch's code, which #114 and #126
+// exist to prevent. N1 and P1 compare with it.
+export const canonical = (s) => s.normalize('NFKC').toLowerCase();
+
 // The paths in `settings` (the harness's rules) plus `more` globs: P1 adds the base branch's rules, so a PR
-// that removes a rule from the harness is still held to it.
+// that removes a rule from the harness is still held to it. Matching is exact. `lookalike(path)` names the
+// gate path a path is not, but reads as in canonical form (`.NPMRC`, `PACKAGE.JSON`): P1 refuses those
+// outright rather than count them as gate files.
 export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more = []) {
-  // Case ignored: a case-insensitive disk checks NODE_MODULES/ or .NPMRC out as the file the rule names.
-  const res = [...new Set([...gateGlobs(settingsText), ...more])].map((g) => new RegExp(globToRegExp(g).source, 'i'));
+  const globs = [...new Set([...gateGlobs(settingsText), ...more])];
+  const exact = globs.map(globToRegExp);
+  const folded = globs.map((g) => [g, globToRegExp(canonical(g))]);
   // A markdown file is a document: it cannot change what a gate checks, even under ci/ or process/harness/.
-  return (path) => !/\.md$/i.test(path) && res.some((re) => re.test(path));
+  const doc = (path) => /\.md$/i.test(canonical(path));
+  const isGate = (path) => !doc(path) && exact.some((re) => re.test(path));
+  isGate.lookalike = (path) => {
+    if (doc(path) || isGate(path)) return null;
+    const c = canonical(path);
+    const hit = folded.find(([, re]) => re.test(c));
+    if (hit) return hit[0];
+    const base = path.split('/').pop();
+    return base !== 'package.json' && canonical(base) === 'package.json' ? 'package.json' : null;
+  };
+  return isGate;
 }
 
 const SHA = /^[0-9a-f]{7,64}$/;
 
 // The package.json keys that decide what a gate command runs, the pnpm and node that run it, and pnpm's
-// settings (`resolutions` pnpm reads as overrides; `engines` and `devEngines` can name a node for pnpm to fetch).
+// settings (`resolutions` pnpm reads as overrides; `engines` and `devEngines` can name a node for pnpm to fetch;
+// `bin` and `directories.bin` name the programs a package puts in node_modules/.bin).
 // The sidecar still calls the list `scripts`.
-export const RUN_KEYS = ['scripts', 'packageManager', 'pnpm', 'resolutions', 'engines', 'devEngines'];
+export const RUN_KEYS = ['scripts', 'packageManager', 'pnpm', 'resolutions', 'engines', 'devEngines', 'bin', 'directories'];
 // A dependency whose version names code in the repository, or a runtime, rather than a registry release: its
 // `bin` lands in node_modules/.bin, where it can stand in for a gate tool. Registry entries are the lockfile's
 // question (#138).
 const DEP_KEYS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
-const LOCAL_SPEC = /^\s*(link:|file:|runtime:|\.{0,2}\/|~\/)/i;
+const LOCAL_SPEC = /^\s*(link:|file:|workspace:|runtime:|\.{0,2}\/|~\/)/i;
 
 const sorted = (v) =>
   Array.isArray(v) ? v.map(sorted) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v;
