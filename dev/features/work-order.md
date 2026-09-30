@@ -203,8 +203,8 @@ anyone can open an issue) into an HTML file the owner opens in a browser, and it
 - **Only three things leave an issue body.** A test plants `SENTINEL-<place>` in an issue body's Problem,
   Contract and Acceptance, in a PR body and in a comment-like trailer, and finds 0 in the page; the planted
   designation text is found.
-- **Bounded reads.** The designation is cut to 600 characters; issues outside the milestone's markers and
-  their sub-issues are never fetched, so an issue someone else files never appears unless the owner's
+- **Bounded reads.** The designation is cut to 600 characters; issues outside the milestone's markers, their
+  sub-issues and the issues a fetched issue names as `Blocked by` (state only) are never fetched, so an issue someone else files never appears unless the owner's
   milestone names it or it is a sub-issue (which only a repository writer can link).
 - **No hijacked `gh`.** Fixed argument arrays, no shell; PATH without repository or `node_modules` entries;
   the repo is validated before it reaches an argument.

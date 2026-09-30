@@ -3,13 +3,13 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test, { after } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { escapeHtml, escapeShown } from '../ci/checks/lib/html.mjs';
-import { collect, render } from '../ci/work-order.mjs';
+import { collect, realGh, render } from '../ci/work-order.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const FIX = join(SRC, 'scripts', 'fixtures', 'work-order');
@@ -254,4 +254,39 @@ test('the page is self-contained: no script, no external request, a lang, light 
 test('escapeHtml drops a bidi override; escapeShown shows it as \\u202e; both escape markup', () => {
   assert.equal(escapeHtml('a‮b<&>"\''), 'ab&lt;&amp;&gt;&quot;&#39;');
   assert.equal(escapeShown('a‮b<&>"\''), 'a\\u202eb&lt;&amp;&gt;&quot;&#39;');
+});
+
+test('a root given without --out is the one read, and the page lands in the temp dir', () => {
+  const home = tmp();
+  const r = spawnSync(process.execPath, [SCRIPT, join(FIX, 'none')], { encoding: 'utf8', cwd: home, env: { ...process.env, TMPDIR: home } });
+  assert.equal(r.status, 0, r.stderr);
+  const file = join(realpathSync(home), 'work-order', 'acme-harbour.html');
+  assert.equal(realpathSync(r.stdout.trim()), file);
+  assert.match(readFileSync(file, 'utf8'), /No milestone is active/);
+});
+
+test('real gh answers a missing issue with data, a NOT_FOUND error and exit 1: the page says "not found", any other error stops it', () => {
+  const answer = (errors) => `if [ "$1" = pr ]; then echo '[]'; exit 0; fi\necho '${JSON.stringify({ data: { repository: { i10: null, i11: null, i16: null } }, errors })}'; exit 1`;
+  const run = (errors) => {
+    const bin = fakeGh(join(tmp(), 'bin'), answer(errors));
+    const saved = process.env.PATH;
+    process.env.PATH = `${bin}:${saved}`;
+    try {
+      return render(collect(join(FIX, 'full'), realGh(join(FIX, 'full'))));
+    } finally {
+      process.env.PATH = saved;
+    }
+  };
+  assert.match(text(run([{ type: 'NOT_FOUND' }])), /#10 not found/);
+  assert.throws(() => run([{ type: 'NOT_FOUND' }, { type: 'FORBIDDEN' }]), /gh failed/);
+});
+
+test('an issue number too large to be one, or a Touches line too long, never reaches a query or the page', () => {
+  const w = world();
+  w.issues[2] = issue(16, { body: body({ blockedBy: `#${'9'.repeat(30)}, #13`, touches: Array.from({ length: 31 }, (_, i) => `ci/${i}/**`).join(', ') }) });
+  const gh = stub(w);
+  const leaf = collect(join(FIX, 'full'), gh).milestone.items[2].leaves[0];
+  assert.deepEqual(leaf.blockers.map((b) => b.n), [13]);
+  assert.equal(leaf.touches, null);
+  assert.ok(gh.calls.every((c) => !c.join(' ').includes('999999999')));
 });

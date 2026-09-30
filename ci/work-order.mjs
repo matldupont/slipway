@@ -8,7 +8,7 @@
 // `gh` is a function (args) -> stdout, so a test answers from fixtures. Zero dependencies (D-004).
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +22,7 @@ import { contents, readMilestoneModel, readMilestones, started } from './checks/
 import { escapeControl } from './checks/lib/report.mjs';
 
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
-const MARKER = /(?:^|\s)·\s*(?:([\w.-]+\/[\w.-]+))?#(\d+)$/;
+const MARKER = /(?:^|\s)·\s*(?:([\w.-]+\/[\w.-]+))?#(\d{1,9})$/;
 const FIELDS = 'number title state stateReason body';
 const PICKS = 3;
 
@@ -86,7 +86,7 @@ export function collect(root, gh) {
     .filter((i) => !PLACEHOLDER.test(i.text))
     .map((i) => {
       const at = started(i.text) ? i.text.trimEnd().slice(-200).match(MARKER) : null;
-      return { n: i.n, text: plain(i.text.replace(MARKER, '').replace(/\s+/g, ' ')), issue: at ? Number(at[2]) : null, foreign: at?.[1] && at[1].toLowerCase() !== repo.toLowerCase() ? at[1] : null };
+      return { n: i.n, text: plain(i.text.trimEnd().replace(MARKER, '').replace(/\s+/g, ' ')), issue: at ? Number(at[2]) : null, foreign: at?.[1] && at[1].toLowerCase() !== repo.toLowerCase() ? at[1] : null };
     });
   const read = items.filter((i) => i.issue !== null && !i.foreign).map((i) => i.issue);
   const byNumber = read.length ? issues(gh, repo, [...new Set(read)], `${FIELDS} subIssues(first:50){nodes{${FIELDS}}}`) : new Map();
@@ -225,7 +225,7 @@ function main(argv) {
   const args = argv.slice(2);
   const at = args.indexOf('--out');
   const out = at < 0 ? undefined : args[at + 1];
-  const root = args.find((a, i) => !a.startsWith('--') && i !== at + 1) ?? '.';
+  const root = args.find((a, i) => !a.startsWith('--') && (at < 0 || i !== at + 1)) ?? '.';
   if (at >= 0 && !out) {
     process.stderr.write('usage: node ci/work-order.mjs [root] [--out <file>]\n');
     return 2;
@@ -236,7 +236,12 @@ function main(argv) {
     const html = render(model);
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(`${file}.tmp`, html);
-    renameSync(`${file}.tmp`, file);
+    try {
+      renameSync(`${file}.tmp`, file);
+    } catch (err) {
+      rmSync(`${file}.tmp`, { force: true });
+      throw err;
+    }
     process.stdout.write(`${file}\n`);
     return 0;
   } catch (err) {

@@ -7,6 +7,8 @@ import { plain, section } from './markdown.mjs';
 
 const DESIGNATION_MAX = 600;
 const BLOCKERS_MAX = 50;
+const TOUCHES_MAX = 30;
+const ENTRY_MAX = 120;
 const ENTRY = /^[A-Za-z0-9._\-/*]+$/;
 
 // A segment of the `### Links` line: the text after `Label:` up to the next ` · ` or the line's end.
@@ -31,7 +33,7 @@ export function designation(body) {
 export function blockers(body) {
   const text = segment(section(body, 'Links', 3) ?? '', 'Blocked by');
   if (text === null || text === '' || /^none\.?$/i.test(text)) return { numbers: [], unfiled: false };
-  const numbers = [...new Set([...text.matchAll(/#(\d+)/g)].map((m) => Number(m[1])))].slice(0, BLOCKERS_MAX);
+  const numbers = [...new Set([...text.matchAll(/#(\d{1,9})(?!\d)/g)].map((m) => Number(m[1])))].slice(0, BLOCKERS_MAX);
   const rest = text.replace(/#\d+/g, '').replace(/\band\b/gi, '').replace(/[\s,;&+]/g, '');
   return { numbers, unfiled: rest !== '' };
 }
@@ -42,7 +44,7 @@ export function touches(body) {
   const text = segment(section(body, 'Links', 3) ?? '', 'Touches');
   if (!text) return null;
   const entries = text.split(',').map((e) => e.replace(/`/g, '').trim());
-  return entries.every((e) => ENTRY.test(e) && !e.includes('..') && !e.startsWith('/')) ? entries : null;
+  return entries.length <= TOUCHES_MAX && entries.every((e) => e.length <= ENTRY_MAX && ENTRY.test(e) && !e.includes('..') && !e.startsWith('/')) ? entries : null;
 }
 
 // Two entries overlap when one's key (its text up to the first `*`) is a prefix of the other's: a false overlap is
