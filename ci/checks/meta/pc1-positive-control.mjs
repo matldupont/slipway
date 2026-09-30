@@ -20,6 +20,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rawCharacters } from '../lib/raw-output.mjs';
 import { EXIT, report } from '../lib/report.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,7 @@ function runCase(check, name, dir) {
     findings.push({ where: name, detail: `check emitted no @@json report (exit ${r.status}): ${tail}` });
     return;
   }
+  printedRaw(name, r);
   const got = JSON.parse(line.slice('@@json '.length));
   if (got.exit === EXIT.GREEN) {
     findings.push({ where: name, detail: 'PASSED its known-bad fixture — the check cannot fail, so its green means nothing' });
@@ -85,6 +87,13 @@ function runCase(check, name, dir) {
     wrong.push(`warnings differ: missing ${JSON.stringify(w.missing)}, unexpected ${JSON.stringify(w.unexpected)}`);
   }
   if (wrong.length) findings.push({ where: name, detail: `red for the wrong reasons — ${wrong.join('; ')}` });
+}
+
+// A check prints project text, so a fixture may hold control, bidi and separator characters: none may reach
+// the output raw, where a CI log or the next agent's context would act on it.
+function printedRaw(name, r) {
+  const raw = rawCharacters(r.stdout, r.stderr);
+  if (raw) findings.push({ where: name, detail: `printed ${raw} raw: escape it where the check prints (report() does)` });
 }
 
 for (const c of checks) {

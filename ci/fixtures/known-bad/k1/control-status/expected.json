@@ -1,0 +1,7 @@
+{
+  "_note": "The FRAME status value holds an ESC (erase line) and a right-to-left override, so it is neither draft nor framed and K1 quotes it. PC1 fails the case when either reaches K1's output raw.",
+  "exit": 1,
+  "findings": [
+    "FRAME.md#status/unknown"
+  ]
+}

@@ -18,10 +18,18 @@
 
 export const EXIT = { GREEN: 0, FINDINGS: 1, BROKEN: 2 };
 
-// Text from a project file with each C0/C1 control character shown as \uXXXX, so a finding or an error
-// quoting it prints nothing raw: no terminal escape, no CI log command.
+// Text from a project file with each C0/C1 control character, bidi embedding, override and isolate
+// (U+202A–U+202E, U+2066–U+2069) and line or paragraph separator (U+2028, U+2029) shown as \uXXXX, so a
+// finding or an error quoting it prints nothing raw: no terminal escape, no CI log command, no text
+// reordered or broken where a person reads it. escapeOutput is the same for a whole printed report: it keeps
+// the newlines and tabs the checks write themselves. CONTROL is C0/C1 only: what sync refuses in a path.
 export const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
-export const escapeControl = (s) => s.replace(/[\u0000-\u001f\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
+const UNSAFE = '\\u0000-\\u0008\\u000b-\\u001f\\u007f-\\u009f\\u2028\\u2029\\u202a-\\u202e\\u2066-\\u2069';
+const hex = (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`;
+const inField = new RegExp(`[\\t\\n${UNSAFE}]`, 'g');
+const inOutput = new RegExp(`[${UNSAFE}]`, 'g');
+export const escapeControl = (s) => s.replace(inField, hex);
+export const escapeOutput = (s) => s.replace(inOutput, hex);
 
 /**
  * @param {object} o
@@ -64,6 +72,6 @@ export function report({ id, claim, scanned, unit, findings = [], exempted = [],
     const [reported, warned] = exit === EXIT.BROKEN ? [[], []] : [findings, warnings];
     L.push('@@json ' + JSON.stringify({ id, scanned, unit, exit, broken, findings: reported, exempted, warnings: warned }));
   }
-  process.stdout.write(L.join('\n') + '\n');
+  process.stdout.write(escapeOutput(L.join('\n')) + '\n');
   return exit;
 }

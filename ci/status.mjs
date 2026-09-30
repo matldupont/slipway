@@ -14,6 +14,7 @@ import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { contents, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { escapeOutput } from './checks/lib/report.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -23,7 +24,7 @@ let today;
 try {
   today = localToday(root);
 } catch (e) {
-  process.stderr.write(`status: ${e.message}\n`);
+  process.stderr.write(`status: ${escapeOutput(e.message)}\n`);
   process.exit(2);
 }
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
@@ -249,7 +250,9 @@ const attention = [
   ...dueSoon.map((d) => `Lesson review: ${d}`),
 ];
 L.push('## Needs attention', '', ...(attention.length ? attention.map((a) => `- ${a}`) : ['- nothing']), '');
-const text = L.join('\n');
+// Project text is printed as read (milestone titles, ids, deadlines): each control, bidi and separator character
+// is shown as \uXXXX, here and in the hook's context.
+const text = escapeOutput(L.join('\n'));
 
 if (args.includes('--hook')) {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }) + '\n');
