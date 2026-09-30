@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from './frontmatter.mjs';
-import { plain, prose, section } from './markdown.mjs';
+import { plain, prose, section, strictSection } from './markdown.mjs';
 
 export const MILESTONE_STATUSES = ['shaping', 'active', 'closed', 'killed'];
 export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet'];
@@ -64,12 +64,8 @@ export function started(text) {
 // only, and the heading must start its line, so a `## No-gos` in a code fence, a comment or indented under another
 // section's list is never taken for the section. It ends at the next `#` or `##` heading that starts a line.
 export function noGos(md) {
-  const lines = prose(md).split(/\r?\n/);
-  const start = lines.findIndex((l) => /^##\s+No-gos\s*$/i.test(l));
-  if (start < 0) return [];
-  const end = lines.findIndex((l, i) => i > start && /^#{1,2}\s/.test(l));
   const items = [];
-  for (const line of lines.slice(start + 1, end < 0 ? undefined : end)) {
+  for (const line of (strictSection(prose(md), 'No-gos', 2) ?? '').split(/\r?\n/)) {
     const open = line.match(/^[-*]\s+(.*)$/);
     if (open) items.push(open[1]);
     else if (items.length && /^\s+\S/.test(line)) items[items.length - 1] += ' ' + line.trim();

@@ -158,6 +158,9 @@ The URL (`<owner>.github.io/<repo>/`) is guessable. Anything in a published fiel
 - A milestone file that is a symlink is read through to its target, as MS1 and `pnpm status` read it. Only a
   committer can add one, and a committer can already edit any published field; the target still passes the
   allowlist, so only its frontmatter `id`, status and allowed fields can show.
+- Milestone text is read as prose by a small reader, not a full markdown parser. Where it misreads, it hides
+  more than it shows: a stray `<!--` (in inline code, or inside a fence) hides the rest of the file, so a title or
+  no-gos after it are left off the page. Nothing hidden is ever shown.
 - The page shows the milestone's words. A `summary` or no-go written in jargon reads as jargon; the page
   does not rewrite it.
 

@@ -71,6 +71,8 @@ test('a public row that is not a live Skill Configuration row leaves the page of
     'in an HTML comment': (a) => `${a}\n<!-- example:\n${row}\n-->\n`,
     'in a code fence': (a) => `${a}\n\`\`\`\n${row}\n\`\`\`\n`,
     'outside the Skill Configuration section': (a) => `${a}\n## Examples\n\n| Key | Value | What |\n|---|---|---|\n${row}\n`,
+    'after an indented Skill Configuration heading in an example': (a) =>
+      `## Examples\n\n    ## Skill Configuration\n\n${row}\n\n${a.replace(/^# .*\n/, '')}`,
   };
   for (const [name, edit] of Object.entries(shapes)) {
     const root = tmp();
@@ -131,6 +133,14 @@ test('a heading-shaped line in frontmatter, a comment or a code fence is never r
     'a No-gos heading in an HTML comment': (md) => md.replace('## Why\n', '## Why\n\n<!--\n## No-gos\n- SENTINEL-comment-nogo\n-->\n'),
     'an indented No-gos heading under a Why list': (md) => md.replace('## Why\n', '## Why\n\n- intro\n  ## No-gos\n- SENTINEL-indented-nogo\n'),
   };
+  // Lines that look like a fence opener but are not one, and so must not swallow the H1 after them.
+  const notFences = {
+    'inline code with backticks on one line': (md) => md.replace(/^# M1 — /m, '``` x ```\n\n# M1 — '),
+    'a tab-indented fence (a code block line)': (md) => md.replace(/^# M1 — /m, '\t```\n\n# M1 — '),
+  };
+  for (const [name, edit] of Object.entries(notFences)) {
+    assert.match(render(variant('M1-booking.md', edit)), /M1<\/span> Online booking</, name);
+  }
   for (const [name, edit] of Object.entries(cases)) {
     const html = render(variant('M1-booking.md', edit));
     assert.deepEqual(html.match(/SENTINEL[\w-]*/g) ?? [], [], name);

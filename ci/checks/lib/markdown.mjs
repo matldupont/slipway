@@ -29,13 +29,26 @@ export function prose(md) {
   const out = [];
   let fence = null;
   for (const line of text.split(/\r?\n/)) {
-    const mark = line.match(/^\s{0,3}(`{3,}|~{3,})/)?.[1];
+    // A backtick fence's info string holds no backtick (` ``` x ``` ` is inline code); a tab indent is a code block.
+    const mark = line.match(/^ {0,3}(`{3,}(?![^`]*`)|~{3,})/)?.[1];
     if (fence) {
       if (mark && mark[0] === fence[0] && mark.length >= fence.length && line.trim() === mark) fence = null;
     } else if (mark) fence = mark;
     else out.push(line);
   }
   return out.join('\n');
+}
+
+// Like section(), for text that will be published: the heading must start its line (an indented one may be an
+// example in a code block), and the section ends at the next heading of the same or a higher level that starts
+// its line. Pass prose() text, so comments and fences are already gone. null if absent.
+export function strictSection(text, title, level) {
+  const lines = text.split(/\r?\n/);
+  const heading = new RegExp(`^#{${level}}\\s+${escapeRe(title)}\\s*$`, 'i');
+  const start = lines.findIndex((l) => heading.test(l));
+  if (start < 0) return null;
+  const end = lines.findIndex((l, i) => i > start && new RegExp(`^#{1,${level}}\\s`).test(l));
+  return lines.slice(start + 1, end < 0 ? undefined : end).join('\n');
 }
 
 // GitHub renders an empty issue-form field as `_No response_`.
