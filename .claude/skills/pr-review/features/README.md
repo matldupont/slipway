@@ -152,25 +152,29 @@ running_in_pr_checkout`), so review from a clean checkout, without your own
 uncommitted work.
 
 Files the checkout's ignore rules hide are not compared, since your own
-local settings live there. A PR can leave its own there too: it
-force-commits an ignored file, and a `git reset <base>` keeps it on disk.
-So the ignored files Claude Code loads are judged instead:
+local settings and `node_modules/` live there. A PR can leave its own there
+too: it force-commits files, and a `git reset <base>` keeps them on disk,
+hidden by the base's ignore rules or by a `.gitignore` of the PR's own, or
+named as a case-insensitive disk folds them. So the check also reads git's
+record of where HEAD has been (`logs/HEAD` in the checkout's git folder),
+which a PR cannot write: when HEAD has ever been on a commit outside the
+base's history, the checkout is refused, however its files hide. It is read
+from the file itself, since git's own reflog commands fall back to HEAD's
+commit when the record is missing. A record that is missing, empty or
+unreadable, or switched off (`core.logAllRefUpdates=false`), refuses too.
 
-- `.claude/settings.local.json` passes only when it holds keys Claude Code
-  writes there itself and that run nothing: `permissions`,
-  `enableAllProjectMcpServers`, `enabledMcpjsonServers`,
-  `disabledMcpjsonServers` and `spinnerTipsEnabled` (the settings
-  reference). Any other key (`hooks`, `statusLine`, `apiKeyHelper`, `env`…)
-  runs code or changes how it runs, and fails; so does a file that does not
-  parse.
-- An ignored `.mcp.json` defines servers, which run code: it fails.
-- An ignored `CLAUDE.local.md` is instructions, not code: it passes, and is
-  listed.
+That refuses a checkout where you have checked out your own branches as
+well. Review from a fresh worktree off the base; every refusal prints the
+one command that makes it:
 
-Every ignored file that passes is printed as `not compared (ignored; confirm
-it is yours)`. Any other ignored file is not seen, including one a PR's code
-wrote (an install script run in that checkout). Never reuse a PR's checkout
-by resetting it, and run nothing from a PR in a checkout before this check.
+```bash
+git -C '/path/to/checkout' worktree add --detach '/path/to/checkout-review-1a2b3c4d' <base sha>
+```
+
+Still not seen: a file a PR's code wrote into an ignored path of a checkout
+that never left the base (an install script you ran there), and a record
+git has already pruned (`gc.reflogExpireUnreachable`, 30 days by default).
+Run nothing from a PR in a checkout you review from.
 
 ## Environment
 
@@ -345,6 +349,9 @@ against a real temporary git repo, fetching a head that exists only under
 off, `runGit` refusing every command that writes a working tree, and the
 checkout comparison (each loaded file and start-up hook script changed in
 turn, a differently cased `.claude/` folder, a symlink's target, a
-submodule, a failing `git status`, and `--check-checkout`'s exit codes). A
+submodule, a checkout reset to the base after holding the PR, HEAD's record
+missing, empty or switched off, a failing git command, and
+`--check-checkout`'s exit codes, including pasting the worktree command it
+prints). A
 source scan fails if compute.ts reaches git other than through `execGit`,
 or names a git command outside `GIT_ALLOWED`.

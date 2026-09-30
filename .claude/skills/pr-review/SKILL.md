@@ -100,11 +100,11 @@ node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts -
 
 It exits 0 only when that checkout is the base branch's, with nothing
 changed or added: what Claude Code runs there (settings hooks and the
-scripts they call, `CLAUDE.md` and its imports, skills) reaches any file. The
-ignored files Claude Code loads are judged too: a `.claude/settings.local.json`
-holding more than permissions and MCP approvals fails, and each one that
-passes is listed for you to confirm. Never reuse a PR's checkout by
-resetting it to the base.
+scripts they call, `CLAUDE.md` and its imports, skills) reaches any file.
+It also refuses a checkout whose HEAD has ever been on a commit outside the
+base's history, since files a PR left behind can hide from git as ignored
+ones; a missing or switched-off record of HEAD refuses too. Each refusal
+prints the one command that makes a fresh review worktree off the base.
 
 **First, where you are running.** Using `git` and `gh` only. The `gh pr
 view` and the git line each ask once; `<baseRefOid>` is used only when it
@@ -127,8 +127,9 @@ aside). No list of files would do: this skill, the settings and their hooks,
 `CLAUDE.md` and its imports reach scripts, symlink targets and submodules
 anywhere in the tree, and a PR's `.CLAUDE/` folder lands in `.claude/` on a
 case-insensitive disk. A checkout at any head of the PR, current or older,
-fails it, and so does your own uncommitted work: review from a clean
-checkout. When either fails, stop before running anything: the skill and
+fails it, and so does your own uncommitted work, or a HEAD that has ever
+been outside the base's history (`features/README.md` → `--check-checkout`):
+review from a fresh worktree off the base, as the refusal says. When either fails, stop before running anything: the skill and
 `compute.ts` you would run may be the PR's. Say so, and ask the
 user to run the review from a clean checkout of the base branch, passing
 the PR number. Omitting the PR (current-branch mode) is only for the

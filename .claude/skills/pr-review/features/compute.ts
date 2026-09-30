@@ -41,7 +41,7 @@
  *
  * Requirements:
  *   - `gh` (authenticated) and `git` on PATH
- *   - Node 18+ OR bun
+ *   - Node 22.18+ (it strips the types) OR bun
  *   - No npm/bun runtime dependencies — Node stdlib only
  */
 
@@ -458,12 +458,13 @@ export function _setVerboseLog(fn: ((msg: string) => void) | null): void {
 export const GIT_SAFE_ARGS = ["-c", "core.hooksPath=/dev/null"];
 
 /**
- * The only git commands compute.ts runs: each reads objects or refs, fetches
- * them, or compares the reviewer's own checkout with the base. Nothing that
+ * The only git commands compute.ts runs: each reads objects, refs or
+ * configuration (`config --get` alone), fetches them, or compares the
+ * reviewer's own checkout with the base. Nothing that
  * writes or adds a working tree (checkout, switch, reset, restore, clone,
  * merge, stash…) is on it, so no code path can put the PR's files on disk.
  */
-export const GIT_ALLOWED = new Set(["rev-parse", "fetch", "ls-tree", "cat-file", "diff", "merge-base", "status", "remote"]);
+export const GIT_ALLOWED = new Set(["rev-parse", "fetch", "ls-tree", "cat-file", "diff", "merge-base", "status", "remote", "rev-list", "config"]);
 
 /**
  * Every git call goes through here: an argv array (no shell), an allowed
@@ -473,6 +474,8 @@ function execGit(args: string[], cwd?: string): Buffer {
   if (!GIT_ALLOWED.has(args[0] ?? "")) {
     throw new Error(`git ${args[0] ?? "(none)"} is not run here: ${NO_CHECKOUT}`);
   }
+  // git config reads only: it also writes, and a write is never run here.
+  if (args[0] === "config" && args[1] !== "--get") throw new Error("git config is run only as config --get");
   return execFileSync("git", [...GIT_SAFE_ARGS, ...args], {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
@@ -938,55 +941,58 @@ export function isInPrCheckout(
 }
 
 export interface CheckoutComparison {
-  /** True only when the checkout is the base commit's and no ignored file it loads could run code. */
+  /** True only when the checkout is the base commit's and HEAD has only ever been on the base's history. */
   matches: boolean;
   /** The paths that differ, as git printed them: the author's text, data only. */
   differing: string[];
-  /** Ignored files Claude Code loads that fail the check, and why. */
-  refused: { path: string; why: string }[];
-  /** Ignored files Claude Code loads that pass unread by the comparison: the owner confirms they are theirs. */
-  unchecked: string[];
+  /** Why HEAD's history refuses the checkout (headHistoryRefusal); null when it does not. */
+  history: string | null;
   /** Why the comparison could not run; the check then fails. */
   error: string | null;
 }
 
 /**
- * Ignored files are not in the comparison, but Claude Code loads some of
- * them, and a PR can leave its own there: force-committed, then kept on disk
- * by a `git reset <base>`. Claude Code writes `.claude/settings.local.json`
- * itself, so that file passes when it holds only the keys it writes that run
- * nothing (settings reference: permissions, the project `.mcp.json`
- * approvals, spinner tips); any other key (hooks, statusLine, apiKeyHelper,
- * env…) runs code or changes how it runs, and fails, as does a file that
- * does not parse. An ignored `.mcp.json` defines servers that run, and
- * fails. An ignored `CLAUDE.local.md` is instructions, not code: it is listed.
+ * Why this checkout's HEAD history refuses it, or null when HEAD has only
+ * ever been on the base's history. Ignored files are not compared, and a PR
+ * can leave its own there: force-committed, then kept on disk by a
+ * `git reset <base>`, hidden by a `.gitignore` of its own, named as a
+ * case-insensitive disk folds them, or under `node_modules/`. The record of
+ * where HEAD has been, which git writes in `.git` and a PR cannot, shows
+ * such a checkout held a commit outside the base's history, however its
+ * files hide. Read from the file itself: git's own reflog commands fall back
+ * to HEAD's commit when the record is missing. Missing, empty, unreadable or
+ * switched off refuses.
  */
-const IGNORED_LOADED = [
-  ":(icase,glob)**/.claude/settings.local.json",
-  ":(icase,glob)**/CLAUDE.local.md",
-  ":(icase,glob)**/.mcp.json",
-];
-export const LOCAL_SETTINGS_KEYS = new Set([
-  "permissions",
-  "enableAllProjectMcpServers",
-  "enabledMcpjsonServers",
-  "disabledMcpjsonServers",
-  "spinnerTipsEnabled",
-]);
-
-function judgeIgnored(repoRoot: string, rel: string): string | null {
-  const name = rel.toLowerCase();
-  if (name.endsWith(".mcp.json")) return "an ignored .mcp.json defines MCP servers, which run code";
-  if (!name.endsWith("settings.local.json")) return null;
-  let settings: unknown;
+function headHistoryRefusal(repoRoot: string, baseSha: string): string | null {
+  let logging = "";
   try {
-    settings = JSON.parse(readFileSync(join(repoRoot, rel), "utf8"));
-  } catch {
-    return "it does not parse as JSON";
+    logging = runGit(["config", "--get", "core.logAllRefUpdates"], repoRoot);
+  } catch (err) {
+    // Exit 1 is "unset": git then records HEAD in a checkout.
+    if ((err as { status?: number }).status !== 1) throw err;
   }
-  if (typeof settings !== "object" || settings === null || Array.isArray(settings)) return "it is not a JSON object";
-  const other = Object.keys(settings).filter((k) => !LOCAL_SETTINGS_KEYS.has(k));
-  return other.length > 0 ? `it sets ${other.map(printable).join(", ")}, beyond what Claude Code writes there` : null;
+  if (logging.toLowerCase() === "false") {
+    return "git's record of where HEAD has been is switched off here (core.logAllRefUpdates=false)";
+  }
+  const file = runGit(["rev-parse", "--path-format=absolute", "--git-path", "logs/HEAD"], repoRoot);
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    return "git has no record of where HEAD has been in this checkout";
+  }
+  const commits = new Set<string>();
+  for (const line of text.split("\n")) {
+    if (line === "") continue;
+    const m = /^([0-9a-f]{40}|[0-9a-f]{64}) ([0-9a-f]{40}|[0-9a-f]{64}) /.exec(line);
+    if (!m) return "git's record of where HEAD has been does not read";
+    for (const sha of [m[1], m[2]]) if (!/^0+$/.test(sha)) commits.add(sha);
+  }
+  if (commits.size === 0) return "git's record of where HEAD has been is empty";
+  const outside = runGit(["rev-list", "--max-count=1", ...commits, "--not", baseSha], repoRoot);
+  return outside === ""
+    ? null
+    : `HEAD has been on ${outside.slice(0, 12)}, outside the base's history: files a PR left here can hide from git`;
 }
 
 /**
@@ -998,11 +1004,11 @@ function judgeIgnored(repoRoot: string, rel: string): string | null {
  * files is the set it runs, so any difference fails. A checkout at any head
  * of the PR, current or older, fails it. It fails closed: an unknown base,
  * or a git command that errors, is a failure. Ignored files are not
- * compared, since the owner's own local settings live there; the ones Claude
- * Code loads are judged instead (IGNORED_LOADED).
+ * compared, since the owner's own local settings live there; HEAD's history
+ * stands in for them (headHistoryRefusal).
  */
 export function compareWithBase(repoRoot: string, baseSha: string | null): CheckoutComparison {
-  const none = { differing: [], refused: [], unchecked: [] };
+  const none = { differing: [], history: null };
   if (!baseSha) return { matches: false, ...none, error: "the base commit is unknown" };
   try {
     const tracked = execGit(
@@ -1015,18 +1021,8 @@ export function compareWithBase(repoRoot: string, baseSha: string | null): Check
       repoRoot,
     ).toString("utf8").split("\0").map((e) => e.slice(3));
     const differing = [...new Set([...tracked, ...status])].filter((p) => p !== "");
-    const ignored = execGit(
-      ["status", "--porcelain", "-z", "--ignored=matching", "--untracked-files=all", "--no-renames", "--", ...IGNORED_LOADED],
-      repoRoot,
-    ).toString("utf8").split("\0").filter((e) => e.startsWith("!! ")).map((e) => e.slice(3));
-    const refused: { path: string; why: string }[] = [];
-    const unchecked: string[] = [];
-    for (const rel of ignored) {
-      const why = judgeIgnored(repoRoot, rel);
-      if (why) refused.push({ path: rel, why });
-      else unchecked.push(rel);
-    }
-    return { matches: differing.length === 0 && refused.length === 0, differing, refused, unchecked, error: null };
+    const history = headHistoryRefusal(repoRoot, baseSha);
+    return { matches: differing.length === 0 && history === null, differing, history, error: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);
     return { matches: false, ...none, error: `git failed: ${msg}` };
@@ -1088,21 +1084,29 @@ export function checkCheckout(
     return { code: 1, lines: [`${printable(repoRoot)} does not hold ${label} (${base.slice(0, 12)}): fetch the base repository into it first.`] };
   }
   const result = compareWithBase(repoRoot, base);
-  const unchecked = result.unchecked.map((p) => `  not compared (ignored; confirm it is yours): ${printable(p)}`);
   if (result.matches) {
     return {
       code: 0,
-      lines: [`ok: ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}), with nothing changed or added.`, ...unchecked],
+      lines: [`ok: ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}), with nothing changed or added, and HEAD has been nowhere else.`],
     };
   }
   const lines = [`Do not start Claude Code in ${printable(repoRoot)}: it is not ${label}'s (${base.slice(0, 12)}), and what Claude Code runs there may not be either.`];
   if (result.error) lines.push(`The comparison could not run: ${result.error}`);
   for (const p of result.differing.slice(0, 20)) lines.push(`  differs: ${printable(p)}`);
   if (result.differing.length > 20) lines.push(`  …and ${result.differing.length - 20} more`);
-  for (const r of result.refused) lines.push(`  refused: ${printable(r.path)}: ${r.why}`);
-  lines.push(...unchecked);
-  lines.push("Review from a clean checkout of the base branch instead, with nothing changed, passing the PR number to /pr-review.");
+  if (result.history) lines.push(`  ${result.history}.`);
+  lines.push("Review from a fresh worktree off the base instead, and start Claude Code there:", `  ${reviewWorktreeCommand(repoRoot, base)}`);
   return { code: 1, lines };
+}
+
+/** Quoted for a POSIX shell when it is printable ASCII; otherwise a placeholder, never raw bytes to a terminal. */
+function shellArg(p: string, placeholder: string): string {
+  return /^[\x20-\x7e]+$/.test(p) ? `'${p.replace(/'/g, "'\\''")}'` : placeholder;
+}
+
+/** The one command that makes a clean review worktree off the base, beside the checkout. */
+export function reviewWorktreeCommand(repoRoot: string, base: string): string {
+  return `git -C ${shellArg(repoRoot, "<this checkout>")} worktree add --detach ${shellArg(`${repoRoot}-review-${base.slice(0, 8)}`, "<new folder>")} ${base}`;
 }
 
 /**
@@ -1981,9 +1985,8 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   // On someone else's PR, this checkout must be the base's, whole: a
   // checkout at an older head of the PR has a different HEAD but the PR's
   // files, and what Claude Code runs here reaches any of them.
-  const inPrCheckout =
-    isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha) ||
-    (reviewMode === "peer" && !!repoRoot && !!baseCommit && !checkoutMatchesBase(repoRoot, baseCommit));
+  const comparison = reviewMode === "peer" && repoRoot && baseCommit ? compareWithBase(repoRoot, baseCommit) : null;
+  const inPrCheckout = isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha) || (comparison !== null && !comparison.matches);
 
   const [owner, repo] = meta.projectPath.split("/");
   const { threads, closingIssues } = fetchReviewThreadsAndClosingIssues(owner, repo, meta.number);
@@ -2026,9 +2029,11 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     hardHalt = {
       reason: "running_in_pr_checkout",
       detail:
-        `this checkout differs from the base commit (a changed, added or untracked file), or it is the PR's own head, ` +
+        `this checkout differs from the base commit (a changed, added or untracked file), or HEAD has been outside ` +
+        `the base's history${comparison?.history ? ` (${comparison.history})` : ""}, or it is the PR's own head, ` +
         `and the PR is @${meta.author.username}'s: what runs here may be the PR's. ` +
-        `Run from a clean checkout of ${meta.targetBranch}, passing the PR number.`,
+        `Review from a fresh worktree off the base, passing the PR number` +
+        (repoRoot && baseCommit ? `: ${reviewWorktreeCommand(repoRoot, baseCommit)}` : "."),
     };
   }
   if (!hardHalt) hardHalt = commitHalt;
