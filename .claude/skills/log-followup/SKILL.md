@@ -39,6 +39,8 @@ Resolve per `process/intake.md` → Configuration, before Phase 1.
 
 Read the parent in full, and `Effort decision-tree`. Do not read the PRD, invariants or testing docs: that
 depth belongs to `/log-feature` and `/log-bug`, and a framed follow-up does not need it.
+Before asking the owner a design question, apply `process/decision-defaults.md`: a question it settles is decided, not
+asked, and recorded as "decided by decision-defaults §n".
 
 ## Phase 1 — Frame check and parent
 
