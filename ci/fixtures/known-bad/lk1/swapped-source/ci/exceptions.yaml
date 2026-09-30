@@ -1,0 +1,6 @@
+# The excuse names the mirror the package came from; the lockfile now names another address.
+exceptions:
+  - id: pnpm-lock.yaml#m@1.0.0{tarball=https://mirror.example.invalid/m-1.0.0.tgz}
+    reason: our mirror serves it
+    owner: build lead
+    expires: 2026-12-31

@@ -1,0 +1,67 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      fixture-excused:
+        specifier: https://example.invalid/fixture-excused-1.0.0.tgz
+        version: fixture-excused@https://example.invalid/fixture-excused-1.0.0.tgz
+      fixture-open:
+        specifier: https://example.invalid/fixture-open-1.0.0.tgz
+        version: fixture-open@https://example.invalid/fixture-open-1.0.0.tgz
+      fixture-expired:
+        specifier: https://example.invalid/fixture-expired-1.0.0.tgz
+        version: fixture-expired@https://example.invalid/fixture-expired-1.0.0.tgz
+      fixture-noreason:
+        specifier: https://example.invalid/fixture-noreason-1.0.0.tgz
+        version: fixture-noreason@https://example.invalid/fixture-noreason-1.0.0.tgz
+      fixture-undated:
+        specifier: https://example.invalid/fixture-undated-1.0.0.tgz
+        version: fixture-undated@https://example.invalid/fixture-undated-1.0.0.tgz
+      fixture-ok:
+        specifier: ^1.0.0
+        version: 1.0.0
+
+packages:
+
+  fixture-excused@https://example.invalid/fixture-excused-1.0.0.tgz:
+    resolution: {tarball: https://example.invalid/fixture-excused-1.0.0.tgz}
+    version: 1.0.0
+
+  fixture-open@https://example.invalid/fixture-open-1.0.0.tgz:
+    resolution: {tarball: https://example.invalid/fixture-open-1.0.0.tgz}
+    version: 1.0.0
+
+  fixture-expired@https://example.invalid/fixture-expired-1.0.0.tgz:
+    resolution: {tarball: https://example.invalid/fixture-expired-1.0.0.tgz}
+    version: 1.0.0
+
+  fixture-noreason@https://example.invalid/fixture-noreason-1.0.0.tgz:
+    resolution: {tarball: https://example.invalid/fixture-noreason-1.0.0.tgz}
+    version: 1.0.0
+
+  fixture-undated@https://example.invalid/fixture-undated-1.0.0.tgz:
+    resolution: {tarball: https://example.invalid/fixture-undated-1.0.0.tgz}
+    version: 1.0.0
+
+  fixture-ok@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}
+
+snapshots:
+
+  fixture-excused@https://example.invalid/fixture-excused-1.0.0.tgz: {}
+
+  fixture-open@https://example.invalid/fixture-open-1.0.0.tgz: {}
+
+  fixture-expired@https://example.invalid/fixture-expired-1.0.0.tgz: {}
+
+  fixture-noreason@https://example.invalid/fixture-noreason-1.0.0.tgz: {}
+
+  fixture-undated@https://example.invalid/fixture-undated-1.0.0.tgz: {}
+
+  fixture-ok@1.0.0: {}

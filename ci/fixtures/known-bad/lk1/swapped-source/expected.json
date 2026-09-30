@@ -1,0 +1,11 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. An excuse for a registry-shaped key is for the source it names: changing the source in the lockfile leaves the package unexcused and the excuse stale.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-30"
+  },
+  "findings": [
+    "pnpm-lock.yaml#m@1.0.0{tarball=https://evil.example.invalid/attacker.tgz}",
+    "registry:pnpm-lock.yaml#m@1.0.0{tarball=https://mirror.example.invalid/m-1.0.0.tgz}"
+  ]
+}

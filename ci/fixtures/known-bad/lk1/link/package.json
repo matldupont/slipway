@@ -1,0 +1,10 @@
+{
+  "name": "fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-ok": "^1.0.0",
+    "linked": "link:./ext",
+    "fixture-app": "workspace:*",
+    "fixture-outside": "workspace:*"
+  }
+}

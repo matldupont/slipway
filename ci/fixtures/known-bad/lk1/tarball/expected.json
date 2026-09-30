@@ -1,0 +1,8 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. fixture-custom keeps an integrity hash, but its tarball is at another address: an integrity beside a tarball is still not the registry shape.",
+  "exit": 1,
+  "findings": [
+    "pnpm-lock.yaml#fixture-custom@1.0.0{tarball=https://example.invalid/custom/fixture-custom-1.0.0.tgz}",
+    "pnpm-lock.yaml#fixture-tarball@https://example.invalid/fixture-tarball-1.0.0.tgz{tarball=https://example.invalid/fixture-tarball-1.0.0.tgz}"
+  ]
+}

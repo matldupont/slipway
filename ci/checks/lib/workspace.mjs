@@ -9,6 +9,10 @@ import { join, relative } from 'node:path';
 
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
 
+// How many packages a package.json asks for, of every kind pnpm installs (peers too: autoInstallPeers).
+const DEP_KEYS = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'];
+const countDeps = (pkg) => DEP_KEYS.reduce((n, k) => n + (pkg[k] !== null && typeof pkg[k] === 'object' ? Object.keys(pkg[k]).length : 0), 0);
+
 function patterns(root) {
   const p = join(root, 'pnpm-workspace.yaml');
   if (!existsSync(p)) return [];
@@ -53,7 +57,7 @@ export function discoverWorkspace(root) {
     .sort()
     .map((d) => {
       const pkg = readJson(join(d, 'package.json'));
-      return { name: pkg.name ?? relative(root, d), dir: relative(root, d), scripts: pkg.scripts ?? {} };
+      return { name: pkg.name ?? relative(root, d), dir: relative(root, d), scripts: pkg.scripts ?? {}, dependencies: countDeps(pkg) };
     });
-  return { root: { name: rootPkg.name ?? '(root)', dir: '.', scripts: rootPkg.scripts ?? {} }, packages };
+  return { root: { name: rootPkg.name ?? '(root)', dir: '.', scripts: rootPkg.scripts ?? {}, dependencies: countDeps(rootPkg) }, packages };
 }

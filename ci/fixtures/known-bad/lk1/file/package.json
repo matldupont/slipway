@@ -1,0 +1,9 @@
+{
+  "name": "fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-dir": "file:./vendor/fixture-dir",
+    "fixture-tgz": "file:./vendor/fixture-tgz-1.0.0.tgz",
+    "fixture-ok": "^1.0.0"
+  }
+}
