@@ -313,11 +313,11 @@ piped to `cat` (neither). Paste the plain plan's line count in the PR.
 
 ## Build map
 
-1. `scripts/lib/ui.mjs` and `scripts/ui.test.mjs` (capability detection, `clean`, `link`, sections), and the
+1. #164 — `scripts/lib/ui.mjs` and `scripts/ui.test.mjs` (capability detection, `clean`, `link`, sections), and the
    test added to `pnpm meta` — scripts, ~200 lines. Nothing prints through it yet.
-2. `sync --json` (§2), its tests in `scripts/sync.test.mjs`, and `/sync-slipway` step 1 reading it — scripts
+2. #165 — `sync --json` (§2), its tests in `scripts/sync.test.mjs`, and `/sync-slipway` step 1 reading it — scripts
    and skills, ~250 lines. The human plan is untouched, so the skill never reads text that is about to move.
-3. The default plan, `--log`, the progress line and `--apply`'s output through ui.mjs (§3, §4); `BASE_WHY` to
+3. #166 — The default plan, `--log`, the progress line and `--apply`'s output through ui.mjs (§3, §4); `BASE_WHY` to
    `--help`; `scripts/sync.test.mjs` assertions moved to the new layout; F-01's Changes line — scripts, ~400
    lines.
 
