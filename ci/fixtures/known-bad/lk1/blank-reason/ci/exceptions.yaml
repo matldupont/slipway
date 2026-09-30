@@ -1,0 +1,5 @@
+exceptions:
+  - id: pnpm-lock.yaml#m@1.0.0{tarball=https://mirror.example.invalid/m-1.0.0.tgz}
+    reason: "   "
+    owner: build lead
+    expires: 2026-12-31

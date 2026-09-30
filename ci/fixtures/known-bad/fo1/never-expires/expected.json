@@ -1,0 +1,11 @@
+{
+  "_note": "PC1 asserts FO1 goes red on this fixture for exactly these reasons. expires: never sorts after every year as text; it must be refused, and the step reported again.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-10"
+  },
+  "findings": [
+    ".github/workflows/bad.yml#build/flaky",
+    "registry:.github/workflows/bad.yml#build/flaky"
+  ]
+}

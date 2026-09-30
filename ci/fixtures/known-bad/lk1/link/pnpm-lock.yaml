@@ -1,0 +1,35 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      fixture-app:
+        specifier: workspace:*
+        version: link:packages/app
+      fixture-ok:
+        specifier: ^1.0.0
+        version: 1.0.0
+      fixture-outside:
+        specifier: workspace:*
+        version: link:../outside
+      linked:
+        specifier: link:./ext
+        version: link:ext
+
+  packages/app: {}
+
+packages:
+
+  fixture-ok@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}
+
+snapshots:
+
+  fixture-ok@1.0.0:
+    dependencies:
+      kind-of: link:ext

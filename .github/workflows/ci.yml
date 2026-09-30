@@ -59,6 +59,11 @@ jobs:
       # there could stand in for node or a gate tool (#133).
       - name: Nothing under node_modules/ is tracked
         run: node ci/checks/meta/n1-node-modules.mjs .
+      # `--frozen-lockfile` checks the lockfile against package.json, not where each package comes from: a
+      # git repository, a tarball URL or a folder runs its install scripts like any other. LK1 fails one of
+      # those unless ci/exceptions.yaml excuses it, and it runs before pnpm fetches anything (#138).
+      - name: The lockfile resolves every package from the registry
+        run: node ci/checks/meta/lk1-lockfile.mjs .
       - run: pnpm install --frozen-lockfile
       # What the project's tests need before verify (a database service, an env var) goes in
       # ci/before-verify.sh, the project's own file: never edit this workflow for it. It can append

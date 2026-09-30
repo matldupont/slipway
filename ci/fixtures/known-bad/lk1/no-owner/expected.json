@@ -1,0 +1,11 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. An entry with no owner does not excuse the fork.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-30"
+  },
+  "findings": [
+    "pnpm-lock.yaml#fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz{tarball=https://example.invalid/fixture-fork-1.0.0.tgz}",
+    "registry:pnpm-lock.yaml#fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz{tarball=https://example.invalid/fixture-fork-1.0.0.tgz}"
+  ]
+}

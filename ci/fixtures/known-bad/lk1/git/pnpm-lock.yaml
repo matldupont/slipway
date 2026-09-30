@@ -1,0 +1,31 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      fixture-git:
+        specifier: git+https://example.invalid/fixture-git.git#main
+        version: fixture-git@git+https://example.invalid/fixture-git.git#0123456789abcdef0123456789abcdef01234567
+      fixture-ok:
+        specifier: ^1.0.0
+        version: 1.0.0
+
+packages:
+
+  fixture-git@git+https://example.invalid/fixture-git.git#0123456789abcdef0123456789abcdef01234567:
+    resolution: {commit: 0123456789abcdef0123456789abcdef01234567, repo: https://example.invalid/fixture-git.git, type: git}
+    version: 1.0.0
+
+  fixture-ok@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}
+
+snapshots:
+
+  fixture-git@git+https://example.invalid/fixture-git.git#0123456789abcdef0123456789abcdef01234567: {}
+
+  fixture-ok@1.0.0: {}

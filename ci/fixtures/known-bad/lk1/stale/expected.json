@@ -1,0 +1,10 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. The lockfile lists only registry packages, so an entry that names one it no longer has excuses nothing and is refused.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-30"
+  },
+  "findings": [
+    "registry:pnpm-lock.yaml#fixture-gone@https://example.invalid/fixture-fork-1.0.0.tgz"
+  ]
+}

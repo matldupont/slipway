@@ -1,0 +1,8 @@
+{
+  "name": "fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-git": "git+https://example.invalid/fixture-git.git#main",
+    "fixture-ok": "^1.0.0"
+  }
+}
