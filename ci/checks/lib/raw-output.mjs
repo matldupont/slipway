@@ -1,12 +1,21 @@
-// The characters no check or status may print raw: C0 controls but tab and newline, DEL, C1, the bidi
-// embeddings, overrides and isolates (U+202A–U+202E, U+2066–U+2069) and the line and paragraph separators
-// (U+2028, U+2029). Written out here, not taken from report.mjs, so a range dropped from the escaper is
-// caught rather than dropped from the guard with it. PC1 runs it on every check's output on every
-// fixture, S1 on status's output for every case.
-const RAW = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029\u202a-\u202e\u2066-\u2069]/gu;
+// What PC1 and S1 hold a check's or status's printed output to. The characters are report.mjs's one list
+// (UNSAFE), so what is escaped and what is tested never drift apart; scripts/report.test.mjs pins each range.
+import { UNSAFE } from './report.mjs';
 
-// null, or the code points printed raw: `U+001B, U+202E`.
+const RAW = new RegExp(UNSAFE.source, 'gv');
+
+// null, or the characters printed raw, by code point: `U+001B, U+202E`.
 export function rawCharacters(...outputs) {
   const found = new Set(outputs.flatMap((o) => (o ?? '').match(RAW) ?? []));
-  return found.size ? [...found].map((c) => `U+${c.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`).sort().join(', ') : null;
+  return found.size ? [...found].map((c) => `U+${c.codePointAt(0).toString(16).toUpperCase().padStart(4, '0')}`).sort().join(', ') : null;
+}
+
+// null, or the first line of a check's report that report() did not write: every line starts with the check's
+// id, and one @@json line ends it. A line break carried in from a project file or an error message would
+// start a line of its own: a CI log command (::error::, ::stop-commands::) or a second @@json.
+export function strayLine(stdout, id) {
+  const lines = (stdout ?? '').replace(/\n$/, '').split('\n');
+  const json = lines.filter((l) => l.startsWith('@@json '));
+  if (json.length > 1) return json[1];
+  return lines.find((l) => !l.startsWith(`${id}: `) && !l.startsWith('@@json ')) ?? null;
 }

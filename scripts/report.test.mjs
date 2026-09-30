@@ -14,13 +14,23 @@ import { escapeControl, escapeOutput } from '../ci/checks/lib/report.mjs';
 const REPORT = pathToFileURL(join(resolve(dirname(fileURLToPath(import.meta.url)), '..'), 'ci', 'checks', 'lib', 'report.mjs')).href;
 const u = (c) => `\\u${c.toString(16).padStart(4, '0')}`;
 
-// Each range at both ends, and the separators.
-const ESCAPED = [0x00, 0x08, 0x0b, 0x0d, 0x1b, 0x1f, 0x7f, 0x80, 0x85, 0x9f, 0x2028, 0x2029, 0x202a, 0x202e, 0x2066, 0x2069];
-// Just outside each range, and ordinary text beyond ASCII.
-const KEPT = [0x20, 0x7e, 0xa0, 0xe9, 0x2027, 0x202f, 0x2065, 0x206a, 0x200d, 0x1f600];
-
-test('escapeOutput shows each control, bidi and separator character as \\uXXXX', () => {
+// Each range at both ends, the separators, and format characters (\p{Cf}) from each block they sit in.
+const ESCAPED = [0x00, 0x08, 0x0b, 0x0d, 0x1b, 0x1f, 0x7f, 0x80, 0x85, 0x9f, 0x2028, 0x2029, 0x202a, 0x202e, 0x2066, 0x2069, 0x00ad, 0x061c, 0x180e, 0x200b, 0x200c, 0x200e, 0x200f, 0x2060, 0x2064, 0x206a, 0x206f, 0xfeff, 0xfff9, 0xfffb, 0x2800, 0x3164, 0xfe00, 0xfe0d];
+// Just outside each range, the three emoji characters left out on purpose, and ordinary text beyond ASCII.
+const KEPT = [0x20, 0x7e, 0xa0, 0xe9, 0x2027, 0x202f, 0x2065, 0x27ff, 0x2801, 0xfe10, 0x200d, 0xfe0e, 0xfe0f, 0x1f600];
+test('escapeOutput shows each control, bidi, format and separator character as \\uXXXX', () => {
   for (const c of ESCAPED) assert.equal(escapeOutput(`a${String.fromCharCode(c)}b`), `a${u(c)}b`, `U+${c.toString(16)}`);
+});
+
+test('a tag-character string and a zero-width space print escaped; tags and selectors above U+FFFF as surrogate pairs', () => {
+  assert.equal(escapeOutput('ok\u{e0049}\u{e0047}\u{e007f}'), 'ok\\udb40\\udc49\\udb40\\udc47\\udb40\\udc7f');
+  assert.equal(escapeOutput('a\u200bb'), 'a\\u200bb');
+  assert.equal(escapeOutput('x\u{e0100}\u{e01ef}'), 'x\\udb40\\udd00\\udb40\\uddef');
+  assert.equal(JSON.parse(`"${escapeOutput('ok\u{e0049}')}"`), 'ok\u{e0049}', 'reads back as the same text in a JSON string');
+});
+
+test('an emoji with a joiner or a presentation selector prints unchanged', () => {
+  for (const e of ['👩\u200d💻', '❤\ufe0f', '☺\ufe0e', '👨\u200d👩\u200d👧']) assert.equal(escapeOutput(e), e);
 });
 
 test('a lone CR and a CRLF are both escaped: no line is rewritten from its start', () => {
@@ -31,6 +41,7 @@ test('a lone CR and a CRLF are both escaped: no line is rewritten from its start
 test('escapeOutput keeps the newlines and tabs a report writes, and text outside the ranges', () => {
   assert.equal(escapeOutput('K1: a\n\tb'), 'K1: a\n\tb');
   for (const c of KEPT) assert.equal(escapeOutput(`a${String.fromCodePoint(c)}b`), `a${String.fromCodePoint(c)}b`, `U+${c.toString(16)}`);
+  assert.equal(escapeControl('👩\u200d💻'), '👩\u200d💻');
 });
 
 test('escapeControl, for one quoted field, also escapes newline and tab', () => {

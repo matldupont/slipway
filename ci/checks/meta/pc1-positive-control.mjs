@@ -31,8 +31,8 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { trustedGit } from '../lib/manifest.mjs';
-import { rawCharacters } from '../lib/raw-output.mjs';
-import { escapeControl, EXIT, report } from '../lib/report.mjs';
+import { rawCharacters, strayLine } from '../lib/raw-output.mjs';
+import { EXIT, report } from '../lib/report.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ownRoot = process.argv[2] === undefined;
@@ -70,7 +70,7 @@ function runCase(check, name, dir) {
   const env = expected.env ?? {};
   const refused = typeof env === 'object' && !Array.isArray(env) ? Object.keys(env).filter((k) => !FIXTURE_ENV.includes(k) || typeof env[k] !== 'string') : ['(env is not an object)'];
   if (refused.length) {
-    findings.push({ where: name, detail: `expected.json sets ${refused.map((k) => escapeControl(k)).join(', ')}; a fixture may set only ${FIXTURE_ENV.join(', ')} (as text), so the check was not started` });
+    findings.push({ where: name, detail: `expected.json sets ${refused.join(', ')}; a fixture may set only ${FIXTURE_ENV.join(', ')} (as text), so the check was not started` });
     return;
   }
   let target = dir;
@@ -78,7 +78,7 @@ function runCase(check, name, dir) {
   if (expected.tracked !== undefined) {
     const bad = Array.isArray(expected.tracked) && expected.tracked.length ? expected.tracked.filter((p) => !safePath(p)) : ['(tracked is not a list of paths)'];
     if (bad.length) {
-      findings.push({ where: name, detail: `expected.json tracks ${bad.map((p) => JSON.stringify(escapeControl(String(p)))).join(', ')}; each tracked path is relative and stays inside the repository` });
+      findings.push({ where: name, detail: `expected.json tracks ${bad.map((p) => JSON.stringify(String(p))).join(', ')}; each tracked path is relative and stays inside the repository` });
       return;
     }
     try {
@@ -107,7 +107,7 @@ function runCase(check, name, dir) {
     findings.push({ where: name, detail: `check emitted no @@json report (exit ${r.status}): ${tail}` });
     return;
   }
-  printedRaw(name, r);
+  printedRaw(check, name, r);
   const got = JSON.parse(line.slice('@@json '.length));
   if (got.exit === EXIT.GREEN) {
     findings.push({ where: name, detail: 'PASSED its known-bad fixture — the check cannot fail, so its green means nothing' });
@@ -139,11 +139,14 @@ function runCase(check, name, dir) {
   if (wrong.length) findings.push({ where: name, detail: `red for the wrong reasons — ${wrong.join('; ')}` });
 }
 
-// A check prints project text, so a fixture may hold control, bidi and separator characters: none may reach
-// the output raw, where a CI log or the next agent's context would act on it.
-function printedRaw(name, r) {
+// A check prints project text, so a fixture may hold control, bidi, format and separator characters, and an
+// error message may hold a line break: none may reach the output raw, where a CI log or the next agent's
+// context would act on it, and every line is one report() wrote.
+function printedRaw(check, name, r) {
   const raw = rawCharacters(r.stdout, r.stderr);
   if (raw) findings.push({ where: name, detail: `printed ${raw} raw: escape it where the check prints (report() does)` });
+  const stray = strayLine(r.stdout, check.id.toUpperCase());
+  if (stray !== null) findings.push({ where: name, detail: `printed a line report() did not write: "${stray.slice(0, 60)}"` });
 }
 
 for (const c of checks) {

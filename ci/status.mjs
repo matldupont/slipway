@@ -14,7 +14,7 @@ import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { contents, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
-import { escapeOutput } from './checks/lib/report.mjs';
+import { escapeControl, escapeOutput, UNSAFE } from './checks/lib/report.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -24,15 +24,17 @@ let today;
 try {
   today = localToday(root);
 } catch (e) {
-  process.stderr.write(`status: ${escapeOutput(e.message)}\n`);
+  process.stderr.write(`status: ${escapeControl(e.message)}\n`);
   process.exit(2);
 }
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 // Project text quoted in the Next line: one line, at most 60 characters, cut at a word boundary. Control and
-// invisible format characters (a terminal escape, a bidi override, tag characters, variation selectors, blank fillers) are dropped and `"` becomes `'`, so the text cannot close its own quotes.
+// invisible format characters (a terminal escape, a bidi override, tag characters, variation selectors, blank fillers:
+// report.mjs's one list) are dropped and `"` becomes `'`, so the text cannot close its own quotes.
+const DROP = new RegExp(UNSAFE.source, 'gv');
 const excerpt = (text, max = 60) => {
-  const flat = text.replace(/\s+/g, ' ').replace(/[\x00-\x1f\x7f-\x9f\p{Cf}\u{E0000}-\u{E007F}\u{FE00}-\u{FE0F}\u{E0100}-\u{E01EF}\u3164\u2800]/gu, '').replace(/"/g, "'").trim();
+  const flat = text.replace(/\s+/g, ' ').replace(DROP, '').replace(/"/g, "'").trim();
   if (flat.length <= max) return flat;
   const cut = flat.slice(0, max - 1);
   return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;
