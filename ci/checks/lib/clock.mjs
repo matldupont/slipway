@@ -15,9 +15,10 @@ import { prose, strictSection } from './markdown.mjs';
 // The value of an AGENT.md table row: the cell's first `code` span, or its first word; the rest of the cell may
 // explain it. '' when there is no row. `row` is matched as written, whole and case-insensitive. A row in a comment
 // or a code fence is an example, never read. `within` names the `##` section the row must sit in (a switch that
-// publishes reads only §Skill Configuration); without it, any table row in the prose counts.
-export function agentRow(root, row, within) {
-  const p = join(root, 'AGENT.md');
+// publishes reads only §Skill Configuration); without it, any table row in the prose counts. `file` names another
+// file under `root` with the same table (slipway's own dev/skill-configuration.md).
+export function agentRow(root, row, within, file = 'AGENT.md') {
+  const p = join(root, file);
   const text = prose(existsSync(p) ? readFileSync(p, 'utf8') : '');
   const agent = within ? strictSection(text, within, 2) ?? '' : text;
   const name = row.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

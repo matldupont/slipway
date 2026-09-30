@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { agentRow, today as localToday } from './checks/lib/clock.mjs';
 import { readMilestoneModel } from './checks/lib/milestones.mjs';
 import { milestoneNumber } from './checks/lib/risks.mjs';
+import { escapeHtml } from './checks/lib/html.mjs';
 import { UNSAFE } from './checks/lib/report.mjs';
 
 const ROW = 'Roadmap page';
@@ -45,8 +46,6 @@ export function project(m) {
 }
 
 const DROP = new RegExp(UNSAFE.source, 'gv');
-const ENTITY = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-export const escapeHtml = (s) => String(s).replace(DROP, '').replace(/[&<>"']/g, (c) => ENTITY[c]);
 
 const KIND = { skeleton: 'First end-to-end version', mvp: 'First usable version', release: 'Release', bet: 'Improvement' };
 const byNumber = (a, b) => (milestoneNumber(a.id) || 0) - (milestoneNumber(b.id) || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
