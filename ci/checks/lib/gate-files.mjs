@@ -1,5 +1,5 @@
 // Which files of a pull request are gate files: the paths the harness asks before editing
-// (process/harness/settings.json, `Edit(...)` rules, case ignored), plus a `package.json` whose run keys changed
+// (process/harness/settings.json, `Edit(...)` rules, matched exactly; a lookalike spelling is refused), plus a `package.json` whose run keys changed
 // (RUN_KEYS, and a dependency on local code or a runtime): what a gate command runs, the pnpm and node that run
 // it, and pnpm's settings. Read by P1. One list: a gate path added to the harness is a gate path here.
 //
