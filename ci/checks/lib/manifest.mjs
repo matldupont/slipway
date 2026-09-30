@@ -62,16 +62,21 @@ function diskTop(dir) {
     if (dirname(d) === d) return null;
   }
 }
-function gitEnv(top) {
+// The environment for a program looked up on PATH (git, gh): every GIT_* variable dropped, PATH cut to absolute
+// entries outside the repository `top` (when there is one) and outside any node_modules. Throws when nothing is left.
+export function trustedEnv(top) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_/i.test(k)));
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
   env[key] = (env[key] ?? '')
     .split(delimiter)
-    .filter((p) => isAbsolute(p) && !p.split(/[\\/]/).some((s) => s.toLowerCase() === 'node_modules') && !inside(top, p))
+    .filter((p) => isAbsolute(p) && !p.split(/[\\/]/).some((s) => s.toLowerCase() === 'node_modules') && !(top && inside(top, p)))
     .join(delimiter);
   if (!env[key]) throw new Error('no PATH entry outside the repository');
-  return { ...env, GIT_GRAFT_FILE: '/dev/null' };
+  return env;
 }
+// The same, for the checkout that holds `dir` (found on disk), for a program that is not git.
+export const trustedEnvAt = (dir) => trustedEnv(diskTop(real(dir)));
+const gitEnv = (top) => ({ ...trustedEnv(top), GIT_GRAFT_FILE: '/dev/null' });
 const gitOut = (at, top, args) =>
   execFileSync('git', ['--no-replace-objects', '-C', at, ...args], { cwd: tmpdir(), env: gitEnv(top), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 256 << 20 }).trim();
 
