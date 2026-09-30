@@ -4,7 +4,7 @@
 // Reads pnpm-lock.yaml at the given directory and reports `pnpm-lock.yaml#<entry>` for every package that
 // resolves any other way: a git repository, a tarball URL, `link:` or `file:` (lib/pnpm-lock.mjs says what
 // passes). An entry ci/exceptions.yaml excuses, with that id, a reason, an owner and a date, is exempted;
-// an entry that excuses nothing, has no reason or date, or has expired is a finding of its own.
+// an entry that excuses nothing, has no reason, owner or real date, or has expired is a finding of its own.
 //
 // WHY: `pnpm install --frozen-lockfile` checks that the lockfile matches package.json, not where each
 // package comes from. A pull request can change the lockfile to fetch a git repository or a tarball, or to
@@ -76,8 +76,13 @@ const live = new Set();
 for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
   if (!e.id.startsWith(ID_PREFIX)) continue;
   const where = `registry:${e.id}`;
+  // A date that is not yyyy-mm-dd compares as text, and `never` sorts after every year: it must be a real day.
+  const day = new Date(`${e.expires}T00:00:00Z`);
+  const realDay = /^\d{4}-\d{2}-\d{2}$/.test(e.expires ?? '') && !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === e.expires;
   if (!e.expires) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
+  else if (!realDay) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a yyyy-mm-dd day, so it would never be compared as ending' });
   else if (!e.reason) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no reason: — say why this package may come from outside the registry' });
+  else if (!e.owner) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no owner: — name who answers for this package' });
   else if (e.expires <= today) findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} — move the package to the registry, or extend the date with a reason` });
   else if (!ids.has(e.id)) findings.push({ where, detail: `the entry in ci/exceptions.yaml matches no entry of ${LOCKFILE} — remove it` });
   else live.add(e.id);

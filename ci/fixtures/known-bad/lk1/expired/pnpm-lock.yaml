@@ -1,0 +1,31 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      fixture-fork:
+        specifier: https://example.invalid/fixture-fork-1.0.0.tgz
+        version: fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz
+      fixture-ok:
+        specifier: ^1.0.0
+        version: 1.0.0
+
+packages:
+
+  fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz:
+    resolution: {tarball: https://example.invalid/fixture-fork-1.0.0.tgz}
+    version: 1.0.0
+
+  fixture-ok@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}
+
+snapshots:
+
+  fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz: {}
+
+  fixture-ok@1.0.0: {}

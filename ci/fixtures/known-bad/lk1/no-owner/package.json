@@ -1,0 +1,8 @@
+{
+  "name": "fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-ok": "^1.0.0",
+    "fixture-fork": "https://example.invalid/fixture-fork-1.0.0.tgz"
+  }
+}

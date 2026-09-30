@@ -246,3 +246,39 @@ test('FO1 leaves the lockfile entries in ci/exceptions.yaml to LK1', () => {
     done(dir);
   }
 });
+
+// FO1 skips every `pnpm-lock.yaml#` entry, so LK1 must fail each unsound one: whatever FO1 lets by is judged here.
+const unsound = {
+  'no date': [entry().replace('    expires: 2026-12-31\n', ''), /no expires/],
+  'no reason': [entry().replace('    reason: a fork\n', ''), /no reason/],
+  'no owner': [entry().replace('    owner: me\n', ''), /no owner/],
+  'an empty owner': [entry().replace('owner: me', 'owner:'), /no owner/],
+  'a date that is text': [entry().replace('2026-12-31', 'never'), /not a yyyy-mm-dd day/],
+  'a day that does not exist': [entry().replace('2026-12-31', '2026-99-99'), /not a yyyy-mm-dd day/],
+  'a day in the past': [entry().replace('2026-12-31', '2026-06-30'), /expired 2026-06-30/],
+  'the day it ends': [entry().replace('2026-12-31', '2026-09-30'), /expired 2026-09-30/],
+  'a package the lockfile no longer has': [entry().replace('t-1.0.0', 'gone-1.0.0'), /matches no entry/],
+  'an id that is only the prefix': [entry().replace(`t@${TARBALL}`, ''), /matches no entry/],
+};
+for (const [what, [body, message]] of Object.entries(unsound)) {
+  test(`LK1 fails an excuse with ${what}, and FO1 (which skips it) does not`, () => {
+    const files = {
+      'pnpm-lock.yaml': body.includes('gone-1.0.0') || !body.includes(`t@${TARBALL}`) ? lockfile() : withTarball(),
+      'ci/exceptions.yaml': `exceptions:\n${body}`,
+      '.github/workflows/ci.yml': 'name: ci\non: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n',
+    };
+    const dir = project(files);
+    try {
+      const env = { CHECK_TODAY: '2026-09-30' };
+      assert.equal(run('ci/checks/meta/fo1-fail-open.mjs', dir, env).status, 0, 'FO1 skips it');
+      const r = lk1(dir, env);
+      assert.equal(r.status, 1, r.out);
+      const registryFinding = r.json.findings.find((f) => f.where.startsWith('registry:'));
+      assert.ok(registryFinding, JSON.stringify(r.json.findings));
+      assert.match(registryFinding.detail, message);
+      assert.deepEqual(r.json.exempted, [], 'nothing is excused by an unsound entry');
+    } finally {
+      done(dir);
+    }
+  });
+}

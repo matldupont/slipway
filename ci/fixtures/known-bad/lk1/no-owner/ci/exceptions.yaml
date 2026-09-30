@@ -1,0 +1,4 @@
+exceptions:
+  - id: pnpm-lock.yaml#fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz
+    reason: the fork carries a fix the registry release lacks
+    expires: 2026-12-31
