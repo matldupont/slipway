@@ -200,7 +200,7 @@ Then  that issue is not in Next, and its row reads "owes {check}"
 Given process/intake.md and .claude/skills/work-ticket/SKILL.md on the step-2 branch
 When  node scripts/skills.test.mjs runs
 Then  it passes, work-ticket cites process/intake.md → Deferred check and is at most 300 lines
-And   it fails when the Deferred check section is removed (the cited-section test)
+And   `node scripts/skills.test.mjs` exits 1 when the Deferred check section is removed
 ```
 
 ```
