@@ -145,7 +145,8 @@ stderr (through `escapeControl`, cut to 200 characters), and write nothing.
 **The page**, top to bottom:
 
 1. **Header:** product name (omitted while `<Product>`), the milestone's id, title and summary; "day N of M"
-   from `appetiteClock` (#68), or "Past its time budget"; "Rendered {CHECK_NOW-aware time} from {repo}".
+   from `appetiteClock` (#68), or "Past its time budget"; "Updated {CHECK_NOW-aware time, in AGENT.md Timezone} from {repo}". With `--watch` (#177) the page also carries
+   `<meta http-equiv="refresh">`, and a refresh that failed adds "Last updated {time}; the latest refresh failed: {why}".
 2. **Next:** each pick with its `#n` link, title, "Touches {entries}" or "Touches: not listed", its start
    command and its designation.
 3. **Items**, in Contents order: the item's number and text; for each leaf, `#n` linked to

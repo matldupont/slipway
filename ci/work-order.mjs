@@ -3,6 +3,7 @@
 // the command each starts with (F-07, dev/features/work-order.md). Written to the owner's temp dir, never published.
 //
 //   node ci/work-order.mjs [root] [--out <file>]     write the page, print its path
+//   ... --watch [--every <seconds>]                   then rewrite it every 60 s (15 at least); an open tab reloads itself
 //
 // collect(root, gh) reads the settings, the milestone and GitHub into a model; render(model) makes the page.
 // `gh` is a function (args) -> stdout, so a test answers from fixtures. Zero dependencies (D-004).
@@ -12,7 +13,7 @@ import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { agentRow, today as localToday } from './checks/lib/clock.mjs';
+import { agentRow, today as localToday, zone } from './checks/lib/clock.mjs';
 import { PLACEHOLDER } from './checks/lib/frontmatter.mjs';
 import { escapeShown } from './checks/lib/html.mjs';
 import { blockers, designation, overlap, touches } from './checks/lib/issue-body.mjs';
@@ -74,11 +75,23 @@ function issues(gh, repo, numbers, shape) {
 
 const statusOf = (i) => (i.state === 'CLOSED' ? (i.stateReason === 'NOT_PLANNED' || i.stateReason === 'DUPLICATE' ? 'dropped' : 'done') : 'open');
 
+// "2026-03-11 07:00 EDT": the instant in the project's zone (AGENT.md Timezone; unset reads the machine's).
+function stamp(now, tz) {
+  let parts;
+  try {
+    parts = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZoneName: 'short' }).formatToParts(now);
+  } catch {
+    throw new Stop(`AGENT.md Timezone "${tz}" is not an IANA zone (America/Toronto) or local`);
+  }
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')} ${get('timeZoneName')}`;
+}
+
 export function collect(root, gh) {
   const { repo, product } = settings(root);
   const now = process.env.CHECK_NOW ? new Date(process.env.CHECK_NOW) : new Date();
-  const renderedAt = `${now.toISOString().slice(0, 16).replace('T', ' ')} UTC`;
-  const base = { product, repo, renderedAt, milestone: null, next: [], shape: null };
+  const updatedAt = stamp(now, zone(root));
+  const base = { product, repo, updatedAt, milestone: null, next: [], shape: null };
   const m = readMilestoneModel(root, localToday(root)).find((x) => x.status === 'active');
   if (!m) return base;
   const md = readMilestones(root).milestones.find((x) => x.file === m.file).md;
@@ -167,13 +180,16 @@ function itemHtml(repo, milestone, i) {
 
 const finished = (i) => i.issue !== null && !i.foreign && i.leaves.every((l) => !l.missing && (l.status === 'done' || l.status === 'dropped'));
 
-export function render(model) {
+// `refresh` (seconds) asks an open tab to reload itself, with a tag and no script; `failed` is why the last
+// refresh did not happen, shown above a page whose content is the last good one.
+export function render(model, { refresh, failed } = {}) {
   const { repo, product, milestone: m } = model;
   const title = `${product ? `${product} ` : ''}work order`;
   const body = [];
-  if (!m) body.push('<p>No milestone is active. Run <code>pnpm status</code> for the next step.</p>');
+  const updated = failed === undefined ? `Updated ${e(model.updatedAt)}` : `Last updated ${e(model.updatedAt)}; the latest refresh failed: ${e(failed)}`;
+  if (!m) body.push(`<p class="meta">${updated}</p>`, '<p>No milestone is active. Run <code>pnpm status</code> for the next step.</p>');
   else {
-    body.push(`<p class="meta">${[m.clock && e(m.clock), `Rendered ${e(model.renderedAt)} from ${e(repo)}`].filter(Boolean).join(' · ')}</p>`);
+    body.push(`<p class="meta">${[m.clock && e(m.clock), `${updated} from ${e(repo)}`].filter(Boolean).join(' · ')}</p>`);
     body.push(`<h2>Next</h2>`);
     const picks = model.next.map((l) => `<article><p>${link(repo, l.n)} ${e(l.title)}</p><p class="meta">${touchText(l)}</p><p>${code(`/work-ticket ${l.n}`)}</p>${l.designation ? `<p class="meta">${e(l.designation)}</p>` : ''}</article>`);
     if (model.shape !== null) picks.push(`<article><p>Shape item ${model.shape}</p><p>${code(`/log-feature ${m.id}#${model.shape}`)}</p></article>`);
@@ -190,7 +206,7 @@ export function render(model) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>${e(title)}</title>
+${refresh ? `<meta http-equiv="refresh" content="${Number(refresh)}">\n` : ''}<title>${e(title)}</title>
 <style>
 :root { color-scheme: light dark; --bg: #f7f7f5; --fg: #1d1d1b; --muted: #5f5f5a; --card: #ffffff; --line: #deded8; --accent: #2f5d8a; }
 @media (prefers-color-scheme: dark) { :root { --bg: #161615; --fg: #ececea; --muted: #a3a39c; --card: #1f1f1d; --line: #34342f; --accent: #8bb4dc; } }
@@ -221,33 +237,96 @@ ${body.join('\n')}
 `;
 }
 
-function main(argv) {
-  const args = argv.slice(2);
-  const at = args.indexOf('--out');
-  const out = at < 0 ? undefined : args[at + 1];
-  const root = args.find((a, i) => !a.startsWith('--') && (at < 0 || i !== at + 1)) ?? '.';
-  if (at >= 0 && !out) {
-    process.stderr.write('usage: node ci/work-order.mjs [root] [--out <file>]\n');
+const USAGE = 'usage: node ci/work-order.mjs [root] [--out <file>] [--watch [--every <seconds>]]\n';
+export const MIN_EVERY = 15;
+const MAX_EVERY = 86400;
+
+// [root] [--out <file>] [--watch] [--every <seconds>] -> the settings, or an error line. `--every` is whole seconds,
+// MIN_EVERY or more, and only means something with `--watch`; an unknown flag is refused, not ignored.
+export function parseArgs(args) {
+  const o = { root: '.', out: undefined, watch: false, every: 60 };
+  let every = false;
+  let root = false;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--watch') o.watch = true;
+    else if (a === '--out' || a === '--every') {
+      const v = args[++i];
+      if (v === undefined || v.startsWith('--')) return { error: USAGE };
+      if (a === '--out') o.out = v;
+      else {
+        if (!/^\d{1,6}$/.test(v) || Number(v) < MIN_EVERY || Number(v) > MAX_EVERY) return { error: `work-order: --every is whole seconds, ${MIN_EVERY} to ${MAX_EVERY}\n` };
+        every = true;
+        o.every = Number(v);
+      }
+    } else if (a.startsWith('--') || root) return { error: USAGE };
+    else {
+      o.root = a;
+      root = true;
+    }
+  }
+  if (every && !o.watch) return { error: USAGE };
+  return o;
+}
+
+// Write through <file>.tmp and a rename, so a reader never sees half a page.
+function writeAtomic(file, html) {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(`${file}.tmp`, html);
+  try {
+    renameSync(`${file}.tmp`, file);
+  } catch (err) {
+    rmSync(`${file}.tmp`, { force: true });
+    throw err;
+  }
+}
+
+const why = (err) => escapeControl(err instanceof Stop ? err.message : `stopped on an error: ${err.message}`);
+
+// After the first page: every `every` seconds collect again and rewrite it. A refresh that fails leaves the last
+// good content in place, says so on the page and on stderr, and the loop goes on. `sleep` and `rounds` are for tests.
+export async function keepFresh(root, gh, file, every, { model, sleep = (s) => new Promise((r) => setTimeout(r, s * 1000)), rounds = Infinity, say = (t) => process.stderr.write(t) } = {}) {
+  for (let n = 0; n < rounds; n++) {
+    await sleep(every);
+    let failed;
+    try {
+      model = collect(root, gh);
+    } catch (err) {
+      failed = why(err);
+    }
+    try {
+      writeAtomic(file, render(model, { refresh: every, failed }));
+    } catch (err) {
+      failed = `could not write the page: ${why(err)}`;
+    }
+    if (failed !== undefined) say(`work-order: the latest refresh failed: ${failed}\n`);
+  }
+}
+
+async function main(argv) {
+  const o = parseArgs(argv.slice(2));
+  if (o.error) {
+    process.stderr.write(o.error);
     return 2;
   }
   try {
-    const model = collect(root, realGh(root));
-    const file = resolve(out ?? join(tmpdir(), 'work-order', `${model.repo.replace('/', '-')}.html`));
-    const html = render(model);
-    mkdirSync(dirname(file), { recursive: true });
-    writeFileSync(`${file}.tmp`, html);
-    try {
-      renameSync(`${file}.tmp`, file);
-    } catch (err) {
-      rmSync(`${file}.tmp`, { force: true });
-      throw err;
-    }
+    const gh = realGh(o.root);
+    const model = collect(o.root, gh);
+    const file = resolve(o.out ?? join(tmpdir(), 'work-order', `${model.repo.replace('/', '-')}.html`));
+    writeAtomic(file, render(model, o.watch ? { refresh: o.every } : {}));
     process.stdout.write(`${file}\n`);
+    if (o.watch) {
+      process.on('SIGINT', () => {
+        rmSync(`${file}.tmp`, { force: true });
+        process.exit(130);
+      });
+      await keepFresh(o.root, gh, file, o.every, { model });
+    }
     return 0;
   } catch (err) {
-    process.stderr.write(`work-order: ${escapeControl(err instanceof Stop ? err.message : `stopped on an error: ${err.message}`)}\n`);
+    process.stderr.write(`work-order: ${why(err)}\n`);
     return 1;
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = main(process.argv);
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exitCode = await main(process.argv);
