@@ -65,6 +65,8 @@ import {
   fetchPRCommits,
   writeReviewDir,
   writeIssueTitles,
+  parseIssueList,
+  issueTracker,
   MAX_ISSUE_TITLES,
   cleanupReviewDir,
   REVIEW_DIR_PREFIX,
@@ -152,7 +154,7 @@ test("parseArgs: asked for a checkout of the PR, fails naming the replacement", 
     assert.throws(() => parseArgs(argv), (err: Error) => {
       assert.match(err.message, /was removed/);
       assert.match(err.message, /reviewDir/);
-      assert.match(err.message, /Read and Grep tools/);
+      assert.match(err.message, /read with the Read tool/);
       return true;
     });
   }
@@ -1514,8 +1516,29 @@ test("commands: one search form with its charset, the same pre-approvals, and no
   // No other rg form anywhere a reviewer reads.
   const forms = [...docs.matchAll(/`(rg [^`]*)`/g)].map((m) => m[1]);
   assert.deepEqual([...new Set(forms)], ["rg -n -F -- <name> ."]);
-  // gh api has no -R: a doc telling the agent to pass one fails the post.
-  assert.doesNotMatch(docs, /gh api .*-R|-R "\$\{OWNER\}/);
+  // gh api takes the repository in its path, never as a flag; the issue's acceptance rg, built so it does not match this file.
+  assert.doesNotMatch(docs, new RegExp("gh a" + "pi .*-R|-R \"\\$\\{OWNER\\}"));
+  // gh fills {owner} and {repo} itself, from the working directory's repository: the POST names none.
+  assert.doesNotMatch(docs, /repos\/\{owner\}\/\{repo\}\/pulls\/\{number\}\/reviews/);
+});
+
+test("linked issue not loaded: no other route fetches it, and the review says it was not verified", () => {
+  const dir = path.join(import.meta.dirname, "..");
+  const skill = readFileSync(path.join(dir, "SKILL.md"), "utf8");
+  const host = readFileSync(path.join(dir, "references/host-portability.md"), "utf8");
+  const posting = readFileSync(path.join(dir, "references/posting.md"), "utf8");
+  // compute.ts's side: a failed lookup still names the issue and why (repo_not_allowed here; gh failures the same shape).
+  const got = resolveIssueTicket([], "Closes attacker/repo#1", "owner/repo", false, "owner/issues");
+  assert.equal(got.ticket, null);
+  assert.equal(got.failure?.extractedNumber, 1);
+  // The skill's side: the brief, the verdict and a posted review each say it; neither doc sends the agent elsewhere.
+  const flat = (s: string) => s.replace(/\s+/g, " ");
+  assert.ok(flat(skill).includes("`#<n> not loaded: <reason>`"));
+  assert.ok(flat(skill).includes("`not verified: linked issue not loaded`"));
+  assert.ok(posting.includes('"body": "not verified: linked issue not loaded"'));
+  for (const [name, text] of [["SKILL.md", skill], ["host-portability.md", host]]) {
+    assert.doesNotMatch(flat(text), /GitHub integration to fetch|fall back to the host's GitHub MCP/, name);
+  }
 });
 
 test("--check-checkout: the pre-launch command exits 0 on a clean checkout of the base, non-zero on each case", () => {
@@ -1882,6 +1905,15 @@ test("cleanupReviewDir: deletes only a review folder this script made", () => {
     rmSync(bare, { recursive: true, force: true });
     rmSync(other, { recursive: true, force: true });
   }
+});
+
+test("parseIssueList and issueTracker: gh's failures read as no titles; the configured repo wins", () => {
+  assert.equal(parseIssueList(""), null); // gh failed: tryRunGh returns ""
+  assert.equal(parseIssueList("not json"), null);
+  assert.equal(parseIssueList('{"number":1}'), null);
+  assert.deepEqual(parseIssueList('[{"number":1,"title":"t"}]'), [{ number: 1, title: "t" }]);
+  assert.equal(issueTracker("owner/issues", "owner/repo"), "owner/issues");
+  assert.equal(issueTracker(null, "owner/repo"), "owner/repo");
 });
 
 test("writeIssueTitles: titles are saved escaped, capped, and the file says it is data", () => {

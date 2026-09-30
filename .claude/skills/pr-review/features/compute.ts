@@ -332,7 +332,7 @@ interface CLIOptions {
 /** Why a checkout is refused, and what replaces it. */
 export const NO_CHECKOUT =
   "the review never checks the PR out, so there is no worktree: compute.ts writes the diff and " +
-  "each changed file's head and base text to reviewDir (read with the Read and Grep tools), " +
+  "each changed file's head and base text to reviewDir (read with the Read tool), " +
   "reading the head (headReviewed.sha) and the merge-base with pr.baseSha as git objects with git cat-file";
 
 export function parseArgs(argv: string[]): CLIOptions {
@@ -916,9 +916,20 @@ function fillReviewDir(dir: string, repoRoot: string, base: string, head: string
 
 export const MAX_ISSUE_TITLES = 300;
 
+/** The configured Issue repo, else the PR's own. */
+export function issueTracker(issueRepo: string | null, projectPath: string): string {
+  return issueRepo ?? projectPath;
+}
+
 /** The tracker's open issues, newest first, one more than the cap so a cut shows; null when gh fails. */
 export function fetchOpenIssueTitles(repo: string): { number: number; title: string }[] | null {
-  const out = tryRunGh(["issue", "list", "--repo", repo, "--state", "open", "--limit", String(MAX_ISSUE_TITLES + 1), "--json", "number,title"]);
+  return parseIssueList(
+    tryRunGh(["issue", "list", "--repo", repo, "--state", "open", "--limit", String(MAX_ISSUE_TITLES + 1), "--json", "number,title"]),
+  );
+}
+
+/** gh's JSON list, or null when gh failed (empty output) or printed anything but an array. */
+export function parseIssueList(out: string): { number: number; title: string }[] | null {
   if (!out) return null;
   try {
     const list = JSON.parse(out);
@@ -2117,9 +2128,13 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     !hardHalt && repoRoot && baseCommit && headCommit ? writeReviewDir(repoRoot, baseCommit, headCommit) : null;
   if (reviewDir) {
     logVerbose(opts, `review folder at ${reviewDir.path}`);
-    const tracker = opts.issueRepo ?? meta.projectPath;
+    const tracker = issueTracker(opts.issueRepo, meta.projectPath);
     const list = fetchOpenIssueTitles(tracker);
-    reviewDir.issues = list ? writeIssueTitles(reviewDir.path, tracker, list) : null;
+    try {
+      reviewDir.issues = list ? writeIssueTitles(reviewDir.path, tracker, list) : null;
+    } catch {
+      reviewDir.issues = null; // the folder is still returned, so Step 7 removes it
+    }
   }
 
   return {

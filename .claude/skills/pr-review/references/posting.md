@@ -66,6 +66,7 @@ in the review folder, so Step 7 deletes it:
 {
   "commit_id": "<head sha>",
   "event": "COMMENT",
+  "body": "not verified: linked issue not loaded",   // only when the linked issue was not loaded; otherwise omit
   "comments": [
     {
       "path": "src/order.ts",
@@ -78,14 +79,16 @@ in the review folder, so Step 7 deletes it:
 ```
 
 ```bash
-gh api repos/{owner}/{repo}/pulls/{number}/reviews -X POST --input <reviewDir.path>/review-payload.json
+gh api repos/{projectPath}/pulls/{number}/reviews -X POST --input <reviewDir.path>/review-payload.json
 ```
 
 `gh api` takes the repository in the path, and has no `-R`: a `-R` fails
-the call. Write the values out: `{owner}/{repo}` is `pr.projectPath` and
-`{number}` is `pr.number` from compute.ts's output, used only when they are
-made of letters, digits and `. _ / -`, and `<reviewDir.path>` is the folder
-compute.ts made. No shell variables, and nothing else on the line: this is
+the call. Write the values out: `{projectPath}` is `pr.projectPath`
+(`owner/name`, letters, digits and `. _ -` either side of one `/`) and
+`{number}` is `pr.number` (digits only), from compute.ts's output, and
+`<reviewDir.path>` is the folder compute.ts made. Never leave `{owner}` or
+`{repo}` in the path: `gh api` fills those itself from the working
+directory's repository. No shell variables, and nothing else on the line: this is
 one of the two commands Step 6 asks the user for (SKILL.md → Commands and
 tools).
 
