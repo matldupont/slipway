@@ -1,5 +1,5 @@
 ## What
-Lane: bounded. Adds a package.
+Lane: bounded. Adds a link.
 
 ## Verification
 ```

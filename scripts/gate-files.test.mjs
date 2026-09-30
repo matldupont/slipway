@@ -131,6 +131,7 @@ const missing = (r, path) => {
 };
 
 // A link is committed as its mode and target only: nothing here follows one, clones one or runs one (#149).
+// The four link tests build on each other's commits (the `links` branch): node:test runs them in file order.
 test('a gate folder committed as a symlink is a gate change, and P1 asks for Gate changes naming it', () => {
   git('switch', '-q', '-c', 'links', head);
   symlinkSync('docs', join(repo, '.slipway')); // a folder outside the gate paths
