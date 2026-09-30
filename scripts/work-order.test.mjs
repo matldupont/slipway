@@ -173,6 +173,8 @@ test('a PR names a leaf only as a whole reference: #1 never matches #10; the low
   const leaf = collect(join(FIX, 'full'), stub(w)).milestone.items[2].leaves[0];
   assert.deepEqual(leaf.pr, { n: 22, draft: true });
   assert.equal(leaf.status, 'pr');
+  w.prs = [{ number: 30, isDraft: false, body: 'Closes #160' }];
+  assert.equal(collect(join(FIX, 'full'), stub(w)).milestone.items[2].leaves[0].status, 'open');
 });
 
 test('a started item in another repository is shown, not read; a missing issue says so', () => {
@@ -227,7 +229,8 @@ test('gh is found outside the repository and node_modules: a planted gh never ru
   const planted = fakeGh(join(root, 'node_modules', '.bin'), `touch ${marker}; exit 1`);
   const inRepo = fakeGh(join(root, 'tools'), `touch ${marker}; exit 1`);
   const outside = fakeGh(join(tmp(), 'bin'), 'echo "real gh missing" >&2; exit 1');
-  const env = { ...process.env, PATH: [planted, inRepo, outside, process.env.PATH].join(':') };
+  const elsewhere = fakeGh(join(tmp(), 'node_modules', '.bin'), `touch ${marker}; exit 1`);
+  const env = { ...process.env, PATH: [planted, inRepo, elsewhere, outside, process.env.PATH].join(':') };
   const r = spawnSync(process.execPath, [SCRIPT, root, '--out', join(tmp(), 'p.html')], { encoding: 'utf8', env });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /real gh missing/);
