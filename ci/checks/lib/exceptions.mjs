@@ -22,6 +22,7 @@ export function loadRegistry(path) {
 export function expiryProblem(expires, today) {
   if (!expires) return 'none';
   const day = new Date(`${expires}T00:00:00Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(expires) || Number.isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== expires) return 'not-a-day';
+  // a real day reads back as itself, which also fixes the spelling: 2026-9-30 and 2026-02-30 do not
+  if (Number.isNaN(day.getTime()) || day.toISOString().slice(0, 10) !== expires) return 'not-a-day';
   return expires <= today ? 'expired' : null;
 }
