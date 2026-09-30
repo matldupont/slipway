@@ -476,7 +476,7 @@ test('each log- skill names Touches: on its Links line (log-feature: Phase 5 and
   assert.match(feat, /- `### Links`: `Part of: #n` when there is a parent, `Spec: \{doc path\}`, `Touches:`/, 'log-feature Phase 5 Links line');
   assert.match(feat, /`### Links` \(`Part of: #\{n\}`, `Blocked by:` the previous step, `Touches:`/, 'log-feature Phase 6 split Links line');
   assert.match(read(skillPath('log-followup')).replace(/\s+/g, ' '), /`### Links` \(`Part of: #\{parent\}`, `Blocked by:`, `Touches:`/, 'log-followup Links line');
-  assert.match(read(skillPath('log-bug')).replace(/\s+/g, ' '), /- `### Links`: .*`Touches:`/, 'log-bug Links line');
+  assert.match(read(skillPath('log-bug')).replace(/\s+/g, ' '), /- `### Links`: `Regression of: #n`[^\n]*?`Touches:` \(the files the fix changes[^)]*\)/, 'log-bug Links line');
   for (const f of ['feature', 'bug']) {
     assert.match(read(`.github/ISSUE_TEMPLATE/${f}.yml`), /label: Links\s+description: "[^"\n]*Touches: /, `${f}.yml's Links description must mention Touches:`);
   }
@@ -490,6 +490,7 @@ test('I1 accepts a feature body with and without a Touches: segment in Links', (
     writeFileSync(join(dir, 'without.md'), body('Part of: #156 · Lane: feature'));
     writeFileSync(join(dir, 'with.md'), body('Part of: #156 · Blocked by: #152 · Touches: process/intake.md, `.claude/skills/log-feature/**`, scripts/skills.test.mjs · Lane: feature'));
     const out = execFileSync('node', [join(SRC, 'ci/checks/meta/i1-issue-shape.mjs'), dir], { encoding: 'utf8' });
+    assert.match(out, /scanned 2 issue bodies/, 'I1 must examine both bodies');
     assert.doesNotMatch(out, /without\.md|with\.md/, `I1 must pass both bodies:\n${out}`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
