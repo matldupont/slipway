@@ -48,7 +48,7 @@ tracked=$(gdiff "$@") || fail 'git diff failed'
 untracked=$(g ls-files -o --exclude-standard -- "$@") || fail 'git ls-files failed'
 changed=$(printf '%s\n%s\n' "$tracked" "$untracked" | sed '/^$/d' | grep -v '^"' | sort -u)
 # Every change, with its modes (`:old new sha sha status<TAB>name`): the name is what follows the fifth field.
-raw=$(g diff --raw --no-renames --no-ext-diff --ignore-submodules=none "$base") || fail 'git diff failed'
+raw=$(g diff --raw --no-renames --no-ext-diff --ignore-submodules=none "$base" --) || fail 'git diff failed'
 path() { sed 's/^:[^[:space:]]* [^[:space:]]* [^[:space:]]* [^[:space:]]* [^[:space:]]*[[:space:]]//'; }
 all=$(printf '%s\n' "$raw" | path)
 links=$(printf '%s\n' "$raw" | grep -E '^:(120000|160000) |^:[0-7]+ (120000|160000) ' | path)
@@ -58,7 +58,12 @@ odd=$(printf '%s\n%s\n' "$all" "$others" | grep '^"' | sort -u)
 [ -z "$changed" ] && [ -z "$odd" ] && exec sh "$d/process/harness/hooks/$hook"
 
 # A file name is the branch's text: an octal escape becomes #NNN, and only these characters reach the message.
-names() { printf '%s\n' "$1" | head -n 5 | sed 's/\\\([0-7][0-7][0-7]\)/#\1/g; s/[^A-Za-z0-9._/@+#-]/?/g' | tr '\n' ' '; }
+# Five names at most, then how many more, so a list padded with harmless names still says it is longer.
+names() {
+  printf '%s\n' "$1" | head -n 5 | sed 's/\\\([0-7][0-7][0-7]\)/#\1/g; s/[^A-Za-z0-9._/@+#-]/?/g' | tr '\n' ' '
+  n=$(printf '%s\n' "$1" | sed -n '$=')
+  [ "$n" -gt 5 ] && printf 'and %s more ' $((n - 5))
+}
 why="this checkout changes gate files against origin/HEAD, so their code has not run"
 [ -n "$changed" ] && why="$why. Gate files: $(names "$changed")"
 [ -n "$odd" ] && why="$why. Non-ASCII names; on a Mac one may stand in for a gate path like node_modules/: $(names "$odd")"
