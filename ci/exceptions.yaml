@@ -25,3 +25,4 @@
 #     reason: the fork carries a fix the registry release lacks (acme/fork#12)
 #     owner: build lead
 #     expires: 2026-12-31
+exceptions: []

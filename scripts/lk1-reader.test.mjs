@@ -187,3 +187,16 @@ test('an integrity is a whole sha hash, and a version is a semver', () => {
   assert.deepEqual(kinds(['a@1.0.0-be!ta', HASH]), ['other']);
   assert.deepEqual(kinds(['a@1.0', HASH]), ['other']);
 });
+
+test('two different resolutions never share an excuse id', () => {
+  const id = (resolution) => problems(lockfile({ deps: [], packages: `  a@1.0.0:\n    resolution: ${resolution}\n`, snapshots: '' }))[0].id;
+  assert.notEqual(id('{commit: abc, repo: https://example.invalid/r.git, type: git}'), id("{commit: abc, repo: 'https://example.invalid/r.git;type=git'}"));
+  assert.notEqual(id("{tarball: 'https://example.invalid/a;b=c'}"), id("{tarball: 'https://example.invalid/a', b: c}"));
+  assert.equal(id('{tarball: https://example.invalid/a.tgz}'), 'a@1.0.0{tarball=https://example.invalid/a.tgz}', 'an ordinary address is unchanged');
+});
+
+test('a flow value followed by a very long run of spaces is read in time proportional to its length', () => {
+  const t = Date.now();
+  parseLockfile(lockfile({ packages: `  a@1.0.0:\n    resolution: {integrity: ${HASH}, a: b${' '.repeat(400_000)}#}\n` }));
+  assert.ok(Date.now() - t < 3000, `${Date.now() - t} ms`);
+});

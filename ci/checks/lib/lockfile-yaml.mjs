@@ -71,7 +71,8 @@ function flow(s, n) {
     }
     const plain = /[^,[\]{}]+/y;
     plain.lastIndex = i;
-    let run = plain.exec(s)?.[0].replace(/ +$/, '') ?? '';
+    const found = plain.exec(s)?.[0];
+    let run = found === undefined ? '' : trimEnd(found);
     if (isKey) {
       const c = /:(?: |$)/.exec(run);
       if (!c) throw at(n, 'has a flow entry with no "key: value"');

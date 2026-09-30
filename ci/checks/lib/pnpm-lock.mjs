@@ -58,8 +58,10 @@ function kindOfEntry(key, res) {
 // What a resolution says beside its integrity, in a fixed order: `{tarball=https://…}`, `{commit=…;repo=…;type=git}`.
 // An entry's id carries it, so an excuse names where the package comes from and not only its key: `foo@1.0.0`
 // says nothing about a tarball address, and the entry under it could be changed to another source.
+// A value is escaped (`\;`, `\=`, `\{`…), so two different resolutions never print as the same id.
+const esc = (t) => String(t).replace(/[\\;={}[\]]/g, '\\$&');
 const show = (v) =>
-  v instanceof Map ? `{${[...v].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, x]) => `${k}=${show(x)}`).join(';')}}` : Array.isArray(v) ? `[${v.map(show).join(';')}]` : String(v);
+  v instanceof Map ? `{${[...v].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, x]) => `${esc(k)}=${show(x)}`).join(';')}}` : Array.isArray(v) ? `[${v.map(show).join(';')}]` : esc(v);
 const source = (res) => show(new Map(res instanceof Map ? [...res].filter(([k]) => k !== 'integrity') : []));
 
 const mapOf = (v, name) => {
