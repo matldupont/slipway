@@ -13,7 +13,7 @@ a newer version, so put a project's own rules in `CLAUDE.md`, never here.
 - Never add `continue-on-error` without a dated entry in `ci/exceptions.yaml`.
 - Never weaken a gate to pass it.
 - **Owner-only files.** Changing one needs the owner's yes, whether or not the harness prompts, and no decision
-  default settles it: each `AGENT.md` and `CLAUDE.md` at any depth, and the files they import
+  default settles it: each `AGENT.md`, `CLAUDE.md` and `CLAUDE.local.md` at any depth, and the files they import
   (`process/slipway-rules.md`), `.slipway/**`, `.claude/**`, `process/harness/**`, the `Domain invariants doc`,
   `process/intake.md`, the cold-review file, and what the gate runs (package scripts, lint, type and test configs,
   CI workflows, `ci/**`). In slipway itself: `dev/skill-configuration.md`, `dev/ownership.yaml` and

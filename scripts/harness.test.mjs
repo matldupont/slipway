@@ -120,7 +120,7 @@ test('probe: a branch whose Stop hook writes a marker leaves none, and the Stop 
 // #163: the harness asks before an edit to each owner-only file, but only gate code stops the hooks. Prose and slipway's
 // sync tooling run the way ordinary source does, so a branch changing one still runs its Stop hook.
 test('an owner-only file that is not gate code leaves the hooks running; settings.json still stops them', () => {
-  for (const [p, body] of [['CLAUDE.md', '# rules\n'], ['apps/web/AGENT.md', '# agent\n'], ['process/slipway-rules.md', '# rules\n'], ['scripts/new-project.mjs', '// sync\n'], ['dev/ownership.yaml', 'x: 1\n']]) {
+  for (const [p, body] of [['CLAUDE.md', '# rules\n'], ['CLAUDE.local.md', '# mine\n'], ['apps/web/AGENT.md', '# agent\n'], ['process/slipway-rules.md', '# rules\n'], ['scripts/new-project.mjs', '// sync\n'], ['dev/ownership.yaml', 'x: 1\n']]) {
     clean();
     put(p, body);
     run('stop-verify.sh');

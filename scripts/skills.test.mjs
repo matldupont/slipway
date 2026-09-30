@@ -256,7 +256,7 @@ test('work-ticket checks its rule files before it reads a setting or runs the ga
   assert.match(first, /^\*\*First, before any setting is read or any command it names runs\.\*\*/, 'Configuration must open with the rule-file check');
   assert.ok(first.includes('**The rules the run is judged by:**'), 'the first paragraph of Configuration must be the rule-file check');
   assert.ok(first.includes('`git diff --name-only --no-renames origin/{base}`'), 'the rule-file check must run the diff');
-  for (const p of ['each `AGENT.md` and `CLAUDE.md` at any depth', '`process/harness/**`']) assert.ok(first.includes(p), `the rule files must name ${p}`);
+  for (const p of ['each `AGENT.md`, `CLAUDE.md` and `CLAUDE.local.md` at any depth', '`process/harness/**`']) assert.ok(first.includes(p), `the rule files must name ${p}`);
   // #126: a checkout swaps the hooks the harness runs, so a reused branch is asked about before it is checked out.
   assert.match(first, /before checking out an existing branch, on its diff to `origin\/\{base\}`/, 'a reused branch must be checked before its checkout');
   assert.match(first, /A check that cannot run is not a pass: stop\. With no remote, ask the owner for `\{base\}`/, 'a failed check must stop the run, not pass it');
