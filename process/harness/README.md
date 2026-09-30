@@ -32,21 +32,27 @@ Each is a gate file here and in the PR check:
 
 | path | why it is a gate file |
 |---|---|
-| `**/node_modules/**` | `pnpm run` puts `node_modules/.bin` first on PATH, installed or not: a committed program there runs in place of the tool a gate command calls. N1 (`pnpm meta`) also fails when git tracks any file under it |
+| `**/node_modules/**` | `pnpm run` puts `node_modules/.bin` first on PATH, installed or not: a committed program there runs in place of the tool a gate command calls, node included. N1 fails when git tracks any file under it, in any case; CI runs it with the runner's node before pnpm installs or runs anything, since inside `pnpm meta` a tracked `node` would run N1 itself |
 | `**/.npmrc` | pnpm reads its settings from it, among them the shell scripts run in and the options node starts with |
 | `**/.pnpmfile.cjs` | pnpm runs it as code on every install |
 | `**/pnpm-workspace.yaml` | holds pnpm's settings as well as the package list; the whole file, since any key may change how pnpm runs |
 | `**/.envrc` | direnv runs it as shell once trusted, and can set PATH or `NODE_OPTIONS` for every command |
-| `**/mise.toml`, `**/.mise.toml` | mise can set PATH, environment variables and tasks once trusted |
-| a `package.json`'s `scripts`, `packageManager` and `pnpm` keys | what a gate command runs, the pnpm version that runs it, and pnpm's settings (the PR check reads the keys; the file itself is not ask-level) |
+| `**/mise.toml`, `**/.mise.toml`, `**/mise.*.toml`, `**/.mise.*.toml`, `**/.config/mise.toml`, `**/.config/mise.*.toml`, `**/.config/mise/**`, `**/mise/config.toml`, `**/.mise/config.toml` | every name mise reads its settings from; once trusted, each can set PATH, environment variables and tasks |
+| `**/package.yaml`, `**/package.json5` | pnpm reads a package's manifest, scripts included, from either as it does from `package.json` |
+| a `package.json`'s `scripts`, `packageManager`, `pnpm`, `resolutions`, `engines` and `devEngines` keys, and a dependency on local code or a runtime (`link:`, `file:`, a path, `runtime:`) | what a gate command runs, the pnpm and node that run it, pnpm's settings, and a program from the repository in node_modules/.bin (the PR check reads these; the file itself is not ask-level, and a file it cannot parse counts as changed) |
 
-Known limitations — these pick a version and run nothing, so they are not gate files:
+The PR check matches these paths in any case, as a case-insensitive disk checks them out.
+
+Known limitations:
 
 | path | what it can change |
 |---|---|
 | `.nvmrc` | the node version nvm or fnm switch to locally; CI pins node 24 |
 | `.node-version` | the same, for fnm, nodenv and others; CI pins node 24 |
 | `.tool-versions` | the node or pnpm version asdf or mise pick locally; CI pins both |
+| a file a gate setting points at | a pnpmfile path, a script shell, or node options that load a file: once the owner approves the setting, later edits to that file are not asked about. Nothing sets one today |
+| `pnpm-lock.yaml` | not a gate file, since every dependency bump changes it; #138 checks that each entry resolves from the registry with an integrity hash |
+| the ask prompt's case | the harness's own rules match case as Claude Code does; on a case-insensitive disk, `NODE_MODULES/` may not ask where `node_modules/` does. N1 and the PR check still catch it |
 
 ## Hooks
 

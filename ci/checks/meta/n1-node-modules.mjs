@@ -2,7 +2,7 @@
 // N1 — nothing under node_modules/ is tracked.
 //
 // Reports `tracked/<path>` for every path `git ls-files` lists under the given directory that has a
-// `node_modules` segment, at any depth.
+// `node_modules` segment, in any case, at any depth.
 //
 // WHY: `pnpm run` puts the repository's own node_modules/.bin first on PATH, whether or not anything was
 // installed. .gitignore keeps node_modules/ out of an ordinary commit, but a pull request can still add a file
@@ -26,7 +26,7 @@ try {
 }
 
 const findings = paths
-  .filter((p) => p.split('/').includes('node_modules'))
+  .filter((p) => p.split('/').some((s) => s.toLowerCase() === 'node_modules')) // a case-insensitive disk checks Node_Modules/ out into node_modules/
   .map((p) => ({ where: `tracked/${escapeControl(p)}`, detail: 'git tracks a file under node_modules/; a program there can run in place of a gate tool — remove it from the index (git rm --cached)' }));
 
 process.exit(
