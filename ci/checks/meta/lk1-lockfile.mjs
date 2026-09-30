@@ -77,8 +77,8 @@ for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
   if (!e.id.startsWith(ID_PREFIX)) continue;
   const where = `registry:${e.id}`;
   const date = expiryProblem(e.expires, today);
-  // text that says nothing: blank, or YAML's spellings of no value
-  const said = (v) => typeof v === 'string' && v.trim() !== '' && !['null', '~'].includes(v.trim().toLowerCase());
+  // text that says something: a word or number, not blank, YAML's spellings of no value, or an indicator (`|`, `[]`, `&a`, `!!null`)
+  const said = (v) => typeof v === 'string' && /[\p{L}\p{N}]/u.test(v) && !/^[\s|>&*!%@`[{]/.test(v) && !['null', '~'].includes(v.trim().toLowerCase());
   if (date === 'none') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
   else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a real day written yyyy-mm-dd, which cannot be compared as ending — set it to a real future day, e.g. 2099-12-31' });
   else if (!said(e.reason)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no reason: — say why this package may come from outside the registry' });
@@ -104,7 +104,7 @@ const nothingToResolve = entries === 0;
 process.exit(
   report({
     id: 'LK1',
-    claim: nothingToResolve ? `no package.json declares a package and there is no ${LOCKFILE}, so nothing resolves from anywhere but the registry` : CLAIM,
+    claim: nothingToResolve ? `no package.json declares a package and ${st ? `${LOCKFILE} lists none` : `there is no ${LOCKFILE}`}, so nothing resolves from anywhere but the registry` : CLAIM,
     scanned: nothingToResolve ? manifests : entries,
     unit: nothingToResolve ? 'package.json files' : UNIT,
     findings,

@@ -197,6 +197,6 @@ test('two different resolutions never share an excuse id', () => {
 
 test('a flow value followed by a very long run of spaces is read in time proportional to its length', () => {
   const t = Date.now();
-  parseLockfile(lockfile({ packages: `  a@1.0.0:\n    resolution: {integrity: ${HASH}, a: b${' '.repeat(400_000)}#}\n` }));
+  assert.throws(() => parseLockfile(lockfile({ packages: `  a@1.0.0:\n    resolution: {integrity: ${HASH}, a: b${' '.repeat(400_000)}#}\n` })), /flow value/, 'the comment character is refused in a flow value');
   assert.ok(Date.now() - t < 3000, `${Date.now() - t} ms`);
 });

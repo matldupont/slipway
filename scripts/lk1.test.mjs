@@ -199,6 +199,11 @@ const unsound = {
   'an id that is only the prefix': [entry().replace(TID, ''), /matches no entry/],
   'a reason that is only spaces': [entry().replace('reason: a fork', 'reason: "   "'), /no reason/],
   'an owner that is null': [entry().replace('owner: me', 'owner: null'), /no owner/],
+  'a reason that is a block header': [entry().replace('reason: a fork', 'reason: |'), /no reason/],
+  'a reason that is an empty list': [entry().replace('reason: a fork', 'reason: []'), /no reason/],
+  'a reason that is punctuation': [entry().replace('reason: a fork', 'reason: .'), /no reason/],
+  'an owner that is an anchor': [entry().replace('owner: me', 'owner: &a'), /no owner/],
+  'an owner that is a null tag': [entry().replace('owner: me', 'owner: !!null'), /no owner/],
   'an owner that is ~': [entry().replace('owner: me', 'owner: ~'), /no owner/],
 };
 for (const [what, [body, message]] of Object.entries(unsound)) {
@@ -255,4 +260,16 @@ test('the verify job runs LK1 before pnpm install, so a lockfile entry is read b
   const install = verify.indexOf('pnpm install --frozen-lockfile');
   assert.ok(lk > 0 && install > lk, 'LK1 step comes first, run with the runner\'s node, not through pnpm');
   assert.doesNotMatch(verify.slice(0, install), /^\s+run: .*\bpnpm\b/m, 'no step before it runs pnpm');
+});
+
+test('an empty lockfile beside a project that declares nothing passes, and says the lockfile lists none', () => {
+  const dir = project({ 'package.json': JSON.stringify({ name: 'p', private: true }), 'pnpm-lock.yaml': `${HEAD}importers:\n\n  .: {}\n` });
+  try {
+    const r = lk1(dir);
+    assert.equal(r.status, 0, r.out);
+    assert.match(r.out, /pnpm-lock\.yaml lists none/);
+    assert.doesNotMatch(r.out, /there is no pnpm-lock\.yaml/);
+  } finally {
+    done(dir);
+  }
 });

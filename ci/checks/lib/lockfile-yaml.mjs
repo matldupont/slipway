@@ -7,8 +7,8 @@
 // sequences (`resolution: {integrity: sha512-…}`), comments. Refused, by throwing: anchors, aliases, tags,
 // merge keys, multi-line quoted scalars, document markers, a tab in indentation, a repeated key, a sequence
 // level with the key above it, any control or line-break character (a carriage return too: pnpm writes LF
-// only), and, anywhere but in the free text of a `deprecated:` message, any hidden or formatting character
-// (UNSAFE): a package name or address is never read with one in it. The file is hostile input — a pull request
+// only), and any hidden or formatting character (UNSAFE) on a line that is read. Text that is never read may
+// hold them: a comment, the lines of a block scalar, a `deprecated:` message. A package name or address never can. The file is hostile input — a pull request
 // can change it — and a program that reads it differently from pnpm is a way to hide an entry, so a construct the
 // reader could take two ways is never accepted. Mappings are Maps, so a package named `__proto__` is a key.
 
