@@ -19,5 +19,5 @@ filter never tests.
 
 | Row | ID | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result | Tracker |
 |---|---|---|---|---|---|---|---|
-| RISK-1 | [31mXY | feasibility | slow close | spike | | 4 of 5 | |
+| RISK-1 | [31mXY | feasibility | slow close | spike | | 4 of 5 | |
 | RISK-2 | RISK-2 | value | not usable | interviews | 3 of 5 | experience: a‪‫‬‭‮⁦⁧⁨⁩  b | |
