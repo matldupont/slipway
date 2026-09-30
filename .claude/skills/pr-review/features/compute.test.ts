@@ -1421,6 +1421,80 @@ test("compareWithBase: fails closed when a git command it runs exits non-zero", 
   }
 });
 
+// The four files slipway's own settings, sync and scaffolding live in (#117, #120). The guard has no list: each is
+// held by the whole-tree comparison, like AGENT.md.
+const SLIPWAY_OWN_FILES = [
+  "dev/skill-configuration.md", ".slipway/manifest.json", "dev/ownership.yaml", "scripts/new-project.mjs",
+];
+
+test("compareWithBase: a PR that edits slipway's settings, .slipway/, dev/ownership.yaml or scripts/new-project.mjs fails", () => {
+  const repo = createFixtureRepo();
+  for (const dir of ["dev", ".slipway", "scripts"]) mkdirSync(path.join(repo, dir), { recursive: true });
+  for (const rel of [...SLIPWAY_OWN_FILES, "AGENT.md"]) writeFileSync(path.join(repo, rel), "base\n");
+  const base = commitAll(repo, "base");
+  const wt = freshWorktree(repo, base);
+  assert.equal(checkoutMatchesBase(wt, base), true);
+  for (const rel of [...SLIPWAY_OWN_FILES, "AGENT.md"]) { // AGENT.md: the file the issue says these are guarded like
+    writeFileSync(path.join(wt, rel), "pr\n");
+    assert.deepEqual(compareWithBase(wt, base).differing, [rel], rel);
+    execSync(`git checkout -q -- ${rel}`, { cwd: wt });
+  }
+  mkdirSync(path.join(wt, ".slipway/overrides"), { recursive: true });
+  writeFileSync(path.join(wt, ".slipway/overrides/new.md"), "pr\n"); // anything under .slipway/, not only the manifest
+  assert.deepEqual(compareWithBase(wt, base).differing, [".slipway/overrides/new.md"]);
+});
+
+// The settings read in SKILL.md → Configuration, run as written against a clone standing at the base commit.
+// process/intake.md → Configuration holds the rule (#117): dev/skill-configuration.md when it exists and
+// .slipway/manifest.json does not, both at the repository root; AGENT.md otherwise.
+function skillSettingsCommand(base: string): string {
+  const skill = readFileSync(path.join(import.meta.dirname, "..", "SKILL.md"), "utf8");
+  const blocks = [...skill.matchAll(/```bash\n([\s\S]*?)```/g)].map((m) => m[1]);
+  const block = blocks.find((b) => b.includes("fetch -q origin <baseRefOid>"));
+  assert.ok(block, "SKILL.md has no settings-read command");
+  const line = block.split("\n").find((l) => l.includes("fetch -q origin <baseRefOid>"));
+  return line!.replaceAll("<baseRefOid>", base);
+}
+
+function readSettings(files: Record<string, string>): string {
+  const repo = createFixtureRepo();
+  for (const [rel, text] of Object.entries(files)) {
+    mkdirSync(path.dirname(path.join(repo, rel)), { recursive: true });
+    writeFileSync(path.join(repo, rel), text);
+  }
+  const base = commitAll(repo, "base");
+  const clone = path.join(workspaceMkdtemp("settings-"), "review");
+  execSync(`git clone -q "${repo}" "${clone}"`, { stdio: "pipe" });
+  const r = spawnSync("sh", ["-c", skillSettingsCommand(base)], { cwd: clone, encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout;
+}
+
+test("settings read: slipway's base reads dev/skill-configuration.md; a base without it reads AGENT.md", () => {
+  assert.equal(
+    readSettings({ "AGENT.md": "template\n", "dev/skill-configuration.md": "slipway's own\n" }),
+    "slipway's own\n",
+  );
+  assert.equal(readSettings({ "AGENT.md": "project\n" }), "project\n");
+});
+
+test("settings read: a base with a manifest reads AGENT.md, whatever dev/skill-configuration.md holds", () => {
+  assert.equal(
+    readSettings({ "AGENT.md": "project\n", ".slipway/manifest.json": "{}\n", "dev/skill-configuration.md": "stray\n" }),
+    "project\n",
+  );
+});
+
+test("settings read: SKILL.md and process/intake.md name the same two files for the rule", () => {
+  const root = path.join(import.meta.dirname, "..", "..", "..", "..");
+  const skill = readFileSync(path.join(import.meta.dirname, "..", "SKILL.md"), "utf8");
+  const intake = readFileSync(path.join(root, "process", "intake.md"), "utf8");
+  for (const name of ["dev/skill-configuration.md", ".slipway/manifest.json"]) {
+    assert.ok(skill.includes(name), `SKILL.md does not name ${name}`);
+    assert.ok(intake.includes(name), `process/intake.md does not name ${name}`);
+  }
+});
+
 test("--check-checkout: the pre-launch command exits 0 on a clean checkout of the base, non-zero on each case", () => {
   const { repo, base } = baseRepo();
   execSync("git push -q origin main && git fetch -q origin", { cwd: repo, stdio: "pipe" });

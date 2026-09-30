@@ -86,7 +86,8 @@ node pr-review/features/compute.ts 123 --tone formal
 # Diagnostic logging to stderr (includes swallowed gh/git stderr)
 node pr-review/features/compute.ts 123 --verbose
 
-# Configuration from the project's AGENT.md (SKILL.md → Configuration).
+# Configuration from the base commit's settings file: AGENT.md, or slipway's
+# dev/skill-configuration.md (SKILL.md → Configuration).
 # `none` turns an input off; it never falls back to the default path.
 node pr-review/features/compute.ts 123 --issue-repo owner/issues \
   --invariants none --milestones docs/milestones --cold-review process/cold-review.md
