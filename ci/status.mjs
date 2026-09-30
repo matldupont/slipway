@@ -14,7 +14,7 @@ import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { contents, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
-import { escapeControl, escapeOutput, UNSAFE } from './checks/lib/report.mjs';
+import { escapeControl, UNSAFE } from './checks/lib/report.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -252,9 +252,10 @@ const attention = [
   ...dueSoon.map((d) => `Lesson review: ${d}`),
 ];
 L.push('## Needs attention', '', ...(attention.length ? attention.map((a) => `- ${a}`) : ['- nothing']), '');
-// Project text is printed as read (milestone titles, ids, deadlines): each control, bidi and separator character
-// is shown as \uXXXX, here and in the hook's context.
-const text = escapeOutput(L.join('\n'));
+// Project text is printed as read (milestone titles, ids, deadlines, file names): each line is escaped on its own,
+// so a line break a file name or a value carries is shown as \u000a and never starts a line (a forged Next:, a CI
+// log command), here and in the hook's context.
+const text = L.map(escapeControl).join('\n');
 
 if (args.includes('--hook')) {
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }) + '\n');

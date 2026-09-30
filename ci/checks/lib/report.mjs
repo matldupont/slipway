@@ -21,10 +21,11 @@ export const EXIT = { GREEN: 0, FINDINGS: 1, BROKEN: 2 };
 // The characters no check or status prints raw, one list for the escapers below and the guards that test their
 // output (lib/raw-output.mjs): C0 controls but tab and newline, DEL, C1, the line and paragraph separators, every
 // format character (\p{Cf}: bidi embeddings, overrides, isolates and marks, zero-width spaces, the BOM, soft
-// hyphens), the tag block, variation selectors, and the blank fillers U+3164 and U+2800. Each can hide, reorder
-// or break text, or carry text a person reviewing a file does not see. U+200D (zero-width joiner) and U+FE0E,
-// U+FE0F (text and emoji presentation) are left out so an emoji in project text (👩‍💻, ❤️) prints as itself.
-export const UNSAFE = /[[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029\u2800\u3164\ufe00-\ufe0d\u{e0000}-\u{e007f}\u{e0100}-\u{e01ef}\p{Cf}]--[\u200d]]/v;
+// hyphens, the tag block), every default-ignorable character (Hangul fillers, the combining grapheme joiner,
+// unassigned ignorables) and variation selector, and the braille blank U+2800. Each can hide, reorder or break
+// text, or carry text a person reviewing a file does not see. U+200D (zero-width joiner) and U+FE0E, U+FE0F
+// (text and emoji presentation) are left out so an emoji in project text (👩‍💻, ❤️) prints as itself.
+export const UNSAFE = /[[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u2028\u2029\u2800\p{Cf}\p{Default_Ignorable_Code_Point}\p{Variation_Selector}]--[\u200d\ufe0e\ufe0f]]/v;
 // C0/C1 only: what sync refuses in a path.
 export const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const inField = new RegExp(`[${UNSAFE.source}\\t\\n]`, 'gv');
@@ -53,9 +54,11 @@ export const escapeOutput = (s) => String(s).replace(inOutput, hex);
  * @param {string|null} [o.broken] set when the check could not run safely
  */
 export function report({ id, claim, scanned, unit, findings = [], exempted = [], exemptedBy = 'registry', warnings = [], broken = null }) {
-  // Each field is one line: a line break a project's text or an error message carries is escaped, so it can
-  // never start a line of the report (a CI log command, a second @@json line). The @@json line keeps the raw values.
+  // Each field is one line, the claim and unit too (D1's claim quotes the manifest): a line break a project's
+  // text or an error message carries is escaped, so it can never start a line of the report (a CI log command,
+  // a second @@json line). The @@json line keeps the raw values.
   const one = escapeControl;
+  [id, claim, unit, exemptedBy] = [id, claim, unit, exemptedBy].map((v) => one(String(v ?? '')));
   const L = [`${id}: scanned ${scanned} ${unit}`];
   let exit;
 
