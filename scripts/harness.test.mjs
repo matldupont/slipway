@@ -117,6 +117,21 @@ test('probe: a branch whose Stop hook writes a marker leaves none, and the Stop 
   assert.match(JSON.parse(run('session-state.sh').out).hookSpecificOutput.additionalContext, /session-state did not run/);
 });
 
+// #163: the harness asks before an edit to each owner-only file, but only gate code stops the hooks. Prose and slipway's
+// sync tooling run the way ordinary source does, so a branch changing one still runs its Stop hook.
+test('an owner-only file that is not gate code leaves the hooks running; settings.json still stops them', () => {
+  for (const [p, body] of [['CLAUDE.md', '# rules\n'], ['apps/web/AGENT.md', '# agent\n'], ['process/slipway-rules.md', '# rules\n'], ['scripts/new-project.mjs', '// sync\n'], ['dev/ownership.yaml', 'x: 1\n']]) {
+    clean();
+    put(p, body);
+    run('stop-verify.sh');
+    assert.deepEqual(marks(), ['stop-verify.sh'], `${p} alone stopped the Stop hook`);
+  }
+  clean();
+  put('process/harness/settings.json', '{}\n');
+  run('stop-verify.sh');
+  assert.deepEqual(marks(), [], 'a changed settings.json let the Stop hook run');
+});
+
 test('each kind of gate file stops the hooks: a hook, ci/, a package.json, .npmrc untracked, a case-folded name, .claude/', () => {
   const cases = [
     () => put('process/harness/hooks/lessons-first.sh', stub('lessons-first.sh', 'PROBE')),
