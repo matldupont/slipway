@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -194,6 +194,55 @@ test('a file name that reads as git pathspec magic hides no gate file', () => {
   }
 });
 
+// A link where a gate folder goes (#148): git lists the link by its own name, never a path under the folder, and
+// the folder it stands for is outside every gate path. Each case is committed on a branch, as a checkout brings it.
+const commitAll = (branch, msg) => {
+  git('-C', work, 'checkout', '-q', '-b', branch);
+  git('-C', work, 'add', '-A');
+  git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', msg);
+};
+const blocked = (name) => {
+  const out = JSON.parse(run('stop-verify.sh').out);
+  assert.equal(out.decision, 'block');
+  assert.match(out.reason, new RegExp(`Gate files: (\\S+ )*${name.replaceAll('.', '\\.')} `), `the message does not name ${name}`);
+  assert.deepEqual(marks(), [], `a hook ran with ${name} a link`);
+};
+
+test('a gate folder committed as a symlink to a folder outside the gate paths stops the hooks, and is named', () => {
+  for (const [folder, target, file] of [['node_modules', 'vendor', '.bin/tsc'], ['.claude', 'tools/claude', 'settings.json']]) {
+    clean();
+    put(`${target}/${file}`, file.endsWith('.json') ? '{}\n' : '#!/bin/sh\n');
+    symlinkSync(target, join(work, folder));
+    commitAll(`link-${folder}`, `${folder} a symlink`);
+    blocked(folder);
+  }
+});
+
+test('a gate folder committed as a submodule link, with no .gitmodules, stops the hooks, and is named', () => {
+  clean();
+  git('-C', work, 'checkout', '-q', '-b', 'gitlink');
+  git('-C', work, 'update-index', '--add', '--cacheinfo', `160000,${git('-C', work, 'rev-parse', 'HEAD')},node_modules`);
+  git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'node_modules a gitlink');
+  mkdirSync(join(work, 'node_modules')); // a checkout makes the submodule's folder
+  blocked('node_modules');
+});
+
+test('a symlink outside every gate path counts too: no pattern can name the gate files a linked folder holds', () => {
+  clean();
+  mkdirSync(join(work, 'docs'));
+  symlinkSync('../src/app.ts', join(work, 'docs/link'));
+  commitAll('link-docs', 'a symlink in docs');
+  blocked('docs/link');
+});
+
+test('an untracked symlink at a gate folder stops the hooks: .gitignore\'s node_modules/ matches folders only', () => {
+  clean();
+  put('.gitignore', 'node_modules/\n');
+  put('vendor/.bin/tsc', '#!/bin/sh\n');
+  commitAll('untracked-link', 'ignore node_modules');
+  symlinkSync('vendor', join(work, 'node_modules'));
+  blocked('node_modules');
+});
 
 test('the harness asks before an agent moves the base the guard trusts', () => {
   const ask = SETTINGS.permissions.ask;
