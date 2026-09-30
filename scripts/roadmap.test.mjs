@@ -65,6 +65,21 @@ test('no row or off: --out writes nothing and says so, --enabled prints false', 
   assert.equal(run(join(FIX, 'full'), ['--enabled']).stdout, 'enabled=true\n');
 });
 
+test('a public row that is not a live Skill Configuration row leaves the page off', () => {
+  const row = '| Roadmap page | `public` | example |';
+  const shapes = {
+    'in an HTML comment': (a) => `${a}\n<!-- example:\n${row}\n-->\n`,
+    'in a code fence': (a) => `${a}\n\`\`\`\n${row}\n\`\`\`\n`,
+    'outside the Skill Configuration section': (a) => `${a}\n## Examples\n\n| Key | Value | What |\n|---|---|---|\n${row}\n`,
+  };
+  for (const [name, edit] of Object.entries(shapes)) {
+    const root = tmp();
+    cpSync(join(FIX, 'off'), root, { recursive: true });
+    writeFileSync(join(root, 'AGENT.md'), edit(readFileSync(join(root, 'AGENT.md'), 'utf8')));
+    assert.equal(run(root, ['--enabled']).stdout, 'enabled=false\n', name);
+  }
+});
+
 test('public: Now, Next, Done and Stopped, the sha, noindex, and no script', () => {
   const html = render(join(FIX, 'full'));
   const now = section(html, 'Now');
@@ -95,6 +110,25 @@ test('no sentinel from an excluded source reaches the page', () => {
   }
   const html = render(join(FIX, 'full'));
   assert.deepEqual(html.match(/SENTINEL[\w-]*/g) ?? [], []);
+});
+
+test('a heading-shaped line in frontmatter, a comment or a code fence is never read as the title or a no-go', () => {
+  const cases = {
+    'a frontmatter comment': (md) => md.replace(/^summary:/m, '# SENTINEL-fm-comment\nsummary:'),
+    'an HTML comment before the H1': (md) => md.replace(/^# M1 — /m, '<!--\n# SENTINEL-html-comment\n-->\n\n# M1 — '),
+    'a fence in Contents, with no H1': (md) => md.replace(/^# M1 — .*$/m, '').replace('## Contents\n', '## Contents\n\n```\n# SENTINEL-fence-title\n```\n'),
+    'a fenced No-gos example in Why': (md) => md.replace('## Why\n', '## Why\n\n```\n## No-gos\n\n- SENTINEL-fence-nogo\n```\n'),
+    'a No-gos heading in an HTML comment': (md) => md.replace('## Why\n', '## Why\n\n<!--\n## No-gos\n- SENTINEL-comment-nogo\n-->\n'),
+  };
+  for (const [name, edit] of Object.entries(cases)) {
+    const html = render(variant('M1-booking.md', edit));
+    assert.deepEqual(html.match(/SENTINEL[\w-]*/g) ?? [], [], name);
+    assert.match(section(html, 'Now'), /M1<\/span>/, name);
+  }
+  const titled = render(variant('M1-booking.md', cases['a frontmatter comment']));
+  assert.match(titled, /M1<\/span> Online booking</, 'the real H1 is still the title');
+  const nogos = render(variant('M1-booking.md', cases['a fenced No-gos example in Why']));
+  assert.match(section(nogos, 'Now'), /Refunds wait for M2/, 'the real No-gos still show');
 });
 
 function readdir(m) {

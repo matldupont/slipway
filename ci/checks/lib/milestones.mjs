@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from './frontmatter.mjs';
-import { plain, section } from './markdown.mjs';
+import { plain, prose, section } from './markdown.mjs';
 
 export const MILESTONE_STATUSES = ['shaping', 'active', 'closed', 'killed'];
 export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet'];
@@ -60,10 +60,11 @@ export function started(text) {
   return MARKER.test(text.trimEnd().slice(-200));
 }
 
-// Bullets under `## No-gos`: a line starting `-` or `*` opens one; indented lines continue it.
+// Bullets under `## No-gos`: a line starting `-` or `*` opens one; indented lines continue it. Read from the prose
+// only, so a `## No-gos` example in a code fence or a comment is never taken for the section.
 export function noGos(md) {
   const items = [];
-  for (const line of (section(md, 'No-gos', 2) ?? '').split(/\r?\n/)) {
+  for (const line of (section(prose(md), 'No-gos', 2) ?? '').split(/\r?\n/)) {
     const open = line.match(/^[-*]\s+(.*)$/);
     if (open) items.push(open[1]);
     else if (items.length && /^\s+\S/.test(line)) items[items.length - 1] += ' ' + line.trim();
@@ -87,7 +88,8 @@ export function readMilestoneModel(root, today) {
     .milestones.filter((m) => m.fm?.id && MILESTONE_STATUSES.includes(m.fm.status))
     .map(({ file, md, fm }) => {
       const appetite = parseAppetite(fm.appetite);
-      const h1 = md.match(/^#\s+(.+)$/m)?.[1] ?? '';
+      // The H1 of the prose: a `# ` line in the frontmatter, a comment or a fence is not a heading.
+      const h1 = prose(md).match(/^#\s+(.+)$/m)?.[1] ?? '';
       return {
         file,
         id: text(fm.id),

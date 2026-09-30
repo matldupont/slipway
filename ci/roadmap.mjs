@@ -21,7 +21,7 @@ const ROW = 'Roadmap page';
 
 // 'off' or 'public'. Throws on any other value.
 export function roadmapSwitch(root) {
-  const value = agentRow(root, ROW);
+  const value = agentRow(root, ROW, 'Skill Configuration');
   if (!value || value === 'off' || value.startsWith('<')) return 'off';
   if (value === 'public') return 'public';
   throw new Error(`AGENT.md ${ROW} is "${value.replace(new RegExp(UNSAFE.source, 'gv'), '')}": use off or public`);

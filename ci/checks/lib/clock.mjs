@@ -10,12 +10,16 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { prose, section } from './markdown.mjs';
 
-// The value of an AGENT.md §Skill Configuration row: the cell's first `code` span, or its first word; the rest of
-// the cell may explain it. '' when there is no row. `row` is matched as written, whole and case-insensitive.
-export function agentRow(root, row) {
+// The value of an AGENT.md table row: the cell's first `code` span, or its first word; the rest of the cell may
+// explain it. '' when there is no row. `row` is matched as written, whole and case-insensitive. A row in a comment
+// or a code fence is an example, never read. `within` names the `##` section the row must sit in (a switch that
+// publishes reads only §Skill Configuration); without it, any table row in the prose counts.
+export function agentRow(root, row, within) {
   const p = join(root, 'AGENT.md');
-  const agent = existsSync(p) ? readFileSync(p, 'utf8') : '';
+  const text = prose(existsSync(p) ? readFileSync(p, 'utf8') : '');
+  const agent = within ? section(text, within, 2) ?? '' : text;
   const name = row.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const cell = agent.match(new RegExp(`^\\|\\s*${name}\\s*\\|\\s*([^|]*?)\\s*\\|`, 'im'))?.[1] ?? '';
   return (cell.match(/`([^`]+)`/)?.[1] ?? cell.split(/\s/)[0]).trim();

@@ -22,6 +22,22 @@ export function section(md, title, level) {
   return body.join('\n').trim();
 }
 
+// The text a reader sees as prose: the frontmatter, HTML comments and fenced code blocks removed (an unclosed
+// comment or fence runs to the end, as it renders). A heading-shaped line in any of those is never a heading.
+export function prose(md) {
+  const text = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '').replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+  const out = [];
+  let fence = null;
+  for (const line of text.split(/\r?\n/)) {
+    const mark = line.match(/^\s{0,3}(`{3,}|~{3,})/)?.[1];
+    if (fence) {
+      if (mark && mark[0] === fence[0] && mark.length >= fence.length && line.trim() === mark) fence = null;
+    } else if (mark) fence = mark;
+    else out.push(line);
+  }
+  return out.join('\n');
+}
+
 // GitHub renders an empty issue-form field as `_No response_`.
 export const isNoResponse = (s) => s === null || s.trim() === '' || /^_No response_$/i.test(s.trim());
 
