@@ -1291,7 +1291,7 @@ test("compareWithBase: any head of the PR fails, whatever file it changes", () =
     assert.deepEqual(compareWithBase(wt, base).differing, [rel], `${rel}, untracked`);
     rmSync(path.join(wt, rel));
   }
-  // The owner's own CLAUDE.local.md, ignored, is theirs; nothing a PR committed could have put it here (below).
+  // The owner's own CLAUDE.local.md, ignored, is not compared: HEAD's history stands in for ignored files (below).
   writeFileSync(path.join(wt, "CLAUDE.local.md"), "mine\n");
   assert.equal(checkoutMatchesBase(wt, base), true, "the owner's ignored CLAUDE.local.md");
   // Committed: a head of the PR, current or older.
@@ -1454,9 +1454,20 @@ test("--check-checkout: the pre-launch command exits 0 on a clean checkout of th
   const reset = run();
   assert.equal(reset.code, 1);
   assert.match(reset.out, /outside the base's history/);
-  const paste = reset.out.split("\n").find((l) => l.trim().startsWith("git -C "))?.trim() ?? "";
-  assert.match(paste, new RegExp(`^git -C '[^']+' worktree add --detach '[^']+' ${base}$`));
-  execSync(paste, { stdio: "pipe", shell: "/bin/sh" }); // one paste
+  const paste = reset.out.split("\n").find((l) => l.trim().startsWith("git -c "))?.trim() ?? "";
+  assert.match(paste, new RegExp(`^git -c core\\.hooksPath=/dev/null -C '[^']+' worktree add --detach '[^']+' ${base}$`));
+  // The refused checkout may hold the PR's hooks: a relative hooksPath (husky) there must not run on the paste.
+  const marker = path.join(workspaceMkdtemp("hook-"), "ran");
+  mkdirSync(path.join(wt, ".husky"));
+  writeFileSync(path.join(wt, ".husky", "post-checkout"), `#!/bin/sh\ntouch "${marker}"\n`, { mode: 0o755 });
+  execSync("git config core.hooksPath .husky", { cwd: repo });
+  try {
+    execSync(paste, { stdio: "pipe", shell: "/bin/sh" }); // one paste
+  } finally {
+    execSync("git config --unset core.hooksPath", { cwd: repo });
+  }
+  assert.equal(existsSync(marker), false, "the pasted command ran the checkout's post-checkout hook");
+  rmSync(path.join(wt, ".husky"), { recursive: true });
   const made = paste.match(/add --detach '([^']+)'/)?.[1] ?? "";
   assert.equal(check(made).code, 0, "the worktree the refusal names passes");
 

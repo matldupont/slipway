@@ -103,7 +103,9 @@ changed or added: what Claude Code runs there (settings hooks and the
 scripts they call, `CLAUDE.md` and its imports, skills) reaches any file.
 It also refuses a checkout whose HEAD has ever been on a commit outside the
 base's history, since files a PR left behind can hide from git as ignored
-ones; a missing or switched-off record of HEAD refuses too. Each refusal
+ones; a missing or switched-off record of HEAD refuses too. A PR's files
+brought in with HEAD left on the base (`git restore --source`, `git apply`)
+are not seen: bring nothing from a PR into the checkout you review from. Each refusal
 prints the one command that makes a fresh review worktree off the base.
 
 **First, where you are running.** Using `git` and `gh` only. The `gh pr

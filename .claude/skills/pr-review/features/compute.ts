@@ -1104,9 +1104,13 @@ function shellArg(p: string, placeholder: string): string {
   return /^[\x20-\x7e]+$/.test(p) ? `'${p.replace(/'/g, "'\\''")}'` : placeholder;
 }
 
-/** The one command that makes a clean review worktree off the base, beside the checkout. */
+/**
+ * The one command that makes a clean review worktree off the base, beside the checkout. Hooks off, as every git
+ * call here: `worktree add` runs post-checkout, and a relative core.hooksPath (husky, lefthook) resolves in the
+ * refused checkout, which may hold the PR's.
+ */
 export function reviewWorktreeCommand(repoRoot: string, base: string): string {
-  return `git -C ${shellArg(repoRoot, "<this checkout>")} worktree add --detach ${shellArg(`${repoRoot}-review-${base.slice(0, 8)}`, "<new folder>")} ${base}`;
+  return `git -c core.hooksPath=/dev/null -C ${shellArg(repoRoot, "<this checkout>")} worktree add --detach ${shellArg(`${repoRoot}-review-${base.slice(0, 8)}`, "<new folder>")} ${base}`;
 }
 
 /**

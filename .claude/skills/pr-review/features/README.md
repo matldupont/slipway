@@ -158,7 +158,7 @@ hidden by the base's ignore rules or by a `.gitignore` of the PR's own, or
 named as a case-insensitive disk folds them. So the check also reads git's
 record of where HEAD has been (`logs/HEAD` in the checkout's git folder),
 which a PR cannot write: when HEAD has ever been on a commit outside the
-base's history, the checkout is refused, however its files hide. It is read
+base's history, the checkout is refused, however the files left behind hide. It is read
 from the file itself, since git's own reflog commands fall back to HEAD's
 commit when the record is missing. A record that is missing, empty or
 unreadable, or switched off (`core.logAllRefUpdates=false`), refuses too.
@@ -168,13 +168,20 @@ well. Review from a fresh worktree off the base; every refusal prints the
 one command that makes it:
 
 ```bash
-git -C '/path/to/checkout' worktree add --detach '/path/to/checkout-review-1a2b3c4d' <base sha>
+git -c core.hooksPath=/dev/null -C '/path/to/checkout' worktree add --detach '/path/to/checkout-review-1a2b3c4d' <base sha>
 ```
 
-Still not seen: a file a PR's code wrote into an ignored path of a checkout
-that never left the base (an install script you ran there), and a record
-git has already pruned (`gc.reflogExpireUnreachable`, 30 days by default).
-Run nothing from a PR in a checkout you review from.
+Hooks are off in that command: `worktree add` runs `post-checkout`, and a
+relative `core.hooksPath` (husky, lefthook) would run the refused
+checkout's, which may be the PR's.
+
+Still not seen: a PR's files that git wrote while HEAD stayed on the base
+(`git restore --source=<pr>`, `git checkout <pr> -- .`, `git cherry-pick -n`,
+`git apply` of its diff), whose ignored files outlive undoing it; a file a
+PR's code wrote into an ignored path (an install script you ran there); and
+a record git has already pruned (`gc.reflogExpireUnreachable`, 30 days by
+default). Bring nothing from a PR into a checkout you review from, and run
+nothing from one there.
 
 ## Environment
 
