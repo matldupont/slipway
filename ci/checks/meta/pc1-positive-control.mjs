@@ -101,14 +101,21 @@ function runCase(check, name, dir) {
     env: { ...process.env, ...env, CHECK_JSON: '1' },
   });
   if (scratch) rmSync(scratch, { recursive: true, force: true });
-  const line = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@json '));
+  // report() writes its @@json line last, so a line a project's text forged earlier is never the one read.
+  const line = (r.stdout ?? '').split('\n').findLast((l) => l.startsWith('@@json '));
   if (!line) {
     const tail = (r.stderr || r.stdout || '').trim().split('\n').pop();
     findings.push({ where: name, detail: `check emitted no @@json report (exit ${r.status}): ${tail}` });
     return;
   }
   printedRaw(check, name, r);
-  const got = JSON.parse(line.slice('@@json '.length));
+  let got;
+  try {
+    got = JSON.parse(line.slice('@@json '.length));
+  } catch (e) {
+    findings.push({ where: name, detail: `its @@json report does not parse: ${e.message}` });
+    return;
+  }
   if (got.exit === EXIT.GREEN) {
     findings.push({ where: name, detail: 'PASSED its known-bad fixture — the check cannot fail, so its green means nothing' });
     return;
