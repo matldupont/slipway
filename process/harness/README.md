@@ -63,26 +63,22 @@ Every hook runs through `hooks/base-guard.sh`, loaded from `origin/HEAD`'s commi
 (`git cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh`), so a branch cannot change it
 (#126). The guard runs the working tree's hook only when the checkout's gate files are `origin/HEAD`'s. Gate files
 are the paths the base's own `Edit(...)` ask rules list (above), every `package.json`, `.claude/**`, `.gitmodules`
-and `.gitattributes`, matched ignoring case, tracked, untracked or deleted, documents included. A changed or untracked
-file whose name git has to quote (non-ASCII, a quote, a control character) counts too, since a Mac disk may open
-`node_moduleſ` as `node_modules`; the message lists those names apart. When any differs, that hook does not run: the
-Stop hook blocks once to say so and name the files, SessionStart says so, and the advisory hooks stay quiet. Otherwise
-a branch's hook scripts, `ci/verify.mjs` and package scripts would run on every command and every turn end, before
-the owner had been asked about them. The branch's other code and tests still run, in the Stop hook's `verify:fast`.
+and `.gitattributes`, matched ignoring case, documents included: tracked ones through `git diff` against
+`origin/HEAD` (a tracked file `.gitignore` ignores included, a submodule by its commit), and untracked ones. A
+changed or untracked file whose name git has to quote (non-ASCII, a quote, a control character) counts too, since a
+Mac disk may open `node_moduleſ` as `node_modules`; the message lists those names apart. File names are only read
+from git's output, never handed back to git.
 
-Once the owner has said yes to those changes, record it from the repository root. It is ask-level, so the harness
-asks the owner before it runs:
+When any differs, that hook does not run: the Stop hook blocks once to say so and name the files, SessionStart says
+so, and the advisory hooks stay quiet. Otherwise a branch's hook scripts, `ci/verify.mjs` and package scripts would
+run on every command and every turn end, before the owner had been asked about them. The branch's other code and
+tests still run, in the Stop hook's `verify:fast`, while no gate file differs. Once the owner has said yes to the
+changes, the agent runs `pnpm verify:fast` itself; the Stop hook stays off for that checkout until its gate files
+match `origin/HEAD` again (merged, or fetched). #145 lets the owner's own message turn it back on.
 
-```bash
-sh -c "$(git cat-file blob origin/HEAD:process/harness/hooks/base-guard.sh)" base-guard --yes
-```
-
-The yes is kept outside the repository, where no branch can write it (`/tmp/slipway-gate-yes-<uid>/`, a directory
-only you can read, ask-level to edit; `SLIPWAY_GATE_YES_DIR` moves it), as `origin/HEAD`'s commit and the hash of a
-tree holding exactly the checkout's gate files. Changing any of them after that makes the hash differ, and the hooks
-stop again until the next yes; with a quoted name present, the hash covers the whole tree. With no `origin/HEAD` (a
-repository made with `git init` and pushed later), no guard in it, or a git failure, no hook runs and the Stop and
-SessionStart hooks say why; `git remote set-head origin --auto` fixes the first, and `new-project` sets it.
+With no `origin/HEAD` (a repository made with `git init` and pushed later), no guard in it, no gate paths read, or
+a git failure, no hook runs and the Stop and SessionStart hooks say why; `git remote set-head origin --auto` fixes
+the first, and `new-project` sets it.
 
 Known limitations:
 
@@ -90,9 +86,9 @@ Known limitations:
 |---|---|
 | a session started on the branch | Claude Code loaded that checkout's `.claude/settings.json` and ran its SessionStart hook before any guard: start sessions on the default branch, and check someone else's checkout with #114's `--check-checkout` first. `/work-ticket` stops when its session started on a branch that changes `.claude/settings*.json` |
 | a checkout mid-session | Claude Code reloads `.claude/settings.json` when it changes on disk, so checking out a branch that changes it swaps the hooks, guard included. `/work-ticket` asks before it checks out such a branch; a checkout you make by hand is yours |
-| the agent and the yes | recording a yes, moving `origin/HEAD` (`git remote set-head`, `git update-ref`, `git replace`, a fetch into `refs/remotes/origin`) and editing the record ask first, but a reworded shell command or a direct write to the record still gets through, and a permission mode that approves by itself approves these too. #145 moves the record to the owner's own message and pins the base at session start |
-| `.gitignore` and local index flags | the guard sees untracked files as git does, through the working tree's ignore rules; `skip-worktree` and `assume-unchanged` hide a tracked file's edit. A checkout alone sets neither the untracked file nor the flag |
-| a symlink or a submodule | a gate path that is a symlink is judged by the link, not its target; a submodule by its recorded commit, not uncommitted work inside it |
+| the agent and the base | moving `origin/HEAD` (`git remote set-head`, `git update-ref`, `git replace`, a fetch into `refs/remotes/origin`) asks first, but a reworded shell command still gets through, and a permission mode that approves by itself approves these too. #145 pins the base at session start |
+| `.gitignore` and local index flags | an untracked file is seen as git sees it, through the working tree's ignore rules; `skip-worktree` and `assume-unchanged` hide a tracked file's edit. A checkout alone brings neither an untracked file nor a flag |
+| a symlink | a gate path that is a symlink is judged by the link, not its target |
 | a checkout while a hook runs | the guard checks, then the hook runs; a checkout in between (a background agent) changes what the hook reads |
 | case folding | `icase` catches `.NPMRC`, and a quoted name counts as a gate file; other foldings of plain ASCII names are the canonical-form limitation above |
 | a stale `origin/HEAD` | a gate file merged since the last fetch counts as changed until you fetch |

@@ -72,15 +72,10 @@
       "Write(**/mise/*.toml)",
       "Edit(**/.mise/*.toml)",
       "Write(**/.mise/*.toml)",
-      "Bash(*base-guard*--yes*)",
       "Bash(git remote set-head:*)",
       "Bash(git update-ref:*)",
       "Bash(git replace:*)",
-      "Bash(*refs/remotes/origin*)",
-      "Edit(//tmp/slipway-gate-yes-*/**)",
-      "Write(//tmp/slipway-gate-yes-*/**)",
-      "Edit(//private/tmp/slipway-gate-yes-*/**)",
-      "Write(//private/tmp/slipway-gate-yes-*/**)"
+      "Bash(*refs/remotes/origin*)"
     ],
     "allow": [
       "Bash(git stash list:*)",

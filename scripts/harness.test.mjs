@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // The harness runs no code from a checkout's changed gate files (#126). Every hook command in
 // process/harness/settings.json loads process/harness/hooks/base-guard.sh from origin/HEAD's commit, which runs
-// the working tree's hook only when the gate files are origin/HEAD's, or the owner's yes to exactly that diff is
-// recorded. Each case runs the command as settings.json writes it, with /bin/sh's bare PATH, against a
+// the working tree's hook only when the gate files are origin/HEAD's. Each case runs the command as settings.json writes it, with /bin/sh's bare PATH, against a
 // throwaway clone whose stub hooks write a marker. Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
@@ -34,7 +33,6 @@ test('every hook in settings.json runs through the base\'s guard, and none from 
 
 const T = mkdtempSync(join(tmpdir(), 'harness-'));
 const MARK = join(T, 'marks');
-const YES = join(T, 'yes');
 const origin = join(T, 'origin.git');
 const work = join(T, 'work');
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
@@ -77,7 +75,7 @@ function run(hook, input = '{}', extra = []) {
     input,
     encoding: 'utf8',
     cwd: work,
-    env: { PATH: '/usr/bin:/bin', HOME: T, CLAUDE_PROJECT_DIR: work, SLIPWAY_GATE_YES_DIR: YES },
+    env: { PATH: '/usr/bin:/bin', HOME: T, CLAUDE_PROJECT_DIR: work },
   });
   return { status: r.status, out: `${r.stdout}${r.stderr}` };
 }
@@ -85,10 +83,8 @@ const clean = () => {
   git('-C', work, 'checkout', '-q', '-f', 'main');
   git('-C', work, 'reset', '-q', '--hard', 'origin/main');
   git('-C', work, 'clean', '-q', '-fdx');
-  rmSync(YES, { recursive: true, force: true });
   reset();
 };
-const recordYes = () => run('--yes');
 
 test('control: with the gate files origin/HEAD\'s, every hook runs, as the working tree has it', () => {
   clean();
@@ -112,7 +108,7 @@ test('probe: a branch whose Stop hook writes a marker leaves none, and the Stop 
   const out = JSON.parse(r.out);
   assert.equal(out.decision, 'block');
   assert.match(out.reason, /process\/harness\/hooks\/stop-verify\.sh/);
-  assert.match(out.reason, /Ask the owner; once they say yes/);
+  assert.match(out.reason, /Ask the owner about them; once they say yes, run pnpm verify:fast yourself/);
   assert.equal(run('stop-verify.sh', '{"stop_hook_active":true}').out, '', 'a second block in one stop');
   for (const h of HOOKS.filter((x) => x !== 'stop-verify.sh')) run(h);
   assert.deepEqual(marks(), [], 'another hook ran on the probe branch');
@@ -149,42 +145,8 @@ test('a file name reaches the message only as safe characters, and the output st
   assert.doesNotMatch(out.reason, /approve"/);
 });
 
-test('the owner\'s recorded yes lets the hooks run, until a gate file changes again', () => {
-  clean();
-  put('ci/verify.mjs', '// changed\n');
-  run('stop-verify.sh');
-  assert.deepEqual(marks(), []);
-  const y = recordYes();
-  assert.equal(y.status, 0, y.out);
-  assert.match(y.out, /ci\/verify\.mjs/);
-  run('stop-verify.sh');
-  assert.deepEqual(marks(), ['stop-verify.sh'], 'the recorded yes did not let the Stop hook run');
-  reset();
-  put('ci/verify.mjs', '// changed again\n');
-  assert.equal(JSON.parse(run('stop-verify.sh').out).decision, 'block', 'a yes outlived a change');
-  assert.deepEqual(marks(), []);
-  reset();
-  put('ci/verify.mjs', '// changed\n');
-  put('.envrc', 'export PATH=/tmp/x:$PATH\n');
-  run('stop-verify.sh');
-  assert.deepEqual(marks(), [], 'a yes outlived a new untracked gate file');
-});
 
-test('a record directory that is not private is ignored, and --yes refuses to write to it', () => {
-  clean();
-  put('ci/verify.mjs', '// changed\n');
-  assert.equal(recordYes().status, 0);
-  chmodSync(YES, 0o755);
-  run('stop-verify.sh');
-  assert.deepEqual(marks(), [], 'a group-readable record directory was trusted');
-  assert.equal(recordYes().status, 1);
-});
 
-test('with a clean tree there is nothing to record', () => {
-  clean();
-  assert.match(recordYes().out, /nothing to record/);
-  assert.ok(!existsSync(YES), 'a record directory was made with nothing to record');
-});
 
 test('no origin/HEAD: no hook runs; the Stop and SessionStart hooks say why, the advisory ones stay quiet', () => {
   clean();
@@ -198,7 +160,7 @@ test('no origin/HEAD: no hook runs; the Stop and SessionStart hooks say why, the
   }
 });
 
-test('a lookalike name counts as a gate file, is named apart in the message, and a recorded yes covers it', () => {
+test('a lookalike name counts as a gate file and is named apart in the message', () => {
   clean();
   git('-C', work, 'checkout', '-q', '-b', 'lookalike');
   put('node_moduleſ/.bin/node', '#!/bin/sh\n');
@@ -208,37 +170,34 @@ test('a lookalike name counts as a gate file, is named apart in the message, and
   assert.equal(out.decision, 'block');
   assert.match(out.reason, /Non-ASCII names; on a Mac one may stand in for a gate path like node_modules\/: \?node_module#305#277\/\.bin\/node\?/);
   assert.deepEqual(marks(), []);
-  assert.equal(recordYes().status, 0);
-  run('stop-verify.sh');
-  assert.deepEqual(marks(), ['stop-verify.sh'], 'the recorded yes did not cover the lookalike');
-  reset();
-  put('src/app.ts', 'export const y = 2;\n');
-  assert.equal(JSON.parse(run('stop-verify.sh').out).decision, 'block', 'with a lookalike present, the yes covers the whole tree');
 });
 
-test('a recorded yes covers exact content: a quoted name\'s content, or content moved between files, asks again', () => {
-  clean();
-  put('ci/a"b.mjs', '// one\n');
-  assert.equal(recordYes().status, 0);
-  run('stop-verify.sh');
-  assert.deepEqual(marks(), ['stop-verify.sh']);
-  reset();
-  put('ci/a"b.mjs', '// two\n');
-  assert.equal(JSON.parse(run('stop-verify.sh').out).decision, 'block', 'a quoted name\'s new content ran on the old yes');
-  clean();
-  put('ci/a.mjs', 'X\nci/b.mjs\nEVIL\n');
-  assert.equal(recordYes().status, 0);
-  reset();
-  put('ci/a.mjs', 'X\n');
-  put('ci/b.mjs', 'EVIL\n');
-  assert.equal(JSON.parse(run('stop-verify.sh').out).decision, 'block', 'content split across files ran on the old yes');
-  assert.deepEqual(marks(), []);
+test('a gate file the branch tracks is seen even where .gitignore ignores it', () => {
+  for (const [path, ignore] of [['node_modules/.bin/tsc', null], ['.npmrc', '.npmrc\n'], ['ci/extra.mjs', 'ci/extra.mjs\n']]) {
+    clean();
+    put('.gitignore', `node_modules/\n${ignore ?? ''}`);
+    put(path, '#!/bin/sh\n');
+    git('-C', work, 'add', '-f', '.gitignore', path);
+    git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'tracked, ignored');
+    run('stop-verify.sh');
+    assert.deepEqual(marks(), [], `${path}, tracked and ignored, let a hook run`);
+  }
 });
 
-test('the harness asks before an agent records a yes or moves the base the guard trusts', () => {
+test('a file name that reads as git pathspec magic hides no gate file', () => {
+  for (const [gate, decoy] of [['package.json', ':!/package.json'], ['process/harness/hooks/stop-verify.sh', ':!/process/harness/*']]) {
+    clean();
+    put(gate, gate.endsWith('.sh') ? stub('stop-verify.sh', 'PROBE') : '{ "scripts": { "verify": "node x.mjs" } }\n');
+    put(decoy, '');
+    run('stop-verify.sh');
+    assert.deepEqual(marks(), [], `${decoy} hid ${gate}`);
+  }
+});
+
+
+test('the harness asks before an agent moves the base the guard trusts', () => {
   const ask = SETTINGS.permissions.ask;
-  for (const r of ['Bash(*base-guard*--yes*)', 'Bash(git remote set-head:*)', 'Bash(git update-ref:*)', 'Bash(git replace:*)', 'Bash(*refs/remotes/origin*)']) assert.ok(ask.includes(r), `no ask rule ${r}`);
-  for (const t of ['Edit', 'Write']) for (const d of ['//tmp', '//private/tmp']) assert.ok(ask.includes(`${t}(${d}/slipway-gate-yes-*/**)`), `no ask rule ${t}(${d}/…)`);
+  for (const r of ['Bash(git remote set-head:*)', 'Bash(git update-ref:*)', 'Bash(git replace:*)', 'Bash(*refs/remotes/origin*)']) assert.ok(ask.includes(r), `no ask rule ${r}`);
 });
 
 test.after(() => rmSync(T, { recursive: true, force: true }));
