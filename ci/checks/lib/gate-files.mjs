@@ -1,5 +1,6 @@
 // Which files of a pull request are gate files: the paths the harness asks before editing
-// (process/harness/settings.json, `Edit(...)` rules, matched exactly; a lookalike spelling is refused), plus a `package.json` whose run keys changed
+// (process/harness/settings.json, `Edit(...)` rules, matched exactly; a lookalike spelling is refused; markdown only when
+// owner-only), plus a `package.json` whose run keys changed
 // (RUN_KEYS, and a dependency on local code or a runtime): what a gate command runs, the pnpm and node that run
 // it, and pnpm's settings. Read by P1. One list: a gate path added to the harness is a gate path here.
 //
@@ -58,8 +59,16 @@ export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more 
   const globs = [...new Set([...gateGlobs(settingsText), ...more])];
   const exact = globs.map(globToRegExp);
   const folded = globs.map((g) => [g, globToRegExp(canonical(g))]);
-  // A markdown file is a document: it cannot change what a gate checks, even under ci/ or process/harness/.
-  const doc = (path) => /\.md$/i.test(canonical(path));
+  // A markdown file is a document: it cannot change what a gate checks, even under ci/ or process/harness/. Except
+  // an owner-only one (process/slipway-rules.md → Gates, #163): a file a glob names by its `.md` name (CLAUDE.md,
+  // AGENT.md, the rules) or one under .claude/, where Claude Code reads markdown as instructions (skills, agents,
+  // commands). Those are what an agent follows, and a shell write reaches them without an ask, so the PR line is
+  // the backstop. Compared in canonical form, so a lookalike (`.CLAUDE/`, `Claude.md`) is refused, not exempt.
+  const named = globs.filter((g) => /\.md$/i.test(g.split('/').pop())).map((g) => globToRegExp(canonical(g)));
+  const doc = (path) => {
+    const c = canonical(path);
+    return /\.md$/.test(c) && !/(^|\/)\.claude\//.test(c) && !named.some((re) => re.test(c));
+  };
   const isGate = (path) => !doc(path) && exact.some((re) => re.test(path));
   isGate.lookalike = (path) => {
     if (doc(path) || isGate(path)) return null;

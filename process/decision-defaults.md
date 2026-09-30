@@ -72,8 +72,8 @@ Each of these goes to the owner, whatever a default says:
 
 - **Any point where a skill, `process/slipway-rules.md` or a review's GUARANTEES block says to ask or stop.** A
   default fills a gap in those rules; it never overrides one.
-- **An edit the harness asks about, and an edit to a rule or gate file** (`process/slipway-rules.md` → Gates),
-  whether or not the harness prompts. Its approval is the owner's, and a default is not.
+- **An edit the harness asks about, and an edit to an owner-only file** (`process/slipway-rules.md` → Gates,
+  Owner-only files), whether or not the harness prompts. Its approval is the owner's, and a default is not.
 - **Spending money.**
 - **Creating or deleting anything outside the repository.**
 - **Product decisions:** who the users are, what they pay, what they see.

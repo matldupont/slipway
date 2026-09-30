@@ -441,7 +441,7 @@ test(`${DEFAULTS}: §1–§10 in order, each with a reason, and what they never 
   // Review round 1 (#162): a default fills a gap in the rules, never overrides an ask, a gate or the review cap.
   const flat = md.replace(/\s+/g, ' ');
   assert.match(flat, /A default fills a gap in those rules; it never overrides one\./, 'an ask a skill or the rules name outranks every default');
-  assert.match(flat, /an edit to a rule or gate file\*\* \(`process\/slipway-rules\.md` → Gates\), whether or not the harness prompts/, 'rule files stay the owner\'s under any permission mode');
+  assert.match(flat, /an edit to an owner-only file\*\* \(`process\/slipway-rules\.md` → Gates, Owner-only files\), whether or not the harness prompts/, 'owner-only files stay the owner\'s under any permission mode');
   assert.match(flat, /can a pull request's committed files cause it\?/, '§3 states the pull-request test');
   assert.match(flat, /It never settles loosening a check that exists/, '§5 never loosens an existing check');
   assert.match(flat, /A finding that still breaks a guarantee stops the run and goes to the owner/, '§7 keeps work-ticket\'s stop');
@@ -456,6 +456,42 @@ test('the four skills apply the decision defaults before asking; the working rul
   const title = dec.match(/^## (D-\d+ — The trust line\b.*)$/m)?.[1];
   assert.ok(title, 'decisions.md must record §3, the trust line');
   assert.match(section(dec, title, 2) ?? '', /`process\/decision-defaults\.md`/, 'the trust-line decision must cite the defaults file');
+});
+
+// #163: one list of owner-only files. process/slipway-rules.md → Gates names the files /work-ticket judges a run by,
+// plus the files CLAUDE.md imports, and the harness asks before an edit to each path on it (the owner's decision,
+// 2026-09-30), so a session reading Gates alone, or running where nothing prompts, sees every one.
+const ownerOnly = () => {
+  const gates = section(read('process/slipway-rules.md'), 'Gates', 2) ?? '';
+  const bullet = gates.match(/^- \*\*Owner-only files\.\*\*([\s\S]*?)(?=^- |(?![\s\S]))/m)?.[1] ?? '';
+  // The list ends where the paragraph says what changing one needs; the commands after it are not rule files.
+  const skill = read(skillPath('work-ticket')).match(/\*\*The rules the run is judged by:\*\*([\s\S]*?)Changing one needs the owner's yes/)?.[1] ?? '';
+  const ticks = (md) => new Set([...md.matchAll(/`([^`]+)`/g)].map((m) => m[1]).filter((t) => !/^[/#]/.test(t) && !t.includes('{')));
+  const imports = [...read('CLAUDE.md').matchAll(/^@(\S+)$/gm)].map((m) => m[1]);
+  return { bullet: bullet.replace(/\s+/g, ' '), skill: skill.replace(/\s+/g, ' '), gates: ticks(bullet), rules: ticks(skill), imports };
+};
+
+test('process/slipway-rules.md → Gates names the owner-only files work-ticket checks, and decision-defaults cites it', () => {
+  const { bullet, skill, gates, rules, imports } = ownerOnly();
+  assert.ok(bullet, 'Gates must hold a bullet starting **Owner-only files.**');
+  assert.ok(imports.length > 0, 'CLAUDE.md imports no file, so the list cannot be checked');
+  for (const p of imports) assert.ok(gates.has(p), `Gates must name ${p}, which CLAUDE.md imports`);
+  const expected = [...new Set([...rules, ...imports])].sort();
+  assert.deepEqual([...gates].sort(), expected, 'the Gates list and work-ticket\'s rule files differ');
+  for (const phrase of ['at any depth, and the files they import', 'the cold-review file', 'package scripts, lint, type and test configs, CI workflows']) {
+    assert.ok(bullet.includes(phrase), `Gates must name ${phrase}`);
+    assert.ok(skill.includes(phrase), `work-ticket's rule files must name ${phrase}`);
+  }
+  assert.match(bullet, /whether or not the harness prompts/, 'the list holds under any permission mode');
+  assert.match(read(DEFAULTS).replace(/\s+/g, ' '), /\(`process\/slipway-rules\.md` → Gates, Owner-only files\)/, 'decision-defaults must cite the Gates list');
+});
+
+test('the harness asks before an edit or a write to every path on the owner-only list', () => {
+  const { gates } = ownerOnly();
+  const ask = JSON.parse(read('process/harness/settings.json')).permissions?.ask ?? [];
+  const paths = [...gates].filter((t) => !/\s/.test(t));
+  assert.ok(paths.includes('.claude/**') && paths.includes('process/slipway-rules.md'), 'the list must name .claude/** and process/slipway-rules.md');
+  for (const p of paths) for (const tool of ['Edit', 'Write']) assert.ok(ask.includes(`${tool}(**/${p})`), `process/harness/settings.json has no ${tool}(**/${p}) ask rule`);
 });
 
 // #157 (F-07, dev/features/work-order.md): an issue's Links line may say which files its PR changes, so the work-order
