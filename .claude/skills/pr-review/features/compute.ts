@@ -33,6 +33,8 @@
  *                                     `none` turns that input off; it never falls back to the default.
  *   --verbose                         Diagnostic logs to stderr (includes swallowed gh/git stderr)
  *   --cleanup <dir>                   Delete a review folder this script made, and exit
+ *   --check-checkout <dir>            Pre-launch check, run from outside <dir> before Claude Code starts there:
+ *     [--base <ref>]                    exit 0 only when what Claude Code loads in <dir> is <ref>'s (default: origin/HEAD)
  *
  * Environment:
  *   GH_HOST                 GitHub host for `gh` (e.g. github.example.com, for GitHub Enterprise)
@@ -56,7 +58,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, posix, relative, sep } from "node:path";
 
 // ============================================================================
 // Output types
@@ -318,6 +320,10 @@ interface CLIOptions {
   tone: Tone;
   /** Set by --cleanup: delete this review folder and exit. */
   cleanup: string | null;
+  /** Set by --check-checkout: the pre-launch check of this checkout, and exit. */
+  checkCheckout: string | null;
+  /** --base: the commit --check-checkout compares with (default: origin/HEAD). */
+  base: string | null;
 }
 
 /** Why a checkout is refused, and what replaces it. */
@@ -336,6 +342,8 @@ export function parseArgs(argv: string[]): CLIOptions {
     verbose: false,
     tone: "casual",
     cleanup: null,
+    checkCheckout: null,
+    base: null,
   };
   let i = 0;
   if (argv.length > 0 && !argv[0].startsWith("--")) {
@@ -374,6 +382,18 @@ export function parseArgs(argv: string[]): CLIOptions {
         opts.cleanup = v;
         break;
       }
+      case "--check-checkout": {
+        const v = argv[++i];
+        if (!v || v.startsWith("--")) throw new Error("--check-checkout needs the checkout's path");
+        opts.checkCheckout = v;
+        break;
+      }
+      case "--base": {
+        const v = argv[++i];
+        if (!v || v.startsWith("-")) throw new Error("--base needs a ref or commit");
+        opts.base = v;
+        break;
+      }
       case "--output-path":
         // compute.ts runs pre-approved, so it writes nowhere but its own review folder.
         throw new Error("--output-path was removed: compute.ts writes JSON to stdout only");
@@ -395,6 +415,7 @@ export function parseArgs(argv: string[]): CLIOptions {
         throw new Error(`Unknown argument: ${arg}`);
     }
   }
+  if (opts.base && !opts.checkCheckout) throw new Error("--base goes with --check-checkout");
   return opts;
 }
 
@@ -917,31 +938,196 @@ export function isInPrCheckout(
 }
 
 /**
- * What Claude Code loads from the checkout it runs in: the skill itself,
- * settings (allow-list, hooks), agents, and the configuration the skill
- * reads. On someone else's PR they must be the base commit's, byte for byte.
+ * What Claude Code loads from the checkout it runs in: `.claude/` at any
+ * depth (this skill, settings with their allow-list and hooks, agents,
+ * rules), every `CLAUDE.md` and `CLAUDE.local.md` and the files they import,
+ * `.mcp.json`, and the configuration this skill reads. On someone else's PR
+ * they must be the base commit's, byte for byte.
  */
-export const REVIEWER_FILES = [".claude", "AGENT.md", "process/intake.md"];
+export const LOADED_FILES = [".claude/", "CLAUDE.md", "CLAUDE.local.md", "their imports", ".mcp.json", "AGENT.md", "process/intake.md"];
+const LOADED_AT_ROOT = [".mcp.json", "agent.md", "process/intake.md"];
+const MEMORY_FILES = new Set(["claude.md", "claude.local.md"]);
+/** Claude Code follows imports five hops deep. */
+const IMPORT_DEPTH = 5;
 
 /**
- * True when the checkout at `repoRoot` holds exactly the base commit's
- * REVIEWER_FILES: no tracked difference (committed or not) and no
- * untracked, unignored file among them. Compared by content, so a checkout
- * at any head of the PR — current or older — fails it. False when the
- * base commit is unknown.
+ * A path as a case-insensitive disk compares it (APFS, HFS+, NTFS): Unicode
+ * compatibility forms and case folded, and the code points HFS+ ignores
+ * dropped. It folds more than any one disk does, so two names it keeps
+ * apart are never one file.
  */
-export function reviewerFilesMatchBase(repoRoot: string, baseSha: string | null): boolean {
-  if (!baseSha) return false;
-  try {
-    runGit(["diff", "--quiet", baseSha, "--", ...REVIEWER_FILES], repoRoot);
-  } catch {
-    return false; // exit 1: differs (or git failed): not the base's
+export function foldPath(p: string): string {
+  return p
+    .normalize("NFKC")
+    .replace(/[‌-‏‪-‮⁪-⁯﻿]/g, "")
+    .toUpperCase()
+    .toLowerCase();
+}
+
+/**
+ * The repository paths a memory file at `from` imports with `@path`, resolved
+ * as Claude Code resolves them: relative to the importing file. Home and
+ * outside-the-repository paths are dropped; a PR cannot change them. Every
+ * `@` token counts, even in a code span, and a trailing punctuation mark
+ * gives a second reading: reading too much costs nothing.
+ */
+export function importsOf(text: string, from: string, repoRoot: string): string[] {
+  const out = new Set<string>();
+  for (const m of text.matchAll(/(?:^|\s)@((?:[^\s\\]|\\ )+)/g)) {
+    const raw = m[1].replace(/\\ /g, " ");
+    for (const token of new Set([raw, raw.replace(/[.,;:!?)\]}>'"`*_]+$/, "")])) {
+      if (!token || token.startsWith("~")) continue;
+      const rel = isAbsolute(token) ? relative(repoRoot, token).split(sep).join("/") : posix.join(posix.dirname(from), token);
+      const norm = posix.normalize(rel);
+      if (norm === ".." || norm.startsWith("../") || posix.isAbsolute(norm)) continue;
+      out.add(norm.replace(/\/+$/, ""));
+    }
   }
-  const untracked = tryRunGit(
-    ["status", "--porcelain", "--untracked-files=all", "--", ...REVIEWER_FILES],
-    repoRoot,
-  );
-  return untracked === "";
+  return [...out];
+}
+
+/** The loaded files a path names in a checkout: itself, or a folder or link that holds one. */
+function isLoadedPath(path: string, imported: Set<string>): boolean {
+  const f = foldPath(path);
+  const segs = f.split("/");
+  if (segs.includes(".claude") || MEMORY_FILES.has(segs[segs.length - 1])) return true;
+  for (const t of imported) if (t === f || t.startsWith(`${f}/`)) return true;
+  return false;
+}
+
+/**
+ * Every repository path the memory files import, folded, with the loaded
+ * files at the root. Read from the base commit, where the file exists
+ * there: a memory file the checkout changed fails the comparison anyway. A
+ * memory file only on disk (the owner's own `CLAUDE.local.md`) is read from
+ * disk, as text.
+ */
+function loadedTargets(repoRoot: string, baseSha: string): Set<string> {
+  const tree = new Map<string, string>();
+  for (const entry of execGit(["ls-tree", "-r", "-z", "--full-tree", baseSha], repoRoot).toString("utf8").split("\0")) {
+    const tab = entry.indexOf("\t");
+    if (tab > 0) tree.set(entry.slice(tab + 1), entry.slice(0, tab).split(" ")[2]);
+  }
+  const read = (rel: string): string | null => {
+    const oid = tree.get(rel);
+    if (oid) return execGit(["cat-file", "blob", oid], repoRoot).toString("utf8");
+    try {
+      return readFileSync(join(repoRoot, rel), "utf8");
+    } catch {
+      return null;
+    }
+  };
+  const targets = new Set(LOADED_AT_ROOT);
+  const seen = new Set<string>();
+  let hop = [...tree.keys()].filter((p) => {
+    const f = foldPath(p);
+    return MEMORY_FILES.has(f.split("/").pop() ?? "") || /(^|\/)\.claude\/rules\/.*\.md$/.test(f);
+  });
+  hop.push("CLAUDE.local.md", ".claude/CLAUDE.local.md");
+  for (let depth = 0; depth <= IMPORT_DEPTH && hop.length > 0; depth++) {
+    const next: string[] = [];
+    for (const file of hop) {
+      if (seen.has(file)) continue;
+      seen.add(file);
+      const text = read(file);
+      if (text === null) continue;
+      for (const target of importsOf(text, file, repoRoot)) {
+        targets.add(foldPath(target));
+        next.push(target);
+      }
+    }
+    hop = next;
+  }
+  return targets;
+}
+
+export interface LoadedFilesCheck {
+  /** True only when every file Claude Code loads in the checkout is the base commit's. */
+  matches: boolean;
+  /** The loaded paths that differ, as git printed them: the author's text, data only. */
+  differing: string[];
+  /** Why the comparison could not run; the check then fails. */
+  error: string | null;
+}
+
+/**
+ * Compares the checkout at `repoRoot` with the base commit: every path that
+ * differs, tracked (committed or not) or untracked and unignored, across the
+ * whole tree, then the ones Claude Code loads, matched as a case-insensitive
+ * disk would. A checkout at any head of the PR — current or older — fails it.
+ * It fails closed: an unknown base, or a git command that errors, is a failure.
+ */
+export function compareLoadedFiles(repoRoot: string, baseSha: string | null): LoadedFilesCheck {
+  if (!baseSha) return { matches: false, differing: [], error: "the base commit is unknown" };
+  try {
+    const imported = loadedTargets(repoRoot, baseSha);
+    const tracked = execGit(
+      ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", baseSha, "--"],
+      repoRoot,
+    ).toString("utf8").split("\0");
+    // `XY path` per entry; with renames off, one path each.
+    const status = execGit(["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames"], repoRoot)
+      .toString("utf8")
+      .split("\0")
+      .map((e) => e.slice(3));
+    const differing = [...new Set([...tracked, ...status])].filter((p) => p && isLoadedPath(p, imported));
+    return { matches: differing.length === 0, differing, error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);
+    return { matches: false, differing: [], error: `git failed: ${msg}` };
+  }
+}
+
+/** True when the checkout's loaded files are exactly the base commit's (compareLoadedFiles). */
+export function reviewerFilesMatchBase(repoRoot: string, baseSha: string | null): boolean {
+  return compareLoadedFiles(repoRoot, baseSha).matches;
+}
+
+/** A path the author chose, safe to print to a terminal: printable ASCII, the rest escaped. */
+function printable(p: string): string {
+  return JSON.stringify(p).replace(/[^\x20-\x7e]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
+/**
+ * The pre-launch check, `--check-checkout <dir> [--base <ref>]`: run from
+ * outside `<dir>`, before Claude Code starts there, since the checkout's
+ * settings hooks run at start-up, before any skill. 0 when every file Claude
+ * Code would load in `<dir>` is `<ref>`'s (default: `origin/HEAD`), 1 when
+ * one is not or the comparison cannot run.
+ */
+export function checkCheckout(dir: string, baseRef: string | null): { code: number; lines: string[] } {
+  const ref = baseRef ?? "refs/remotes/origin/HEAD";
+  const label = printable(baseRef ?? "origin/HEAD");
+  if (ref.startsWith("-")) return { code: 1, lines: [`--base must be a ref or commit (got ${label})`] };
+  let repoRoot: string;
+  try {
+    repoRoot = runGit(["rev-parse", "--show-toplevel"], dir);
+  } catch {
+    return { code: 1, lines: [`${printable(dir)} is not a git checkout.`] };
+  }
+  let base: string;
+  try {
+    base = runGit(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], repoRoot);
+  } catch {
+    return {
+      code: 1,
+      lines: [
+        baseRef
+          ? `${label} is not a commit in ${printable(repoRoot)}: fetch it first.`
+          : `${printable(repoRoot)} has no origin/HEAD: pass --base origin/<the PR's base branch>.`,
+      ],
+    };
+  }
+  const result = compareLoadedFiles(repoRoot, base);
+  if (result.matches) {
+    return { code: 0, lines: [`ok: what Claude Code loads in ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}).`] };
+  }
+  const lines = [`Do not start Claude Code in ${printable(repoRoot)}: what it loads there is not ${label}'s (${base.slice(0, 12)}).`];
+  if (result.error) lines.push(`The comparison could not run: ${result.error}`);
+  for (const p of result.differing.slice(0, 20)) lines.push(`  differs: ${printable(p)}`);
+  if (result.differing.length > 20) lines.push(`  …and ${result.differing.length - 20} more`);
+  lines.push("Review from a clean checkout of the base branch instead, passing the PR number to /pr-review.");
+  return { code: 1, lines };
 }
 
 /**
@@ -1865,7 +2051,7 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     hardHalt = {
       reason: "running_in_pr_checkout",
       detail:
-        `this checkout's ${REVIEWER_FILES.join(", ")} are not the base commit's, or it is the PR's own head, ` +
+        `this checkout's ${LOADED_FILES.join(", ")} are not the base commit's, or it is the PR's own head, ` +
         `and the PR is @${meta.author.username}'s: what runs here may be the PR's. ` +
         `Run from a clean checkout of ${meta.targetBranch}, passing the PR number.`,
     };
@@ -1976,9 +2162,18 @@ async function main(): Promise<void> {
         "  --milestones <dir|none>           Milestones folder (default: docs/milestones)\n" +
         "  --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)\n" +
         "  --verbose                         Diagnostic logs to stderr\n" +
-        "  --cleanup <dir>                   Delete a review folder this script made, and exit\n",
+        "  --cleanup <dir>                   Delete a review folder this script made, and exit\n" +
+        "  --check-checkout <dir> [--base <ref>]\n" +
+        "                                    Pre-launch check, run from outside <dir> before starting Claude Code there:\n" +
+        "                                    exit 0 only when what Claude Code loads in <dir> is <ref>'s (default: origin/HEAD)\n",
     );
     process.exit(1);
+  }
+
+  if (opts.checkCheckout) {
+    const { code, lines } = checkCheckout(opts.checkCheckout, opts.base);
+    (code === 0 ? process.stdout : process.stderr).write(`${lines.join("\n")}\n`);
+    process.exit(code);
   }
 
   if (opts.cleanup) {

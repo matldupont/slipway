@@ -14,7 +14,7 @@
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
-import { execSync, execFileSync } from "node:child_process";
+import { execSync, execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, lstatSync, statSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -73,6 +73,10 @@ import {
   runGit,
   isInPrCheckout,
   reviewerFilesMatchBase,
+  compareLoadedFiles,
+  checkCheckout,
+  foldPath,
+  importsOf,
   DEFAULT_SLIPWAY_PATHS,
   type PRMetadata,
   type IssueTicket,
@@ -1265,6 +1269,169 @@ test("reviewerFilesMatchBase: any head of the PR that touches what Claude Code l
   writeFileSync(path.join(repo, "src.txt"), "elsewhere\n"); // outside what Claude Code loads: fine
   assert.equal(reviewerFilesMatchBase(repo, base), true);
   assert.equal(reviewerFilesMatchBase(repo, null), false);
+});
+
+// A base commit holding every file Claude Code loads: the skill's folder and settings, the configuration it reads,
+// CLAUDE.md importing a file that imports another, a nested CLAUDE.md, and .mcp.json.
+function loadedFilesRepo(): { repo: string; base: string } {
+  const repo = createFixtureRepo();
+  for (const dir of [".claude/skills/pr-review", "process", "docs"]) mkdirSync(path.join(repo, dir), { recursive: true });
+  const files: Record<string, string> = {
+    ".claude/settings.json": "{}\n",
+    ".claude/skills/pr-review/SKILL.md": "base\n",
+    "AGENT.md": "base\n",
+    "process/intake.md": "base\n",
+    "CLAUDE.md": "# rules\n\n@process/rules.md\n",
+    "process/rules.md": "See @../docs/deep.md.\n",
+    "docs/deep.md": "base\n",
+    "docs/CLAUDE.md": "base\n",
+    "docs/owner-import.md": "base\n",
+    ".mcp.json": "{}\n",
+    ".gitignore": "/CLAUDE.local.md\n",
+  };
+  for (const [rel, text] of Object.entries(files)) writeFileSync(path.join(repo, rel), text);
+  return { repo, base: commitAll(repo, "base") };
+}
+
+test("compareLoadedFiles: each file Claude Code loads, changed in turn, fails; any other file does not", () => {
+  const { repo, base } = loadedFilesRepo();
+  assert.deepEqual(compareLoadedFiles(repo, base), { matches: true, differing: [], error: null });
+  const loaded = [
+    ".claude/settings.json", "AGENT.md", "process/intake.md", "CLAUDE.md",
+    "process/rules.md", "docs/deep.md", // CLAUDE.md's import, and that file's own
+    "docs/CLAUDE.md", ".mcp.json",
+  ];
+  for (const rel of loaded) {
+    writeFileSync(path.join(repo, rel), "pr\n"); // uncommitted
+    assert.deepEqual(compareLoadedFiles(repo, base).differing, [rel], `${rel}, uncommitted`);
+    commitAll(repo, `pr changes ${rel}`); // committed: a head of the PR
+    assert.equal(reviewerFilesMatchBase(repo, base), false, `${rel}, committed`);
+    execSync(`git reset -q --hard ${base}`, { cwd: repo });
+  }
+  // CLAUDE.local.md: committed by the PR (tracked, though ignored), or untracked where nothing ignores it.
+  writeFileSync(path.join(repo, "CLAUDE.local.md"), "pr\n");
+  execSync("git add -f CLAUDE.local.md", { cwd: repo });
+  assert.equal(reviewerFilesMatchBase(repo, base), false, "CLAUDE.local.md, committed");
+  execSync(`git reset -q --hard ${base}`, { cwd: repo });
+  writeFileSync(path.join(repo, "docs", "CLAUDE.local.md"), "pr\n");
+  assert.deepEqual(compareLoadedFiles(repo, base).differing, ["docs/CLAUDE.local.md"], "CLAUDE.local.md, untracked");
+  rmSync(path.join(repo, "docs", "CLAUDE.local.md"));
+
+  // The owner's own CLAUDE.local.md (ignored) is theirs; what it imports is still compared.
+  writeFileSync(path.join(repo, "CLAUDE.local.md"), "Mine: @docs/owner-import.md\n");
+  assert.equal(reviewerFilesMatchBase(repo, base), true, "the owner's ignored CLAUDE.local.md");
+  writeFileSync(path.join(repo, "docs", "owner-import.md"), "pr\n");
+  assert.equal(reviewerFilesMatchBase(repo, base), false, "a file the owner's CLAUDE.local.md imports");
+  execSync("git checkout -q -- docs/owner-import.md", { cwd: repo });
+
+  writeFileSync(path.join(repo, "README.md"), "pr\n");
+  writeFileSync(path.join(repo, "docs", "other.md"), "pr\n");
+  assert.equal(reviewerFilesMatchBase(repo, base), true, "files Claude Code does not load");
+});
+
+test("compareLoadedFiles: a PR's file under a differently cased .claude folder fails, on a case-insensitive disk too", () => {
+  const { repo, base } = loadedFilesRepo();
+  // Built with plumbing, as a PR's author on a case-sensitive disk would commit it. On a case-insensitive disk (the
+  // macOS default) the checkout writes it into .claude/, where Claude Code loads it as settings.
+  const blob = execSync("git hash-object -w --stdin", { cwd: repo, input: '{"hooks":{}}\n', encoding: "utf8" }).trim();
+  for (const rel of [".CLAUDE/settings.local.json", ".Claude/skills/pr-review/SKILL.md", "Process/Intake.md", "claude.md", "docs/Claude.Local.md"]) {
+    execSync(`git update-index --add --cacheinfo 100644,${blob},${rel}`, { cwd: repo });
+    execSync(`git commit -q -m "pr adds ${rel}"`, { cwd: repo });
+    execSync("git checkout -q -f HEAD", { cwd: repo });
+    const result = compareLoadedFiles(repo, base);
+    assert.equal(result.matches, false, rel);
+    assert.ok(result.differing.includes(rel), `${rel}: ${JSON.stringify(result.differing)}`);
+    execSync(`git reset -q --hard ${base}`, { cwd: repo });
+    execSync("git clean -qfdx -e CLAUDE.local.md", { cwd: repo });
+  }
+});
+
+test("foldPath: names a case-insensitive disk reads as one fold to one", () => {
+  assert.equal(foldPath(".CLAUDE/Settings.JSON"), ".claude/settings.json");
+  assert.equal(foldPath("process/intaKe.md"), "process/intake.md"); // KELVIN SIGN
+  assert.equal(foldPath("proceſſ/intake.md"), "process/intake.md"); // LONG S
+  assert.equal(foldPath(".cla‌ude/x"), ".claude/x"); // a code point HFS+ ignores
+  assert.equal(foldPath("．claude/x"), ".claude/x"); // FULLWIDTH FULL STOP
+});
+
+test("importsOf: @ imports resolve from the importing file; home and outside paths are dropped", () => {
+  assert.deepEqual(importsOf("# r\n@process/rules.md\n", "CLAUDE.md", "/r"), ["process/rules.md"]);
+  assert.deepEqual(importsOf("see @../a.md.", "docs/CLAUDE.md", "/r"), ["a.md.", "a.md"]);
+  assert.deepEqual(importsOf("@~/mine.md @../../out.md @/elsewhere/x.md @/r/in.md", "d/CLAUDE.md", "/r"), ["in.md"]);
+  assert.deepEqual(importsOf("mail a@b.c", "CLAUDE.md", "/r"), []);
+  assert.deepEqual(importsOf("@my\\ notes.md", "CLAUDE.md", "/r"), ["my notes.md"]);
+});
+
+// A git that fails the one command named, and runs every other: a real non-zero exit, through compute.ts's own git.
+function withFailingGit<T>(command: string, fn: () => T): T {
+  const realGit = execSync("command -v git", { encoding: "utf8", shell: "/bin/sh" }).trim();
+  const bin = workspaceMkdtemp("gitshim-");
+  writeFileSync(
+    path.join(bin, "git"),
+    `#!/bin/sh\nfor a in "$@"; do [ "$a" = "${command}" ] && { echo "fatal: forced" >&2; exit 128; }; done\nexec "${realGit}" "$@"\n`,
+    { mode: 0o755 },
+  );
+  const before = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${before}`;
+  try {
+    return fn();
+  } finally {
+    process.env.PATH = before;
+  }
+}
+
+test("compareLoadedFiles: fails closed when git status or git diff exits non-zero", () => {
+  const { repo, base } = loadedFilesRepo();
+  assert.equal(reviewerFilesMatchBase(repo, base), true);
+  for (const command of ["status", "diff", "ls-tree"]) {
+    const result = withFailingGit(command, () => compareLoadedFiles(repo, base));
+    assert.equal(result.matches, false, command);
+    assert.match(result.error ?? "", /git failed/, command);
+  }
+  assert.equal(compareLoadedFiles(repo, null).matches, false);
+});
+
+test("--check-checkout: the pre-launch command exits 0 on a clean checkout of the base, non-zero on each case", () => {
+  const { repo, base } = loadedFilesRepo();
+  execSync("git push -q origin main && git fetch -q origin && git remote set-head origin main", { cwd: repo, stdio: "pipe" });
+  const compute = path.join(import.meta.dirname, "compute.ts");
+  const outside = workspaceMkdtemp("outside-"); // run from outside the checkout
+  const run = (...args: string[]) => {
+    const r = spawnSync(process.execPath, [compute, "--check-checkout", repo, ...args], { cwd: outside, encoding: "utf8" });
+    return { code: r.status, out: `${r.stdout}${r.stderr}` };
+  };
+  assert.equal(run().code, 0, run().out);
+  assert.equal(run("--base", base).code, 0);
+
+  writeFileSync(path.join(repo, "docs", "deep.md"), "pr\n"); // coverage: an import of an import
+  assert.equal(run().code, 1);
+  execSync("git checkout -q -- docs/deep.md", { cwd: repo });
+
+  const blob = execSync("git hash-object -w --stdin", { cwd: repo, input: "{}\n", encoding: "utf8" }).trim();
+  execSync(`git update-index --add --cacheinfo 100644,${blob},.CLAUDE/settings.local.json && git commit -q -m case && git checkout -q -f HEAD`, { cwd: repo });
+  const cased = run();
+  assert.equal(cased.code, 1); // case
+  assert.match(cased.out, /differs: "\.CLAUDE\/settings\.local\.json"/);
+  execSync(`git reset -q --hard ${base} && git clean -qfd`, { cwd: repo });
+
+  assert.equal(withFailingGit("status", () => run().code), 1); // failing open
+  assert.equal(run("--base", "no-such-ref").code, 1);
+  execSync("git remote set-head origin -d", { cwd: repo });
+  const noHead = run();
+  assert.equal(noHead.code, 1);
+  assert.match(noHead.out, /pass --base/);
+  assert.equal(spawnSync(process.execPath, [compute, "--check-checkout", outside], { encoding: "utf8" }).status, 1, "not a checkout");
+});
+
+test("--check-checkout: a path the author chose prints escaped, never as terminal control text", () => {
+  const { repo, base } = loadedFilesRepo();
+  const name = ".claude/\u001b]0;pwned\u0007‮.md";
+  writeFileSync(path.join(repo, name), "pr\n");
+  const { code, lines } = checkCheckout(repo, base);
+  assert.equal(code, 1);
+  const out = lines.join("\n");
+  assert.equal(/[\u0000-\u001f\u007f-￿]/.test(out.replace(/\n/g, "")), false, out);
+  assert.match(out, /\\u001b\]0;pwned\\u0007\\u202e\.md/);
 });
 
 // The review's bar comes from the PR's base commit, never its head or a working tree.
