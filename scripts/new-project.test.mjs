@@ -256,6 +256,61 @@ test('ci/before-verify.sh: the project\'s own (seeded, never shipped), run by th
   assert.doesNotMatch(out.split('\n').find((l) => l.includes('drift/SLIPWAY.md')), /before-verify/);
 });
 
+// issue-shape's failure step, as written in the workflow, run under `bash -e` against a fake `gh`. The fake
+// keeps the repository's labels in a file, so `--add-label` fails on a label that was never created, as the
+// real one does (#119).
+test('issue-shape: a repository without the needs-shape label still labels the issue and posts the comment', () => {
+  const yml = readFileSync(join(SRC, '.github', 'workflows', 'issue-shape.yml'), 'utf8');
+  const start = yml.indexOf('      - name: Label an issue that fails');
+  assert.notEqual(start, -1, 'the workflow has the label step');
+  const block = yml.slice(start).split(/\n      - name: /)[0];
+  const script = block.split('        run: |\n')[1].replace(/^ {10}/gm, '');
+
+  // The colour and description are defined once: what new-project creates is what the workflow ensures.
+  const np = readFileSync(join(SRC, 'scripts', 'new-project.mjs'), 'utf8');
+  const npDescription = np.match(/'--description', '(Issue needs shaping[^']*)'/)?.[1];
+  assert.ok(npDescription, 'new-project creates the label with a description');
+  assert.equal(script.match(/--color (\w+)/)?.[1], np.match(/'--color', '(\w+)'/)?.[1], 'same colour');
+  assert.equal(script.match(/--description '([^']*)'/)?.[1], npDescription, 'same description');
+  assert.equal(script.match(/--color (\w+)/)?.[1], 'D93F0B');
+
+  const run = ({ labelCallsFail }) => {
+    const dir = tmp();
+    const bin = join(dir, 'bin');
+    mkdirSync(join(dir, 'issue'), { recursive: true });
+    mkdirSync(bin);
+    writeFileSync(join(dir, 'labels'), '');
+    writeFileSync(join(dir, 'calls'), '');
+    writeFileSync(join(dir, 'issue', 'report.txt'), 'I1: body#acceptance: Acceptance is missing.\n');
+    writeFileSync(join(bin, 'gh'), [
+      '#!/bin/sh',
+      'echo "$*" >> "$FAKE/calls"',
+      'case "$1 $2" in',
+      '  "label create") [ -n "$LABEL_FAIL" ] && { echo "label create refused" >&2; exit 1; }; echo needs-shape >> "$FAKE/labels"; exit 0 ;;',
+      '  "issue edit") [ -n "$LABEL_FAIL" ] && exit 1; grep -qx needs-shape "$FAKE/labels" || { echo "failed to update: \'needs-shape\' not found" >&2; exit 1; }; echo added >> "$FAKE/labels"; exit 0 ;;',
+      '  "issue comment") cp "$7" "$FAKE/comment.md" 2>/dev/null; exit 0 ;;',
+      'esac',
+      'exit 0',
+      '',
+    ].join('\n'), { mode: 0o755 });
+    const r = spawnSync('bash', ['-e', '-c', script], {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, FAKE: dir, RUNNER_TEMP: dir, REPO: 'o/r', NUMBER: '7', GH_TOKEN: 'x', LABEL_FAIL: labelCallsFail ? '1' : '' },
+    });
+    const calls = readFileSync(join(dir, 'calls'), 'utf8');
+    return { status: r.status, calls, labels: readFileSync(join(dir, 'labels'), 'utf8') };
+  };
+
+  const missing = run({ labelCallsFail: false });
+  assert.equal(missing.status, 0, 'the label is created, then added');
+  assert.match(missing.labels, /^needs-shape\nadded\n$/);
+  assert.match(missing.calls, /^issue comment 7 .*--body-file /m, 'the comment is posted');
+
+  const broken = run({ labelCallsFail: true });
+  assert.match(broken.calls, /^issue comment 7 /m, 'a label that cannot be made or added never swallows the comment');
+  assert.notEqual(broken.status, 0, 'and the step still reports the label failure');
+});
+
 test('the created decisions.md holds the header and D-001–D-014 only: no slipway record, no citation of one', () => {
   const dest = join(tmp(), 'probe');
   newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
