@@ -1385,9 +1385,10 @@ test("compareWithBase: a PR that changes a symlink's target, or a submodule, fai
   assert.deepEqual(compareWithBase(repo, withSub).differing, ["vendor"], "the submodule's content");
   // The submodule's clone has its own config: give it the identity a commit needs where no global one exists (CI).
   execSync("git config user.email t@example.com && git config user.name T", { cwd: path.join(repo, "vendor") });
-  commitAll(path.join(repo, "vendor"), "pr moves the submodule");
+  const moved = commitAll(path.join(repo, "vendor"), "pr moves the submodule");
   assert.deepEqual(compareWithBase(repo, withSub).differing, ["vendor"], "the submodule's commit");
-  commitAll(repo, "pr bumps vendor");
+  // Staged directly: `git add` honours .gitmodules' ignore=all on some git versions, and would stage nothing.
+  execSync(`git update-index --cacheinfo 160000,${moved},vendor && git commit -q -m "pr bumps vendor"`, { cwd: repo });
   assert.equal(checkoutMatchesBase(repo, withSub), false, "the bump, committed");
 });
 
