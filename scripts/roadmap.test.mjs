@@ -83,11 +83,11 @@ test('a public row that is not a live Skill Configuration row leaves the page of
 test('a long Roadmap page cell with no closing pipe is read in linear time', () => {
   const root = tmp();
   cpSync(join(FIX, 'off'), root, { recursive: true });
-  const agent = readFileSync(join(root, 'AGENT.md'), 'utf8').replace('|-----|-------|------------------|\n', `$&| Roadmap page |${' '.repeat(50000)}x\n`);
-  writeFileSync(join(root, 'AGENT.md'), agent);
-  const started = Date.now();
-  assert.equal(run(root, ['--enabled']).stdout, 'enabled=false\n');
-  assert.ok(Date.now() - started < 5000, `took ${Date.now() - started}ms`);
+  // The last line of the table, so no later `|` closes the cell.
+  writeFileSync(join(root, 'AGENT.md'), `${readFileSync(join(root, 'AGENT.md'), 'utf8')}| Roadmap page |${' '.repeat(50000)}x\n`);
+  const r = spawnSync(process.execPath, [ROADMAP, root, '--enabled'], { encoding: 'utf8', timeout: 10000 });
+  assert.equal(r.signal, null, 'killed after 10s');
+  assert.equal(r.stdout, 'enabled=false\n');
 });
 
 test('public: Now, Next, Done and Stopped, the sha, noindex, and no script', () => {

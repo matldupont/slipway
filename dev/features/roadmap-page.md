@@ -155,6 +155,9 @@ The URL (`<owner>.github.io/<repo>/`) is guessable. Anything in a published fiel
 - GitHub Pages from a private repo needs a paid plan. On a free plan, `public` fails at deploy.
 - The day count updates once a day. GitHub delays scheduled runs under load, and disables them after 60
   days without repository activity.
+- A milestone file that is a symlink is read through to its target, as MS1 and `pnpm status` read it. Only a
+  committer can add one, and a committer can already edit any published field; the target still passes the
+  allowlist, so only its frontmatter `id`, status and allowed fields can show.
 - The page shows the milestone's words. A `summary` or no-go written in jargon reads as jargon; the page
   does not rewrite it.
 
