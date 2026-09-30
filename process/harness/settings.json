@@ -71,7 +71,11 @@
       "Edit(**/mise/*.toml)",
       "Write(**/mise/*.toml)",
       "Edit(**/.mise/*.toml)",
-      "Write(**/.mise/*.toml)"
+      "Write(**/.mise/*.toml)",
+      "Bash(git remote set-head:*)",
+      "Bash(git update-ref:*)",
+      "Bash(git replace:*)",
+      "Bash(*refs/remotes/origin*)"
     ],
     "allow": [
       "Bash(git stash list:*)",
@@ -82,7 +86,7 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/process/harness/hooks/session-state.sh" }
+          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo 'echo \"{\\\"systemMessage\\\":\\\"base-guard: origin/HEAD holds no process/harness/hooks/base-guard.sh so no hook ran.\\\"}\"')\" base-guard session-state.sh" }
         ]
       }
     ],
@@ -90,16 +94,16 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/process/harness/hooks/intake-reminder.sh" },
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/process/harness/hooks/lessons-first.sh" },
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/process/harness/hooks/absence-search.sh" }
+          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo true)\" base-guard intake-reminder.sh" },
+          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo true)\" base-guard lessons-first.sh" },
+          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo true)\" base-guard absence-search.sh" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "\"$CLAUDE_PROJECT_DIR\"/process/harness/hooks/stop-verify.sh", "timeout": 600 }
+          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo 'echo \"{\\\"systemMessage\\\":\\\"base-guard: origin/HEAD holds no process/harness/hooks/base-guard.sh so no hook ran.\\\"}\"')\" base-guard stop-verify.sh", "timeout": 600 }
         ]
       }
     ]
