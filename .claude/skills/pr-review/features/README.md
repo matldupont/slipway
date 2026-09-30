@@ -10,9 +10,12 @@ It never checks the PR out. It is the one place that reads the PR's files:
 it writes a **review folder** (`reviewDir`) in the system temp directory,
 fresh per run and owner-only (0700) — `diff.patch` (the pinned
 `git diff <base>...<head>`), `files/<n>.head` and `files/<n>.base` (each
-changed file's text at the head and at the merge-base, under numbered names), and `index.json` mapping each
-number to the author's file name as data. Reviewers read it with their
-Read and Grep tools; `--cleanup <reviewDir.path>` deletes it.
+changed file's text at the head and at the merge-base, under numbered names), `index.json` mapping each
+number to the author's file name as data, and `issues.json`: the tracker's
+open issues (the configured Issue repo, else the PR's), numbers and titles,
+at most 300, each title escaped as the checks escape project text, for the
+`[FOLLOW-UP]` search. Reviewers read it with their Read tool and run no
+command on it; `--cleanup <reviewDir.path>` deletes it.
 
 No name the author chose reaches a command: git gets only commit and
 object ids, as argv arrays with no shell, and returns paths NUL-separated
@@ -45,7 +48,9 @@ failed"), and ties the skill to a specific host's MCP ecosystem. The script:
 
 ## Runtime
 
-Zero-dependency TypeScript, Node stdlib only. No install step on a current
+No npm dependency: Node's stdlib, and the checks' escape in
+`ci/checks/lib/report.mjs`, which ships with the skill, so compute.ts runs
+from a checkout, never copied out on its own. No install step on a current
 Node — 22.18+ strips types natively:
 
 ```bash
@@ -286,7 +291,8 @@ there validates the shape.
       { "n": 1, "path": "src/order.ts", "status": "M",   // path: the author's text, data only
         "head": "files/1.head", "base": "files/1.base", "headMode": "100644", "baseMode": "100644",
         "symlink": false, "binary": false, "tooLarge": false }
-    ]
+    ],
+    "issues": { "repo": "owner/repo", "file": "/tmp/pr-review-AbC123/issues.json", "count": 42, "truncated": false }
   },
   "hardHalt": null   // populated only when truly unreviewable
 }

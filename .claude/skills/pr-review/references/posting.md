@@ -59,13 +59,15 @@ a commit nobody reviewed.
 
 Write the body with your file-writing tool (Claude Code: Write), never a
 shell heredoc: it carries the author's file paths and quoted code. Put it
-in the review folder, so Step 7 deletes it:
+in the review folder, so Step 7 deletes it. The top-level `"body"` line is
+there only when the linked issue was not loaded; otherwise leave it out:
 
 ```jsonc
 // <reviewDir.path>/review-payload.json
 {
   "commit_id": "<head sha>",
   "event": "COMMENT",
+  "body": "not verified: linked issue not loaded",
   "comments": [
     {
       "path": "src/order.ts",
@@ -78,9 +80,18 @@ in the review folder, so Step 7 deletes it:
 ```
 
 ```bash
-gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" \
-  -X POST --input "<reviewDir.path>/review-payload.json"
+gh api repos/{projectPath}/pulls/{number}/reviews -X POST --input <reviewDir.path>/review-payload.json
 ```
+
+`gh api` takes the repository in the path, and has no `-R`: a `-R` fails
+the call. Write the values out: `{projectPath}` is `pr.projectPath`
+(`owner/name`, letters, digits and `. _ -` either side of one `/`) and
+`{number}` is `pr.number` (digits only), from compute.ts's output, and
+`<reviewDir.path>` is the folder compute.ts made. Never leave `{owner}` or
+`{repo}` in the path: `gh api` fills those itself from the working
+directory's repository. No shell variables, and nothing else on the line: this is
+one of the two commands Step 6 asks the user for (SKILL.md → Commands and
+tools).
 
 Batching every selected finding into one `comments[]` array and one
 `POST` creates a single review with all the inline comments attached
@@ -119,22 +130,12 @@ means at least one comment's `path`/`line` fell outside the diff —
 report which finding failed rather than retrying the batch blindly, since
 resubmitting the same bad line just fails again:
 
-```bash
-gh api "repos/${OWNER}/${REPO}/pulls/${NUMBER}/reviews" -X POST --input "<reviewDir.path>/review-payload.json"
-# non-zero exit / "Unprocessable Entity" → re-check `diff.changedLines` for
-# the offending finding's file:line before retrying
-```
+A non-zero exit with "Unprocessable Entity" means that: re-check
+`diff.changedLines` for the offending finding's `file:line` before
+retrying the same command.
 
 A `2xx` response's body includes `id` (the review id) and each comment's
-own id under `/repos/{owner}/{repo}/pulls/{number}/comments` if you need
+own id under `repos/{projectPath}/pulls/{number}/comments` if you need
 to confirm placement afterward — but a successful `POST` to `/reviews`
 is itself the confirmation; GitHub doesn't accept the request and silently
 drop the position the way GitLab's discussions API could.
-
-## Pass `-R` on every `gh` call
-
-`gh api` resolves its default repo from the local git remote when you
-omit `-R`. Prefer passing `-R "${OWNER}/${REPO}"` explicitly on every call
-in this doc rather than relying on cwd — it's one flag and it means the
-posting step works the same whether you're in the repo's checkout or
-not.

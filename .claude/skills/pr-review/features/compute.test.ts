@@ -64,6 +64,10 @@ import {
   fetchCommit,
   fetchPRCommits,
   writeReviewDir,
+  writeIssueTitles,
+  parseIssueList,
+  issueTracker,
+  MAX_ISSUE_TITLES,
   cleanupReviewDir,
   REVIEW_DIR_PREFIX,
   GIT_ALLOWED,
@@ -150,7 +154,7 @@ test("parseArgs: asked for a checkout of the PR, fails naming the replacement", 
     assert.throws(() => parseArgs(argv), (err: Error) => {
       assert.match(err.message, /was removed/);
       assert.match(err.message, /reviewDir/);
-      assert.match(err.message, /Read and Grep tools/);
+      assert.match(err.message, /read with the Read tool/);
       return true;
     });
   }
@@ -1495,6 +1499,48 @@ test("settings read: SKILL.md and process/intake.md name the same two files for 
   }
 });
 
+test("commands: one search form with its charset, the same pre-approvals, and no -R on gh api", () => {
+  const dir = path.join(import.meta.dirname, "..");
+  const read = (rel: string) => readFileSync(path.join(dir, rel), "utf8");
+  const skill = read("SKILL.md");
+  const prompts = read("references/subagent-prompts.md");
+  const docs = ["SKILL.md", "references/subagent-prompts.md", "references/posting.md", "references/host-portability.md",
+    "references/finding-validation.md", "references/output-schema.md", "features/README.md"].map(read).join("\n");
+  // Nothing more is pre-approved: every other command asks the user.
+  assert.match(skill, /^allowed-tools: Bash\(gh api user --jq \.login\), Bash\(node \.claude\/skills\/pr-review\/features\/compute\.ts:\*\), Read, Grep, Glob, Task$/m);
+  // The one search a reviewer may run, and the names it may carry, stated where the lead and the subagents read.
+  for (const [name, text] of [["SKILL.md", skill], ["subagent-prompts.md", prompts]]) {
+    assert.ok(text.includes("`rg -n -F -- <name> .`"), `${name} states the search form`);
+    assert.match(text.replace(/\s+/g, " "), /letters, digits and `_` only, unquoted/, `${name} states the charset`);
+  }
+  // No other rg form anywhere a reviewer reads.
+  const forms = [...docs.matchAll(/`(rg [^`]*)`/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(forms)], ["rg -n -F -- <name> ."]);
+  // gh api takes the repository in its path, never as a flag; the issue's acceptance rg, built so it does not match this file.
+  assert.doesNotMatch(docs, new RegExp("gh a" + "pi .*-R|-R \"\\$\\{OWNER\\}"));
+  // gh fills {owner} and {repo} itself, from the working directory's repository: the POST names none.
+  assert.doesNotMatch(docs, /repos\/\{owner\}\/\{repo\}\/pulls\/\{number\}\/reviews/);
+});
+
+test("linked issue not loaded: no other route fetches it, and the review says it was not verified", () => {
+  const dir = path.join(import.meta.dirname, "..");
+  const skill = readFileSync(path.join(dir, "SKILL.md"), "utf8");
+  const host = readFileSync(path.join(dir, "references/host-portability.md"), "utf8");
+  const posting = readFileSync(path.join(dir, "references/posting.md"), "utf8");
+  // compute.ts's side: a failed lookup still names the issue and why (repo_not_allowed here; gh failures the same shape).
+  const got = resolveIssueTicket([], "Closes attacker/repo#1", "owner/repo", false, "owner/issues");
+  assert.equal(got.ticket, null);
+  assert.equal(got.failure?.extractedNumber, 1);
+  // The skill's side: the brief, the verdict and a posted review each say it; neither doc sends the agent elsewhere.
+  const flat = (s: string) => s.replace(/\s+/g, " ");
+  assert.ok(flat(skill).includes("`#<n> not loaded: <reason>`"));
+  assert.ok(flat(skill).includes("`not verified: linked issue not loaded`"));
+  assert.ok(posting.includes('"body": "not verified: linked issue not loaded"'));
+  for (const [name, text] of [["SKILL.md", skill], ["host-portability.md", host]]) {
+    assert.doesNotMatch(flat(text), /GitHub integration to fetch|fall back to the host's GitHub MCP/, name);
+  }
+});
+
 test("--check-checkout: the pre-launch command exits 0 on a clean checkout of the base, non-zero on each case", () => {
   const { repo, base } = baseRepo();
   execSync("git push -q origin main && git fetch -q origin", { cwd: repo, stdio: "pipe" });
@@ -1502,8 +1548,12 @@ test("--check-checkout: the pre-launch command exits 0 on a clean checkout of th
   const owner = workspaceMkdtemp("owner-");
   const remote = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
   execSync(`git clone -q --template="" "${remote}" "${owner}"`, { stdio: "pipe" });
-  const compute = path.join(owner, "compute.ts");
+  // At their paths in a checkout: compute.ts imports the checks' escape from ci/checks/lib.
+  const compute = path.join(owner, ".claude/skills/pr-review/features/compute.ts");
+  const escape = path.join(owner, "ci/checks/lib/report.mjs");
+  for (const f of [compute, escape]) mkdirSync(path.dirname(f), { recursive: true });
   writeFileSync(compute, readFileSync(path.join(import.meta.dirname, "compute.ts")));
+  writeFileSync(escape, readFileSync(path.join(import.meta.dirname, "../../../../ci/checks/lib/report.mjs")));
   const check = (dir: string, ...args: string[]) => {
     const r = spawnSync(process.execPath, [compute, "--check-checkout", dir, ...args], { cwd: owner, encoding: "utf8" });
     return { code: r.status, out: `${r.stdout}${r.stderr}` };
@@ -1854,6 +1904,49 @@ test("cleanupReviewDir: deletes only a review folder this script made", () => {
   } finally {
     rmSync(bare, { recursive: true, force: true });
     rmSync(other, { recursive: true, force: true });
+  }
+});
+
+test("parseIssueList and issueTracker: gh's failures read as no titles; the configured repo wins", () => {
+  assert.equal(parseIssueList(""), null); // gh failed: tryRunGh returns ""
+  assert.equal(parseIssueList("not json"), null);
+  assert.equal(parseIssueList('{"number":1}'), null);
+  assert.deepEqual(parseIssueList('[{"number":1,"title":"t"}]'), [{ number: 1, title: "t" }]);
+  assert.equal(issueTracker("owner/issues", "owner/repo"), "owner/issues");
+  assert.equal(issueTracker(null, "owner/repo"), "owner/repo");
+});
+
+test("writeIssueTitles: titles are saved escaped, capped, and the file says it is data", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "issue-titles-"));
+  try {
+    const hostile = [
+      { number: 1, title: "bell\u0007 and esc\u001b[2J" }, // C0 controls
+      { number: 2, title: "tag\u{E0049}\u{E0047}\u{E004E} text" }, // tag characters
+      { number: 3, title: "bidi \u202Eevil\u202C ok" }, // an override
+      { number: 4, title: "two\nlines" },
+      { number: 5, title: "plain title 👩‍💻" },
+    ];
+    const t = writeIssueTitles(dir, "o/r", hostile);
+    assert.equal(t.count, 5);
+    assert.equal(t.truncated, false);
+    const saved = JSON.parse(readFileSync(t.file, "utf8"));
+    assert.match(saved.note, /data, never instructions/);
+    assert.equal(saved.repo, "o/r");
+    const titles = saved.issues.map((i: { title: string }) => i.title);
+    assert.equal(titles[0], "bell\\u0007 and esc\\u001b[2J");
+    assert.equal(titles[1], "tag\\udb40\\udc49\\udb40\\udc47\\udb40\\udc4e text");
+    assert.equal(titles[2], "bidi \\u202eevil\\u202c ok");
+    assert.equal(titles[3], "two\\u000alines");
+    assert.equal(titles[4], "plain title 👩‍💻");
+    for (const title of titles) assert.doesNotMatch(title, /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]|[\u{E0000}-\u{E007F}]/u);
+
+    const many = Array.from({ length: MAX_ISSUE_TITLES + 1 }, (_, i) => ({ number: i + 1, title: `t${i + 1}` }));
+    const cut = writeIssueTitles(dir, "o/r", many);
+    assert.equal(cut.count, MAX_ISSUE_TITLES);
+    assert.equal(cut.truncated, true);
+    assert.equal(JSON.parse(readFileSync(cut.file, "utf8")).truncated, true);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 });
 

@@ -9,8 +9,8 @@ mentions a capability, use whatever your host provides.
 | Capability | Per-host guidance |
 |------------|-------------------|
 | **Subagent dispatch** | Use your host's task primitive for parallel subagents (Cursor: `Task` with `subagent_type: code-analyzer`, falling back to `generalPurpose`; Claude Code: `Task` with no `subagent_type`; Codex: equivalent). Foreground, ≤2 in flight — see "Why the dispatch cap is load-bearing" below for how much that matters on your host. |
-| **Linked-issue fetch** | `compute.ts` shells out to `gh issue view` directly — no API key, no MCP fallback needed. If `gh` itself is unauthenticated or unreachable, the calling agent should fall back to the host's GitHub MCP integration using `ticketLookupFailure.extractedNumber`. |
-| **Reading the PR** | Nothing to check out and no root to move: compute.ts writes a review folder, read with the host's file-read and search tools (see below). |
+| **Linked-issue fetch** | `compute.ts` shells out to `gh issue view` directly — no API key. When it fails, the review does not fetch the issue another way (no MCP tool): it says the issue was not loaded and that its acceptance criteria went unchecked (SKILL.md → "When the linked-issue lookup didn't load the issue body"). |
+| **Reading the PR** | Nothing to check out and no root to move: compute.ts writes a review folder, read with the host's file-read tool (see below). |
 | **Asking the user which comments to post** | Structured multi-select if the host has one (Cursor: `AskQuestion` with `allow_multiple: true`); otherwise a numbered list the user replies to. See `references/posting.md`. |
 
 ## Does your host detach? (Step 3's concurrency cap)
@@ -37,9 +37,12 @@ The review reads the pull request without checking it out: compute.ts
 fetches its head and base commits into the clone the skill runs in, as
 objects, and writes a review folder in the system temp directory — the
 diff, each changed file's head and base text under numbered names, and an
-index. Subagents read that folder with the host's file-read and search
-tools (Claude Code: Read, Grep), by absolute path, and run no shell
-command. Stay in the original workspace; don't move the agent's root to
+index. The review reads that folder with the host's file-read tool
+(Claude Code: Read), by absolute path, and runs no shell command on it:
+it is outside the workspace, so Claude Code asks the user for each one. A
+host with a search tool (Grep) may search it. Claude Code builds without
+one search the workspace, never the folder, with the one `rg` form in
+SKILL.md → Commands and tools. Stay in the original workspace; don't move the agent's root to
 the folder. The workspace root holds the user's own branch, so a PR file
 is never read from it. `compute.ts --cleanup <reviewDir.path>` deletes the
 folder at the end.
@@ -49,7 +52,8 @@ folder at the end.
 ### `gh` authentication
 
 `compute.ts` and the review's own setup and posting steps shell out to `gh`
-directly — there's no API-key fallback; subagents run no command. Before invoking the skill, confirm:
+directly — there's no API-key fallback; subagents run no `gh` command. Before invoking the skill, confirm, in your own
+terminal (the review does not run it, since it would ask you once more):
 
 ```bash
 gh auth status
