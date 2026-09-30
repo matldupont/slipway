@@ -17,8 +17,9 @@ a newer version, so put a project's own rules in `CLAUDE.md`, never here.
   (`process/slipway-rules.md`), `.slipway/**`, `.claude/**`, `process/harness/**`, the `Domain invariants doc`,
   `process/intake.md`, the cold-review file, and what the gate runs (package scripts, lint, type and test configs,
   CI workflows, `ci/**`). In slipway itself: `dev/skill-configuration.md`, `dev/ownership.yaml` and
-  `scripts/new-project.mjs`. The harness asks before each edit to a named path; the two files a setting names and
-  the package scripts it cannot, so those rest on this rule. `/work-ticket` checks the same list.
+  `scripts/new-project.mjs`. The harness asks before its Edit and Write tools change a named path; a shell write,
+  the two files a setting names and the package scripts it cannot see, so those rest on this rule. A PR that
+  changes one, markdown included, says so under `## Gate changes`. `/work-ticket` checks the same list.
 
 ## Planning flow
 

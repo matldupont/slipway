@@ -466,7 +466,7 @@ const ownerOnly = () => {
   const bullet = gates.match(/^- \*\*Owner-only files\.\*\*([\s\S]*?)(?=^- |(?![\s\S]))/m)?.[1] ?? '';
   // The list ends where the paragraph says what changing one needs; the commands after it are not rule files.
   const skill = read(skillPath('work-ticket')).match(/\*\*The rules the run is judged by:\*\*([\s\S]*?)Changing one needs the owner's yes/)?.[1] ?? '';
-  const ticks = (md) => new Set([...md.matchAll(/`([^`]+)`/g)].map((m) => m[1]).filter((t) => !t.startsWith('/') && !t.includes('{')));
+  const ticks = (md) => new Set([...md.matchAll(/`([^`]+)`/g)].map((m) => m[1]).filter((t) => !/^[/#]/.test(t) && !t.includes('{')));
   const imports = [...read('CLAUDE.md').matchAll(/^@(\S+)$/gm)].map((m) => m[1]);
   return { bullet: bullet.replace(/\s+/g, ' '), skill: skill.replace(/\s+/g, ' '), gates: ticks(bullet), rules: ticks(skill), imports };
 };
