@@ -15,12 +15,13 @@
 #     expires: 2026-12-31
 #
 # The same registry excuses a lockfile entry that resolves from somewhere other than the registry (LK1). Its id
-# is `pnpm-lock.yaml#` and the entry as LK1 names it, which includes where it comes from, so a change of source
-# needs a new entry: the key under `packages:` (`fork@https://…/tar.gz/<sha>`), or for a link,
-# `importers/<folder>/<name>@<version>`. `reason` is required. LK1 prints the id to copy.
+# is `pnpm-lock.yaml#` and the entry as LK1 prints it, which includes where the package comes from, so a change
+# of source needs a new entry: the key under `packages:` followed by its resolution without the integrity
+# (`fork@https://…/tar.gz/<sha>{tarball=https://…/tar.gz/<sha>}`, `mirror@1.0.0{tarball=https://…}`), or for a
+# link, `importers/<folder>/<name>@<version>`. `reason`, `owner` and `expires` are all required, and `expires` is
+# a real future day (yyyy-mm-dd). LK1 prints the id to copy.
 #
-#   - id: pnpm-lock.yaml#fork@https://codeload.github.com/acme/fork/tar.gz/0123456789abcdef
+#   - id: pnpm-lock.yaml#fork@https://codeload.github.com/acme/fork/tar.gz/0123abc{tarball=https://codeload.github.com/acme/fork/tar.gz/0123abc}
 #     reason: the fork carries a fix the registry release lacks (acme/fork#12)
 #     owner: build lead
 #     expires: 2026-12-31
-exceptions: []

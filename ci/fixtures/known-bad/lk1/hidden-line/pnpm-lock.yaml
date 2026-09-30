@@ -16,9 +16,13 @@ packages:
 
   fixture-ok@1.0.0:
     resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}
-    deprecated: |
-      text
+
+   #hidden@https://example.invalid/hidden-1.0.0.tgz: {resolution: {tarball: https://example.invalid/hidden-1.0.0.tgz}, version: 1.0.0}
 
 snapshots:
 
-  fixture-ok@1.0.0: {}
+  fixture-ok@1.0.0:
+    dependencies:
+       #hidden:  #hidden@https://example.invalid/hidden-1.0.0.tgz
+
+   #hidden@https://example.invalid/hidden-1.0.0.tgz: {}

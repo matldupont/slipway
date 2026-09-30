@@ -5,7 +5,7 @@
     "CHECK_TODAY": "2026-09-30"
   },
   "findings": [
-    "pnpm-lock.yaml#fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz",
-    "registry:pnpm-lock.yaml#fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz"
+    "pnpm-lock.yaml#fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz{tarball=https://example.invalid/fixture-fork-1.0.0.tgz}",
+    "registry:pnpm-lock.yaml#fixture-fork@https://example.invalid/fixture-fork-1.0.0.tgz{tarball=https://example.invalid/fixture-fork-1.0.0.tgz}"
   ]
 }

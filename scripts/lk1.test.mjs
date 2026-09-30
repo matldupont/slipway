@@ -12,7 +12,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { expiryProblem } from '../ci/checks/lib/exceptions.mjs';
-import { HEAD, lockfile, registry } from './lib/lk1-lockfile.mjs';
+import { HASH, HEAD, lockfile, registry } from './lib/lk1-lockfile.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -97,19 +97,20 @@ test('a lockfile that is a link is BROKEN, and so is one that cannot be read', (
 const TARBALL = 'https://example.invalid/t-1.0.0.tgz';
 const withTarball = () =>
   lockfile({ deps: [['a', '^1.0.0', '1.0.0'], ['t', TARBALL, `t@${TARBALL}`]], packages: `${registry()}  t@${TARBALL}:\n    resolution: {tarball: ${TARBALL}}\n\n`, snapshots: `  a@1.0.0: {}\n\n  t@${TARBALL}: {}\n` });
-const entry = (over = '') => `  - id: pnpm-lock.yaml#t@${TARBALL}\n    reason: a fork\n    owner: me\n    expires: 2026-12-31\n${over}`;
+const TID = `t@${TARBALL}{tarball=${TARBALL}}`;
+const entry = (over = '') => `  - id: pnpm-lock.yaml#${TID}\n    reason: a fork\n    owner: me\n    expires: 2026-12-31\n${over}`;
 
 test('an entry in ci/exceptions.yaml excuses exactly the entry it names, and is listed', () => {
   const dir = project({ 'pnpm-lock.yaml': withTarball(), 'ci/exceptions.yaml': `exceptions:\n${entry()}` });
   try {
     const r = lk1(dir, { CHECK_TODAY: '2026-09-30' });
     assert.equal(r.status, 0, r.out);
-    assert.deepEqual(r.json.exempted, [`pnpm-lock.yaml#t@${TARBALL}`]);
+    assert.deepEqual(r.json.exempted, [`pnpm-lock.yaml#${TID}`]);
     assert.match(r.out, /1 exempted by ci\/exceptions\.yaml/);
     // the day it runs out, it is red again for both reasons
     const late = lk1(dir, { CHECK_TODAY: '2026-12-31' });
     assert.equal(late.status, 1, late.out);
-    assert.deepEqual(late.json.findings.map((f) => f.where).sort(), [`pnpm-lock.yaml#t@${TARBALL}`, `registry:pnpm-lock.yaml#t@${TARBALL}`]);
+    assert.deepEqual(late.json.findings.map((f) => f.where).sort(), [`pnpm-lock.yaml#${TID}`, `registry:pnpm-lock.yaml#${TID}`]);
   } finally {
     done(dir);
   }
@@ -120,7 +121,7 @@ test('an entry whose package is gone from the lockfile is a finding, never a qui
   try {
     const r = lk1(dir, { CHECK_TODAY: '2026-09-30' });
     assert.equal(r.status, 1, r.out);
-    assert.deepEqual(r.json.findings.map((f) => f.where), [`registry:pnpm-lock.yaml#t@${TARBALL}`]);
+    assert.deepEqual(r.json.findings.map((f) => f.where), [`registry:pnpm-lock.yaml#${TID}`]);
     assert.match(r.json.findings[0].detail, /matches no entry/);
   } finally {
     done(dir);
@@ -136,6 +137,29 @@ test('an entry that names a package by a different address excuses nothing', () 
     assert.deepEqual(r.json.exempted, []);
   } finally {
     done(dir);
+  }
+});
+
+// A registry-shaped key says nothing about where the package comes from, so the excuse names the resolution too.
+const MIRROR = 'https://mirror.example.invalid/m-1.0.0.tgz';
+const mirrored = (resolution) => lockfile({ deps: [['m', '1.0.0', '1.0.0']], packages: `  m@1.0.0:\n    resolution: ${resolution}\n\n`, snapshots: '  m@1.0.0: {}\n' });
+test('an excuse for a registry-shaped key is for the source it names, and a changed source is refused', () => {
+  const excuse = `exceptions:\n  - id: pnpm-lock.yaml#m@1.0.0{tarball=${MIRROR}}\n    reason: our mirror\n    owner: me\n    expires: 2026-12-31\n`;
+  const env = { CHECK_TODAY: '2026-09-30' };
+  const at = (resolution) => project({ 'package.json': JSON.stringify({ name: 'p', private: true, dependencies: { m: '1.0.0' } }), 'pnpm-lock.yaml': mirrored(resolution), 'ci/exceptions.yaml': excuse });
+  const same = at(`{integrity: ${HASH}, tarball: ${MIRROR}}`);
+  const swapped = at('{tarball: https://evil.example.invalid/attacker.tgz}');
+  const git = at('{commit: 0123456789abcdef0123456789abcdef01234567, repo: https://evil.example.invalid/r.git, type: git}');
+  try {
+    assert.equal(lk1(same, env).status, 0, 'the source it names passes, integrity refreshed or not');
+    for (const dir of [swapped, git]) {
+      const r = lk1(dir, env);
+      assert.equal(r.status, 1, r.out);
+      assert.deepEqual(r.json.exempted, []);
+      assert.equal(r.json.findings.length, 2, 'the new source, and the excuse that no longer matches');
+    }
+  } finally {
+    for (const d of [same, swapped, git]) done(d);
   }
 });
 
@@ -172,12 +196,15 @@ const unsound = {
   'a day in the past': [entry().replace('2026-12-31', '2026-06-30'), /expired 2026-06-30/],
   'the day it ends': [entry().replace('2026-12-31', '2026-09-30'), /expired 2026-09-30/],
   'a package the lockfile no longer has': [entry().replace('t-1.0.0', 'gone-1.0.0'), /matches no entry/],
-  'an id that is only the prefix': [entry().replace(`t@${TARBALL}`, ''), /matches no entry/],
+  'an id that is only the prefix': [entry().replace(TID, ''), /matches no entry/],
+  'a reason that is only spaces': [entry().replace('reason: a fork', 'reason: "   "'), /no reason/],
+  'an owner that is null': [entry().replace('owner: me', 'owner: null'), /no owner/],
+  'an owner that is ~': [entry().replace('owner: me', 'owner: ~'), /no owner/],
 };
 for (const [what, [body, message]] of Object.entries(unsound)) {
   test(`LK1 fails an excuse with ${what}, and FO1 (which skips it) does not`, () => {
     const files = {
-      'pnpm-lock.yaml': body.includes('gone-1.0.0') || !body.includes(`t@${TARBALL}`) ? lockfile() : withTarball(),
+      'pnpm-lock.yaml': body.includes('gone-1.0.0') || !body.includes(TID) ? lockfile() : withTarball(),
       'ci/exceptions.yaml': `exceptions:\n${body}`,
       '.github/workflows/ci.yml': 'name: ci\non: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n',
     };

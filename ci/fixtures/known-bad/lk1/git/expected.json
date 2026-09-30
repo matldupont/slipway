@@ -2,6 +2,6 @@
   "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs.",
   "exit": 1,
   "findings": [
-    "pnpm-lock.yaml#fixture-git@git+https://example.invalid/fixture-git.git#0123456789abcdef0123456789abcdef01234567"
+    "pnpm-lock.yaml#fixture-git@git+https://example.invalid/fixture-git.git#0123456789abcdef0123456789abcdef01234567{commit=0123456789abcdef0123456789abcdef01234567;repo=https://example.invalid/fixture-git.git;type=git}"
   ]
 }

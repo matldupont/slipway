@@ -5,16 +5,16 @@
     "CHECK_TODAY": "2026-09-30"
   },
   "findings": [
-    "pnpm-lock.yaml#fixture-open@https://example.invalid/fixture-open-1.0.0.tgz",
-    "pnpm-lock.yaml#fixture-expired@https://example.invalid/fixture-expired-1.0.0.tgz",
-    "pnpm-lock.yaml#fixture-noreason@https://example.invalid/fixture-noreason-1.0.0.tgz",
-    "pnpm-lock.yaml#fixture-undated@https://example.invalid/fixture-undated-1.0.0.tgz",
-    "registry:pnpm-lock.yaml#fixture-expired@https://example.invalid/fixture-expired-1.0.0.tgz",
-    "registry:pnpm-lock.yaml#fixture-noreason@https://example.invalid/fixture-noreason-1.0.0.tgz",
-    "registry:pnpm-lock.yaml#fixture-undated@https://example.invalid/fixture-undated-1.0.0.tgz",
+    "pnpm-lock.yaml#fixture-open@https://example.invalid/fixture-open-1.0.0.tgz{tarball=https://example.invalid/fixture-open-1.0.0.tgz}",
+    "pnpm-lock.yaml#fixture-expired@https://example.invalid/fixture-expired-1.0.0.tgz{tarball=https://example.invalid/fixture-expired-1.0.0.tgz}",
+    "pnpm-lock.yaml#fixture-noreason@https://example.invalid/fixture-noreason-1.0.0.tgz{tarball=https://example.invalid/fixture-noreason-1.0.0.tgz}",
+    "pnpm-lock.yaml#fixture-undated@https://example.invalid/fixture-undated-1.0.0.tgz{tarball=https://example.invalid/fixture-undated-1.0.0.tgz}",
+    "registry:pnpm-lock.yaml#fixture-expired@https://example.invalid/fixture-expired-1.0.0.tgz{tarball=https://example.invalid/fixture-expired-1.0.0.tgz}",
+    "registry:pnpm-lock.yaml#fixture-noreason@https://example.invalid/fixture-noreason-1.0.0.tgz{tarball=https://example.invalid/fixture-noreason-1.0.0.tgz}",
+    "registry:pnpm-lock.yaml#fixture-undated@https://example.invalid/fixture-undated-1.0.0.tgz{tarball=https://example.invalid/fixture-undated-1.0.0.tgz}",
     "registry:pnpm-lock.yaml#fixture-gone@https://example.invalid/fixture-gone-1.0.0.tgz"
   ],
   "exempted": [
-    "pnpm-lock.yaml#fixture-excused@https://example.invalid/fixture-excused-1.0.0.tgz"
+    "pnpm-lock.yaml#fixture-excused@https://example.invalid/fixture-excused-1.0.0.tgz{tarball=https://example.invalid/fixture-excused-1.0.0.tgz}"
   ]
 }

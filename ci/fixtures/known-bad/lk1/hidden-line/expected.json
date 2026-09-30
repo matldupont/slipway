@@ -1,0 +1,7 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. A line that starts with a no-break space and # is a comment to a reader that trims with \\s, and a package to YAML: it is read as the package it is.",
+  "exit": 1,
+  "findings": [
+    "pnpm-lock.yaml#\u00a0#hidden@https://example.invalid/hidden-1.0.0.tgz{tarball=https://example.invalid/hidden-1.0.0.tgz}"
+  ]
+}
