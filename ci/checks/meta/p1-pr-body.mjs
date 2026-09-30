@@ -10,10 +10,12 @@
 //                            "tested locally" is a claim, not evidence
 //   links/missing            `## Links` has no issue reference (#123) and no `none: <reason>`
 //   gate-changes/missing     the PR touches a gate file (a path the harness asks before editing, or a
-//                            package.json `scripts` key) and has no `## Gate changes` section
+//                            package.json `scripts`, `packageManager` or `pnpm` key) and has no `## Gate changes` section
 //   gate-changes/unmentioned:<path>  a gate file the section has no line for
 //   gate-changes/no-verdict:<path>   its line says neither stricter, the same, nor loosens
 //   gate-changes/loosens-uncited:<path>  it loosens the gate and cites no decision or exception
+//   gate-changes/lookalike:<path>    a path that reads as a gate path in canonical form (`.NPMRC`) but is not
+//                            spelled as one: refused, whatever the section says
 //
 // A body's changed files come from a sidecar, `<name>.changes.json` ({files, scripts}, written by
 // ci/checks/lib/gate-files.mjs). Without one, the gate-changes rules do not run. The check cannot tell
@@ -77,6 +79,10 @@ for (const f of bodies) {
       continue;
     }
     const isGate = gateMatcher(undefined, Array.isArray(c.globs) ? c.globs : []);
+    for (const path of c.files) {
+      const like = isGate.lookalike(path);
+      if (like) findings.push({ where: `${f}#gate-changes/lookalike:${shown(path)}`, detail: `${shown(path)} looks like ${like} but isn't spelled that way; a case-insensitive disk reads it as the gate file. Rename or remove it: it cannot be declared` });
+    }
     const touched = [...new Set([...c.files.filter(isGate), ...c.scripts.map((p) => `${p} scripts`)])];
     if (touched.length) {
       const gc = section(md, 'Gate changes', 2);

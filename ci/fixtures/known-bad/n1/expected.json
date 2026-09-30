@@ -1,0 +1,17 @@
+{
+  "_note": "PC1 writes each tracked path, one inert line of text, into a throwaway git repository with git add -f, and runs N1 there: nothing under node_modules/ is ever committed to slipway or a project. One at the top, one a folder down; Node_Modules and a long-s node_module\\u017f only read as node_modules in canonical form, and are refused as lookalikes.",
+  "exit": 1,
+  "tracked": [
+    "node_modules/placeholder.txt",
+    "pkg/node_modules/placeholder.txt",
+    "pkg/src/index.txt",
+    "lib/Node_Modules/placeholder.txt",
+    "vendor/node_moduleſ/placeholder.txt"
+  ],
+  "findings": [
+    "tracked/node_modules/placeholder.txt",
+    "tracked/pkg/node_modules/placeholder.txt",
+    "lookalike/lib/Node_Modules/placeholder.txt",
+    "lookalike/vendor/node_moduleſ/placeholder.txt"
+  ]
+}

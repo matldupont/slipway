@@ -33,13 +33,15 @@
  *                                     `none` turns that input off; it never falls back to the default.
  *   --verbose                         Diagnostic logs to stderr (includes swallowed gh/git stderr)
  *   --cleanup <dir>                   Delete a review folder this script made, and exit
+ *   --check-checkout <dir>            Pre-launch check, run from outside <dir> before Claude Code starts there:
+ *     [--base <ref>]                    exit 0 only when <dir> is <ref>'s with nothing changed or added (default: origin/HEAD)
  *
  * Environment:
  *   GH_HOST                 GitHub host for `gh` (e.g. github.example.com, for GitHub Enterprise)
  *
  * Requirements:
  *   - `gh` (authenticated) and `git` on PATH
- *   - Node 18+ OR bun
+ *   - Node 22.18+ (it strips the types) OR bun
  *   - No npm/bun runtime dependencies — Node stdlib only
  */
 
@@ -318,6 +320,10 @@ interface CLIOptions {
   tone: Tone;
   /** Set by --cleanup: delete this review folder and exit. */
   cleanup: string | null;
+  /** Set by --check-checkout: the pre-launch check of this checkout, and exit. */
+  checkCheckout: string | null;
+  /** --base: the commit --check-checkout compares with (default: origin/HEAD). */
+  base: string | null;
 }
 
 /** Why a checkout is refused, and what replaces it. */
@@ -336,6 +342,8 @@ export function parseArgs(argv: string[]): CLIOptions {
     verbose: false,
     tone: "casual",
     cleanup: null,
+    checkCheckout: null,
+    base: null,
   };
   let i = 0;
   if (argv.length > 0 && !argv[0].startsWith("--")) {
@@ -374,6 +382,18 @@ export function parseArgs(argv: string[]): CLIOptions {
         opts.cleanup = v;
         break;
       }
+      case "--check-checkout": {
+        const v = argv[++i];
+        if (!v || v.startsWith("--")) throw new Error("--check-checkout needs the checkout's path");
+        opts.checkCheckout = v;
+        break;
+      }
+      case "--base": {
+        const v = argv[++i];
+        if (!v || v.startsWith("-")) throw new Error("--base needs a ref or commit");
+        opts.base = v;
+        break;
+      }
       case "--output-path":
         // compute.ts runs pre-approved, so it writes nowhere but its own review folder.
         throw new Error("--output-path was removed: compute.ts writes JSON to stdout only");
@@ -395,6 +415,7 @@ export function parseArgs(argv: string[]): CLIOptions {
         throw new Error(`Unknown argument: ${arg}`);
     }
   }
+  if (opts.base && !opts.checkCheckout) throw new Error("--base goes with --check-checkout");
   return opts;
 }
 
@@ -437,12 +458,13 @@ export function _setVerboseLog(fn: ((msg: string) => void) | null): void {
 export const GIT_SAFE_ARGS = ["-c", "core.hooksPath=/dev/null"];
 
 /**
- * The only git commands compute.ts runs: each reads objects or refs, fetches
- * them, or compares the reviewer's own checkout with the base. Nothing that
+ * The only git commands compute.ts runs: each reads objects, refs or
+ * configuration (`config --get` alone), fetches them, or compares the
+ * reviewer's own checkout with the base. Nothing that
  * writes or adds a working tree (checkout, switch, reset, restore, clone,
  * merge, stash…) is on it, so no code path can put the PR's files on disk.
  */
-export const GIT_ALLOWED = new Set(["rev-parse", "fetch", "ls-tree", "cat-file", "diff", "merge-base", "status", "remote"]);
+export const GIT_ALLOWED = new Set(["rev-parse", "fetch", "ls-tree", "cat-file", "diff", "merge-base", "status", "remote", "rev-list", "config"]);
 
 /**
  * Every git call goes through here: an argv array (no shell), an allowed
@@ -452,6 +474,8 @@ function execGit(args: string[], cwd?: string): Buffer {
   if (!GIT_ALLOWED.has(args[0] ?? "")) {
     throw new Error(`git ${args[0] ?? "(none)"} is not run here: ${NO_CHECKOUT}`);
   }
+  // git config reads only: it also writes, and a write is never run here.
+  if (args[0] === "config" && args[1] !== "--get") throw new Error("git config is run only as config --get");
   return execFileSync("git", [...GIT_SAFE_ARGS, ...args], {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
@@ -916,32 +940,177 @@ export function isInPrCheckout(
   return reviewMode === "peer" && (prRef === null || (cwdHead !== "" && cwdHead === prHeadSha));
 }
 
-/**
- * What Claude Code loads from the checkout it runs in: the skill itself,
- * settings (allow-list, hooks), agents, and the configuration the skill
- * reads. On someone else's PR they must be the base commit's, byte for byte.
- */
-export const REVIEWER_FILES = [".claude", "AGENT.md", "process/intake.md"];
+export interface CheckoutComparison {
+  /** True only when the checkout is the base commit's and HEAD has only ever been on the base's history. */
+  matches: boolean;
+  /** The paths that differ, as git printed them: the author's text, data only. */
+  differing: string[];
+  /** Why HEAD's history refuses the checkout (headHistoryRefusal); null when it does not. */
+  history: string | null;
+  /** Why the comparison could not run; the check then fails. */
+  error: string | null;
+}
 
 /**
- * True when the checkout at `repoRoot` holds exactly the base commit's
- * REVIEWER_FILES: no tracked difference (committed or not) and no
- * untracked, unignored file among them. Compared by content, so a checkout
- * at any head of the PR — current or older — fails it. False when the
- * base commit is unknown.
+ * Why this checkout's HEAD history refuses it, or null when HEAD has only
+ * ever been on the base's history. Ignored files are not compared, and a PR
+ * can leave its own there: force-committed, then kept on disk by a
+ * `git reset <base>`, hidden by a `.gitignore` of its own, named as a
+ * case-insensitive disk folds them, or under `node_modules/`. The record of
+ * where HEAD has been, which git writes in `.git` and a PR cannot, shows
+ * such a checkout held a commit outside the base's history, however its
+ * files hide. Read from the file itself: git's own reflog commands fall back
+ * to HEAD's commit when the record is missing. Missing, empty, unreadable or
+ * switched off refuses.
  */
-export function reviewerFilesMatchBase(repoRoot: string, baseSha: string | null): boolean {
-  if (!baseSha) return false;
+function headHistoryRefusal(repoRoot: string, baseSha: string): string | null {
+  let logging = "";
   try {
-    runGit(["diff", "--quiet", baseSha, "--", ...REVIEWER_FILES], repoRoot);
-  } catch {
-    return false; // exit 1: differs (or git failed): not the base's
+    logging = runGit(["config", "--get", "core.logAllRefUpdates"], repoRoot);
+  } catch (err) {
+    // Exit 1 is "unset": git then records HEAD in a checkout.
+    if ((err as { status?: number }).status !== 1) throw err;
   }
-  const untracked = tryRunGit(
-    ["status", "--porcelain", "--untracked-files=all", "--", ...REVIEWER_FILES],
-    repoRoot,
-  );
-  return untracked === "";
+  if (logging.toLowerCase() === "false") {
+    return "git's record of where HEAD has been is switched off here (core.logAllRefUpdates=false)";
+  }
+  const file = runGit(["rev-parse", "--path-format=absolute", "--git-path", "logs/HEAD"], repoRoot);
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    return "git has no record of where HEAD has been in this checkout";
+  }
+  const commits = new Set<string>();
+  for (const line of text.split("\n")) {
+    if (line === "") continue;
+    const m = /^([0-9a-f]{40}|[0-9a-f]{64}) ([0-9a-f]{40}|[0-9a-f]{64}) /.exec(line);
+    if (!m) return "git's record of where HEAD has been does not read";
+    for (const sha of [m[1], m[2]]) if (!/^0+$/.test(sha)) commits.add(sha);
+  }
+  if (commits.size === 0) return "git's record of where HEAD has been is empty";
+  const outside = runGit(["rev-list", "--max-count=1", ...commits, "--not", baseSha], repoRoot);
+  return outside === ""
+    ? null
+    : `HEAD has been on ${outside.slice(0, 12)}, outside the base's history: files a PR left here can hide from git`;
+}
+
+/**
+ * Compares the checkout at `repoRoot` with the base commit, across the whole
+ * tree: every tracked difference (committed or not, submodules included) and
+ * every untracked, unignored file. Claude Code loads `.claude/`, `CLAUDE.md`
+ * and its imports and `.mcp.json`, and those run hook scripts, `ci/`,
+ * `package.json` and the tests, through symlinks and submodules: no list of
+ * files is the set it runs, so any difference fails. A checkout at any head
+ * of the PR, current or older, fails it. It fails closed: an unknown base,
+ * or a git command that errors, is a failure. Ignored files are not
+ * compared, since the owner's own local settings live there; HEAD's history
+ * stands in for them (headHistoryRefusal).
+ */
+export function compareWithBase(repoRoot: string, baseSha: string | null): CheckoutComparison {
+  const none = { differing: [], history: null };
+  if (!baseSha) return { matches: false, ...none, error: "the base commit is unknown" };
+  try {
+    const tracked = execGit(
+      ["diff", "--name-only", "-z", "--no-renames", "--no-ext-diff", "--no-textconv", "--ignore-submodules=none", baseSha, "--"],
+      repoRoot,
+    ).toString("utf8").split("\0");
+    // `XY path` per entry; with renames off, one path each.
+    const status = execGit(
+      ["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames", "--ignore-submodules=none"],
+      repoRoot,
+    ).toString("utf8").split("\0").map((e) => e.slice(3));
+    const differing = [...new Set([...tracked, ...status])].filter((p) => p !== "");
+    const history = headHistoryRefusal(repoRoot, baseSha);
+    return { matches: differing.length === 0 && history === null, differing, history, error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message.split("\n")[0] : String(err);
+    return { matches: false, ...none, error: `git failed: ${msg}` };
+  }
+}
+
+/** True when the checkout is exactly the base commit's (compareWithBase). */
+export function checkoutMatchesBase(repoRoot: string, baseSha: string | null): boolean {
+  return compareWithBase(repoRoot, baseSha).matches;
+}
+
+/** A path the author chose, safe to print to a terminal: printable ASCII, the rest escaped. */
+function printable(p: string): string {
+  return JSON.stringify(p).replace(/[^\x20-\x7e]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
+/**
+ * The pre-launch check, `--check-checkout <dir> [--base <ref>]`: run from
+ * outside `<dir>`, before Claude Code starts there, since the checkout's
+ * settings hooks run at start-up, before any skill. 0 when `<dir>` is
+ * `<ref>`'s with nothing changed or added, 1 when it is not or the
+ * comparison cannot run. `<ref>` (default `origin/HEAD`) is read in `home`,
+ * the checkout this compute.ts runs from; a full commit id is taken as is.
+ */
+export function checkCheckout(
+  dir: string,
+  baseRef: string | null,
+  home: string = import.meta.dirname,
+): { code: number; lines: string[] } {
+  const ref = baseRef ?? "refs/remotes/origin/HEAD";
+  const label = printable(baseRef ?? "origin/HEAD");
+  if (ref.startsWith("-")) return { code: 1, lines: [`--base must be a ref or commit (got ${label})`] };
+  let repoRoot: string;
+  try {
+    repoRoot = runGit(["rev-parse", "--show-toplevel"], dir);
+  } catch {
+    return { code: 1, lines: [`${printable(dir)} is not a git checkout.`] };
+  }
+  // A ref is read in the checkout this command runs from, never in the one it checks: a clone of the author's
+  // fork has the author's commits under origin/. A full commit id names itself.
+  let base: string;
+  if (/^[0-9a-f]{40}$/.test(ref)) {
+    base = ref;
+  } else {
+    try {
+      base = runGit(["rev-parse", "--verify", "--quiet", `${ref}^{commit}`], home);
+    } catch {
+      return {
+        code: 1,
+        lines: [
+          `${label} is not a commit in the checkout this command runs from: fetch it there, or pass --base <the base commit's full id>.`,
+        ],
+      };
+    }
+  }
+  try {
+    runGit(["rev-parse", "--verify", "--quiet", `${base}^{commit}`], repoRoot);
+  } catch {
+    return { code: 1, lines: [`${printable(repoRoot)} does not hold ${label} (${base.slice(0, 12)}): fetch the base repository into it first.`] };
+  }
+  const result = compareWithBase(repoRoot, base);
+  if (result.matches) {
+    return {
+      code: 0,
+      lines: [`ok: ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}), with nothing changed or added, and HEAD has been nowhere else.`],
+    };
+  }
+  const lines = [`Do not start Claude Code in ${printable(repoRoot)}: it is not ${label}'s (${base.slice(0, 12)}), and what Claude Code runs there may not be either.`];
+  if (result.error) lines.push(`The comparison could not run: ${result.error}`);
+  for (const p of result.differing.slice(0, 20)) lines.push(`  differs: ${printable(p)}`);
+  if (result.differing.length > 20) lines.push(`  …and ${result.differing.length - 20} more`);
+  if (result.history) lines.push(`  ${result.history}.`);
+  lines.push("Review from a fresh worktree off the base instead, and start Claude Code there:", `  ${reviewWorktreeCommand(repoRoot, base)}`);
+  return { code: 1, lines };
+}
+
+/** Quoted for a POSIX shell when it is printable ASCII; otherwise a placeholder, never raw bytes to a terminal. */
+function shellArg(p: string, placeholder: string): string {
+  return /^[\x20-\x7e]+$/.test(p) ? `'${p.replace(/'/g, "'\\''")}'` : placeholder;
+}
+
+/**
+ * The one command that makes a clean review worktree off the base, beside the checkout. Hooks off, as every git
+ * call here: `worktree add` runs post-checkout, and a relative core.hooksPath (husky, lefthook) resolves in the
+ * refused checkout, which may hold the PR's.
+ */
+export function reviewWorktreeCommand(repoRoot: string, base: string): string {
+  return `git -c core.hooksPath=/dev/null -C ${shellArg(repoRoot, "<this checkout>")} worktree add --detach ${shellArg(`${repoRoot}-review-${base.slice(0, 8)}`, "<new folder>")} ${base}`;
 }
 
 /**
@@ -1817,12 +1986,11 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
   const repoRoot = tryRunGit(["rev-parse", "--show-toplevel"], cwd) || null;
   // Base and head as objects only: the review folder is written from them.
   const { baseCommit, headCommit, halt: commitHalt } = fetchPRCommits(repoRoot, meta);
-  // On someone else's PR, what Claude Code loaded here must be the base's:
-  // a checkout at an older head of the PR has a different HEAD but the
-  // PR's files.
-  const inPrCheckout =
-    isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha) ||
-    (reviewMode === "peer" && !!repoRoot && !!baseCommit && !reviewerFilesMatchBase(repoRoot, baseCommit));
+  // On someone else's PR, this checkout must be the base's, whole: a
+  // checkout at an older head of the PR has a different HEAD but the PR's
+  // files, and what Claude Code runs here reaches any of them.
+  const comparison = reviewMode === "peer" && repoRoot && baseCommit ? compareWithBase(repoRoot, baseCommit) : null;
+  const inPrCheckout = isInPrCheckout(reviewMode, prRef, cwdHead, meta.headSha) || (comparison !== null && !comparison.matches);
 
   const [owner, repo] = meta.projectPath.split("/");
   const { threads, closingIssues } = fetchReviewThreadsAndClosingIssues(owner, repo, meta.number);
@@ -1865,9 +2033,11 @@ export async function compute(opts: CLIOptions, cwd?: string): Promise<FeatureOu
     hardHalt = {
       reason: "running_in_pr_checkout",
       detail:
-        `this checkout's ${REVIEWER_FILES.join(", ")} are not the base commit's, or it is the PR's own head, ` +
+        `this checkout differs from the base commit (a changed, added or untracked file), or HEAD has been outside ` +
+        `the base's history${comparison?.history ? ` (${comparison.history})` : ""}, or it is the PR's own head, ` +
         `and the PR is @${meta.author.username}'s: what runs here may be the PR's. ` +
-        `Run from a clean checkout of ${meta.targetBranch}, passing the PR number.`,
+        `Review from a fresh worktree off the base, passing the PR number` +
+        (repoRoot && baseCommit ? `: ${reviewWorktreeCommand(repoRoot, baseCommit)}` : "."),
     };
   }
   if (!hardHalt) hardHalt = commitHalt;
@@ -1976,9 +2146,18 @@ async function main(): Promise<void> {
         "  --milestones <dir|none>           Milestones folder (default: docs/milestones)\n" +
         "  --cold-review <path|none>         Cold-review checklist (default: process/cold-review.md)\n" +
         "  --verbose                         Diagnostic logs to stderr\n" +
-        "  --cleanup <dir>                   Delete a review folder this script made, and exit\n",
+        "  --cleanup <dir>                   Delete a review folder this script made, and exit\n" +
+        "  --check-checkout <dir> [--base <ref>]\n" +
+        "                                    Pre-launch check, run from outside <dir> before starting Claude Code there:\n" +
+        "                                    exit 0 only when <dir> is <ref>'s with nothing changed or added (default: origin/HEAD)\n",
     );
     process.exit(1);
+  }
+
+  if (opts.checkCheckout) {
+    const { code, lines } = checkCheckout(opts.checkCheckout, opts.base);
+    (code === 0 ? process.stdout : process.stderr).write(`${lines.join("\n")}\n`);
+    process.exit(code);
   }
 
   if (opts.cleanup) {

@@ -41,10 +41,17 @@ jobs:
           REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh issue edit "$NUMBER" --repo "$REPO" --add-label needs-shape
+          # The label may not exist (a repository that did not come from new-project), and a failure here
+          # must not swallow the comment: the label is ensured and added first, its exit status is kept,
+          # and the step ends with it after the comment is posted. Name, colour and description match
+          # scripts/new-project.mjs step 5 (scripts/new-project.test.mjs pins them equal).
+          label_status=0
+          gh label create needs-shape --repo "$REPO" --color D93F0B --force \
+            --description 'Issue needs shaping: acceptance or seams missing' || label_status=$?
+          gh issue edit "$NUMBER" --repo "$REPO" --add-label needs-shape || label_status=$?
           # I1's finding lines read `I1: <file>#<key>: <sentence>`; the comment keeps the sentence.
           sed -n 's/^I1: [^ :]*#[^ :]*: //p' "$RUNNER_TEMP/issue/report.txt" > "$RUNNER_TEMP/issue/findings.txt"
-          [ -s "$RUNNER_TEMP/issue/findings.txt" ] || exit 0
+          [ -s "$RUNNER_TEMP/issue/findings.txt" ] || exit "$label_status"
           {
             echo '<!-- issue-shape -->'
             echo 'This issue is labelled `needs-shape`. Edit it to fix:'
@@ -60,6 +67,7 @@ jobs:
           else
             gh issue comment "$NUMBER" --repo "$REPO" --body-file "$RUNNER_TEMP/issue/comment.md"
           fi
+          exit "$label_status"
       - name: Clear the label and the comment once it passes
         if: success()
         env:

@@ -14,7 +14,7 @@
 
 import test from "node:test";
 import { strict as assert } from "node:assert";
-import { execSync, execFileSync } from "node:child_process";
+import { execSync, execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, lstatSync, statSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -72,7 +72,9 @@ import {
   resolveIssueTicket,
   runGit,
   isInPrCheckout,
-  reviewerFilesMatchBase,
+  compareWithBase,
+  checkoutMatchesBase,
+  checkCheckout,
   DEFAULT_SLIPWAY_PATHS,
   type PRMetadata,
   type IssueTicket,
@@ -1235,36 +1237,277 @@ test("isInPrCheckout: someone else's PR, from its own checkout or current-branch
   assert.equal(isInPrCheckout("self", null, "abc", "abc"), false);
 });
 
-test("reviewerFilesMatchBase: any head of the PR that touches what Claude Code loads fails, by content", () => {
+// A base commit holding what Claude Code loads and what that runs: the skill's folder and settings, the configuration
+// it reads, CLAUDE.md importing a file that imports another, a nested CLAUDE.md, .mcp.json, and the hook scripts,
+// ci/ and package.json a project's settings run at start-up.
+function baseRepo(): { repo: string; base: string } {
   const repo = createFixtureRepo();
-  mkdirSync(path.join(repo, ".claude", "skills", "pr-review"), { recursive: true });
-  mkdirSync(path.join(repo, "process"), { recursive: true });
-  writeFileSync(path.join(repo, ".claude", "settings.json"), "{}\n");
-  writeFileSync(path.join(repo, ".claude", "skills", "pr-review", "SKILL.md"), "base\n");
-  writeFileSync(path.join(repo, "AGENT.md"), "base\n");
-  writeFileSync(path.join(repo, "process", "intake.md"), "base\n");
-  execSync("git add -A && git commit -q -m base", { cwd: repo, stdio: "pipe" });
-  const base = execSync("git rev-parse HEAD", { cwd: repo, encoding: "utf8" }).trim();
-  assert.equal(reviewerFilesMatchBase(repo, base), true);
+  for (const dir of [".claude/skills/pr-review", "process/harness/hooks", "docs", "ci"]) mkdirSync(path.join(repo, dir), { recursive: true });
+  const files: Record<string, string> = {
+    ".claude/settings.json": "{}\n",
+    ".claude/skills/pr-review/SKILL.md": "base\n",
+    "AGENT.md": "base\n",
+    "process/intake.md": "base\n",
+    "CLAUDE.md": "# rules\n\n@process/rules.md\n",
+    "process/rules.md": "See @../docs/deep.md.\n",
+    "docs/deep.md": "base\n",
+    "docs/CLAUDE.md": "base\n",
+    ".mcp.json": "{}\n",
+    "process/harness/hooks/session-state.sh": "node ci/status.mjs\n",
+    "ci/status.mjs": "// base\n",
+    "package.json": "{}\n",
+    ".gitignore": "/CLAUDE.local.md\nnode_modules/\n",
+  };
+  for (const [rel, text] of Object.entries(files)) writeFileSync(path.join(repo, rel), text);
+  return { repo, base: commitAll(repo, "base") };
+}
 
-  // An older head of the PR: a commit that changed the settings' allow-list. HEAD is not the PR's current head.
-  writeFileSync(path.join(repo, ".claude", "settings.json"), '{"permissions":{"allow":["Bash(*)"]}}\n');
-  execSync("git commit -qam older-head", { cwd: repo, stdio: "pipe" });
-  assert.equal(reviewerFilesMatchBase(repo, base), false);
+/** A fresh worktree off `base`, as the refusal message makes one: HEAD has been nowhere else. */
+function freshWorktree(repo: string, base: string): string {
+  const dir = path.join(workspaceMkdtemp("wt-"), "review");
+  execSync(`git worktree add -q --detach "${dir}" ${base}`, { cwd: repo, stdio: "pipe" });
+  return dir;
+}
+
+test("compareWithBase: any head of the PR fails, whatever file it changes", () => {
+  const { repo, base } = baseRepo();
+  const wt = freshWorktree(repo, base);
+  assert.deepEqual(compareWithBase(wt, base), { matches: true, differing: [], history: null, error: null });
+  const changed = [
+    ".claude/settings.json", ".claude/skills/pr-review/SKILL.md", "AGENT.md", "process/intake.md", "CLAUDE.md",
+    "process/rules.md", "docs/deep.md", // CLAUDE.md's import, and that file's own
+    "docs/CLAUDE.md", ".mcp.json",
+    "process/harness/hooks/session-state.sh", "ci/status.mjs", "package.json", // what the settings run at start-up
+    "README.md",
+  ];
+  for (const rel of changed) {
+    writeFileSync(path.join(wt, rel), "pr\n"); // uncommitted
+    assert.deepEqual(compareWithBase(wt, base).differing, [rel], `${rel}, uncommitted`);
+    execSync(`git checkout -q -- ${rel}`, { cwd: wt });
+  }
+  for (const rel of ["docs/CLAUDE.local.md", ".claude/agents/new.md", "src.txt"]) {
+    mkdirSync(path.dirname(path.join(wt, rel)), { recursive: true });
+    writeFileSync(path.join(wt, rel), "untracked\n");
+    assert.deepEqual(compareWithBase(wt, base).differing, [rel], `${rel}, untracked`);
+    rmSync(path.join(wt, rel));
+  }
+  // The owner's own CLAUDE.local.md, ignored, is not compared: HEAD's history stands in for ignored files (below).
+  writeFileSync(path.join(wt, "CLAUDE.local.md"), "mine\n");
+  assert.equal(checkoutMatchesBase(wt, base), true, "the owner's ignored CLAUDE.local.md");
+  // Committed: a head of the PR, current or older.
+  writeFileSync(path.join(wt, "CLAUDE.md"), "pr\n");
+  commitAll(wt, "pr changes CLAUDE.md");
+  assert.equal(checkoutMatchesBase(wt, base), false, "committed");
+  assert.equal(checkoutMatchesBase(wt, null), false);
+});
+
+test("compareWithBase: a checkout whose HEAD has been outside the base is refused, whatever the PR left ignored", () => {
+  const { repo, base } = baseRepo();
+  const fresh = freshWorktree(repo, base);
+  assert.equal(checkoutMatchesBase(fresh, base), true, "a fresh worktree off the base");
+
+  // The PR force-commits a hooked settings file its own .gitignore hides, and a node_modules/.bin/node; the owner
+  // checks it out, then `git reset <base>`: the files stay on disk, ignored, and git's comparison shows nothing.
+  const wt = freshWorktree(repo, base);
+  mkdirSync(path.join(wt, "node_modules", ".bin"), { recursive: true });
+  writeFileSync(path.join(wt, ".claude", ".gitignore"), "*\n");
+  writeFileSync(path.join(wt, ".claude", "settings.local.json"), '{"hooks":{"SessionStart":[]}}\n');
+  writeFileSync(path.join(wt, "node_modules", ".bin", "node"), "#!/bin/sh\n");
+  execSync("git add -f .claude node_modules && git commit -q -m pr", { cwd: wt });
+  execSync(`git reset -q ${base}`, { cwd: wt });
+  const result = compareWithBase(wt, base);
+  assert.deepEqual(result.differing, [], `git sees nothing left behind: ${JSON.stringify(result.differing)}`);
+  assert.equal(existsSync(path.join(wt, ".claude", "settings.local.json")), true);
+  assert.equal(result.matches, false);
+  assert.match(result.history ?? "", /HEAD has been on [0-9a-f]{12}, outside the base's history/);
+});
+
+test("compareWithBase: no record of where HEAD has been, an empty one, or recording switched off, is refused", () => {
+  const { repo, base } = baseRepo();
+  const logOf = (wt: string) =>
+    execSync("git rev-parse --path-format=absolute --git-path logs/HEAD", { cwd: wt, encoding: "utf8" }).trim();
+  const missing = freshWorktree(repo, base);
+  rmSync(logOf(missing));
+  assert.match(compareWithBase(missing, base).history ?? "", /no record of where HEAD has been/);
+  const empty = freshWorktree(repo, base);
+  writeFileSync(logOf(empty), "");
+  assert.match(compareWithBase(empty, base).history ?? "", /is empty/);
+  const garbled = freshWorktree(repo, base);
+  writeFileSync(logOf(garbled), "not a record\n");
+  assert.match(compareWithBase(garbled, base).history ?? "", /does not read/);
+  const off = freshWorktree(repo, base);
+  execSync("git config core.logAllRefUpdates false", { cwd: repo });
+  assert.match(compareWithBase(off, base).history ?? "", /switched off/);
+  execSync("git config --unset core.logAllRefUpdates", { cwd: repo });
+  assert.equal(checkoutMatchesBase(off, base), true);
+});
+
+test("compareWithBase: a PR's file under a differently cased .claude folder fails, on a case-insensitive disk too", () => {
+  const { repo, base } = baseRepo();
+  // Built with plumbing, as a PR's author on a case-sensitive disk would commit it. On a case-insensitive disk (the
+  // macOS default) the checkout writes it into .claude/, where Claude Code loads it as settings.
+  const blob = execSync("git hash-object -w --stdin", { cwd: repo, input: '{"hooks":{}}\n', encoding: "utf8" }).trim();
+  for (const rel of [".CLAUDE/settings.local.json", ".Claude/skills/pr-review/SKILL.md", "Process/Intake.md", "claude.md", "docs/Claude.Local.md"]) {
+    execSync(`git update-index --add --cacheinfo 100644,${blob},${rel}`, { cwd: repo });
+    execSync(`git commit -q -m "pr adds ${rel}"`, { cwd: repo });
+    execSync("git checkout -q -f HEAD", { cwd: repo });
+    const result = compareWithBase(repo, base);
+    assert.equal(result.matches, false, rel);
+    assert.ok(result.differing.includes(rel), `${rel}: ${JSON.stringify(result.differing)}`);
+    execSync(`git reset -q --hard ${base}`, { cwd: repo });
+    execSync("git clean -qfdx -e CLAUDE.local.md", { cwd: repo });
+  }
+});
+
+test("compareWithBase: a PR that changes a symlink's target, or a submodule, fails", () => {
+  const { repo, base } = baseRepo();
+  // The settings are a link to a shared file: the PR changes the file, never the link.
+  mkdirSync(path.join(repo, "shared"));
+  writeFileSync(path.join(repo, "shared", "settings.json"), "{}\n");
+  rmSync(path.join(repo, ".claude", "settings.json"));
+  execSync("ln -s ../shared/settings.json .claude/settings.json", { cwd: repo });
+  const linked = commitAll(repo, "linked settings");
+  writeFileSync(path.join(repo, "shared", "settings.json"), '{"hooks":{}}\n');
+  assert.deepEqual(compareWithBase(repo, linked).differing, ["shared/settings.json"]);
   execSync(`git reset -q --hard ${base}`, { cwd: repo });
 
-  for (const [rel, text] of [["AGENT.md", "pr\n"], ["process/intake.md", "pr\n"], [".claude/skills/pr-review/SKILL.md", "pr\n"]]) {
-    writeFileSync(path.join(repo, rel), text); // uncommitted edits count too
-    assert.equal(reviewerFilesMatchBase(repo, base), false, rel);
-    execSync(`git checkout -q -- ${rel}`, { cwd: repo });
-  }
-  writeFileSync(path.join(repo, ".claude", "agents.md"), "untracked\n");
-  assert.equal(reviewerFilesMatchBase(repo, base), false, "an untracked file under .claude/");
-  rmSync(path.join(repo, ".claude", "agents.md"));
+  // A submodule holding a CLAUDE.md and a skill: its content changed, or the PR moves it to another commit.
+  const sub = workspaceMkdtemp("sub-");
+  execSync('git init -q --template="" --initial-branch=main && git config user.email t@example.com && git config user.name T', { cwd: sub });
+  writeFileSync(path.join(sub, "CLAUDE.md"), "base\n");
+  commitAll(sub, "sub base");
+  execSync(`git -c protocol.file.allow=always submodule add -q "${sub}" vendor`, { cwd: repo, stdio: "pipe" });
+  // .gitmodules can tell git to ignore the submodule; a comparison that honours it sees nothing below.
+  execSync("git config -f .gitmodules submodule.vendor.ignore all", { cwd: repo });
+  const withSub = commitAll(repo, "add vendor");
+  assert.deepEqual(compareWithBase(repo, withSub).differing, []);
+  writeFileSync(path.join(repo, "vendor", "CLAUDE.md"), "pr\n");
+  assert.deepEqual(compareWithBase(repo, withSub).differing, ["vendor"], "the submodule's content");
+  // The submodule's clone has its own config: give it the identity a commit needs where no global one exists (CI).
+  execSync("git config user.email t@example.com && git config user.name T", { cwd: path.join(repo, "vendor") });
+  const moved = commitAll(path.join(repo, "vendor"), "pr moves the submodule");
+  assert.deepEqual(compareWithBase(repo, withSub).differing, ["vendor"], "the submodule's commit");
+  // Staged directly: `git add` honours .gitmodules' ignore=all on some git versions, and would stage nothing.
+  execSync(`git update-index --cacheinfo 160000,${moved},vendor && git commit -q -m "pr bumps vendor"`, { cwd: repo });
+  assert.equal(checkoutMatchesBase(repo, withSub), false, "the bump, committed");
+});
 
-  writeFileSync(path.join(repo, "src.txt"), "elsewhere\n"); // outside what Claude Code loads: fine
-  assert.equal(reviewerFilesMatchBase(repo, base), true);
-  assert.equal(reviewerFilesMatchBase(repo, null), false);
+// A git that fails the one command named, and runs every other: a real non-zero exit, through compute.ts's own git.
+function withFailingGit<T>(command: string, fn: () => T): T {
+  const realGit = execSync("command -v git", { encoding: "utf8", shell: "/bin/sh" }).trim();
+  const bin = workspaceMkdtemp("gitshim-");
+  writeFileSync(
+    path.join(bin, "git"),
+    `#!/bin/sh\nfor a in "$@"; do [ "$a" = "${command}" ] && { echo "fatal: forced" >&2; exit 128; }; done\nexec "${realGit}" "$@"\n`,
+    { mode: 0o755 },
+  );
+  const before = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${before}`;
+  try {
+    return fn();
+  } finally {
+    process.env.PATH = before;
+  }
+}
+
+test("compareWithBase: fails closed when a git command it runs exits non-zero", () => {
+  const { repo, base } = baseRepo();
+  const wt = freshWorktree(repo, base);
+  assert.equal(checkoutMatchesBase(wt, base), true);
+  for (const command of ["status", "diff", "config", "rev-list"]) {
+    const result = withFailingGit(command, () => compareWithBase(wt, base));
+    assert.equal(result.matches, false, command);
+    assert.match(result.error ?? "", /git failed/, command);
+  }
+});
+
+test("--check-checkout: the pre-launch command exits 0 on a clean checkout of the base, non-zero on each case", () => {
+  const { repo, base } = baseRepo();
+  execSync("git push -q origin main && git fetch -q origin", { cwd: repo, stdio: "pipe" });
+  // The owner's own clean clone of the base repository, holding the compute.ts that runs: outside the checkout.
+  const owner = workspaceMkdtemp("owner-");
+  const remote = execSync("git remote get-url origin", { cwd: repo, encoding: "utf8" }).trim();
+  execSync(`git clone -q --template="" "${remote}" "${owner}"`, { stdio: "pipe" });
+  const compute = path.join(owner, "compute.ts");
+  writeFileSync(compute, readFileSync(path.join(import.meta.dirname, "compute.ts")));
+  const check = (dir: string, ...args: string[]) => {
+    const r = spawnSync(process.execPath, [compute, "--check-checkout", dir, ...args], { cwd: owner, encoding: "utf8" });
+    return { code: r.status, out: `${r.stdout}${r.stderr}` };
+  };
+  const wt = freshWorktree(repo, base);
+  const run = (...args: string[]) => check(wt, ...args);
+  assert.equal(run().code, 0, run().out);
+  assert.equal(run("--base", base).code, 0);
+  assert.equal(run("--base", "origin/main").code, 0);
+
+  for (const rel of ["docs/deep.md", "ci/status.mjs"]) { // coverage: an import of an import; a start-up hook's script
+    writeFileSync(path.join(wt, rel), "pr\n");
+    assert.equal(run().code, 1, rel);
+    execSync(`git checkout -q -- ${rel}`, { cwd: wt });
+  }
+
+  // Case: a PR's .CLAUDE/ folder. The refusal names the path, and the one command that makes a clean review worktree.
+  const blob = execSync("git hash-object -w --stdin", { cwd: wt, input: "{}\n", encoding: "utf8" }).trim();
+  execSync(`git update-index --add --cacheinfo 100644,${blob},.CLAUDE/settings.local.json && git commit -q -m case && git checkout -q -f HEAD`, { cwd: wt });
+  const cased = run();
+  assert.equal(cased.code, 1);
+  assert.match(cased.out, /differs: "\.CLAUDE\/settings\.local\.json"/);
+  // Reset to the base: nothing differs, but HEAD has been on the PR.
+  execSync(`git reset -q --hard ${base} && git clean -qfd`, { cwd: wt });
+  const reset = run();
+  assert.equal(reset.code, 1);
+  assert.match(reset.out, /outside the base's history/);
+  const paste = reset.out.split("\n").find((l) => l.trim().startsWith("git -c "))?.trim() ?? "";
+  assert.match(paste, new RegExp(`^git -c core\\.hooksPath=/dev/null -C '[^']+' worktree add --detach '[^']+' ${base}$`));
+  // The refused checkout may hold the PR's hooks: a relative hooksPath (husky) there must not run on the paste.
+  const marker = path.join(workspaceMkdtemp("hook-"), "ran");
+  mkdirSync(path.join(wt, ".husky"));
+  writeFileSync(path.join(wt, ".husky", "post-checkout"), `#!/bin/sh\ntouch "${marker}"\n`, { mode: 0o755 });
+  execSync("git config core.hooksPath .husky", { cwd: repo });
+  try {
+    execSync(paste, { stdio: "pipe", shell: "/bin/sh" }); // one paste
+  } finally {
+    execSync("git config --unset core.hooksPath", { cwd: repo });
+  }
+  assert.equal(existsSync(marker), false, "the pasted command ran the checkout's post-checkout hook");
+  rmSync(path.join(wt, ".husky"), { recursive: true });
+  const made = paste.match(/add --detach '([^']+)'/)?.[1] ?? "";
+  assert.equal(check(made).code, 0, "the worktree the refusal names passes");
+
+  const failed = withFailingGit("status", () => run()); // failing open
+  assert.equal(failed.code, 1);
+  assert.match(failed.out, /could not run: git failed/);
+  assert.equal(run("--base", "no-such-ref").code, 1);
+  assert.equal(run("--base", "f".repeat(40)).code, 1, "a commit the checkout does not hold");
+
+  // A clone of the author's fork, whose main adds a hook: its own origin/HEAD is that commit, and its HEAD history
+  // is on the fork's history. The base is read where the command runs, so the fork's main is not taken for it.
+  const forkSrc = freshWorktree(repo, base);
+  writeFileSync(path.join(forkSrc, ".claude", "settings.json"), '{"hooks":{}}\n');
+  const forkHead = commitAll(forkSrc, "the fork's main");
+  const fork = path.join(workspaceMkdtemp("fork-"), "fork.git");
+  execSync(`git init -q --bare --template="" "${fork}" && git push -q "${fork}" ${forkHead}:refs/heads/main`, { cwd: forkSrc, stdio: "pipe" });
+  const forkClone = path.join(workspaceMkdtemp("forkclone-"), "c");
+  execSync(`git clone -q --template="" "${fork}" "${forkClone}"`, { stdio: "pipe" });
+  assert.equal(check(forkClone).code, 1, "a fork's own origin/HEAD is not the base");
+
+  execSync("git remote set-head origin -d", { cwd: owner });
+  const noHead = run();
+  assert.equal(noHead.code, 1);
+  assert.match(noHead.out, /pass --base/);
+  const outside = workspaceMkdtemp("outside-");
+  assert.equal(spawnSync(process.execPath, [compute, "--check-checkout", outside], { encoding: "utf8" }).status, 1, "not a checkout");
+});
+
+test("--check-checkout: a path the author chose prints escaped, never as terminal control text", () => {
+  const { repo, base } = baseRepo();
+  const name = ".claude/\u001b]0;pwned\u0007\u202e.md";
+  writeFileSync(path.join(repo, name), "pr\n");
+  const { code, lines } = checkCheckout(repo, base);
+  assert.equal(code, 1);
+  const out = lines.join("\n");
+  assert.equal(/[\u0000-\u001f\u007f-\uffff]/.test(out.replace(/\n/g, "")), false, out);
+  assert.match(out, /\\u001b\]0;pwned\\u0007\\u202e\.md/);
 });
 
 // The review's bar comes from the PR's base commit, never its head or a working tree.
@@ -1400,6 +1643,15 @@ test("compute.ts: runGit is its only way to git, and every git command it names 
   assert.ok(ghNamed.length >= 4, `found ${ghNamed.length} gh calls`);
   for (const cmd of ghNamed) assert.ok(GH_ALLOWED.has(cmd), `compute.ts runs gh ${cmd}`);
   for (const cmd of ["pr checkout", "repo clone", "repo sync"]) assert.equal(GH_ALLOWED.has(cmd), false, cmd);
+});
+
+test("runGit: git config runs only as config --get, before running git", () => {
+  const repo = createFixtureRepo();
+  for (const args of [["config", "core.hooksPath", ".husky"], ["config", "--unset", "user.name"], ["config"]]) {
+    assert.throws(() => runGit(args, repo), /git config is run only as config --get/, args.join(" "));
+  }
+  assert.equal(runGit(["config", "--get", "user.name"], repo), "Test");
+  assert.equal(execSync("git config --get core.hooksPath || true", { cwd: repo, encoding: "utf8" }).trim(), "");
 });
 
 test("runGh: refuses gh commands that check out or clone, before running gh", () => {

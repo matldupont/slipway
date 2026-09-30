@@ -1,0 +1,6 @@
+{
+  "_note": "Asks for a variable outside PC1's allowlist. The value is inert text and must never reach L1: PC1 refuses the case before starting it.",
+  "exit": 1,
+  "env": { "CHECK_TODAY": "2026-09-29", "NODE_OPTIONS": "inert-not-passed" },
+  "findings": []
+}
