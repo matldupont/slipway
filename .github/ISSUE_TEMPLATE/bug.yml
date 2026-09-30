@@ -63,4 +63,4 @@ body:
     id: links
     attributes:
       label: Links
-      description: "Part of: #N · Regression of: #N · Decision: PD-n or D-nnn"
+      description: "Part of: #N · Regression of: #N · Touches: paths or globs the fix changes (optional) · Decision: PD-n or D-nnn"
