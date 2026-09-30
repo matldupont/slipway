@@ -27,6 +27,11 @@ type and test-runner configs, workflows, `ci/**`, this directory and `.claude/se
 so changing a gate is always a human decision, and so is creating one: each edit rule has a matching write rule. A PR that touches a gate file also says, in a `## Gate changes` section, whether each file got stricter, stayed the same or loosens. Adding a check is legitimate work — approve it knowingly.
 Under `bypassPermissions` nothing asks; required checks on `main` remain the backstop.
 
+**So are the owner-only files** (`process/slipway-rules.md` → Gates, #163): each path that list names has an edit
+and a write rule here, the slipway-only ones included, since a rule for a file a project lacks never fires.
+`scripts/skills.test.mjs` fails when a path on the list has no rule. The two files a setting names (the
+`Domain invariants doc`, the cold-review file) have no fixed path, so they rest on the rule alone.
+
 **So are the files that change which program a gate command runs, or how pnpm and node start it** (#133).
 Each is a gate file here and in the PR check:
 
