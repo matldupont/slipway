@@ -182,6 +182,26 @@ Declined: exiting 0 whenever rows need the owner (the exit code is how the skill
 "needs you" from "done"); `pnpm dlx` in the script (its cache can serve a day-old `#main`). Spec:
 `dev/features/template-sync.md`; #135.
 
+## D-022 — The owner's work order is a local page over the milestone and live GitHub state *(decided 2026-09-30)*
+
+An owner running several agent sessions needs to know which issues on the active milestone are ready, which
+can run side by side, and what starts each. `pnpm status` names one step and stays offline; the roadmap page
+is published, so it never shows issues or commands (D-017). A hand-kept version of this page drifted within
+days, as D-017 predicted for anything kept by hand.
+
+- **Rendered on demand, locally.** `pnpm work-order` reads the active milestone's Contents and, through `gh`,
+  the issues its items name, and writes one HTML file to the temp directory. It is never hosted, published or
+  committed, so it may show issue numbers, titles, blockers, commands and the designation line.
+- **Nothing else of an issue.** From a body it reads only the designation section, `Blocked by:` and
+  `Touches:`. Every value is escaped and the page has no script: issue text is written by other people.
+- **Parallel-safety is declared at intake.** An issue's optional `Touches:` line lists the paths its PR will
+  change; intake writes the folder when unsure. An issue without one conflicts with everything.
+
+Consistent with D-017: its "reopen for live GitHub state" is about the published page, which stays as it is.
+Declined: live state in `pnpm status` (it runs in every session's hook and must not need the network), and
+an epic as a source for repositories with no milestone (an epic's order is prose, not its sub-issue order).
+Spec: `dev/features/work-order.md`.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
