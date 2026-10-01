@@ -132,8 +132,8 @@ test('a 1 MB AGENT.md or milestone file is read in under 2 s', () => {
     for (const at of [(md) => `${md}\n${line}\n`, (md) => md.replace(/^# M1 — .*$/m, `# M1 — ${line}`)])
       assert.equal(timed(variant('M1-booking.md', at), ['--out', join(tmp(), 'site')], name).status, 0, name);
   }
-  const t0 = Date.now();
-  assert.ok(noGos(`## No-gos\n\n- a\n${long.dashes}\n${long.comments}\n`).length && Date.now() - t0 < 2000, 'the owner-view reader is linear too');
+  const own = `import { noGos } from ${JSON.stringify(join(SRC, 'ci', 'checks', 'lib', 'milestones.mjs'))}; noGos('## No-gos\\n\\n- a\\n---' + ' '.repeat(${MB}) + 'x\\n' + 'a<!--b-->'.repeat(${MB / 9}));`;
+  assert.equal(spawnSync(process.execPath, ['--input-type=module', '-e', own], { timeout: 2000 }).status, 0, 'the owner-view reader is linear too');
   const open = agent((a) => `${a}| Roadmap page |${' '.repeat(MB)}x\n`);
   assert.equal(timed(open, ['--enabled'], 'open cell').status, 1, 'a cell with no closing pipe is one long unknown value');
 });
