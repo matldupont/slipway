@@ -20,6 +20,8 @@ import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/l
 import { ownDecisions } from './adopt.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
+import { planText } from './lib/sync-text.mjs';
+import { clean, ui } from './lib/ui.mjs';
 import { KINDS, shellQuote, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -43,6 +45,8 @@ Object.assign(process.env, {
   TMPDIR: root,
 });
 delete process.env.CLAUDECODE; // --apply refuses under an agent; one case sets it back
+// What a runner sets must not colour or link the output the cases read: each case that wants either passes its own.
+for (const k of ['FORCE_COLOR', 'FORCE_HYPERLINK', 'NO_COLOR']) delete process.env[k];
 
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const put = (dir, files) => {
@@ -174,7 +178,7 @@ function project(edit) {
 const sync = (dir, ...args) =>
   spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
 const rows = (stdout) => Object.fromEntries([...stdout.matchAll(/^ {2}(\S.*?) {2,}(\S+(?: scripts\.\S+)?)$/gm)].map((m) => [m[2], m[1]]));
-const normalise = (stdout) => stdout.replaceAll(slip, '<slipway>').replaceAll(A, '<A>').replaceAll(B, '<B>').replaceAll(B.slice(0, 12), '<B>');
+const normalise = (stdout) => stdout.replaceAll(slip, '<slipway>').replaceAll(A, '<A>').replaceAll(B, '<B>').replaceAll(B.slice(0, 12), '<B>').replaceAll(A.slice(0, 7), '<A>').replaceAll(B.slice(0, 7), '<B>');
 
 // Every file under `dir`, .git included, with its bytes: what "nothing was written" means.
 function treeHash(dir) {
@@ -205,7 +209,7 @@ test('the plan from base A to target B equals the checked-in plan, and writes no
   assert.equal(normalise(r.stdout), readFileSync(EXPECTED, 'utf8'));
 });
 
-test('the default plan is a summary: no per-path row for a bucket that needs nothing, each owner row with its next command, the base explained; --verbose is the checked-in list above', () => {
+test('the default plan is for the owner: what needs them first with each next step, what changes in counts, the next command last; --verbose is the checked-in list above', () => {
   const dir = project();
   const r = sync(dir);
   assert.equal(r.status, 0, r.stderr);
@@ -222,10 +226,10 @@ test('a project with the use-slipway script is told `pnpm -s use-slipway sync --
   });
   const r = sync(dir);
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /Carry it out with: pnpm -s use-slipway sync --apply\n$/);
+  assert.match(r.stdout, /└ {2}Next: pnpm -s use-slipway sync --apply\n$/);
   assert.match(r.stdout, /next: pnpm -s use-slipway sync --apply keeps your value/);
   assert.doesNotMatch(r.stdout, /npx github:/);
-  assert.match(sync(project()).stdout, /Carry it out with: npx github:matldupont\/slipway#main sync --apply\n$/);
+  assert.match(sync(project()).stdout, /└ {2}Next: npx github:matldupont\/slipway#main sync --apply\n$/);
 });
 
 // The command the owner is told to run, with slipway's shipped script, when sync exits 1 for a row that
@@ -589,7 +593,7 @@ const applied = sync(edited, '--apply', '--verbose');
 
 test('apply, edited project: exits 1 — rows need the owner — with main unchanged and the tree clean', () => {
   assert.equal(applied.status, 1, applied.stdout + applied.stderr);
-  assert.match(applied.stdout, /Sync exits 1/);
+  assert.match(applied.stdout, /sync exits 1 until these are settled; nothing failed/);
   assert.equal(git(edited, 'rev-parse', 'main'), editedMain);
   assert.equal(git(edited, 'symbolic-ref', '--short', 'HEAD'), BRANCH);
   assert.equal(git(edited, 'status', '--porcelain'), '');
@@ -605,7 +609,7 @@ test('apply: a seeded file slipway changed gets slipway\'s base → target diff 
   put(at, { 'docs/PRD.md': show(A, 'docs/PRD.md') });
   execFileSync('git', ['apply', diff], { cwd: at });
   assert.deepEqual(bytes(at, 'docs/PRD.md'), show(B, 'docs/PRD.md'));
-  assert.match(applied.stdout, /yours — slipway's template changed — [^\n]*\n {2}\.slipway\/upstream\/docs\/PRD\.md\.diff\n/);
+  assert.match(applied.stdout, /Settled with you: 1 of your files started from slipway's template[^\n]*\n│ {2}slipway's change to each is saved under \.slipway\/upstream\//);
 });
 
 test('decisions.md is seeded, and /sync-slipway declines a D- entry a seeded diff adds instead of porting it', () => {
@@ -631,7 +635,7 @@ test('apply: an overridden file that conflicts holds markers with both sides and
   assert.ok(merged.includes('two, upstream\n'), 'slipway\'s side');
   const lines = merged.split('\n');
   for (const l of ourMerge.split('\n')) assert.ok(lines.includes(l), `lost: ${l}`);
-  assert.match(applied.stdout, /merge — conflict markers[^\n]*\n {2}process\/merge\.md \(1 conflict\)/);
+  assert.match(applied.stdout, /^│ {2}process\/merge\.md {2}merge — 1 conflict; resolve it, and keep its override$/m);
   // It keeps its old hash, so D1 still sees it as the override it is; its blob is the target's, so the base resolves.
   const f = manifestOf(edited).files['process/merge.md'];
   assert.equal(f.sha256, manifestBefore.files['process/merge.md'].sha256);
@@ -640,14 +644,14 @@ test('apply: an overridden file that conflicts holds markers with both sides and
 
 test('apply: a file removed upstream that the project edited is kept, reported as keep (edited), and its override is named, not edited', () => {
   assert.equal(rows(applied.stdout)['process/kept.md'], 'keep (edited)');
-  assert.match(applied.stdout, /keep \(edited\) — slipway removed it[^\n]*\n {2}process\/kept\.md\n/);
-  assert.match(applied.stdout, /stale override — [^\n]*\n {2}\.slipway\/overrides\.yaml:4 {2}path: process\/kept\.md\n/);
+  assert.match(applied.stdout, /^│ {2}process\/kept\.md {2}keep \(edited\) — slipway removed it/m);
+  assert.match(applied.stdout, /^│ {2}\.slipway\/overrides\.yaml:4 {2}path: process\/kept\.md {2}stale override — /m);
   assert.equal(manifestOf(edited).files['process/kept.md'], undefined);
 });
 
 test('apply: a new upstream file at a path the project has is reported as collision and recorded at slipway\'s hash, so D1 flags it', () => {
   assert.equal(rows(applied.stdout)['process/clash.md'], 'collision');
-  assert.match(applied.stdout, /collision — [^\n]*\n {2}process\/clash\.md\n/);
+  assert.match(applied.stdout, /^│ {2}process\/clash\.md {2}collision — /m);
   assert.equal(manifestOf(edited).files['process/clash.md'].blob, git(slip, 'rev-parse', `${B}:process/clash.md`));
 });
 
@@ -666,7 +670,7 @@ test('apply: the harness — an installed copy is updated because the owner ran 
   const r = sync(dir, '--apply');
   assert.deepEqual(bytes(dir, 'process/harness/settings.json'), show(B, 'process/harness/settings.json'));
   assert.deepEqual(bytes(dir, '.claude/settings.json'), show(B, 'process/harness/settings.json'));
-  assert.match(r.stdout, /you installed it as \.claude\/settings\.json by running sync --apply\. The owner runs this step; an agent must not/);
+  assert.match(r.stdout, /^│ {2}process\/harness\/settings\.json changed, and this run installed it as \.claude\/settings\.json: nothing is left to run$/m);
   assert.match(git(dir, 'show', '--stat=200', '--format=', 'HEAD'), /^\s*\.claude\/settings\.json\s+\|/m);
 
   const mine = installed('{ "mine": true }\n');
@@ -710,10 +714,10 @@ for (const [why, edit, code] of [
 
 // An override slipway has absorbed (#132): the owner's edit is slipway's copy now. Sync records slipway's
 // hash for it and, since the entry excuses nothing, --apply removes it from the overrides in the same
-// commit (#135, D-021): the plan says so ahead, not under "Needs you", and D1 is green with no hand edit.
+// commit (#135, D-021): the plan says so ahead, not under "Needs you by hand", and D1 is green with no hand edit.
 const d1 = (dir) => spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), dir], { encoding: 'utf8' });
-const removed = (p) => new RegExp(`override removed — slipway's copy now equals yours[^\\n]*\\n(?: {2}[^\\n]*\\n)*? {2}\\.slipway\\/overrides\\.yaml:\\d+ {2}path: ${p.replaceAll('.', '\\.')}\\n`);
-const toRemove = (p) => new RegExp(`--apply removes these overrides[^\\n]*\\n(?: {2}[^\\n]*\\n)*? {2}\\.slipway\\/overrides\\.yaml:\\d+ {2}path: ${p.replaceAll('.', '\\.')}\\n`);
+// The plan and --apply both say it as a count (F-08 §3): which entry it is, `--json` names (overrides.absorbed).
+const removed = /^│ {2}1 override removed: slipway's copy now equals yours$/m;
 
 test('a mixed overrides file: --apply removes the absorbed entry in the same commit, keeps the one still differing and every comment; the plan said so, not under Needs you; D1 green, exit 0', () => {
   const mixed = [
@@ -735,17 +739,16 @@ test('a mixed overrides file: --apply removes the absorbed entry in the same com
   }));
   const planned = sync(dir);
   assert.equal(planned.status, 0, planned.stderr);
-  assert.match(planned.stdout, toRemove('process/replace.md'));
-  assert.doesNotMatch(planned.stdout, toRemove('process/merge.md'));
+  assert.match(planned.stdout, removed); // one: process/merge.md still differs, and keeps its entry
+  assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).overrides.absorbed.map((o) => o.path), ['process/replace.md']);
   assert.doesNotMatch(planned.stdout, /Needs you/);
-  assert.match(planned.stdout, /Nothing needs you\.\n/);
+  assert.match(planned.stdout, /Nothing needs you by hand\.\n/);
 
   const before = manifestOf(dir);
   const r = sync(dir, '--apply', '--verbose');
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.equal(rows(r.stdout)['process/replace.md'], 'merge');
-  assert.match(r.stdout, removed('process/replace.md'));
-  assert.doesNotMatch(r.stdout, removed('process/merge.md'));
+  assert.match(r.stdout, removed);
   assert.doesNotMatch(r.stdout, /stale override/);
   // The entry's own lines go; every comment and the other entry stay byte for byte.
   assert.equal(bytes(dir, '.slipway/overrides.yaml').toString('utf8'), mixed.filter((_, i) => i !== 3 && i !== 5).join(''));
@@ -776,10 +779,10 @@ test('an override on a file slipway did not change, kept at an old hash by a syn
 
   const planned = sync(dir, '--verbose');
   assert.equal(rows(planned.stdout)['process/replace.md'], 'unchanged');
-  assert.match(sync(dir).stdout, toRemove('process/replace.md'));
+  assert.match(sync(dir).stdout, removed);
   const r = sync(dir, '--apply');
   assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, removed('process/replace.md'));
+  assert.match(r.stdout, removed);
   assert.equal(manifestOf(dir).files['process/replace.md'].sha256, sha256(show(B, 'process/replace.md')));
   assert.equal(bytes(dir, '.slipway/overrides.yaml').toString('utf8'), 'overrides:\n');
   const green = d1(dir);
@@ -790,13 +793,13 @@ test('a merge of an edit slipway shipped with more: the result is slipway\'s cop
   const partial = show(B, 'process/replace.md').toString('utf8').replace('end2', 'end1'); // slipway's first hunk only
   const dir = pristine((d) => put(d, { 'process/replace.md': partial, '.slipway/overrides.yaml': override('process/replace.md') }));
   assert.notDeepEqual(bytes(dir, 'process/replace.md'), show(B, 'process/replace.md'));
-  assert.match(sync(dir).stdout, toRemove('process/replace.md'));
+  assert.match(sync(dir).stdout, removed);
   const r = sync(dir, '--apply', '--verbose');
   assert.equal(r.status, 0, r.stdout + r.stderr);
   assert.equal(rows(r.stdout)['process/replace.md'], 'merge');
   assert.deepEqual(bytes(dir, 'process/replace.md'), show(B, 'process/replace.md'));
   assert.equal(manifestOf(dir).files['process/replace.md'].sha256, sha256(show(B, 'process/replace.md')));
-  assert.match(r.stdout, removed('process/replace.md'));
+  assert.match(r.stdout, removed);
   assert.equal(d1(dir).status, 0);
 });
 
@@ -1142,7 +1145,7 @@ test('sync from a target the source does not have (an unpushed commit): the plan
   const run = (...args) => spawnSync(process.execPath, [join(ahead, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
   const r = run();
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /note: {3}slipway's commits base → target are not listed: \S+ is not in \S+ \(unpushed\?\)/);
+  assert.match(r.stdout, /^│ {2}note: slipway's commits base → target are not listed: \S+ is not in \S+ \(unpushed\?\)$/m);
   const a = run('--apply');
   assert.equal(a.status, 1);
   assert.match(a.stderr, /is not in \S+ — push it first; nothing was written/);
@@ -1212,7 +1215,8 @@ function withUpstream() {
   git(dir, 'fetch', '-q');
   return { up, dir };
 }
-const remoteLine = (stdout) => stdout.match(/^ {2}remote: (.*)$/m)?.[1];
+// sync prints it on the rail (`│  remote: `), sync --adopt as it always did (`  remote: `).
+const remoteLine = (stdout) => stdout.match(/^(?: {2}|│ {2})remote: (.*)$/m)?.[1];
 
 test('behind its upstream: sync and sync --adopt print one warning with the count and `git pull`, before the plan; --apply still applies', () => {
   const { up, dir } = withUpstream();
@@ -1224,14 +1228,14 @@ test('behind its upstream: sync and sync --adopt print one warning with the coun
   assert.equal(r.status, 0, r.stderr);
   assert.match(remoteLine(r.stdout), /^WARNING — main is 2 commits behind origin\/main; run `git pull` first$/);
   assert.equal(r.stdout.match(/remote:/g).length, 1);
-  assert.ok(r.stdout.indexOf('remote:') < r.stdout.indexOf('rows:'), 'the warning comes before the plan');
+  assert.ok(r.stdout.indexOf('remote:') < r.stdout.indexOf('Needs you by hand'), 'the warning comes before the plan');
   const a = adopt(unadopted2(dir));
   assert.match(remoteLine(a.stdout), /2 commits behind origin\/main; run `git pull`/);
   const again = withUpstream();
   put(again.up, { 'notes.md': 'one\n' });
   commit(again.up, 'merged on the remote');
   const applied = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: again.dir, encoding: 'utf8' });
-  assert.match(applied.stdout, /Applied on slipway\/sync-/);
+  assert.match(applied.stdout, /slipway sync applied on slipway\/sync-/);
   assert.match(remoteLine(applied.stdout), /behind/);
 });
 // The behind project as one that predates the manifest, for adopt: its .slipway removed and committed.
@@ -1262,7 +1266,7 @@ test('no upstream, or a fetch that fails: the plan prints, plus one line saying 
   const off = sync(dir);
   assert.equal(off.status, 0, off.stderr);
   assert.match(remoteLine(off.stdout), /^not checked — could not fetch origin\/main: /);
-  assert.match(off.stdout, /\d+ rows:/);
+  assert.match(off.stdout, /^└ {2}Next: /m);
 });
 
 test('a file slipway stopped shipping is planned once with no upstream diff, leaves the manifest on apply, and the next plan is silent (#98)', () => {
@@ -1382,9 +1386,9 @@ test('--json: needsYou has one item for the collision, its `next` the line the t
   const collisions = doc.needsYou.filter((i) => i.path === 'process/clash.md');
   assert.equal(collisions.length, 1);
   assert.equal(collisions[0].kind, 'collision');
-  assert.equal(collisions[0].next, text.match(/^ {2}collision +process\/clash\.md\n {4}next: (.*)$/m)[1]);
-  const listed = [...text.matchAll(/^ {2}(\S.*?) {2,}(\S.*)\n {4}next: (.*)$/gm)].map((m) => ({ kind: m[1], path: m[2], next: m[3] }));
-  assert.equal(listed.length, Number(text.match(/^Needs you \((\d+)\):$/m)[1]));
+  assert.equal(collisions[0].next, text.match(/^│ {2}collision +process\/clash\.md\n│ {4}next: (.*)$/m)[1]);
+  const listed = [...text.matchAll(/^│ {2}(\S.*?) {2,}(\S.*)\n│ {4}next: (.*)$/gm)].map((m) => ({ kind: m[1], path: m[2], next: m[3] }));
+  assert.equal(listed.length, Number(text.match(/^◆ {2}Needs you by hand \((\d+)\)$/m)[1]));
   assert.deepEqual(doc.needsYou, listed);
   assert.deepEqual(doc.overrides, { absorbed: [], stale: [{ line: 4, path: 'process/kept.md' }] });
 });
@@ -1422,4 +1426,196 @@ test('--json: a refusal (a dirty tree) is `sync: ` on stderr, stdout empty, exit
   assert.equal(r.status, 1);
   assert.match(r.stderr, /^sync: the working tree is not clean \(1 path\(s\)\)/);
   assert.equal(r.stdout, '');
+});
+
+// ---- the owner's plan and what --apply did (F-08 §3–§4, #166): one case per Acceptance line
+//
+// The --json fixture above serves here too: slipway ahead by feat, fix and other commits, one subject with
+// control characters, and a merge.
+const CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/;
+const lines = (stdout) => stdout.replace(/\n$/, '').split('\n');
+// A project before its owner's edits, with `from` as its source: nothing in it needs the owner.
+const pristineFrom = (from) => pristine((d) => {
+  const m = manifestOf(d);
+  m.source = from;
+  put(d, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+});
+const runFrom = (from, dir, ...args) => spawnSync(process.execPath, [join(from, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+
+test('the plan on a pipe: no escape, no full sha, no "rows" or "unchanged", no fix or merge subject; what needs the owner is the first section and the next command the last line', () => {
+  const r = jsonSync(jsonProject());
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stderr, '', 'a progress line on a pipe');
+  assert.doesNotMatch(r.stdout, /\u001b/);
+  assert.doesNotMatch(r.stdout, /[0-9a-f]{40}/);
+  assert.doesNotMatch(r.stdout, /rows|unchanged/);
+  for (const subject of ['fix: y', MERGE, 'Update README', 'on a side branch']) assert.ok(!r.stdout.includes(subject), subject);
+  const out = lines(r.stdout);
+  assert.match(out[0], new RegExp(`^◇ {2}slipway sync on main · ${A.slice(0, 7)} → ${jsonTarget.slice(0, 7)} · 9 changes: 2 new, 1 fix, 6 other$`));
+  assert.match(out.slice(1).find((l) => /^[◆◇]/.test(l)), /^◆ {2}Needs you by hand \(4\)$/);
+  assert.match(out.at(-1), /^└ {2}Next: .*sync --apply$/);
+  assert.doesNotMatch(r.stdout, /The base is the slipway commit/, 'the base is explained by --help');
+
+  // With nothing owed the first section is the one line that says so.
+  const calm = lines(runFrom(jsonSlip, pristineFrom(jsonSlip)).stdout);
+  assert.equal(calm.slice(1).find((l) => /^[◆◇]/.test(l)), '◇  Nothing needs you by hand.');
+  assert.match(calm.at(-1), /^└ {2}Next: .*sync --apply$/);
+});
+
+test('200 commits, 10 of them new features, nothing owed: the plan is at most 30 lines, with 8 features and `… +2 more`', () => {
+  const many = join(root, 'slipway-many');
+  git(root, 'clone', '-q', slip, many);
+  for (let i = 0; i < 200; i += 1) git(many, 'commit', '-q', '--allow-empty', '-m', i % 20 === 0 ? `feat(area${i}): new thing ${i}` : `fix: mend ${i}`);
+  const r = runFrom(many, pristineFrom(many));
+  assert.equal(r.status, 0, r.stderr);
+  const out = lines(r.stdout);
+  assert.ok(out.length <= 30, `${out.length} lines`);
+  assert.match(out[0], / · 203 changes: 10 new, 190 fixes, 3 other$/);
+  assert.equal(out.filter((l) => /new thing \d+$/.test(l)).length, 8);
+  assert.ok(out.includes('│  … +2 more'), r.stdout);
+  assert.ok(out.includes("◇  What's new (10; every change: --log)"), r.stdout);
+  assert.ok(out.includes('◇  Nothing needs you by hand.'));
+  assert.doesNotMatch(r.stdout, /mend/);
+});
+
+test('only template changes besides files that are the same: the plan says "Settled with you: <n> of your files", and never "Nothing needs you."', () => {
+  const docsOnly = join(root, 'slipway-docs-only');
+  git(root, 'clone', '-q', slip, docsOnly);
+  git(docsOnly, 'checkout', '-q', '-B', 'main', A);
+  put(docsOnly, { 'docs/PRD.md': '# PRD, reworded\n' });
+  commit(docsOnly, 'docs: reword the PRD template');
+  const r = runFrom(docsOnly, pristineFrom(docsOnly));
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /^◇ {2}Settled with you: 1 of your files started from slipway's template, and the template changed\.$/m);
+  assert.doesNotMatch(r.stdout, /Nothing needs you\./);
+  assert.doesNotMatch(r.stdout, /What changes|What's new/, 'a section with nothing in it');
+});
+
+test('--log: every non-merge subject base → target, newest first, in place of what\'s new, and no merge subject', () => {
+  const dir = jsonProject();
+  const r = jsonSync(dir, '--log');
+  assert.equal(r.status, 0, r.stderr);
+  const subjects = git(jsonSlip, 'log', '--no-merges', '--format=%s', `${A}..${jsonTarget}`).split('\n');
+  const out = lines(r.stdout);
+  const at = out.indexOf(`◇  Every change (${subjects.length})`);
+  assert.ok(at > 0, r.stdout);
+  assert.deepEqual(out.slice(at + 1, at + 1 + subjects.length), subjects.map((s) => `│  ${clean(s)}`));
+  assert.ok(!r.stdout.includes(MERGE));
+  assert.doesNotMatch(r.stdout, /What's new/);
+  assert.match(out.at(-1), /^└ {2}Next: .*sync --apply$/);
+  // The rest of the plan is the default one's.
+  const plain = lines(jsonSync(dir).stdout);
+  assert.deepEqual(out.slice(0, at), plain.slice(0, plain.indexOf("◇  What's new (2; every change: --log)")));
+});
+
+test('--log is for the plan alone: with --apply, --json or --verbose it is refused before anything runs', () => {
+  const dir = jsonProject();
+  const before = treeHash(dir);
+  for (const [flag, why] of [['--apply', /^sync: --log is for the plan; --apply prints what it did — nothing was written\n$/], ['--json', /^sync: --log and --json: choose one/], ['--verbose', /^sync: --log and --verbose: choose one/]]) {
+    const r = jsonSync(dir, '--log', flag);
+    assert.equal(r.status, 1, flag);
+    assert.match(r.stderr, why);
+    assert.equal(r.stdout, '');
+  }
+  assert.equal(treeHash(dir), before);
+});
+
+// sync run in this process, as a terminal would run it: `isTTY` streams, and a `github:` source that git
+// reads from the local fixture (url.<path>.insteadOf), so the header's links are real and nothing reaches a network.
+async function onTerminal(env, { argv = [], outTTY = true } = {}) {
+  const dir = jsonProject((d) => {
+    const m = manifestOf(d);
+    m.source = 'github:fixture/slipway';
+    put(d, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+    commit(d, 'a github source');
+  });
+  const stream = (isTTY) => ({ isTTY, columns: 200, text: '', write(t) { this.text += t; } });
+  const [out, err] = [stream(outTTY), stream(true)];
+  const redirect = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: `url.${jsonSlip}.insteadOf`, GIT_CONFIG_VALUE_0: 'https://github.com/fixture/slipway.git' };
+  const before = Object.fromEntries(Object.keys(redirect).map((k) => [k, process.env[k]]));
+  Object.assign(process.env, redirect);
+  try {
+    const { main } = await import(join(jsonSlip, 'scripts', 'sync.mjs'));
+    const status = main(argv, { cwd: dir, out, err, env });
+    return { status, stdout: out.text, stderr: err.text, dir };
+  } finally {
+    for (const [k, v] of Object.entries(before)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
+test('on a terminal with NO_COLOR=1 and FORCE_HYPERLINK=1: no colour sequence, a link around each sha and each path that needs the owner, and one progress line on stderr, cleared', async () => {
+  const r = await onTerminal({ NO_COLOR: '1', FORCE_HYPERLINK: '1' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /\u001b\[[0-9;]*m/);
+  const link = (text, url) => `\u001b]8;;${url}\u0007${text}\u001b]8;;\u0007`;
+  for (const sha of [A, jsonTarget]) assert.ok(r.stdout.includes(link(sha.slice(0, 7), `https://github.com/fixture/slipway/commit/${sha}`)), `no link around ${sha.slice(0, 7)}`);
+  assert.match(r.stdout, /\u001b\]8;;file:\/\/[^\u0007]*\/process\/clash\.md\u0007process\/clash\.md\u001b\]8;;\u0007/);
+  assert.match(r.stdout, /\u001b\]8;;file:\/\/[^\u0007]*\/package\.json\u0007package\.json scripts\.b\u001b\]8;;\u0007/, 'a script links to the file that holds it');
+  const progress = "◇  Reading slipway's history…";
+  assert.equal(r.stderr, `${progress}\r${' '.repeat(progress.length)}\r`);
+  // Never on a pipe, never with --json: stdout piped while stderr is a terminal, and --json on a terminal.
+  assert.equal((await onTerminal({}, { outTTY: false })).stderr, '');
+  assert.equal((await onTerminal({}, { argv: ['--json'] })).stderr, '');
+  // Colour on, links off: styled, and no link.
+  const coloured = await onTerminal({});
+  assert.match(coloured.stdout, /\u001b\[[0-9;]*m/);
+  assert.doesNotMatch(coloured.stdout, /\u001b\]8;/);
+});
+
+test('what\'s new is cut to the terminal\'s width with `…`; a pipe is never cut', () => {
+  const view = { root, branch: 'main', source: 'x', base: A, target: B, notes: [], commits: [`feat(sync): ${'long '.repeat(30)}end`], owed: [], counts: {}, next: 'sync --apply' };
+  const narrow = lines(planText(ui({ isTTY: true, columns: 40 }, { NO_COLOR: '1' }), view)).find((l) => l.startsWith('│  sync  '));
+  assert.equal(narrow.length, 40);
+  assert.ok(narrow.endsWith('…'));
+  assert.ok(lines(planText(ui({ isTTY: false }, {}), view)).some((l) => l.endsWith('long end')));
+  // A path holding a line break stays on its own line of the rail.
+  const forged = planText(ui({ isTTY: false }, {}), { ...view, owed: [{ kind: 'collision', path: 'docs/x.md\n└  Next: forged', next: 'n', file: 'docs/x.md' }] });
+  assert.equal(lines(forged).filter((l) => l.startsWith('└')).length, 1);
+});
+
+test('a subject holding ESC, BEL, DEL and U+009B: none reaches stdout from the plan, --log or --verbose, and ordinary text is as it was', () => {
+  const dir = jsonProject();
+  const shown = clean(SUBJECTS[5]).slice('feat: '.length);
+  for (const args of [[], ['--log'], ['--verbose']]) {
+    const r = jsonSync(dir, ...args);
+    assert.equal(r.status, 0, r.stderr);
+    assert.doesNotMatch(r.stdout, CONTROL, `${args}`);
+    assert.ok(r.stdout.includes(shown), `${args}: the subject's own text is gone`);
+  }
+});
+
+test('a refusal that quotes a file name holding ESC and BEL prints neither on stderr', () => {
+  const r = sync(project((d) => put(d, { 'a\u001b[31mred\u0007.txt': 'untracked\n' })));
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /^sync: the working tree is not clean \(1 path\(s\)\)[\s\S]*a\[31mred\.txt/);
+  assert.doesNotMatch(r.stderr, CONTROL);
+});
+
+test('apply with a collision: no bucket meaning repeated, the collision once with its instruction, `└  Next: ` last, exit 1; with nothing owed, exit 0 and the same last line', () => {
+  const r = sync(pristine((d) => put(d, { 'process/clash.md': 'ours\n' })), '--apply');
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /--apply (overwrites|copies|deletes|merges|leaves|updates|keeps)|nothing to do|rows/);
+  assert.equal(r.stdout.match(/process\/clash\.md/g).length, 1);
+  assert.match(r.stdout, new RegExp(`^│ {2}process/clash\\.md {2}collision — slipway ships this path now, and your file was not touched\\. To keep yours, list it in \\.slipway/overrides\\.yaml with a reason; to take slipway's, copy its file from ${short(B)} over yours$`, 'm'));
+  const out = lines(r.stdout);
+  assert.match(out[0], new RegExp(`^◇ {2}slipway sync applied on ${BRANCH} \\(from main\\) · commit [0-9a-f]{7}$`));
+  assert.equal(out[1], `│  chore: sync slipway ${short(A)}..${short(B)}`);
+  assert.ok(out.includes('◆  Needs you before this branch merges (1)'));
+  assert.ok(out.includes('│  3 slipway files updated · 3 added · 3 removed'), r.stdout);
+  assert.match(out.at(-1), /^└ {2}Next: in Claude Code, \/sync-slipway settles the rest and opens the PR/);
+
+  const calm = sync(project((d) => git(d, 'reset', '-q', '--hard', 'HEAD~1')), '--apply');
+  assert.equal(calm.status, 0, calm.stdout + calm.stderr);
+  assert.doesNotMatch(calm.stdout, /Needs you|exits 1/);
+  assert.match(lines(calm.stdout).at(-1), /^└ {2}Next: in Claude Code, \/sync-slipway /);
+});
+
+test('--help explains the base, which the plan no longer prints', () => {
+  const r = sync(root, '--help');
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /^usage: sync \[--plan \| --apply\] \[--verbose \| --log \| --json\]/);
+  assert.match(r.stdout, /\n\nThe base is the slipway commit these files last matched\./);
 });

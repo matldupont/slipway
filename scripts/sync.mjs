@@ -3,12 +3,14 @@
 //   pnpm -s use-slipway sync [--plan]   run in the project: the plan, the default
 //   pnpm -s use-slipway sync --apply    carry it out on a branch, in one commit
 //   pnpm -s use-slipway sync --json     the plan as one JSON document, for /sync-slipway (F-08 §2)
+//   pnpm -s use-slipway sync --log      the plan, with every change of slipway's instead of what's new
 //   (the script is `npx github:matldupont/slipway#main`; a project without it yet runs that, #<ref> for another ref)
 //   node <slipway>/scripts/new-project.mjs sync …
 //
-// Reached through new-project's bin, so this code is always the target version's. The plan prints one
+// Reached through new-project's bin, so this code is always the target version's. The plan computes one
 // row per path — what a sync to this version would do — and writes nothing: no file, no branch, no
-// commit. The only write is its clone of slipway, in a new temp dir removed on exit.
+// commit. The only write is its clone of slipway, in a new temp dir removed on exit. It prints for the
+// owner (F-08 §3, lib/sync-text.mjs): what needs them first, the next command last; --verbose lists the rows.
 //
 // --apply (step 4, #17) takes those rows as they are and computes every write first, so a refusal
 // leaves the project untouched. Then it creates `slipway/sync-<target>` from the current branch and
@@ -34,11 +36,16 @@ import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, r
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
-import { BASE_WHY, bucketLines, needsLines } from './lib/summary.mjs';
+import { BASE_WHY } from './lib/summary.mjs';
+import { alreadyText, appliedText, CONVENTIONAL, planText } from './lib/sync-text.mjs';
+import { clean, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = 'usage: sync [--plan | --apply] [--verbose | --json]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
+const USAGE = 'usage: sync [--plan | --apply] [--verbose | --log | --json]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
+const FLAGS = ['--plan', '--apply', '--verbose', '--log', '--json'];
+// On a terminal only, on stderr, while slipway's history is read; static, since sync never yields to draw.
+const PROGRESS = "◇  Reading slipway's history…";
 export const KINDS = [
   'replace', 'merge', 'add', 'delete', 'keep (edited)', 'collision',
   'seeded: upstream changed', 'no longer tracked', 'merged: key updated', 'merged: key reported', 'unchanged',
@@ -47,19 +54,27 @@ export const KINDS = [
 // A named reason to stop: printed as `sync: <reason>`, exit 1. Adopt (adopt.mjs) throws it too.
 export class Refusal extends Error {}
 
-export function main(argv, { cwd = process.cwd(), out = process.stdout, err = process.stderr } = {}) {
+export function main(argv, { cwd = process.cwd(), out = process.stdout, err = process.stderr, env = process.env } = {}) {
+  let settle = () => {}; // clears the progress line, once
   try {
     for (const a of argv) {
-      if (a === '-h' || a === '--help') { out.write(`${USAGE}\n`); return 0; }
-      if (a !== '--plan' && a !== '--apply' && a !== '--verbose' && a !== '--json') throw new Refusal(`unknown argument ${a}\n${USAGE}`);
+      if (a === '-h' || a === '--help') { out.write(`${USAGE}\n\n${BASE_WHY}\n`); return 0; }
+      if (!FLAGS.includes(a)) throw new Refusal(`unknown argument ${a}\n${USAGE}`);
     }
     if (argv.includes('--plan') && argv.includes('--apply')) throw new Refusal(`--plan and --apply: choose one\n${USAGE}`);
     // --json is the plan for a program to read (F-08 §2): refused with either flag that prints for a person.
     const json = argv.includes('--json');
     if (json && argv.includes('--apply')) throw new Refusal('--json is for the plan; --apply prints for the owner — nothing was written');
     if (json && argv.includes('--verbose')) throw new Refusal(`--json and --verbose: choose one — nothing was written\n${USAGE}`);
+    const log = argv.includes('--log');
+    if (log && argv.includes('--apply')) throw new Refusal('--log is for the plan; --apply prints what it did — nothing was written');
+    if (log && (json || argv.includes('--verbose'))) throw new Refusal(`--log and ${json ? '--json' : '--verbose'}: choose one — nothing was written\n${USAGE}`);
     if (argv.includes('--apply') && process.env.CLAUDECODE) {
       throw new Refusal('--apply installs slipway\'s files and its harness, so the owner runs it in their own terminal, not an agent (CLAUDECODE is set) — nothing was written');
+    }
+    if (!json && out.isTTY === true && err.isTTY === true) {
+      err.write(PROGRESS);
+      settle = () => { settle = () => {}; err.write(`\r${' '.repeat(PROGRESS.length)}\r`); };
     }
     const ctx = { ...preflight(cwd), verbose: argv.includes('--verbose') };
     const rows = plan(ctx);
@@ -73,6 +88,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
         if (e instanceof Refusal) throw new Refusal(`${e.message}\n--apply would refuse this too, so the plan stops here.`);
         throw e;
       }
+      settle();
       if (json) {
         // JSON.stringify escapes C0 controls only. DEL and the C1 range (U+009B is CSI) would reach a
         // terminal raw from a commit subject or a path, so they are escaped too; a parser reads the same text.
@@ -80,14 +96,18 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
         out.write(`${text.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)}\n`);
         return 0;
       }
-      print(out, ctx, rows, { plan: true, stale, absorbed });
-      out.write(ctx.verbose ? 'Plan only — nothing was written.\n' : `Plan only — nothing was written. Carry it out with: ${syncCommand(ctx.root)} --apply\n`);
+      if (ctx.verbose) {
+        printVerbose(out, ctx, rows);
+        out.write('Plan only — nothing was written.\n');
+      } else out.write(planText(ui(out, env), planView(ctx, rows, { stale, absorbed, log })));
       return 0;
     }
-    return apply(out, ctx, rows);
+    settle();
+    return apply(out, ui(out, env), ctx, rows);
   } catch (e) {
+    settle();
     if (!(e instanceof Refusal)) throw e;
-    err.write(`sync: ${e.message}\n`);
+    err.write(`sync: ${clean(e.message)}\n`); // a refusal quotes paths and git's words: no control character reaches the terminal
     return 1;
   }
 }
@@ -223,7 +243,7 @@ function preflight(cwd) {
 
   // What changed, for /sync-slipway to explain: the subjects on slipway's history, base → target. Only
   // informs the explanation, so a target the source lacks (unpushed) is a note; --apply refuses it.
-  // `log` is every subject, as the text plan lists them; `commits` leaves the merges out, for --json.
+  // `log` is every subject, as --verbose lists them; `commits` leaves the merges out, for the plan and --json.
   let log = [];
   let commits = [];
   if (targetSha && targetSha !== r.exact) {
@@ -392,7 +412,6 @@ const MEANING = {
 // An override that is stale after --apply, as D1 will judge it on the sync branch: it names a file slipway
 // no longer maintains. One whose file is slipway's copy then is removed by --apply instead (D-021).
 const STALE_WHY = 'slipway no longer maintains this file, so the entry excuses nothing and D1 flags it';
-const ABSORBED_WHY = "slipway's copy now equals yours, so the entry excuses nothing";
 const staleLine = (s) => `${OVERRIDES}:${s.line}  path: ${s.path}`;
 
 // The next command for a row that needs the owner (OWNER_ROWS).
@@ -406,18 +425,16 @@ function nextStep(r, targetSha, cmd) {
 // The non-empty buckets, in KINDS order: `[kind, count]`.
 const bucketCounts = (rows) => KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length]).filter(([, n]) => n);
 
-// What the plan lists under "Needs you": the rows --apply leaves to the owner and the overrides that go
-// stale, each with its next step. The text plan and --json read the same list.
+// What the plan lists under "Needs you by hand": the rows --apply leaves to the owner and the overrides
+// that go stale, each with its next step. The text plan and --json read the same list; `file` is the
+// project file the text plan links the item to, and --json leaves it out.
 function needsYou({ root, targetSha }, rows, stale) {
   const cmd = syncCommand(root);
   return [
-    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd) })),
-    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `after ${cmd} --apply, delete this entry on the sync branch: ${STALE_WHY}` })),
+    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd), file: r.file ?? r.path })),
+    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `after ${cmd} --apply, delete this entry on the sync branch: ${STALE_WHY}`, file: OVERRIDES })),
   ];
 }
-
-// A conventional-commit subject: `type(scope)!: `, the scope and the `!` optional.
-const CONVENTIONAL = /^([a-z]+)(?:\(([^)]+)\))?!?: /;
 
 /**
  * The plan as data, schema 1 (F-08 §2, dev/features/cli-output.md): what /sync-slipway reads instead of
@@ -441,34 +458,45 @@ function planDoc(ctx, rows, { stale, absorbed }) {
     }),
     buckets: bucketCounts(rows).map(([kind, count]) => ({ kind, label: label(kind), count, meaning: MEANING[kind] })),
     rows: rows.map(({ kind, path }) => ({ kind, label: label(kind), path })),
-    needsYou: needsYou(ctx, rows, stale),
+    needsYou: needsYou(ctx, rows, stale).map(({ kind, path, next }) => ({ kind, path, next })),
     overrides: { absorbed: absorbed.map(entry), stale: stale.map(entry) },
     next: `${syncCommand(root)} --apply`,
   };
 }
 
-function print(out, ctx, rows, { plan = false, stale = [], absorbed = [] } = {}) {
-  const { branch, remote, source, base, targetSha, notes, log, verbose } = ctx;
+// The plan as lib/sync-text.mjs lays it out for the owner (F-08 §3): the same lists --json carries.
+function planView(ctx, rows, { stale, absorbed, log }) {
+  const { root, branch, remote, source, base, targetSha, notes, commits } = ctx;
+  return {
+    root, branch, remote, notes, commits, log,
+    source: publicSource(source),
+    base: base.sha,
+    target: targetSha,
+    owed: needsYou(ctx, rows, stale),
+    counts: Object.fromEntries(bucketCounts(rows)),
+    absorbed: absorbed.length,
+    stale: stale.length,
+    next: `${syncCommand(root)} --apply`,
+  };
+}
+
+// --verbose: the header, every subject, one line per path, then the counts. Plain text, as it always
+// was; what sync did not write (a subject, a path, a note) is cleaned of control characters on the way out.
+function printVerbose(out, ctx, rows) {
+  const { branch, remote, source, base, targetSha, notes, log } = ctx;
   const width = Math.max(...KINDS.map((k) => label(k).length));
-  out.write(`slipway sync plan, on ${branch}\n`);
-  out.write(`  source: ${publicSource(source)}\n`);
-  out.write(`  base:   ${base.sha} (by content: the files slipway installed)\n`);
-  out.write(`  target: ${targetSha ?? `${SRC} (its files match no slipway commit)`}\n`);
-  if (remote) out.write(`  remote: ${remote}\n`);
-  for (const n of notes) out.write(`  note:   ${n}\n`);
-  if (log.length) out.write(`\nslipway's commits, base → target (${log.length}, newest first):\n${log.map((l) => `  ${l}\n`).join('')}`);
-  out.write('\n');
-  const counts = bucketCounts(rows);
-  if (verbose) {
-    for (const r of rows) out.write(`  ${label(r.kind).padEnd(width)}  ${r.path}\n`);
-    out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${label(k)}`).join(', ')}. `);
-    return;
-  }
-  out.write(`${BASE_WHY}\n\n${rows.length} rows:\n${bucketLines(counts.map(([k, n]) => ({ n, label: label(k), meaning: MEANING[k] })))}\n`);
-  const owed = needsYou(ctx, rows, stale);
-  if (plan && absorbed.length) out.write(`--apply removes these overrides — ${ABSORBED_WHY}:\n${absorbed.map((s) => `  ${staleLine(s)}\n`).join('')}\n`);
-  if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed)}\n`);
-  else if (plan) out.write('Nothing needs you.\n');
+  out.write(clean([
+    `slipway sync plan, on ${branch}\n`,
+    `  source: ${publicSource(source)}\n`,
+    `  base:   ${base.sha} (by content: the files slipway installed)\n`,
+    `  target: ${targetSha ?? `${SRC} (its files match no slipway commit)`}\n`,
+    remote ? `  remote: ${remote}\n` : '',
+    ...notes.map((n) => `  note:   ${n}\n`),
+    log.length ? `\nslipway's commits, base → target (${log.length}, newest first):\n${log.map((l) => `  ${l}\n`).join('')}` : '',
+    '\n',
+    ...rows.map((r) => `  ${label(r.kind).padEnd(width)}  ${r.path}\n`),
+    `\n${rows.length} rows: ${bucketCounts(rows).map(([k, n]) => `${n} ${label(k)}`).join(', ')}. `,
+  ].join('')));
 }
 
 // ---- apply (F-01 step 4, #17)
@@ -485,7 +513,7 @@ const OWNER_ROWS = ['collision', 'merged: key reported', 'keep (edited)'];
  * commit hook, a disk error) is named with the branch it left. Returns the exit code: 1 when a row needs
  * the owner.
  */
-function apply(out, ctx, rows) {
+function apply(out, u, ctx, rows) {
   const { root, branch, base, gitDir, targetSha } = ctx;
   if (!targetSha) throw new Refusal('the target matches no slipway commit, so the manifest could not record it — run sync from a slipway checkout, or from `npx github:…#<sha>`');
   const short = (sha) => sha.slice(0, 12);
@@ -495,28 +523,45 @@ function apply(out, ctx, rows) {
   const name = `slipway/sync-${short(targetSha)}`;
   const current = readProjectFile(root, MANIFEST);
   if (!todo.writes.size && !todo.removes.length && Buffer.isBuffer(current) && current.equals(todo.manifest)) {
-    print(out, ctx, rows);
-    out.write(`Already at ${short(targetSha)} — nothing to apply, nothing written.\n`);
+    if (ctx.verbose) verboseFirst(out, ctx, rows);
+    out.write(alreadyText(u, { branch, target: targetSha }));
     return 0;
   }
   const message = `chore: sync slipway ${short(base.sha)}..${short(targetSha)}`;
   const commit = land(root, branch, name, message, { writes: new Map([...todo.writes, [MANIFEST, { bytes: todo.manifest }]]), removes: todo.removes });
 
-  print(out, ctx, rows);
-  out.write(`Applied on ${name} (from ${branch}), commit ${short(commit)}: ${message}\n`);
-  const say = (why, list) => list.length && out.write(`\n${why}\n${list.map((l) => `  ${l}\n`).join('')}`);
-  say('merge — conflict markers left in the file; resolve them, and keep its override:', todo.conflicts.map((c) => `${c.path} (${c.n} conflict${c.n > 1 ? 's' : ''})`));
-  say(`collision — slipway ships this path now; your file was not touched, and D1 flags it. To keep yours, override it with a reason; to take slipway's, copy its file from ${short(targetSha)} over yours:`, rows.filter((r) => r.kind === 'collision').map((r) => r.path));
-  say('keep (edited) — slipway removed it; your file stays and is yours now:', todo.kept.gone);
-  say(`keep (edited) — slipway changed it, but your copy is missing, not a file, or was your own file until now, so slipway's change was not applied. Copy slipway's from ${short(targetSha)}, or override it with a reason:`, todo.kept.shipped);
-  say(`override removed — ${ABSORBED_WHY}:`, todo.absorbed.map(staleLine));
-  say(`stale override — it names no file of slipway's now, so D1 flags it; remove it from ${OVERRIDES}:`, todo.stale.map(staleLine));
-  say(`${label('merged: key reported')} — your value stays; slipway's is shown:`, todo.reported);
-  say(`${label('seeded: upstream changed')} — slipway's own diff (base → target): a reference to apply by hand, not a patch (it is against the template's copy, not yours). /sync-slipway walks you through them. The file was not touched:`, todo.diffs);
-  if (todo.harness) out.write(`\nharness — ${todo.harness.text}\n`);
+  // Every leftover, one line per path with its instruction (F-08 §4). `file` is what the path links to.
+  const from = short(targetSha);
+  const leftover = [
+    ...todo.conflicts.map((c) => ({ path: c.path, text: `merge — ${c.n} conflict${c.n > 1 ? 's' : ''}; resolve ${c.n > 1 ? 'them' : 'it'}, and keep its override` })),
+    ...rows.filter((r) => r.kind === 'collision').map((r) => ({ path: r.path, text: `collision — slipway ships this path now, and your file was not touched. To keep yours, list it in ${OVERRIDES} with a reason; to take slipway's, copy its file from ${from} over yours` })),
+    ...todo.kept.gone.map((p) => ({ path: p, text: 'keep (edited) — slipway removed it; your file stays and is yours now' })),
+    ...todo.kept.shipped.map((p) => ({ path: p, text: `keep (edited) — slipway changed it, but your copy is missing, not a file, or was your own file until now, so slipway's change was not applied. Copy slipway's from ${from}, or list yours in ${OVERRIDES} with a reason` })),
+    ...todo.stale.map((s) => ({ path: staleLine(s), file: OVERRIDES, text: `stale override — delete this entry: ${STALE_WHY}` })),
+    ...todo.reported.map((r) => ({ path: r.path, file: r.file, text: `${label('merged: key reported')} — your value stays; slipway's is ${r.value}` })),
+    ...(todo.harness?.owed ? [{ path: INSTALLED, text: `harness — ${todo.harness.text}` }] : []),
+  ].map((i) => ({ file: i.path, ...i }));
+
+  if (ctx.verbose) verboseFirst(out, ctx, rows);
+  out.write(appliedText(u, {
+    root, name, branch, commit, message,
+    remote: ctx.remote,
+    notes: ctx.notes,
+    owed: leftover,
+    settled: todo.diffs.length,
+    counts: Object.fromEntries(bucketCounts(rows)),
+    absorbed: todo.absorbed.length,
+    stale: todo.stale.length,
+    also: todo.harness && !todo.harness.owed ? [todo.harness.text] : [],
+  }));
   const owed = todo.conflicts.length || todo.stale.length || todo.harness?.owed || rows.some((r) => OWNER_ROWS.includes(r.kind));
-  out.write(owed ? '\nSync exits 1: the rows above need you before this branch merges.\n' : '');
   return owed ? 1 : 0;
+}
+
+// --apply --verbose: the per-path list and its counts, as the plan's --verbose prints them, then what it did.
+function verboseFirst(out, ctx, rows) {
+  printVerbose(out, ctx, rows);
+  out.write('\n\n');
 }
 
 // Every write --apply makes, and nothing written yet. Throws a Refusal on anything that would break
@@ -560,7 +605,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       const t = target.get(r.file);
       const now = t ? derivePackageJson(JSON.parse(t.toString('utf8')), { name: 'x', rules: targetRules }).scripts?.[r.key] : undefined;
       if (kind === 'merged: key reported') {
-        todo.reported.push(`${p}: ${now === undefined ? '(removed)' : JSON.stringify(now)}`);
+        todo.reported.push({ path: p, file: r.file, value: now === undefined ? '(removed)' : JSON.stringify(now) });
         continue;
       }
       if (!pkg) {
@@ -586,7 +631,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       todo.harness = { text: `${HARNESS} changed; ${INSTALLED} is not installed, so it was left out. Install it with: cp ${HARNESS} ${INSTALLED}` };
     } else if (Buffer.isBuffer(installed) && was && installed.equals(was)) {
       todo.writes.set(INSTALLED, { bytes: target.get(HARNESS) });
-      todo.harness = { text: `${HARNESS} changed, and you installed it as ${INSTALLED} by running sync --apply. The owner runs this step; an agent must not (the harness asks before one does).` };
+      todo.harness = { text: `${HARNESS} changed, and this run installed it as ${INSTALLED}: nothing is left to run` };
     } else {
       todo.harness = { owed: true, text: `${HARNESS} changed, but ${INSTALLED} was edited, so it was left as it is. Compare them: git diff --no-index ${INSTALLED} ${HARNESS}` };
     }

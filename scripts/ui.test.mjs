@@ -77,13 +77,13 @@ test('style adds no escape when colour is off, and colours when on', () => {
 
 test('section and line print the same glyphs on a pipe, with nothing from the text acting on the terminal', () => {
   const u = ui(pipe, {});
-  assert.equal(u.section('◆', 'Needs you'), '◆ Needs you');
-  assert.equal(u.section('◇', 'Changes'), '◇ Changes');
-  assert.equal(u.line('a'), '│ a');
-  assert.equal(u.line('a', { indent: 2 }), '│   a');
-  assert.equal(u.line('a', { last: true }), '└ a');
-  assert.equal(u.line(`a${ESC}[2Jb`), '│ a[2Jb');
-  assert.equal(u.section('◇', `t${ESC}]0;x${BEL}`), '◇ t]0;x');
+  assert.equal(u.section('◆', 'Needs you'), '◆  Needs you');
+  assert.equal(u.section('◇', 'Changes'), '◇  Changes');
+  assert.equal(u.line('a'), '│  a');
+  assert.equal(u.line('a', { indent: 2 }), '│    a');
+  assert.equal(u.line('a', { last: true }), '└  a');
+  assert.equal(u.line(`a${ESC}[2Jb`), '│  a[2Jb');
+  assert.equal(u.section('◇', `t${ESC}]0;x${BEL}`), '◇  t]0;x');
 });
 
 test('ui.mjs imports only node: modules, and package.json has no dependencies', () => {
