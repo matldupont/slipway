@@ -2,6 +2,7 @@
 //
 //   pnpm -s use-slipway sync [--plan]   run in the project: the plan, the default
 //   pnpm -s use-slipway sync --apply    carry it out on a branch, in one commit
+//   pnpm -s use-slipway sync --json     the plan as one JSON document, for /sync-slipway (F-08 §2)
 //   (the script is `npx github:matldupont/slipway#main`; a project without it yet runs that, #<ref> for another ref)
 //   node <slipway>/scripts/new-project.mjs sync …
 //
@@ -37,7 +38,7 @@ import { BASE_WHY, bucketLines, needsLines } from './lib/summary.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const USAGE = 'usage: sync [--plan | --apply] [--verbose]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
+const USAGE = 'usage: sync [--plan | --apply] [--verbose | --json]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
 export const KINDS = [
   'replace', 'merge', 'add', 'delete', 'keep (edited)', 'collision',
   'seeded: upstream changed', 'no longer tracked', 'merged: key updated', 'merged: key reported', 'unchanged',
@@ -50,9 +51,13 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
   try {
     for (const a of argv) {
       if (a === '-h' || a === '--help') { out.write(`${USAGE}\n`); return 0; }
-      if (a !== '--plan' && a !== '--apply' && a !== '--verbose') throw new Refusal(`unknown argument ${a}\n${USAGE}`);
+      if (a !== '--plan' && a !== '--apply' && a !== '--verbose' && a !== '--json') throw new Refusal(`unknown argument ${a}\n${USAGE}`);
     }
     if (argv.includes('--plan') && argv.includes('--apply')) throw new Refusal(`--plan and --apply: choose one\n${USAGE}`);
+    // --json is the plan for a program to read (F-08 §2): refused with either flag that prints for a person.
+    const json = argv.includes('--json');
+    if (json && argv.includes('--apply')) throw new Refusal('--json is for the plan; --apply prints for the owner — nothing was written');
+    if (json && argv.includes('--verbose')) throw new Refusal(`--json and --verbose: choose one — nothing was written\n${USAGE}`);
     if (argv.includes('--apply') && process.env.CLAUDECODE) {
       throw new Refusal('--apply installs slipway\'s files and its harness, so the owner runs it in their own terminal, not an agent (CLAUDECODE is set) — nothing was written');
     }
@@ -67,6 +72,13 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
       } catch (e) {
         if (e instanceof Refusal) throw new Refusal(`${e.message}\n--apply would refuse this too, so the plan stops here.`);
         throw e;
+      }
+      if (json) {
+        // JSON.stringify escapes C0 controls only. DEL and the C1 range (U+009B is CSI) would reach a
+        // terminal raw from a commit subject or a path, so they are escaped too; a parser reads the same text.
+        const text = JSON.stringify(planDoc(ctx, rows, { stale, absorbed }), null, 2);
+        out.write(`${text.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)}\n`);
+        return 0;
       }
       print(out, ctx, rows, { plan: true, stale, absorbed });
       out.write(ctx.verbose ? 'Plan only — nothing was written.\n' : `Plan only — nothing was written. Carry it out with: ${syncCommand(ctx.root)} --apply\n`);
@@ -211,17 +223,24 @@ function preflight(cwd) {
 
   // What changed, for /sync-slipway to explain: the subjects on slipway's history, base → target. Only
   // informs the explanation, so a target the source lacks (unpushed) is a note; --apply refuses it.
+  // `log` is every subject, as the text plan lists them; `commits` leaves the merges out, for --json.
   let log = [];
+  let commits = [];
   if (targetSha && targetSha !== r.exact) {
     forwardOnly(gitDir, r.exact, targetSha, source); // the plan and --apply refuse the same base
     try {
-      log = git(['--git-dir', gitDir, 'log', '--format=%s', `${r.exact}..${targetSha}`]).split('\n').filter(Boolean);
+      // Parents, a tab, the subject: a merge has two parents or more, so one walk gives both lists.
+      const all = git(['--git-dir', gitDir, 'log', '--format=%P%x09%s', `${r.exact}..${targetSha}`]).split('\n')
+        .map((l) => ({ merge: l.slice(0, l.indexOf('\t')).includes(' '), subject: l.slice(l.indexOf('\t') + 1) }))
+        .filter((c) => c.subject);
+      log = all.map((c) => c.subject);
+      commits = all.filter((c) => !c.merge).map((c) => c.subject);
     } catch {
       notes.push(`slipway's commits base → target are not listed: ${targetSha.slice(0, 12)} is not in ${publicSource(source)} (unpushed?)`);
     }
   }
 
-  return { notes, log, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
+  return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
 }
 
 /**
@@ -384,7 +403,52 @@ function nextStep(r, targetSha, cmd) {
   return `${cmd} --apply leaves your file as it is; port slipway's change by hand if you want it`;
 }
 
-function print(out, { root, branch, remote, source, base, targetSha, notes, log, verbose }, rows, { plan = false, stale = [], absorbed = [] } = {}) {
+// The non-empty buckets, in KINDS order: `[kind, count]`.
+const bucketCounts = (rows) => KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length]).filter(([, n]) => n);
+
+// What the plan lists under "Needs you": the rows --apply leaves to the owner and the overrides that go
+// stale, each with its next step. The text plan and --json read the same list.
+function needsYou({ root, targetSha }, rows, stale) {
+  const cmd = syncCommand(root);
+  return [
+    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd) })),
+    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `after ${cmd} --apply, delete this entry on the sync branch: ${STALE_WHY}` })),
+  ];
+}
+
+// A conventional-commit subject: `type(scope)!: `, the scope and the `!` optional.
+const CONVENTIONAL = /^([a-z]+)(?:\(([^)]+)\))?!?: /;
+
+/**
+ * The plan as data, schema 1 (F-08 §2, dev/features/cli-output.md): what /sync-slipway reads instead of
+ * the text. Shas are full, the skill cites them. A field is added under the same schema number; one that
+ * is renamed, removed or changes meaning takes the next.
+ */
+function planDoc(ctx, rows, { stale, absorbed }) {
+  const { root, branch, remote, source, base, targetSha, notes, commits } = ctx;
+  const entry = ({ line, path }) => ({ line, path });
+  return {
+    schema: 1,
+    branch,
+    source: publicSource(source),
+    base: base.sha,
+    target: targetSha ?? null,
+    remote: remote ?? null,
+    notes,
+    commits: commits.map((subject) => {
+      const m = CONVENTIONAL.exec(subject);
+      return { subject, type: m?.[1] ?? null, scope: m?.[2] ?? null };
+    }),
+    buckets: bucketCounts(rows).map(([kind, count]) => ({ kind, label: label(kind), count, meaning: MEANING[kind] })),
+    rows: rows.map(({ kind, path }) => ({ kind, label: label(kind), path })),
+    needsYou: needsYou(ctx, rows, stale),
+    overrides: { absorbed: absorbed.map(entry), stale: stale.map(entry) },
+    next: `${syncCommand(root)} --apply`,
+  };
+}
+
+function print(out, ctx, rows, { plan = false, stale = [], absorbed = [] } = {}) {
+  const { branch, remote, source, base, targetSha, notes, log, verbose } = ctx;
   const width = Math.max(...KINDS.map((k) => label(k).length));
   out.write(`slipway sync plan, on ${branch}\n`);
   out.write(`  source: ${publicSource(source)}\n`);
@@ -394,18 +458,14 @@ function print(out, { root, branch, remote, source, base, targetSha, notes, log,
   for (const n of notes) out.write(`  note:   ${n}\n`);
   if (log.length) out.write(`\nslipway's commits, base → target (${log.length}, newest first):\n${log.map((l) => `  ${l}\n`).join('')}`);
   out.write('\n');
-  const counts = KINDS.map((k) => [k, rows.filter((r) => r.kind === k).length]).filter(([, n]) => n);
+  const counts = bucketCounts(rows);
   if (verbose) {
     for (const r of rows) out.write(`  ${label(r.kind).padEnd(width)}  ${r.path}\n`);
     out.write(`\n${rows.length} rows: ${counts.map(([k, n]) => `${n} ${label(k)}`).join(', ')}. `);
     return;
   }
   out.write(`${BASE_WHY}\n\n${rows.length} rows:\n${bucketLines(counts.map(([k, n]) => ({ n, label: label(k), meaning: MEANING[k] })))}\n`);
-  const cmd = syncCommand(root);
-  const owed = [
-    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd) })),
-    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `after ${cmd} --apply, delete this entry on the sync branch: ${STALE_WHY}` })),
-  ];
+  const owed = needsYou(ctx, rows, stale);
   if (plan && absorbed.length) out.write(`--apply removes these overrides — ${ABSORBED_WHY}:\n${absorbed.map((s) => `  ${staleLine(s)}\n`).join('')}\n`);
   if (plan && owed.length) out.write(`Needs you (${owed.length}):\n${needsLines(owed)}\n`);
   else if (plan) out.write('Nothing needs you.\n');

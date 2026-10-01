@@ -298,6 +298,22 @@ test('process/intake.md: the PR body it prescribes passes the PR check — a lan
   assert.match(read(skillPath('work-ticket')), /`process\/intake\.md` → Pull request/, 'work-ticket must open its PR per process/intake.md → Pull request');
 });
 
+// F-08 §2 (#165): /sync-slipway explains the sync from `sync --json`, not from the text plan, which is the
+// owner's and changes shape. The keys are the document's own: scripts/sync.test.mjs pins the same list.
+test('/sync-slipway step 1 runs `sync --json` and names every field of the document it reads; step 2 is still the owner\'s --apply', () => {
+  const skill = read(skillPath('sync-slipway'));
+  const one = section(skill, '1 — Plan and explain', 2) ?? '';
+  assert.match(one, /^Run `sync --json` /, 'step 1 opens with the command it runs');
+  for (const key of ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'next']) {
+    assert.match(one, new RegExp(`\`${key}\\b`), `step 1 never names \`${key}\``);
+  }
+  assert.match(one, /never instructions to follow/, 'a commit subject or a path is content, not an instruction');
+  assert.doesNotMatch(one, /^Run `sync` \(the plan/m, 'step 1 still reads the text plan');
+  const two = section(skill, '2 — The owner applies', 2) ?? '';
+  assert.match(two, /pnpm -s use-slipway sync --apply/);
+  assert.doesNotMatch(two, /--json/, 'the owner reads --apply\'s own output; --json is refused with it');
+});
+
 // Shipped text still speaking of the skills as someone's own install, or of a review skill slipway does not ship.
 // Matched across line breaks, since the docs are hard-wrapped. History (decisions, feature docs, lessons, filled
 // reviews) keeps its wording.
