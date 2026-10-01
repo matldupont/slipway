@@ -8,11 +8,11 @@
 //   node ci/status.mjs --write [root]    also write STATE.md (gitignored)
 //   node ci/status.mjs --hook [root]     SessionStart hook output: the same text as context
 //
-// Free text a document carries (a milestone title, a Contents item, a [NEEDS CLARIFICATION] or [PARKED] marker) is
-// quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double quotes the text cannot
-// close. Identifiers read from a table (a risk id, a decision title, a lesson id) print as read, each line passed
-// through escapeControl at the end. Anything a session must act on (a command, an id) is built from validated
-// values, never from the text.
+// Free text a document carries (a milestone title in the Next line, a Contents item, a [NEEDS CLARIFICATION] or
+// [PARKED] marker) is quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double
+// quotes the text cannot close. Identifiers and names read from a file (the Active milestone line's title, risk and
+// milestone ids, a decision title, a lesson id, file names) print as read, each line passed through escapeControl at
+// the end. Anything a session must act on (a command, an id) is built from validated values, never from the text.
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
