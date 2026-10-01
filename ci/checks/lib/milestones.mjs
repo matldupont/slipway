@@ -152,15 +152,15 @@ export function noGos(md) {
   return items;
 }
 
-// The title without reading the body: frontmatter `title:`, else the body's first line when it is a plain
-// `# M<n> — <title>` (or `# <title>`) heading, the template's shape. Anything before it (a comment, a fence, text)
-// means no title: a line further down could be anything.
+// The title without reading the body: frontmatter `title:`, else the body's first line only when it is exactly
+// `# M<n> — <title>`, the template's shape, and the title holds none of `<`, `>`, a backtick, `[` or `]` (a comment,
+// code or a link could hide text). Anything else, or anything before it, means no title.
 function titleOf(md, fm) {
   if (fm.title) return fm.title;
   const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
   const first = body.split(/\r?\n/).find((l) => l.trim() !== '') ?? '';
-  const h1 = first.match(/^#\s+(.+?)\s*$/)?.[1];
-  return h1 ? h1.replace(/^M\d+\s*[—–-]\s*/, '') : null;
+  const title = first.match(/^# M\d+ — (.+)$/)?.[1].trim();
+  return title && !/[<>`[\]]/.test(title) ? title : null;
 }
 
 // The milestones as data, for a view to project from: each document with a frontmatter `id` and a known status,
@@ -190,7 +190,10 @@ export function readMilestoneModel(root, today) {
         appetite,
         extended: text(fm.extended),
         clock: fm.status === 'active' && appetite ? appetiteClock(appetite, today) : null,
-        noGos: noGos(md).map(text).filter(Boolean),
+        // Read only when a view asks, so the public page never runs prose() on a milestone's body.
+        get noGos() {
+          return noGos(md).map(text).filter(Boolean);
+        },
       };
     })
     .filter((m) => m.id);
