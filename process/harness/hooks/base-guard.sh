@@ -7,8 +7,9 @@
 # Gate files: the base's own ask-level edit globs (settings.json, #133) but its owner-only prose and tooling, every
 # package.json, everything under a .claude folder but its skills (#173), .gitmodules and .gitattributes, matched
 # ignoring case, and each gate folder itself (`node_modules`, `.claude`), so a link in its place counts (#148).
-# A changed or untracked name git has to quote (non-ASCII, a quote, a control character) counts too: a Mac disk may open `node_moduleſ` as `node_modules`. So does a symlink or a submodule link
-# added, removed or changed at any path: the folder it stands for may hold gate files no pattern can name.
+# A changed or untracked name git has to quote (non-ASCII, a quote, a control character) counts too: a Mac disk
+# may open `node_moduleſ` as `node_modules`. So does a symlink or a submodule link added, removed or changed at
+# any path: the folder it stands for may hold gate files no pattern can name.
 # File names are only ever read from git's output, never passed back to git as pathspecs.
 # POSIX sh with git, sed, grep, sort, head, tr and printf: hooks run under /bin/sh without your PATH (L-34).
 

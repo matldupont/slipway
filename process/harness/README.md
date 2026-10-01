@@ -82,8 +82,8 @@ Owner-only files and gate code are two lists, and the guard needs only the secon
 runs without being invoked (settings, hooks) plus everything else there by default: agents, commands, `launch.json`
 and whatever Claude Code reads from that folder next, at any depth (`apps/web/.claude/`). Only `.claude/skills/**` is
 left out, whole: scripts, and a `.claude` folder inside a skill, included. A skill runs when it is invoked, by a person
-or by the agent, never from a hook; a branch that changes only a skill keeps its Stop hook. A name the base's ask
-rules list (`package.json`, `.npmrc`, `.claude/settings*.json`) still counts inside a skill.
+or by the agent, never from a hook; a branch that changes only a skill keeps its Stop hook. A gate path the
+rest of the list names (`package.json`, `.npmrc`, `.claude/settings*.json`) still counts inside a skill.
 
 When any differs, that hook does not run: the Stop hook blocks once to say so and name the files, SessionStart says
 so, and the advisory hooks stay quiet. Otherwise a branch's hook scripts, `ci/verify.mjs` and package scripts would
