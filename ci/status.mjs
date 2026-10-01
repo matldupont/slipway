@@ -8,9 +8,11 @@
 //   node ci/status.mjs --write [root]    also write STATE.md (gitignored)
 //   node ci/status.mjs --hook [root]     SessionStart hook output: the same text as context
 //
-// Project text in status is always quoted through excerpt() (one line, cut at a word, unsafe characters dropped,
-// in double quotes the text cannot close). Anything a session must act on (a command, an id, a file) is built
-// from validated values, never from that text.
+// Free text a document carries (a milestone title, a Contents item, a [NEEDS CLARIFICATION] or [PARKED] marker) is
+// quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double quotes the text cannot
+// close. Identifiers read from a table (a risk id, a decision title, a lesson id) print as read, each line passed
+// through escapeControl at the end. Anything a session must act on (a command, an id) is built from validated
+// values, never from the text.
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -123,7 +125,10 @@ function walk(dir, out = []) {
 // Open questions, with the question itself: a count tells nobody what to answer. Parked ones
 // (assumption + cost + tracker) are listed apart — they are decided-enough to build on.
 // Marker text, quoted through excerpt(); empty when nothing printable is left.
-const quoted = (t) => (excerpt(t) ? `"${excerpt(t)}"` : '');
+const quoted = (t) => {
+  const q = excerpt(t);
+  return q ? `"${q}"` : '';
+};
 const open_ = [];
 const parked_ = [];
 for (const file of walk(join(root, 'docs'))) {
