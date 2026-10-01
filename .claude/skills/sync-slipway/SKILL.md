@@ -168,8 +168,8 @@ resolutions on the sync branch, then open one PR (`Lane: bounded`) whose body ha
   verified.
 - `## Links`: `none: slipway sync <base>..<target>`.
 - `## Gate changes`: a sync changes many gate files, so the PR-body check (P1) holds this section to one line
-  each. Do not pick the paths by eye: draft the body in a scratch folder with the section holding only the
-  word `pending`, then run the check's own two commands over it, as `pr-body.yml` does:
+  each. Do not pick the paths by eye: draft the body as `<dir>/body.md` in a scratch folder (P1 pairs the sidecar with the body by that
+  name) with the section holding only the word `pending`, then run the check's own two commands over it, as `pr-body.yml` does:
 
   ```bash
   node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/<default branch>)" "$(git rev-parse HEAD)" > <dir>/body.changes.json

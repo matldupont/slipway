@@ -324,6 +324,7 @@ test('/sync-slipway step 5 writes `## Gate changes` from the commands pr-body.ym
     assert.ok(five.includes(cmd), `step 5 does not run ${cmd}`);
   }
   assert.match(five, /## Gate changes/);
+  assert.ok(five.includes('`<dir>/body.md`'), 'the body must be named body.md: P1 pairs the sidecar with it by name');
   assert.ok(five.includes('`path — stricter | the same | loosens: why`'), 'step 5 does not give the line format');
   assert.match(five, /always one for `\.slipway\/manifest\.json`/);
   assert.match(five, /must not contain that word/, 'the trap: a line that is not `loosens` must not say it');
