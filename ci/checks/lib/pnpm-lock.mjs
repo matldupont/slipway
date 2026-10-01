@@ -5,9 +5,14 @@
 // walks what it read.
 //
 // What passes: a `packages` entry whose key is `name@x.y.z` and whose `resolution` is exactly
-// `{integrity: <sha hash>}`. Anything else is a problem, named by its kind (git, tarball, link, file, other):
-// the test is the one shape pnpm writes for a registry release, not a list of the shapes to refuse.
-// `tarball:` beside an integrity is a problem, because `file:x.tgz` is written that way too.
+// `{integrity: <sha hash>}`, or that plus a `tarball:` on the host the project's `.npmrc` `registry=` names
+// (lib/npmrc.mjs: https, no user, the host equal as parsed; #147). Anything else is a problem, named by its kind
+// (git, tarball, link, file, other): the test is the shapes pnpm writes for a registry release, not a list of the
+// shapes to refuse. A `tarball:` on any other host is a problem, and so is one with no integrity, because
+// `file:x.tgz` is written beside an integrity too. A workspace package that pnpm installs by copy
+// (`injected`) is written `name@file:<folder>` with `{directory: <folder>, type: directory}`: that is the
+// project's own code, so it passes when the folder is a workspace package folder (below) in its plain written
+// form, with no `..`, `.` or trailing-slash segment.
 // Dependencies point at `packages` entries by key, so a `packages` problem is reported once, where it is
 // judged. What has no entry there is judged where it is written: a `link:` in an importer or in a snapshot
 // (a `pnpm.overrides` link lands there), and a version no entry answers to. pnpm writes a `link:` for every
@@ -19,6 +24,7 @@
 import { realpathSync } from 'node:fs';
 import { isAbsolute, join, posix, relative, sep } from 'node:path';
 import { LOCKFILE, parseLockfile } from './lockfile-yaml.mjs';
+import { onHost } from './npmrc.mjs';
 
 export { LOCKFILE, parseLockfile };
 // The prefix of an id in ci/exceptions.yaml that excuses a lockfile entry: `pnpm-lock.yaml#<entry id>`.
@@ -28,6 +34,7 @@ export const VERSION = '9.0';
 const NAME = String.raw`(?:@[A-Za-z0-9._~-]+/)?[A-Za-z0-9._~-]+`;
 const SEMVER = String.raw`\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?`;
 const REGISTRY_KEY = new RegExp(`^${NAME}@${SEMVER}$`);
+const FILE_KEY = new RegExp(`^${NAME}@file:(.+)$`);
 // base64 of a sha1, sha256, sha384 and sha512 digest, at their exact lengths
 const INTEGRITY = /^sha(?:1-[A-Za-z0-9+/]{27}=|256-[A-Za-z0-9+/]{43}=|384-[A-Za-z0-9+/]{64}|512-[A-Za-z0-9+/]{86}==)$/;
 
@@ -99,12 +106,21 @@ const mapOf = (v, name) => {
 };
 const DEP_SECTIONS = ['dependencies', 'devDependencies', 'optionalDependencies'];
 
+// A `name@file:<folder>` entry for a workspace package folder, as pnpm writes an injected workspace package.
+function workspaceCopy(key, res, workspaceDirs) {
+  const m = FILE_KEY.exec(key);
+  if (!m || !(res instanceof Map) || res.size !== 2) return false;
+  const dir = res.get('directory');
+  return res.get('type') === 'directory' && typeof dir === 'string' && dir === m[1] && dir === posix.normalize(dir) && workspaceDirs.has(dir);
+}
+
 /**
  * @param {Map<string, any>} doc  from parseLockfile
  * @param {Set<string>} workspaceDirs  folders of the workspace packages, posix, relative to the repository root (not the root itself)
+ * @param {string | null} [registryHost]  the host `tarball:` addresses may be on (registryHost in lib/npmrc.mjs); null trusts none
  * @returns {{ entries: number, problems: Array<{ id: string, kind: string }> }}
  */
-export function checkLockfile(doc, workspaceDirs) {
+export function checkLockfile(doc, workspaceDirs, registryHost = null) {
   const version = doc.get('lockfileVersion');
   if (version !== VERSION) {
     throw new Error(`${LOCKFILE} says lockfileVersion ${typeof version === 'string' ? JSON.stringify(version.slice(0, 20)) : 'nothing readable'}; this check reads only ${VERSION}, the version pnpm 10 writes`);
@@ -117,8 +133,10 @@ export function checkLockfile(doc, workspaceDirs) {
 
   for (const [key, entry] of packages) {
     const res = entry instanceof Map ? entry.get('resolution') : undefined;
-    const integrity = res instanceof Map && res.size === 1 ? res.get('integrity') : undefined;
-    if (REGISTRY_KEY.test(key) && typeof integrity === 'string' && INTEGRITY.test(integrity)) continue;
+    const integrity = res instanceof Map ? res.get('integrity') : undefined;
+    const shape = res instanceof Map && (res.size === 1 || (res.size === 2 && onHost(res.get('tarball'), registryHost)));
+    if (REGISTRY_KEY.test(key) && shape && typeof integrity === 'string' && INTEGRITY.test(integrity)) continue;
+    if (workspaceCopy(key, res, workspaceDirs)) continue;
     problems.push({ id: `${key}${source(res)}`, kind: kindOfEntry(key, res) });
   }
 
