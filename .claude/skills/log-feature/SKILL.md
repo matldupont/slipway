@@ -240,7 +240,7 @@ or deletion deserves its own review, apart from the rest).
    feature issue (`process/intake.md` → Commands).
    Body: `### Problem` (step {k} of {total} for #{n}: what this step makes true; `Spec:` and its Build map
    line), `### Acceptance` (checkable at this step alone; the last step also carries the parent's end-to-end
-   lines), `### Contract` (only the part this step builds, with the Threat model and Known limitations that
+   lines; a check that needs the deployed default branch stays in the parent's: `process/intake.md` → Deferred check), `### Contract` (only the part this step builds, with the Threat model and Known limitations that
    apply, copied), `### Verify`, `### Seams`, `### Seams detail`, `### Out of scope` (the later steps),
    `### Links` (`Part of: #{n}`, `Blocked by:` the previous step, `Touches:` for the files that step changes), and a designation per step: a schema step
    and a screen step rarely share one. A reader of the title alone should expect every file its PR touches.

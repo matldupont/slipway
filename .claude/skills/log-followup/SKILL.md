@@ -80,7 +80,8 @@ Inherit the parent's framing; do not redo it.
 3. **Out of scope:** the parent's out-of-scope items that apply, so this issue does not grow.
 4. **Acceptance:** 3–6 lines, each able to fail (`process/intake.md` → Issue body), including the tests that
    prove it. With a `Domain invariants doc`, and money or other checked math touched, one line says which
-   rule holds across all legal inputs.
+   rule holds across all legal inputs. A check that needs the deployed default branch is not a line here when the
+   parent is an item split into sub-issues: it goes in the item's issue (`process/intake.md` → Deferred check).
 
 ```
 PHASE 2: SCOPE AND ACCEPTANCE
