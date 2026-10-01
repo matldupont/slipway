@@ -1,0 +1,8 @@
+{
+  "_note": "PC1 asserts FO1 goes BROKEN on this fixture, for this reason: the registry has a line it cannot read (a mistyped first key), and a check that cannot read its registry never passes. Inert text.",
+  "exit": 2,
+  "env": {
+    "CHECK_TODAY": "2026-09-10"
+  },
+  "broken": "ci/exceptions.yaml: line 4: cannot read"
+}

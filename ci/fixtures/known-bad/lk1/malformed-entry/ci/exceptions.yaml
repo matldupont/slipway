@@ -1,0 +1,7 @@
+# The first line of the entry has a mistyped key (idd:), so it is no entry. The registry must be reported
+# unreadable, naming line 4, never passed.
+exceptions:
+  - idd: pnpm-lock.yaml#m@1.0.0{tarball=https://mirror.example.invalid/m-1.0.0.tgz}
+    reason: the mirror carries a fix the registry release lacks
+    owner: build lead
+    expires: 2026-12-31

@@ -121,7 +121,7 @@
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo 'echo \"{\\\"systemMessage\\\":\\\"base-guard: origin/HEAD holds no process/harness/hooks/base-guard.sh so no hook ran.\\\"}\"')\" base-guard stop-verify.sh", "timeout": 600 }
+          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo 'cat | grep -Eq \"stop_hook_active\\\": ?true\" && exit 0; printf \"{\\\"decision\\\":\\\"block\\\"\\054\\\"reason\\\":\\\"base-guard: origin/HEAD holds no process/harness/hooks/base-guard.sh so stop-verify did not run. Run pnpm verify:fast yourself and report its result. Until then say plainly that the gate did not run.\\\"}\\n\"')\" base-guard stop-verify.sh", "timeout": 600 }
         ]
       }
     ]

@@ -94,7 +94,9 @@ match `origin/HEAD` again (merged, or fetched). #145 lets the owner's own messag
 
 With no `origin/HEAD` (a repository made with `git init` and pushed later), no guard in it, no gate paths read, or
 a git failure, no hook runs and the Stop and SessionStart hooks say why; `git remote set-head origin --auto` fixes
-the first, and `new-project` sets it.
+the first, and `new-project` sets it. With no guard to load (no `origin/HEAD`, or none holding `base-guard.sh`, #154),
+the Stop hook cannot run `stop-verify`, so it blocks once, telling the agent to run `pnpm verify:fast` itself and
+report the result; SessionStart says why, and the advisory hooks stay quiet.
 
 Known limitations:
 
@@ -110,7 +112,7 @@ Known limitations:
 | a checkout while a hook runs | the guard checks, then the hook runs; a checkout in between (a background agent) changes what the hook reads |
 | case folding | `icase` catches `.NPMRC`, and a quoted name counts as a gate file; other foldings of plain ASCII names are the canonical-form limitation above |
 | a stale `origin/HEAD` | a gate file merged since the last fetch counts as changed until you fetch |
-| taking this change in a sync | until the sync's pull request merges, `origin/HEAD` holds no `base-guard.sh`, so a session with the new `.claude/settings.json` runs no hook, and the Stop and SessionStart hooks say so |
+| taking this change in a sync | until the sync's pull request merges, `origin/HEAD` holds no `base-guard.sh`, so a session with the new `.claude/settings.json` runs no hook: SessionStart says so, and the Stop hook blocks once, telling the agent to run `pnpm verify:fast` itself (#154) |
 
 ### Where the PR check differs
 

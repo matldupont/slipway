@@ -8,13 +8,19 @@
 // Keys not named are ignored, and so is the list's own `exceptions:`/`paths:` line — unless `strict`,
 // where any line that is not an item, a named field or a top-level key throws, so a mistyped key can
 // never fold its fields into the item above it, a repeated key throws, and so does a second list.
-// Scalars lose a trailing ` # comment` and one pair of
-// matching quotes.
+// A line holding a bare carriage return or a Unicode line separator is not read: a reader that splits on
+// lines would split it there, so strict throws and the other mode drops it. Scalars lose a trailing
+// ` # comment` and one pair of matching quotes. Every pattern here is linear in the line: none puts a
+// lazy quantifier before a trailing `\s*$`, which takes time proportional to the square of a run of spaces.
+// A top-level key may carry an empty list (`exceptions: []`), which is how a registry with no entries is written.
 
 export const skippable = (s) => /^\s*(#.*)?$/.test(s);
 
 export function scalar(v = '') {
-  let s = String(v).replace(/\s+#.*$/, '').trim();
+  let s = String(v);
+  const hash = s.search(/\s#/);
+  if (hash >= 0) s = s.slice(0, hash);
+  s = s.trim();
   if (s.length > 1 && ((s[0] === '"' && s.at(-1) === '"') || (s[0] === "'" && s.at(-1) === "'"))) s = s.slice(1, -1);
   return s;
 }
@@ -31,20 +37,26 @@ export function readList(src, [first, ...fields], { strict = false } = {}) {
   let lists = 0;
   src.split(/\r?\n/).forEach((line, i) => {
     if (skippable(line)) return;
-    const head = line.match(/^\s*-\s*([\w-]+):\s*(.*?)\s*$/);
+    line = line.trimEnd();
+    if (/[\r\u2028\u2029]/.test(line)) {
+      if (strict) throw new Error(`line ${i + 1}: cannot read a line with a line break inside it`);
+      return;
+    }
+    const head = line.match(/^\s*-\s*([\w-]+):\s*(.*)$/);
     if (head && head[1] === first) {
       cur = { [first]: scalar(head[2]), line: i + 1 };
       out.push(cur);
       return;
     }
-    const kv = line.match(/^\s+([\w-]+):\s*(.*?)\s*$/);
+    const kv = line.match(/^\s+([\w-]+):\s*(.*)$/);
     if (kv && cur && fields.includes(kv[1])) {
       if (strict && kv[1] in cur) throw new Error(`line ${i + 1}: "${kv[1]}" repeated in one item`);
       cur[kv[1]] = scalar(kv[2]);
       return;
     }
-    if (strict && /^[\w-]+:\s*$/.test(line) && ++lists > 1) throw new Error(`line ${i + 1}: a second list — one per file`);
-    if (strict && !/^[\w-]+:\s*$/.test(line)) throw new Error(`line ${i + 1}: cannot read "${line.trim()}"`);
+    const topKey = /^[\w-]+:\s*(\[\s*\])?$/.test(line);
+    if (strict && topKey && ++lists > 1) throw new Error(`line ${i + 1}: a second list — one per file`);
+    if (strict && !topKey) throw new Error(`line ${i + 1}: cannot read "${line.trim()}"`);
   });
   return out;
 }

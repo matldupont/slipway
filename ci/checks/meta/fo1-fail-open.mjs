@@ -195,7 +195,14 @@ const exempted = [];
 const live = new Set();
 const siteIds = new Set(sites.map((s) => s.id));
 
-for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
+let registry = [];
+try {
+  registry = loadRegistry(join(root, 'ci', 'exceptions.yaml'));
+} catch (e) {
+  broken ??= e.message;
+}
+
+for (const e of registry) {
   if (e.id.startsWith(ID_PREFIX)) continue; // a lockfile entry's excuse: LK1 judges it
   const where = `registry:${e.id}`;
   const date = expiryProblem(e.expires, today);

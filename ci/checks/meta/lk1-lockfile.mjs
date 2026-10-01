@@ -86,7 +86,13 @@ const exempted = [];
 const today = localToday(root);
 const ids = new Set(problems.map((p) => `${ID_PREFIX}${p.id}`));
 const live = new Set();
-for (const e of loadRegistry(join(root, 'ci', 'exceptions.yaml'))) {
+let registry;
+try {
+  registry = loadRegistry(join(root, 'ci', 'exceptions.yaml'));
+} catch (e) {
+  stop(e.message);
+}
+for (const e of registry) {
   if (!e.id.startsWith(ID_PREFIX)) continue;
   const where = `registry:${e.id}`;
   const date = expiryProblem(e.expires, today);
