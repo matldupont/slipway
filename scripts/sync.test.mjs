@@ -20,7 +20,7 @@ import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/l
 import { ownDecisions } from './adopt.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
-import { shellQuote, withoutOverrides } from './sync.mjs';
+import { KINDS, shellQuote, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -1284,4 +1284,142 @@ test('a file slipway stopped shipping is planned once with no upstream diff, lea
   assert.equal(after['package.json']?.class, 'merged', 'a merged entry the target no longer lists would stay; package.json is still shipped and stays recorded');
   const again = sync(dir, '--verbose');
   assert.doesNotMatch(again.stdout, /README\.md/);
+});
+
+// ---- --json (F-08 §2, #165): one case per Acceptance line
+//
+// A slipway ahead of B by commits that change no file: three conventional subjects, one that is not, one
+// holding control characters, and a merge. Dated a minute apart, so "newest first" has one answer.
+const SUBJECTS = ['feat(sync): x', 'fix: y', 'Update README', 'refactor(ci)!: w', 'docs(readme): on a side branch', 'feat: a\u001b[31mb\u0007c\u009b2Jd\u007f'];
+const MERGE = 'Merge branch side into main';
+const jsonSlip = join(root, 'slipway-json');
+git(root, 'clone', '-q', slip, jsonSlip);
+{
+  let minute = 0;
+  const at = (...args) => {
+    const date = new Date(Date.now() + ++minute * 60_000).toISOString();
+    execFileSync('git', args, { cwd: jsonSlip, env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date }, stdio: 'ignore' });
+  };
+  for (const s of SUBJECTS.slice(0, 4)) at('commit', '-q', '--allow-empty', '-m', s);
+  at('switch', '-q', '-c', 'side');
+  at('commit', '-q', '--allow-empty', '-m', SUBJECTS[4]);
+  at('switch', '-q', 'main');
+  at('merge', '-q', '--no-ff', '-m', MERGE, 'side');
+  at('commit', '-q', '--allow-empty', '-m', SUBJECTS[5]);
+}
+const jsonTarget = git(jsonSlip, 'rev-parse', 'HEAD');
+// The shared project, its manifest pointed at that slipway: the target must be in the source to be listed.
+const jsonProject = (edit) => project((d) => {
+  const m = JSON.parse(readFileSync(join(d, MANIFEST), 'utf8'));
+  m.source = jsonSlip;
+  writeFileSync(join(d, MANIFEST), `${JSON.stringify(m, null, 2)}\n`);
+  commit(d, 'a source ahead of B');
+  if (edit) edit(d);
+});
+const jsonSync = (dir, ...args) => spawnSync(process.execPath, [join(jsonSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+const branches = (dir) => git(dir, 'branch', '--list', '--format=%(refname:short)');
+
+test('--json: one schema-1 document with every row --verbose counts and every non-merge subject, nothing on stderr, exit 0, nothing written', () => {
+  const dir = jsonProject();
+  const before = treeHash(dir);
+  const r = jsonSync(dir, '--json');
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stderr, '');
+  const doc = JSON.parse(r.stdout);
+  assert.equal(r.stdout, `${JSON.stringify(doc, null, 2).replace(/[\u007f-\u009f]/g, (c) => `\\u00${c.charCodeAt(0).toString(16)}`)}\n`, 'stdout is the document, indented by two, and a newline');
+  assert.equal(treeHash(dir), before, 'sync --json wrote to the project');
+
+  assert.equal(doc.schema, 1);
+  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'next']);
+  assert.deepEqual([doc.branch, doc.source, doc.base, doc.target, doc.notes], ['main', jsonSlip, A, jsonTarget, []]);
+  assert.equal(doc.remote, null, 'level with its upstream: the text plan prints no remote line');
+  const lone = jsonProject((d) => git(d, 'branch', '--unset-upstream'));
+  assert.equal(JSON.parse(jsonSync(lone, '--json').stdout).remote, 'not checked — main has no upstream');
+  assert.equal(remoteLine(jsonSync(lone).stdout), 'not checked — main has no upstream', 'the line the text plan prints');
+  assert.equal(doc.next, 'npx github:matldupont/slipway#main sync --apply');
+
+  // The text plans of the same project: the merge is in this fixture, and only --json leaves it out.
+  const verbose = jsonSync(dir, '--verbose').stdout;
+  assert.match(verbose, new RegExp(`^ {2}${MERGE}$`, 'm'));
+  assert.equal(doc.rows.length, Number(verbose.match(/^(\d+) rows: /m)[1]));
+  assert.deepEqual(doc.rows.map((row) => [row.label, row.path]), [...verbose.matchAll(/^ {2}(\S.*?) {2,}(\S+(?: scripts\.\S+)?)$/gm)].map((m) => [m[1], m[2]]), 'each row, in the order --verbose lists them');
+  for (const row of doc.rows) assert.deepEqual(Object.keys(row), ['kind', 'label', 'path']);
+
+  const subjects = doc.commits.map((c) => c.subject);
+  assert.deepEqual(subjects, [...SUBJECTS, 'B', 'A1: one slipway file added', 'A0: docs and scripts only'].sort((a, b) => subjects.indexOf(a) - subjects.indexOf(b)), 'every non-merge subject, once, and no other');
+  assert.deepEqual(subjects, git(jsonSlip, 'log', '--no-merges', '--format=%s', `${A}..${jsonTarget}`).split('\n'), 'newest first, as git lists them');
+  assert.deepEqual(subjects.slice(0, 3), [SUBJECTS[5], SUBJECTS[4], SUBJECTS[3]]);
+  assert.ok(!subjects.includes(MERGE));
+
+  assert.deepEqual(doc.buckets.map((b) => b.kind), KINDS.filter((k) => doc.rows.some((row) => row.kind === k)), 'every non-empty kind, unchanged included, in KINDS order');
+  for (const b of doc.buckets) {
+    assert.equal(b.count, doc.rows.filter((row) => row.kind === b.kind).length);
+    assert.equal(b.label, doc.rows.find((row) => row.kind === b.kind).label);
+    assert.ok(verbose.includes(`${b.count} ${b.label}`) && b.meaning.length > 20, b.kind);
+  }
+  assert.deepEqual(JSON.parse(jsonSync(dir, '--plan', '--json').stdout), doc, '--plan --json is the same document');
+});
+
+test('--json: a subject\'s control characters are escaped on stdout — C0, DEL and C1 — and parse back as they were', () => {
+  const r = jsonSync(jsonProject(), '--json');
+  assert.doesNotMatch(r.stdout, /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/);
+  assert.equal(JSON.parse(r.stdout).commits[0].subject, SUBJECTS[5]);
+});
+
+test('--json: `feat(sync): x` is type feat, scope sync; a `!` and a missing scope parse; `Update README` has neither', () => {
+  const by = Object.fromEntries(JSON.parse(jsonSync(jsonProject(), '--json').stdout).commits.map((c) => [c.subject, [c.type, c.scope]]));
+  assert.deepEqual(by['feat(sync): x'], ['feat', 'sync']);
+  assert.deepEqual(by['fix: y'], ['fix', null]);
+  assert.deepEqual(by['refactor(ci)!: w'], ['refactor', 'ci']);
+  assert.deepEqual(by['Update README'], [null, null]);
+  assert.deepEqual(by['A1: one slipway file added'], [null, null], 'an upper-case type is not one');
+});
+
+test('--json: needsYou has one item for the collision, its `next` the line the text plan prints; the list is the text plan\'s, and the stale override is in `overrides`', () => {
+  const dir = jsonProject();
+  const doc = JSON.parse(jsonSync(dir, '--json').stdout);
+  const text = jsonSync(dir).stdout;
+  const collisions = doc.needsYou.filter((i) => i.path === 'process/clash.md');
+  assert.equal(collisions.length, 1);
+  assert.equal(collisions[0].kind, 'collision');
+  assert.equal(collisions[0].next, text.match(/^ {2}collision +process\/clash\.md\n {4}next: (.*)$/m)[1]);
+  const listed = [...text.matchAll(/^ {2}(\S.*?) {2,}(\S.*)\n {4}next: (.*)$/gm)].map((m) => ({ kind: m[1], path: m[2], next: m[3] }));
+  assert.equal(listed.length, Number(text.match(/^Needs you \((\d+)\):$/m)[1]));
+  assert.deepEqual(doc.needsYou, listed);
+  assert.deepEqual(doc.overrides, { absorbed: [], stale: [{ line: 4, path: 'process/kept.md' }] });
+});
+
+test('--json: an override --apply will remove is in `overrides.absorbed`, not in needsYou', () => {
+  const dir = pristine((d) => put(d, {
+    'process/replace.md': show(B, 'process/replace.md'), // the owner's edit is the one slipway shipped
+    '.slipway/overrides.yaml': override('process/replace.md'),
+  }));
+  const r = sync(dir, '--json');
+  assert.equal(r.status, 0, r.stderr);
+  const doc = JSON.parse(r.stdout);
+  assert.deepEqual(doc.overrides, { absorbed: [{ line: 2, path: 'process/replace.md' }], stale: [] });
+  assert.deepEqual(doc.needsYou, []);
+});
+
+test('--json with --apply or --verbose is refused before anything runs: `sync: ` on stderr, stdout empty, exit 1, no branch and no file written', () => {
+  const dir = jsonProject();
+  const before = treeHash(dir);
+  const heads = branches(dir);
+  for (const [flag, why] of [['--apply', /^sync: --json is for the plan; --apply prints for the owner — nothing was written\n$/], ['--verbose', /^sync: --json and --verbose: choose one — nothing was written\n/]]) {
+    for (const args of [['--json', flag], [flag, '--json']]) {
+      const r = jsonSync(dir, ...args);
+      assert.equal(r.status, 1, `${args}`);
+      assert.match(r.stderr, why);
+      assert.equal(r.stdout, '');
+      assert.equal(treeHash(dir), before, `${args} wrote to the project`);
+      assert.equal(branches(dir), heads);
+    }
+  }
+});
+
+test('--json: a refusal (a dirty tree) is `sync: ` on stderr, stdout empty, exit 1', () => {
+  const r = jsonSync(jsonProject((d) => put(d, { 'notes.txt': 'untracked\n' })), '--json');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /^sync: the working tree is not clean \(1 path\(s\)\)/);
+  assert.equal(r.stdout, '');
 });

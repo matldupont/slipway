@@ -98,7 +98,8 @@ D-004 holds for the checks it imports].
   `--verbose` it is refused the same way ("choose one").
 - stdout is one JSON document, `JSON.stringify(doc, null, 2)` plus a newline; nothing else is written to
   stdout or stderr on success. Exit 0. A refusal is unchanged: `sync: <reason>` on stderr, exit 1, stdout
-  empty.
+  empty. DEL and the C1 controls (U+007F–U+009F), which `JSON.stringify` leaves raw, are written as `\u00XX`
+  too: a parser reads the same document.
 - The document, schema 1:
 
   ```json
@@ -226,7 +227,8 @@ manifest names) and paths from the project. Printed raw, a control sequence in e
 rewrite earlier lines, retitle the terminal, or plant a hyperlink whose text and target differ.
 
 - **Defends:** every string ui.mjs prints passes `clean`; a link's URL is `file:` or `https:` with no control
-  character, and its text is cleaned. The JSON output escapes control characters by `JSON.stringify`.
+  character, and its text is cleaned. The JSON output escapes C0 controls by `JSON.stringify`, and DEL and
+  the C1 controls after it.
 - **Against:** a commit subject or path crafted to act on the owner's terminal.
 - **Does not defend:** what the owner's terminal does with printable Unicode (look-alike characters, bidi
   overrides in a subject). D1 already rejects control characters in manifest paths (#33).
@@ -238,6 +240,8 @@ rewrite earlier lines, retitle the terminal, or plant a hyperlink whose text and
 - "What's new" relies on conventional-commit subjects; a subject that does not parse counts as other and is
   listed only by `--log`.
 - `--json` is sync's alone in this slice; `sync --adopt` keeps its current output.
+- `commits` leaves merge commits out, so a change made only in a merge commit has no entry there; its files
+  are still in `rows` and `buckets`.
 
 ## Acceptance
 
@@ -339,3 +343,4 @@ none
 ## Changes
 
 - 2026-09-30 · ADDED · shaped from the owner's report on sync's output · #161
+- 2026-10-01 · MODIFIED · step 2 built: `sync --json` and `/sync-slipway` step 1 reading it; `--json` also escapes DEL and C1 controls · #165
