@@ -204,15 +204,43 @@ test('a file name reaches the message only as safe characters, and the output st
 
 
 
-test('no origin/HEAD: no hook runs; the Stop and SessionStart hooks say why, the advisory ones stay quiet', () => {
+// #154: with no guard to load, the Stop hook cannot run stop-verify, so it blocks once and has the agent run the gate.
+// The fallback text sits inside `$( … || echo '…')` and /bin/sh is bash 3.2 on a Mac: a `, ` in it, inside braces,
+// made that shell run the whole guard several times and pass the wrong arguments. These cases catch the text breaking.
+const stopFallback = (r) => {
+  assert.equal(r.status, 0);
+  const out = JSON.parse(r.out);
+  assert.equal(out.decision, 'block');
+  assert.match(out.reason, /Run pnpm verify:fast yourself and report its result/);
+  assert.equal(run('stop-verify.sh', '{"stop_hook_active":true}').out, '', 'a second block in one stop');
+  assert.equal(run('stop-verify.sh', '{"stop_hook_active": true}').out, '', 'a second block in one stop, spaced');
+  assert.match(JSON.parse(run('session-state.sh').out).systemMessage, /no hook ran/);
+  for (const h of ['intake-reminder.sh', 'lessons-first.sh', 'absence-search.sh']) assert.equal(run(h).out, '');
+  assert.deepEqual(marks(), []);
+};
+
+test('no origin/HEAD: no hook runs; the Stop hook blocks once, SessionStart says why, the advisory ones stay quiet', () => {
   clean();
   git('-C', work, 'remote', 'set-head', 'origin', '-d');
   try {
-    for (const h of ['stop-verify.sh', 'session-state.sh']) assert.match(JSON.parse(run(h).out).systemMessage, /no hook ran/);
-    for (const h of ['intake-reminder.sh', 'lessons-first.sh', 'absence-search.sh']) assert.equal(run(h).out, '');
-    assert.deepEqual(marks(), []);
+    stopFallback(run('stop-verify.sh'));
   } finally {
     git('-C', work, 'remote', 'set-head', 'origin', 'main');
+  }
+});
+
+test('a base with no guard yet: the Stop hook blocks once and names pnpm verify:fast; the branch\'s own Stop hook does not run', () => {
+  clean();
+  git('-C', work, 'checkout', '-q', '-b', 'noguard');
+  git('-C', work, 'rm', '-q', 'process/harness/hooks/base-guard.sh');
+  git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'a base before the guard');
+  git('-C', work, 'update-ref', 'refs/remotes/origin/noguard', 'HEAD');
+  git('-C', work, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/noguard');
+  try {
+    stopFallback(run('stop-verify.sh'));
+  } finally {
+    git('-C', work, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
+    git('-C', work, 'update-ref', '-d', 'refs/remotes/origin/noguard');
   }
 });
 
