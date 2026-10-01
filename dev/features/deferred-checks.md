@@ -100,8 +100,8 @@ A Contents item in a milestone doc may carry child lines, indented like any cont
 line continues `text` as today, so `started()` and every existing marker case read the same. `checks` is
 `[{ kind: 'owed' | 'ran', check, env, date, result, url, bug, line }]`, `line` being the raw text for
 messages; an unreadable check line is `{ kind: 'unreadable', line }`, and so is every check line of an item
-with no marker. A line is cut to 500 characters before a pattern reads it: status runs this in every session's
-hook.
+with no marker. A line is cut to 500 characters before a check pattern reads it, after one linear pass that
+drops its invisible characters: status runs this in every session's hook.
 
 Two helpers beside it:
 
@@ -223,8 +223,8 @@ changes when an issue closes and what the milestone doc records.
 
 none beyond baseline. It adds no network call, cache, subprocess, secret or deletion. The only input is text
 in milestone docs. Status, which every session's hook reads, prints no project text from a check line: only
-the item and issue numbers, a count, a validated date and the milestone file's path, which it prints as it
-already does in its Milestones table. MS1 and the work-order page quote a check's text through `excerpt()` and
+the item and issue numbers, a count, a validated date, the milestone's id when it is `M<n>`, and the milestone
+file's path, which it prints as it already does in its Milestones table. MS1 and the work-order page quote a check's text through `excerpt()` and
 their own escapes; neither is read by every session.
 
 ## Known limitations
@@ -242,6 +242,8 @@ their own escapes; neither is read by every session.
   escape it. Status quotes none of it.
 - Status still quotes an open question's text and a milestone's title and item text through `excerpt()`: the
   same surface, older than this feature, and not changed here.
+- A check line with an invisible character before its indent, after a blank line, reads as a column-0 line and
+  is ignored like any other; straight after its item it is unreadable.
 - A check line written as `> Owed:`, `1. Owed:`, `Owed :` or with a full-width colon is not seen as one: it
   reads as the item's text, so the item reads as not started.
 - In slipway itself there is no active milestone, so the PR section and the open issue are the only record.
