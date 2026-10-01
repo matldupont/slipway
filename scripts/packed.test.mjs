@@ -13,12 +13,16 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { trustedEnvAt } from '../ci/checks/lib/manifest.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// The same flags PK1 gives npm (ci/checks/meta/pk1-packed.mjs).
+const NPM_ALONE = ['--offline', '--userconfig=/dev/null', '--update-notifier=false', '--logs-max=0'];
 const NAME = JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).name;
-// A known identity and no personal git or npm config, for everything this file spawns.
+// A known identity and no personal git config for everything this file spawns; npm is found outside the checkout
+// and any node_modules, and takes no personal config either (NPM_ALONE below).
 const env = {
-  ...process.env,
+  ...Object.fromEntries(Object.entries(trustedEnvAt(SRC)).filter(([k]) => !/^npm_config_/i.test(k))),
   GIT_CONFIG_GLOBAL: '/dev/null',
   GIT_CONFIG_NOSYSTEM: '1',
   GIT_AUTHOR_NAME: 'slipway test',
@@ -34,10 +38,10 @@ const work = mkdtempSync(join(tmpdir(), 'slipway-packed-'));
 test.after(() => rmSync(work, { recursive: true, force: true }));
 
 test('a project created from the packed, installed package passes its own meta, every known-bad case included', () => {
-  const packed = run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', work], SRC);
+  const packed = run('npm', ['pack', '--json', '--ignore-scripts', ...NPM_ALONE, '--pack-destination', work], SRC);
   ok(packed, 'npm pack');
   const tarball = join(work, JSON.parse(packed.stdout)[0].filename);
-  ok(run('npm', ['install', '--offline', '--ignore-scripts', '--no-audit', '--no-fund', '--no-package-lock', '--prefix', join(work, 'inst'), tarball], work), 'npm install of the tarball');
+  ok(run('npm', ['install', '--ignore-scripts', ...NPM_ALONE, '--cache', join(work, 'cache'), '--no-audit', '--no-fund', '--no-package-lock', '--prefix', join(work, 'inst'), tarball], work), 'npm install of the tarball');
   const pkg = join(work, 'inst', 'node_modules', NAME);
 
   // The lockfile cases that need a registry file arrive whole, under a name npm packs.

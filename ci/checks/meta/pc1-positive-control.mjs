@@ -30,7 +30,7 @@
 // or fail there for another reason (#207). PK1 (pk1-packed.mjs, slipway only) fails on either.
 //
 // `node pc1-positive-control.mjs <fixtures root>` reads another root, and runs only the checks with a folder
-// there: slipway's own test of these two fields (scripts/pc1.test.mjs).
+// there: slipway's own test of these fields (scripts/pc1.test.mjs).
 
 import { spawnSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
@@ -84,10 +84,10 @@ function runCase(check, name, dir) {
   // would never be compared, so it is refused rather than read as a pass.
   const details = expected.details ?? {};
   const strayDetails = details !== null && typeof details === 'object' && !Array.isArray(details)
-    ? Object.keys(details).filter((k) => !(expected.findings ?? []).includes(k) || typeof details[k] !== 'string' || details[k] === '')
+    ? Object.keys(details).filter((k) => !(expected.findings ?? []).includes(k) || typeof details[k] !== 'string' || !/[\p{L}\p{N}]/u.test(details[k]))
     : ['(details is not a map of finding ids to text)'];
   if (strayDetails.length) {
-    findings.push({ where: name, detail: `expected.json details names ${strayDetails.map((k) => JSON.stringify(k)).join(', ')}; each key is one of its expected findings and each value is text, so the check was not started` });
+    findings.push({ where: name, detail: `expected.json details names ${strayDetails.map((k) => JSON.stringify(k)).join(', ')}; each key is one of its expected findings and each value is text with a word in it, so the check was not started` });
     return;
   }
   let target = dir;
@@ -107,14 +107,17 @@ function runCase(check, name, dir) {
       cpSync(dir, scratch, { recursive: true, verbatimSymlinks: true });
       // A folder of the fixture may be a link: neither side of a move may resolve outside the copy.
       const top = realpathSync.native(scratch);
+      // Checked on the nearest folder that exists, before any folder is made: a `mkdir -p` would follow the link.
       const inside = (p) => {
-        const real = realpathSync.native(dirname(join(scratch, p)));
+        let at = dirname(join(scratch, p));
+        while (!existsSync(at)) at = dirname(at);
+        const real = realpathSync.native(at);
         if (real !== top && !real.startsWith(top + sep)) throw new Error(`${JSON.stringify(p)} resolves outside the case's copy`);
       };
       for (const [to, from] of entries) {
         inside(from);
-        mkdirSync(dirname(join(scratch, to)), { recursive: true });
         inside(to);
+        mkdirSync(dirname(join(scratch, to)), { recursive: true });
         renameSync(join(scratch, from), join(scratch, to));
       }
       target = scratch;

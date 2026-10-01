@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -47,6 +47,26 @@ test('a file placed outside the throwaway folder fails PC1 before anything is co
   assert.match(f[0].detail, /places "npmrc" at "\.\.\/outside\.txt"/);
   assert.match(f[0].detail, /was not started/);
   assert.ok(!existsSync(join(tmpdir(), 'outside.txt')));
+});
+
+test('a file placed through a linked folder of the fixture is refused, and no folder is made outside the copy', () => {
+  // Built here: the repository tracks no link.
+  const root = mkdtempSync(join(tmpdir(), 'pc1-link-'));
+  const outside = mkdtempSync(join(tmpdir(), 'pc1-outside-'));
+  try {
+    const dir = join(root, 'lk1');
+    mkdirSync(dir);
+    writeFileSync(join(dir, 'npmrc'), 'registry=https://mirror.example.invalid/\n');
+    symlinkSync(outside, join(dir, 'link'));
+    writeFileSync(join(dir, 'expected.json'), JSON.stringify({ exit: 1, files: { 'link/a/b/.npmrc': 'npmrc' }, findings: [] }));
+    const r = pc1(root);
+    assert.equal(r.status, 1, r.stdout);
+    assert.match(json(r).findings[0].detail, /resolves outside the case's copy/);
+    assert.deepEqual(readdirSync(outside), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
 });
 
 test('details pins why a case fails: matching text passes, other text is its own finding, an unexpected id is refused', () => {

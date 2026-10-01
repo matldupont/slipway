@@ -13,13 +13,16 @@
 // the map withholds; slipway's own `pnpm meta` stayed green, because its checkout had the files, and every
 // project's went red on its next sync (#207).
 //
-// It asks npm, never a copy of npm's rules: `npm pack --dry-run --json --ignore-scripts`, which writes nothing,
-// runs no script of the package and reaches no network. No npm, a non-zero exit or output that is not the list
-// it prints is BROKEN, never a pass.
+// It asks npm, never a copy of npm's rules: `npm pack --dry-run --json --ignore-scripts`, which packs nothing and
+// runs no script of the package. npm is found on a PATH cut to entries outside the checkout and any node_modules
+// (lib/manifest.mjs), and runs offline with no user npm config, no update check and no log file. No npm,
+// a non-zero exit or output that is not the list it prints is BROKEN, never a pass. Known limitation: an `.npmrc`
+// at the folder it runs in is still npm's project config; `.npmrc` and `ci/**` are gate files (#133).
 
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { trustedEnvAt } from '../lib/manifest.mjs';
 import { classify, loadOwnership, MAP, shippedPaths } from '../lib/ownership.mjs';
 import { report } from '../lib/report.mjs';
 
@@ -29,13 +32,21 @@ const CLAIM = `every path ${MAP} ships to a project is in what npm packs, and ev
 // npm never packs a .gitignore; new-project writes the project's instead of copying one (scripts/lib/install.mjs
 // gitignoreText), so the root one is expected to be missing from the pack.
 const WRITTEN_NOT_COPIED = ['.gitignore'];
+// npm on its own: nothing from the network, the user's npm config (npm refuses one file as both the user's and the machine's), no update check, no log file.
+const NPM_ALONE = ['--offline', '--userconfig=/dev/null', '--update-notifier=false', '--logs-max=0'];
 const KNOWN_BAD = 'ci/fixtures/known-bad/';
 const stop = (broken) => process.exit(report({ id: 'PK1', claim: CLAIM, scanned: 0, unit: UNIT, broken }));
 
 // The paths npm would pack from `root`. Without a package.json of its own npm packs the nearest one above.
 function packed() {
   if (!existsSync(join(root, 'package.json'))) stop('there is no package.json here, so npm has nothing to pack');
-  const r = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  let env;
+  try {
+    env = Object.fromEntries(Object.entries(trustedEnvAt(root)).filter(([k]) => !/^npm_config_/i.test(k)));
+  } catch (e) {
+    stop(`${e.message}, so npm cannot be started safely`);
+  }
+  const r = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts', ...NPM_ALONE], { cwd: root, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (r.error) stop(`npm pack could not start (${r.error.code ?? r.error.message}), so what a project receives is unknown`);
   if (r.status !== 0) stop(`npm pack exited ${r.status}, so what a project receives is unknown`);
   let files;
