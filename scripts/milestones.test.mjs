@@ -64,7 +64,6 @@ test('every other way of nearly writing a check line is unreadable, never the it
     '   `Owed:` x — staging',
     '   \u200bOwed: x — staging',
     '   \u202eOwed: x — staging',
-    `${' '.repeat(600)}Owed: x — staging\u200b`,
   ];
   for (const line of near) {
     const i = item(line);
@@ -74,6 +73,12 @@ test('every other way of nearly writing a check line is unreadable, never the it
     assert.equal(i.text, 'A client books a walk (F-02) · #13', line);
     assert.equal(owing(i).length, 1, line);
   }
+});
+
+test('an indent longer than the cut does not hide a check line', () => {
+  const i = item(`${' '.repeat(600)}Owed: x — staging`, `${'\t'.repeat(600)}- owed: y`);
+  assert.deepEqual(kinds(i), ['owed', 'unreadable']);
+  assert.equal(i.text, 'A client books a walk (F-02) · #13');
 });
 
 test('a check line with its indent forgotten, straight after its item, is unreadable and owed; after a blank line it is ignored as before', () => {
