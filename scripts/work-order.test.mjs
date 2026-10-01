@@ -190,6 +190,76 @@ test('a started item in another repository is shown, not read; a missing issue s
   assert.ok(gh.calls.every((c) => !c.join(' ').includes('i7:')), 'the foreign issue is never asked for');
 });
 
+// Deferred checks (F-09, #176): an item that owes a check is not finished, whatever the state of its issue.
+const OWED = '   Owed: staging journey "book a walk" — staging';
+function owing(n, ...lines) {
+  const root = tmp();
+  cpSync(join(FIX, 'full'), root, { recursive: true });
+  const p = join(root, 'docs', 'milestones', 'M1-booking.md');
+  const md = readFileSync(p, 'utf8').split('\n');
+  md.splice(md.findIndex((l) => l.startsWith(`${n}. `)) + 1, 0, ...lines);
+  writeFileSync(p, md.join('\n'));
+  return root;
+}
+const shown = (html) => text(html).replace(/&#39;/g, "'");
+const items = (html) => between(html, '<h2>Items</h2>', html.includes('<h2>Finished</h2>') ? '<h2>Finished</h2>' : '</main>');
+
+test('an item with sub-issues that owes a check: its open rows are read as before, the heading says what is owed, and it is not finished', () => {
+  const html = page(world(), owing(2, OWED));
+  assert.match(nextOf(html), /#15/);
+  assert.match(shown(items(html)), /2\. Slice with steps \(F-02\) · owes staging journey 'book a walk'/);
+  assert.match(text(html), /#13 Issue 13 · PR #20 \(draft\)/);
+  assert.match(html, /<code>\/work-ticket 15<\/code>/);
+  const w = world();
+  w.issues[1].subIssues.nodes = w.issues[1].subIssues.nodes.map((i) => ({ ...i, state: 'CLOSED', stateReason: 'COMPLETED' }));
+  w.prs = [];
+  const shut = page(w, owing(2, OWED));
+  assert.match(shown(items(shut)), /2\. Slice with steps \(F-02\) · owes staging journey 'book a walk'/, 'every sub-issue closed, and still not finished');
+  assert.match(between(shut, '<h2>Finished</h2>', '</main>'), /<summary>1 finished/);
+  assert.match(between(page(w), '<h2>Finished</h2>', '</main>'), /<summary>2 finished/, 'without the Owed: line it is finished');
+});
+
+test('a single-issue item that owes a check: not in Next, its row reads "owes …" with no /work-ticket command, not finished', () => {
+  const html = page(world(), owing(3, OWED));
+  assert.doesNotMatch(nextOf(html), /#16/);
+  assert.match(nextOf(page()), /#16/, 'without the Owed: line it is ready');
+  assert.match(shown(items(html)), /#16 Issue 16 · owes staging journey 'book a walk'/);
+  assert.doesNotMatch(text(html), /#16 Issue 16 · open/);
+  assert.doesNotMatch(html, /\/work-ticket 16/);
+  const model = collect(owing(3, OWED), stub(world()));
+  assert.equal(model.milestone.items[2].leaves[0].ready, false);
+});
+
+test('an item whose issue was closed while it owes a check still reads "owes …", shown and not finished', () => {
+  const html = page(world(), owing(1, OWED));
+  assert.match(shown(items(html)), /1\. Finished slice \(F-01\) · owes staging journey 'book a walk'/);
+  assert.match(shown(items(html)), /#10 Issue 10 · owes staging journey 'book a walk'/);
+  assert.doesNotMatch(between(html, '<h3><span class="id">1.</span>', '</article>'), /done or dropped/, 'the row is not folded away');
+  assert.doesNotMatch(html, /<h2>Finished<\/h2>/);
+  assert.doesNotMatch(html, /\/work-ticket 10/);
+});
+
+test('a single-issue item with an open PR that owes a check: the row reads "PR #n · owes …"', () => {
+  const w = world();
+  w.prs.push({ number: 21, isDraft: false, body: 'Part of #16' });
+  const html = page(w, owing(3, OWED));
+  assert.match(shown(items(html)), /#16 Issue 16 · PR #21 · owes staging journey 'book a walk'/);
+  assert.doesNotMatch(nextOf(html), /#16/);
+});
+
+test('an unresolved fail reads "failed …", an unreadable line "owes" the line itself; a recorded pass owes nothing; project text is escaped', () => {
+  const url = (n) => `https://github.com/acme/harbour/issues/16#issuecomment-${n}`;
+  const failed = page(world(), owing(3, `   Ran: journey <b>"x"</b> — staging 2026-03-10 fail ${url(1)}`));
+  assert.match(items(failed), /Single slice \(F-03\) · failed journey &lt;b&gt;&#39;x&#39;&lt;\/b&gt;<\/h3>/);
+  assert.doesNotMatch(failed, /<b>'x'/);
+  assert.doesNotMatch(failed, /issuecomment/, 'a URL is never on the page');
+  const unreadable = page(world(), owing(3, '- owed: x — staging'));
+  assert.match(shown(items(unreadable)), /3\. Single slice \(F-03\) · owes - owed: x — staging/);
+  assert.doesNotMatch(nextOf(unreadable), /#16/);
+  const passed = page(world(), owing(3, `   Ran: x — staging 2026-03-09 fail ${url(1)}`, `   Ran: x — staging 2026-03-10 pass ${url(2)}`));
+  assert.equal(passed, page(), 'the page reads as it does with no check lines');
+});
+
 test('no active milestone: exit 0 and the page says so', () => {
   const out = join(tmp(), 'page.html');
   const r = spawnSync(process.execPath, [SCRIPT, join(FIX, 'none'), '--out', out], { encoding: 'utf8', env: process.env });

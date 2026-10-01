@@ -13,8 +13,8 @@ import { join, relative } from 'node:path';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
-import { appetiteClock, contents, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
-import { escapeControl, UNSAFE } from './checks/lib/report.mjs';
+import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -29,16 +29,6 @@ try {
 }
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-// Project text quoted in the Next line: one line, at most 60 characters, cut at a word boundary. Control and
-// invisible format characters (a terminal escape, a bidi override, tag characters, variation selectors, blank fillers:
-// report.mjs's one list) are dropped and `"` becomes `'`, so the text cannot close its own quotes.
-const DROP = new RegExp(UNSAFE.source, 'gv');
-const excerpt = (text, max = 60) => {
-  const flat = text.replace(/\s+/g, ' ').replace(DROP, '').replace(/"/g, "'").trim();
-  if (flat.length <= max) return flat;
-  const cut = flat.slice(0, max - 1);
-  return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;
-};
 
 // ---- facts
 const agent = read('AGENT.md') ?? '';
@@ -145,6 +135,19 @@ for (const file of walk(join(root, 'docs'))) {
   });
 }
 
+// Checks the active milestone's items still owe (F-09): moved to after merge and not recorded, failed with no bug
+// named, or written in a way nothing can read. Project text goes through excerpt(); a URL is never printed.
+const owed_ = [];
+for (const item of cur ? contents(cur.md) : []) {
+  const at = marker(item.text);
+  const where = `${cur.id} item ${item.n}`;
+  for (const c of owing(item)) {
+    if (c.kind === 'unreadable') owed_.push(`Unreadable check line: ${where} — "${excerpt(c.line)}": write it as Owed: or Ran: (docs/milestones/${cur.file})`);
+    else if (c.kind === 'owed') owed_.push(`Owed check: ${where} (#${at.issue}) — ${excerpt(c.check)} on ${excerpt(c.env)}: run it, post the result as a comment on #${at.issue}, then change the Owed line to Ran with that comment's link; #${at.issue} stays open until then (reopen it if it was closed)`);
+    else owed_.push(`Failed check: ${where} (#${at.issue}) — ${excerpt(c.check)} failed on ${c.date}: fix and run it again, or file the bug and name it on the line`);
+  }
+}
+
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
 const dueSoon = existsSync(lessonsDir)
@@ -248,6 +251,7 @@ const attention = [
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),
+  ...owed_,
   ...parked_.map((c) => `Parked: ${c}`),
   ...dueSoon.map((d) => `Lesson review: ${d}`),
 ];

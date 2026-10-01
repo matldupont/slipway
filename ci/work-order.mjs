@@ -21,11 +21,10 @@ import { escapeShown } from './checks/lib/html.mjs';
 import { blockers, designation, overlap, touches } from './checks/lib/issue-body.mjs';
 import { trustedEnvAt } from './checks/lib/manifest.mjs';
 import { plain } from './checks/lib/markdown.mjs';
-import { contents, readMilestoneModel, readMilestones, started } from './checks/lib/milestones.mjs';
-import { escapeControl } from './checks/lib/report.mjs';
+import { contents, marker, owing, readMilestoneModel, readMilestones } from './checks/lib/milestones.mjs';
+import { escapeControl, excerpt } from './checks/lib/report.mjs';
 
 const REPO = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
-const MARKER = /(?:^|\s)·\s*(?:([\w.-]+\/[\w.-]+))?#(\d{1,9})$/;
 const FIELDS = 'number title state stateReason body';
 const PICKS = 3;
 
@@ -100,8 +99,10 @@ export function collect(root, gh) {
   const items = contents(md)
     .filter((i) => !PLACEHOLDER.test(i.text))
     .map((i) => {
-      const at = started(i.text) ? i.text.trimEnd().slice(-200).match(MARKER) : null;
-      return { n: i.n, text: plain(i.text.trimEnd().replace(MARKER, '').replace(/\s+/g, ' ')), issue: at ? Number(at[2]) : null, foreign: at?.[1] && at[1].toLowerCase() !== repo.toLowerCase() ? at[1] : null };
+      const at = marker(i.text);
+      // What the item still owes (F-09): a check moved to after merge, an unreadable check line, a failed run.
+      const owes = owing(i).map((c) => (c.kind === 'ran' ? `failed ${excerpt(c.check)}` : `owes ${excerpt(c.kind === 'owed' ? c.check : c.line)}`));
+      return { n: i.n, text: plain((at ? at.before : i.text.trimEnd()).replace(/\s+/g, ' ')), issue: at ? at.issue : null, foreign: at?.repo && at.repo.toLowerCase() !== repo.toLowerCase() ? at.repo : null, owes };
     });
   const read = items.filter((i) => i.issue !== null && !i.foreign).map((i) => i.issue);
   const byNumber = read.length ? issues(gh, repo, [...new Set(read)], `${FIELDS} subIssues(first:50){nodes{${FIELDS}}}`) : new Map();
@@ -122,6 +123,8 @@ export function collect(root, gh) {
     const top = byNumber.get(i.issue);
     const subs = top?.subIssues?.nodes ?? [];
     i.leaves = !top ? [{ n: i.issue, missing: true }] : (subs.length ? subs : [top]).map(leaf);
+    // The item's issue is its only row: the row says what is owed, whatever the issue's state.
+    if (top && !subs.length && i.owes.length) i.leaves[0].owes = i.owes;
   }
   const leaves = items.flatMap((i) => i.leaves ?? []).filter((l) => !l.missing);
   const need = [...new Set([...parsed.values()].flat())].filter((n) => !known.has(n));
@@ -132,7 +135,7 @@ export function collect(root, gh) {
   };
   for (const l of leaves) {
     l.blockers = parsed.get(l.n).map((n) => ({ n, status: state(n) }));
-    l.ready = l.status === 'open' && !l.unfiled && l.blockers.every((b) => b.status === 'done' || b.status === 'dropped');
+    l.ready = l.status === 'open' && !l.owes && !l.unfiled && l.blockers.every((b) => b.status === 'done' || b.status === 'dropped');
   }
   const busy = leaves.filter((l) => l.status === 'pr').map((l) => l.touches);
   const next = [];
@@ -155,22 +158,23 @@ const words = { open: 'open', done: 'done', dropped: 'dropped', missing: 'not fo
 
 function leafHtml(repo, l) {
   if (l.missing) return `<li>#${Number(l.n)} not found</li>`;
-  const status = l.status === 'pr' ? `PR #${Number(l.pr.n)}${l.pr.draft ? ' (draft)' : ''}` : words[l.status];
+  const pr = l.status === 'pr' ? `PR #${Number(l.pr.n)}${l.pr.draft ? ' (draft)' : ''}` : null;
+  const status = l.owes ? [pr, ...l.owes].filter(Boolean).join(' · ') : pr ?? words[l.status];
   const wait = l.blockers.map((b) => `${link(repo, b.n)} (${words[b.status]})`);
   return [
     `<li><p>${link(repo, l.n)} ${e(l.title)} · <b>${e(status)}</b></p>`,
     wait.length || l.unfiled ? `<p class="meta">${[wait.length && `Blocked by ${wait.join(', ')}`, l.unfiled && 'Waits on work not filed yet'].filter(Boolean).join(' · ')}</p>` : '',
-    l.status === 'open' ? `<p>${code(`/work-ticket ${Number(l.n)}`)}</p>` : '',
+    l.status === 'open' && !l.owes ? `<p>${code(`/work-ticket ${Number(l.n)}`)}</p>` : '',
     l.designation ? `<details><summary>Model and effort</summary><p>${e(l.designation)}</p></details>` : '',
     '</li>',
   ].join('');
 }
 
 function itemHtml(repo, milestone, i) {
-  const head = `<h3><span class="id">${i.n}.</span> ${e(i.text)}</h3>`;
+  const head = `<h3><span class="id">${i.n}.</span> ${e(i.text)}${i.owes.length ? ` · ${e(i.owes.join(' · '))}` : ''}</h3>`;
   if (i.foreign) return `<article>${head}<p class="meta">in ${e(i.foreign)}; not read</p></article>`;
   if (i.issue === null) return `<article>${head}<p>${code(`/log-feature ${milestone.id}#${i.n}`)}</p></article>`;
-  const open = i.leaves.filter((l) => l.missing || l.status === 'open' || l.status === 'pr');
+  const open = i.leaves.filter((l) => l.missing || l.owes || l.status === 'open' || l.status === 'pr');
   const shut = i.leaves.filter((l) => !open.includes(l));
   return [
     `<article>${head}`,
@@ -180,7 +184,7 @@ function itemHtml(repo, milestone, i) {
   ].join('\n');
 }
 
-const finished = (i) => i.issue !== null && !i.foreign && i.leaves.every((l) => !l.missing && (l.status === 'done' || l.status === 'dropped'));
+const finished = (i) => i.issue !== null && !i.foreign && !i.owes.length && i.leaves.every((l) => !l.missing && (l.status === 'done' || l.status === 'dropped'));
 
 // `refresh` (seconds) asks an open tab to reload itself, with a tag and no script; `failed` is why the last
 // refresh did not happen, shown above a page whose content is the last good one.

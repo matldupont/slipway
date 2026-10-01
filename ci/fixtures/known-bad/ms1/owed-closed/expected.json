@@ -1,0 +1,11 @@
+{
+  "_note": "F-09. a is closed with an Owed: line; b is closed with a failed run, no bug named and no later pass: each still owes a check. c is closed and owes nothing: a fail with a later pass for the same check, and a fail that names its bug. d is killed (its work stopped) and e is active (status lists it): neither is a finding.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "a-closed-owed.md#checks/owed:M1#1",
+    "b-closed-failed.md#checks/owed:M2#1"
+  ]
+}

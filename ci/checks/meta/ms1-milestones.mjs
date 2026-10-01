@@ -26,6 +26,15 @@
 //                          field stays green
 //   milestones/header      a milestone declares `summary:` but that table has no readable
 //                          Milestone and One line columns to compare it with
+//   checks/owed:<id>#<n>   a closed milestone whose Contents item n still owes a check it moved to
+//                          after merge: an `Owed:` line, or a `Ran: … fail` line with no bug named and
+//                          no later pass (F-09). A killed milestone is exempt: its work stopped
+//   checks/unreadable:<id>#<n>  in any milestone, a shaping one included: a check line under item n
+//                          that is neither `Owed: {check} — {environment}` nor `Ran: {check} —
+//                          {environment} {yyyy-mm-dd} pass|fail {URL of a comment on the item's
+//                          issue}` (the wrong case, a bullet, no indent, a pull request's comment,
+//                          another issue's), or any check line under an item with no ` · #n` marker.
+//                          A line nothing can read is owed, never a pass
 //
 // Warnings — printed, never red:
 //
@@ -53,9 +62,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section, table } from '../lib/markdown.mjs';
-import { MILESTONE_KINDS, MILESTONE_STATUSES, parseAppetite, readMilestones } from '../lib/milestones.mjs';
+import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
-import { report } from '../lib/report.mjs';
+import { excerpt, report } from '../lib/report.mjs';
 
 const REQUIRED_SECTIONS = ['No-gos', 'Gate', 'Kill criteria'];
 const TEMPLATE_KEYS = ['id', 'status', 'kind', 'appetite'];
@@ -94,6 +103,16 @@ for (const { file: f, md, fm } of milestones) {
   }
   if (fm.kind && !MILESTONE_KINDS.includes(fm.kind)) add('kind/unknown', `"${fm.kind}" is not one of ${MILESTONE_KINDS.join(', ')}`);
   if (fm.extended && !hasDecision(fm.extended)) add('extended/unresolved', `${fm.extended} is not a heading in decisions.md: record the extension there, or fix the id in extended:`);
+  for (const item of contents(md)) {
+    const at = marker(item.text);
+    for (const c of item.checks.filter((c) => c.kind === 'unreadable')) {
+      add(`checks/unreadable:${fm.id}#${item.n}`, `"${excerpt(c.line, 120)}" is not a check line anything can read: ${at ? `indent it under its item and write it as "Owed: {check} — {environment}" or "Ran: {check} — {environment} {yyyy-mm-dd} pass|fail {link to the comment on #${at.issue}}"` : `item ${item.n} has no issue yet (its line does not end with · #n), so nothing can owe a check for it`}`);
+    }
+    const owes = owing(item).filter((c) => c.kind !== 'unreadable');
+    if (fm.status === 'closed' && owes.length) {
+      add(`checks/owed:${fm.id}#${item.n}`, `a closed milestone still owes ${owes.length} check(s) on item ${item.n}, the first "${excerpt(owes[0].check)}": run it and record the result as a Ran: line${owes[0].kind === 'ran' ? ', or name the bug filed for the failure on its line' : ''}, or reopen the milestone`);
+    }
+  }
   if (fm.status === 'shaping') continue;
 
   if (fm.status === 'active') active.push(f);

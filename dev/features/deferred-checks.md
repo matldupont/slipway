@@ -84,6 +84,10 @@ A Contents item in a milestone doc may carry child lines, indented like any cont
   way than the two above (the wrong case, a bullet, no ` — {environment}`, a date that is no calendar day, a
   result other than `pass` or `fail`, a URL of another shape, a pull request's comment included), it is
   unreadable. It is never dropped and never read as the item's text (decision-defaults §4).
+- **A forgotten indent is unreadable too.** The same line at column 0 (`owed:` or `ran:`, any letter case, with
+  or without a bullet), straight after an item, its continuation lines or its check lines, is a check line of
+  that item and is unreadable: it is not accepted as written, and the finding says to indent it. After a blank
+  line or any other column-0 line it is ignored, as every unindented line under Contents was before.
 - There is no waiver. A check that will never run is removed in a PR that records a decision saying why.
 
 ### 2. One reading — `ci/checks/lib/milestones.mjs`
@@ -99,8 +103,9 @@ Two helpers beside it:
 
 - `owing(item)` returns the checks the item still owes: every `owed`, every `unreadable`, and every `ran fail`
   with no bug and no `ran pass` for the same `check` text on a later line.
-- `marker(text)` returns `{ repo, issue }` from the item's marker, or null. `ci/work-order.mjs` uses it and
-  drops its own copy of the pattern.
+- `marker(text)` returns `{ repo, issue, before }` from the item's marker, or null: `repo` is null for a bare
+  ` · #13`, and `before` is the item's text without the marker. `ci/work-order.mjs` uses it and drops its own
+  copy of the pattern.
 
 F1, status, MS1 and the work-order page use these; no second parser (decision-defaults §1). They are tested
 in `scripts/milestones.test.mjs`, which `pnpm meta` runs (one more entry in the `meta` script).
@@ -146,7 +151,7 @@ An item that owes a check is not finished, whatever the state of its issue, and 
 
 - **The item's issue is its only row** (no sub-issues): that row is never in Next and is not shown as ready;
   it reads `owes …` in place of `open`, with no `/work-ticket` command, and reads the same when the issue was
-  closed while it still owes.
+  closed while it still owes. With an open pull request it reads `PR #n · owes …`.
 - **The item's issue has sub-issues:** its rows are the sub-issues, and they are read as today. One closed by
   the PR that deferred the check is done; the open ones are ready or not by the existing rule. Only the
   heading says what is owed.
@@ -334,6 +339,9 @@ none
 ## Changes
 
 - 2026-09-30 · ADDED · spec · #176
+- 2026-09-30 · CHANGED · built, step 1 (#176): a check line with its indent forgotten is unreadable, not
+  dropped (§1); `marker()` also returns the text before the marker (§2); a single-issue row with an open pull
+  request reads `PR #n · owes …` (§5)
 - 2026-09-30 · CHANGED · sharpened before build (#176): the item's issue carries the check when it has
   sub-issues, and nothing closes it while it owes; a nearly-right line is unreadable and owed; `marker()` and
   a shared `excerpt()`; acceptance for `/work-ticket`'s wording made falsifiable; blocked by #183

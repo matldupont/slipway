@@ -1,0 +1,15 @@
+{
+  "_note": "F-09. In the active a: a Ran: line with no URL (item 1), one whose URL is a comment on #99 under an item marked #13 (item 2), one whose URL is a pull request's comment (item 3), a bulleted lower-case `- owed:` line (item 4), and an Owed: line under an item with no marker (item 5). Item 6's two lines are well formed and are no finding. In the shaping b: an Owed: line with its indent forgotten, which is unreadable, never dropped; a shaping milestone is read for this too.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "a-active.md#checks/unreadable:M1#1",
+    "a-active.md#checks/unreadable:M1#2",
+    "a-active.md#checks/unreadable:M1#3",
+    "a-active.md#checks/unreadable:M1#4",
+    "a-active.md#checks/unreadable:M1#5",
+    "b-shaping.md#checks/unreadable:M2#1"
+  ]
+}
