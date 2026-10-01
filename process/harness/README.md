@@ -44,7 +44,7 @@ Each is a gate file here and in the PR check:
 | `**/.envrc` | direnv runs it as shell once trusted, and can set PATH or `NODE_OPTIONS` for every command |
 | `**/mise.toml`, `**/.mise.toml`, `**/mise.*.toml`, `**/.mise.*.toml`, `**/.config/mise.toml`, `**/.config/mise.*.toml`, `**/.config/mise/**`, `**/mise/*.toml`, `**/.mise/*.toml` | the names mise reads its settings from; once trusted, each can set PATH, environment variables and tasks |
 | `**/package.yaml`, `**/package.json5` | pnpm reads a package's manifest, scripts included, from either as it does from `package.json` |
-| a `package.json`'s `scripts`, `packageManager`, `pnpm`, `resolutions`, `engines`, `devEngines`, `bin` and `directories` keys, and a dependency on local code or a runtime (`link:`, `file:`, `workspace:`, a path, `runtime:`) | what a gate command runs, the pnpm and node that run it, pnpm's settings, and a program from the repository in node_modules/.bin (the PR check reads these; the file itself is not ask-level, and a file it cannot parse counts as changed) |
+| a `package.json`'s `scripts`, `packageManager`, `pnpm`, `resolutions`, `engines`, `devEngines`, `bin` and `directories` keys, the keys a gate tool reads its settings from or that change how node loads code (`type`, `imports`, `prettier`, `eslintConfig`, `stylelint`, `jest`, `mocha`, `ava`, `c8`, `nyc`), and a dependency on local code or a runtime (`link:`, `file:`, `workspace:`, a path, `runtime:`) | what a gate command runs, the pnpm and node that run it, pnpm's settings, and a program from the repository in node_modules/.bin (the PR check reads these; the file itself is not ask-level, and a file it cannot parse counts as changed) |
 
 A path that only reads as one of these in canonical form (NFKC, then lower case: `.NPMRC`, `PACKAGE.JSON`, a long-s `node_moduleſ`) is refused outright by N1 and the PR check, as a lookalike: a case-insensitive disk would open it as the gate file, and it cannot be declared in Gate changes.
 
@@ -116,15 +116,15 @@ Known limitations:
 
 The PR check (`ci/checks/lib/gate-files.mjs`, read by P1) counts every path the guard counts, `.gitmodules` and
 `.gitattributes` included (#174), except the rows below. `scripts/gate-files.test.mjs` pins each row, and fails when
-the guard's list gains a path the check neither counts nor excepts here. The check also counts what the guard leaves
-out: owner-only prose and `.claude/skills/**`.
+the guard's list of extra paths gains one the check neither counts nor excepts here, or its `.claude` list changes. The check also counts what the guard leaves
+out: owner-only prose, `dev/ownership.yaml`, `scripts/new-project.mjs` and `.claude/skills/**`.
 
 | the guard counts | why the PR check does not |
 |---|---|
-| every `package.json` | the check counts one only when a key that decides what a gate command runs differs (the table above). Any other edit, a registry dependency bump among them, changes no gate, and a line for each would be noise; the guard cannot parse JSON from `sh`, so it takes the whole file |
+| every `package.json` | the check counts one only when a key it lists differs (the table above): what a gate command runs, and the settings a gate tool keeps there. A line for every other edit, a registry dependency bump among them, would be noise; the guard cannot parse JSON from `sh`, so it takes the whole file. The list is a list: a tool that reads its settings from a key not on it is not seen, and that key is added when the tool is |
 | a markdown file under a gate folder | a document cannot change what a gate checks (`ci/README.md`, a `.md` fixture body); an owner-only one, or one under `.claude/`, is still counted. The guard has no cheap way to tell them apart |
 | a plain file at a gate folder's name | a file named `ci` or `node_modules` holds no gate file and nothing runs it. A link there is counted as a link |
-| a quoted name outside every gate path | the guard counts any name git has to quote, since a Mac disk may open it as a gate path. The check reads names unquoted: one inside a gate path is counted like any other, one that reads as a gate path in canonical form is refused as a lookalike, and the rest (`docs/café.md`) touch no gate |
+| a quoted name outside every gate path | the guard counts any name git has to quote, since a Mac disk may open it as a gate path. The check reads names unquoted: one inside a gate path is counted like any other, one that reads as a gate path in canonical form is refused as a lookalike, and the rest (`docs/café.md`) touch no gate as far as the canonical form models the disk (the canonical-form limitation above) |
 | an untracked file | a pull request carries only committed files |
 
 Known limitation: the harness has no ask rule for `.gitmodules` or `.gitattributes`, so an edit to either does not

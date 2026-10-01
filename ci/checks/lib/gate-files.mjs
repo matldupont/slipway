@@ -93,8 +93,12 @@ const SHA = /^[0-9a-f]{7,64}$/;
 // The package.json keys that decide what a gate command runs, the pnpm and node that run it, and pnpm's
 // settings (`resolutions` pnpm reads as overrides; `engines` and `devEngines` can name a node for pnpm to fetch;
 // `bin` and `directories.bin` name the programs a package puts in node_modules/.bin).
+// CONFIG_KEYS are the keys a gate tool reads its settings from in place of its own file (`prettier` for `.prettierrc*`,
+// `eslintConfig` for `.eslintrc*`, a test runner's or a coverage tool's), and the two that change how node loads the
+// gate's code (`type`, `imports`). A list: a tool that reads another key is not seen (process/harness/README.md).
 // The sidecar still calls the list `scripts`.
-export const RUN_KEYS = ['scripts', 'packageManager', 'pnpm', 'resolutions', 'engines', 'devEngines', 'bin', 'directories'];
+export const CONFIG_KEYS = ['type', 'imports', 'prettier', 'eslintConfig', 'stylelint', 'jest', 'mocha', 'ava', 'c8', 'nyc'];
+export const RUN_KEYS = ['scripts', 'packageManager', 'pnpm', 'resolutions', 'engines', 'devEngines', 'bin', 'directories', ...CONFIG_KEYS];
 // A dependency whose version names code in the repository, or a runtime, rather than a registry release: its
 // `bin` lands in node_modules/.bin, where it can stand in for a gate tool. Registry entries are the lockfile's
 // question (#138).

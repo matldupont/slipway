@@ -55,7 +55,7 @@ put('old/tsconfig.json', '{}');
 put('tools/pm/package.json', pkg({}, { packageManager: 'pnpm@10.0.0' }));
 put('tools/settings/package.json', pkg({}, { pnpm: { overrides: { a: '1' } } }));
 put('tools/empty/package.json', JSON.stringify({ name: 'x' }));
-for (const d of ['engines', 'resolutions', 'local-dep', 'registry-dep', 'workspace-dep', 'bin']) put(`tools/${d}/package.json`, pkg({}, { devDependencies: { left: '^1.0.0' } }));
+for (const d of ['engines', 'resolutions', 'local-dep', 'registry-dep', 'workspace-dep', 'bin', 'tool-config', 'module-type']) put(`tools/${d}/package.json`, pkg({}, { devDependencies: { left: '^1.0.0' } }));
 put('process/harness/settings.json', JSON.stringify({ permissions: { ask: ['Edit(**/x.cfg)'] } }));
 git('add', '-A');
 git('commit', '-q', '-m', 'base');
@@ -75,6 +75,8 @@ put('tools/local-dep/package.json', pkg({}, { devDependencies: { vitest: 'link:.
 put('tools/registry-dep/package.json', pkg({}, { devDependencies: { left: '^2.0.0' } })); // a registry bump: the lockfile's question (#138)
 put('tools/workspace-dep/package.json', pkg({}, { devDependencies: { left: '^1.0.0', tsc: 'workspace:*' } })); // the repository's own package
 put('tools/bin/package.json', pkg({}, { devDependencies: { left: '^1.0.0' }, bin: { tsc: 'x.js' } })); // a program under a gate tool's name
+put('tools/tool-config/package.json', pkg({}, { devDependencies: { left: '^1.0.0' }, prettier: { semi: false } })); // a gate tool's settings, kept in package.json (#174)
+put('tools/module-type/package.json', pkg({}, { devDependencies: { left: '^1.0.0' }, type: 'module' })); // how node loads the gate's code
 git('rm', '-q', 'old/tsconfig.json'); // deleted gate file
 git('add', '-A');
 git('commit', '-q', '-m', 'work');
@@ -101,8 +103,8 @@ test('a path that only reads as a gate path in canonical form is a lookalike, ne
 
 test('changes lists every changed path, deletions included, and a package.json only when its run keys or a dependency on local code differ', () => {
   const c = changes(base, head, repo);
-  assert.deepEqual(c.files.sort(), ['apps/web/package.json', 'old/tsconfig.json', 'package.json', 'packages/api/package.json', 'packages/api/tsconfig.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/empty/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/pm/package.json', 'tools/registry-dep/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/workspace-dep/package.json']);
-  assert.deepEqual(c.scripts.sort(), ['apps/web/package.json', 'packages/api/package.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/pm/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/workspace-dep/package.json']);
+  assert.deepEqual(c.files.sort(), ['apps/web/package.json', 'old/tsconfig.json', 'package.json', 'packages/api/package.json', 'packages/api/tsconfig.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/empty/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/module-type/package.json', 'tools/pm/package.json', 'tools/registry-dep/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/tool-config/package.json', 'tools/workspace-dep/package.json']);
+  assert.deepEqual(c.scripts.sort(), ['apps/web/package.json', 'packages/api/package.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/module-type/package.json', 'tools/pm/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/tool-config/package.json', 'tools/workspace-dep/package.json']);
   assert.deepEqual(c.globs, ['**/x.cfg']); // the base commit's harness, not the PR's
   assert.deepEqual(c.links, []);
   const gate = gateMatcher(settings);
@@ -170,6 +172,9 @@ test('every path the guard adds to the harness list is counted by the PR check, 
     assert.ok(EXCEPTED[g], `the guard counts ${g}; the PR check neither counts it nor excepts it`);
     excepted(EXCEPTED[g]);
   }
+  // The guard's other hard-coded list, the .claude folder: the harness rule `**/.claude/**` counts all of it here.
+  assert.ok(GUARD.includes("set -- ':(glob,icase)**/.claude/**' ':(glob,icase)**/.claude' ':(exclude,glob,icase)**/.claude/skills/**'\n"), 'the guard\'s .claude list moved or changed: re-read it against the PR check');
+  assert.ok(gateGlobs(settings).includes('**/.claude/**'));
   for (const g of GUARD_GLOBS) assert.ok(extras.includes(g), `${g} is no longer a path the guard counts`);
   for (const p of ['.gitmodules', '.gitattributes', 'apps/web/.gitattributes', 'vendor/x/.gitmodules']) assert.ok(gate(p), `${p} should be a gate file`);
   for (const p of ['docs/gitattributes', 'src/.gitattributes.ts', '.gitignore']) assert.ok(!gate(p), `${p} should not be`);
