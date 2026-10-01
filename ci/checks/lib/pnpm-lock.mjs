@@ -11,8 +11,8 @@
 // shapes to refuse. A `tarball:` on any other host is a problem, and so is one with no integrity, because
 // `file:x.tgz` is written beside an integrity too. A workspace package that pnpm installs by copy
 // (`injected`) is written `name@file:<folder>` with `{directory: <folder>, type: directory}`: that is the
-// project's own code, so it passes when the folder is a workspace package folder (below) in its plain written
-// form, with no `..`, `.` or trailing-slash segment.
+// project's own code, so it passes when the folder is a workspace package folder (below), written as the set
+// holds it: a `..`, `.` or trailing-slash spelling of one is not in the set, so it fails.
 // Dependencies point at `packages` entries by key, so a `packages` problem is reported once, where it is
 // judged. What has no entry there is judged where it is written: a `link:` in an importer or in a snapshot
 // (a `pnpm.overrides` link lands there), and a version no entry answers to. pnpm writes a `link:` for every
@@ -111,7 +111,7 @@ function workspaceCopy(key, res, workspaceDirs) {
   const m = FILE_KEY.exec(key);
   if (!m || !(res instanceof Map) || res.size !== 2) return false;
   const dir = res.get('directory');
-  return res.get('type') === 'directory' && typeof dir === 'string' && dir === m[1] && dir === posix.normalize(dir) && workspaceDirs.has(dir);
+  return res.get('type') === 'directory' && typeof dir === 'string' && dir === m[1] && workspaceDirs.has(dir);
 }
 
 /**
