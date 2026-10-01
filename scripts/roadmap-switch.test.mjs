@@ -57,6 +57,9 @@ test('a lone public row that is hidden, indented or outside Skill Configuration 
     'under a heading indented two spaces': [(a) => `${a}\n  ## Examples\n\n${PUB}\n`, SECTION],
     'under a setext heading, ---': [(a) => `${a}\nOther\n-----\n\n${PUB}\n`, SECTION],
     'under a setext heading, ===': [(a) => `${a}\nOther\n===\n\n${PUB}\n`, SECTION],
+    'under a setext heading with spaces around the underline': [(a) => `${a}\nOther\n  ---  \n\n${PUB}\n`, SECTION],
+    'after a thematic break, which the underline test cannot tell apart': [(a) => `${a}\n- - -\n\n${PUB}\n`, SECTION],
+    'under a heading indented three spaces': [(a) => `${a}\n   ## Examples\n\n${PUB}\n`, SECTION],
     'under a heading that follows a lone CR': [(a) => `${a}x\r## Examples\r${PUB}\n`, SECTION],
     'after an indented Skill Configuration heading in an example': [(a) => `## Examples\n\n    ## Skill Configuration\n\n${PUB}\n\n${a.replace(/^# .*\n/, '').replace('## Skill Configuration', '## Settings')}`, SECTION],
   };
@@ -82,6 +85,7 @@ test('two Roadmap page rows, in any order and with any values, leave the page of
 test('one public row under ## Skill Configuration is on, and --enabled prints one line whatever the cell holds', () => {
   assert.equal(run(agent((a) => `${a}${PUB}\n`), ['--enabled']).stdout, 'enabled=true\n');
   assert.equal(run(agent((a) => `${a}\n### Sub\n\n${PUB}\n`), ['--enabled']).stdout, 'enabled=true\n', 'a ### inside the section');
+  assert.equal(run(agent((a) => `${a}\n    ## Examples\n\n${PUB}\n`), ['--enabled']).stdout, 'enabled=true\n', 'four spaces: a code block, not a heading');
   assert.equal(run(agent((a) => `${a}${PUB}\n\n\`\`\`\nls\n\`\`\`\n<!-- note -->\n`), ['--enabled']).stdout, 'enabled=true\n', 'marks below the row');
   // What a cell holds never reaches --enabled's output, which the workflow appends to $GITHUB_OUTPUT.
   const cut = '| Roadmap page | `public`\nenabled=false | reason=x |';
@@ -113,6 +117,8 @@ test('the page shows the project name only from one plain Product name row; a hi
     'no visible row, one in a fence below': (a) => `${a.replace(visible, '')}\`\`\`\n${hiddenRow}\n\`\`\`\n`,
     'a visible row and a commented one': (a) => `${a}<!--\n${hiddenRow}\n-->\n`,
     'no visible row, one under another heading': (a) => `${a.replace(visible, '')}\n## Examples\n\n${hiddenRow}\n`,
+    'a comment on the row line': (a) => `${a.replace(visible, '')}| Product name | <!-- x --> \`SENTINEL\` | example |\n`,
+    'a placeholder': (a) => `${a.replace(visible, '')}| Product name | \`<SENTINEL>\` | example |\n`,
   };
   for (const [name, edit] of Object.entries(shapes)) {
     const html = page(edit);

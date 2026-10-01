@@ -75,7 +75,7 @@ function agent(edit, from = 'off') {
 
 test('a 1 MB AGENT.md or milestone file is read in under 2 s', () => {
   const MB = 1 << 20;
-  const long = { dashes: `---${' '.repeat(MB)}x`, comments: 'a<!--b-->'.repeat(MB / 9), pipes: '|  '.repeat(MB / 3) };
+  const long = { dashes: `---${' '.repeat(MB)}x`, comments: 'a<!--b-->'.repeat(MB / 9), pipes: '|  '.repeat(MB / 3), crs: '\r'.repeat(MB) };
   const timed = (root, args, name) => {
     const r = spawnSync(process.execPath, [ROADMAP, root, ...args], { encoding: 'utf8', timeout: 2000 });
     assert.equal(r.signal, null, `${name}: killed after 2 s`);

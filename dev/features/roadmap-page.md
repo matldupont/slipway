@@ -55,7 +55,9 @@ lines once. The page is on only when all of these hold:
 - no line from the top of the file down to the row, the row's own line included, contains `<!--`, `-->`, three
   backticks or `~~~`.
 
-A lone carriage return ends a line, as it does when the file is rendered.
+A lone carriage return ends a line, as it does when the file is rendered. The underline test is by line, so a
+thematic break (`---`, `- - -`) or an empty list item (`-`) between the heading and the table also turns the page
+off, with the "not under" reason: keep them out of the section, above the table.
 
 Otherwise the page is off and one line says why, in fixed words and a count, never text from the file:
 
@@ -67,8 +69,10 @@ Otherwise the page is off and one line says why, in fixed words and a count, nev
 | a mark sits above it or on its line | `a code fence or comment sits above or on the Roadmap page row; move the Skill Configuration section above it` |
 
 `--out` prints `roadmap: off (<reason>)`. `--enabled` prints `enabled=false`, then `reason=<reason>`: both are
-valid `$GITHUB_OUTPUT` lines, and the workflow (#69) reads only `enabled`. With no row, `off` or a placeholder,
-the lines are as before (`roadmap: off (AGENT.md Roadmap page)`, `enabled=false`), whatever sits above the row. An
+valid `$GITHUB_OUTPUT` lines, and the workflow (#69) reads only `enabled`. With no row, or one row that starts its
+line and says `off` or a placeholder, the lines are as before (`roadmap: off (AGENT.md Roadmap page)`,
+`enabled=false`), whatever sits above the row; two rows, or a row that does not start its line, give their reason
+whatever they say. An
 unknown value on a single row that passes the checks above still exits 1; on a row that fails them, the page is
 off with that reason.
 
@@ -207,6 +211,12 @@ The URL (`<owner>.github.io/<repo>/`) is guessable. Anything in a published fiel
   `Product name` rows alike. A row inside a raw HTML block that runs past a blank line (a `<pre>` or a `<script>`,
   say) is not caught: only comment and fence marks are looked for. A row on a continuation line of a link
   definition's title (`[x]: /u "…` above it, the closing quote below) renders nothing and still counts.
+- **An inline HTML tag on the row's own line** is not looked at. A row whose cell holds a tag with a backticked
+  `public` inside an attribute, before a plain `off`, reads on while the rendered cell shows off; the same shape on
+  the `Product name` row puts the attribute's word in the page title, escaped. This is a crafted shape, not an
+  accident: the literal `public` row is in the diff of an owner-only file, where review sees it.
+- **A stray backtick in the project name.** A `Product name` code span split by a lone carriage return has no
+  closing backtick on its line, so the first word is shown with its backtick. Cosmetic; the text is escaped.
 - **A `Timezone` row inside a comment or a fence** is read when it is the first one, and sets the date in the
   page's footer. A date only; no text from the row reaches the page.
 - **Unclosed frontmatter.** A milestone file whose frontmatter is never closed, with a later `---` break, has

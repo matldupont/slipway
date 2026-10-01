@@ -7,8 +7,8 @@
 //   node ci/roadmap.mjs [root] --enabled                   print enabled=true|false (for $GITHUB_OUTPUT)
 //
 // Off unless AGENT.md's `Roadmap page` row says `public`. Off writes nothing and exits 0; a value it does not
-// know exits 1 and writes nothing, so a typo never publishes. --enabled adds a `reason=` line when the row is
-// there and does not count; the workflow reads only `enabled`.
+// know, on a row that would otherwise count, exits 1 and writes nothing, so a typo never publishes. --enabled adds
+// a `reason=` line when a row is there and does not count; the workflow reads only `enabled`.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -56,8 +56,9 @@ function hidden(lines, at, name) {
 }
 
 // { on, why }. On only when exactly one line names the row, it starts its line, says `public`, and nothing in
-// hidden() applies. No row, off or a placeholder is off with no reason; a row that may be hidden is off and says
-// why; a value it does not know, on a row that is not hidden, throws.
+// hidden() applies. No row, or one row that starts its line and says off or a placeholder, is off with no reason;
+// several rows, a row that does not start its line or one that may be hidden is off and says why; a value it does
+// not know, on a row that is not hidden, throws.
 export function roadmapSwitch(root) {
   const lines = agentLines(root);
   const off = (why = null) => ({ on: false, why });
