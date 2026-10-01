@@ -7,6 +7,12 @@
 //   node ci/status.mjs [root]            print
 //   node ci/status.mjs --write [root]    also write STATE.md (gitignored)
 //   node ci/status.mjs --hook [root]     SessionStart hook output: the same text as context
+//
+// Free text a document carries (a milestone title in the Next line, a Contents item, a [NEEDS CLARIFICATION] or
+// [PARKED] marker) is quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double
+// quotes the text cannot close. Identifiers and names read from a file (the Active milestone line's title, risk and
+// milestone ids, a decision title, a lesson id, file names) print as read, each line passed through escapeControl at
+// the end. Anything a session must act on (a command, an id) is built from validated values, never from the text.
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -118,6 +124,11 @@ function walk(dir, out = []) {
 }
 // Open questions, with the question itself: a count tells nobody what to answer. Parked ones
 // (assumption + cost + tracker) are listed apart — they are decided-enough to build on.
+// Marker text, quoted through excerpt(); empty when nothing printable is left.
+const quoted = (t) => {
+  const q = excerpt(t);
+  return q ? `"${q}"` : '';
+};
 const open_ = [];
 const parked_ = [];
 for (const file of walk(join(root, 'docs'))) {
@@ -127,10 +138,10 @@ for (const file of walk(join(root, 'docs'))) {
   // that the gap between two spans is never read as one.
   const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, '')).split(/\r?\n/).map((l) => l.replace(/(?<!\\)`[^`\n]*`/g, (span) => (/\[(?:NEEDS CLARIFICATION|PARKED)[^\]]*\]/.test(span) ? '' : span)));
   lines.forEach((line, i) => {
-    for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${body.trim().slice(0, 90) || 'no question written'}`);
+    for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${quoted(body) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
       const ref = body.match(TRACKER)?.[0] ?? 'untracked';
-      parked_.push(`${rel_}:${i + 1} — ${body.split('·')[0].trim().slice(0, 70)} (${ref})`);
+      parked_.push(`${rel_}:${i + 1} — ${quoted(body.split('·')[0]) || 'no text'} (${ref})`);
     }
   });
 }
