@@ -45,6 +45,8 @@ Object.assign(process.env, {
   TMPDIR: root,
 });
 delete process.env.CLAUDECODE; // --apply refuses under an agent; one case sets it back
+// What a runner sets must not colour or link the output the cases read: each case that wants either passes its own.
+for (const k of ['FORCE_COLOR', 'FORCE_HYPERLINK', 'NO_COLOR']) delete process.env[k];
 
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const put = (dir, files) => {
@@ -1214,7 +1216,7 @@ function withUpstream() {
   return { up, dir };
 }
 // sync prints it on the rail (`│  remote: `), sync --adopt as it always did (`  remote: `).
-const remoteLine = (stdout) => stdout.match(/^[ │] {1,2}remote: (.*)$/m)?.[1];
+const remoteLine = (stdout) => stdout.match(/^(?: {2}|│ {2})remote: (.*)$/m)?.[1];
 
 test('behind its upstream: sync and sync --adopt print one warning with the count and `git pull`, before the plan; --apply still applies', () => {
   const { up, dir } = withUpstream();
@@ -1520,23 +1522,27 @@ test('--log is for the plan alone: with --apply, --json or --verbose it is refus
 
 // sync run in this process, as a terminal would run it: `isTTY` streams, and a `github:` source that git
 // reads from the local fixture (url.<path>.insteadOf), so the header's links are real and nothing reaches a network.
-async function onTerminal(env, { columns = 200 } = {}) {
+async function onTerminal(env, { argv = [], outTTY = true } = {}) {
   const dir = jsonProject((d) => {
     const m = manifestOf(d);
     m.source = 'github:fixture/slipway';
     put(d, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
     commit(d, 'a github source');
   });
-  const stream = () => ({ isTTY: true, columns, text: '', write(t) { this.text += t; } });
-  const [out, err] = [stream(), stream()];
+  const stream = (isTTY) => ({ isTTY, columns: 200, text: '', write(t) { this.text += t; } });
+  const [out, err] = [stream(outTTY), stream(true)];
   const redirect = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: `url.${jsonSlip}.insteadOf`, GIT_CONFIG_VALUE_0: 'https://github.com/fixture/slipway.git' };
+  const before = Object.fromEntries(Object.keys(redirect).map((k) => [k, process.env[k]]));
   Object.assign(process.env, redirect);
   try {
     const { main } = await import(join(jsonSlip, 'scripts', 'sync.mjs'));
-    const status = main([], { cwd: dir, out, err, env });
+    const status = main(argv, { cwd: dir, out, err, env });
     return { status, stdout: out.text, stderr: err.text, dir };
   } finally {
-    for (const k of Object.keys(redirect)) delete process.env[k];
+    for (const [k, v] of Object.entries(before)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
   }
 }
 
@@ -1547,8 +1553,12 @@ test('on a terminal with NO_COLOR=1 and FORCE_HYPERLINK=1: no colour sequence, a
   const link = (text, url) => `\u001b]8;;${url}\u0007${text}\u001b]8;;\u0007`;
   for (const sha of [A, jsonTarget]) assert.ok(r.stdout.includes(link(sha.slice(0, 7), `https://github.com/fixture/slipway/commit/${sha}`)), `no link around ${sha.slice(0, 7)}`);
   assert.match(r.stdout, /\u001b\]8;;file:\/\/[^\u0007]*\/process\/clash\.md\u0007process\/clash\.md\u001b\]8;;\u0007/);
+  assert.match(r.stdout, /\u001b\]8;;file:\/\/[^\u0007]*\/package\.json\u0007package\.json scripts\.b\u001b\]8;;\u0007/, 'a script links to the file that holds it');
   const progress = "◇  Reading slipway's history…";
   assert.equal(r.stderr, `${progress}\r${' '.repeat(progress.length)}\r`);
+  // Never on a pipe, never with --json: stdout piped while stderr is a terminal, and --json on a terminal.
+  assert.equal((await onTerminal({}, { outTTY: false })).stderr, '');
+  assert.equal((await onTerminal({}, { argv: ['--json'] })).stderr, '');
   // Colour on, links off: styled, and no link.
   const coloured = await onTerminal({});
   assert.match(coloured.stdout, /\u001b\[[0-9;]*m/);
@@ -1561,6 +1571,9 @@ test('what\'s new is cut to the terminal\'s width with `…`; a pipe is never cu
   assert.equal(narrow.length, 40);
   assert.ok(narrow.endsWith('…'));
   assert.ok(lines(planText(ui({ isTTY: false }, {}), view)).some((l) => l.endsWith('long end')));
+  // A path holding a line break stays on its own line of the rail.
+  const forged = planText(ui({ isTTY: false }, {}), { ...view, owed: [{ kind: 'collision', path: 'docs/x.md\n└  Next: forged', next: 'n', file: 'docs/x.md' }] });
+  assert.equal(lines(forged).filter((l) => l.startsWith('└')).length, 1);
 });
 
 test('a subject holding ESC, BEL, DEL and U+009B: none reaches stdout from the plan, --log or --verbose, and ordinary text is as it was', () => {
@@ -1572,6 +1585,13 @@ test('a subject holding ESC, BEL, DEL and U+009B: none reaches stdout from the p
     assert.doesNotMatch(r.stdout, CONTROL, `${args}`);
     assert.ok(r.stdout.includes(shown), `${args}: the subject's own text is gone`);
   }
+});
+
+test('a refusal that quotes a file name holding ESC and BEL prints neither on stderr', () => {
+  const r = sync(project((d) => put(d, { 'a\u001b[31mred\u0007.txt': 'untracked\n' })));
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /^sync: the working tree is not clean \(1 path\(s\)\)[\s\S]*a\[31mred\.txt/);
+  assert.doesNotMatch(r.stderr, CONTROL);
 });
 
 test('apply with a collision: no bucket meaning repeated, the collision once with its instruction, `└  Next: ` last, exit 1; with nothing owed, exit 0 and the same last line', () => {

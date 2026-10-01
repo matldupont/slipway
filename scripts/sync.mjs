@@ -107,7 +107,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
   } catch (e) {
     settle();
     if (!(e instanceof Refusal)) throw e;
-    err.write(`sync: ${e.message}\n`);
+    err.write(`sync: ${clean(e.message)}\n`); // a refusal quotes paths and git's words: no control character reaches the terminal
     return 1;
   }
 }
@@ -243,7 +243,7 @@ function preflight(cwd) {
 
   // What changed, for /sync-slipway to explain: the subjects on slipway's history, base → target. Only
   // informs the explanation, so a target the source lacks (unpushed) is a note; --apply refuses it.
-  // `log` is every subject, as the text plan lists them; `commits` leaves the merges out, for --json.
+  // `log` is every subject, as --verbose lists them; `commits` leaves the merges out, for the plan and --json.
   let log = [];
   let commits = [];
   if (targetSha && targetSha !== r.exact) {

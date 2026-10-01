@@ -21,8 +21,9 @@ function commitUrl(source, sha) {
   return gh ? `https://github.com/${gh[1]}/${gh[2]}/commit/${sha}` : null;
 }
 
-// A path in the project, linked to its file when the terminal takes links.
-const fileLink = (u, root, text, file) => u.link(text, pathToFileURL(join(root, file)).href);
+// A path in the project, linked to its file when the terminal takes links. `clean` keeps a line break, and
+// a path holding one would print a line of its own on the rail, so it is shown as a space.
+const fileLink = (u, root, text, file) => u.link(String(text).replace(/[\n\t]+/g, ' '), pathToFileURL(join(root, file)).href);
 
 // Text cut to the terminal's width with `…`; a pipe has no width, so it is never cut. 3 is the rail's width.
 function cut(u, text, indent = 0) {
