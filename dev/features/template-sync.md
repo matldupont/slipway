@@ -422,3 +422,4 @@ After `status: shipped`, behaviour changes are recorded here as deltas instead o
 the Contract, so the doc stays true without losing its history. One line each:
 
 - <date> · ADDED | MODIFIED | REMOVED · what changed · #PR
+- 2026-10-01 · MODIFIED · what `sync` and `sync --apply` print: the plan is laid out for the owner and `--apply` says what it did (F-08, `dev/features/cli-output.md` §3–§4); what sync writes, and its exit codes, are unchanged · #166

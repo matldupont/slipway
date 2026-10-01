@@ -177,9 +177,12 @@ The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts il
 - **Next:** the command from `syncCommand(root)` with `--apply`. It is the last line.
 - `BASE_WHY` is printed by `--help`, not by the plan.
 - `--log`: the same plan, with "What's new" replaced by every non-merge commit subject, newest first, uncut.
-- `--verbose`: unchanged (one line per path, then the counts).
-- Progress: on a terminal only, before the plan, one line on **stderr**, `◇  Reading slipway's history…`,
-  overwritten with `\r` and cleared once the plan is computed. Never on a pipe, never with `--json`.
+- `--verbose`: unchanged (one line per path, then the counts), but for control characters: a subject, a
+  path or a note is cleaned as ui.mjs cleans, so ordinary text prints byte for byte as before.
+- `--log` is the plan's alone: with `--apply`, `--json` or `--verbose` it is refused before anything runs.
+- Progress: on a terminal only (stdout and stderr both), before the plan, one line on **stderr**,
+  `◇  Reading slipway's history…`, overwritten with `\r` and cleared once the plan is computed. Never on a
+  pipe, never with `--json`.
 
 ### 4. `--apply` — what it did
 
@@ -192,12 +195,24 @@ The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts il
 ◆  Needs you before this branch merges (3)
 │  docs/y.md  merge — 2 conflicts; resolve them, and keep its override
 │  …
+│  sync exits 1 until these are settled; nothing failed
+│
+◇  Settled with you: 7 of your files started from slipway's template, and the template changed.
+│  slipway's change to each is saved under .slipway/upstream/ to read, not to apply as a patch.
+│  /sync-slipway settles what follows from slipway and asks only about your project.
 │
 ◇  What changed
 │  52 slipway files updated · 217 added · 111 removed …
 │
-└  Next: in Claude Code, run /sync-slipway — it settles the rest and opens the PR
+└  Next: in Claude Code, /sync-slipway settles the rest and opens the PR (if it sent you here, go back to that session)
 ```
+
+- The `Next:` line reads the same from both ways in: the owner who started in the terminal, and the one
+  `/sync-slipway` sent here.
+- The harness, when this run installed it, is said under "What changed" in the past tense, with nothing
+  left to run.
+- `--apply --verbose` prints the per-path list and its counts first, as the plan's `--verbose` does, then
+  the output above.
 
 - "Needs you before this branch merges" holds every leftover `apply` reports today (conflicts, collisions,
   `keep (edited)` both kinds, stale overrides, `script kept, yours differs`, the harness when it is owed), one
@@ -344,3 +359,4 @@ none
 
 - 2026-09-30 · ADDED · shaped from the owner's report on sync's output · #161
 - 2026-10-01 · MODIFIED · step 2 built: `sync --json` and `/sync-slipway` step 1 reading it; `--json` also escapes DEL and C1 controls · #165
+- 2026-10-01 · MODIFIED · step 3 built: the plan, `--log`, the progress line and `--apply`'s output through ui.mjs (two spaces after a glyph, as the pictures show); `--verbose` cleans control characters; `--apply`'s `Next:` line serves both ways in · #166

@@ -34,11 +34,11 @@ export function ui(stream, env = process.env) {
 
   const section = (glyph, title) => {
     const g = glyph === '◆' ? style('yellow', glyph) : style('cyan', glyph);
-    return `${g} ${style('bold', title)}`;
+    return `${g}  ${style('bold', title)}`;
   };
 
   const line = (text, { indent = 0, last = false } = {}) =>
-    `${style('dim', last ? '└' : '│')} ${' '.repeat(indent)}${clean(text)}`;
+    `${style('dim', last ? '└' : '│')}  ${' '.repeat(indent)}${clean(text)}`;
 
   return { tty, color, links, width, style, link, clean, section, line };
 }
