@@ -5,10 +5,13 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // The text under a heading with this exact title (case-insensitive), up to the next
 // heading of the same or a higher level, with HTML comments removed. null if absent.
 // A RegExp title matches the whole heading text: /9\.\s+Estimates?/ for a renamed one.
-// Comments are removed first, so a heading or an example inside a template comment
-// never counts as content.
+// Comments are removed first, so an example inside a template comment never counts as content.
+// A comment never takes a heading-shaped line with it: a `<!--` in inline code and a `-->` further
+// down would otherwise delete the headings between them and run one section on into the next
+// (#189). Such marks stay as text, and a heading a real comment hides still ends its section.
+const COMMENT = /<!--(?:(?!\n[ \t]*#{1,6}\s)[\s\S])*?-->/g;
 export function section(md, title, level) {
-  const lines = md.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+  const lines = md.replace(COMMENT, '').split(/\r?\n/);
   const text = title instanceof RegExp ? title.source : escapeRe(title);
   const heading = new RegExp(`^#{${level}}\\s+(?:${text})\\s*$`, 'i');
   const start = lines.findIndex((l) => heading.test(l.trim()));

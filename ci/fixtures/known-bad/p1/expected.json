@@ -1,5 +1,5 @@
 {
-  "_note": "good.md, none-link.md, gate-good.md, gate-glob-good.md, gate-doc-only.md (a markdown file is not a gate file unless it is owner-only: gate-owner-markdown.md edits a skill and has no Gate changes section), gate-base-rule-good.md and gate-none.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count. A `<name>.changes.json` beside a body lists what that PR changed; the gate-* cases are read against the harness's gate paths. A sidecar's `globs` are the gate paths the base branch's harness listed: a PR that removes a rule is held to it. One line may name a directory glob (`ci/fixtures/known-bad/p1/**`): it covers the files it matches and nothing else. A sidecar's `links` are the symlinks and submodule links the PR adds, removes or changes: each is a gate change (#149); a sidecar without that list is unreadable.",
+  "_note": "good.md, none-link.md, gate-good.md, gate-glob-good.md, gate-doc-only.md (a markdown file is not a gate file unless it is owner-only: gate-owner-markdown.md edits a skill and has no Gate changes section), gate-base-rule-good.md, gate-comment-mark-good.md and gate-none.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count. A `<name>.changes.json` beside a body lists what that PR changed; the gate-* cases are read against the harness's gate paths. A sidecar's `globs` are the gate paths the base branch's harness listed: a PR that removes a rule is held to it. One line may name a directory glob (`ci/fixtures/known-bad/p1/**`): it covers the files it matches and nothing else. A sidecar's `links` are the symlinks and submodule links the PR adds, removes or changes: each is a gate change (#149); a sidecar without that list is unreadable. A `<!--` in inline code and a `-->` in a later section are text, and the headings between them stay (#189): gate-swallowed-heading.md names a gate file only in a later section, which is not a Gate changes line; gate-comment-mark-good.md has the same marks, every gate file on its own line, and the word loosened in a later section.",
   "exit": 1,
   "findings": [
     "gate-claude-local.md#gate-changes/missing",
@@ -22,6 +22,7 @@
     "gate-self-citing.md#gate-changes/loosens-uncited:ci/exceptions.yaml",
     "gate-substring-path.md#gate-changes/unmentioned:package.json scripts",
     "gate-suffix-path.md#gate-changes/unmentioned:ci/verify.mjs",
+    "gate-swallowed-heading.md#gate-changes/unmentioned:ci/verify.mjs",
     "gate-tool-settings.md#gate-changes/missing",
     "gate-unmentioned.md#gate-changes/unmentioned:.github/workflows/ci.yml",
     "gate-unreadable.md#gate-changes/unreadable",
