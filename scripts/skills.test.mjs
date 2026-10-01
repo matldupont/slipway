@@ -314,6 +314,24 @@ test('/sync-slipway step 1 runs `sync --json` and names every field of the docum
   assert.doesNotMatch(two, /--json/, 'the owner reads --apply\'s own output; --json is refused with it');
 });
 
+// F-08 §2 (#196): the sync PR's `## Gate changes` lines come from the check's own commands, the ones pr-body.yml runs,
+// never from a list the skill describes or the session picks by eye. scripts/sync.test.mjs proves the lines pass P1.
+test('/sync-slipway step 5 writes `## Gate changes` from the commands pr-body.yml runs, in the check\'s line format', () => {
+  const five = (section(read(skillPath('sync-slipway')), '5 — Verify and open the PR', 2) ?? '').replace(/\s+/g, ' ');
+  const workflow = read('.github/workflows/pr-body.yml');
+  for (const cmd of ['ci/checks/lib/gate-files.mjs', 'ci/checks/meta/p1-pr-body.mjs']) {
+    assert.ok(workflow.includes(cmd), `pr-body.yml no longer runs ${cmd}`);
+    assert.ok(five.includes(cmd), `step 5 does not run ${cmd}`);
+  }
+  assert.match(five, /## Gate changes/);
+  assert.ok(five.includes('`path — stricter | the same | loosens: why`'), 'step 5 does not give the line format');
+  assert.match(five, /always one for `\.slipway\/manifest\.json`/);
+  assert.match(five, /must not contain that word/, 'the trap: a line that is not `loosens` must not say it');
+  assert.match(five, /cites a decision/, 'the trap: a `loosens` line cites a decision');
+  assert.match(five, /judgment of the diff, never copied from the finding/, 'the verdict and the reason stay the session\'s');
+  assert.match(five, /base branch's rules/, 'the base-versus-target rules mismatch is stated');
+});
+
 // Shipped text still speaking of the skills as someone's own install, or of a review skill slipway does not ship.
 // Matched across line breaks, since the docs are hard-wrapped. History (decisions, feature docs, lessons, filled
 // reviews) keeps its wording.
