@@ -1,0 +1,30 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      fixture-mirror:
+        specifier: 1.0.0
+        version: 1.0.0
+      fixture-ok:
+        specifier: ^1.0.0
+        version: 1.0.0
+
+packages:
+
+  fixture-mirror@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==, tarball: https://other.example.invalid/fixture-mirror-1.0.0.tgz}
+
+  fixture-ok@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}
+
+snapshots:
+
+  fixture-mirror@1.0.0: {}
+
+  fixture-ok@1.0.0: {}

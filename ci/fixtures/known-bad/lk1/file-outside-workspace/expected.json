@@ -1,0 +1,7 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. A copy of a folder that no workspace glob covers (vendor/fixture-lib; packages/* is the workspace) is not the project's own package.",
+  "exit": 1,
+  "findings": [
+    "pnpm-lock.yaml#fixture-lib@file:vendor/fixture-lib{directory=vendor/fixture-lib;type=directory}"
+  ]
+}

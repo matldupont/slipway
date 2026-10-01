@@ -1,0 +1,5 @@
+{
+  "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. Two registry= lines in .npmrc: which host is the registry is unknown, so nothing is read and LK1 is BROKEN, never a pass.",
+  "exit": 2,
+  "broken": ".npmrc has 2 registry= lines"
+}

@@ -257,6 +257,21 @@ requires a `## Gate changes` line for it. A skill change is seen at the pull req
 Consistent with D-023. Declined: listing the gate paths under `.claude` one by one (a path nobody listed
 would not count), and exempting `.claude/commands/**` with skills. #173.
 
+## D-026 — The lockfile check trusts the registry host the project's `.npmrc` names *(decided 2026-10-01)*
+
+A project on a private registry (Artifactory, Verdaccio, a mirror) has pnpm write `tarball: <address>` beside each
+package's integrity. LK1 accepts that when the address is `https` on exactly the host the root `.npmrc` `registry=`
+line names, and the integrity hash is still required. Any other host, an `http` address, a user or password in
+the address, or no hash still fails; a `.npmrc` the check cannot read as one address (two `registry=` lines, a
+variable, an empty value) makes LK1 BROKEN rather than pass. `.npmrc` is already a gate file, so changing the
+host reaches the owner as a `## Gate changes` line. A project with no `registry=` line is judged as before.
+
+Consistent with D-023: a pull request can change `.npmrc` and the lockfile together, but not unseen. Known
+limitation: scoped `@scope:registry=` lines, and a registry set outside the root `.npmrc`, are not read, so
+those projects keep a dated exception per package. Declined: keeping an exception per package (hundreds of
+excuses, or the check dropped), a separate owner-written list of hosts (a second place to keep in step with
+`.npmrc`), and trusting any `https` host. #147.
+
 
 ## Week 1 — decide before M1 closes
 

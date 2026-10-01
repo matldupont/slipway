@@ -12,6 +12,13 @@
 // are checked by hash; this check makes "from the registry, with a hash" the only unexcused answer. Which
 // registry packages a project may use, and their contents, are out of its scope.
 //
+// A registry that serves tarballs from its own address makes pnpm write `tarball:` beside each integrity. Those
+// pass when the address is https on the host the root `.npmrc` `registry=` names (lib/npmrc.mjs, #147); `.npmrc`
+// is a gate file, so changing that host reaches the owner. It reads a host only from an `.npmrc` in the plain form
+// lib/npmrc.mjs describes; any other form trusts no host, and the finding says so. Known limitation: scoped `@scope:registry=` lines are
+// not read, so a scoped private registry is excused entry by entry; and a registry set anywhere but the root
+// `.npmrc` (the environment, the home folder's .npmrc, pnpm-workspace.yaml) is not read either.
+//
 // It reads the file, never a checkout's history, so it can run before pnpm does anything: CI runs it with
 // the runner's node before `pnpm install`, as N1 runs before pnpm (#133). Nothing it cannot read is a pass:
 // a lockfile outside the subset the parser takes, a version other than 9.0, a link in its place, or a
@@ -25,6 +32,7 @@ import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { today as localToday } from '../lib/clock.mjs';
 import { expiryProblem, loadRegistry } from '../lib/exceptions.mjs';
+import { NPMRC, registryHost } from '../lib/npmrc.mjs';
 import { checkLockfile, ID_PREFIX, KINDS, LOCKFILE, parseLockfile, workspaceFolders } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
 import { discoverWorkspace } from '../lib/workspace.mjs';
@@ -32,7 +40,7 @@ import { discoverWorkspace } from '../lib/workspace.mjs';
 const root = process.argv[2] ?? '.';
 const UNIT = 'lockfile entries';
 const CLAIM =
-  'every package the lockfile lists resolves from the registry with an integrity hash, is a workspace package, or is excused by a dated entry in ci/exceptions.yaml keyed to it, and no such entry is stale, expired, undated or without a reason';
+  'every package the lockfile lists resolves from the registry (a tarball address only on the host .npmrc registry= names) with an integrity hash, is a workspace package, or is excused by a dated entry in ci/exceptions.yaml keyed to it, and no such entry is stale, expired, undated or without a reason';
 const stop = (broken) => process.exit(report({ id: 'LK1', claim: CLAIM, scanned: 0, unit: UNIT, broken }));
 const lstatOrNull = (p) => {
   try {
@@ -54,12 +62,17 @@ const declared = ws.root.dependencies + ws.packages.reduce((n, p) => n + p.depen
 const path = join(root, LOCKFILE);
 let entries = 0;
 let problems = [];
+let host = null;
+let why = null;
 const st = lstatOrNull(path);
 if (st) {
   if (!st.isFile()) stop(`${LOCKFILE} is not a regular file (a link or folder), so what it lists cannot be read from here`);
   try {
     const workspaceDirs = workspaceFolders(root, ws.packages.map((p) => p.dir));
-    ({ entries, problems } = checkLockfile(parseLockfile(readFileSync(path, 'utf8')), workspaceDirs));
+    const rc = lstatOrNull(join(root, NPMRC));
+    if (rc && !rc.isFile()) throw new Error(`${NPMRC} is not a regular file (a link or folder), so the registry it names cannot be read from here`);
+    ({ host, why } = rc ? registryHost(readFileSync(join(root, NPMRC), 'utf8')) : { host: null, why: null });
+    ({ entries, problems } = checkLockfile(parseLockfile(readFileSync(path, 'utf8')), workspaceDirs, host));
   } catch (e) {
     stop(e.message);
   }
@@ -101,7 +114,7 @@ for (const p of problems) {
   }
   findings.push({
     where: id,
-    detail: `${KINDS[p.kind]}, not from the registry with an integrity hash — publish it to the registry, or add a dated entry with id: ${id}, a reason and an owner to ci/exceptions.yaml`,
+    detail: `${KINDS[p.kind]}, not from the registry with an integrity hash — publish it to the registry, or add a dated entry with id: ${id}, a reason and an owner to ci/exceptions.yaml${p.kind === 'tarball' && why ? `; no tarball host is trusted because ${NPMRC} ${why}` : ''}`,
   });
 }
 

@@ -1,0 +1,7 @@
+{
+  "name": "fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-ok": "^1.0.0"
+  }
+}
