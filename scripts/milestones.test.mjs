@@ -54,11 +54,23 @@ test('every other way of nearly writing a check line is unreadable, never the it
     '   Ran: x — staging 2026-10-02 pass https://github.com/o/r/issues/13',
     `   Ran: x — staging 2026-10-02 pass ${URL13} · bug 21`,
     `   Ran: x — staging 2026-10-02 pass ${URL13} and more`,
+    `   Ran: x — staging 2026-10-02 fail ${URL13} · bug #0`,
+    '   - [ ] Owed: x — staging',
+    '   - [x] Ran: x — staging',
+    '   + Owed: x — staging',
+    '   **Owed:** x — staging',
+    '   **Owed**: x — staging',
+    '   _ran:_ x',
+    '   `Owed:` x — staging',
+    '   \u200bOwed: x — staging',
+    '   \u202eOwed: x — staging',
+    `${' '.repeat(600)}Owed: x — staging\u200b`,
   ];
   for (const line of near) {
     const i = item(line);
     assert.deepEqual(kinds(i), ['unreadable'], line);
     assert.equal(i.checks[0].line, line.trim());
+    assert.equal(started(i.text), true, line);
     assert.equal(i.text, 'A client books a walk (F-02) · #13', line);
     assert.equal(owing(i).length, 1, line);
   }
@@ -111,6 +123,16 @@ test('owing(): a fail stays owed until a later pass for the same check text, or 
   assert.equal(owing(bug).length, 0);
   assert.equal(owing(item('   Owed: a — staging', ran('a', 'pass'))).length, 1, 'an Owed: line is owed until it is replaced');
   assert.deepEqual(owing({ n: 1, text: 'no checks read' }), []);
+  const mixed = item('   Owed: a — staging', ran('b', 'fail'), '   - owed: c', ran('d', 'fail'), ran('d', 'pass'));
+  assert.deepEqual(owing(mixed).map((c) => c.line), mixed.checks.slice(0, 3).map((c) => c.line), 'in the order written');
+});
+
+test('owing() reads a long list in one pass', () => {
+  const lines = Array.from({ length: 40000 }, (_, n) => `   Ran: check ${n} — staging 2026-10-02 fail ${URL13}`);
+  const i = item(...lines);
+  const from = Date.now();
+  assert.equal(owing(i).length, 40000);
+  assert.ok(Date.now() - from < 1000, 'not once per pair of lines');
 });
 
 test('a check and its environment split at the last dash; an environment may be more than one word', () => {
@@ -132,6 +154,7 @@ test('marker(): the issue and repository at the end of the line only; a number t
   assert.equal(marker(`A slice · #${'9'.repeat(30)}`), null);
   assert.equal(started(`A slice · #${'9'.repeat(30)}`), true, 'started() reads as it did');
   assert.equal(marker('A slice (F-01)'), null);
+  assert.equal(marker('A slice · #0'), null);
 });
 
 test('excerpt(): one line, 60 characters at a word boundary, control and format characters dropped, " turned to \'', () => {

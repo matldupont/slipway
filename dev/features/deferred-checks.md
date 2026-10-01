@@ -84,6 +84,9 @@ A Contents item in a milestone doc may carry child lines, indented like any cont
   way than the two above (the wrong case, a bullet, no ` — {environment}`, a date that is no calendar day, a
   result other than `pass` or `fail`, a URL of another shape, a pull request's comment included), it is
   unreadable. It is never dropped and never read as the item's text (decision-defaults §4).
+- **So is a line dressed as markdown.** A `+` bullet, a task box (`- [ ] Owed:`), emphasis or code marks around
+  the word (`**Owed:**`), or an invisible character in front of it: each is still a check line, and unreadable.
+  A bug number of 0 names no bug.
 - **A forgotten indent is unreadable too.** The same line at column 0 (`owed:` or `ran:`, any letter case, with
   or without a bullet), straight after an item, its continuation lines or its check lines, is a check line of
   that item and is unreadable: it is not accepted as written, and the finding says to indent it. After a blank
@@ -114,19 +117,21 @@ in `scripts/milestones.test.mjs`, which `pnpm meta` runs (one more entry in the 
 
 For the active milestone, each owing check adds a Needs attention line, after the open questions:
 
-- `Owed check: {id} item {n} (#{issue}) — {check excerpt} on {env}: run it, post the result as a comment on
+- `Owed check: {id} item {n} (#{issue}) — "{check excerpt}" on "{env}": run it, post the result as a comment on
   #{issue}, then change the Owed line to Ran with that comment's link; #{issue} stays open until then (reopen
   it if it was closed)`
-- `Failed check: {id} item {n} (#{issue}) — {check excerpt} failed on {date}: fix and run it again, or file
+- `Failed check: {id} item {n} (#{issue}) — "{check excerpt}" failed on {date}: fix and run it again, or file
   the bug and name it on the line`
 - `Unreadable check line: {id} item {n} — "{line excerpt}": write it as Owed: or Ran: (docs/milestones/{file})`
 
 `{check excerpt}`, `{env}` and `{line excerpt}` go through `excerpt()` (60 characters, control and format
-characters dropped); a URL is never printed. `excerpt()` moves from `ci/status.mjs` to
+characters dropped) inside quotes, so project text never reads as part of the sentence; a URL is never
+printed: any address in the text is shown as `(link)` first. `excerpt()` moves from `ci/status.mjs` to
 `ci/checks/lib/report.mjs`, beside the list it drops, so the work-order page uses the same one. The Next line
 is unchanged. S1 case `ci/fixtures/status/build-loop-owed`: item 1 started with an `Owed:` line, item 2 with a
 `Ran: … pass` line, item 3 with a `Ran: … fail` line and no bug, item 4 with a fail then a later pass for the
-same check; its `attention` list is exactly the lines for items 1 and 3.
+same check; its `attention` list is exactly the lines for items 1 and 3. S1 case `build-loop-owed-unreadable`
+pins the unreadable line, the `(link)` and where the lines sit in the list.
 
 ### 4. `pnpm meta` — MS1
 
@@ -220,7 +225,9 @@ its environment and an unreadable line go through the same path, and a URL is ne
   Verification defers something is prose. The same holds for a PR that closes the item's issue while it owes:
   status keeps listing the check and the page keeps reading `owes …`, but nothing stops the close.
 - `fail` and `pass` pair by exact check text and by line order: a reworded check reads as a new one, and a
-  pass written above its fail does not clear it.
+  pass written above its fail does not clear it. The environment is not compared: a pass anywhere clears it.
+- MS1's finding and the work-order page quote an unreadable line as written, an address in it included; both
+  escape it. Only status, which every session reads, replaces it with `(link)`.
 - In slipway itself there is no active milestone, so the PR section and the open issue are the only record.
 
 ## Acceptance
@@ -341,7 +348,8 @@ none
 - 2026-09-30 · ADDED · spec · #176
 - 2026-09-30 · CHANGED · built, step 1 (#176): a check line with its indent forgotten is unreadable, not
   dropped (§1); `marker()` also returns the text before the marker (§2); a single-issue row with an open pull
-  request reads `PR #n · owes …` (§5)
+  request reads `PR #n · owes …` (§5). After review: a line dressed as markdown is unreadable too (§1);
+  status quotes check text and shows an address as `(link)` (§3)
 - 2026-09-30 · CHANGED · sharpened before build (#176): the item's issue carries the check when it has
   sub-issues, and nothing closes it while it owes; a nearly-right line is unreadable and owed; `marker()` and
   a shared `excerpt()`; acceptance for `/work-ticket`'s wording made falsifiable; blocked by #183

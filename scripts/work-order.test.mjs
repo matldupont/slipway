@@ -210,6 +210,8 @@ test('an item with sub-issues that owes a check: its open rows are read as befor
   assert.match(shown(items(html)), /2\. Slice with steps \(F-02\) · owes staging journey 'book a walk'/);
   assert.match(text(html), /#13 Issue 13 · PR #20 \(draft\)/);
   assert.match(html, /<code>\/work-ticket 15<\/code>/);
+  assert.match(text(html), /#12 Issue 12 · done/, 'a sub-issue row never says what the item owes');
+  assert.doesNotMatch(between(html, 'Slice with steps', '</article>').split('</h3>')[1], /owes/);
   const w = world();
   w.issues[1].subIssues.nodes = w.issues[1].subIssues.nodes.map((i) => ({ ...i, state: 'CLOSED', stateReason: 'COMPLETED' }));
   w.prs = [];

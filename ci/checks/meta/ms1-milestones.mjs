@@ -106,7 +106,7 @@ for (const { file: f, md, fm } of milestones) {
   for (const item of contents(md)) {
     const at = marker(item.text);
     for (const c of item.checks.filter((c) => c.kind === 'unreadable')) {
-      add(`checks/unreadable:${fm.id}#${item.n}`, `"${excerpt(c.line, 120)}" is not a check line anything can read: ${at ? `indent it under its item and write it as "Owed: {check} — {environment}" or "Ran: {check} — {environment} {yyyy-mm-dd} pass|fail {link to the comment on #${at.issue}}"` : `item ${item.n} has no issue yet (its line does not end with · #n), so nothing can owe a check for it`}`);
+      add(`checks/unreadable:${fm.id}#${item.n}`, `"${excerpt(c.line, 120)}" is not a check line anything can read: ${at ? `write it, indented under its item, as "Owed: {check} — {environment}" or "Ran: {check} — {environment} {yyyy-mm-dd} pass|fail {link to the comment on #${at.issue}}"` : `item ${item.n} has no issue yet (its line does not end with · #n), so nothing can owe a check for it`}`);
     }
     const owes = owing(item).filter((c) => c.kind !== 'unreadable');
     if (fm.status === 'closed' && owes.length) {

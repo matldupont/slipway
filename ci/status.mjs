@@ -136,15 +136,17 @@ for (const file of walk(join(root, 'docs'))) {
 }
 
 // Checks the active milestone's items still owe (F-09): moved to after merge and not recorded, failed with no bug
-// named, or written in a way nothing can read. Project text goes through excerpt(); a URL is never printed.
+// named, or written in a way nothing can read. Project text is quoted through excerpt(), so it cannot close its
+// quotes or read as part of the sentence around it, and an address in it is shown as (link), never printed.
+const quoted = (t) => `"${excerpt(t.replace(/[a-z][a-z0-9+.-]{0,20}:\/\/\S*/gi, '(link)'))}"`;
 const owed_ = [];
 for (const item of cur ? contents(cur.md) : []) {
   const at = marker(item.text);
   const where = `${cur.id} item ${item.n}`;
   for (const c of owing(item)) {
-    if (c.kind === 'unreadable') owed_.push(`Unreadable check line: ${where} — "${excerpt(c.line)}": write it as Owed: or Ran: (docs/milestones/${cur.file})`);
-    else if (c.kind === 'owed') owed_.push(`Owed check: ${where} (#${at.issue}) — ${excerpt(c.check)} on ${excerpt(c.env)}: run it, post the result as a comment on #${at.issue}, then change the Owed line to Ran with that comment's link; #${at.issue} stays open until then (reopen it if it was closed)`);
-    else owed_.push(`Failed check: ${where} (#${at.issue}) — ${excerpt(c.check)} failed on ${c.date}: fix and run it again, or file the bug and name it on the line`);
+    if (c.kind === 'unreadable') owed_.push(`Unreadable check line: ${where} — ${quoted(c.line)}: write it as Owed: or Ran: (docs/milestones/${cur.file})`);
+    else if (c.kind === 'owed') owed_.push(`Owed check: ${where} (#${at.issue}) — ${quoted(c.check)} on ${quoted(c.env)}: run it, post the result as a comment on #${at.issue}, then change the Owed line to Ran with that comment's link; #${at.issue} stays open until then (reopen it if it was closed)`);
+    else owed_.push(`Failed check: ${where} (#${at.issue}) — ${quoted(c.check)} failed on ${c.date}: fix and run it again, or file the bug and name it on the line`);
   }
 }
 

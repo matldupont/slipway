@@ -4,7 +4,7 @@
   "next": "Step 5 (agent) — Build loop: Booking. Every Contents item has an issue: finish them, then run /close-milestone once its Gate is green.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "Owed check: M2 item 1 (#12) — staging journey 'see tomorrow's walks' on staging: run it, post the result as a comment on #12, then change the Owed line to Ran with that comment's link; #12 stays open until then (reopen it if it was closed)",
-    "Failed check: M2 item 3 (#14) — staging journey 'mark a walk paid' failed on 2026-03-09: fix and run it again, or file the bug and name it on the line"
+    "Owed check: M2 item 1 (#12) — \"staging journey 'see tomorrow's walks'\" on \"staging\": run it, post the result as a comment on #12, then change the Owed line to Ran with that comment's link; #12 stays open until then (reopen it if it was closed)",
+    "Failed check: M2 item 3 (#14) — \"staging journey 'mark a walk paid'\" failed on 2026-03-09: fix and run it again, or file the bug and name it on the line"
   ]
 }

@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from './frontmatter.mjs';
 import { plain, prose, section, strictSection } from './markdown.mjs';
+import { UNSAFE } from './report.mjs';
 
 export const MILESTONE_STATUSES = ['shaping', 'active', 'closed', 'killed'];
 export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet'];
@@ -42,10 +43,12 @@ export function readMilestones(root) {
 // written, so a list numbered `1. 1. 1.` gives three items numbered 1.
 //
 // A check line (F-09, dev/features/deferred-checks.md §1) is an indented line starting `owed:` or `ran:`, in any
-// letter case, with or without a bullet. It is never part of `text`, so the marker still ends the item; it goes
-// to `checks`, read or `unreadable`. The same line at column 0, straight after an item or its indented lines, is
-// a forgotten indent: unreadable, never dropped. Any other column-0 line is ignored as before.
-const CHECK_LINE = /^(?:[-*]\s+)?(?:owed|ran):/i;
+// letter case, with or without a bullet, a task box or emphasis around the word, and whatever invisible characters
+// sit in front of it. It is never part of `text`, so the marker still ends the item; it goes to `checks`, read or
+// `unreadable`. The same line at column 0, straight after an item or its indented lines, is a forgotten indent:
+// unreadable, never dropped. Any other column-0 line is ignored as before.
+const CHECK_LINE = /^(?:[-*+]\s+)?(?:\[[ xX]\]\s+)?[*_`]{0,3}(?:owed|ran)[*_`]{0,3}:/i;
+const INVISIBLE = new RegExp(UNSAFE.source, 'gv');
 const CHECK_MAX = 500;
 export function contents(md) {
   const items = [];
@@ -55,8 +58,8 @@ export function contents(md) {
     const item = items[items.length - 1];
     const indented = /^\s+\S/.test(line);
     // Status runs this in every session's hook: a line is cut before any pattern reads it.
-    const cut = line.slice(0, CHECK_MAX).trim();
-    const check = Boolean(item) && !open && (indented || under) && CHECK_LINE.test(cut);
+    const cut = line.trimStart().slice(0, CHECK_MAX).trim();
+    const check = Boolean(item) && !open && (indented || under) && CHECK_LINE.test(cut.replace(INVISIBLE, ''));
     if (open) items.push({ n: Number(open[1]), text: open[2], lines: [] });
     else if (check) item.lines.push({ line: cut, indented });
     else if (item && indented) item.text += ' ' + line.trim();
@@ -86,7 +89,7 @@ function readCheck(line, at) {
   let rest = line.slice(line.indexOf(' ') + 1);
   const run = { date: null, result: null, url: null, bug: null };
   if (kind === 'ran') {
-    const bug = rest.match(/ · bug #(\d{1,9})$/);
+    const bug = rest.match(/ · bug #([1-9]\d{0,8})$/);
     if (bug) rest = rest.slice(0, -bug[0].length);
     const words = rest.split(' ');
     if (words.length < 4) return null;
@@ -104,12 +107,16 @@ function readCheck(line, at) {
 
 // The checks an item still owes: every `Owed:` line, every unreadable check line (a line that cannot be read is
 // never a pass), and every failed run with no bug named and no pass for the same check text on a later line.
+// Read from the last line up, in one pass, so a long list costs no more per line than a short one.
 export function owing(item) {
-  const checks = item.checks ?? [];
-  return checks.filter((c, i) => {
-    if (c.kind !== 'ran') return true;
-    return c.result === 'fail' && c.bug === null && !checks.slice(i + 1).some((d) => d.kind === 'ran' && d.result === 'pass' && d.check === c.check);
-  });
+  const passed = new Set();
+  const owes = [];
+  for (const c of (item.checks ?? []).toReversed()) {
+    if (c.kind !== 'ran') owes.push(c);
+    else if (c.result === 'pass') passed.add(c.check);
+    else if (c.bug === null && !passed.has(c.check)) owes.push(c);
+  }
+  return owes.reverse();
 }
 
 // A Contents item is started when its line ends with the marker /log-feature writes once the item's issue is
@@ -123,11 +130,11 @@ export function started(text) {
 }
 
 // The marker's issue: `{ repo, issue, before }`, `repo` null for a bare ` · #12` and `before` the item's text
-// without the marker. Null when the item has none, or when its number is too long to be an issue's.
+// without the marker. Null when the item has none, or when its number is 0 or too long to be an issue's.
 export function marker(text) {
   const line = text.trimEnd();
   const m = line.slice(-200).match(MARKER);
-  return m && m[2].length <= 9 ? { repo: m[1] ?? null, issue: Number(m[2]), before: line.slice(0, line.length - m[0].length) } : null;
+  return m && m[2].length <= 9 && Number(m[2]) > 0 ? { repo: m[1] ?? null, issue: Number(m[2]), before: line.slice(0, line.length - m[0].length) } : null;
 }
 
 // Bullets under `## No-gos`: a line starting `-` or `*` opens one; indented lines continue it. Read from the prose
