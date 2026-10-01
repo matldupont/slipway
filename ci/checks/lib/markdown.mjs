@@ -5,13 +5,9 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // The text under a heading with this exact title (case-insensitive), up to the next
 // heading of the same or a higher level, with HTML comments removed. null if absent.
 // A RegExp title matches the whole heading text: /9\.\s+Estimates?/ for a renamed one.
-// Comments are removed first, so an example inside a template comment never counts as content.
-// A comment never takes a heading-shaped line with it: a `<!--` in inline code and a `-->` further
-// down would otherwise delete the headings between them and run one section on into the next
-// (#189). Such marks stay as text, and a heading a real comment hides still ends its section.
-const COMMENT = /<!--(?:(?!\n[ \t]*#{1,6}\s)[\s\S])*?-->/g;
+// Comments are removed first (comments()), so an example inside a template comment never counts as content.
 export function section(md, title, level) {
-  const lines = md.replace(COMMENT, '').split(/\r?\n/);
+  const lines = comments(md).text.split(/\r?\n/);
   const text = title instanceof RegExp ? title.source : escapeRe(title);
   const heading = new RegExp(`^#{${level}}\\s+(?:${text})\\s*$`, 'i');
   const start = lines.findIndex((l) => heading.test(l.trim()));
@@ -23,6 +19,27 @@ export function section(md, title, level) {
     body.push(l);
   }
   return body.join('\n').trim();
+}
+
+// A line section() could read as a heading, at any indent: it finds one by its trimmed line.
+const HEADING = /^#{1,6}(?:\s|$)/;
+
+// The text with HTML comments removed, and whether a span from a `<!--` to the next `-->` held a heading-shaped
+// line. Such a span may be a comment or two marks written as text (a `<!--` in inline code, a `-->` further
+// down), and without a parser this cannot tell: its heading lines stay, so no section runs on into the next,
+// and the rest of it is not counted, so text that may be hidden never passes as shown (#189). `crossed` lets a
+// check say so (P1); the other readers only get the text.
+export function comments(md) {
+  let crossed = false;
+  const text = md.replace(/<!--[\s\S]*?-->/g, (span) => {
+    // The first piece is the tail of the opener's line and the last ends at the closer: neither is a whole line,
+    // but a heading line that holds the closer keeps what stands before it.
+    const pieces = span.slice(0, -3).split('\n').map((l, i) => (i > 0 && HEADING.test(l.trim()) ? l : null));
+    if (pieces.every((l) => l === null)) return '';
+    crossed = true;
+    return pieces.filter((l, i) => l !== null || i === 0 || i === pieces.length - 1).map((l) => l ?? '').join('\n');
+  });
+  return { text, crossed };
 }
 
 // The text a reader sees as prose, roughly: the frontmatter, HTML comments and fenced code blocks removed (an
