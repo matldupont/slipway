@@ -16,7 +16,7 @@
 // pass when the address is https on the host the root `.npmrc` `registry=` names (lib/npmrc.mjs, #147); `.npmrc`
 // is a gate file, so changing that host reaches the owner. Known limitation: scoped `@scope:registry=` lines are
 // not read, so a scoped private registry is excused entry by entry; and a registry set anywhere but the root
-// `.npmrc` (the environment, a user-level file, pnpm-workspace.yaml) is not read either.
+// `.npmrc` (the environment, the home folder's .npmrc, pnpm-workspace.yaml) is not read either.
 //
 // It reads the file, never a checkout's history, so it can run before pnpm does anything: CI runs it with
 // the runner's node before `pnpm install`, as N1 runs before pnpm (#133). Nothing it cannot read is a pass:
