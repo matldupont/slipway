@@ -1,0 +1,8 @@
+{
+  "name": "fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-mirror": "1.0.0",
+    "fixture-ok": "^1.0.0"
+  }
+}

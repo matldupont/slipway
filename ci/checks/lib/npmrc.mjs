@@ -9,39 +9,47 @@
 // What is read: the `registry=` line, nothing else. Scoped `@scope:registry=` lines are not read, so a scoped
 // private registry is still excused entry by entry. Credentials and auth settings (`//host/:_authToken=`) are
 // never read, and no value of this file is ever printed: a registry URL can carry a user and password.
-// What it will not guess at throws, so LK1 exits BROKEN and never passes on a file it could not read: two
-// `registry=` lines, an empty or spaced value, a `${VAR}` it cannot resolve, a value the URL parser rejects.
-// An `http:` registry, or one with no `registry=` line at all, trusts no host: LK1 then judges every `tarball:` as
-// it did before.
+//
+// The host LK1 trusts must be the one pnpm uses, and pnpm reads this file with the `ini` package. Where this reader
+// and `ini` could name different hosts, no host is trusted and `why` says so, so LK1 judges every `tarball:` as it
+// did before: a `;` or `#` (ini ends the value there, a URL parser reads `good.invalid;@bad.invalid` as a user and
+// a host), a `\` or `@` or a space in the value, a `${VAR}`, a `[section]` anywhere (ini nests what follows),
+// and a space other than a plain one around the key. Two `registry=` lines are BROKEN: which is the registry is
+// unknown. An `http:` registry, or one with no `registry=` line, trusts no host either.
 
 export const NPMRC = '.npmrc';
 
-const FIX = 'LK1 trusts the one host `registry=` names — keep a single `registry=https://host/` line with no variable in it, or remove the line and excuse each entry in ci/exceptions.yaml';
+const FIX = 'LK1 trusts the one host `registry=` names — keep a single `registry=https://host/` line, or remove it and excuse each entry in ci/exceptions.yaml';
+const none = (why) => ({ host: null, why });
+const trimmed = (v) => v.replace(/^[ \t]+|[ \t]+$/g, '');
 
 /**
  * @param {string} text  the contents of the root .npmrc
- * @returns {string | null}  the host (with its port, when not the scheme's default, lower case) tarballs may come from, or null
+ * @returns {{ host: string | null, why: string | null }}  the host (with its port, when not the scheme's default, lower case) tarballs may come from, or null with a one-line reason that never holds a value of the file
  */
 export function registryHost(text) {
   const values = [];
   for (const raw of text.split(/\r\n|\n|\r/)) {
     const line = raw.trim();
     if (line === '' || line.startsWith(';') || line.startsWith('#')) continue;
-    const m = /^registry\s*=(.*)$/.exec(line);
-    if (m) values.push(m[1].trim());
+    if (line.startsWith('[')) return none('has a [section] header, which npm reads as settings of that section');
+    const m = /^(["']?)registry\1(\s*)=(.*)$/.exec(line);
+    if (!m) continue;
+    if (/[^ \t]/.test(m[2])) return none('has a registry= line spaced with a character other than a plain space');
+    values.push(trimmed(m[3]));
   }
-  if (values.length === 0) return null;
+  if (values.length === 0) return none(null);
   if (values.length > 1) throw new Error(`${NPMRC} has ${values.length} registry= lines, so which host is the registry is unknown — ${FIX}`);
   let value = values[0];
   if (/^(["']).*\1$/.test(value)) value = value.slice(1, -1);
-  if (!/^\S+$/.test(value) || value.includes('${')) throw new Error(`${NPMRC} has a registry= line this check cannot read as an address (empty, spaced, or a variable) — ${FIX}`);
+  if (!/^[^\s;#\\@$]+$/.test(value)) return none('has a registry= line this check cannot read as one plain address (a comment, a variable, a space, a user or an escape in it)');
   let url;
   try {
     url = new URL(value);
   } catch {
-    throw new Error(`${NPMRC} has a registry= line that is not an address — ${FIX}`);
+    return none('has a registry= line that is not an address');
   }
-  return url.protocol === 'https:' ? url.host : null;
+  return url.protocol === 'https:' ? { host: url.host, why: null } : none('names a registry that is not https');
 }
 
 /**

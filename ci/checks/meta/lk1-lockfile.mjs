@@ -61,6 +61,8 @@ const declared = ws.root.dependencies + ws.packages.reduce((n, p) => n + p.depen
 const path = join(root, LOCKFILE);
 let entries = 0;
 let problems = [];
+let host = null;
+let why = null;
 const st = lstatOrNull(path);
 if (st) {
   if (!st.isFile()) stop(`${LOCKFILE} is not a regular file (a link or folder), so what it lists cannot be read from here`);
@@ -68,7 +70,7 @@ if (st) {
     const workspaceDirs = workspaceFolders(root, ws.packages.map((p) => p.dir));
     const rc = lstatOrNull(join(root, NPMRC));
     if (rc && !rc.isFile()) throw new Error(`${NPMRC} is not a regular file (a link or folder), so the registry it names cannot be read from here`);
-    const host = rc ? registryHost(readFileSync(join(root, NPMRC), 'utf8')) : null;
+    ({ host, why } = rc ? registryHost(readFileSync(join(root, NPMRC), 'utf8')) : { host: null, why: null });
     ({ entries, problems } = checkLockfile(parseLockfile(readFileSync(path, 'utf8')), workspaceDirs, host));
   } catch (e) {
     stop(e.message);
@@ -105,7 +107,7 @@ for (const p of problems) {
   }
   findings.push({
     where: id,
-    detail: `${KINDS[p.kind]}, not from the registry with an integrity hash — publish it to the registry, or add a dated entry with id: ${id}, a reason and an owner to ci/exceptions.yaml`,
+    detail: `${KINDS[p.kind]}, not from the registry with an integrity hash — publish it to the registry, or add a dated entry with id: ${id}, a reason and an owner to ci/exceptions.yaml${p.kind === 'tarball' && why ? `; no tarball host is trusted because ${NPMRC} ${why}` : ''}`,
   });
 }
 

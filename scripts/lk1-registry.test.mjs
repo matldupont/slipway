@@ -107,16 +107,54 @@ test('a tarball on the registry host with a third key beside the integrity and t
   }
 });
 
-test('an .npmrc LK1 cannot read is BROKEN, and its text is never printed', () => {
+test('two registry= lines are BROKEN, and the .npmrc text is never printed', () => {
+  const dir = mirrorProject(tarballAt(`https://${HOST}/m.tgz`), `registry=https://user:SECRETTOKEN@${HOST}/\nregistry=https://other.example.invalid/\n`);
+  try {
+    const r = lk1(dir);
+    assert.equal(r.status, 2, r.out);
+    assert.match(r.json.broken, /^\.npmrc has 2 registry= lines/);
+    assert.doesNotMatch(r.out, /SECRETTOKEN/);
+  } finally {
+    done(dir);
+  }
+});
+
+// Where npm's ini reader and a URL parser could name different hosts, no host is trusted: the tarball fails, with the reason.
+const AMBIGUOUS = {
+  'a ; that ends the value for ini': `registry=https://good.example.invalid;@${HOST}/\n`,
+  'a # comment after the value': `registry=https://${HOST}/ # note\n`,
+  'a variable': `registry=\${REGISTRY}\n`,
+  'a user and a password': `registry=https://user:SECRETTOKEN@${HOST}/\n`,
+  'an escape': `registry=https://${HOST}\\;/\n`,
+  'a space in the value': 'registry=not an address\n',
+  'a value that is not an address': 'registry=nothost\n',
+  'an empty value': 'registry=\n',
+  'a [section] before the line': `[s]\nregistry=https://${HOST}/\n`,
+  'a [section] after the line': `registry=https://${HOST}/\n[s]\nx=y\n`,
+  'a no-break space around the key': `registry\u00a0=https://${HOST}/\n`,
+  'a no-break space inside the value': `registry=https://${HOST}/\u00a0x\n`,
+};
+test('a registry= line this check could read differently from npm trusts no host', () => {
   const lock = tarballAt(`https://${HOST}/m.tgz`);
-  const secret = 'https://user:SECRETTOKEN@mirror.example.invalid/';
-  for (const npmrc of [`registry=https://${HOST}/\nregistry=https://other.example.invalid/\n`, 'registry=\n', `registry=\${REGISTRY}\n`, 'registry=not an address\n', 'registry=nothost\n', `registry=${secret} ;comment\n`]) {
+  for (const [what, npmrc] of Object.entries(AMBIGUOUS)) {
     const dir = mirrorProject(lock, npmrc);
     try {
       const r = lk1(dir);
-      assert.equal(r.status, 2, `${JSON.stringify(npmrc)}: ${r.out}`);
-      assert.match(r.json.broken, /^\.npmrc /);
-      assert.doesNotMatch(r.out, /SECRETTOKEN|REGISTRY\}|nothost/);
+      assert.equal(r.status, 1, `${what}: ${r.out}`);
+      assert.match(r.json.findings[0].detail, /no tarball host is trusted because \.npmrc /, what);
+      assert.doesNotMatch(r.out, /SECRETTOKEN|nothost/, what);
+    } finally {
+      done(dir);
+    }
+  }
+});
+
+test('the same .npmrc lines do not stop a project whose lockfile has no tarball: it passes as before', () => {
+  const plain = lockfile({ deps: [['m', '1.0.0', '1.0.0']], packages: `  m@1.0.0:\n    resolution: {integrity: ${HASH}}\n\n`, snapshots: '  m@1.0.0: {}\n' });
+  for (const [what, npmrc] of Object.entries(AMBIGUOUS)) {
+    const dir = mirrorProject(plain, npmrc);
+    try {
+      assert.equal(lk1(dir).status, 0, what);
     } finally {
       done(dir);
     }
@@ -201,17 +239,22 @@ test('a package copied from a workspace package folder passes; any other file: s
 // --- the .npmrc reader and the host comparison ---
 
 test('registryHost reads the one registry= line and nothing else', () => {
-  assert.equal(registryHost(''), null);
-  assert.equal(registryHost('cache=/x\n//host/:_authToken=abc\n@s:registry=https://s.example.invalid/\n'), null, 'scoped and auth lines are not read');
-  assert.equal(registryHost('; registry=https://a.example.invalid/\n# registry=https://b.example.invalid/\n'), null, 'comments');
-  assert.equal(registryHost('registry=https://A.Example.invalid/path/\n'), 'a.example.invalid');
-  assert.equal(registryHost('  registry = "https://a.example.invalid:8443/"\r\n'), 'a.example.invalid:8443');
-  assert.equal(registryHost('registry=http://a.example.invalid/\n'), null, 'http trusts no host');
+  const host = (t) => registryHost(t).host;
+  assert.deepEqual(registryHost(''), { host: null, why: null });
+  assert.equal(host('cache=/x\n//host/:_authToken=abc\n@s:registry=https://s.example.invalid/\n'), null, 'scoped and auth lines are not read');
+  assert.equal(host('; registry=https://a.example.invalid/\n# registry=https://b.example.invalid/\n'), null, 'comments');
+  assert.equal(host('registry=https://A.Example.invalid/path/\n'), 'a.example.invalid');
+  assert.equal(host('  registry = "https://a.example.invalid:8443/"\r\n'), 'a.example.invalid:8443');
+  assert.equal(host('"registry"=https://a.example.invalid/\n'), 'a.example.invalid', 'ini reads a quoted key as the key');
+  assert.match(registryHost('registry=http://a.example.invalid/\n').why, /not https/);
   assert.throws(() => registryHost('registry=https://a.example.invalid/\nregistry=https://b.example.invalid/\n'), /2 registry= lines/);
-  assert.throws(() => registryHost('registry=\n'), /cannot read/);
-  assert.throws(() => registryHost('registry=https://${HOST}/\n'), /cannot read/);
-  assert.throws(() => registryHost('registry=a b\n'), /cannot read/);
-  assert.throws(() => registryHost('registry=nothost\n'), /not an address/);
+  assert.throws(() => registryHost('registry=https://a.example.invalid/\n"registry"=https://b.example.invalid/\n'), /2 registry= lines/, 'a quoted key is a second line');
+  for (const text of ['registry=https://a.example.invalid;@b.example.invalid/', 'registry=https://a.example.invalid/ ;x', 'registry=${R}', 'registry=a b', 'registry=nothost', 'registry=', '[s]\nregistry=https://a.example.invalid/', 'registry\u00a0=https://a.example.invalid/']) {
+    const r = registryHost(text);
+    assert.equal(r.host, null, text);
+    assert.ok(r.why, text);
+    assert.doesNotMatch(r.why, /example|nothost/, 'the reason holds no value of the file');
+  }
 });
 
 test('onHost: https, no user, the parsed host equal, nothing the parser would drop', () => {
