@@ -1,15 +1,15 @@
 {
-  "_note": "Check lines nothing can read, in the active milestone (F-09): a bulleted lower-case line (item 1), one with its indent forgotten (item 2), a Ran: line whose link is not a comment on the item's issue (item 3), and a well-formed Owed: line under an item with no issue (item 5). Each is listed, never dropped, and each item with a marker is still started, so Next names item 5. Item 4's Owed: line is readable and holds two addresses: each prints as (link), never as itself, and the text is quoted, with its own double quotes turned to single ones, so it cannot read as part of the sentence. The check lines come after the open question and before the parked one.",
+  "_note": "Check lines of the active milestone whose text is hostile (F-09): an address, an address split by a zero-width space, an instruction-shaped sentence, a line hidden behind a zero-width joiner, a forgotten indent, a line under an item with no issue. Status prints no project text from a check line: only the item, its issue, a count, a validated date and the file, so nothing in these lines (each carries a SENTINEL word) reaches the output; scripts/milestones.test.mjs asserts that on this case. Item 1 has two unreadable lines, item 3 two failed runs, item 4 two owed checks: one line each, with a count. The lines sit after the open question and before the parked one. Every item with a marker is still started, so Next names item 5.",
   "today": "2026-03-10",
   "next": "Step 5 (agent) — Build loop: Booking. Next slice: item 5, \"Reminders go out the night before (F-05)\". Start it in a fresh session with /log-feature M2#5.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
     "Open question: docs/milestones/M2-booking.md:12 — which walkers first?",
-    "Unreadable check line: M2 item 1 — \"- owed: staging journey 'see tomorrow's walks' — staging\": write it as Owed: or Ran: (docs/milestones/M2-booking.md)",
-    "Unreadable check line: M2 item 2 — \"Owed: staging journey 'book a walk' — staging\": write it as Owed: or Ran: (docs/milestones/M2-booking.md)",
-    "Unreadable check line: M2 item 3 — \"Ran: staging journey 'mark a walk paid' — staging…\": write it as Owed: or Ran: (docs/milestones/M2-booking.md)",
-    "Owed check: M2 item 4 (#15) — \"see (link) and 'run' it\" on \"staging (link)\": run it, post the result as a comment on #15, then change the Owed line to Ran with that comment's link; #15 stays open until then (reopen it if it was closed)",
-    "Unreadable check line: M2 item 5 — \"Owed: staging journey 'a reminder arrives' — staging\": write it as Owed: or Ran: (docs/milestones/M2-booking.md)",
+    "Unreadable check line: M2 item 1 — 2 line(s) under it start owed: or ran: and cannot be read, so each counts as owed: write it as Owed: or Ran: (docs/milestones/M2-booking.md)",
+    "Unreadable check line: M2 item 2 — 1 line(s) under it start owed: or ran: and cannot be read, so each counts as owed: write it as Owed: or Ran: (docs/milestones/M2-booking.md)",
+    "Failed check: M2 item 3 (#14) — 2 run(s) failed on 2026-03-09, 2026-03-08 (the Ran: lines under it in docs/milestones/M2-booking.md): fix and run it again, or file the bug and name it on the line",
+    "Owed check: M2 item 4 (#15) — 2 check(s) moved to after merge with no run recorded (the Owed: lines under it in docs/milestones/M2-booking.md): run each, post the result as a comment on #15, then change the Owed line to Ran with that comment's link; #15 stays open until then (reopen it if it was closed)",
+    "Unreadable check line: M2 item 5 — 1 line(s) under it start owed: or ran: and cannot be read, so each counts as owed: write it as Owed: or Ran: (docs/milestones/M2-booking.md)",
     "Parked: docs/milestones/M2-booking.md:13 — reminders by text or email (#9)"
   ]
 }

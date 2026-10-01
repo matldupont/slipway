@@ -136,18 +136,20 @@ for (const file of walk(join(root, 'docs'))) {
 }
 
 // Checks the active milestone's items still owe (F-09): moved to after merge and not recorded, failed with no bug
-// named, or written in a way nothing can read. Project text is quoted through excerpt(), so it cannot close its
-// quotes or read as part of the sentence around it, and an address in it is shown as (link), never printed.
-const quoted = (t) => `"${excerpt(t.replace(/[a-z][a-z0-9+.-]{0,20}:\/\/\S*/gi, '(link)'))}"`;
+// named, or written in a way nothing can read. These lines enter every session through the hook, and a milestone
+// doc is text a pull request can carry, so they print no project text from a check line: only the item's number,
+// its issue's number, a count, a date that is a calendar day, and the file to open. The milestone's id is printed
+// only in the shape the skills accept.
 const owed_ = [];
 for (const item of cur ? contents(cur.md) : []) {
-  const at = marker(item.text);
-  const where = `${cur.id} item ${item.n}`;
-  for (const c of owing(item)) {
-    if (c.kind === 'unreadable') owed_.push(`Unreadable check line: ${where} — ${quoted(c.line)}: write it as Owed: or Ran: (docs/milestones/${cur.file})`);
-    else if (c.kind === 'owed') owed_.push(`Owed check: ${where} (#${at.issue}) — ${quoted(c.check)} on ${quoted(c.env)}: run it, post the result as a comment on #${at.issue}, then change the Owed line to Ran with that comment's link; #${at.issue} stays open until then (reopen it if it was closed)`);
-    else owed_.push(`Failed check: ${where} (#${at.issue}) — ${quoted(c.check)} failed on ${c.date}: fix and run it again, or file the bug and name it on the line`);
-  }
+  const owes = owing(item);
+  const issue = marker(item.text)?.issue;
+  const where = `${/^M\d+$/.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${item.n}`;
+  const file = `docs/milestones/${cur.file}`;
+  const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
+  if (owed.length) owed_.push(`Owed check: ${where} (#${issue}) — ${owed.length} check(s) moved to after merge with no run recorded (the Owed: lines under it in ${file}): run each, post the result as a comment on #${issue}, then change the Owed line to Ran with that comment's link; #${issue} stays open until then (reopen it if it was closed)`);
+  if (failed.length) owed_.push(`Failed check: ${where} (#${issue}) — ${failed.length} run(s) failed on ${[...new Set(failed.map((c) => c.date))].join(', ')} (the Ran: lines under it in ${file}): fix and run it again, or file the bug and name it on the line`);
+  if (unreadable.length) owed_.push(`Unreadable check line: ${where} — ${unreadable.length} line(s) under it start owed: or ran: and cannot be read, so each counts as owed: write it as Owed: or Ran: (${file})`);
 }
 
 const anchor = (read('process/anchor') ?? '').trim();

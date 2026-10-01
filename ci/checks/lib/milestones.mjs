@@ -44,11 +44,13 @@ export function readMilestones(root) {
 //
 // A check line (F-09, dev/features/deferred-checks.md §1) is an indented line starting `owed:` or `ran:`, in any
 // letter case, with or without a bullet, a task box or emphasis around the word, and whatever invisible characters
-// sit in front of it. It is never part of `text`, so the marker still ends the item; it goes to `checks`, read or
+// sit in front of it: the line is tested on a copy with every invisible and format character removed (the joiner
+// and the variation selectors report.mjs keeps for emoji included), then trimmed, then cut. The copy is for
+// detection only. It is never part of `text`, so the marker still ends the item; it goes to `checks`, read or
 // `unreadable`. The same line at column 0, straight after an item or its indented lines, is a forgotten indent:
 // unreadable, never dropped. Any other column-0 line is ignored as before.
 const CHECK_LINE = /^(?:[-*+]\s+)?(?:\[[ xX]\]\s+)?[*_`]{0,3}(?:owed|ran)[*_`]{0,3}:/i;
-const INVISIBLE = new RegExp(UNSAFE.source, 'gv');
+const INVISIBLE = new RegExp(`${UNSAFE.source}|[\\u200d\\ufe0e\\ufe0f]`, 'gv');
 const CHECK_MAX = 500;
 export function contents(md) {
   const items = [];
@@ -59,7 +61,7 @@ export function contents(md) {
     const indented = /^\s+\S/.test(line);
     // Status runs this in every session's hook: a line is cut before any pattern reads it.
     const cut = line.trimStart().slice(0, CHECK_MAX).trim();
-    const check = Boolean(item) && !open && (indented || under) && CHECK_LINE.test(cut.replace(INVISIBLE, ''));
+    const check = Boolean(item) && !open && (indented || under) && CHECK_LINE.test(line.replace(INVISIBLE, '').trimStart().slice(0, CHECK_MAX));
     if (open) items.push({ n: Number(open[1]), text: open[2], lines: [] });
     else if (check) item.lines.push({ line: cut, indented });
     else if (item && indented) item.text += ' ' + line.trim();

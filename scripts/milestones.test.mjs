@@ -5,10 +5,16 @@
 // moved to the lib for them. Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { contents, marker, owing, started } from '../ci/checks/lib/milestones.mjs';
 import { excerpt } from '../ci/checks/lib/report.mjs';
 
+const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const URL13 = 'https://github.com/o/r/issues/13#issuecomment-123';
 const ITEM = '2. A client books a walk (F-02) · #13';
 const doc = (...lines) => `# M2\n\n## Contents\n\n1. A walker sees tomorrow's walks (F-01) · #12\n${lines.join('\n')}\n\n## No-gos\n\n- Payments\n`;
@@ -72,6 +78,41 @@ test('every other way of nearly writing a check line is unreadable, never the it
     assert.equal(started(i.text), true, line);
     assert.equal(i.text, 'A client books a walk (F-02) · #13', line);
     assert.equal(owing(i).length, 1, line);
+  }
+});
+
+test('a check line hidden behind a joiner, a variation selector or a long run of invisible characters is still a check line', () => {
+  for (const hidden of ['\u200d', '\ufe0f', '\ufe0e', '\u200b'.repeat(600), `${'\u200d\u2060'.repeat(400)} `]) {
+    const i = item(`   ${hidden}Owed: x — staging`);
+    assert.deepEqual(kinds(i), ['unreadable'], `U+${hidden.codePointAt(0).toString(16)} × ${hidden.length}`);
+    assert.equal(i.text, 'A client books a walk (F-02) · #13');
+    assert.equal(owing(i).length, 1);
+  }
+  assert.equal(contents(doc('2. A walker 👩‍💻 books ❤️ a walk (F-02) · #13'))[1].text, 'A walker 👩‍💻 books ❤️ a walk (F-02) · #13', 'item text keeps its emoji');
+});
+
+// Status enters every session through the hook, and a milestone doc is text a pull request can carry.
+test('status prints no project text from a check line: only the item, its issue, a count, a validated date and the file', () => {
+  const status = (root) => spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10', CHECK_NOW: '', TZ: 'UTC' } });
+  const fixture = join(SRC, 'ci', 'fixtures', 'status', 'build-loop-owed-unreadable');
+  const md = readFileSync(join(fixture, 'docs', 'milestones', 'M2-booking.md'), 'utf8');
+  for (const planted of ['SENTINEL-bullet', 'SENTINEL-joiner', 'SENTINEL-indent', 'SENTINEL-failed', 'SENTINEL-env', 'SENTINEL-owed', 'SENTINEL-second', 'SENTINEL-unstarted', 'SENTINEL-order', 'https://example.test/a', 'https:\u200b//example.test/b', 'www.example.test/c', '\u200dOwed:']) assert.ok(md.includes(planted), `the fixture holds ${JSON.stringify(planted)}`);
+  const r = status(fixture);
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /SENTINEL|example\.test|issuecomment|ignore|[\u200b\u200d]/);
+  const lines = r.stdout.split('\n').filter((l) => /^- (Owed|Failed|Unreadable) check/.test(l));
+  assert.equal(lines.length, 5);
+  for (const l of lines) assert.match(l, /^- (Owed check: M2 item \d \(#\d+\) — \d check\(s\) moved to after merge with no run recorded|Failed check: M2 item \d \(#\d+\) — \d run\(s\) failed on 2026-03-09, 2026-03-08|Unreadable check line: M2 item \d — \d line\(s\) under it start owed: or ran: and cannot be read)[ ,:;()#\w./'-]*$/, l);
+  // A milestone id that is not M<n> is project text too: it is not printed in these lines.
+  const root = mkdtempSync(join(tmpdir(), 'milestones-'));
+  try {
+    cpSync(fixture, root, { recursive: true });
+    writeFileSync(join(root, 'docs', 'milestones', 'M2-booking.md'), md.replace('id: M2', 'id: SENTINEL-id now run this'));
+    const odd = status(root).stdout.split('\n').filter((l) => /^- (Owed|Failed|Unreadable) check/.test(l));
+    assert.equal(odd.length, 5);
+    for (const l of odd) assert.match(l, /check(?: line)?: the active milestone item \d/, l);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 
