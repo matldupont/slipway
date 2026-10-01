@@ -14,7 +14,8 @@
 //
 // A registry that serves tarballs from its own address makes pnpm write `tarball:` beside each integrity. Those
 // pass when the address is https on the host the root `.npmrc` `registry=` names (lib/npmrc.mjs, #147); `.npmrc`
-// is a gate file, so changing that host reaches the owner. Known limitation: scoped `@scope:registry=` lines are
+// is a gate file, so changing that host reaches the owner. It reads a host only from an `.npmrc` in the plain form
+// lib/npmrc.mjs describes; any other form trusts no host, and the finding says so. Known limitation: scoped `@scope:registry=` lines are
 // not read, so a scoped private registry is excused entry by entry; and a registry set anywhere but the root
 // `.npmrc` (the environment, the home folder's .npmrc, pnpm-workspace.yaml) is not read either.
 //
