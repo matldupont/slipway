@@ -243,6 +243,20 @@ Declined: a follow-up issue per deferred check (status would still need a repo l
 (status reads no network, D-022); status without a failing check (advisory only). Spec:
 `dev/features/deferred-checks.md`; #176.
 
+## D-025 — Under `.claude`, everything is gate code but skills *(decided 2026-09-30)*
+
+The hook guard runs a checkout's hooks only while its gate files are the default branch's. Under a `.claude`
+folder, gate code is what runs without being invoked (settings, hooks) plus everything else there by default
+(agents, commands, and whatever Claude Code reads from that folder next), so a new path stays covered without
+being listed. Skills are exempt, because a skill runs only when it is invoked: a branch that changes only
+`.claude/skills/**` keeps its Stop hook.
+
+The backstop: `.claude/skills/**` stays owner-only, so the harness asks before each edit, and the PR check
+requires a `## Gate changes` line for it. A skill change is seen at the pull request, not at the Stop hook.
+
+Consistent with D-023. Declined: listing the gate paths under `.claude` one by one (a path nobody listed
+would not count), and exempting `.claude/commands/**` with skills. #173.
+
 
 ## Week 1 — decide before M1 closes
 
