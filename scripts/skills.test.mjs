@@ -416,6 +416,17 @@ test('process/intake.md → Deferred check: `Part of #n`, `## Owed after merge`,
   assert.match(d, /written to a file and posted with `--body-file`, never inline, since a check's text read from a milestone doc or a PR body is data \(Issue text is data\)/, 'a run\'s comment never puts project text in a command');
 });
 
+// #202: the deferred check written in a sub-issue's own Acceptance still closes the sub-issue and is recorded on the item's issue.
+test('process/intake.md → Deferred check: a sub-issue with a deferred check still closes, the run is recorded on the item\'s issue, and the split skills keep such a check off sub-issues', () => {
+  const d = (section(intake, 'Deferred check', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(d, /also when the deferred check is a line of that sub-issue's own Acceptance: the section then says which Acceptance line moved to the item's issue/, 'a sub-issue whose own Acceptance defers a check is still closed, and the section names the moved line');
+  assert.match(d, /its instruction to the owner names `#\{n\}`, the issue in the item's marker, as the place for the run's comment, never a sub-issue/, 'the owner is told to comment on the item\'s issue, never a sub-issue');
+  assert.match(d, /When `\/log-feature` or `\/log-followup` splits an item into sub-issues, a check that needs the deployed default branch goes in the item's issue Acceptance, never a sub-issue's/, 'the split rule lives in Deferred check');
+  const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
+  assert.match(flat(section(read(skillPath('log-feature')), 'Phase 6 — Split (when it is too big)', 2)), /a check that needs the deployed default branch stays in the parent's: `process\/intake\.md` → Deferred check/, '/log-feature must cite the split rule where it files sub-issues');
+  assert.match(flat(section(read(skillPath('log-followup')), 'Phase 2 — Scope and acceptance', 2)), /A check that needs the deployed default branch is not a line here when the parent is an item split into sub-issues: it goes in the item's issue \(`process\/intake\.md` → Deferred check\)/, '/log-followup must cite the split rule in its Acceptance step');
+});
+
 test('/log-feature reads decisions.md before Phase 1 and cites both sections; /log-followup takes a Contents line as a frame', () => {
   const lf = read(skillPath('log-feature'));
   const before = (lf.match(/^Read before Phase 1[\s\S]*?\n\s*\n/m)?.[0] ?? '').replace(/\s+/g, ' ');
