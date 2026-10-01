@@ -7,9 +7,10 @@
 //   node ci/roadmap.mjs [root] --enabled                   print enabled=true|false (for $GITHUB_OUTPUT)
 //
 // Off unless AGENT.md's `Roadmap page` row says `public`. Off writes nothing and exits 0; a value it does not
-// know exits 1 and writes nothing, so a typo never publishes.
+// know exits 1 and writes nothing, so a typo never publishes. --enabled adds a `reason=` line when the row is
+// there and does not count; the workflow reads only `enabled`.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { agentRow, today as localToday } from './checks/lib/clock.mjs';
@@ -19,13 +20,33 @@ import { escapeHtml } from './checks/lib/html.mjs';
 import { UNSAFE } from './checks/lib/report.mjs';
 
 const ROW = 'Roadmap page';
+const DROP = new RegExp(UNSAFE.source, 'gv');
+const MARKS = ['<!--', '-->', '```', '~~~'];
 
-// 'off' or 'public'. Throws on any other value.
+// { on, why }. Raw lines of AGENT.md, no markdown reader: on only when exactly one line names the row, it starts
+// its line, says `public`, sits under ## Skill Configuration, and no line above it holds a comment or fence mark.
+// `why` is fixed words and a count, never file text; null when there is no row, or it says off. Throws on a value
+// it does not know.
 export function roadmapSwitch(root) {
-  const value = agentRow(root, ROW, 'Skill Configuration');
-  if (!value || value === 'off' || value.startsWith('<')) return 'off';
-  if (value === 'public') return 'public';
-  throw new Error(`AGENT.md ${ROW} is "${value.replace(new RegExp(UNSAFE.source, 'gv'), '')}": use off or public`);
+  const p = join(root, 'AGENT.md');
+  const lines = existsSync(p) ? readFileSync(p, 'utf8').split(/\r?\n/) : [];
+  const off = (why) => ({ on: false, why });
+  const rows = [];
+  lines.forEach((l, i) => /roadmap page[ \t]*\|/i.test(l) && rows.push(i));
+  if (rows.length === 0) return off(null);
+  if (rows.length > 1) return off(`${rows.length} ${ROW} rows; keep one`);
+  const at = rows[0];
+  const cell = lines[at].match(/^\|[ \t]*Roadmap page[ \t]*\|([^|]*)/)?.[1];
+  if (cell === undefined) return off(`the ${ROW} row must start its line with | ${ROW} |`);
+  const value = (cell.match(/`([^`]+)`/)?.[1] ?? cell.trim().split(/\s/)[0]).trim();
+  if (!value || value === 'off' || value.startsWith('<')) return off(null);
+  if (value !== 'public') throw new Error(`AGENT.md ${ROW} is "${value.replace(DROP, '')}": use off or public`);
+  let head = at - 1;
+  while (head >= 0 && !/^#{1,2}(?:[ \t]|$)/.test(lines[head])) head--;
+  if (head < 0 || !/^##[ \t]+Skill Configuration[ \t]*$/i.test(lines[head])) return off(`the ${ROW} row is not under ## Skill Configuration`);
+  for (let i = 0; i < at; i++)
+    if (MARKS.some((m) => lines[i].includes(m))) return off(`a code fence or comment sits above the ${ROW} row; move the Skill Configuration section above it`);
+  return { on: true, why: null };
 }
 
 // The allowlist (dev/features/roadmap-page.md → The allowlist). Every field the page shows is named here, and
@@ -44,8 +65,6 @@ export function project(m) {
     clock: m.status === 'active' && m.clock ? { day: m.clock.day, of: m.clock.of, end: m.clock.end, overrun: m.clock.overrun } : null,
   };
 }
-
-const DROP = new RegExp(UNSAFE.source, 'gv');
 
 const KIND = { skeleton: 'First end-to-end version', mvp: 'First usable version', release: 'Release', bet: 'Improvement' };
 const byNumber = (a, b) => (milestoneNumber(a.id) || 0) - (milestoneNumber(b.id) || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -141,19 +160,19 @@ function main(argv) {
     process.stderr.write('roadmap: --sha takes a hex commit sha\n');
     return 2;
   }
-  let on;
+  let on, why;
   try {
-    on = roadmapSwitch(root) === 'public';
+    ({ on, why } = roadmapSwitch(root));
   } catch (e) {
     process.stderr.write(`roadmap: ${e.message}\n`);
     return 1;
   }
   if (enabled) {
-    process.stdout.write(`enabled=${on}\n`);
+    process.stdout.write(`enabled=${on}\n${why ? `reason=${why}\n` : ''}`);
     return 0;
   }
   if (!on) {
-    process.stdout.write(`roadmap: off (AGENT.md ${ROW})\n`);
+    process.stdout.write(`roadmap: off (${why ?? `AGENT.md ${ROW}`})\n`);
     return 0;
   }
   let html;

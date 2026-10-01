@@ -65,35 +65,77 @@ test('no row or off: --out writes nothing and says so, --enabled prints false', 
   assert.equal(run(join(FIX, 'full'), ['--enabled']).stdout, 'enabled=true\n');
 });
 
-test('a public row that is not a live Skill Configuration row leaves the page off', () => {
-  const row = '| Roadmap page | `public` | example |';
+// AGENT.md variants for the switch: the off fixture (no row) with text added. Inert text; nothing here runs.
+const [PUB, OFF] = ['public', 'off'].map((v) => `| Roadmap page | \`${v}\` | example |`);
+function agent(edit, from = 'off') {
+  const root = tmp();
+  cpSync(join(FIX, from), root, { recursive: true });
+  writeFileSync(join(root, 'AGENT.md'), edit(readFileSync(join(root, 'AGENT.md'), 'utf8')));
+  return root;
+}
+const MARK = 'a code fence or comment sits above the Roadmap page row; move the Skill Configuration section above it';
+const SECTION = 'the Roadmap page row is not under ## Skill Configuration';
+
+test('a lone public row that is hidden, indented or outside Skill Configuration leaves the page off, and says why', () => {
   const shapes = {
-    'in an HTML comment': (a) => `${a}\n<!-- example:\n${row}\n-->\n`,
-    'in a code fence': (a) => `${a}\n\`\`\`\n${row}\n\`\`\`\n`,
-    'outside the Skill Configuration section': (a) => `${a}\n## Examples\n\n| Key | Value | What |\n|---|---|---|\n${row}\n`,
-    'after an indented Skill Configuration heading in an example': (a) =>
-      `## Examples\n\n    ## Skill Configuration\n\n${row}\n\n${a.replace(/^# .*\n/, '')}`,
-    'in a fence, after a <!-- in inline code and a --> inside the fence': (a) =>
-      `${a}\nWrite \`<!--\` to hide a note, like this:\n\n\`\`\`html\n<!-- a note -->\n${row}\n\`\`\`\n`,
-    'after a setext heading ends the section': (a) => `${a}\nOther\n-----\n\n${row}\n`,
-    'after an empty ## heading ends the section': (a) => `${a}\n##\n\n${row}\n`,
+    'in an HTML comment': [(a) => `${a}\n<!-- example:\n${PUB}\n-->\n`, MARK],
+    'in a code fence': [(a) => `${a}\n\`\`\`\n${PUB}\n\`\`\`\n`, MARK],
+    'in a ~~~ fence': [(a) => `${a}\n~~~\n${PUB}\n~~~\n`, MARK],
+    'a comment opened above the heading': [(a) => `<!--\n${a}${PUB}\n-->\n`, MARK],
+    'a balanced fence above the heading': [(a) => `\`\`\`\nls\n\`\`\`\n\n${a}${PUB}\n`, MARK],
+    'in an indented code block': [(a) => `${a}\n    ${PUB}\n`, 'the Roadmap page row must start its line with | Roadmap page |'],
+    'in another ## section': [(a) => `${a}\n## Examples\n\n| Key | Value | What |\n|---|---|---|\n${PUB}\n`, SECTION],
+    'under a # heading': [(a) => `${a}\n# Other\n\n${PUB}\n`, SECTION],
   };
-  for (const [name, edit] of Object.entries(shapes)) {
-    const root = tmp();
-    cpSync(join(FIX, 'off'), root, { recursive: true });
-    writeFileSync(join(root, 'AGENT.md'), edit(readFileSync(join(root, 'AGENT.md'), 'utf8')));
-    assert.equal(run(root, ['--enabled']).stdout, 'enabled=false\n', name);
+  for (const [name, [edit, why]] of Object.entries(shapes)) {
+    const root = agent(edit);
+    assert.equal(run(root, ['--enabled']).stdout, `enabled=false\nreason=${why}\n`, name);
+    const out = join(tmp(), 'site');
+    assert.equal(run(root, ['--out', out]).stdout, `roadmap: off (${why})\n`, name);
+    assert.equal(existsSync(out), false, name);
   }
 });
 
-test('a long Roadmap page cell with no closing pipe is read in linear time', () => {
-  const root = tmp();
-  cpSync(join(FIX, 'off'), root, { recursive: true });
-  // The last line of the table, so no later `|` closes the cell.
-  writeFileSync(join(root, 'AGENT.md'), `${readFileSync(join(root, 'AGENT.md'), 'utf8')}| Roadmap page |${' '.repeat(50000)}x\n`);
-  const r = spawnSync(process.execPath, [ROADMAP, root, '--enabled'], { encoding: 'utf8', timeout: 10000 });
-  assert.equal(r.signal, null, 'killed after 10s');
-  assert.equal(r.stdout, 'enabled=false\n');
+test('two Roadmap page rows, in any order and with any values, leave the page off and name the count', () => {
+  const hide = (row) => `<!--\n${row}\n-->`;
+  const pairs = [[hide(PUB), OFF], [OFF, hide(PUB)], [PUB, PUB], [PUB, 'Roadmap page | off'], [PUB, '| roadmap page | pubic |']];
+  for (const [first, second] of pairs) {
+    const r = run(agent((a) => `${a}${first}\n${second}\n`), ['--enabled']);
+    assert.deepEqual([r.status, r.stdout], [0, 'enabled=false\nreason=2 Roadmap page rows; keep one\n'], `${first} / ${second}`);
+  }
+});
+
+test('one public row under ## Skill Configuration is on, and --enabled prints one line whatever the cell holds', () => {
+  assert.equal(run(agent((a) => `${a}${PUB}\n`), ['--enabled']).stdout, 'enabled=true\n');
+  assert.equal(run(agent((a) => `${a}\n### Sub\n\n${PUB}\n`), ['--enabled']).stdout, 'enabled=true\n', 'a ### inside the section');
+  // What a cell holds never reaches --enabled's output, which the workflow appends to $GITHUB_OUTPUT.
+  const cut = '| Roadmap page | `public`\nenabled=false | reason=x |';
+  assert.equal(run(agent((a) => `${a}${cut}\n`), ['--enabled']).stdout, 'enabled=true\n');
+  const two = run(agent((a) => `${a}| Roadmap page | reason=x enabled=true |\n${PUB}\n`), ['--enabled']);
+  assert.equal(two.stdout, 'enabled=false\nreason=2 Roadmap page rows; keep one\n');
+});
+
+test('a 1 MB AGENT.md or milestone file is read in under 2 s', () => {
+  const MB = 1 << 20;
+  const long = { dashes: `---${' '.repeat(MB)}x`, comments: 'a<!--b-->'.repeat(MB / 9), pipes: '|  '.repeat(MB / 3) };
+  const timed = (root, args, name) => {
+    const r = spawnSync(process.execPath, [ROADMAP, root, ...args], { encoding: 'utf8', timeout: 2000 });
+    assert.equal(r.signal, null, `${name}: killed after 2 s`);
+    return r;
+  };
+  for (const [name, line] of Object.entries(long)) {
+    // Below the row, so the page is on and the whole file is read: the switch, Product name and Timezone.
+    const below = agent((a) => `${a}\n${line}\n`, 'full');
+    assert.equal(timed(below, ['--enabled'], name).stdout, 'enabled=true\n', name);
+    assert.equal(timed(below, ['--out', join(tmp(), 'site')], name).status, 0, name);
+    assert.match(timed(agent((a) => `${line}\n${a}`, 'full'), ['--enabled'], name).stdout, /^enabled=(true|false)\n/, name);
+    for (const at of [(md) => `${md}\n${line}\n`, (md) => md.replace(/^# M1 — .*$/m, `# M1 — ${line}`)])
+      assert.equal(timed(variant('M1-booking.md', at), ['--out', join(tmp(), 'site')], name).status, 0, name);
+  }
+  const t0 = Date.now();
+  assert.ok(noGos(`## No-gos\n\n- a\n${long.dashes}\n${long.comments}\n`).length && Date.now() - t0 < 2000, 'the owner-view reader is linear too');
+  const open = agent((a) => `${a}| Roadmap page |${' '.repeat(MB)}x\n`);
+  assert.equal(timed(open, ['--enabled'], 'open cell').status, 1, 'a cell with no closing pipe is one long unknown value');
 });
 
 test('public: Now, Next, Done and Stopped, the sha, noindex, and no script', () => {
@@ -147,6 +189,12 @@ test('the title is frontmatter title:, else a plain H1 on the body\'s first line
   }
   assert.match(render(variant('M1-booking.md', cases['a frontmatter comment'])), /M1<\/span> Online booking</, 'the real H1 is still the title');
   assert.match(render(variant('M1-booking.md', cases['an HTML comment before the H1'])), /M1<\/span><\/h3>/, 'not first: no title, the id stands');
+  // A first-line H1 that could hide text (a comment, markup, code, a link), or is not `# M<n> — `, is no title.
+  for (const h1 of ['# M1 — SENTINEL <!-- note -->', '# M1 — SENTINEL <b', '# M1 — SENTINEL > b', '# M1 — SENTINEL `b', '# M1 — SENTINEL [b', '# M1 — SENTINEL b]', '# SENTINEL']) {
+    const html = render(variant('M1-booking.md', (md) => md.replace(/^# M1 — .*$/m, h1)));
+    assert.match(html, /M1<\/span><\/h3>/, h1);
+    assert.doesNotMatch(html, /SENTINEL|note/, h1);
+  }
 });
 
 test('the model still reads no-gos for owner-only views, from prose only', () => {
@@ -156,17 +204,16 @@ test('the model still reads no-gos for owner-only views, from prose only', () =>
     'a fenced No-gos example in Why': '## Why\n\n```\n## No-gos\n\n- SENTINEL\n```\n',
     'a No-gos heading in an HTML comment': '## Why\n\n<!--\n## No-gos\n- SENTINEL\n-->\n',
     'an indented No-gos heading under a Why list': '## Why\n\n- intro\n  ## No-gos\n- SENTINEL\n',
-    'a <!-- in inline code, a --> inside a later fence': '## Contents\n\nWrite `<!--` to hide a note:\n\n```html\n<!-- a note -->\n## No-gos\n- SENTINEL\n```\n',
   };
   for (const [name, before] of Object.entries(hidden)) assert.deepEqual(noGos(m1.replace('## Why\n', `${before}\n## Why\n`)), ['Refunds wait for M2', 'No mobile app'], name);
-  // Lines that look like a fence opener but are not one, and so must not swallow what follows.
-  for (const opener of ['``` x ```', '\t```']) assert.deepEqual(noGos(`${opener}\n\n## No-gos\n\n- real\n`), ['real'], opener);
-  for (const end of ['Other\n-----', '##', '# Retro']) assert.deepEqual(noGos(`## No-gos\n\n- real\n${end}\n\n- SENTINEL\n`), ['real'], end);
+  // Known limitations of the two-pass reader (owner-only view), pinned: an inline-code `<!--` opens a comment, and ``` x ``` or a tab-indented ``` opens a fence.
+  const inline = '## Contents\n\nWrite `<!--` to hide a note:\n\n```html\n<!-- a note -->\n## No-gos\n- SENTINEL\n```\n';
+  assert.deepEqual(noGos(m1.replace('## Why\n', `${inline}\n## Why\n`)), ['SENTINEL']);
+  for (const opener of ['``` x ```', '\t```']) assert.deepEqual(noGos(`${opener}\n\n## No-gos\n\n- real\n`), [], opener);
+  for (const end of ['Other\n-----', 'Other\n-', 'Other\n= = =', '##', '# Retro', '   # Retro']) assert.deepEqual(noGos(`## No-gos\n\n- real\n${end}\n\n- SENTINEL\n`), ['real'], end);
 });
 
-function readdir(m) {
-  return { m0: 'M0-skeleton.md', m1: 'M1-booking.md', m2: 'M2-refunds.md', m3: 'M3-marketplace.md' }[m];
-}
+const readdir = (m) => ({ m0: 'M0-skeleton.md', m1: 'M1-booking.md', m2: 'M2-refunds.md', m3: 'M3-marketplace.md' })[m];
 
 test('a field added to a model entry never reaches the page: only project() decides what shows', () => {
   const milestones = readMilestoneModel(join(FIX, 'full'), '2026-03-11').map((m) => ({
