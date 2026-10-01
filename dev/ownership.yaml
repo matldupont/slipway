@@ -38,6 +38,11 @@ paths:
     class: internal
   - glob: ci/fixtures/known-bad/o1/**
     class: internal
+  # PK1 compares this map with what npm packs; a project has no map, so the check and its fixtures never ship
+  - glob: ci/checks/meta/pk1-packed.mjs
+    class: internal
+  - glob: ci/fixtures/known-bad/pk1/**
+    class: internal
   # W1's template-mode case: only slipway's own checkout can be slipway (#123), so it goes red in a project
   - glob: ci/fixtures/known-bad/w1/tests/**
     class: internal

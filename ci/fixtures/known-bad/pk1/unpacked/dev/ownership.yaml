@@ -1,0 +1,14 @@
+# A map for PK1 fixture cases: inert text.
+paths:
+  - glob: dev/**
+    class: internal
+  - glob: expected.json
+    class: internal
+  - glob: "**/held.txt"
+    class: internal
+  - glob: ci/**
+    class: managed
+  - glob: .gitignore
+    class: seeded
+  - glob: package.json
+    class: merged

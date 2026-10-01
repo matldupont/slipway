@@ -1,0 +1,39 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      fixture-custom:
+        specifier: 1.0.0
+        version: 1.0.0
+      fixture-ok:
+        specifier: ^1.0.0
+        version: 1.0.0
+      fixture-tarball:
+        specifier: https://example.invalid/fixture-tarball-1.0.0.tgz
+        version: fixture-tarball@https://example.invalid/fixture-tarball-1.0.0.tgz
+
+packages:
+
+  fixture-custom@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==, tarball: https://example.invalid/custom/fixture-custom-1.0.0.tgz}
+
+  fixture-ok@1.0.0:
+    resolution: {integrity: sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==}
+
+  fixture-tarball@https://example.invalid/fixture-tarball-1.0.0.tgz:
+    resolution: {tarball: https://example.invalid/fixture-tarball-1.0.0.tgz}
+    version: 1.0.0
+
+snapshots:
+
+  fixture-custom@1.0.0: {}
+
+  fixture-ok@1.0.0: {}
+
+  fixture-tarball@https://example.invalid/fixture-tarball-1.0.0.tgz: {}

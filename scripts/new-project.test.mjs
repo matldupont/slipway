@@ -96,10 +96,14 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   assert.match(readme, /`pnpm -s use-slipway sync`/);
 
   // PC1 too: every known-bad fixture the project gets must go red there as it does in slipway (#123).
-  for (const f of ['d1-drift.mjs', 'w1-declared-vs-invoked.mjs', 'pc1-positive-control.mjs']) {
+  for (const f of ['d1-drift.mjs', 'w1-declared-vs-invoked.mjs']) {
     const r = check(dest, f);
     assert.equal(r.status, 0, `${f} in a fresh project:\n${r.stdout}`);
   }
+  // PC1 takes no argument: one would name another fixtures root, and the project has no fixtures at its top (#207).
+  const pc1 = spawnSync(process.execPath, [join(dest, 'ci', 'checks', 'meta', 'pc1-positive-control.mjs')], { encoding: 'utf8' });
+  assert.equal(pc1.status, 0, `PC1 in a fresh project:\n${pc1.stdout}`);
+  assert.match(pc1.stdout, /\((?!0 )\d+ cases\)/);
 
   appendFileSync(join(dest, 'SLIPWAY.md'), '\nedited\n');
   let r = check(dest, 'd1-drift.mjs');

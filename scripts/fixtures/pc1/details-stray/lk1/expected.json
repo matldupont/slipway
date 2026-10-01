@@ -1,0 +1,9 @@
+{
+  "_note": "Inert text on the .invalid domain. details names a finding the case does not expect: PC1 refuses it, since the text would never be compared.",
+  "exit": 1,
+  "findings": [
+    "pnpm-lock.yaml#fixture-custom@1.0.0{tarball=https://example.invalid/custom/fixture-custom-1.0.0.tgz}",
+    "pnpm-lock.yaml#fixture-tarball@https://example.invalid/fixture-tarball-1.0.0.tgz{tarball=https://example.invalid/fixture-tarball-1.0.0.tgz}"
+  ],
+  "details": { "pnpm-lock.yaml#no-such-entry": "anything" }
+}

@@ -1,0 +1,5 @@
+{
+  "_note": "PC1 asserts PK1 is BROKEN here, never a pass: package.json does not parse, so npm cannot say what it would pack.",
+  "exit": 2,
+  "broken": "npm pack exited"
+}

@@ -166,6 +166,12 @@ credential.
 `unclassified/<path>`: a path that `new-project` would copy matches no glob. It runs in slipway's CI and
 as a precondition in `new-project` and sync. Its fixture is `internal`.
 
+### PK1 — packed (slipway only)
+
+`unpacked/<path>`: a path the map ships that `npm pack` leaves out. `withheld/<path>`: a file of a known-bad case
+that ships, itself `internal`. A fixture file may not be named for a file npm excludes (`.npmrc`, `*.orig`) or the
+map withholds: PC1 places it under that name from `files` in `expected.json` (#207). Its fixture is `internal`.
+
 ### Sync script
 
 The entry point is a subcommand of the package's existing bin, so the sync code always comes from the

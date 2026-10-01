@@ -1,0 +1,6 @@
+{
+  "_note": "Places a fixture file at a path that leaves the throwaway folder. PC1 refuses the case before copying anything.",
+  "exit": 1,
+  "files": { "../outside.txt": "npmrc" },
+  "findings": []
+}
