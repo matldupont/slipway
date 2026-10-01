@@ -20,7 +20,7 @@
 # to the session's `yes` file: the pinned commit, then each file's name, kind (file, executable, deleted) and content
 # hash. The hooks run again in that session while the fingerprint is the same. A quoted name, a symlink, a submodule
 # link or a folder where a gate file goes is never covered by a yes.
-# POSIX sh with git, sed, grep, sort, head, tr, cat and printf: hooks run under /bin/sh without your PATH (L-34).
+# POSIX sh with git, sed, grep, sort, head, tr, cat, rm, mkdir and printf: hooks run under /bin/sh without your PATH (L-34).
 
 set -f # the globs below are git's, never the shell's
 hook=$1
@@ -42,10 +42,13 @@ case "$hook" in
   session-state.sh) input=$(cat) ;;
   trust-gates)
     # The owner's message, and nothing else, says yes. A quote inside a JSON string is always \", so `"prompt":` after
-    # `{` or `,` is the real member, and its whole value must be the phrase: no string is parsed. Checked before any
+    # `{` or `,` is the real member, and its whole value must be the phrase: no string is parsed. Each of the two
+    # members is there once, so one nested in another object is not taken for the message's own. Checked before any
     # git work; anything else (another event, a subagent, a longer message, pasted or relayed text) ends here.
     input=$(tr -d '\n\r')
     m() { printf '%s' "$input" | LC_ALL=C grep -Eq$2 "$1"; }
+    once() { [ "$(printf '%s' "$input" | LC_ALL=C grep -Eo "(^|[{,])[[:space:]]*\"$1\"[[:space:]]*:" | sed -n '$=')" = 1 ]; }
+    once hook_event_name && once prompt || exit 0
     m '(^|[{,])[[:space:]]*"hook_event_name"[[:space:]]*:[[:space:]]*"UserPromptSubmit"[[:space:]]*([,}]|$)' || exit 0
     m '(^|[{,])[[:space:]]*"agent_id"[[:space:]]*:' && exit 0
     m '(^|[{,])[[:space:]]*"prompt"[[:space:]]*:[[:space:]]*"(\\[nrt]| )*trust gates(\\[nrt]| )*"[[:space:]]*([,}]|$)' i || exit 0 ;;
@@ -59,7 +62,8 @@ case "$sid" in ''|*[!A-Za-z0-9_-]*) sid= ;; esac
 [ -n "$sid" ] && [ -n "$HOME" ] || fail 'no session id (CLAUDE_CODE_SESSION_ID) or no HOME'
 state=$HOME/.claude/slipway/sessions/$sid
 if [ "$hook" = session-state.sh ] && [ ! -e "$state/base" ] && [ ! -L "$state/base" ]; then
-  # Only a new session pins: a compaction or a resume is one the agent may have acted in, or can start.
+  # Only a session with a new id pins (startup, /clear, a fork): a compaction or a resume keeps its id, and is one
+  # the agent may have acted in, or can start.
   case "$input" in
     *'"source":"startup"'*|*'"source": "startup"'*|*'"source":"clear"'*|*'"source": "clear"'*|*'"source":"fork"'*|*'"source": "fork"'*)
       base=$(g rev-parse -q --verify 'refs/remotes/origin/HEAD^{commit}') || fail 'no origin/HEAD (git remote set-head origin --auto)'
@@ -156,7 +160,8 @@ fi
 if [ "$hook" = trust-gates ]; then
   [ -z "$never" ] || fail "a yes cannot cover $never ($(names "$(printf '%s\n%s\n' "$changed" "$odd" | sed '/^$/d')")): those keep the hooks off until they are merged"
   [ -n "$fp" ] || fail 'the gate files could not be read'
-  (umask 077 && printf '%s\n' "$fp" >"$state/yes") 2>/dev/null || fail 'the yes could not be written'
+  # A new file each time, never written through a link put where the record goes.
+  (umask 077 && rm -f "$state/yes" && set -C && printf '%s\n' "$fp" >"$state/yes") 2>/dev/null || fail 'the yes could not be written'
   n=$(printf '%s\n' "$changed" | sed -n '$=')
   printf '{"systemMessage":"base-guard: your yes is recorded for %s gate file(s): %s. The hooks run again in this session until one of them changes.","hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"base-guard: the owner said yes to the gate files this checkout changes (%s). The hooks run again in this session; any further change to a gate file needs a new yes."}}\n' "$n" "$(names "$changed")" "$(names "$changed")"
   exit 0

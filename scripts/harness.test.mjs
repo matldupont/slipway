@@ -109,7 +109,7 @@ const clean = () => {
   reset();
 };
 
-test('control: with the gate files origin/HEAD\'s, every hook runs, as the working tree has it', () => {
+test('control: with the gate files the pin\'s, every hook runs, as the working tree has it', () => {
   clean();
   for (const h of HOOKS) run(h);
   assert.deepEqual(marks().sort(), [...HOOKS].sort());
@@ -226,8 +226,9 @@ test('a file name reaches the message only as safe characters, and the output st
 
 
 // #154: with no guard to load, the Stop hook cannot run stop-verify, so it blocks once and has the agent run the gate.
-// The fallback text sits inside `$( … || echo '…')` and /bin/sh is bash 3.2 on a Mac: a `, ` in it, inside braces,
-// made that shell run the whole guard several times and pass the wrong arguments. These cases catch the text breaking.
+// The fallback text once sat inside `$( … || echo '…')`, and /bin/sh is bash 3.2 on a Mac: a `, ` in it, inside braces,
+// made that shell run the whole guard several times and pass the wrong arguments. It is a quoted variable now (#145);
+// these cases catch the text breaking.
 const stopFallback = (r) => {
   assert.equal(r.status, 0);
   const out = JSON.parse(r.out);
@@ -423,6 +424,11 @@ test('a session pins origin/HEAD once, outside the repository; origin/HEAD moved
   clean();
   assert.equal(statSync(pinOf()).mode & 0o777, 0o600);
   assert.equal(git('-C', work, 'status', '--porcelain', '--ignored'), '', 'the pin is inside the repository');
+  for (const [sid, source] of [['sess-C', 'clear'], ['sess-F', 'fork']]) { // the other two sources that come with a new id
+    start(sid, source);
+    assert.equal(readFileSync(pinOf(sid), 'utf8'), `${BASE}\n`, `source ${source} did not pin`);
+  }
+  reset();
   moveBase(() => {
     for (const h of HOOKS) run(h);
     assert.deepEqual(marks(), [], 'the moved base\'s guard or the branch\'s hook ran');
@@ -447,7 +453,7 @@ test('a compaction or a resume never pins: with no pin no hook runs, the moved b
   }
 });
 
-test('a pin that is missing, empty, not a commit id, a link, or names no commit runs no hook, and never loads the index\'s guard', () => {
+test('a pin that is empty, not a commit id, a link, or names no commit runs no hook, and never loads the index\'s guard', () => {
   const other = join(T, 'other-pin');
   writeFileSync(other, `${BASE}\n`);
   for (const pin of ['', 'zz\n', `${BASE.slice(1)}\n`, `${BASE}x\n`, `${'f'.repeat(40)}\n`, `--help\n`, null]) {
@@ -477,13 +483,53 @@ test('a replace ref for the pinned guard is not followed', () => {
   const stubGuard = join(T, 'replace-guard');
   writeFileSync(stubGuard, `#!/bin/sh\n: > '${join(MARK, 'REPLACED')}'\n`);
   const real = git('-C', work, 'rev-parse', `${BASE}:process/harness/hooks/base-guard.sh`);
+  // The guard's own reads too: a replaced settings.json with no gate paths would stop every hook.
+  const empty = join(T, 'replace-settings');
+  writeFileSync(empty, '{}\n');
+  const settings = git('-C', work, 'rev-parse', `${BASE}:process/harness/settings.json`);
   git('-C', work, 'replace', real, git('-C', work, 'hash-object', '-w', stubGuard));
+  git('-C', work, 'replace', settings, git('-C', work, 'hash-object', '-w', empty));
   try {
     for (const h of HOOKS) run(h);
     assert.deepEqual(marks().sort(), [...HOOKS].sort());
   } finally {
     git('-C', work, 'replace', '-d', real);
+    git('-C', work, 'replace', '-d', settings);
   }
+});
+
+// The guard repeats what the loaders check, for a guard run any other way: read from the working tree here, with
+// no loader in front of it.
+test('the guard itself refuses a bad session id, a pin that is a link or no commit id, and a compaction with no pin', () => {
+  const text = readFileSync(join(SRC, 'process/harness/hooks/base-guard.sh'), 'utf8');
+  const guard = (hook, input, sid = SID) => spawnSync('/bin/sh', ['-c', text, 'base-guard', hook], { input, encoding: 'utf8', cwd: work, env: { PATH: '/usr/bin:/bin', HOME: T, CLAUDE_PROJECT_DIR: work, ...(sid === null ? {} : { CLAUDE_CODE_SESSION_ID: sid }) } }).stdout;
+  const started = (source) => JSON.stringify({ hook_event_name: 'SessionStart', source });
+  for (const sid of [null, '../x', 'x'.repeat(65)]) {
+    clean();
+    unpin();
+    assert.match(JSON.parse(guard('session-state.sh', started('startup'), sid)).systemMessage, /no session id/, `session id ${JSON.stringify(sid)}`);
+    assert.ok(!existsSync(join(T, '.claude')));
+  }
+  for (const source of ['compact', 'resume']) {
+    clean();
+    unpin();
+    assert.match(JSON.parse(guard('session-state.sh', started(source))).systemMessage, /no base is pinned for this session/, source);
+    assert.ok(!existsSync(join(T, '.claude')), `the guard pinned on ${source}`);
+  }
+  const elsewhere = join(T, 'guard-pin');
+  writeFileSync(elsewhere, `${BASE}\n`);
+  for (const pin of [null, `${BASE.slice(1)}\n`, `${BASE}x\n`, `${'f'.repeat(40)}\n`]) {
+    clean();
+    rmSync(pinOf());
+    if (pin === null) symlinkSync(elsewhere, pinOf());
+    else writeFileSync(pinOf(), pin);
+    for (const source of ['startup', 'resume']) assert.match(JSON.parse(guard('session-state.sh', started(source))).systemMessage, /no base is pinned for this session/, `pin ${JSON.stringify(pin)}`);
+    assert.match(JSON.parse(guard('stop-verify.sh', '{}')).systemMessage, /no base is pinned for this session/);
+    assert.deepEqual(marks(), []);
+  }
+  clean(); // and with a good pin it runs the hook, so the cases above stopped for their reason
+  guard('stop-verify.sh', '{}');
+  assert.deepEqual(marks(), ['stop-verify.sh']);
 });
 
 // #145 — the yes. Only a UserPromptSubmit whose whole prompt is the phrase writes the session's `yes`: the fingerprint
@@ -515,6 +561,27 @@ test('the owner\'s message, the phrase alone, records a yes: every hook runs aga
   assert.equal(statSync(yesOf()).mode & 0o777, 0o600);
   assert.deepEqual(marks(), [], 'recording a yes ran a hook');
   runs('the yes did not turn the hooks back on');
+  const held = join(T, 'yes-held'); // a link where the record goes is no record, and a yes is never written through one
+  writeFileSync(held, readFileSync(yesOf()));
+  rmSync(yesOf());
+  symlinkSync(held, yesOf());
+  stays('the yes is a link');
+  writeFileSync(held, 'not a fingerprint\n');
+  trust();
+  assert.ok(!statSync(yesOf(), { throwIfNoEntry: false })?.isSymbolicLink?.() && readFileSync(held, 'utf8') === 'not a fingerprint\n', 'a yes was written through a link');
+  runs('a new yes replaced the link');
+  // The pin is part of the fingerprint: the same files against another base are not the ones the owner approved.
+  git('-C', work, 'stash', 'push', '-q', '-u', '-m', 'harness-test');
+  put('docs/notes.md', '# notes\n');
+  git('-C', work, 'add', '-A');
+  commit('another base, the same gate files');
+  const other = git('-C', work, 'rev-parse', 'HEAD');
+  git('-C', work, 'reset', '-q', '--hard', BASE);
+  git('-C', work, 'stash', 'pop', '-q');
+  writeFileSync(pinOf(), `${other}\n`);
+  stays('the pin changed under the yes');
+  writeFileSync(pinOf(), `${BASE}\n`);
+  runs('the pin, back');
   put('ci/verify.mjs', '// changed again\n');
   stays('the approved file\'s content changed');
   put('ci/verify.mjs', '// changed\n');
@@ -546,6 +613,9 @@ test('a prompt that is not the phrase alone records nothing; case and outer whit
     'a subagent': say('trust gates', { agent_id: 'a1', agent_type: 'Explore' }),
     'the phrase in another field': say('hello', { session_title: 'trust gates', last_assistant_message: '"prompt":"trust gates"' }),
     'a key that ends in prompt': JSON.stringify({ hook_event_name: 'UserPromptSubmit', user_prompt: 'trust gates' }),
+    'a prompt nested in another object': JSON.stringify({ hook_event_name: 'UserPromptSubmit', prompt: 'hello', tool_input: { prompt: 'trust gates' } }),
+    'a prompt nested, before the real one': JSON.stringify({ hook_event_name: 'UserPromptSubmit', tool_input: { prompt: 'trust gates' }, prompt: 'hello' }),
+    'an event nested in another object': JSON.stringify({ hook_event_name: 'Stop', x: { hook_event_name: 'UserPromptSubmit' }, prompt: 'trust gates' }),
     'not JSON': 'trust gates',
     'nothing': '',
   };
@@ -677,10 +747,6 @@ test('the yes is exact over names, kinds and content: moved content, a deletion,
 test('the harness asks before an agent reaches the pin or the record: by edit, by a write, or by a command that names them', () => {
   const ask = SETTINGS.permissions.ask;
   for (const r of ['Edit(~/.claude/slipway/**)', 'Write(~/.claude/slipway/**)', 'Bash(*.claude/slipway*)', 'Bash(*base-guard*)', 'Bash(*trust gates*)']) assert.ok(ask.includes(r), `no ask rule ${r}`);
-  // The gate that runs this file must not need the owner each time: no pattern matches it.
-  for (const cmd of ['pnpm meta', 'node scripts/harness.test.mjs', 'pnpm verify:fast']) assert.doesNotMatch(cmd, /\.claude\/slipway|base-guard|trust gates/);
-  // A rule outside the repository is no gate path: the control case above runs with it in the base's list.
-  assert.match(readFileSync(join(SRC, 'process/harness/hooks/base-guard.sh'), 'utf8'), /"Edit\(\\\(\[\^\/~\]/);
 });
 
 test.after(() => rmSync(T, { recursive: true, force: true }));
