@@ -210,6 +210,11 @@ anyone can open an issue) into an HTML file the owner opens in a browser, and it
 - **No hijacked `gh`.** Fixed argument arrays, no shell; PATH without repository or `node_modules` entries;
   the repo is validated before it reaches an argument.
 - **Nothing published.** No network write; the file goes to the temp dir unless `--out` says otherwise.
+- **`--serve` (#183) is reachable from the owner's machine only.** Defended: another machine on the network (the
+  server binds `127.0.0.1`, never all interfaces; a test asserts the bound address); another website in the
+  owner's browser (a `Host` other than `127.0.0.1:<port>` or `localhost:<port>` answers 403, the page has no
+  script, and the response's content policy allows inline styles and nothing else); a request for any other
+  file (only `GET` and `HEAD` of `/` answer 200, from the one generated file; no request value is joined to a path).
 
 Not defended: a repository writer can link any issue as a sub-issue or write any `Touches:` line, and the page
 believes it. `gh` itself, and the token it holds, are trusted. The temp dir is readable by the owner's own
@@ -223,6 +228,8 @@ account, like any other file of theirs.
 - Issues filed before step 1 have no `Touches:` line, so each overlaps everything until one is added by hand.
 - One level of sub-issues; a marker in another repository is shown, not read.
 - More than 200 open PRs: a PR beyond the first 200 is not seen.
+- `--serve`: another user account on the same machine can reach a loopback port. That is the owner's own machine,
+  on the trusted side of D-023's line.
 
 ## Acceptance
 
@@ -317,6 +324,16 @@ PR.
    `scripts/work-order.test.mjs` and fixtures, wired into `pnpm meta`. — checks lib and a script, ~450 lines
    with tests. Blocked by #68 (it reuses `appetiteClock` and #68's escaping) and by step 1.
 
+### `--serve` (#183)
+
+`pnpm work-order --serve [--port <n>]` does everything `--watch` does and serves the page from a `node:http`
+server (no dependency), printing one line, `http://127.0.0.1:<port>/`, until Ctrl-C closes it. Only `GET` and
+`HEAD` of `/` answer 200 with the current file; any other path is 404, any other method 405, a foreign `Host` 403.
+Responses carry `text/html; charset=utf-8`, `no-store`, `nosniff` and `default-src 'none'; style-src 'unsafe-inline'`
+(plus `frame-ancestors 'none'`). The default port is 4747, so the address can be bookmarked; when taken the server
+takes a free one and prints it. An explicit `--port` that is taken exits 1. Without `--serve` nothing listens.
+Reload stays the `--watch` refresh tag: no websockets, no HTTPS, no opening the browser, nothing but the one page.
+
 ## Out of scope
 
 - An epic as a source, for a repository with no active milestone (slipway itself): later, once an epic's
@@ -334,3 +351,4 @@ none
 ## Changes
 
 - 2026-09-30 · ADDED · spec · #156 (steps #157, #158)
+- 2026-09-30 · ADDED · `--serve`: a loopback address to click, with its threat model and limitation · #183

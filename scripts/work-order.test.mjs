@@ -3,13 +3,14 @@
 
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
+import { createServer, request } from 'node:http';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test, { after } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { escapeHtml, escapeShown } from '../ci/checks/lib/html.mjs';
-import { collect, keepFresh, parseArgs, realGh, render } from '../ci/work-order.mjs';
+import { collect, DEFAULT_PORT, keepFresh, parseArgs, realGh, render, serve } from '../ci/work-order.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const FIX = join(SRC, 'scripts', 'fixtures', 'work-order');
@@ -393,4 +394,171 @@ test('--watch: the first render that fails exits 1; one that works prints the pa
   const { code } = await exited;
   assert.equal(code, 130);
   assert.equal(existsSync(`${out}.tmp`), false);
+});
+
+// --serve (#183): the page on 127.0.0.1 for the owner's browser, one fixed file, nothing else.
+const PAGE = '<!doctype html><title>page</title><p>SENTINEL-served</p>';
+const ask = (port, { method = 'GET', path = '/', host = `127.0.0.1:${port}` } = {}) =>
+  new Promise((res, rej) => {
+    const r = request({ host: '127.0.0.1', port, method, path, headers: { host } }, (m) => {
+      let text = '';
+      m.on('data', (d) => (text += d));
+      m.on('end', () => res({ status: m.statusCode, headers: m.headers, text }));
+    });
+    r.on('error', rej);
+    r.end();
+  });
+const served = async (port) => {
+  const file = join(tmp(), 'page.html');
+  writeFileSync(file, PAGE);
+  const s = await serve(file, { port });
+  return { ...s, file, stop: () => new Promise((r) => (s.server.closeAllConnections(), s.server.close(r))) };
+};
+
+test('--serve implies --watch; --port is 1 to 65535 and only with --serve; without --serve nothing listens', () => {
+  assert.deepEqual([parseArgs(['--serve']).serve, parseArgs(['--serve']).watch, parseArgs(['--serve']).port], [true, true, undefined]);
+  assert.equal(parseArgs(['--serve', '--port', '8080']).port, 8080);
+  assert.equal(parseArgs(['--serve', '--every', '20']).every, 20);
+  for (const bad of [['--port', '8080'], ['--serve', '--port', '0'], ['--serve', '--port', '65536'], ['--serve', '--port', 'x'], ['--serve', '--port'], ['--serve', '--port', '-1']]) {
+    assert.ok(parseArgs(bad).error, bad.join(' '));
+  }
+  const plain = parseArgs([]);
+  assert.deepEqual([plain.serve, plain.watch], [false, false]);
+});
+
+test('the server is bound to 127.0.0.1 only', async () => {
+  const s = await served(0);
+  try {
+    assert.deepEqual([s.server.address().address, s.server.address().family], ['127.0.0.1', 'IPv4']);
+    assert.equal(s.url, `http://127.0.0.1:${s.port}/`);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('GET and HEAD of / answer 200 with the current page; any other path is 404 and any other method 405', async () => {
+  const s = await served(0);
+  try {
+    const get = await ask(s.port);
+    assert.equal(get.status, 200);
+    assert.equal(get.text, PAGE);
+    const head = await ask(s.port, { method: 'HEAD' });
+    assert.deepEqual([head.status, head.text, head.headers['content-length']], [200, '', String(Buffer.byteLength(PAGE))]);
+    writeFileSync(s.file, `${PAGE}<p>newer</p>`);
+    assert.match((await ask(s.port)).text, /newer/);
+    for (const path of ['/index.html', '/..%2f..%2fetc%2fpasswd', '/../../etc/passwd', '/%2e%2e/', '//', '/x/', '/page.html']) {
+      const r = await ask(s.port, { path });
+      assert.equal(r.status, 404, path);
+      assert.doesNotMatch(r.text, /SENTINEL-served/);
+    }
+    for (const method of ['POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']) assert.equal((await ask(s.port, { method })).status, 405, method);
+    assert.equal((await ask(s.port, { method: 'POST', path: '/x' })).status, 405);
+    assert.equal((await ask(s.port, { method: 'POST' })).headers.allow, 'GET, HEAD');
+  } finally {
+    await s.stop();
+  }
+});
+
+test('a Host that is not 127.0.0.1:<port> or localhost:<port> answers 403, and the page never leaves', async () => {
+  const s = await served(0);
+  try {
+    for (const host of [`evil.example:${s.port}`, `evil.example`, `127.0.0.1`, `localhost`, `127.0.0.1:${s.port + 1}`, `[::1]:${s.port}`, `127.0.0.1.evil.example:${s.port}`]) {
+      const r = await ask(s.port, { host });
+      assert.equal(r.status, 403, JSON.stringify(host));
+      assert.doesNotMatch(r.text, /SENTINEL-served/);
+    }
+    assert.equal((await ask(s.port, { host: `localhost:${s.port}` })).status, 200);
+    assert.equal((await ask(s.port, { host: `LOCALHOST:${s.port}` })).status, 200);
+    assert.equal((await ask(s.port, { method: 'POST', host: 'evil.example' })).status, 403);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('every response carries the content type, no-store, nosniff and a policy that allows inline styles and nothing else', async () => {
+  const s = await served(0);
+  try {
+    for (const r of [await ask(s.port), await ask(s.port, { path: '/x' }), await ask(s.port, { method: 'POST' }), await ask(s.port, { host: 'evil.example' })]) {
+      assert.equal(r.headers['cache-control'], 'no-store');
+      assert.equal(r.headers['x-content-type-options'], 'nosniff');
+      const csp = r.headers['content-security-policy'];
+      assert.match(csp, /^default-src 'none'; style-src 'unsafe-inline'/);
+      assert.doesNotMatch(csp, /script-src|https?:|\*/);
+    }
+    assert.equal((await ask(s.port)).headers['content-type'], 'text/html; charset=utf-8');
+    assert.doesNotMatch((await ask(s.port)).text, /<script/i);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('the rendered page, served, still has no script and a refresh tag', async () => {
+  const s = await served(0);
+  try {
+    writeFileSync(s.file, render(collect(join(FIX, 'none'), () => '[]'), { refresh: 60 }));
+    const r = await ask(s.port);
+    assert.doesNotMatch(r.text, /<script/i);
+    assert.match(r.text, /<meta http-equiv="refresh" content="60">/);
+  } finally {
+    await s.stop();
+  }
+});
+
+test('with no port the default is tried first and a taken one falls back to a free port; a taken --port rejects', async () => {
+  const taker = createServer();
+  const held = await new Promise((res) => {
+    taker.once('error', () => res(false));
+    taker.listen(DEFAULT_PORT, '127.0.0.1', () => res(true));
+  });
+  const file = join(tmp(), 'page.html');
+  writeFileSync(file, PAGE);
+  const s = await serve(file);
+  try {
+    assert.notEqual(s.port, DEFAULT_PORT, held ? 'the default was ours and taken' : 'the default was taken by something else');
+    assert.equal((await ask(s.port)).status, 200);
+    await assert.rejects(serve(file, { port: s.port }), /port \d+ is taken/);
+  } finally {
+    s.server.closeAllConnections();
+    s.server.close();
+    if (held) taker.close();
+  }
+});
+
+test('--serve: prints the address once and nothing else, serves until SIGINT, which closes the server; a taken --port exits 1', async () => {
+  const out = join(tmp(), 'page.html');
+  const child = spawn(process.execPath, [SCRIPT, join(FIX, 'none'), '--out', out, '--serve'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  await new Promise((res, rej) => {
+    child.on('error', rej);
+    child.on('exit', (c) => rej(new Error(`exited ${c} before printing the address`)));
+    child.stdout.on('data', (d) => {
+      stdout += d;
+      if (stdout.includes('\n')) res();
+    });
+  }).finally(() => child.removeAllListeners('exit'));
+  const exited = new Promise((res) => child.on('exit', (code) => res(code)));
+  const m = stdout.match(/^http:\/\/127\.0\.0\.1:(\d+)\/\n$/);
+  assert.ok(m, `one address line, got ${JSON.stringify(stdout)}`);
+  const port = Number(m[1]);
+  try {
+    const r = await ask(port);
+    assert.equal(r.status, 200);
+    assert.equal(r.text, readFileSync(out, 'utf8'));
+    assert.match(r.text, /<meta http-equiv="refresh" content="60">/);
+    const clash = spawnSync(process.execPath, [SCRIPT, join(FIX, 'none'), '--out', join(tmp(), 'b.html'), '--serve', '--port', String(port)], { encoding: 'utf8' });
+    assert.equal(clash.status, 1);
+    assert.match(clash.stderr, new RegExp(`port ${port} is taken`));
+    assert.equal(clash.stdout, '');
+  } finally {
+    child.kill('SIGINT');
+  }
+  assert.equal(await exited, 130);
+  await assert.rejects(ask(port), { code: 'ECONNREFUSED' });
+});
+
+test('without --serve the run exits on its own (no listener keeps it alive) and prints the file path', async () => {
+  const out = join(tmp(), 'page.html');
+  const r = spawnSync(process.execPath, [SCRIPT, join(FIX, 'none'), '--out', out], { encoding: 'utf8' });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, `${out}\n`);
 });

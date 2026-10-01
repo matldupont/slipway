@@ -4,12 +4,14 @@
 //
 //   node ci/work-order.mjs [root] [--out <file>]     write the page, print its path
 //   ... --watch [--every <seconds>]                   then rewrite it every 60 s (15 at least); an open tab reloads itself
+//   ... --serve [--port <n>]                          --watch, and print http://127.0.0.1:<port>/ to click (#183)
 //
 // collect(root, gh) reads the settings, the milestone and GitHub into a model; render(model) makes the page.
 // `gh` is a function (args) -> stdout, so a test answers from fixtures. Zero dependencies (D-004).
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -237,24 +239,30 @@ ${body.join('\n')}
 `;
 }
 
-const USAGE = 'usage: node ci/work-order.mjs [root] [--out <file>] [--watch [--every <seconds>]]\n';
+const USAGE = 'usage: node ci/work-order.mjs [root] [--out <file>] [--watch [--every <seconds>]] [--serve [--port <n>]]\n';
 export const MIN_EVERY = 15;
+export const DEFAULT_PORT = 4747;
 const MAX_EVERY = 86400;
 
-// [root] [--out <file>] [--watch] [--every <seconds>] -> the settings, or an error line. `--every` is whole seconds,
-// MIN_EVERY or more, and only means something with `--watch`; an unknown flag is refused, not ignored.
+// [root] [--out <file>] [--watch] [--every <seconds>] [--serve] [--port <n>] -> the settings, or an error line.
+// `--every` is whole seconds, MIN_EVERY or more, and only means something with `--watch`; `--serve` implies
+// `--watch`; `--port` is 1 to 65535 and only means something with `--serve`; an unknown flag is refused, not ignored.
 export function parseArgs(args) {
-  const o = { root: '.', out: undefined, watch: false, every: 60 };
+  const o = { root: '.', out: undefined, watch: false, every: 60, serve: false, port: undefined };
   let every = false;
   let root = false;
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--watch') o.watch = true;
-    else if (a === '--out' || a === '--every') {
+    else if (a === '--serve') o.serve = true;
+    else if (a === '--out' || a === '--every' || a === '--port') {
       const v = args[++i];
       if (v === undefined || v.startsWith('--')) return { error: USAGE };
       if (a === '--out') o.out = v;
-      else {
+      else if (a === '--port') {
+        if (!/^\d{1,5}$/.test(v) || Number(v) < 1 || Number(v) > 65535) return { error: 'work-order: --port is a whole number, 1 to 65535\n' };
+        o.port = Number(v);
+      } else {
         if (!/^\d{1,6}$/.test(v) || Number(v) < MIN_EVERY || Number(v) > MAX_EVERY) return { error: `work-order: --every is whole seconds, ${MIN_EVERY} to ${MAX_EVERY}\n` };
         every = true;
         o.every = Number(v);
@@ -265,7 +273,8 @@ export function parseArgs(args) {
       root = true;
     }
   }
-  if (every && !o.watch) return { error: USAGE };
+  if (o.serve) o.watch = true;
+  if ((every && !o.watch) || (o.port !== undefined && !o.serve)) return { error: USAGE };
   return o;
 }
 
@@ -279,6 +288,50 @@ function writeAtomic(file, html) {
     rmSync(`${file}.tmp`, { force: true });
     throw err;
   }
+}
+
+const HEADERS = {
+  'Content-Type': 'text/html; charset=utf-8',
+  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff',
+  'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'",
+};
+
+// The page on the loopback address, for the owner's own browser (#183, D-022). One fixed file is read on each GET or
+// HEAD of `/`; no request value is ever joined to a path. A Host other than this server's own address is refused, so a
+// web page on another site cannot reach the page through a name that resolves to 127.0.0.1. `port` undefined takes
+// DEFAULT_PORT and falls back to a free one when it is taken; a number that is taken rejects.
+export function serve(file, { port } = {}) {
+  let bound;
+  const server = createServer((req, res) => {
+    const host = String(req.headers.host ?? '').toLowerCase();
+    const answer = (code, headers = {}, text = '') => {
+      res.writeHead(code, { ...HEADERS, 'Content-Length': Buffer.byteLength(text), ...headers });
+      res.end(req.method === 'HEAD' ? undefined : text);
+    };
+    if (host !== `127.0.0.1:${bound}` && host !== `localhost:${bound}`) return answer(403, { 'Content-Type': 'text/plain; charset=utf-8' }, 'forbidden\n');
+    if (req.method !== 'GET' && req.method !== 'HEAD') return answer(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' }, 'method not allowed\n');
+    if (req.url !== '/' && !req.url.startsWith('/?')) return answer(404, { 'Content-Type': 'text/plain; charset=utf-8' }, 'not found\n');
+    let page;
+    try {
+      page = readFileSync(file, 'utf8');
+    } catch {
+      return answer(503, { 'Content-Type': 'text/plain; charset=utf-8' }, 'the page is not written yet\n');
+    }
+    answer(200, {}, page);
+  });
+  const listen = (n) =>
+    new Promise((ok, no) => {
+      const failed = (err) => no(err);
+      server.once('error', failed);
+      server.listen(n, '127.0.0.1', () => {
+        server.off('error', failed);
+        bound = server.address().port;
+        ok({ server, port: bound, url: `http://127.0.0.1:${bound}/` });
+      });
+    });
+  if (port !== undefined) return listen(port).catch((err) => Promise.reject(err.code === 'EADDRINUSE' ? new Stop(`port ${port} is taken`) : err));
+  return listen(DEFAULT_PORT).catch((err) => (err.code === 'EADDRINUSE' ? listen(0) : Promise.reject(err)));
 }
 
 const why = (err) => escapeControl(err instanceof Stop ? err.message : `stopped on an error: ${err.message}`);
@@ -314,9 +367,12 @@ async function main(argv) {
     const model = collect(o.root, gh);
     const file = resolve(o.out ?? join(tmpdir(), 'work-order', `${model.repo.replace('/', '-')}.html`));
     writeAtomic(file, render(model, o.watch ? { refresh: o.every } : {}));
-    process.stdout.write(`${file}\n`);
+    const listener = o.serve ? await serve(file, { port: o.port }) : null;
+    process.stdout.write(`${listener ? listener.url : file}\n`);
     if (o.watch) {
       process.on('SIGINT', () => {
+        listener?.server.closeAllConnections();
+        listener?.server.close();
         rmSync(`${file}.tmp`, { force: true });
         process.exit(130);
       });
