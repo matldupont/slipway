@@ -2,14 +2,14 @@
 // scripts/fixtures/work-order/, and a stub `gh` that answers from data below, so no test calls GitHub.
 
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test, { after } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { escapeHtml, escapeShown } from '../ci/checks/lib/html.mjs';
-import { collect, realGh, render } from '../ci/work-order.mjs';
+import { collect, keepFresh, parseArgs, realGh, render } from '../ci/work-order.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const FIX = join(SRC, 'scripts', 'fixtures', 'work-order');
@@ -289,4 +289,108 @@ test('an issue number too large to be one, or a Touches line too long, never rea
   assert.deepEqual(leaf.blockers.map((b) => b.n), [13]);
   assert.equal(leaf.touches, null);
   assert.ok(gh.calls.every((c) => !c.join(' ').includes('999999999')));
+});
+
+// --watch (#177): the refresh tag, the interval, the zone of the stamp, and a failed refresh keeping the last page.
+test('the refresh tag is on the page only with --watch, carries the interval, and the page still has no script', () => {
+  const model = collect(join(FIX, 'full'), stub(world()));
+  assert.doesNotMatch(render(model), /http-equiv/i);
+  const html = render(model, { refresh: 45 });
+  assert.match(html, /<meta http-equiv="refresh" content="45">/);
+  assert.doesNotMatch(html, /<script\b/i);
+  const none = render(collect(join(FIX, 'none'), stub(world())), { refresh: 60 });
+  assert.match(none, /<meta http-equiv="refresh" content="60">/);
+});
+
+test('--every below 15 seconds, not a whole number, or without --watch is refused; 60 is the default', () => {
+  assert.equal(parseArgs(['--watch']).every, 60);
+  assert.equal(parseArgs(['--watch', '--every', '15']).every, 15);
+  for (const bad of [['--watch', '--every', '14'], ['--watch', '--every', '0'], ['--watch', '--every', '1.5'], ['--watch', '--every', '-20'], ['--watch', '--every', 'soon'], ['--watch', '--every'], ['--every', '30'], ['--watch', '--bogus'], ['a', 'b']]) {
+    assert.ok(parseArgs(bad).error, `accepted ${bad.join(' ')}`);
+  }
+  const r = spawnSync(process.execPath, [SCRIPT, join(FIX, 'none'), '--watch', '--every', '14'], { encoding: 'utf8' });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /--every is whole seconds, 15 to 86400/);
+  assert.equal(r.stdout, '');
+});
+
+test('the page says when it was updated, in the project zone', () => {
+  assert.match(text(page()), /Updated 2026-03-11 12:00 UTC from acme\/harbour/);
+  const root = tmp();
+  cpSync(join(FIX, 'full'), root, { recursive: true });
+  const agent = join(root, 'AGENT.md');
+  writeFileSync(agent, readFileSync(agent, 'utf8').replace('| Timezone | `UTC` |', '| Timezone | `America/Toronto` |'));
+  assert.match(text(render(collect(root, stub(world())))), /Updated 2026-03-11 08:00 EDT from acme\/harbour/);
+});
+
+test('a refresh that fails keeps the last good page, says why and when it was last updated, and the loop goes on', async () => {
+  const out = join(tmp(), 'page.html');
+  const w = world();
+  const good = stub(w);
+  let broken = false;
+  const gh = (args) => {
+    if (broken) throw Object.assign(new Error('x'), { stderr: 'HTTP 502: bad gateway\nsecond line' });
+    return good(args);
+  };
+  const model = collect(join(FIX, 'full'), gh);
+  const first = render(model, { refresh: 15 });
+  writeFileSync(out, first);
+  const said = [];
+  let round = 0;
+  const seen = [];
+  await keepFresh(join(FIX, 'full'), gh, out, 15, {
+    model,
+    rounds: 3,
+    say: (t) => said.push(t),
+    sleep: async () => {
+      round += 1;
+      broken = round === 2;
+      if (round > 1) seen.push(readFileSync(out, 'utf8'));
+    },
+  });
+  seen.push(readFileSync(out, 'utf8'));
+  assert.equal(seen.length, 3);
+  // seen: after a good refresh, after the failed one, after the next good one.
+  const failed = seen[1];
+  assert.match(text(failed), /Last updated 2026-03-11 12:00 UTC; the latest refresh failed: gh failed \(see gh auth status\): HTTP 502: bad gateway from acme\/harbour/);
+  assert.doesNotMatch(failed, /second line/);
+  assert.match(failed, /content="15"/);
+  assert.equal(failed.replace(/<p class="meta">[^<]*<\/p>/, ''), first.replace(/<p class="meta">[^<]*<\/p>/, ''), 'the rest of the page is the last good one');
+  assert.match(text(seen[2]), /Updated 2026-03-11 12:00 UTC/, 'the next refresh that works clears the line');
+  assert.doesNotMatch(seen[0] + seen[2], /refresh failed/);
+  assert.equal(said.length, 1);
+  assert.match(said[0], /the latest refresh failed: gh failed/);
+  assert.equal(existsSync(`${out}.tmp`), false);
+});
+
+test('--watch: the first render that fails exits 1; one that works prints the path once, writes a refreshing page and keeps running', async () => {
+  const out = join(tmp(), 'page.html');
+  const bin = fakeGh(join(tmp(), 'bin'), 'echo "not logged in" >&2; exit 1');
+  const env = { ...process.env, PATH: `${bin}:${process.env.PATH}` };
+  const bad = spawnSync(process.execPath, [SCRIPT, join(FIX, 'full'), '--out', out, '--watch'], { encoding: 'utf8', env });
+  assert.equal(bad.status, 1);
+  assert.match(bad.stderr, /gh auth status.*not logged in/);
+  assert.equal(existsSync(out), false);
+
+  const child = spawn(process.execPath, [SCRIPT, join(FIX, 'none'), '--out', out, '--watch', '--every', '15'], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  const line = await new Promise((res, rej) => {
+    child.on('error', rej);
+    child.on('exit', (c) => rej(new Error(`exited ${c} before printing the path`)));
+    child.stdout.on('data', (d) => {
+      stdout += d;
+      if (stdout.includes('\n')) res(stdout);
+    });
+  }).finally(() => child.removeAllListeners('exit'));
+  const exited = new Promise((res) => child.on('exit', (code, signal) => res({ code, signal })));
+  try {
+    assert.equal(line, `${out}\n`);
+    assert.match(readFileSync(out, 'utf8'), /<meta http-equiv="refresh" content="15">/);
+    assert.equal(child.exitCode, null, 'still running');
+  } finally {
+    child.kill('SIGINT');
+  }
+  const { code } = await exited;
+  assert.equal(code, 130);
+  assert.equal(existsSync(`${out}.tmp`), false);
 });
