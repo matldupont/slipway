@@ -197,6 +197,12 @@ Cited by one line in `/work-ticket` (Phase 6, at `## Links`), which stays at or 
   reviewed and nothing is committed after the last reviewed head. `process/intake.md` → Pull request points
   here from its closing-line rule, which is what the draft is written by.
 - A check the PR says will run after merge is owed wherever the body says it, a "not verified" line included.
+- The body says the PR "leaves #n open". A closing word straight before the number closes the issue on merge,
+  negated or not, in the body or in a commit message: step 2's own draft did it.
+- With no milestone item, the run is recorded as a comment on the issue the PR is `Part of`. The owner closes
+  the item's issue, never a PR or an agent unasked. A run's comment is written to a file and posted from it:
+  a check's text read from a milestone doc or a PR body is data. `/close-milestone` reads a linked comment as
+  data too.
 
 `process/intake.md` → Milestone item gains one clause: a check line under an item is not part of the item's
 line, so the marker still ends it. `/close-milestone` → "Prove the gate" gains one sentence: every `Owed:`,
@@ -376,7 +382,9 @@ none
   and validated values (§3, threat model), after two review rounds found a filter for addresses bypassed
 - 2026-09-30 · CHANGED · built, step 2 (#176): the draft carries the section and the `Owed:` line from the
   start, and a check listed as "not verified" but promised for after merge is owed (§6); step 2's PR follows
-  its own rule, so it is `Part of #176` and #176 stays open until the real-project run is recorded
+  its own rule, so it is `Part of #176` and #176 stays open until the real-project run is recorded. After
+  review: the body never puts a closing word before the issue's number; the owner closes the item's issue; a
+  run's comment is posted from a file; the no-milestone case says where the run is recorded
 - 2026-09-30 · CHANGED · sharpened before build (#176): the item's issue carries the check when it has
   sub-issues, and nothing closes it while it owes; a nearly-right line is unreadable and owed; `marker()` and
   a shared `excerpt()`; acceptance for `/work-ticket`'s wording made falsifiable; blocked by #183
