@@ -81,8 +81,9 @@ message lists those names apart. File names are only read from git's output, nev
 Owner-only files and gate code are two lists, and the guard needs only the second. Under `.claude`, gate code is what
 runs without being invoked (settings, hooks) plus everything else there by default: agents, commands, `launch.json`
 and whatever Claude Code reads from that folder next, at any depth (`apps/web/.claude/`). Only `.claude/skills/**` is
-left out, scripts included, since a skill runs when someone invokes it, never from a hook; a branch that changes only
-a skill keeps its Stop hook. A `package.json`, `.npmrc` or other gate path inside a skill still counts by its own name.
+left out, whole: scripts, and a `.claude` folder inside a skill, included. A skill runs when it is invoked, by a person
+or by the agent, never from a hook; a branch that changes only a skill keeps its Stop hook. A name the base's ask
+rules list (`package.json`, `.npmrc`, `.claude/settings*.json`) still counts inside a skill.
 
 When any differs, that hook does not run: the Stop hook blocks once to say so and name the files, SessionStart says
 so, and the advisory hooks stay quiet. Otherwise a branch's hook scripts, `ci/verify.mjs` and package scripts would
@@ -103,7 +104,7 @@ Known limitations:
 | a checkout mid-session | Claude Code reloads `.claude/settings.json` when it changes on disk, so checking out a branch that changes it swaps the hooks, guard included. `/work-ticket` asks before it checks out such a branch; a checkout you make by hand is yours |
 | the agent and the base | moving `origin/HEAD` (`git remote set-head`, `git update-ref`, `git replace`, a fetch into `refs/remotes/origin`) asks first, but a reworded shell command still gets through, and a permission mode that approves by itself approves these too. #145 pins the base at session start |
 | `.gitignore` and local index flags | an untracked file is seen as git sees it, through the working tree's ignore rules; `skip-worktree` and `assume-unchanged` hide a tracked file's edit. A checkout alone brings neither an untracked file nor a flag |
-| a skill the branch changed | `.claude/skills/**` does not stop the hooks, yet a skill can carry inline shell or frontmatter hooks that run once it is invoked. It stays owner-only: the harness asks before an edit to it, and the PR check wants a `## Gate changes` line for it, so the change is seen at the pull request, not at the Stop hook |
+| a skill the branch changed | `.claude/skills/**` does not stop the hooks, yet a skill can carry inline shell or frontmatter hooks that run once it is invoked. It stays owner-only: the harness asks before an edit to it, and the PR check wants a `## Gate changes` line for it, so the change is seen at the pull request, not at the Stop hook. An untracked link below `.claude/skills/` is skill content, and a skill folder that is its own untracked git repository is not looked into (as any such folder); a checkout alone brings neither |
 | a symlink | a tracked symlink, or a submodule link, counts wherever it changes, and a gate folder counts when a link takes its place, tracked or untracked unless the ignore rules hide it (`node_modules` without a trailing slash ignores a link too). A link `origin/HEAD` already has is judged by the link, not by what its target holds now; an untracked link outside the gate folders does not count, since git reports no mode for an untracked file. A checkout alone brings no untracked link |
 | a submodule at another path | a submodule's commit and its own changes count at any path, but the guard never looks inside one: a file its own `.gitignore` ignores, or a file written into a submodule folder that is not checked out as a repository, is not seen |
 | a checkout while a hook runs | the guard checks, then the hook runs; a checkout in between (a background agent) changes what the hook reads |

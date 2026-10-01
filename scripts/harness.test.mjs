@@ -134,13 +134,13 @@ test('an owner-only file that is not gate code leaves the hooks running; setting
 
 // #173: under .claude only the skills tree is owner-only and no more; a skill runs when invoked, never from a hook.
 // Everything else there is gate code without being listed, and a gate file inside a skill still counts by its own name.
-test('a skill leaves the hooks running; every other file under .claude stops them, at any depth and in any case', () => {
-  for (const p of ['.claude/skills/x/SKILL.md', '.claude/skills/x/scripts/y.mjs', 'apps/web/.claude/skills/x/SKILL.md']) {
+test('a skills tree leaves the hooks running, whole; every file under .claude outside one stops them, at any depth and in any case', () => {
+  for (const [i, p] of ['.claude/skills/x/SKILL.md', '.claude/skills/x/scripts/y.mjs', 'apps/web/.claude/skills/x/SKILL.md', '.claude/skills/x/.claude/notes.txt'].entries()) {
     clean();
     put(p, '# inert\n');
     run('stop-verify.sh');
     assert.deepEqual(marks(), ['stop-verify.sh'], `${p} alone stopped the Stop hook`);
-    commitAll(`skill-${p.length}`, 'a skill, committed');
+    commitAll(`skill-${i}`, 'a skill, committed');
     reset();
     run('stop-verify.sh');
     assert.deepEqual(marks(), ['stop-verify.sh'], `${p}, committed, stopped the Stop hook`);
@@ -161,6 +161,14 @@ test('a skill leaves the hooks running; every other file under .claude stops the
   symlinkSync('../tools/skills', join(work, '.claude/skills'));
   run('stop-verify.sh');
   assert.deepEqual(marks(), [], 'an untracked link at .claude/skills let the Stop hook run');
+  // The folder itself: an untracked link where a .claude folder goes has no path under it and no mode for git to report.
+  for (const folder of ['.claude', 'apps/web/.claude']) {
+    clean();
+    put('tools/claude/settings.json', '{}\n');
+    mkdirSync(dirname(join(work, folder)), { recursive: true });
+    symlinkSync(join(work, 'tools/claude'), join(work, folder));
+    blocked(folder);
+  }
 });
 
 test('each kind of gate file stops the hooks: a hook, ci/, a package.json, .npmrc untracked, a case-folded name, .claude/', () => {
