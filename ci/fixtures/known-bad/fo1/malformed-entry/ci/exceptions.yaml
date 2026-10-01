@@ -1,0 +1,7 @@
+# The first line of the entry has a mistyped key (idd:), so it is no entry; read loosely, the lines after it
+# would fold into the entry above, or into nothing. The registry must be reported unreadable, naming line 4.
+exceptions:
+  - idd: .github/workflows/bad.yml#build/flaky
+    reason: fixture - the first key is mistyped
+    owner: fixture
+    expires: 2026-12-31

@@ -1,0 +1,22 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      m:
+        specifier: 1.0.0
+        version: 1.0.0
+
+packages:
+
+  m@1.0.0:
+    resolution: {tarball: https://mirror.example.invalid/m-1.0.0.tgz}
+
+snapshots:
+
+  m@1.0.0: {}
