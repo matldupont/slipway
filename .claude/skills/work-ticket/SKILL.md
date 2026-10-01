@@ -275,7 +275,7 @@ Only after CLEAN, with nothing committed since the last verified head. Rewrite `
 - `## Cold review`: who reviewed, the head each round saw, each finding with `file:line` and what became of it (a
   security finding not fixed here: its count and tracker only), and the verdict (`process/cold-review.md` → How).
 - `## Follow-ups`: `#n — title` for each, or none.
-- `## Links`: `Closes #n` or `Part of #n`, and the parent when there is one.
+- `## Links`: `Closes #n` or `Part of #n`, and the parent; a check left for after merge: `process/intake.md` → Deferred check.
 
 ```bash
 git status --porcelain            # prints nothing
