@@ -4,6 +4,9 @@
 // Reads every *.md in the given directory as a pull-request body. In CI the directory
 // holds one file, written from the pull_request event.
 //
+//   body/comment-mark-crosses-heading  a `<!--` is closed by a `-->` beyond a heading: the check cannot tell
+//                            a comment from two marks written as text, nor where a section ends, so it reads
+//                            nothing else in that body
 //   verification/missing     no `## Verification` section
 //   verification/empty       empty, or only the template's comments
 //   verification/prose-only  names no command, code block, check id or CI run —
@@ -30,7 +33,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gateGlobs, gateMatcher, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
-import { section } from '../lib/markdown.mjs';
+import { commentCrossesHeading, section } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 
 const EVIDENCE = /`[^`]+`|```|\b[MPIR]\d+\b|https:\/\/github\.com\/\S+\/actions\/runs\/\d+/;
@@ -60,6 +63,10 @@ try {
 
 for (const f of bodies) {
   const md = readFileSync(join(dir, f), 'utf8');
+  if (commentCrossesHeading(md)) {
+    findings.push({ where: `${f}#body/comment-mark-crosses-heading`, detail: 'a comment opener in this body is closed beyond a heading, so the check cannot tell hidden text from shown, nor where a section ends; close it in the same section, or write the mark in words' });
+    continue;
+  }
   const v = section(md, 'Verification', 2);
   if (v === null) findings.push({ where: `${f}#verification/missing`, detail: 'no `## Verification` section' });
   else if (v === '') findings.push({ where: `${f}#verification/empty`, detail: 'Verification is empty or only template comments' });

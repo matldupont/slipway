@@ -7,8 +7,9 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // A RegExp title matches the whole heading text: /9\.\s+Estimates?/ for a renamed one.
 // Comments are removed first, so a heading or an example inside a template comment
 // never counts as content.
+const COMMENT = /<!--[\s\S]*?-->/g;
 export function section(md, title, level) {
-  const lines = md.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+  const lines = md.replace(COMMENT, '').split(/\r?\n/);
   const text = title instanceof RegExp ? title.source : escapeRe(title);
   const heading = new RegExp(`^#{${level}}\\s+(?:${text})\\s*$`, 'i');
   const start = lines.findIndex((l) => heading.test(l.trim()));
@@ -21,6 +22,13 @@ export function section(md, title, level) {
   }
   return body.join('\n').trim();
 }
+
+// Whether a span section() removes as a comment holds a heading-shaped line (at any indent: section() finds a
+// heading by its trimmed line). The span may be a comment, or a `<!--` written as text (in inline code) and a
+// `-->` further down: section() cannot tell, and removing it runs one section on into the next. A reader of text
+// other people write asks this first, and does not trust the sections of a body where it is true (#189).
+export const commentCrossesHeading = (md) =>
+  (md.match(COMMENT) ?? []).some((span) => span.slice(0, -3).split('\n').slice(1).some((l) => /^#{1,6}(?:\s|$)/.test(l.trim())));
 
 // The text a reader sees as prose, roughly: the frontmatter, HTML comments and fenced code blocks removed (an
 // unclosed comment or fence runs to the end). Two simple passes, comments then fences, so it misreads a `<!--` in
