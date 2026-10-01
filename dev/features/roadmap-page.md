@@ -50,9 +50,12 @@ lines once. The page is on only when all of these hold:
 
 - exactly one line anywhere names the row (`Roadmap page` then a `|`, in any case, with or without a leading `|`);
 - that line starts at column 0 as `| Roadmap page |`, and its value is `public`;
-- the nearest heading above it that starts its line with `# ` or `## ` is `## Skill Configuration` (a `### `
-  inside the section is fine);
-- no line from the top of the file down to the row contains `<!--`, `-->`, three backticks or `~~~`.
+- the nearest `# ` or `## ` heading above it, indented up to three spaces, is `## Skill Configuration` at column 0
+  (a `### ` inside the section is fine), and no line between them is only `=` or only `-` (a setext underline);
+- no line from the top of the file down to the row, the row's own line included, contains `<!--`, `-->`, three
+  backticks or `~~~`.
+
+A lone carriage return ends a line, as it does when the file is rendered.
 
 Otherwise the page is off and one line says why, in fixed words and a count, never text from the file:
 
@@ -61,12 +64,13 @@ Otherwise the page is off and one line says why, in fixed words and a count, nev
 | two or more lines name the row | `2 Roadmap page rows; keep one` |
 | the row does not start its line | `the Roadmap page row must start its line with \| Roadmap page \|` |
 | it sits under another heading | `the Roadmap page row is not under ## Skill Configuration` |
-| a mark sits above it | `a code fence or comment sits above the Roadmap page row; move the Skill Configuration section above it` |
+| a mark sits above it or on its line | `a code fence or comment sits above or on the Roadmap page row; move the Skill Configuration section above it` |
 
 `--out` prints `roadmap: off (<reason>)`. `--enabled` prints `enabled=false`, then `reason=<reason>`: both are
 valid `$GITHUB_OUTPUT` lines, and the workflow (#69) reads only `enabled`. With no row, `off` or a placeholder,
-the lines are as before (`roadmap: off (AGENT.md Roadmap page)`, `enabled=false`). An unknown value on the single
-row still exits 1.
+the lines are as before (`roadmap: off (AGENT.md Roadmap page)`, `enabled=false`), whatever sits above the row. An
+unknown value on a single row that passes the checks above still exits 1; on a row that fails them, the page is
+off with that reason.
 
 **The cost of the last rule.** It looks at the whole file above the row, not only the section, because a comment
 or fence opened above the heading hides the section too, and telling an open one from a closed one takes the
@@ -74,8 +78,12 @@ reader this replaces. So a code fence or comment anywhere above the row turns th
 the owner moves `## Skill Configuration` above it. A project's AGENT.md had a balanced fence above the section;
 slipway's own template has none.
 
-Every other AGENT.md row (`Timezone`, `Product name`, the work order's rows) is read by `agentRow()` in
-`ci/checks/lib/clock.mjs` from the raw text, first row wins; none of them decides what is published.
+**The project name is read the same way:** one `Product name` row, at column 0, under `## Skill Configuration`,
+with no mark above it or on its line. Otherwise the page shows no name, so a row inside a comment or a fence
+never becomes the page's title.
+
+`Timezone` and the work order's rows are read by `agentRow()` in `ci/checks/lib/clock.mjs` from the raw text,
+first row wins. Of those, only `Timezone` reaches the page, as the date in its footer.
 
 ### Renderer — `ci/roadmap.mjs`
 
@@ -98,7 +106,7 @@ The day count moves into that lib as `appetiteClock(appetite, today)` →
 
 | field | from |
 |---|---|
-| project name | AGENT.md `Product name` row; omitted while it is `<Product>` |
+| project name | AGENT.md `Product name` row, read as strictly as the switch; omitted while it is `<Product>`, or when the row may be hidden |
 | milestone id, status, kind | frontmatter |
 | title | frontmatter `title:`; else the body's first line only when it is exactly `# M<n> — <title>` (the template's shape) and the title holds none of `<`, `>`, a backtick, `[`, `]`; else none |
 | summary | frontmatter `summary` (the line the PRD's milestones table already shows) |
@@ -159,7 +167,7 @@ step fails and says so; the render step has already proved the page builds.
 ### Ownership
 
 `ci/roadmap.mjs` and the workflow are `managed` (existing `ci/**` and `.github/**` globs). The test and
-its fixture roots are `internal`: `scripts/roadmap.test.mjs`, `scripts/fixtures/roadmap/**`. O1 needs no
+its fixture roots are `internal`: `scripts/roadmap.test.mjs`, `scripts/roadmap-switch.test.mjs`, `scripts/fixtures/roadmap/**`. O1 needs no
 new glob.
 
 ## Seams
@@ -195,10 +203,12 @@ The URL (`<owner>.github.io/<repo>/`) is guessable. Anything in a published fiel
 - A milestone file that is a symlink is read through to its target, as MS1 and `pnpm status` read it. Only a
   committer can add one, and a committer can already edit any published field; the target still passes the
   allowlist, so only its frontmatter `id`, status and allowed fields can show.
-- **The switch reads lines, not markdown** (#168), so two shapes get past it. A setext heading (a line
-  underlined with `===`) between `## Skill Configuration` and the row is not seen as a new section: the row
-  still counts, though it renders under that heading. A row inside a raw HTML block (a hidden `<div>`, say) is not
-  caught: only comment and fence marks are looked for.
+- **The switch reads lines, not markdown** (#168), so two shapes get past it, for the `Roadmap page` and the
+  `Product name` rows alike. A row inside a raw HTML block that runs past a blank line (a `<pre>` or a `<script>`,
+  say) is not caught: only comment and fence marks are looked for. A row on a continuation line of a link
+  definition's title (`[x]: /u "…` above it, the closing quote below) renders nothing and still counts.
+- **A `Timezone` row inside a comment or a fence** is read when it is the first one, and sets the date in the
+  page's footer. A date only; no text from the row reaches the page.
 - **Unclosed frontmatter.** A milestone file whose frontmatter is never closed, with a later `---` break, has
   body `title:` and `summary:` lines read as frontmatter. Only a malformed file does this; the shared
   `frontmatter()` reader belongs to MS1.
@@ -252,10 +262,17 @@ Then  it exits 1 naming the row and the values off and public, and writes nothin
 ```
 
 ```
-Given a lone `public` row inside an HTML comment or a code fence, below one opened above the heading, indented,
-      or under any heading other than `## Skill Configuration`; or two Roadmap page rows, whatever they say
+Given a lone `public` row inside an HTML comment or a code fence, below one opened above the heading, with a
+      comment on its own line, indented, or under any heading other than `## Skill Configuration` (a `#`, a `##`,
+      one indented up to three spaces, a setext one); or two Roadmap page rows, whatever they say
 When  the renderer runs with --enabled
 Then  it prints enabled=false and one reason= line (the count, for two rows), and --out writes nothing
+```
+
+```
+Given `public`, and a `Product name` row only inside a comment, a fence or another section, or two such rows
+When  the renderer runs
+Then  the page's title is "Roadmap", and nothing from those rows is in index.html
 ```
 
 ```
@@ -295,6 +312,7 @@ End to end: the owner's project with the non-technical reader has the row set to
 
 ```
 node scripts/roadmap.test.mjs     # one case per Acceptance block, fixture roots in scripts/fixtures/roadmap/
+node scripts/roadmap-switch.test.mjs   # the switch and the project name: AGENT.md shapes, as inert text
 pnpm meta                         # S1 (status unchanged), W1 (the test is wired into CI), FO1, O1
 CHECK_TODAY=2026-03-11 node ci/roadmap.mjs scripts/fixtures/roadmap/full --out /tmp/roadmap --sha 0123456789abcdef
 ```

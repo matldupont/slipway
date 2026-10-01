@@ -14,8 +14,8 @@ import { strictSection } from './markdown.mjs';
 
 // The value of an AGENT.md table row: the cell's first `code` span, or its first word; the rest of the cell may
 // explain it. '' when there is no row. `row` is matched as written, whole and case-insensitive, in the raw text:
-// the first such row wins, a commented or fenced one included, so nothing that publishes reads through this
-// (ci/roadmap.mjs has its own switch). `within` names the `##` section the row must sit in; without it, any row
+// the first such row wins, a commented or fenced one included, so no published text reads through this
+// (ci/roadmap.mjs reads its switch and the project name itself; only the page's date comes from Timezone here). `within` names the `##` section the row must sit in; without it, any row
 // counts. `file` names another file under `root` with the same table (slipway's own dev/skill-configuration.md).
 export function agentRow(root, row, within, file = 'AGENT.md') {
   const p = join(root, file);

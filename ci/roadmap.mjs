@@ -13,7 +13,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { agentRow, today as localToday } from './checks/lib/clock.mjs';
+import { today as localToday } from './checks/lib/clock.mjs';
 import { readMilestoneModel } from './checks/lib/milestones.mjs';
 import { milestoneNumber } from './checks/lib/risks.mjs';
 import { escapeHtml } from './checks/lib/html.mjs';
@@ -23,30 +23,60 @@ const ROW = 'Roadmap page';
 const DROP = new RegExp(UNSAFE.source, 'gv');
 const MARKS = ['<!--', '-->', '```', '~~~'];
 
-// { on, why }. Raw lines of AGENT.md, no markdown reader: on only when exactly one line names the row, it starts
-// its line, says `public`, sits under ## Skill Configuration, and no line above it holds a comment or fence mark.
-// `why` is fixed words and a count, never file text; null when there is no row, or it says off. Throws on a value
-// it does not know.
-export function roadmapSwitch(root) {
+const value = (cell) => (cell.match(/`([^`]+)`/)?.[1] ?? cell.trim().split(/\s/)[0]).trim();
+
+// AGENT.md as raw lines, with no markdown reader. A lone CR ends a line too, as it does when rendered.
+const agentLines = (root) => {
   const p = join(root, 'AGENT.md');
-  const lines = existsSync(p) ? readFileSync(p, 'utf8').split(/\r?\n/) : [];
-  const off = (why) => ({ on: false, why });
+  return existsSync(p) ? readFileSync(p, 'utf8').split(/\r\n|\r|\n/) : [];
+};
+
+// The one line that names a row: { at, cell }; { why } when there are several or it does not start its line; {}
+// when there is none. `name` is a fixed word of this file, and `why` is fixed words and a count, never file text.
+function rowLine(lines, name) {
+  const any = new RegExp(`${name}[ \\t]*\\|`, 'i');
   const rows = [];
-  lines.forEach((l, i) => /roadmap page[ \t]*\|/i.test(l) && rows.push(i));
-  if (rows.length === 0) return off(null);
-  if (rows.length > 1) return off(`${rows.length} ${ROW} rows; keep one`);
-  const at = rows[0];
-  const cell = lines[at].match(/^\|[ \t]*Roadmap page[ \t]*\|([^|]*)/)?.[1];
-  if (cell === undefined) return off(`the ${ROW} row must start its line with | ${ROW} |`);
-  const value = (cell.match(/`([^`]+)`/)?.[1] ?? cell.trim().split(/\s/)[0]).trim();
-  if (!value || value === 'off' || value.startsWith('<')) return off(null);
-  if (value !== 'public') throw new Error(`AGENT.md ${ROW} is "${value.replace(DROP, '')}": use off or public`);
+  lines.forEach((l, i) => any.test(l) && rows.push(i));
+  if (rows.length === 0) return {};
+  if (rows.length > 1) return { why: `${rows.length} ${name} rows; keep one` };
+  const cell = lines[rows[0]].match(new RegExp(`^\\|[ \\t]*${name}[ \\t]*\\|([^|]*)`))?.[1];
+  return cell === undefined ? { why: `the ${name} row must start its line with | ${name} |` } : { at: rows[0], cell };
+}
+
+// Why the row at line `at` may not be what a reader sees, or null: the nearest `#` or `##` heading above it (indented
+// up to three spaces) is not ## Skill Configuration, a setext underline (a line of only `=` or only `-`) sits between
+// them, or a comment or fence mark sits anywhere above the row or on its line.
+function hidden(lines, at, name) {
   let head = at - 1;
-  while (head >= 0 && !/^#{1,2}(?:[ \t]|$)/.test(lines[head])) head--;
-  if (head < 0 || !/^##[ \t]+Skill Configuration[ \t]*$/i.test(lines[head])) return off(`the ${ROW} row is not under ## Skill Configuration`);
-  for (let i = 0; i < at; i++)
-    if (MARKS.some((m) => lines[i].includes(m))) return off(`a code fence or comment sits above the ${ROW} row; move the Skill Configuration section above it`);
+  while (head >= 0 && !/^ {0,3}#{1,2}(?:[ \t]|$)/.test(lines[head])) head--;
+  const under = head >= 0 && /^##[ \t]+Skill Configuration[ \t]*$/i.test(lines[head]);
+  if (!under || lines.slice(head + 2, at).some((l) => /^(?:=+|-+)$/.test(l.replace(/\s+/g, '')))) return `the ${name} row is not under ## Skill Configuration`;
+  if (lines.slice(0, at + 1).some((l) => MARKS.some((m) => l.includes(m)))) return `a code fence or comment sits above or on the ${name} row; move the Skill Configuration section above it`;
+  return null;
+}
+
+// { on, why }. On only when exactly one line names the row, it starts its line, says `public`, and nothing in
+// hidden() applies. No row, off or a placeholder is off with no reason; a row that may be hidden is off and says
+// why; a value it does not know, on a row that is not hidden, throws.
+export function roadmapSwitch(root) {
+  const lines = agentLines(root);
+  const off = (why = null) => ({ on: false, why });
+  const { at, cell, why } = rowLine(lines, ROW);
+  if (cell === undefined) return off(why);
+  const v = value(cell);
+  if (!v || v === 'off' || v.startsWith('<')) return off();
+  const hid = hidden(lines, at, ROW);
+  if (hid) return off(hid);
+  if (v !== 'public') throw new Error(`AGENT.md ${ROW} is "${v.replace(DROP, '')}": use off or public`);
   return { on: true, why: null };
+}
+
+// The project name for the page: the one Product name row, read as strictly as the switch; else none.
+function productName(root) {
+  const lines = agentLines(root);
+  const { at, cell } = rowLine(lines, 'Product name');
+  const v = cell === undefined || hidden(lines, at, 'Product name') ? '' : value(cell);
+  return v && !v.startsWith('<') ? v : null;
 }
 
 // The allowlist (dev/features/roadmap-page.md → The allowlist). Every field the page shows is named here, and
@@ -178,8 +208,7 @@ function main(argv) {
   let html;
   try {
     const today = localToday(root);
-    const product = agentRow(root, 'Product name');
-    html = renderPage({ product: product && !product.startsWith('<') ? product : null, milestones: readMilestoneModel(root, today), today, sha });
+    html = renderPage({ product: productName(root), milestones: readMilestoneModel(root, today), today, sha });
   } catch (e) {
     process.stderr.write(`roadmap: ${e.message.replace(DROP, '')}\n`);
     return 1;

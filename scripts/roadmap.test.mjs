@@ -65,55 +65,13 @@ test('no row or off: --out writes nothing and says so, --enabled prints false', 
   assert.equal(run(join(FIX, 'full'), ['--enabled']).stdout, 'enabled=true\n');
 });
 
-// AGENT.md variants for the switch: the off fixture (no row) with text added. Inert text; nothing here runs.
-const [PUB, OFF] = ['public', 'off'].map((v) => `| Roadmap page | \`${v}\` | example |`);
+// An AGENT.md variant of a fixture root. The switch's own cases are in roadmap-switch.test.mjs.
 function agent(edit, from = 'off') {
   const root = tmp();
   cpSync(join(FIX, from), root, { recursive: true });
   writeFileSync(join(root, 'AGENT.md'), edit(readFileSync(join(root, 'AGENT.md'), 'utf8')));
   return root;
 }
-const MARK = 'a code fence or comment sits above the Roadmap page row; move the Skill Configuration section above it';
-const SECTION = 'the Roadmap page row is not under ## Skill Configuration';
-
-test('a lone public row that is hidden, indented or outside Skill Configuration leaves the page off, and says why', () => {
-  const shapes = {
-    'in an HTML comment': [(a) => `${a}\n<!-- example:\n${PUB}\n-->\n`, MARK],
-    'in a code fence': [(a) => `${a}\n\`\`\`\n${PUB}\n\`\`\`\n`, MARK],
-    'in a ~~~ fence': [(a) => `${a}\n~~~\n${PUB}\n~~~\n`, MARK],
-    'a comment opened above the heading': [(a) => `<!--\n${a}${PUB}\n-->\n`, MARK],
-    'a balanced fence above the heading': [(a) => `\`\`\`\nls\n\`\`\`\n\n${a}${PUB}\n`, MARK],
-    'in an indented code block': [(a) => `${a}\n    ${PUB}\n`, 'the Roadmap page row must start its line with | Roadmap page |'],
-    'in another ## section': [(a) => `${a}\n## Examples\n\n| Key | Value | What |\n|---|---|---|\n${PUB}\n`, SECTION],
-    'under a # heading': [(a) => `${a}\n# Other\n\n${PUB}\n`, SECTION],
-  };
-  for (const [name, [edit, why]] of Object.entries(shapes)) {
-    const root = agent(edit);
-    assert.equal(run(root, ['--enabled']).stdout, `enabled=false\nreason=${why}\n`, name);
-    const out = join(tmp(), 'site');
-    assert.equal(run(root, ['--out', out]).stdout, `roadmap: off (${why})\n`, name);
-    assert.equal(existsSync(out), false, name);
-  }
-});
-
-test('two Roadmap page rows, in any order and with any values, leave the page off and name the count', () => {
-  const hide = (row) => `<!--\n${row}\n-->`;
-  const pairs = [[hide(PUB), OFF], [OFF, hide(PUB)], [PUB, PUB], [PUB, 'Roadmap page | off'], [PUB, '| roadmap page | pubic |']];
-  for (const [first, second] of pairs) {
-    const r = run(agent((a) => `${a}${first}\n${second}\n`), ['--enabled']);
-    assert.deepEqual([r.status, r.stdout], [0, 'enabled=false\nreason=2 Roadmap page rows; keep one\n'], `${first} / ${second}`);
-  }
-});
-
-test('one public row under ## Skill Configuration is on, and --enabled prints one line whatever the cell holds', () => {
-  assert.equal(run(agent((a) => `${a}${PUB}\n`), ['--enabled']).stdout, 'enabled=true\n');
-  assert.equal(run(agent((a) => `${a}\n### Sub\n\n${PUB}\n`), ['--enabled']).stdout, 'enabled=true\n', 'a ### inside the section');
-  // What a cell holds never reaches --enabled's output, which the workflow appends to $GITHUB_OUTPUT.
-  const cut = '| Roadmap page | `public`\nenabled=false | reason=x |';
-  assert.equal(run(agent((a) => `${a}${cut}\n`), ['--enabled']).stdout, 'enabled=true\n');
-  const two = run(agent((a) => `${a}| Roadmap page | reason=x enabled=true |\n${PUB}\n`), ['--enabled']);
-  assert.equal(two.stdout, 'enabled=false\nreason=2 Roadmap page rows; keep one\n');
-});
 
 test('a 1 MB AGENT.md or milestone file is read in under 2 s', () => {
   const MB = 1 << 20;
