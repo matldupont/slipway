@@ -1623,6 +1623,70 @@ test("--check-checkout: the pre-launch command exits 0 on a clean checkout of th
   assert.equal(spawnSync(process.execPath, [compute, "--check-checkout", outside], { encoding: "utf8" }).status, 1, "not a checkout");
 });
 
+test("--check-checkout: a checkout holding any ignored file is refused; the review's own comparison is not", () => {
+  const { repo, base } = baseRepo();
+  const wt0 = freshWorktree(repo, base);
+  assert.equal(checkCheckout(wt0, base).code, 0, "a fresh worktree off the base passes");
+  assert.match(checkCheckout(wt0, base).lines.join("\n"), /holds no ignored file/);
+
+  const cases: Array<[string, (wt: string) => void, RegExp]> = [
+    ["a file under .claude/", (wt) => {
+      const exclude = execSync("git rev-parse --path-format=absolute --git-path info/exclude", { cwd: wt, encoding: "utf8" }).trim();
+      mkdirSync(path.dirname(exclude), { recursive: true });
+      writeFileSync(exclude, ".claude/settings.local.json\n"); // the owner's own local ignore: nothing tracked changes
+      writeFileSync(path.join(wt, ".claude", "settings.local.json"), "{}\n");
+    }, /ignored: "\.claude\/settings\.local\.json"/],
+    ["CLAUDE.local.md", (wt) => writeFileSync(path.join(wt, "CLAUDE.local.md"), "x\n"), /ignored: "CLAUDE\.local\.md"/],
+    ["a file under node_modules/", (wt) => {
+      mkdirSync(path.join(wt, "node_modules", "x"), { recursive: true });
+      writeFileSync(path.join(wt, "node_modules", "x", "index.js"), "x\n");
+    }, /ignored: "node_modules\/"/],
+    ["a whole ignored folder", (wt) => {
+      const exclude = execSync("git rev-parse --path-format=absolute --git-path info/exclude", { cwd: wt, encoding: "utf8" }).trim();
+      mkdirSync(path.dirname(exclude), { recursive: true });
+      writeFileSync(exclude, "/cache/\n");
+      mkdirSync(path.join(wt, "cache", "deep"), { recursive: true });
+      writeFileSync(path.join(wt, "cache", "deep", "a"), "x\n");
+    }, /ignored: "cache\/"/],
+  ];
+  for (const [name, setup, expected] of cases) {
+    const wt = freshWorktree(repo, base);
+    setup(wt);
+    // Nothing the base tracks changed, and HEAD never left the base: only the ignored file refuses it.
+    assert.deepEqual(compareWithBase(wt, base), { matches: true, differing: [], history: null, error: null }, `${name}: the review's own comparison passes`);
+    const { code, lines } = checkCheckout(wt, base);
+    assert.equal(code, 1, name);
+    const out = lines.join("\n");
+    assert.match(out, expected, name);
+    const paste = lines.find((l) => l.trim().startsWith("git -c "))?.trim() ?? "";
+    assert.match(paste, new RegExp(`^git -c core\\.hooksPath=/dev/null -C '[^']+' worktree add --detach '[^']+' ${base}$`), name);
+    execSync(paste, { stdio: "pipe", shell: "/bin/sh" });
+    const made = paste.match(/add --detach '([^']+)'/)?.[1] ?? "";
+    assert.equal(checkCheckout(made, base).code, 0, `${name}: the worktree the refusal names passes`);
+  }
+
+  // A file hidden only by the global excludes file is refused, and its path printed.
+  const wt = freshWorktree(repo, base);
+  const globalDir = workspaceMkdtemp("globalcfg-");
+  writeFileSync(path.join(globalDir, "ignore"), "scratch.txt\n");
+  writeFileSync(path.join(globalDir, "config"), `[core]\n\texcludesFile = ${path.join(globalDir, "ignore")}\n`);
+  writeFileSync(path.join(wt, "scratch.txt"), "x\n");
+  const before = process.env.GIT_CONFIG_GLOBAL;
+  process.env.GIT_CONFIG_GLOBAL = path.join(globalDir, "config");
+  try {
+    const { code, lines } = checkCheckout(wt, base);
+    assert.equal(code, 1);
+    assert.match(lines.join("\n"), /ignored: "scratch\.txt"/);
+  } finally {
+    if (before === undefined) delete process.env.GIT_CONFIG_GLOBAL;
+    else process.env.GIT_CONFIG_GLOBAL = before;
+  }
+
+  // A listing that fails refuses: never an open pass.
+  const failed = withFailingGit("status", () => checkCheckout(wt0, base));
+  assert.equal(failed.code, 1);
+});
+
 test("--check-checkout: a path the author chose prints escaped, never as terminal control text", () => {
   const { repo, base } = baseRepo();
   const name = ".claude/\u001b]0;pwned\u0007\u202e.md";

@@ -137,14 +137,15 @@ node /path/to/your-clean-checkout/.claude/skills/pr-review/features/compute.ts -
 ```
 
 It exits 0 only when that checkout is the base branch's, with nothing
-changed or added: what Claude Code runs there (settings hooks and the
-scripts they call, `CLAUDE.md` and its imports, skills) reaches any file.
-It also refuses a checkout whose HEAD has ever been on a commit outside the
-base's history, since files a PR left behind can hide from git as ignored
-ones; a missing or switched-off record of HEAD refuses too. A PR's files
-brought in with HEAD left on the base (`git restore --source`, `git apply`)
-are not seen: bring nothing from a PR into the checkout you review from. Each refusal
-prints the one command that makes a fresh review worktree off the base.
+changed or added and no ignored file held: what Claude Code runs there
+(settings hooks and the scripts they call, `CLAUDE.md` and its imports,
+skills) reaches any file. It also refuses a checkout whose HEAD has ever
+been on a commit outside the base's history; a missing or switched-off
+record of HEAD refuses too. A tracked file hidden with `skip-worktree` or
+`assume-unchanged` is not listed (a known limitation; a pull request cannot
+set that flag). Each refusal prints the one command that makes a fresh
+review worktree off the base. The review's own check below keeps its rules
+and leaves ignored files aside.
 
 **First, where you are running.** Using `git` and `gh` only. The `gh pr
 view` and the git line each ask once; `<baseRefOid>` is used only when it
