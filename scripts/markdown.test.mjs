@@ -1,70 +1,50 @@
 #!/usr/bin/env node
-// comments() and section() (ci/checks/lib/markdown.mjs): comments are removed before a section is read, and the
-// removal never takes a heading with it. A span from a `<!--` to a `-->` beyond a heading may be a comment or two
-// marks written as text (#189): its headings stay, so no section runs on into the next; the rest is not counted,
-// so text that may be hidden never passes as shown; and `crossed` says it happened. The P1 fixtures
-// gate-comment-mark.md, gate-swallowed-heading.md and gate-hidden-section.md hold the same shapes as pull
-// request bodies. Internal: `pnpm meta` runs it in slipway, never in a project.
+// commentCrossesHeading() (ci/checks/lib/markdown.mjs): section() removes every span from a `<!--` to the next
+// `-->`, headings included, so a `<!--` in inline code and a `-->` further down run one section on into the next
+// (#189). The predicate says when a span holds a heading-shaped line; P1 then reads nothing else in that body.
+// The P1 fixtures gate-comment-mark.md, gate-swallowed-heading.md and gate-hidden-section.md hold the same
+// shapes as pull request bodies. Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { comments, section } from '../ci/checks/lib/markdown.mjs';
+import { commentCrossesHeading, section } from '../ci/checks/lib/markdown.mjs';
 
 const body = (...lines) => lines.join('\n');
 
-test('an opener in inline code and a closer in a later section delete no heading, and the text between is not counted', () => {
-  const md = body('## One', 'covers a `<!--` in inline code', 'one more', '', '## Two', 'two text', 'ends at `-->`.', 'shown', '', '## Three', 'three text');
-  assert.equal(section(md, 'One', 2), 'covers a `');
-  assert.equal(section(md, 'Two', 2), '`.\nshown');
-  assert.equal(section(md, 'Three', 2), 'three text');
-  assert.equal(comments(md).crossed, true);
+test('an opener in inline code and a closer in a later section cross a heading', () => {
+  const md = body('## One', 'covers a `<!--` in inline code', '', '## Two', 'ends at `-->`.', '', '## Three', 'three text');
+  assert.equal(commentCrossesHeading(md), true);
+  // What section() does with it, and why the predicate exists: One runs on into Two, and Two is gone.
+  assert.equal(section(md, 'One', 2), 'covers a ``.');
+  assert.equal(section(md, 'Two', 2), null);
 });
 
-test('a comment on one line and a comment across lines are removed, and nothing is crossed', () => {
-  const md = body('## One', 'kept <!-- gone --> kept', '<!--', 'gone', '```', 'pnpm verify', '```', '-->', '', '## Two', '<!-- Closes #123 -->');
+test('a comment that holds a section, or a deeper heading, crosses a heading', () => {
+  assert.equal(commentCrossesHeading(body('## One', 'x', '<!--', '## Two', '- `ci/verify.mjs` — the same', '-->')), true);
+  assert.equal(commentCrossesHeading(body('## Two', '<!--', '### hidden', '- `ci/verify.mjs` — the same', '-->')), true);
+  assert.equal(commentCrossesHeading(body('<!--', '## One', '-->', 'shown')), true);
+});
+
+test('a heading counts at every level, at any indent, alone, on the closer\'s line, and with CRLF', () => {
+  for (const heading of ['## Two', '  ## Two', '\t## Two', ' ## Two', '# Two', '###### Two', '##', '## Two -->']) {
+    assert.equal(commentCrossesHeading(body('## One', 'a <!-- b', heading, heading.endsWith('-->') ? 'd' : 'c --> d')), true, heading);
+  }
+  assert.equal(commentCrossesHeading(['## One', 'a <!-- b', '## Two', 'c --> d'].join('\r\n')), true);
+});
+
+test('a comment with no heading in it crosses nothing, and section() removes it', () => {
+  const md = body('## One', 'kept <!-- gone --> kept', '<!--', 'gone', '```', 'pnpm verify', '```', '-->', '', '## Two <!-- a', 'b -->', '<!-- Closes #123 -->');
+  assert.equal(commentCrossesHeading(md), false);
   assert.equal(section(md, 'One', 2), 'kept  kept');
   assert.equal(section(md, 'Two', 2), '');
-  assert.equal(comments(md).crossed, false);
+  assert.equal(commentCrossesHeading(body('## One', 'a `<!--` with no closer', '## Two', 'b')), false);
+  assert.equal(commentCrossesHeading(body('## One', '`-->` then <!-- a -->', '## Two', 'b')), false);
 });
 
-test('a comment that holds a section hides its text and keeps its headings', () => {
-  // The whole section inside the comment; a deeper heading inside a shown section; evidence before a heading.
-  const wrapped = body('## One', 'x', '<!--', '## Two', '- `ci/verify.mjs` — the same', '### Notes', 'more', '-->', 'after');
-  assert.equal(section(wrapped, 'Two', 2), '### Notes\n\nafter');
-  assert.equal(section(wrapped, 'One', 2), 'x');
-  const deeper = body('## Two', '<!--', '### hidden', '- `ci/verify.mjs` — the same', '-->');
-  assert.equal(section(deeper, 'Two', 2), '### hidden');
-  const before = body('## Two', '<!-- `pnpm verify`', '# x', '-->', '## Three', 'e');
-  assert.equal(section(before, 'Two', 2), '');
-  for (const md of [wrapped, deeper, before]) assert.equal(comments(md).crossed, true);
-});
-
-test('a heading is kept at every level, at any indent, on the closer\'s line, with CRLF, and at the start of the body', () => {
-  for (const heading of ['## Two', '  ## Two', '\t## Two', ' ## Two', '# Two', '###### Two']) {
-    const md = body('## One', 'a <!-- b', heading, 'c --> d', '## Three', 'e');
-    assert.match(section(md, 'Two', heading.trim().indexOf(' ')), /^d/, heading);
-    assert.match(section(md, 'One', 2), /^a *$/m, heading);
-  }
-  assert.equal(section(body('## One', 'a <!-- b', '## Two -->', 'c'), 'Two', 2), 'c');
-  assert.equal(section(body('## One', 'x', '## Two <!-- a', '## Three', 'b -->', 'c'), 'Two', 2), '');
-  const crlf = ['## One', 'a <!-- b', '## Two', 'c --> d'].join('\r\n');
-  assert.equal(section(crlf, 'One', 2), 'a');
-  assert.equal(section(crlf, 'Two', 2), 'd');
-  assert.equal(section(body('<!--', '## One', 'hidden', '-->', 'shown'), 'One', 2), 'shown');
-  assert.equal(section(body('## One', '<!-- a -->', 'shown'), 'One', 2), 'shown');
-  assert.equal(comments(body('##', '<!--', '##', '-->')).text, body('##', '', '##', ''));
-});
-
-test('a line that only looks like a heading does not stop a comment', () => {
+test('a line that only looks like a heading is not one', () => {
   for (const line of ['#123 is the issue', '#tag', '####### seven', 'a # b']) {
-    const md = body('## One', '<!--', line, '-->', 'shown');
-    assert.equal(section(md, 'One', 2), 'shown', line);
-    assert.equal(comments(md).crossed, false, line);
+    assert.equal(commentCrossesHeading(body('## One', '<!--', line, '-->', 'shown')), false, line);
   }
-});
-
-test('after a crossed span, the next whole comment is still removed', () => {
-  const md = body('## One', 'a `<!--` b', '', '## Two', 'c `-->` d <!-- gone --> e');
-  assert.equal(section(md, 'One', 2), 'a `');
-  assert.equal(section(md, 'Two', 2), '` d  e');
+  // The tail of the opener's line is not a line of its own.
+  assert.equal(commentCrossesHeading(body('x <!-- ## not a heading', 'y -->')), false);
 });
