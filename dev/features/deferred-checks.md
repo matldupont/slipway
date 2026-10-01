@@ -38,17 +38,23 @@ is a rule nothing fires on. Decision: D-024. Issue: #176, part of #43.
 Design calls taken with the orchestrator session, not the owner (slipway process design within
 `process/decision-defaults.md`): open issue over follow-up issue; the `Ran:` line cites the comment's URL; a
 failed run stays owed; no waiver syntax; the `pnpm meta` finding; the work-order page shows owed items as not
-ready.
+ready. Sharpened the same way before the build: with sub-issues, the item's issue carries the check and stays
+open while the sub-issues close as usual; a nearly-right line is unreadable and counts as owed
+(decision-defaults §4); a closed issue that still owes reads as owing (§5); one `excerpt()` and one marker
+pattern (§1).
 
 ## Contract
 
-Verified against: b41ae05 2026-09-30 — `.claude/skills/work-ticket/SKILL.md` (300 lines, the cap in
+Verified against: 6587d4e 2026-09-30 — `.claude/skills/work-ticket/SKILL.md` (300 lines, the cap in
 `scripts/skills.test.mjs:28`; no step for a check that runs after merge; Phase 6's Links "Closes #n or Part of
 #n"), `process/*.md` (no rule for it), `ci/status.mjs` (offline; lists open decisions and questions under
-Needs attention; nothing about checks), `ci/checks/lib/milestones.mjs` (`contents()`: `N.` opens an item and
-every indented line continues its text; `started()` reads the marker at the end of that text),
-`ci/checks/meta/ms1-milestones.mjs` (no Contents findings), `ci/work-order.mjs:75,120` (an open issue with no
-open PR and no open blocker is ready), `docs/qa/README.md` (plans, no record of a run).
+Needs attention; nothing about checks; `excerpt()` is private to it), `ci/checks/lib/milestones.mjs`
+(`contents()`: `N.` opens an item and every indented line continues its text; `started()` reads the marker at
+the end of that text, so a check line read as text un-starts its item), `ci/checks/meta/ms1-milestones.mjs`
+(no Contents findings; a shaping milestone is read for frontmatter only), `ci/work-order.mjs:26,122,133` (the
+marker pattern is a second copy, with captures; an item whose issue has sub-issues shows those as its rows; an
+open issue with no open PR and no open blocker is ready), `scripts/skills.test.mjs:111` (a section of
+`process/intake.md` a skill cites must exist), `docs/qa/README.md` (plans, no record of a run).
 
 ### 1. The record — lines under a Contents item
 
@@ -65,36 +71,57 @@ A Contents item in a milestone doc may carry child lines, indented like any cont
   is a comment on the item's issue, `https://github.com/{owner}/{repo}/issues/{n}#issuecomment-{digits}`, where
   `{n}` is the number in the item's ` · #n` marker. The comment carries the run's date, environment and each
   journey's result; the line only points at it.
-- A run is recorded by: posting that comment on the issue, then, in a trivial-lane PR, replacing the `Owed:`
-  line with the `Ran:` line. On `pass` for every check the item owes, the issue is closed.
-- A `fail` stays owed: the item needs attention until a later `Ran:` line for the same check says `pass`, or
-  the fail line names the bug filed for it (` · bug #n`). The fail line stays as history.
+- **The item's issue carries the check.** The item's issue is the one its marker names. When that issue has
+  sub-issues, a check one of their PRs defers is still owed by the item's issue: the comment is posted there,
+  and that issue stays open (§6).
+- A run is recorded by: posting that comment on the item's issue, then, in a trivial-lane PR, replacing the
+  `Owed:` line with the `Ran:` line. On `pass` for every check the item owes, the item's issue is closed, once
+  its sub-issues are.
+- A `fail` stays owed: the item needs attention until a `Ran:` line further down for the same check says
+  `pass`, or the fail line names the bug filed for it (` · bug #n`). The fail line stays as history.
+- **A line that is nearly one is unreadable, and unreadable is owed.** An indented line that starts `owed:` or
+  `ran:` in any letter case, with or without a `-` or `*` bullet before it, is a check line. Written any other
+  way than the two above (the wrong case, a bullet, no ` — {environment}`, a date that is no calendar day, a
+  result other than `pass` or `fail`, a URL of another shape, a pull request's comment included), it is
+  unreadable. It is never dropped and never read as the item's text (decision-defaults §4).
 - There is no waiver. A check that will never run is removed in a PR that records a decision saying why.
 
 ### 2. One reading — `ci/checks/lib/milestones.mjs`
 
-`contents(md)` returns `[{ n, text, checks }]`. An indented line whose first word is `Owed:` or `Ran:` is a
-check, not part of `text`; every other indented line continues `text` as today, so `started()` and every
-existing marker case read the same. `checks` is `[{ kind: 'owed' | 'ran', check, env, date, result, url,
-bug, line }]`, `line` being the raw text for messages; an unreadable `Ran:` line is `{ kind: 'unreadable',
-line }`. A helper `owing(item)` returns the checks the item still owes: every `owed`, every `unreadable`, and
-every `ran fail` with no bug and no later `ran pass` for the same `check` text. F1, status, MS1 and the
-work-order page use these two; no second parser (decision-defaults §1).
+`contents(md)` returns `[{ n, text, checks }]`. A check line (§1) is not part of `text`; every other indented
+line continues `text` as today, so `started()` and every existing marker case read the same. `checks` is
+`[{ kind: 'owed' | 'ran', check, env, date, result, url, bug, line }]`, `line` being the raw text for
+messages; an unreadable check line is `{ kind: 'unreadable', line }`, and so is every check line of an item
+with no marker. A line is cut to 500 characters before a pattern reads it: status runs this in every session's
+hook.
+
+Two helpers beside it:
+
+- `owing(item)` returns the checks the item still owes: every `owed`, every `unreadable`, and every `ran fail`
+  with no bug and no `ran pass` for the same `check` text on a later line.
+- `marker(text)` returns `{ repo, issue }` from the item's marker, or null. `ci/work-order.mjs` uses it and
+  drops its own copy of the pattern.
+
+F1, status, MS1 and the work-order page use these; no second parser (decision-defaults §1). They are tested
+in `scripts/milestones.test.mjs`, which `pnpm meta` runs (one more entry in the `meta` script).
 
 ### 3. `pnpm status` — `ci/status.mjs`
 
 For the active milestone, each owing check adds a Needs attention line, after the open questions:
 
 - `Owed check: {id} item {n} (#{issue}) — {check excerpt} on {env}: run it, post the result as a comment on
-  #{issue}, then change the Owed line to Ran with that comment's link`
+  #{issue}, then change the Owed line to Ran with that comment's link; #{issue} stays open until then (reopen
+  it if it was closed)`
 - `Failed check: {id} item {n} (#{issue}) — {check excerpt} failed on {date}: fix and run it again, or file
   the bug and name it on the line`
-- `Unreadable check line: {id} item {n} — write it as Owed: or Ran: (docs/milestones/{file})`
+- `Unreadable check line: {id} item {n} — "{line excerpt}": write it as Owed: or Ran: (docs/milestones/{file})`
 
-`{check excerpt}` goes through `excerpt()` (60 characters, control and format characters dropped); a URL is
-never printed. The Next line is unchanged. S1 case `ci/fixtures/status/build-loop-owed`: item 1 started with
-an `Owed:` line, item 2 with a `Ran: … pass` line, item 3 with a `Ran: … fail` line and no bug, item 4 with a
-fail then a later pass for the same check; its `attention` list is exactly the lines for items 1 and 3.
+`{check excerpt}`, `{env}` and `{line excerpt}` go through `excerpt()` (60 characters, control and format
+characters dropped); a URL is never printed. `excerpt()` moves from `ci/status.mjs` to
+`ci/checks/lib/report.mjs`, beside the list it drops, so the work-order page uses the same one. The Next line
+is unchanged. S1 case `ci/fixtures/status/build-loop-owed`: item 1 started with an `Owed:` line, item 2 with a
+`Ran: … pass` line, item 3 with a `Ran: … fail` line and no bug, item 4 with a fail then a later pass for the
+same check; its `attention` list is exactly the lines for items 1 and 3.
 
 ### 4. `pnpm meta` — MS1
 
@@ -102,25 +129,43 @@ Two findings in `ci/checks/meta/ms1-milestones.mjs`, documented in its header:
 
 - `checks/owed:<id>#<n>`: a milestone with `status: closed` whose item `n` still owes a check (§2's `owing`).
   A killed milestone is exempt: its work stopped.
-- `checks/unreadable:<id>#<n>`: in any milestone, a `Ran:` line that does not parse, or whose URL is not a
-  comment on the issue in the item's marker, or an `Owed:`/`Ran:` line under an item with no marker.
+- `checks/unreadable:<id>#<n>`: in any milestone, a shaping one included, an unreadable check line (§1), a
+  `Ran:` line whose URL is not a comment on the issue in the item's marker, or a check line under an item with
+  no marker. The detail quotes the line. A marker that names a repository (` · owner/repo#13`) is compared
+  with the URL's repository too; a bare ` · #13` compares the issue number only.
 
 Known-bad fixtures under `ci/fixtures/known-bad/ms1/`: `owed-closed` (a closed milestone with an `Owed:` line
 and one with an unresolved `fail`), `ran-unreadable` (a `Ran:` line without a URL, one whose URL names
-another issue, an `Owed:` line on an unstarted item). The `registry` case stays green.
+another issue, one whose URL is a pull request's comment, a `- owed:` line, an `Owed:` line on an unstarted
+item). The `registry` case stays green.
 
 ### 5. The work-order page — `ci/work-order.mjs`
 
-An item whose issue is open and that owes a check is never in Next and is not shown as ready. Its row reads
-`owes {check excerpt}` for an `Owed:` line and `failed {check excerpt}` for an unresolved fail. Built on the
-same `contents()`; a case in `scripts/work-order.test.mjs`.
+An item that owes a check is not finished, whatever the state of its issue, and its heading reads
+`owes {check excerpt}` for an `Owed:` or unreadable line and `failed {check excerpt}` for an unresolved fail.
+
+- **The item's issue is its only row** (no sub-issues): that row is never in Next and is not shown as ready;
+  it reads `owes …` in place of `open`, with no `/work-ticket` command, and reads the same when the issue was
+  closed while it still owes.
+- **The item's issue has sub-issues:** its rows are the sub-issues, and they are read as today. One closed by
+  the PR that deferred the check is done; the open ones are ready or not by the existing rule. Only the
+  heading says what is owed.
+
+Built on the same `contents()`, `owing()` and `marker()`; three cases in `scripts/work-order.test.mjs`: an
+item with sub-issues that owes (its other open rows are still ready, and the item is not finished), a
+single-issue item that owes (not in Next, reads `owes …`), and an item whose issue was closed while it owes
+(still reads `owes …`, not finished).
 
 ### 6. The rule — `process/intake.md` → Deferred check (new section)
 
 Cited by one line in `/work-ticket` (Phase 6, at `## Links`), which stays at or under 300 lines:
 
-- A PR whose Verification leaves a check for after merge links `Part of #n`, never a closing line, and has
-  `## Owed after merge` listing each check and its environment.
+- A PR whose Verification leaves a check for after merge has `## Owed after merge` listing each check and its
+  environment, and never carries a closing line for the item's issue: it links `Part of #n`. A PR for a
+  sub-issue closes its sub-issue as usual (`Closes #sub · Part of #parent`).
+- While an item has an `Owed:` line, an unreadable check line or an unresolved fail, no PR closes the item's
+  issue, the last sub-issue's PR included. The item's issue is closed by hand once a `Ran: … pass` line has
+  landed for every check it owes.
 - Its diff adds one `Owed:` line per check under the Contents item whose marker names the issue (or the
   issue's parent). No active milestone, or no item names it: the `## Owed after merge` section is the record,
   and the issue stays open.
@@ -129,18 +174,25 @@ Cited by one line in `/work-ticket` (Phase 6, at `## Links`), which stays at or 
 - A result counts only as the comment §1 describes. A claim that a result was posted, with no such comment,
   does not.
 
-`/close-milestone` → "Prove the gate" gains one sentence: every `Owed:` or unresolved failed `Ran:` line under
-Contents is a gate line without evidence, and `pnpm meta` fails a closed milestone that still has one.
+`process/intake.md` → Milestone item gains one clause: a check line under an item is not part of the item's
+line, so the marker still ends it. `/close-milestone` → "Prove the gate" gains one sentence: every `Owed:`,
+unreadable or unresolved failed `Ran:` line under Contents is a gate line without evidence, and `pnpm meta`
+fails a closed milestone that still has one.
 
 ### What is reused
 
-- `contents()` and `started()` in `ci/checks/lib/milestones.mjs`, extended; no second reader.
-- `excerpt()` and `escapeControl` in `ci/status.mjs` for quoted project text.
+- `contents()` and `started()` in `ci/checks/lib/milestones.mjs`, extended; no second reader. The marker
+  pattern's second copy in `ci/work-order.mjs` is replaced by `marker()`.
+- `excerpt()`, moved from `ci/status.mjs` to `ci/checks/lib/report.mjs`, and `escapeControl` there, for quoted
+  project text.
 - MS1's `report()` path and its known-bad fixture layout; S1's `attention` comparison.
 - The work-order page's existing ready rule, with one more condition.
+- `scripts/skills.test.mjs:111`, which already fails when a cited section of `process/intake.md` is missing.
+- Net-new: the comment-URL pattern (searched `issuecomment` and `github.com/` under `ci/` and `scripts/`:
+  nothing reads one).
 
-`ci/**` and `.claude/skills/**` are owner-only: the build asks the owner before each edit, and each PR lists
-the files under `## Gate changes` (MS1: stricter).
+`ci/**`, `package.json` scripts and `.claude/skills/**` are owner-only: the build asks the owner before each
+edit, and each PR lists the files under `## Gate changes` (MS1: stricter).
 
 ## Seams
 
@@ -150,26 +202,35 @@ changes when an issue closes and what the milestone doc records.
 ## Threat model
 
 none beyond baseline. It adds no network call, cache, subprocess, secret or deletion. The only input is text
-in milestone docs, which status already quotes through `excerpt()` into every session's hook: a check's text
-goes through the same path, and its URL is never printed.
+in milestone docs, which status already quotes through `excerpt()` into every session's hook: a check's text,
+its environment and an unreadable line go through the same path, and a URL is never printed.
 
 ## Known limitations
 
 - A `Ran:` line is a pointer. MS1 checks its shape and that it points at a comment on the right issue, not that
   the comment exists or says what the line says; `pnpm status` and `pnpm meta` read no network (D-022).
   `/close-milestone` reads the linked comments when it proves the gate.
+- Under a bare ` · #13` marker, MS1 compares the URL's issue number, not its repository.
 - A PR that defers a check and forgets the `Owed:` line is caught only by review against this rule: whether
-  Verification defers something is prose.
-- `fail` and `pass` pair by exact check text: a reworded check reads as a new one.
+  Verification defers something is prose. The same holds for a PR that closes the item's issue while it owes:
+  status keeps listing the check and the page keeps reading `owes …`, but nothing stops the close.
+- `fail` and `pass` pair by exact check text and by line order: a reworded check reads as a new one, and a
+  pass written above its fail does not clear it.
 - In slipway itself there is no active milestone, so the PR section and the open issue are the only record.
 
 ## Acceptance
 
 ```
 Given a Contents item "2. A client books a walk (F-02) · #13" with an indented Owed: line and a Ran: line
-When  contents() reads it
-Then  its text is "A client books a walk (F-02) · #13", started() is true, and checks holds 2 entries
+When  node scripts/milestones.test.mjs runs contents() on it
+Then  its text is "A client books a walk (F-02) · #13", started() is true, checks holds 2 entries, and marker() gives issue 13
 And   every existing S1 case and scripts/work-order.test.mjs pass unchanged
+```
+
+```
+Given the same item with "- owed: x", "Owed: x" (no environment) and "Ran: x — staging 2026-02-30 pass {url}" under it
+When  node scripts/milestones.test.mjs runs contents() and owing() on it
+Then  each is kind 'unreadable', owing() returns all three, and the item's text and started() are unchanged
 ```
 
 ```
@@ -185,15 +246,27 @@ Then  it reports checks/owed for each, and exits non-zero
 ```
 
 ```
-Given a Ran: line with no URL, one whose URL is a comment on #99 under an item marked · #13, and an Owed: line on an item with no marker
+Given a Ran: line with no URL, one whose URL is a comment on #99 under an item marked · #13, one whose URL is a pull request's comment, a "- owed:" line, and an Owed: line on an item with no marker
 When  MS1 runs on ci/fixtures/known-bad/ms1/ran-unreadable
-Then  it reports checks/unreadable for each of the three
+Then  it reports checks/unreadable for each of the five
 ```
 
 ```
-Given an active milestone whose item's issue is open, has no open PR and owes a check
+Given an active milestone whose item's issue is open, has no sub-issues, no open PR and owes a check
 When  the work-order page is rendered
-Then  that issue is not in Next, and its row reads "owes {check}"
+Then  that issue is not in Next, its row reads "owes {check}" with no /work-ticket command, and the item is not under Finished
+```
+
+```
+Given an item whose issue has two sub-issues, one closed and one open with no PR or blocker, and an Owed: line
+When  the work-order page is rendered
+Then  the open sub-issue is in Next, the item's heading reads "owes {check}", and the item is not under Finished
+```
+
+```
+Given an item whose issue is closed and that still has an Owed: line
+When  the work-order page is rendered
+Then  its row reads "owes {check}" and the item is not under Finished
 ```
 
 ```
@@ -204,14 +277,20 @@ And   `node scripts/skills.test.mjs` exits 1 when the Deferred check section is 
 ```
 
 ```
-Given a PR whose Verification defers a staging journey
-When  /work-ticket opens and readies it
-Then  its Links say "Part of #n", its body has ## Owed after merge, its diff adds the Owed: line, and the report tells the owner how to record the run
+Given process/intake.md → Deferred check on the step-2 branch
+When  node scripts/skills.test.mjs runs
+Then  it passes only while the section names `Part of #n`, `## Owed after merge`, the `Owed:` line and that no PR closes the item's issue while it owes
+And   it exits 1 when any one of the four is removed
 ```
+
+Not a test, and said in step 2's PR as not verified: that `/work-ticket`, on a PR whose Verification defers a
+staging journey, writes all of it. That is proved by the first deferring PR on a real project after it takes
+this version (decision-defaults §9).
 
 ## Verify
 
 ```
+node scripts/milestones.test.mjs
 node ci/checks/meta/s1-status.mjs ci/fixtures/status
 node ci/checks/meta/ms1-milestones.mjs ci/fixtures/known-bad/ms1/owed-closed      # exits non-zero, checks/owed
 node ci/checks/meta/ms1-milestones.mjs ci/fixtures/known-bad/ms1/ran-unreadable   # exits non-zero, checks/unreadable
@@ -220,13 +299,19 @@ node scripts/skills.test.mjs
 pnpm meta
 ```
 
+Step 1 also runs MS1 and status once against a real project's milestone docs and records the result as a
+count (decision-defaults §9).
+
 ## Build map
 
-1. The record read and fired on: `contents()` and `owing()`, status's attention lines, MS1's two findings, the
-   work-order page, with the S1 case, the MS1 known-bad fixtures and a work-order test. — checks lib, status,
-   MS1, work-order, ~250 lines with fixtures. Blocked by #177 (it edits `ci/work-order.mjs` and its test).
-2. The rule: `process/intake.md` → Deferred check, one citing line in `/work-ticket`, one sentence in
-   `/close-milestone`. — rules and skills, ~40 lines.
+1. The record read and fired on: `contents()`, `owing()` and `marker()` with `scripts/milestones.test.mjs`,
+   `excerpt()` moved to the lib, status's attention lines, MS1's two findings, the work-order page, with the
+   S1 case, the MS1 known-bad fixtures and three work-order tests. — checks lib, status, MS1, work-order, ~300
+   lines with fixtures. Blocked by #183 (it edits `ci/work-order.mjs` and its test); rebase on #168 once it
+   merges (it edits `ci/checks/lib/milestones.mjs`).
+2. The rule: `process/intake.md` → Deferred check and one clause in Milestone item, one citing line in
+   `/work-ticket`, one sentence in `/close-milestone`, two tests in `scripts/skills.test.mjs`. — rules and
+   skills, ~60 lines.
 
 Both are PRs under #176 (`Part of #176`); step 2's closes it.
 
@@ -236,9 +321,11 @@ Both are PRs under #176 (`Part of #176`); step 2's closes it.
 - What a QA plan must contain: `docs/qa/README.md`.
 - Checking that a `Ran:` line's comment exists and says what the line says: needs the network, so a later
   `/close-milestone` step or a work-order column, not status (D-022).
-- A PR-body check that a deferred check came with an `Owed:` line: Verification is prose; later, if review
-  misses it on a real project.
+- A PR-body check that a deferred check came with an `Owed:` line, or that a PR does not close an issue that
+  owes: Verification is prose; later, if review misses it on a real project.
 - Owed checks in a repository with no milestone (slipway itself): the open issue carries it.
+- Splitting the files this touches that are already over 300 lines (`ci/work-order.mjs`,
+  `scripts/work-order.test.mjs`, `process/intake.md`, `scripts/skills.test.mjs`).
 
 ## Open questions
 
@@ -247,3 +334,6 @@ none
 ## Changes
 
 - 2026-09-30 · ADDED · spec · #176
+- 2026-09-30 · CHANGED · sharpened before build (#176): the item's issue carries the check when it has
+  sub-issues, and nothing closes it while it owes; a nearly-right line is unreadable and owed; `marker()` and
+  a shared `excerpt()`; acceptance for `/work-ticket`'s wording made falsifiable; blocked by #183
