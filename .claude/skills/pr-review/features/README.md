@@ -190,9 +190,10 @@ Hooks are off in that command: `worktree add` runs `post-checkout`, and a
 relative `core.hooksPath` (husky, lefthook) would run the refused
 checkout's, which may be the PR's.
 
-Known limitation: a tracked file hidden with `skip-worktree` or
+Known limitations: a tracked file hidden with `skip-worktree` or
 `assume-unchanged` is not an ignored file and is not listed here. A pull
-request cannot set that flag.
+request cannot set that flag. Ignored files inside an initialised submodule
+are not listed either.
 
 Bring nothing from a PR into a checkout you review from, and run nothing
 from one there.

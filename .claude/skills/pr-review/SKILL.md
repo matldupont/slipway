@@ -143,7 +143,7 @@ skills) reaches any file. It also refuses a checkout whose HEAD has ever
 been on a commit outside the base's history; a missing or switched-off
 record of HEAD refuses too. A tracked file hidden with `skip-worktree` or
 `assume-unchanged` is not listed (a known limitation; a pull request cannot
-set that flag). Each refusal prints the one command that makes a fresh
+set that flag), nor are ignored files inside an initialised submodule. Each refusal prints the one command that makes a fresh
 review worktree off the base. The review's own check below keeps its rules
 and leaves ignored files aside.
 

@@ -1018,7 +1018,8 @@ export interface CheckoutComparison {
 
 /**
  * Why this checkout's HEAD history refuses it, or null when HEAD has only
- * ever been on the base's history. Ignored files are not compared, and a PR
+ * ever been on the base's history. compareWithBase does not compare ignored
+ * files (the pre-launch check lists them: ignoredPaths), and a PR
  * can leave its own there: force-committed, then kept on disk by a
  * `git reset <base>`, hidden by a `.gitignore` of its own, named as a
  * case-insensitive disk folds them, or under `node_modules/`. The record of
@@ -1069,8 +1070,8 @@ function headHistoryRefusal(repoRoot: string, baseSha: string): string | null {
  * files is the set it runs, so any difference fails. A checkout at any head
  * of the PR, current or older, fails it. It fails closed: an unknown base,
  * or a git command that errors, is a failure. Ignored files are not
- * compared, since the owner's own local settings live there; HEAD's history
- * stands in for them (headHistoryRefusal).
+ * compared here, since the owner's own local settings live there; HEAD's history
+ * stands in for them (headHistoryRefusal). The pre-launch check lists them (ignoredPaths).
  */
 export function compareWithBase(repoRoot: string, baseSha: string | null): CheckoutComparison {
   const none = { differing: [], history: null };
