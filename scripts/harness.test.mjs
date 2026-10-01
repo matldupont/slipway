@@ -132,6 +132,37 @@ test('an owner-only file that is not gate code leaves the hooks running; setting
   assert.deepEqual(marks(), [], 'a changed settings.json let the Stop hook run');
 });
 
+// #173: under .claude only the skills tree is owner-only and no more; a skill runs when invoked, never from a hook.
+// Everything else there is gate code without being listed, and a gate file inside a skill still counts by its own name.
+test('a skill leaves the hooks running; every other file under .claude stops them, at any depth and in any case', () => {
+  for (const p of ['.claude/skills/x/SKILL.md', '.claude/skills/x/scripts/y.mjs', 'apps/web/.claude/skills/x/SKILL.md']) {
+    clean();
+    put(p, '# inert\n');
+    run('stop-verify.sh');
+    assert.deepEqual(marks(), ['stop-verify.sh'], `${p} alone stopped the Stop hook`);
+    commitAll(`skill-${p.length}`, 'a skill, committed');
+    reset();
+    run('stop-verify.sh');
+    assert.deepEqual(marks(), ['stop-verify.sh'], `${p}, committed, stopped the Stop hook`);
+  }
+  const gate = ['.claude/settings.json', '.claude/settings.local.json', '.claude/hooks/x.sh', '.claude/agents/x.md', '.claude/launch.json',
+    '.claude/commands/x.md', '.claude/skills.md', '.CLAUDE/hooks/x.sh', 'apps/web/.claude/hooks/x.sh',
+    '.claude/skills/x/package.json', '.claude/skills/x/.npmrc', '.claude/skills/x/.claude/settings.json'];
+  for (const p of gate) {
+    clean();
+    put(p, '# inert\n');
+    put('.claude/skills/x/SKILL.md', '# inert\n'); // a skill beside it hides nothing
+    for (const h of HOOKS) run(h);
+    assert.deepEqual(marks(), [], `${p} let a hook run`);
+  }
+  clean(); // a link where the skills folder goes is not a skill: the folder it stands for is outside the exception
+  put('tools/skills/x/SKILL.md', '# inert\n');
+  mkdirSync(join(work, '.claude'));
+  symlinkSync('../tools/skills', join(work, '.claude/skills'));
+  run('stop-verify.sh');
+  assert.deepEqual(marks(), [], 'an untracked link at .claude/skills let the Stop hook run');
+});
+
 test('each kind of gate file stops the hooks: a hook, ci/, a package.json, .npmrc untracked, a case-folded name, .claude/', () => {
   const cases = [
     () => put('process/harness/hooks/lessons-first.sh', stub('lessons-first.sh', 'PROBE')),
