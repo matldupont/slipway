@@ -119,6 +119,17 @@ test('changes measures from the merge base, so a change on the base branch is no
   assert.ok(!c.files.includes('tsconfig.json') && !c.scripts.includes('package.json'), JSON.stringify(c));
 });
 
+test('a package.json the base lacks prints no git fatal line, and a real git failure still fails with git\'s message', () => {
+  const script = join(SRC, 'ci/checks/lib/gate-files.mjs');
+  const ok = spawnSync(process.execPath, [script, base, head], { cwd: repo, encoding: 'utf8' });
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.equal(ok.stderr, '');
+  assert.ok(JSON.parse(ok.stdout).scripts.includes('tools/pm/package.json')); // new at head, its run keys still count
+  const bad = spawnSync(process.execPath, [script, '0'.repeat(40), head], { cwd: repo, encoding: 'utf8' });
+  assert.notEqual(bad.status, 0);
+  assert.match(bad.stderr, /fatal:|bad object|unknown revision/);
+});
+
 // P1 on one body with no `## Gate changes` section, beside the sidecar changes() writes for base...tip.
 const p1 = (from, tip) => {
   const dir = mkdtempSync(join(tmpdir(), 'gate-files-p1-'));

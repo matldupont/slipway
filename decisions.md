@@ -207,6 +207,10 @@ Declined: live state in `pnpm status` (it runs in every session's hook and must 
 an epic as a source for repositories with no milestone (an epic's order is prose, not its sub-issue order).
 Spec: `dev/features/work-order.md`.
 
+2026-09-30 — `--serve` (#183): serving the page on the loopback address (`127.0.0.1`) to the owner's own browser
+is within "rendered on demand, locally". It is a listener only the owner's machine reaches, not hosting: the page
+is still never hosted, published or committed.
+
 ## D-023 — The trust line: defend against other people's content, not the owner's own tree *(decided 2026-09-30)*
 
 Slipway's gates and skills defend against content from other people: their pull requests, issues, fixtures
@@ -238,6 +242,20 @@ moved to after merge was never run: twice in a row on a real project's first mil
 Declined: a follow-up issue per deferred check (status would still need a repo line); GitHub state alone
 (status reads no network, D-022); status without a failing check (advisory only). Spec:
 `dev/features/deferred-checks.md`; #176.
+
+## D-025 — Under `.claude`, everything is gate code but skills *(decided 2026-09-30)*
+
+The hook guard runs a checkout's hooks only while its gate files are the default branch's. Under a `.claude`
+folder, gate code is what runs without being invoked (settings, hooks) plus everything else there by default
+(agents, commands, and whatever Claude Code reads from that folder next), so a new path stays covered without
+being listed. Skills are exempt, because a skill runs only when it is invoked: a branch that changes only
+`.claude/skills/**` keeps its Stop hook.
+
+The backstop: `.claude/skills/**` stays owner-only, so the harness asks before each edit, and the PR check
+requires a `## Gate changes` line for it. A skill change is seen at the pull request, not at the Stop hook.
+
+Consistent with D-023. Declined: listing the gate paths under `.claude` one by one (a path nobody listed
+would not count), and exempting `.claude/commands/**` with skills. #173.
 
 
 ## Week 1 — decide before M1 closes
