@@ -40,6 +40,15 @@ const hex = (c) => Array.from({ length: c.length }, (_, i) => `\\u${c.charCodeAt
 // keeps the newlines and tabs its program writes.
 export const escapeControl = (s) => String(s).replace(inField, hex);
 export const escapeOutput = (s) => String(s).replace(inOutput, hex);
+// Project text quoted inside a sentence (status's Next and Needs attention lines, the work-order page): one line,
+// at most `max` characters, cut at a word boundary. The characters of the list above are dropped, not shown, and
+// `"` becomes `'`, so the text cannot close its own quotes.
+export const excerpt = (text, max = 60) => {
+  const flat = String(text).replace(/\s+/g, ' ').replace(inOutput, '').replace(/"/g, "'").trim();
+  if (flat.length <= max) return flat;
+  const cut = flat.slice(0, max - 1);
+  return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;
+};
 
 /**
  * @param {object} o

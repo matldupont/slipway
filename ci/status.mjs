@@ -13,8 +13,8 @@ import { join, relative } from 'node:path';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
-import { appetiteClock, contents, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
-import { escapeControl, UNSAFE } from './checks/lib/report.mjs';
+import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -29,16 +29,6 @@ try {
 }
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-// Project text quoted in the Next line: one line, at most 60 characters, cut at a word boundary. Control and
-// invisible format characters (a terminal escape, a bidi override, tag characters, variation selectors, blank fillers:
-// report.mjs's one list) are dropped and `"` becomes `'`, so the text cannot close its own quotes.
-const DROP = new RegExp(UNSAFE.source, 'gv');
-const excerpt = (text, max = 60) => {
-  const flat = text.replace(/\s+/g, ' ').replace(DROP, '').replace(/"/g, "'").trim();
-  if (flat.length <= max) return flat;
-  const cut = flat.slice(0, max - 1);
-  return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;
-};
 
 // ---- facts
 const agent = read('AGENT.md') ?? '';
@@ -145,6 +135,23 @@ for (const file of walk(join(root, 'docs'))) {
   });
 }
 
+// Checks the active milestone's items still owe (F-09): moved to after merge and not recorded, failed with no bug
+// named, or written in a way nothing can read. These lines enter every session through the hook, and a milestone
+// doc is text a pull request can carry, so they print no project text from a check line: only the item's number,
+// its issue's number, a count, a date that is a calendar day, and the file to open. The milestone's id is printed
+// only in the shape the skills accept.
+const owed_ = [];
+for (const item of cur ? contents(cur.md) : []) {
+  const owes = owing(item);
+  const issue = marker(item.text)?.issue;
+  const where = `${/^M\d+$/.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${item.n}`;
+  const file = `docs/milestones/${cur.file}`;
+  const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
+  if (owed.length) owed_.push(`Owed check: ${where} (#${issue}) — ${owed.length} check(s) moved to after merge with no run recorded (the Owed: lines under it in ${file}): run each, post the result as a comment on #${issue}, then change the Owed line to Ran with that comment's link; #${issue} stays open until then (reopen it if it was closed)`);
+  if (failed.length) owed_.push(`Failed check: ${where} (#${issue}) — ${failed.length} run(s) failed on ${[...new Set(failed.map((c) => c.date))].join(', ')} (the Ran: lines under it in ${file}): fix and run it again, or file the bug and name it on the line`);
+  if (unreadable.length) owed_.push(`Unreadable check line: ${where} — ${unreadable.length} line(s) under it start owed: or ran: and cannot be read, so each counts as owed: write it as Owed: or Ran: (${file})`);
+}
+
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
 const dueSoon = existsSync(lessonsDir)
@@ -248,6 +255,7 @@ const attention = [
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),
+  ...owed_,
   ...parked_.map((c) => `Parked: ${c}`),
   ...dueSoon.map((d) => `Lesson review: ${d}`),
 ];
