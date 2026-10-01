@@ -112,7 +112,9 @@ const runKeys = (pkg) =>
 
 export function changes(base, head, cwd = process.cwd()) {
   if (!SHA.test(base) || !SHA.test(head)) throw new Error('base and head must be commit ids');
-  const git = (...a) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8', maxBuffer: 256 << 20 });
+  const git = (...a) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8', maxBuffer: 256 << 20, stdio: ['ignore', 'pipe', 'pipe'] });
+  // stderr is piped, not inherited: `git show` on a file the base lacks fails by design (scriptsAt), and its `fatal:` line
+  // must not reach the log. A real failure still throws, with git's message in the error.
   // Every changed path with its modes (`:old new sha sha status\0path\0`). A symlink (120000) or a submodule link
   // (160000) on either side is a link: the folder it stands for may hold gate files no pattern can name (#149).
   const raw = git('diff', '--raw', '--no-renames', '--no-abbrev', '--ignore-submodules=none', '-z', `${base}...${head}`).split('\0');
