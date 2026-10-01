@@ -128,6 +128,14 @@ D-004 holds for the checks it imports].
 - `/sync-slipway` step 1 runs `sync --json` and explains from it: it groups `commits` by `scope`, and reads
   `needsYou` and the `seeded: upstream changed` bucket for what each will ask. Step 2 is unchanged: the owner
   runs `--apply` in their own terminal and the skill reads that output with them.
+- `/sync-slipway` step 5 (#196) writes the sync pull request's `## Gate changes` lines from the check's own
+  commands: no schema change; the path list comes from the check's own script after the apply. The skill drafts
+  the body, runs `ci/checks/lib/gate-files.mjs` and `ci/checks/meta/p1-pr-body.mjs` as `pr-body.yml` does, and
+  writes one line per `gate-changes/unmentioned:<path>` finding. A `sync --json` field was refused: the plan
+  runs before the apply, so it would read the project's harness rules, not the target's, and a second matcher
+  path would drift from P1. After a sync the script on the branch is the target's version while CI's check
+  runs with the base branch's rules; if they differ, the check's finding names the missing path and the session
+  adds the line. The verdict and the reason on each line stay the session's judgment.
 
 ### 3. The default plan — for the owner
 

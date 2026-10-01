@@ -1619,3 +1619,34 @@ test('--help explains the base, which the plan no longer prints', () => {
   assert.match(r.stdout, /^usage: sync \[--plan \| --apply\] \[--verbose \| --log \| --json\]/);
   assert.match(r.stdout, /\n\nThe base is the slipway commit these files last matched\./);
 });
+
+// F-08 §2 (#196): the sync PR's `## Gate changes` section is written from the check's own two commands (the ones
+// pr-body.yml runs), so the path list and the line format are proven together. The verdict on each line is fixed
+// here; in a sync it is the session's judgment. The scripts run from SRC with the project as cwd: the fixture
+// project does not ship them, and the harness rules they read are slipway's own.
+test('a sync PR\'s Gate changes section, built from the P1 findings over the applied branch, passes P1; with one line removed it fails `unmentioned`', () => {
+  const dir = project((d) => git(d, 'reset', '-q', '--hard', 'HEAD~1'));
+  const r = sync(dir, '--apply');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const work = mkdtempSync(join(root, 'pr-body-'));
+  const draft = (gate) => `## What\n\nLane: bounded. Sync.\n\n## Verification\n\n\`\`\`\npnpm meta\n\`\`\`\n\n## Gate changes\n\n${gate}\n\n## Links\n\nnone: slipway sync\n`;
+  const check = (gate) => {
+    writeFileSync(join(work, 'body.md'), draft(gate));
+    const changes = execFileSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), git(dir, 'rev-parse', 'main'), git(dir, 'rev-parse', 'HEAD')], { cwd: dir, encoding: 'utf8' });
+    writeFileSync(join(work, 'body.changes.json'), changes);
+    return spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/p1-pr-body.mjs'), work], { encoding: 'utf8' });
+  };
+  const first = check('pending');
+  assert.equal(first.status, 1, first.stdout + first.stderr);
+  const paths = [...first.stdout.matchAll(/gate-changes\/unmentioned:(.+?)(?: scripts)?: Gate changes has no line/g)].map((m) => m[1]);
+  assert.ok(paths.includes('.slipway/manifest.json'), `the manifest is always a gate path:\n${first.stdout}`);
+  assert.ok(paths.includes('package.json'), 'a changed script key makes package.json a gate path');
+  assert.ok(paths.includes('process/harness/settings.json'));
+  assert.doesNotMatch(first.stdout, /gate-changes\/(missing|no-verdict|loosens)/);
+  const lines = paths.map((p) => `- \`${p}\` — the same: fixture verdict`);
+  const ok = check(lines.join('\n'));
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+  const short = check(lines.slice(1).join('\n'));
+  assert.equal(short.status, 1, 'a section missing a line passed');
+  assert.match(short.stdout, new RegExp(`gate-changes/unmentioned:${paths[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+});

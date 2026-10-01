@@ -167,6 +167,23 @@ resolutions on the sync branch, then open one PR (`Lane: bounded`) whose body ha
   the edit it made, each ID moved, and the `pnpm verify` and `pnpm meta` results. Also say what was not
   verified.
 - `## Links`: `none: slipway sync <base>..<target>`.
+- `## Gate changes`: a sync changes many gate files, so the PR-body check (P1) holds this section to one line
+  each. Do not pick the paths by eye: draft the body as `<dir>/body.md` in a scratch folder (P1 pairs the sidecar with the body by that
+  name) with the section holding only the word `pending`, then run the check's own two commands over it, as `pr-body.yml` does:
+
+  ```bash
+  node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/<default branch>)" "$(git rev-parse HEAD)" > <dir>/body.changes.json
+  node ci/checks/meta/p1-pr-body.mjs <dir>
+  ```
+
+  Each `gate-changes/unmentioned:<path>` finding names a path that needs a line; `package.json scripts` means
+  the file `package.json`. Write one line per path, or one per directory glob (`ci/fixtures/x/**`), and
+  always one for `.slipway/manifest.json`, each as `path — stricter | the same | loosens: why`. The verdict
+  and the reason are your judgment of the diff, never copied from the finding. Two traps: a line that is not
+  `loosens` must not contain that word, and a `loosens` line cites a decision (`D-n`) or `ci/exceptions.yaml`.
+  Run the check again until it reports no `gate-changes/` finding. CI runs the check with the base branch's
+  rules and this branch holds the target's, so a path can still be named there that was not here: the finding
+  names it, and you add its line.
 
 When the sync brings `.gitattributes` for the first time, the PR says so: a working tree checked out
 before it keeps CRLF files until `git add --renormalize .`.
