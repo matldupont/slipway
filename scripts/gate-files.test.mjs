@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canonical, changes, gateGlobs, gateMatcher, missingWriteTwins, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
+import { canonical, changes, gateGlobs, gateMatcher, GUARD_GLOBS, missingWriteTwins, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const settings = readFileSync(SETTINGS, 'utf8');
@@ -145,6 +145,72 @@ const missing = (r, path) => {
   assert.notEqual(r.status, 0, r.stdout);
   assert.match(r.stdout + r.stderr, new RegExp(`body\\.md#gate-changes/missing: the PR touches gate files \\([^)]*${path.replace(/[.]/g, '\\.')}`));
 };
+
+// #174: the guard's list of gate paths is the reference. Each path it counts is counted here, or is a row of the
+// harness README's "Where the PR check differs" table, with a reason.
+const GUARD = readFileSync(join(SRC, 'process/harness/hooks/base-guard.sh'), 'utf8');
+const README = readFileSync(join(SRC, 'process/harness/README.md'), 'utf8');
+const differs = README.split(/^### /m).find((s) => s.startsWith('Where the PR check differs')) ?? '';
+const excepted = (row) => {
+  const line = differs.split('\n').find((l) => l.startsWith(`| ${row} |`));
+  assert.ok(line, `the harness README has no "${row}" row under "Where the PR check differs"`);
+  assert.ok(line.split('|')[2].trim().length > 40, `the "${row}" row gives no reason`);
+};
+// The guard's paths that are not globs of the harness list, each with the README row that excepts it.
+const EXCEPTED = { '**/package.json': 'every `package.json`' };
+
+test('every path the guard adds to the harness list is counted by the PR check, or excepted in the harness README', () => {
+  const gate = gateMatcher(settings);
+  const loop = GUARD.match(/^for glob in \$globs ((?:'[^']+' ?)+); do$/m);
+  assert.ok(loop, 'the guard\'s list of extra paths is not where this test reads it');
+  const extras = loop[1].match(/'[^']+'/g).map((s) => s.slice(1, -1));
+  assert.ok(extras.length >= 3, 'no extra paths read from the guard');
+  for (const g of extras) {
+    if (GUARD_GLOBS.includes(g)) continue;
+    assert.ok(EXCEPTED[g], `the guard counts ${g}; the PR check neither counts it nor excepts it`);
+    excepted(EXCEPTED[g]);
+  }
+  for (const g of GUARD_GLOBS) assert.ok(extras.includes(g), `${g} is no longer a path the guard counts`);
+  for (const p of ['.gitmodules', '.gitattributes', 'apps/web/.gitattributes', 'vendor/x/.gitmodules']) assert.ok(gate(p), `${p} should be a gate file`);
+  for (const p of ['docs/gitattributes', 'src/.gitattributes.ts', '.gitignore']) assert.ok(!gate(p), `${p} should not be`);
+  assert.equal(gate.lookalike('.GitAttributes'), '**/.gitattributes');
+  assert.ok(!gate('package.json') && !gate('apps/web/package.json'), 'a package.json counts by its run keys, not its path');
+});
+
+test('each shape the guard counts and the PR check does not is pinned, and has its reason in the harness README', () => {
+  const gate = gateMatcher(settings);
+  // Documents: the guard skips markdown only for the globs that name it, so a .md under a gate folder counts there.
+  assert.ok(GUARD.includes('case "$glob" in *.md|'), 'the guard\'s markdown handling moved');
+  for (const p of ['ci/README.md', 'ci/fixtures/known-bad/p1/gate-none.md', 'process/harness/README.md', '.github/workflows/notes.md']) assert.ok(!gate(p), `${p} should not be`);
+  excepted('a markdown file under a gate folder');
+  // The folder itself: the guard adds each `x/**` glob's folder as a path, for a link in its place.
+  assert.ok(GUARD.includes('${glob%/\\*\\*}'), 'the guard no longer counts a gate folder\'s own name');
+  for (const p of ['ci', 'node_modules', 'apps/web/node_modules', '.claude', '.slipway', 'process/harness']) assert.ok(!gate(p), `${p} should not be`);
+  excepted('a plain file at a gate folder\'s name');
+  // Quoted names: the guard counts any name git quotes. Here a name is read unquoted (`-z`), so one inside a gate
+  // path is a gate file like any other, and one outside is not.
+  assert.match(GUARD, /^odd=.*grep '\^"'/m, 'the guard no longer counts quoted names');
+  for (const p of ['ci/naïve.mjs', '.github/workflows/"x".yml', 'ci/a\tb.mjs', 'café/.npmrc']) assert.ok(gate(p), `${JSON.stringify(p)} should be a gate file`);
+  for (const p of ['docs/café.txt', 'src/"x".ts']) assert.ok(!gate(p) && gate.lookalike(p) === null, `${JSON.stringify(p)} should not be`);
+  excepted('a quoted name outside every gate path');
+  excepted('an untracked file');
+});
+
+test('.gitattributes, .gitmodules and a quoted name inside a gate path reach P1 through a real diff', () => {
+  git('switch', '-q', '-c', 'guard', head);
+  const step = (path, body) => {
+    const from = git('rev-parse', 'HEAD');
+    put(path, body);
+    git('add', '-A');
+    git('commit', '-q', '-m', 'step');
+    const tip = git('rev-parse', 'HEAD');
+    assert.deepEqual(changes(from, tip, repo).files, [path]);
+    missing(p1(from, tip), path);
+  };
+  step('.gitattributes', '* text=auto\n');
+  step('vendor/x/.gitmodules', ''); // inert: names no submodule
+  step('ci/naïve.mjs', '');
+});
 
 // A link is committed as its mode and target only: nothing here follows one, clones one or runs one (#149).
 // The four link tests build on each other's commits (the `links` branch): node:test runs them in file order.
