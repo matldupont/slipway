@@ -1,0 +1,5 @@
+{
+  "_note": "PC1 asserts LK1 goes BROKEN on this fixture, for this reason: the registry has a line it cannot read (a mistyped first key), and a check that cannot read its registry never passes. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs.",
+  "exit": 2,
+  "broken": "ci/exceptions.yaml: line 4: cannot read"
+}

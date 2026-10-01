@@ -1,0 +1,9 @@
+name: bad
+on: [pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - id: flaky
+        run: echo flaky
+        continue-on-error: true
