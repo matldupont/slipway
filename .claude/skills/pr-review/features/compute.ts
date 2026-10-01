@@ -35,7 +35,8 @@
  *   --verbose                         Diagnostic logs to stderr (includes swallowed gh/git stderr)
  *   --cleanup <dir>                   Delete a review folder this script made, and exit
  *   --check-checkout <dir>            Pre-launch check, run from outside <dir> before Claude Code starts there:
- *     [--base <ref>]                    exit 0 only when <dir> is <ref>'s with nothing changed or added (default: origin/HEAD)
+ *     [--base <ref>]                    exit 0 only when <dir> is <ref>'s with nothing changed or added and holds no
+ *                                     ignored file (default: origin/HEAD)
  *
  * Environment:
  *   GH_HOST                 GitHub host for `gh` (e.g. github.example.com, for GitHub Enterprise)
@@ -1017,7 +1018,8 @@ export interface CheckoutComparison {
 
 /**
  * Why this checkout's HEAD history refuses it, or null when HEAD has only
- * ever been on the base's history. Ignored files are not compared, and a PR
+ * ever been on the base's history. compareWithBase does not compare ignored
+ * files (the pre-launch check lists them: ignoredPaths), and a PR
  * can leave its own there: force-committed, then kept on disk by a
  * `git reset <base>`, hidden by a `.gitignore` of its own, named as a
  * case-insensitive disk folds them, or under `node_modules/`. The record of
@@ -1068,8 +1070,8 @@ function headHistoryRefusal(repoRoot: string, baseSha: string): string | null {
  * files is the set it runs, so any difference fails. A checkout at any head
  * of the PR, current or older, fails it. It fails closed: an unknown base,
  * or a git command that errors, is a failure. Ignored files are not
- * compared, since the owner's own local settings live there; HEAD's history
- * stands in for them (headHistoryRefusal).
+ * compared here, since the owner's own local settings live there; HEAD's history
+ * stands in for them (headHistoryRefusal). The pre-launch check lists them (ignoredPaths).
  */
 export function compareWithBase(repoRoot: string, baseSha: string | null): CheckoutComparison {
   const none = { differing: [], history: null };
@@ -1093,6 +1095,19 @@ export function compareWithBase(repoRoot: string, baseSha: string | null): Check
   }
 }
 
+/**
+ * Every ignored path in the checkout, an ignored folder as one entry ("node_modules/"). The pre-launch check
+ * refuses any: files that did not come from the owner look like the owner's own settings and dependencies.
+ * Not part of compareWithBase: the review's own check runs after start-up, once dependencies are installed.
+ * A tracked file hidden with skip-worktree or assume-unchanged is not an ignored file and is not listed.
+ */
+export function ignoredPaths(repoRoot: string): string[] {
+  return execGit(
+    ["status", "--porcelain", "-z", "--ignored=traditional", "--untracked-files=normal", "--no-renames", "--ignore-submodules=none"],
+    repoRoot,
+  ).toString("utf8").split("\0").filter((e) => e.startsWith("!! ")).map((e) => e.slice(3));
+}
+
 /** True when the checkout is exactly the base commit's (compareWithBase). */
 export function checkoutMatchesBase(repoRoot: string, baseSha: string | null): boolean {
   return compareWithBase(repoRoot, baseSha).matches;
@@ -1107,7 +1122,7 @@ function printable(p: string): string {
  * The pre-launch check, `--check-checkout <dir> [--base <ref>]`: run from
  * outside `<dir>`, before Claude Code starts there, since the checkout's
  * settings hooks run at start-up, before any skill. 0 when `<dir>` is
- * `<ref>`'s with nothing changed or added, 1 when it is not or the
+ * `<ref>`'s with nothing changed or added and no ignored file held, 1 when it is not or the
  * comparison cannot run. `<ref>` (default `origin/HEAD`) is read in `home`,
  * the checkout this compute.ts runs from; a full commit id is taken as is.
  */
@@ -1148,10 +1163,19 @@ export function checkCheckout(
     return { code: 1, lines: [`${printable(repoRoot)} does not hold ${label} (${base.slice(0, 12)}): fetch the base repository into it first.`] };
   }
   const result = compareWithBase(repoRoot, base);
-  if (result.matches) {
+  let ignored: string[] = [];
+  let ignoredError: string | null = null;
+  if (!result.error) {
+    try {
+      ignored = ignoredPaths(repoRoot);
+    } catch (err) {
+      ignoredError = err instanceof Error ? err.message.split("\n")[0] : String(err);
+    }
+  }
+  if (result.matches && ignored.length === 0 && !ignoredError) {
     return {
       code: 0,
-      lines: [`ok: ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}), with nothing changed or added, and HEAD has been nowhere else.`],
+      lines: [`ok: ${printable(repoRoot)} is ${label}'s (${base.slice(0, 12)}), with nothing changed or added, HEAD has been nowhere else, and it holds no ignored file.`],
     };
   }
   const lines = [`Do not start Claude Code in ${printable(repoRoot)}: it is not ${label}'s (${base.slice(0, 12)}), and what Claude Code runs there may not be either.`];
@@ -1159,6 +1183,9 @@ export function checkCheckout(
   for (const p of result.differing.slice(0, 20)) lines.push(`  differs: ${printable(p)}`);
   if (result.differing.length > 20) lines.push(`  …and ${result.differing.length - 20} more`);
   if (result.history) lines.push(`  ${result.history}.`);
+  if (ignoredError) lines.push(`The ignored files could not be listed: git failed: ${ignoredError}`);
+  for (const p of ignored.slice(0, 20)) lines.push(`  ignored: ${printable(p)}`);
+  if (ignored.length > 20) lines.push(`  …and ${ignored.length - 20} more ignored`);
   lines.push("Review from a fresh worktree off the base instead, and start Claude Code there:", `  ${reviewWorktreeCommand(repoRoot, base)}`);
   return { code: 1, lines };
 }
