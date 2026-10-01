@@ -1,6 +1,6 @@
 // Which files of a pull request are gate files: the paths the harness asks before editing
 // (process/harness/settings.json, `Edit(...)` rules, matched exactly; a lookalike spelling is refused; markdown only when
-// owner-only), plus a `package.json` whose run keys changed
+// owner-only), the paths the base guard adds to them (GUARD_GLOBS), plus a `package.json` whose run keys changed
 // (RUN_KEYS, and a dependency on local code or a runtime): what a gate command runs, the pnpm and node that run
 // it, and pnpm's settings. Read by P1. One list: a gate path added to the harness is a gate path here.
 //
@@ -51,12 +51,19 @@ export function globToRegExp(glob) {
 // exist to prevent. N1 and P1 compare with it.
 export const canonical = (s) => s.normalize('NFKC').toLowerCase();
 
-// The paths in `settings` (the harness's rules) plus `more` globs: P1 adds the base branch's rules, so a PR
-// that removes a rule from the harness is still held to it. Matching is exact. `lookalike(path)` names the
+// The paths the base guard (process/harness/hooks/base-guard.sh) counts beyond the harness's `Edit(...)` rules, and
+// P1 counts with it (#174): git's own settings files. `.gitattributes` names the filters and drivers git runs a
+// file through; `.gitmodules` names where a submodule's code comes from. The harness has no ask rule for either.
+// scripts/gate-files.test.mjs reads the guard's list and fails when it holds a path that is neither here nor
+// excepted in process/harness/README.md.
+export const GUARD_GLOBS = ['**/.gitmodules', '**/.gitattributes'];
+
+// The paths in `settings` (the harness's rules), the guard's own (GUARD_GLOBS) and `more` globs: P1 adds the base
+// branch's rules, so a PR that removes a rule from the harness is still held to it. Matching is exact. `lookalike(path)` names the
 // gate path a path is not, but reads as in canonical form (`.NPMRC`, `PACKAGE.JSON`): P1 refuses those
 // outright rather than count them as gate files.
 export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more = []) {
-  const globs = [...new Set([...gateGlobs(settingsText), ...more])];
+  const globs = [...new Set([...gateGlobs(settingsText), ...GUARD_GLOBS, ...more])];
   const exact = globs.map(globToRegExp);
   const folded = globs.map((g) => [g, globToRegExp(canonical(g))]);
   // A markdown file is a document: it cannot change what a gate checks, even under ci/ or process/harness/. Except
@@ -86,8 +93,12 @@ const SHA = /^[0-9a-f]{7,64}$/;
 // The package.json keys that decide what a gate command runs, the pnpm and node that run it, and pnpm's
 // settings (`resolutions` pnpm reads as overrides; `engines` and `devEngines` can name a node for pnpm to fetch;
 // `bin` and `directories.bin` name the programs a package puts in node_modules/.bin).
+// CONFIG_KEYS are the keys a gate tool reads its settings from in place of its own file (`prettier` for `.prettierrc*`,
+// `eslintConfig` for `.eslintrc*`, a test runner's or a coverage tool's), and the two that change how node loads the
+// gate's code (`type`, `imports`). A list: a tool that reads another key is not seen (process/harness/README.md).
 // The sidecar still calls the list `scripts`.
-export const RUN_KEYS = ['scripts', 'packageManager', 'pnpm', 'resolutions', 'engines', 'devEngines', 'bin', 'directories'];
+export const CONFIG_KEYS = ['type', 'imports', 'prettier', 'eslintConfig', 'stylelint', 'jest', 'mocha', 'ava', 'c8', 'nyc'];
+export const RUN_KEYS = ['scripts', 'packageManager', 'pnpm', 'resolutions', 'engines', 'devEngines', 'bin', 'directories', ...CONFIG_KEYS];
 // A dependency whose version names code in the repository, or a runtime, rather than a registry release: its
 // `bin` lands in node_modules/.bin, where it can stand in for a gate tool. Registry entries are the lockfile's
 // question (#138).
