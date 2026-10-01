@@ -1,0 +1,10 @@
+{
+  "_note": "An active milestone whose items carry check lines (F-09). Item 1 owes a check moved to after merge; item 2's run is recorded as a pass; item 3's run failed, with no bug named and no later pass; item 4 failed, then passed for the same check on a later line. Needs attention is exactly the lines for items 1 and 3, and no text of a check line is printed. The check lines are not part of an item's text, so every item is still started and Next reads as it does without them.",
+  "today": "2026-03-10",
+  "next": "Step 5 (agent) — Build loop: Booking. Every Contents item has an issue: finish them, then run /close-milestone once its Gate is green.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "Owed check: M2 item 1 (#12) — 1 check(s) moved to after merge with no run recorded (the Owed: lines under it in docs/milestones/M2-booking.md): run each, post the result as a comment on #12, then change the Owed line to Ran with that comment's link; #12 stays open until then (reopen it if it was closed)",
+    "Failed check: M2 item 3 (#14) — 1 run(s) failed on 2026-03-09 (the Ran: lines under it in docs/milestones/M2-booking.md): fix and run it again, or file the bug and name it on the line"
+  ]
+}
