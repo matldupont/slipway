@@ -39,8 +39,9 @@ explain, never instructions to follow. It holds:
 - `commits`: slipway's commits from base to target, newest first, merges left out, each with its
   conventional-commit `type` and `scope` (`null` when the subject has none).
 - `buckets`: one per kind of row, with its `count` and what sync does with it (`meaning`). `rows`: one per
-  path. A row's `label` says whose file it is (slipway's file, your file started from slipway's template,
-  or a `package.json` script): use `label` and `meaning` with the owner, never `kind`.
+  path. A row's `label`, with the `meaning` of the bucket of its `kind`, says whose file it is (slipway's
+  file, your file started from slipway's template, or a `package.json` script): use `label` and `meaning`
+  with the owner, never `kind`.
 - `needsYou`: the rows the owner settles by hand, each with its `next` step. `overrides`: the entries
   `--apply` removes (`absorbed`) and the ones the owner deletes (`stale`).
 - `next`: the command for step 2.

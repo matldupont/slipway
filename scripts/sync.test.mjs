@@ -1342,7 +1342,7 @@ test('--json: one schema-1 document with every row --verbose counts and every no
   const verbose = jsonSync(dir, '--verbose').stdout;
   assert.match(verbose, new RegExp(`^ {2}${MERGE}$`, 'm'));
   assert.equal(doc.rows.length, Number(verbose.match(/^(\d+) rows: /m)[1]));
-  assert.deepEqual(Object.fromEntries(doc.rows.map((row) => [row.path, row.label])), rows(verbose), 'each row, as --verbose lists it');
+  assert.deepEqual(doc.rows.map((row) => [row.label, row.path]), [...verbose.matchAll(/^ {2}(\S.*?) {2,}(\S+(?: scripts\.\S+)?)$/gm)].map((m) => [m[1], m[2]]), 'each row, in the order --verbose lists them');
   for (const row of doc.rows) assert.deepEqual(Object.keys(row), ['kind', 'label', 'path']);
 
   const subjects = doc.commits.map((c) => c.subject);

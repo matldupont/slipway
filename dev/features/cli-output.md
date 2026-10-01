@@ -240,6 +240,8 @@ rewrite earlier lines, retitle the terminal, or plant a hyperlink whose text and
 - "What's new" relies on conventional-commit subjects; a subject that does not parse counts as other and is
   listed only by `--log`.
 - `--json` is sync's alone in this slice; `sync --adopt` keeps its current output.
+- `commits` leaves merge commits out, so a change made only in a merge commit has no entry there; its files
+  are still in `rows` and `buckets`.
 
 ## Acceptance
 
