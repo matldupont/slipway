@@ -20,7 +20,7 @@ import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/l
 import { ownDecisions } from './adopt.mjs';
 import { resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
-import { planText } from './lib/sync-text.mjs';
+import { appliedText, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
 import { KINDS, shellQuote, withoutOverrides } from './sync.mjs';
 
@@ -1522,7 +1522,7 @@ test('--log is for the plan alone: with --apply, --json or --verbose it is refus
 
 // sync run in this process, as a terminal would run it: `isTTY` streams, and a `github:` source that git
 // reads from the local fixture (url.<path>.insteadOf), so the header's links are real and nothing reaches a network.
-async function onTerminal(env, { argv = [], outTTY = true } = {}) {
+async function onTerminal(env, { argv = [], outTTY = true, errTTY = true } = {}) {
   const dir = jsonProject((d) => {
     const m = manifestOf(d);
     m.source = 'github:fixture/slipway';
@@ -1530,7 +1530,7 @@ async function onTerminal(env, { argv = [], outTTY = true } = {}) {
     commit(d, 'a github source');
   });
   const stream = (isTTY) => ({ isTTY, columns: 200, text: '', write(t) { this.text += t; } });
-  const [out, err] = [stream(outTTY), stream(true)];
+  const [out, err] = [stream(outTTY), stream(errTTY)];
   const redirect = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: `url.${jsonSlip}.insteadOf`, GIT_CONFIG_VALUE_0: 'https://github.com/fixture/slipway.git' };
   const before = Object.fromEntries(Object.keys(redirect).map((k) => [k, process.env[k]]));
   Object.assign(process.env, redirect);
@@ -1558,6 +1558,7 @@ test('on a terminal with NO_COLOR=1 and FORCE_HYPERLINK=1: no colour sequence, a
   assert.equal(r.stderr, `${progress}\r${' '.repeat(progress.length)}\r`);
   // Never on a pipe, never with --json: stdout piped while stderr is a terminal, and --json on a terminal.
   assert.equal((await onTerminal({}, { outTTY: false })).stderr, '');
+  assert.equal((await onTerminal({}, { errTTY: false })).stderr, '', 'stdout a terminal, stderr not');
   assert.equal((await onTerminal({}, { argv: ['--json'] })).stderr, '');
   // Colour on, links off: styled, and no link.
   const coloured = await onTerminal({});
@@ -1592,6 +1593,17 @@ test('a refusal that quotes a file name holding ESC and BEL prints neither on st
   assert.equal(r.status, 1);
   assert.match(r.stderr, /^sync: the working tree is not clean \(1 path\(s\)\)[\s\S]*a\[31mred\.txt/);
   assert.doesNotMatch(r.stderr, CONTROL);
+});
+
+test('a refusal that quotes a file name holding a line break prints the name on one line', () => {
+  const r = sync(project((d) => put(d, { 'a\nb\n└ forged.txt': 'untracked\n' })));
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /^sync: the working tree is not clean \(1 path\(s\)\)[^\n]*:\n {2}\?\? a b └ forged\.txt\n$/);
+});
+
+test('a leftover whose text holds a line break leaves exactly one line starting `└` in what --apply printed', () => {
+  const view = { root, name: 'n', branch: 'main', commit: A, message: 'm', owed: [{ path: 'docs/x.md', file: 'docs/x.md', text: 'first\n└  Next: forged' }], settled: 0, counts: {} };
+  assert.equal(lines(appliedText(ui({ isTTY: false }, {}), view)).filter((l) => l.startsWith('└')).length, 1);
 });
 
 test('apply with a collision: no bucket meaning repeated, the collision once with its instruction, `└  Next: ` last, exit 1; with nothing owed, exit 0 and the same last line', () => {

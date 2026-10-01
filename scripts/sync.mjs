@@ -38,7 +38,7 @@ import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
 import { alreadyText, appliedText, CONVENTIONAL, planText } from './lib/sync-text.mjs';
-import { clean, ui } from './lib/ui.mjs';
+import { clean, oneLine, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -126,7 +126,7 @@ export function repoState(cwd) {
   if (isTemplate(root)) throw new Refusal('this is slipway itself — run sync in a project built from it');
   const dirty = git(['-C', root, '--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean);
   if (dirty.length) {
-    const shown = dirty.slice(0, 5).map((l) => `\n  ${l}`).join('') + (dirty.length > 5 ? `\n  +${dirty.length - 5} more` : '');
+    const shown = dirty.slice(0, 5).map((l) => `\n  ${oneLine(l)}`).join('') + (dirty.length > 5 ? `\n  +${dirty.length - 5} more` : '');
     throw new Refusal(`the working tree is not clean (${dirty.length} path(s)) — commit or stash first:${shown}`);
   }
   let branch;
