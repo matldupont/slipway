@@ -5,6 +5,7 @@
 
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { oneLine } from './ui.mjs';
 
 // A conventional-commit subject: `type(scope)!: `, the scope and the `!` optional.
 export const CONVENTIONAL = /^([a-z]+)(?:\(([^)]+)\))?!?: /;
@@ -21,9 +22,9 @@ function commitUrl(source, sha) {
   return gh ? `https://github.com/${gh[1]}/${gh[2]}/commit/${sha}` : null;
 }
 
-// A path in the project, linked to its file when the terminal takes links. `clean` keeps a line break, and
-// a path holding one would print a line of its own on the rail, so it is shown as a space.
-const fileLink = (u, root, text, file) => u.link(String(text).replace(/[\n\t]+/g, ' '), pathToFileURL(join(root, file)).href);
+// A path in the project, linked to its file when the terminal takes links. A path holding a line break would
+// print a line of its own on the rail, so it is shown on one line.
+const fileLink = (u, root, text, file) => u.link(oneLine(text), pathToFileURL(join(root, file)).href);
 
 // Text cut to the terminal's width with `…`; a pipe has no width, so it is never cut. 3 is the rail's width.
 function cut(u, text, indent = 0) {
@@ -113,7 +114,7 @@ export function appliedText(u, view) {
   const out = [u.section('◇', `slipway sync applied on ${name} (from ${branch}) · commit ${short(commit)}`), u.line(message), ...remoteAndNotes(u, view), gap(u)];
   if (owed.length) {
     out.push(u.section('◆', `Needs you before this branch merges (${owed.length})`));
-    for (const i of owed) out.push(`${u.line('')}${fileLink(u, root, i.path, i.file)}${u.clean(`  ${i.text}`)}`);
+    for (const i of owed) out.push(`${u.line('')}${fileLink(u, root, i.path, i.file)}${oneLine(`  ${i.text}`)}`);
     out.push(u.line('sync exits 1 until these are settled; nothing failed'), gap(u));
   }
   if (settled) {

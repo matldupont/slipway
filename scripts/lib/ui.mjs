@@ -11,6 +11,10 @@ const LINK_TERMS = new Set(['iTerm.app', 'vscode', 'WezTerm', 'ghostty', 'WarpTe
 
 export const clean = (text) => String(text).replace(CONTROL, '');
 
+// `clean` keeps line breaks and tabs, so a value that must stay on one line of its own is shown with each run of
+// them as a space.
+export const oneLine = (text) => clean(text).replace(/[\n\t]+/g, ' ');
+
 export function ui(stream, env = process.env) {
   const tty = stream.isTTY === true;
   const forced = env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== '' && env.FORCE_COLOR !== '0';
