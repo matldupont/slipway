@@ -1,0 +1,9 @@
+{
+  "name": "fixture",
+  "private": true,
+  "dependencies": {
+    "fixture-tarball": "https://example.invalid/fixture-tarball-1.0.0.tgz",
+    "fixture-custom": "1.0.0",
+    "fixture-ok": "^1.0.0"
+  }
+}

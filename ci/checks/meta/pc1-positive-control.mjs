@@ -16,19 +16,26 @@
 // framework with events and no rules — is indistinguishable from a working gate until
 // someone goes looking.
 //
-// A fixture reaches the check it starts through two fields only. `env` may set the names in FIXTURE_ENV and no
+// `details` in expected.json maps a finding id to text its detail must contain: two causes can give one id (LK1
+// fails a tarball with or without a registry file), and only the detail says which (#207).
+//
+// A fixture reaches the check it starts through these fields only. `env` may set the names in FIXTURE_ENV and no
 // other: a fixture that asks for NODE_OPTIONS or PATH is a finding, and its check is not started. `tracked`
 // lists paths PC1 writes, one inert line each, into a throwaway git repository (git add -f), and the check runs
 // on that repository instead of the fixture folder: how N1's fixture has git track a file under node_modules/
-// without slipway or a project ever committing one.
+// without slipway or a project ever committing one. `files` maps a name the check reads to a file of the fixture
+// (`{ ".npmrc": "npmrc" }`): PC1 copies the case into a throwaway folder, moves each file to that name there, and the
+// check runs on the copy. A fixture file may not itself be named for a file npm leaves out of a packed package
+// (`.npmrc`, `*.orig`, …) or one the ownership map withholds: it would not reach a project, and the case would pass
+// or fail there for another reason (#207). PK1 (pk1-packed.mjs, slipway only) fails on either.
 //
 // `node pc1-positive-control.mjs <fixtures root>` reads another root, and runs only the checks with a folder
-// there: slipway's own test of these two fields (scripts/pc1.test.mjs).
+// there: slipway's own test of these fields (scripts/pc1.test.mjs).
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { trustedGit } from '../lib/manifest.mjs';
 import { rawCharacters, strayLine } from '../lib/raw-output.mjs';
@@ -73,8 +80,53 @@ function runCase(check, name, dir) {
     findings.push({ where: name, detail: `expected.json sets ${refused.join(', ')}; a fixture may set only ${FIXTURE_ENV.join(', ')} (as text), so the check was not started` });
     return;
   }
+  // `details` pins why: the text each named finding's detail must contain. A key that is not an expected finding
+  // would never be compared, so it is refused rather than read as a pass.
+  const details = expected.details ?? {};
+  const strayDetails = details !== null && typeof details === 'object' && !Array.isArray(details)
+    ? Object.keys(details).filter((k) => !(expected.findings ?? []).includes(k) || typeof details[k] !== 'string' || !/[\p{L}\p{N}]/u.test(details[k]))
+    : ['(details is not a map of finding ids to text)'];
+  if (strayDetails.length) {
+    findings.push({ where: name, detail: `expected.json details names ${strayDetails.map((k) => JSON.stringify(k)).join(', ')}; each key is one of its expected findings and each value is text with a word in it, so the check was not started` });
+    return;
+  }
   let target = dir;
   let scratch = null;
+  if (expected.files !== undefined) {
+    const map = expected.files;
+    const entries = map !== null && typeof map === 'object' && !Array.isArray(map) ? Object.entries(map) : [];
+    const isFile = (p) => lstatSync(join(dir, p), { throwIfNoEntry: false })?.isFile() === true;
+    const bad = entries.length ? entries.filter(([to, from]) => !safePath(to) || !safePath(from) || !isFile(from)) : [['(files is not a map of names to fixture files)', '']];
+    if (bad.length || expected.tracked !== undefined) {
+      const what = bad.length ? `places ${bad.map(([to, from]) => `${JSON.stringify(String(from))} at ${JSON.stringify(to)}`).join(', ')}; each side is a relative path inside the case, and the file placed is a regular file of the fixture` : 'sets both files and tracked; a case takes one';
+      findings.push({ where: name, detail: `expected.json ${what}, so the check was not started` });
+      return;
+    }
+    try {
+      scratch = mkdtempSync(join(tmpdir(), 'pc1-files-'));
+      cpSync(dir, scratch, { recursive: true, verbatimSymlinks: true });
+      // A folder of the fixture may be a link: neither side of a move may resolve outside the copy.
+      const top = realpathSync.native(scratch);
+      // Checked on the nearest folder that exists, before any folder is made: a `mkdir -p` would follow the link.
+      const inside = (p) => {
+        let at = dirname(join(scratch, p));
+        while (!existsSync(at)) at = dirname(at);
+        const real = realpathSync.native(at);
+        if (real !== top && !real.startsWith(top + sep)) throw new Error(`${JSON.stringify(p)} resolves outside the case's copy`);
+      };
+      for (const [to, from] of entries) {
+        inside(from);
+        inside(to);
+        mkdirSync(dirname(join(scratch, to)), { recursive: true });
+        renameSync(join(scratch, from), join(scratch, to));
+      }
+      target = scratch;
+    } catch (e) {
+      if (scratch) rmSync(scratch, { recursive: true, force: true });
+      findings.push({ where: name, detail: `could not build the throwaway folder its files need: ${String(e.message).split('\n')[0]}` });
+      return;
+    }
+  }
   if (expected.tracked !== undefined) {
     const bad = Array.isArray(expected.tracked) && expected.tracked.length ? expected.tracked.filter((p) => !safePath(p)) : ['(tracked is not a list of paths)'];
     if (bad.length) {
@@ -143,7 +195,12 @@ function runCase(check, name, dir) {
   if (w.missing.length || w.unexpected.length) {
     wrong.push(`warnings differ: missing ${JSON.stringify(w.missing)}, unexpected ${JSON.stringify(w.unexpected)}`);
   }
-  if (wrong.length) findings.push({ where: name, detail: `red for the wrong reasons — ${wrong.join('; ')}` });
+  if (wrong.length) {
+    findings.push({ where: name, detail: `red for the wrong reasons — ${wrong.join('; ')}` });
+    return;
+  }
+  const off = Object.keys(details).filter((k) => !got.findings.some((x) => x.where === k && String(x.detail).includes(details[k])));
+  if (off.length) findings.push({ where: name, detail: `failed, but not for the reason its fixture names — the detail of ${JSON.stringify(off)} does not contain the text expected.json details gives` });
 }
 
 // A check prints project text, so a fixture may hold control, bidi, format and separator characters, and an

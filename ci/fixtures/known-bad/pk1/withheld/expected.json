@@ -1,0 +1,5 @@
+{
+  "_note": "PC1 asserts PK1 goes red on this fixture for exactly these reasons. The case zz1/case ships (its expected.json is managed), and the map withholds held.txt from it: the case would arrive in a project with a hole.",
+  "exit": 1,
+  "findings": ["withheld/ci/fixtures/known-bad/zz1/case/held.txt"]
+}

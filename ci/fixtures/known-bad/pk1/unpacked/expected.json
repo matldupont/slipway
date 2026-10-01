@@ -1,0 +1,5 @@
+{
+  "_note": "PC1 asserts PK1 goes red on this fixture for exactly these reasons. The map ships ci/**, and npm never packs a file named *.orig: a project would receive ci/ without it.",
+  "exit": 1,
+  "findings": ["unpacked/ci/backup.orig"]
+}

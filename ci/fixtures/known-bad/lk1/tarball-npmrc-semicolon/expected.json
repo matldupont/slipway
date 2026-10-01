@@ -1,7 +1,11 @@
 {
   "_note": "PC1 asserts LK1 goes red on this fixture for exactly these reasons. Inert text: the names are made up and every address is on the .invalid domain, so nothing here resolves or installs. The .npmrc line reads, to a URL parser, as a user (mirror.example.invalid;) on bad.example.invalid, but npm's ini reader ends the value at the ; and uses mirror.example.invalid. The two disagree, so no host is trusted and the tarball on bad.example.invalid fails.",
   "exit": 1,
+  "files": { ".npmrc": "npmrc" },
   "findings": [
     "pnpm-lock.yaml#fixture-mirror@1.0.0{tarball=https://bad.example.invalid/fixture-mirror-1.0.0.tgz}"
-  ]
+  ],
+  "details": {
+    "pnpm-lock.yaml#fixture-mirror@1.0.0{tarball=https://bad.example.invalid/fixture-mirror-1.0.0.tgz}": "not in the plain form"
+  }
 }
