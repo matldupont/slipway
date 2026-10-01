@@ -207,6 +207,10 @@ Declined: live state in `pnpm status` (it runs in every session's hook and must 
 an epic as a source for repositories with no milestone (an epic's order is prose, not its sub-issue order).
 Spec: `dev/features/work-order.md`.
 
+2026-09-30 — `--serve` (#183): serving the page on the loopback address (`127.0.0.1`) to the owner's own browser
+is within "rendered on demand, locally". It is a listener only the owner's machine reaches, not hosting: the page
+is still never hosted, published or committed.
+
 ## D-023 — The trust line: defend against other people's content, not the owner's own tree *(decided 2026-09-30)*
 
 Slipway's gates and skills defend against content from other people: their pull requests, issues, fixtures
