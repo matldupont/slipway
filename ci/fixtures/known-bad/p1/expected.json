@@ -2,6 +2,7 @@
   "_note": "good.md, none-link.md, gate-good.md, gate-glob-good.md, gate-doc-only.md (a markdown file is not a gate file unless it is owner-only: gate-owner-markdown.md edits a skill and has no Gate changes section), gate-base-rule-good.md and gate-none.md pass. placeholder.md is the shipped PR template, unfilled: its example command and #123 live in comments and must not count. A `<name>.changes.json` beside a body lists what that PR changed; the gate-* cases are read against the harness's gate paths. A sidecar's `globs` are the gate paths the base branch's harness listed: a PR that removes a rule is held to it. One line may name a directory glob (`ci/fixtures/known-bad/p1/**`): it covers the files it matches and nothing else. A sidecar's `links` are the symlinks and submodule links the PR adds, removes or changes: each is a gate change (#149); a sidecar without that list is unreadable.",
   "exit": 1,
   "findings": [
+    "gate-claude-local.md#gate-changes/missing",
     "gate-glob-everything.md#gate-changes/unmentioned:ci/verify.mjs",
     "gate-glob-loosens.md#gate-changes/loosens-uncited:ci/fixtures/x.json",
     "gate-glob-outside.md#gate-changes/unmentioned:ci/verify.mjs",

@@ -46,6 +46,8 @@
       "Write(**/AGENT.md)",
       "Edit(**/CLAUDE.md)",
       "Write(**/CLAUDE.md)",
+      "Edit(**/CLAUDE.local.md)",
+      "Write(**/CLAUDE.local.md)",
       "Edit(**/process/slipway-rules.md)",
       "Write(**/process/slipway-rules.md)",
       "Edit(**/process/intake.md)",

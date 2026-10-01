@@ -28,9 +28,10 @@ test('the matcher covers the harness paths, at any depth, and nothing else', () 
     assert.ok(gate(p), `${p} should be a gate file`);
   }
   // #163: owner-only markdown is a gate file; other markdown, even under a gate directory, is not.
-  for (const p of ['CLAUDE.md', 'apps/web/AGENT.md', 'process/slipway-rules.md', 'process/intake.md', '.claude/skills/work-ticket/SKILL.md', '.claude/agents/x.md']) assert.ok(gate(p), `${p} should be a gate file`);
+  for (const p of ['CLAUDE.md', 'CLAUDE.local.md', 'apps/web/CLAUDE.local.md', 'apps/web/AGENT.md', 'process/slipway-rules.md', 'process/intake.md', '.claude/skills/work-ticket/SKILL.md', '.claude/agents/x.md']) assert.ok(gate(p), `${p} should be a gate file`);
   assert.equal(gate.lookalike('.CLAUDE/skills/x/SKILL.md'), '**/.claude/**', 'a case-folded .claude/ is a lookalike, not a document');
   assert.equal(gate.lookalike('docs/Claude.md'), '**/CLAUDE.md', 'a case-folded CLAUDE.md is a lookalike, not a document');
+  assert.equal(gate.lookalike('docs/Claude.Local.md'), '**/CLAUDE.local.md', 'a case-folded CLAUDE.local.md is a lookalike, not a document');
   assert.ok(gate('ci/a\nb.mjs') && gate('.github/workflows/x\r.yml'), 'a line break in a name hides nothing');
   assert.ok(gateMatcher(settings, ['**/legacy-gate.cfg'])('x/legacy-gate.cfg'), 'extra globs (the base branch\'s) are added');
   for (const p of ['src/ci.ts', 'src/tsconfig.ts', 'ci/README.md', 'docs/ci/notes.md', 'process/harness/README.md', 'ci/fixtures/known-bad/p1/gate-none.md', 'package.json', 'README.md', '.nvmrc', '.node-version', '.tool-versions', 'src/node_modules.ts']) assert.ok(!gate(p), `${p} should not be`);

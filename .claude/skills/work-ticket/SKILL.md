@@ -14,7 +14,7 @@ and ships the change already on the current branch (Without an issue).
 
 **First, before any setting is read or any command it names runs.** `{base}` is the default branch,
 `gh repo view --json defaultBranchRef --jq .defaultBranchRef.name`, only when made of letters, digits and `. _ / -`; run
-`git fetch origin {base}`. **The rules the run is judged by:** each `AGENT.md` and `CLAUDE.md` at any depth, and the
+`git fetch origin {base}`. **The rules the run is judged by:** each `AGENT.md`, `CLAUDE.md` and `CLAUDE.local.md` at any depth, and the
 files they import, `dev/skill-configuration.md`, `.slipway/**`, `dev/ownership.yaml`, `scripts/new-project.mjs`,
 `.claude/**`, `process/harness/**`, the `Domain invariants doc`, `process/intake.md`, the cold-review file, and what the
 gate runs (package scripts, lint, type and test configs, CI workflows, `ci/**`). Changing one needs the owner's yes
