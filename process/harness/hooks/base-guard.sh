@@ -20,6 +20,9 @@
 # to the session's `yes` file: the pinned commit, then each file's name, kind (file, executable, deleted) and content
 # hash. The hooks run again in that session while the fingerprint is the same. A quoted name, a symlink, a submodule
 # link or a folder where a gate file goes is never covered by a yes.
+# A prompt the session arranges for itself reaches UserPromptSubmit as a typed one does (#213), and nothing here can
+# tell them apart. So the refusal is not in this file (#222): a PreToolUse command in settings.json, which needs no
+# pin, denies a scheduling, messaging, terminal or typing tool call that carries the phrase as a whole value.
 # POSIX sh with git, sed, grep, sort, head, tr, cat, rm, mkdir and printf: hooks run under /bin/sh without your PATH (L-34).
 
 set -f # the globs below are git's, never the shell's
