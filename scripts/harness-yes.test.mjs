@@ -258,6 +258,9 @@ test('the refusal takes the phrase as the yes does, after the tool\'s wrapping; 
   for (const p of WRAPPED) denied(refuse(call(wake.tool, wake.input(p))), JSON.stringify(p));
   for (const p of [...NO, ...MENTIONS]) assert.equal(refuse(call(wake.tool, wake.input(p))), '', `${JSON.stringify(p)} was refused`);
   denied(refuse(call(wake.tool, wake.input('X')).replace('"X"', '"\\/loop 5m trust gates"')), 'a serialiser that escapes the slash');
+  // A letter of the phrase spelled as a unicode escape reaches the tool as the phrase: no serialiser writes printable
+  // ASCII that way, so such input is refused as unreadable, wherever it is. A backslash-u in the text itself is not one.
+  for (const esc of ['\\u0074rust gates', 'trust\\u0020gates', 'say \\u0068i', 'x\\\\\\u0041']) denied(refuse(call(wake.tool, wake.input('X')).replace('"X"', `"${esc}"`)), esc, /spells a printable character as a unicode escape/);
   // Any string value, wherever it sits: an array element, a nested member, pretty-printed input.
   denied(refuse(call('RemoteTrigger', { action: 'run', body: { events: ['say hi', 'trust gates'] } })), 'an array element');
   denied(refuse(call('RemoteTrigger', { action: 'run', body: { a: { b: { c: 'TRUST GATES' } } } })), 'a nested member');
