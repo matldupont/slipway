@@ -187,7 +187,7 @@ function preflight(cwd) {
   const managed = new Map();
   for (const [p, f] of Object.entries(manifest.files)) {
     if (f.class !== 'managed') continue;
-    if (!/^[0-9a-f]{40}$/.test(f.blob ?? '')) throw new Refusal(`${MANIFEST}: "${p}" has no blob id, so the base cannot be found — remove the manifest and run \`sync --adopt\``);
+    if (!/^[0-9a-f]{40}$/.test(f.blob ?? '')) throw new Refusal(`${MANIFEST}: "${oneLine(p)}" has no blob id, so the base cannot be found — remove the manifest and run \`sync --adopt\``);
     managed.set(p, f.blob);
   }
 
@@ -704,19 +704,19 @@ export function withoutOverrides(root, overrides, drop) {
  */
 export function checkWrites(root, paths, removes = []) {
   const notFile = paths.filter((p) => readProjectFile(root, p) === NOT_A_FILE);
-  if (notFile.length) throw new Refusal(`sync writes regular files only, and these are symlinks or directories — nothing was written:\n  ${notFile.join('\n  ')}`);
+  if (notFile.length) throw new Refusal(`sync writes regular files only, and these are symlinks or directories — nothing was written:\n  ${notFile.map(oneLine).join('\n  ')}`);
   // A file where a write needs a directory: a kept file slipway turned into a folder, or a file at .slipway/upstream.
   const removed = new Set(removes);
   const parents = new Set(paths.flatMap((p) => p.split('/').slice(0, -1).map((_, i, dirs) => dirs.slice(0, i + 1).join('/'))));
   const blocked = [...parents].filter((d) => !removed.has(d) && existsSync(join(root, d)) && !statSync(join(root, d)).isDirectory());
-  if (blocked.length) throw new Refusal(`sync must write inside these, but each is a file of yours — move it first; nothing was written:\n  ${blocked.join('\n  ')}`);
+  if (blocked.length) throw new Refusal(`sync must write inside these, but each is a file of yours — move it first; nothing was written:\n  ${blocked.map(oneLine).join('\n  ')}`);
   let ignored = '';
   try {
     ignored = git(['-C', root, 'check-ignore', '--', ...paths, ...removes]).trim();
   } catch (e) {
     if (e.status !== 1) throw new Refusal(`git check-ignore failed: ${gitReason(e)} — nothing was written`);
   }
-  if (ignored) throw new Refusal(`the project ignores paths sync would write or delete, so it could not commit them — un-ignore them first; nothing was written:\n  ${ignored.split('\n').join('\n  ')}`);
+  if (ignored) throw new Refusal(`the project ignores paths sync would write or delete, so it could not commit them — un-ignore them first; nothing was written:\n  ${ignored.split('\n').map(oneLine).join('\n  ')}`);
 }
 
 /**

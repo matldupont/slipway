@@ -22,7 +22,7 @@ import { resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
-import { KINDS, shellQuote, withoutOverrides } from './sync.mjs';
+import { KINDS, checkWrites, shellQuote, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -1599,6 +1599,22 @@ test('a refusal that quotes a file name holding a line break prints the name on 
   const r = sync(project((d) => put(d, { 'a\nb\n└ forged.txt': 'untracked\n' })));
   assert.equal(r.status, 1);
   assert.match(r.stderr, /^sync: the working tree is not clean \(1 path\(s\)\)[^\n]*:\n {2}\?\? a b └ forged\.txt\n$/);
+});
+
+test('checkWrites quotes a path holding a line break on one line in each of its three refusals', () => {
+  const bad = 'a\nb\n└ forged';
+  const dir = project();
+  const refusal = (...args) => { try { checkWrites(...args); } catch (e) { return e.message; } assert.fail('no refusal'); };
+  symlinkSync(dir, join(dir, bad));
+  const notFile = refusal(dir, [bad]);
+  put(dir, { 'blocker\nx': 'mine\n' });
+  const blocked = refusal(dir, [`blocker\nx/${bad}`]);
+  put(dir, { '.gitignore': 'a*\n' });
+  const ignored = refusal(dir, [bad]);
+  for (const m of [notFile, blocked, ignored]) {
+    assert.doesNotMatch(m, /\n {2}[^\n]*\n[^\n]*└ forged/, m);
+    assert.equal(m.split('\n').length, 2, m);
+  }
 });
 
 test('a leftover whose text holds a line break leaves exactly one line starting `└` in what --apply printed', () => {
