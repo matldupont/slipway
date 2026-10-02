@@ -59,7 +59,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
   try {
     for (const a of argv) {
       if (a === '-h' || a === '--help') { out.write(`${USAGE}\n\n${BASE_WHY}\n`); return 0; }
-      if (!FLAGS.includes(a)) throw new Refusal(`unknown argument ${a}\n${USAGE}`);
+      if (!FLAGS.includes(a)) throw new Refusal(`unknown argument ${oneLine(a)}\n${USAGE}`);
     }
     if (argv.includes('--plan') && argv.includes('--apply')) throw new Refusal(`--plan and --apply: choose one\n${USAGE}`);
     // --json is the plan for a program to read (F-08 §2): refused with either flag that prints for a person.
@@ -121,7 +121,7 @@ export function repoState(cwd) {
   try {
     root = git(['-C', cwd, 'rev-parse', '--show-toplevel']).trim();
   } catch {
-    throw new Refusal(`${cwd} is not inside a git repository — run sync in the project`);
+    throw new Refusal(`${oneLine(cwd)} is not inside a git repository — run sync in the project`);
   }
   if (isTemplate(root)) throw new Refusal('this is slipway itself — run sync in a project built from it');
   const dirty = git(['-C', root, '--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=all']).split('\0').filter(Boolean);
@@ -167,7 +167,7 @@ export function history(source, fn) {
     return fn();
   } catch (e) {
     if (e instanceof Refusal) throw e;
-    throw new Refusal(`cannot read slipway's history from ${publicSource(source)}: ${redactUrls(gitReason(e))}`);
+    throw new Refusal(`cannot read slipway's history from ${oneLine(publicSource(source))}: ${redactUrls(gitReason(e))}`);
   }
 }
 
@@ -219,7 +219,7 @@ function preflight(cwd) {
     throw new Refusal(
       r.best
         ? `no slipway commit holds exactly the manifest's ${r.total} slipway files; closest ${c(r.best)}${r.runnerUp ? `, then ${c(r.runnerUp)}` : ''}`
-        : `${publicSource(source)} has no commits to compare the manifest with`,
+        : `${oneLine(publicSource(source))} has no commits to compare the manifest with`,
     );
   }
   const base = read(() => commitFiles(gitDir, r.exact));
@@ -276,7 +276,7 @@ function forwardOnly(gitDir, base, target, source, { apply = false } = {}) {
   } catch (e) {
     if (e.status !== 1) {
       // The target is not in the source: the plan notes it and goes on; --apply cannot record it.
-      if (apply) throw new Refusal(`the target ${short(target)} is not in ${publicSource(source)} — push it first; nothing was written`);
+      if (apply) throw new Refusal(`the target ${short(target)} is not in ${oneLine(publicSource(source))} — push it first; nothing was written`);
       return;
     }
     let shared = true;
@@ -288,7 +288,7 @@ function forwardOnly(gitDir, base, target, source, { apply = false } = {}) {
     throw new Refusal(
       shared
         ? `the target ${short(target)} is not newer than the base ${short(base)} — sync only moves forward; nothing was written`
-        : `the target ${short(target)} and the base ${short(base)} share no history in ${publicSource(source)}, so sync cannot say what changed between them; nothing was written`,
+        : `the target ${short(target)} and the base ${short(base)} share no history in ${oneLine(publicSource(source))}, so sync cannot say what changed between them; nothing was written`,
     );
   }
 }
@@ -375,7 +375,7 @@ function scriptRows(p, { base, target, cur, baseRules, targetRules }) {
     now = scripts(target, targetRules);
     mine = Buffer.isBuffer(cur) ? JSON.parse(cur.toString('utf8')).scripts ?? {} : {};
   } catch (e) {
-    throw new Refusal(`${p} is not valid JSON: ${e.message}`);
+    throw new Refusal(`${oneLine(p)} is not valid JSON: ${oneLine(e.message)}`);
   }
   const rows = [];
   for (const k of [...new Set([...Object.keys(was), ...Object.keys(now)])].sort()) {
@@ -577,7 +577,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   };
   // The executable bit, as slipway ships it: a hook it adds must still run.
   const exec = (p) => existsSync(join(SRC, p)) && (statSync(join(SRC, p)).mode & 0o111) !== 0;
-  const moved = (p) => new Refusal(`${p} changed after it was planned — nothing was written`);
+  const moved = (p) => new Refusal(`${oneLine(p)} changed after it was planned — nothing was written`);
   const todo = { writes: new Map(), removes: [], conflicts: [], diffs: [], kept: { gone: [], shipped: [] }, stale: [], absorbed: [], reported: [], harness: null, manifest: null };
   let pkg = null; // the project's package.json, once a key is updated
   let n = 0;
@@ -610,7 +610,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       }
       if (!pkg) {
         const cur = readProjectFile(root, r.file);
-        if (!Buffer.isBuffer(cur)) throw new Refusal(`${r.file} is missing — restore it before syncing its scripts; nothing was written`);
+        if (!Buffer.isBuffer(cur)) throw new Refusal(`${oneLine(r.file)} is missing — restore it before syncing its scripts; nothing was written`);
         pkg = { file: r.file, json: JSON.parse(cur.toString('utf8')) };
       }
       pkg.json.scripts ??= {};
@@ -802,7 +802,7 @@ function mergeFile(dir, p, ours, base, theirs) {
     return { bytes: git(args, { encoding: 'buffer' }), conflicts: 0 };
   } catch (e) {
     if (e.status >= 1 && e.status <= 127 && Buffer.isBuffer(e.stdout)) return { bytes: e.stdout, conflicts: e.status };
-    throw new Refusal(`${p}: git merge-file failed: ${gitReason(e)} — nothing was written`);
+    throw new Refusal(`${oneLine(p)}: git merge-file failed: ${gitReason(e)} — nothing was written`);
   }
 }
 
@@ -819,7 +819,7 @@ function seededDiff(dir, p, was, now) {
     git(args, { cwd: dir, encoding: 'buffer' });
   } catch (e) {
     if (e.status === 1 && Buffer.isBuffer(e.stdout)) return e.stdout;
-    throw new Refusal(`${p}: git diff failed: ${gitReason(e)} — nothing was written`);
+    throw new Refusal(`${oneLine(p)}: git diff failed: ${gitReason(e)} — nothing was written`);
   }
-  throw new Refusal(`${p}: planned as changed upstream, but its base and target are the same`);
+  throw new Refusal(`${oneLine(p)}: planned as changed upstream, but its base and target are the same`);
 }

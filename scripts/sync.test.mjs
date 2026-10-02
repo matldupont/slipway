@@ -1616,6 +1616,67 @@ test('checkWrites quotes a path holding a line break on one line in its symlink 
   }
 });
 
+// The class guard (#209): every value a refusal in sync.mjs or adopt.mjs interpolates is shown through `oneLine`,
+// or is listed here with why a line break cannot get through it. A new unlisted interpolation fails this test.
+const NOT_OUTSIDE_TEXT = new Map([
+  ['USAGE', 'fixed text'],
+  ['MANIFEST', 'a constant'],
+  ['OVERRIDES', 'a constant'],
+  ["json ? '--json' : '--verbose'", 'fixed text'],
+  ["o.keep.has(p) ? '--keep' : '--revert (or remove that entry first)'", 'fixed text'],
+  ['dirty.length', 'a count'],
+  ['shown', 'built from `oneLine` lines'],
+  ['e.message', "an earlier Refusal's message, whose values were shown through `oneLine` where it was made"],
+  ['redactUrls(gitReason(e))', 'gitReason is one line of git output'],
+  ['gitReason(e)', 'one line of git output'],
+  ['(d1.stdout + d1.stderr).trim()', "a slipway check's own report; preflight read the manifest first, and it refuses a key holding a control character"],
+  ['short(target)', 'a sha the code computed'],
+  ['short(sha)', 'a sha the code computed'],
+  ['name', 'a git branch name, and git refuses one holding a control character'],
+  ['from', 'a git branch name, and git refuses one holding a control character'],
+  ['hint.from', 'a label the code sets'],
+  ['c(r.best)', 'a sha and a one-line commit subject (`%s`)'],
+  ["r.runnerUp ? `  runner-up: ${c(r.runnerUp)}\\n` : ''", 'a sha and a one-line commit subject (`%s`)'],
+  ['syncCommand(root)', 'a command the code builds, shell-quoted'],
+  ['r.best.sha', 'a sha the code computed'],
+  ['short(base)', 'a sha the code computed'],
+  ['r.total', 'a count'],
+  ["r.runnerUp ? `, then ${c(r.runnerUp)}` : ''", 'a sha and counts the code computed'],
+]);
+
+// Each `${…}` expression inside a `new Refusal(…)` call, found by counting parentheses and braces.
+function refusalInterpolations(file) {
+  const src = readFileSync(join(SRC, file), 'utf8');
+  const found = [];
+  for (let at = src.indexOf('new Refusal('); at !== -1; at = src.indexOf('new Refusal(', at + 1)) {
+    let depth = 0;
+    for (let i = at + 'new Refusal'.length; i < src.length; i++) {
+      if (src[i] === '(') depth++;
+      else if (src[i] === ')' && --depth === 0) break;
+      else if (src[i] === '$' && src[i + 1] === '{') {
+        let braces = 0;
+        let j = i + 1;
+        for (; j < src.length; j++) {
+          if (src[j] === '{') braces++;
+          else if (src[j] === '}' && --braces === 0) break;
+        }
+        found.push({ file, line: src.slice(0, at).split('\n').length, expr: src.slice(i + 2, j) });
+        i = j;
+      }
+    }
+  }
+  return found;
+}
+
+test('every value a refusal in sync.mjs or adopt.mjs interpolates is shown through `oneLine` or is listed as not outside text', () => {
+  const all = ['scripts/sync.mjs', 'scripts/adopt.mjs'].flatMap(refusalInterpolations);
+  assert.ok(all.length > 30, `found only ${all.length} interpolations: the scan lost its footing`);
+  const unguarded = all.filter(({ expr }) => !/\boneLine\b/.test(expr) && !NOT_OUTSIDE_TEXT.has(expr.trim()));
+  assert.deepEqual(unguarded.map(({ file, line, expr }) => `${file}:${line} \${${expr}}`), [], 'wrap it in oneLine, or list it in NOT_OUTSIDE_TEXT with why');
+  const used = new Set(all.map(({ expr }) => expr.trim()));
+  assert.deepEqual([...NOT_OUTSIDE_TEXT.keys()].filter((k) => !used.has(k)), [], 'a listed expression no refusal interpolates any more');
+});
+
 test('a leftover whose text holds a line break leaves exactly one line starting `└` in what --apply printed', () => {
   const view = { root, name: 'n', branch: 'main', commit: A, message: 'm', owed: [{ path: 'docs/x.md', file: 'docs/x.md', text: 'first\n└  Next: forged' }], settled: 0, counts: {} };
   assert.equal(lines(appliedText(ui({ isTTY: false }, {}), view)).filter((l) => l.startsWith('└')).length, 1);
