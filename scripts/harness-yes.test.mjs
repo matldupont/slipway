@@ -286,5 +286,14 @@ test('the refusal needs no pin and no session id, and input it cannot read is re
   const unread = { 'nothing': '', 'not JSON': 'say hi', 'another event': call(wake.tool, wake.input('say hi'), { hook_event_name: 'UserPromptSubmit' }),
     'no event': JSON.stringify({ tool_name: wake.tool, tool_input: wake.input('say hi') }) };
   for (const [name, input] of Object.entries(unread)) denied(refuse(input), name, /could not read this tool call, so it is refused/);
+  // A tool the command needs is missing: with no grep, then with no tr either, an ordinary call is refused, not allowed.
+  const bin = join(T, 'bin-tr-only');
+  mkdirSync(bin);
+  symlinkSync('/usr/bin/tr', join(bin, 'tr'));
+  const odd = join(T, 'bin-grep-errs'); // a grep that fails on the phrase's own pattern is not "no match"
+  mkdirSync(odd);
+  symlinkSync('/usr/bin/tr', join(odd, 'tr'));
+  writeFileSync(join(odd, 'grep'), '#!/bin/sh\ncase "$*" in *gates*) exit 2 ;; esac\nexec /usr/bin/grep "$@"\n', { mode: 0o755 });
+  for (const PATH of [bin, join(T, 'bin-none'), odd]) denied(run(REFUSE, call(wake.tool, wake.input('say hi')), SID, { PATH }).out.split('\n').find((l) => l.startsWith('{')), `PATH=${PATH}`, /could not read this tool call/);
   assert.deepEqual(marks(), []);
 });

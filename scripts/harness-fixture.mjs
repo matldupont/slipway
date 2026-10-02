@@ -89,14 +89,14 @@ export const reset = () => {
   git('clone', '-q', origin, work);
 }
 
-// `sid` is the session id Claude Code puts in a hook's environment; null leaves it unset.
-export function run(hook, input = '{}', sid = SID) {
+// `sid` is the session id Claude Code puts in a hook's environment; null leaves it unset. `env` replaces a variable (PATH).
+export function run(hook, input = '{}', sid = SID, env = {}) {
   const cmd = commands.get(hook) ?? commands.get('lessons-first.sh').replace(/lessons-first\.sh$/, hook);
   const r = spawnSync('/bin/sh', ['-c', cmd], {
     input,
     encoding: 'utf8',
     cwd: work,
-    env: { PATH: '/usr/bin:/bin', HOME: T, CLAUDE_PROJECT_DIR: work, ...(sid === null ? {} : { CLAUDE_CODE_SESSION_ID: sid }) },
+    env: { PATH: '/usr/bin:/bin', HOME: T, CLAUDE_PROJECT_DIR: work, ...(sid === null ? {} : { CLAUDE_CODE_SESSION_ID: sid }), ...env },
   });
   return { status: r.status, out: `${r.stdout}${r.stderr}` };
 }
