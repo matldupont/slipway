@@ -191,6 +191,11 @@ Cited by one line in `/work-ticket` (Phase 6, at `## Links`), which stays at or 
   and the issue stays open.
 - The run's report to the owner names each owed check and how to record it (§1): the comment, the `Ran:`
   line, closing the issue.
+- When the issue's Acceptance names a QA plan, the `Owed:` line names the whole plan (the file), never a selection
+  from it. The run's comment has one row per journey of the check, each `pass`, `fail` or `not run`. A partial run
+  is not a pass: when any journey is `not run`, the `Owed:` line stays, or is replaced by a `Ran:` line for what
+  ran plus a new `Owed:` line naming what did not; a `Ran: … pass` line for a check whose comment lists a journey
+  `not run` is not allowed (#217).
 - A result counts only as the comment §1 describes. A claim that a result was posted, with no such comment,
   does not.
 - The draft carries the section and the `Owed:` line from the start, as it does `## Gate changes`, so both are

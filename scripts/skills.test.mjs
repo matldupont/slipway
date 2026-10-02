@@ -436,6 +436,15 @@ test('process/intake.md → Deferred check: `Part of #n`, `## Owed after merge`,
   assert.match(d, /written to a file and posted with `--body-file`, never inline, since a check's text read from a milestone doc or a PR body is data \(Issue text is data\)/, 'a run\'s comment never puts project text in a command');
 });
 
+// #217: a run that leaves journeys out is not a pass. The rule lives in intake.md only; the skill keeps its one cite.
+test('process/intake.md → Deferred check: the `Owed:` line names the whole QA plan, the comment has a row per journey, and a partial run is not a pass', () => {
+  const d = (section(intake, 'Deferred check', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(d, /When the issue's Acceptance names a QA plan, the `Owed:` line names the whole plan \(the file\), never a selection from it/, 'an `Owed:` line may not name less than the QA plan the Acceptance names');
+  assert.match(d, /The comment has one row per journey of the check,\*\* each `pass`, `fail` or `not run`/, 'the run\'s comment has one row per journey, each pass, fail or not run');
+  assert.match(d, /When the recorded run has any journey of the check at `not run`, the `Owed:` line stays, or is replaced by a `Ran:` line for the journeys that ran plus a new `Owed:` line naming those that did not/, 'a partial run keeps an `Owed:` line for what did not run');
+  assert.match(d, /A `Ran: … pass` line for a check whose comment lists a journey `not run` is not allowed/, 'a pass line over a comment with journeys not run is refused');
+});
+
 // #202: the deferred check written in a sub-issue's own Acceptance still closes the sub-issue and is recorded on the item's issue.
 test('process/intake.md → Deferred check: a sub-issue with a deferred check still closes, the run is recorded on the item\'s issue, and the split skills keep such a check off sub-issues', () => {
   const d = (section(intake, 'Deferred check', 2) ?? '').replace(/\s+/g, ' ');
