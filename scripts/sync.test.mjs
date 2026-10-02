@@ -1781,7 +1781,7 @@ for (const [what, files] of [
     const at = out.flatMap((l, i) => (SKILL_LINE.test(l) ? [i] : []));
     assert.equal(at.length, 1, r.stdout);
     assert.match(out[at[0]], /read \.claude\/skills\/sync-slipway\/SKILL\.md again before you continue/);
-    assert.ok(at[0] < out.findIndex((l) => /Next: /.test(l)), 'the line comes after Next:');
+    assert.ok(at[0] < out.findIndex((l) => /Next: /.test(l)), 'the sync-skill line comes after Next:, not before it');
     assert.equal(out.length - 1, out.findIndex((l) => /Next: /.test(l)), 'Next: is the last line');
   });
 }

@@ -229,7 +229,7 @@ The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts il
   `keep (edited)` both kinds, stale overrides, `script kept, yours differs`, the harness when it is owed), one
   line per path with its instruction. Diffs written under `.slipway/upstream/` are counted in one line under
   "Settled with you", as in the plan.
-- **The skill changed in this sync (#216).** The command-line tool is always current, since a project runs slipway's `main` every time; the skill is as of the last sync, so a sync that changes it (or `process/intake.md`, which it cites) says so, and the session reads the new copy before it continues (#216). When `--apply` writes either file, "What changed" ends
+- **The skill changed in this sync (#216).** The command-line tool is always current, since a project runs slipway's `main` every time; the skill is as of the last sync, so a sync that changes it (or `process/intake.md`, which it cites) says so, and the session reads the new copy before it continues. When `--apply` writes either file, "What changed" ends
   with one line, `The sync skill changed in this sync: once your tree is on the sync commit, read
   .claude/skills/sync-slipway/SKILL.md again before you continue.`; the plan's text never carries it, and
   `--json` carries the same fact as `skillChanged`. The skill's step after the apply says: when the apply
