@@ -73,6 +73,10 @@ pnpm -s use-slipway sync --apply
 It creates `slipway/sync-<target>` from the current branch and commits everything in one commit. Exit 1
 means some rows need the owner (step 3). It is not a failure. Read its output together.
 
+When the apply reported that the sync skill changed, this copy of the skill is older than the sync's: once
+your tree is on the sync commit, read `.claude/skills/sync-slipway/SKILL.md` from the working tree, and follow it
+from the step after the apply.
+
 ## 3 — Resolve
 
 Work through what `--apply` listed, on the sync branch:

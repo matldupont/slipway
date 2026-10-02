@@ -11,6 +11,8 @@ import { oneLine } from './ui.mjs';
 export const CONVENTIONAL = /^([a-z]+)(?:\(([^)]+)\))?!?: /;
 
 const NEW_MAX = 8; // "What's new" lists this many, then `… +N more`
+// --apply wrote the sync skill or a file it cites (#216): a session that began the sync holds the old copy.
+export const SKILL_CHANGED = 'The sync skill changed in this sync: once your tree is on the sync commit, read .claude/skills/sync-slipway/SKILL.md again before you continue.';
 const SETTLED = "/sync-slipway settles what follows from slipway and asks only about your project.";
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -107,10 +109,11 @@ export function planText(u, view) {
 /**
  * What --apply did (§4). `view`: `{ root, name, branch, commit, message, remote, notes, owed, settled,
  * counts, absorbed, stale, also }` — `owed` every leftover (`{ path, file, text }`), `settled` the reference
- * diffs written, `also` lines for "What changed" that are not counts (the harness, when nothing is owed).
+ * diffs written, `also` lines for "What changed" that are not counts (the harness, when nothing is owed), `skill`
+ * true when --apply wrote the sync skill or a file it cites.
  */
 export function appliedText(u, view) {
-  const { root, name, branch, commit, message, owed, settled, counts, also = [] } = view;
+  const { root, name, branch, commit, message, owed, settled, counts, also = [], skill = false } = view;
   const out = [u.section('◇', `slipway sync applied on ${name} (from ${branch}) · commit ${short(commit)}`), u.line(message), ...remoteAndNotes(u, view), gap(u)];
   if (owed.length) {
     out.push(u.section('◆', `Needs you before this branch merges (${owed.length})`));
@@ -120,7 +123,7 @@ export function appliedText(u, view) {
   if (settled) {
     out.push(u.section('◇', settledTitle(settled)), u.line("slipway's change to each is saved under .slipway/upstream/ to read, not to apply as a patch."), u.line(SETTLED), gap(u));
   }
-  const changes = [...changeLines(counts, view), ...also];
+  const changes = [...changeLines(counts, view), ...also, ...(skill ? [SKILL_CHANGED] : [])];
   if (changes.length) out.push(u.section('◇', 'What changed'), ...changes.map((l) => u.line(l)), gap(u));
   out.push(u.line('Next: in Claude Code, /sync-slipway settles the rest and opens the PR (if it sent you here, go back to that session)', { last: true }));
   return `${out.join('\n')}\n`;

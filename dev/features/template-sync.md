@@ -282,7 +282,7 @@ the target's map (its `fallback`), as adopt did when it wrote the manifest, so s
 1. Run `sync` (plan). Explain the base → target change in project terms from `git log` between the two
    shas: conventional-commit subjects, grouped by check, skill or doc. The plan prints those subjects,
    read from sync's own clone, so the skill never clones slipway itself.
-2. On a yes, have the owner run `--apply`, since the harness step needs the owner.
+2. On a yes, have the owner run `--apply`, since the harness step needs the owner. The command-line tool is always current, since a project runs slipway's `main` every time; the skill is as of the last sync, so a sync that changes it (or `process/intake.md`, which it cites) says so, and the session reads the new copy before it continues (#216).
 3. Resolve conflict markers in prose files. Sync removed each absorbed override itself (D-021); a stale
    one that names no managed file is removed on the owner's yes. For each `seeded: upstream changed` diff, settle the changes
    that need no owner (already there, not there to change, follows from sync), and ask about the rest in
@@ -429,3 +429,4 @@ the Contract, so the doc stays true without losing its history. One line each:
 
 - <date> · ADDED | MODIFIED | REMOVED · what changed · #PR
 - 2026-10-01 · MODIFIED · what `sync` and `sync --apply` print: the plan is laid out for the owner and `--apply` says what it did (F-08, `dev/features/cli-output.md` §3–§4); what sync writes, and its exit codes, are unchanged · #166
+- 2026-10-01 · MODIFIED · step 2: when `--apply` reports that the sync skill changed, the session reads its new copy before it continues (F-08 §4) · #216

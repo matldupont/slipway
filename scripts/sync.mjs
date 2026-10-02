@@ -394,6 +394,11 @@ const LABEL = {
 };
 const label = (kind) => LABEL[kind] ?? kind;
 
+// The files a /sync-slipway session has already read when --apply writes them: the skill, and the process doc
+// it cites. A row that writes either one means the session holds an older copy than the branch (#216).
+const SKILL_FILES = ['.claude/skills/sync-slipway/SKILL.md', 'process/intake.md'];
+export const skillChanged = (rows) => rows.some((r) => ['replace', 'add', 'merge'].includes(r.kind) && SKILL_FILES.includes(r.path));
+
 // What each row kind means for the owner, and what --apply does with it.
 const MEANING = {
   replace: "slipway's file, unchanged since install, and slipway changed it: --apply overwrites it",
@@ -460,6 +465,7 @@ function planDoc(ctx, rows, { stale, absorbed }) {
     rows: rows.map(({ kind, path }) => ({ kind, label: label(kind), path })),
     needsYou: needsYou(ctx, rows, stale).map(({ kind, path, next }) => ({ kind, path, next })),
     overrides: { absorbed: absorbed.map(entry), stale: stale.map(entry) },
+    skillChanged: skillChanged(rows),
     next: `${syncCommand(root)} --apply`,
   };
 }
@@ -553,6 +559,7 @@ function apply(out, u, ctx, rows) {
     absorbed: todo.absorbed.length,
     stale: todo.stale.length,
     also: todo.harness && !todo.harness.owed ? [todo.harness.text] : [],
+    skill: skillChanged(rows),
   }));
   const owed = todo.conflicts.length || todo.stale.length || todo.harness?.owed || rows.some((r) => OWNER_ROWS.includes(r.kind));
   return owed ? 1 : 0;
