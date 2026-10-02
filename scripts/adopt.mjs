@@ -31,6 +31,7 @@ import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs'
 import { BASE_WHY, bucketLines, needsLines } from './lib/summary.mjs';
 import { blobSha, buildManifest, git, publicSource, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 import { checkWrites, history, land, Refusal, repoState } from './sync.mjs';
+import { oneLine } from './lib/ui.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: sync --adopt [--base <sha>] [--verbose] [--apply [--keep <path>=<reason>]… [--revert <path>]…]   (run in a project with no manifest)';
@@ -53,7 +54,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
         : `Plan only — nothing was written. Write it with: ${syncCommand(ctx.root)} --adopt --apply --base ${ctx.base.sha}\n`);
       return 0;
     }
-    if (owed.length) throw new Refusal(`each of slipway's files you changed since the base needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps — nothing was written:\n  ${owed.join('\n  ')}`);
+    if (owed.length) throw new Refusal(`each of slipway's files you changed since the base needs --keep <path>=<reason> or --revert <path>, and ${OVERRIDES} may list only those it keeps — nothing was written:\n  ${owed.map(oneLine).join('\n  ')}`);
     return write(out, ctx, rows, o);
   } catch (e) {
     if (!(e instanceof Refusal)) throw e;
@@ -68,7 +69,7 @@ function parse(argv) {
     const a = argv[i];
     const value = () => {
       const v = argv[++i];
-      if (v === undefined || v.startsWith('-')) throw new Refusal(`${a} needs a value\n${USAGE}`);
+      if (v === undefined || v.startsWith('-')) throw new Refusal(`${oneLine(a)} needs a value\n${USAGE}`);
       return v;
     };
     if (a === '--adopt') continue;
@@ -81,9 +82,9 @@ function parse(argv) {
       const v = value();
       const at = v.indexOf('=');
       const reason = at < 0 ? '' : v.slice(at + 1).trim();
-      if (!reason) throw new Refusal(`--keep ${v}: give the reason after "=" — an override without one excuses nothing`);
+      if (!reason) throw new Refusal(`--keep ${oneLine(v)}: give the reason after "=" — an override without one excuses nothing`);
       o.keep.set(v.slice(0, at), reason);
-    } else throw new Refusal(`unknown argument ${a}\n${USAGE}`);
+    } else throw new Refusal(`unknown argument ${oneLine(a)}\n${USAGE}`);
   }
   if (!o.apply && (o.keep.size || o.revert.size)) throw new Refusal(`--keep and --revert choose what --apply writes; add --apply\n${USAGE}`);
   return o;
@@ -115,7 +116,7 @@ function locate(cwd, o) {
   try {
     source = publicSource(process.env.SLIPWAY_SOURCE || SOURCE);
   } catch (e) {
-    throw new Refusal(`SLIPWAY_SOURCE: ${e.message}`);
+    throw new Refusal(`SLIPWAY_SOURCE: ${oneLine(e.message)}`);
   }
   let gitDir;
   try {
@@ -128,11 +129,11 @@ function locate(cwd, o) {
   const hint = o.base ? { rev: o.base, from: '--base' } : recordedSha(root);
   let sha;
   if (hint) {
-    if (!/^[0-9a-f]{4,40}$/.test(hint.rev)) throw new Refusal(`${hint.from} "${hint.rev}" is not a commit sha — pass --base <sha>`);
+    if (!/^[0-9a-f]{4,40}$/.test(hint.rev)) throw new Refusal(`${hint.from} "${oneLine(hint.rev)}" is not a commit sha — pass --base <sha>`);
     try {
       sha = git(['--git-dir', gitDir, 'rev-parse', '--verify', '-q', `${hint.rev}^{commit}`]).trim();
     } catch {
-      throw new Refusal(`${hint.from} names slipway ${hint.rev}, which ${source} does not have (a fork, or never pushed) — pass --base <sha> of a slipway commit`);
+      throw new Refusal(`${hint.from} names slipway ${oneLine(hint.rev)}, which ${oneLine(source)} does not have (a fork, or never pushed) — pass --base <sha> of a slipway commit`);
     }
   } else {
     // Closest match: every tracked file's blob, against each commit on main's managed files.
@@ -144,9 +145,9 @@ function locate(cwd, o) {
     const r = read(() => resolveBase(gitDir, blobs, { fallback: t.rules }));
     const subject = (sha) => read(() => git(['--git-dir', gitDir, 'log', '-1', '--date=short', '--format=%ad %s', sha]).trim());
     const c = (x) => `${x.sha} — ${x.matched} of slipway's file(s) as that commit shipped them${x.extra ? `, ${x.extra} it ships that you lack` : ''}\n    ${subject(x.sha)}`;
-    if (!r.best?.matched) throw new Refusal(`no slipway sha in the first commit or README, and no commit on ${source}'s main shares one of slipway's files with this project — pass --base <sha>`);
+    if (!r.best?.matched) throw new Refusal(`no slipway sha in the first commit or README, and no commit on ${oneLine(source)}'s main shares one of slipway's files with this project — pass --base <sha>`);
     throw new Refusal(
-      `no slipway sha in the first commit or README (${firstSubject(root)}). Closest commit on ${source}'s main:\n  ${c(r.best)}\n` +
+      `no slipway sha in the first commit or README (${oneLine(firstSubject(root))}). Closest commit on ${oneLine(source)}'s main:\n  ${c(r.best)}\n` +
         `${r.runnerUp ? `  runner-up: ${c(r.runnerUp)}\n` : ''}Confirm it (or name another) with: ${syncCommand(root)} --adopt --base ${r.best.sha} — nothing was written`,
     );
   }
@@ -205,10 +206,10 @@ function decide(rows, o, overrides) {
   const listed = new Set(overrides.filter((x) => x.reason?.trim() && differs(byPath.get(x.path))).map((x) => x.path));
   for (const p of [...o.keep.keys(), ...o.revert]) {
     const r = byPath.get(p);
-    if (!r || r.cls !== 'managed') throw new Refusal(`${p} is not one of slipway's files that the base ships — --keep and --revert take the ones you changed`);
-    if (r.kind === 'pristine') throw new Refusal(`${p} already matches the base — it needs no --keep or --revert`);
-    if (o.keep.has(p) && o.revert.has(p)) throw new Refusal(`${p}: --keep or --revert, not both`);
-    if (listed.has(p)) throw new Refusal(`${p} is kept already by its entry in ${OVERRIDES} — drop the ${o.keep.has(p) ? '--keep' : '--revert (or remove that entry first)'}`);
+    if (!r || r.cls !== 'managed') throw new Refusal(`${oneLine(p)} is not one of slipway's files that the base ships — --keep and --revert take the ones you changed`);
+    if (r.kind === 'pristine') throw new Refusal(`${oneLine(p)} already matches the base — it needs no --keep or --revert`);
+    if (o.keep.has(p) && o.revert.has(p)) throw new Refusal(`${oneLine(p)}: --keep or --revert, not both`);
+    if (listed.has(p)) throw new Refusal(`${oneLine(p)} is kept already by its entry in ${OVERRIDES} — drop the ${o.keep.has(p) ? '--keep' : '--revert (or remove that entry first)'}`);
     r.choice = o.keep.has(p) ? 'keep' : 'revert';
   }
   for (const p of listed) byPath.get(p).choice = `keep (${OVERRIDES})`;
@@ -323,7 +324,7 @@ function write(out, ctx, rows, o) {
   try {
     if (bytes.has('package.json')) pkg = JSON.parse(bytes.get('package.json').toString('utf8'));
   } catch (e) {
-    throw new Refusal(`package.json is not valid JSON: ${e.message} — nothing was written`);
+    throw new Refusal(`package.json is not valid JSON: ${oneLine(e.message)} — nothing was written`);
   }
   const baseVersion = base.tree.has('package.json') ? JSON.parse(read(() => readBlob(gitDir, base.tree.get('package.json'))).toString('utf8')).version ?? null : null;
   const manifest = buildManifest(null, rows.map((r) => r.path), {
@@ -358,7 +359,7 @@ function overridesText(root, keep) {
     if (cur === NOT_A_FILE) throw new Refusal(`${OVERRIDES} is not a file — nothing was written`);
     const listed = new Set(readOverrides(root).map((x) => x.path));
     const dup = [...keep.keys()].filter((p) => listed.has(p));
-    if (dup.length) throw new Refusal(`${OVERRIDES} already lists ${dup.join(', ')} — drop the --keep for it`);
+    if (dup.length) throw new Refusal(`${OVERRIDES} already lists ${dup.map(oneLine).join(', ')} — drop the --keep for it`);
     text = Buffer.isBuffer(cur) ? cur.toString('utf8') : '';
   } catch (e) {
     throw e instanceof Refusal ? e : new Refusal(e.message);
@@ -369,7 +370,7 @@ function overridesText(root, keep) {
     const entry = `  - path: ${path}\n    reason: ${reason}\n`;
     const back = readList(`overrides:\n${entry}`, ['path', 'reason'], { strict: true });
     if (/[\r\n]/.test(reason) || back.length !== 1 || back[0].path !== path || back[0].reason !== reason) {
-      throw new Refusal(`--keep ${path}: the reason cannot be written as one plain line of ${OVERRIDES} (a newline, a " #" or quotes) — reword it; nothing was written`);
+      throw new Refusal(`--keep ${oneLine(path)}: the reason cannot be written as one plain line of ${OVERRIDES} (a newline, a " #" or quotes) — reword it; nothing was written`);
     }
     text += entry;
   }
