@@ -93,7 +93,12 @@
       "Bash(git remote set-head:*)",
       "Bash(git update-ref:*)",
       "Bash(git replace:*)",
-      "Bash(*refs/remotes/origin*)"
+      "Bash(*refs/remotes/origin*)",
+      "Edit(~/.claude/slipway/**)",
+      "Write(~/.claude/slipway/**)",
+      "Bash(*.claude/slipway*)",
+      "Bash(*base-guard*)",
+      "Bash(*trust gates*)"
     ],
     "allow": [
       "Bash(git stash list:*)",
@@ -104,7 +109,14 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo 'echo \"{\\\"systemMessage\\\":\\\"base-guard: origin/HEAD holds no process/harness/hooks/base-guard.sh so no hook ran.\\\"}\"')\" base-guard session-state.sh" }
+          { "type": "command", "command": "f='printf \"{\\\"systemMessage\\\":\\\"base-guard: no base is pinned for this session, or it holds no process/harness/hooks/base-guard.sh, so no hook ran. A new session pins the base.\\\"}\\n\"'; j=$(cat); i=$CLAUDE_CODE_SESSION_ID; b=; s=; case \"$i\" in ''|*[!A-Za-z0-9_-]*) i=; esac; [ \"${#i}\" -le 64 ] || i=; p=\"$HOME/.claude/slipway/sessions/$i/base\"; [ -n \"$i\" ] && [ -f \"$p\" ] && [ ! -L \"$p\" ] && IFS= read -r b <\"$p\"; case \"$b\" in *[!0-9a-f]*) b=; esac; r=$b; case \"${#b}\" in 40|64) ;; *) r=; [ -n \"$i\" ] && [ ! -e \"$p\" ] && [ ! -L \"$p\" ] && case \"$j\" in *'\"source\":\"startup\"'*|*'\"source\": \"startup\"'*|*'\"source\":\"clear\"'*|*'\"source\": \"clear\"'*|*'\"source\":\"fork\"'*|*'\"source\": \"fork\"'*) r=refs/remotes/origin/HEAD; esac; esac; [ -n \"$r\" ] && s=$(git -C \"$CLAUDE_PROJECT_DIR\" --no-replace-objects cat-file blob \"$r:process/harness/hooks/base-guard.sh\" 2>/dev/null) || s=; printf '%s' \"$j\" | sh -c \"${s:-$f}\" base-guard session-state.sh" }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          { "type": "command", "command": "i=$CLAUDE_CODE_SESSION_ID; b=; s=; case \"$i\" in ''|*[!A-Za-z0-9_-]*) i=; esac; [ \"${#i}\" -le 64 ] || i=; p=\"$HOME/.claude/slipway/sessions/$i/base\"; [ -n \"$i\" ] && [ -f \"$p\" ] && [ ! -L \"$p\" ] && IFS= read -r b <\"$p\"; case \"$b\" in *[!0-9a-f]*) b=; esac; case \"${#b}\" in 40|64) s=$(git -C \"$CLAUDE_PROJECT_DIR\" --no-replace-objects cat-file blob \"$b:process/harness/hooks/base-guard.sh\" 2>/dev/null) || s=; esac; exec sh -c \"${s:-:}\" base-guard trust-gates" }
         ]
       }
     ],
@@ -112,16 +124,16 @@
       {
         "matcher": "Bash",
         "hooks": [
-          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo true)\" base-guard intake-reminder.sh" },
-          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo true)\" base-guard lessons-first.sh" },
-          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo true)\" base-guard absence-search.sh" }
+          { "type": "command", "command": "i=$CLAUDE_CODE_SESSION_ID; b=; s=; case \"$i\" in ''|*[!A-Za-z0-9_-]*) i=; esac; [ \"${#i}\" -le 64 ] || i=; p=\"$HOME/.claude/slipway/sessions/$i/base\"; [ -n \"$i\" ] && [ -f \"$p\" ] && [ ! -L \"$p\" ] && IFS= read -r b <\"$p\"; case \"$b\" in *[!0-9a-f]*) b=; esac; case \"${#b}\" in 40|64) s=$(git -C \"$CLAUDE_PROJECT_DIR\" --no-replace-objects cat-file blob \"$b:process/harness/hooks/base-guard.sh\" 2>/dev/null) || s=; esac; exec sh -c \"${s:-:}\" base-guard intake-reminder.sh" },
+          { "type": "command", "command": "i=$CLAUDE_CODE_SESSION_ID; b=; s=; case \"$i\" in ''|*[!A-Za-z0-9_-]*) i=; esac; [ \"${#i}\" -le 64 ] || i=; p=\"$HOME/.claude/slipway/sessions/$i/base\"; [ -n \"$i\" ] && [ -f \"$p\" ] && [ ! -L \"$p\" ] && IFS= read -r b <\"$p\"; case \"$b\" in *[!0-9a-f]*) b=; esac; case \"${#b}\" in 40|64) s=$(git -C \"$CLAUDE_PROJECT_DIR\" --no-replace-objects cat-file blob \"$b:process/harness/hooks/base-guard.sh\" 2>/dev/null) || s=; esac; exec sh -c \"${s:-:}\" base-guard lessons-first.sh" },
+          { "type": "command", "command": "i=$CLAUDE_CODE_SESSION_ID; b=; s=; case \"$i\" in ''|*[!A-Za-z0-9_-]*) i=; esac; [ \"${#i}\" -le 64 ] || i=; p=\"$HOME/.claude/slipway/sessions/$i/base\"; [ -n \"$i\" ] && [ -f \"$p\" ] && [ ! -L \"$p\" ] && IFS= read -r b <\"$p\"; case \"$b\" in *[!0-9a-f]*) b=; esac; case \"${#b}\" in 40|64) s=$(git -C \"$CLAUDE_PROJECT_DIR\" --no-replace-objects cat-file blob \"$b:process/harness/hooks/base-guard.sh\" 2>/dev/null) || s=; esac; exec sh -c \"${s:-:}\" base-guard absence-search.sh" }
         ]
       }
     ],
     "Stop": [
       {
         "hooks": [
-          { "type": "command", "command": "sh -c \"$(git -C \"$CLAUDE_PROJECT_DIR\" cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh 2>/dev/null || echo 'cat | grep -Eq \"stop_hook_active\\\": ?true\" && exit 0; printf \"{\\\"decision\\\":\\\"block\\\"\\054\\\"reason\\\":\\\"base-guard: origin/HEAD holds no process/harness/hooks/base-guard.sh so stop-verify did not run. Run pnpm verify:fast yourself and report its result. Until then say plainly that the gate did not run.\\\"}\\n\"')\" base-guard stop-verify.sh", "timeout": 600 }
+          { "type": "command", "command": "f='grep -Eq \"\\\"stop_hook_active\\\": ?true\" && exit 0; printf \"{\\\"decision\\\":\\\"block\\\",\\\"reason\\\":\\\"base-guard: no base is pinned for this session, or it holds no process/harness/hooks/base-guard.sh, so stop-verify did not run. Run pnpm verify:fast yourself and report its result. Until then say plainly that the gate did not run. A new session pins the base.\\\"}\\n\"'; i=$CLAUDE_CODE_SESSION_ID; b=; s=; case \"$i\" in ''|*[!A-Za-z0-9_-]*) i=; esac; [ \"${#i}\" -le 64 ] || i=; p=\"$HOME/.claude/slipway/sessions/$i/base\"; [ -n \"$i\" ] && [ -f \"$p\" ] && [ ! -L \"$p\" ] && IFS= read -r b <\"$p\"; case \"$b\" in *[!0-9a-f]*) b=; esac; case \"${#b}\" in 40|64) s=$(git -C \"$CLAUDE_PROJECT_DIR\" --no-replace-objects cat-file blob \"$b:process/harness/hooks/base-guard.sh\" 2>/dev/null) || s=; esac; exec sh -c \"${s:-$f}\" base-guard stop-verify.sh", "timeout": 600 }
         ]
       }
     ]

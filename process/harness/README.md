@@ -65,13 +65,18 @@ Known limitations:
 
 ### Base guard
 
-Every hook runs through `hooks/base-guard.sh`, loaded from `origin/HEAD`'s commit rather than the working tree
-(`git cat-file blob refs/remotes/origin/HEAD:process/harness/hooks/base-guard.sh`), so a branch cannot change it
-(#126). The guard runs the working tree's hook only when the checkout's gate files are `origin/HEAD`'s. Gate files
+Every hook runs through `hooks/base-guard.sh`, loaded from a commit rather than the working tree
+(`git cat-file blob <commit>:process/harness/hooks/base-guard.sh`), so a branch cannot change it (#126). The commit
+is the session's **pin** (#145): `origin/HEAD`'s commit as the session's first SessionStart found it, written once to
+`~/.claude/slipway/sessions/<session id>/base`, outside the repository. Every later hook reads the guard from the
+pin and compares against the pin, never the live ref, so moving `origin/HEAD` mid-session changes nothing. A
+SessionStart pins only when the session has no pin and its `source` is `startup`, `clear` or `fork`, the three
+that come with a new session id; a compaction or a resume never pins. Git is called with `--no-replace-objects`, so a replace ref cannot swap the
+pinned guard. The guard runs the working tree's hook only when the checkout's gate files are the pin's. Gate files
 are the paths the base's own `Edit(...)` ask rules list (above) but its owner-only prose and sync tooling (#163),
 every `package.json`, everything under a `.claude` folder but its skills (#173, below), `.gitmodules`
 and `.gitattributes`, matched ignoring case, documents included, and each gate folder itself (`node_modules`,
-`.claude`, `ci`), so a symlink in its place counts: tracked ones through `git diff` against `origin/HEAD` (a tracked
+`.claude`, `ci`), so a symlink in its place counts: tracked ones through `git diff` against the pin (a tracked
 file `.gitignore` ignores included, a submodule by its commit), and untracked ones. A symlink or a submodule link
 added, removed or changed at any path counts too, since the folder it stands for may hold gate files no pattern can
 name (`.config -> elsewhere` holding `mise/config.toml`; #148). So does a changed or untracked file whose name git has
@@ -88,15 +93,37 @@ rest of the list names (`package.json`, `.npmrc`, `.claude/settings*.json`) stil
 When any differs, that hook does not run: the Stop hook blocks once to say so and name the files, SessionStart says
 so, and the advisory hooks stay quiet. Otherwise a branch's hook scripts, `ci/verify.mjs` and package scripts would
 run on every command and every turn end, before the owner had been asked about them. The branch's other code and
-tests still run, in the Stop hook's `verify:fast`, while no gate file differs. Once the owner has said yes to the
-changes, the agent runs `pnpm verify:fast` itself; the Stop hook stays off for that checkout until its gate files
-match `origin/HEAD` again (merged, or fetched). #145 lets the owner's own message turn it back on.
+tests still run, in the Stop hook's `verify:fast`, while no gate file differs.
 
-With no `origin/HEAD` (a repository made with `git init` and pushed later), no guard in it, no gate paths read, or
-a git failure, no hook runs and the Stop and SessionStart hooks say why; `git remote set-head origin --auto` fixes
-the first, and `new-project` sets it. With no guard to load (no `origin/HEAD`, or none holding `base-guard.sh`, #154),
-the Stop hook cannot run `stop-verify`, so it blocks once, telling the agent to run `pnpm verify:fast` itself and
-report the result; SessionStart says why, and the advisory hooks stay quiet.
+**The yes** (#145). Only the owner's own message turns the hooks back on for changed gate files: a message that is
+the phrase `trust gates` and nothing else (any case, spaces around it ignored). The UserPromptSubmit hook runs the
+pinned guard as `trust-gates`, which runs no working-tree script. It writes the fingerprint of the changed gate
+files to `~/.claude/slipway/sessions/<session id>/yes` and tells the owner which files it covers. The fingerprint
+is the pin, then each changed gate file's name, kind (file, executable, deleted) and content hash; file names are
+read as paths on disk and hashed by git as paths, never as pathspecs or options. While the checkout's fingerprint
+is the recorded one, every hook runs again in that session; any further change to a gate file, a new session, or
+another session needs a new yes. No hook, script or flag writes the record but that path, and it refuses a
+subagent's prompt, another event, and a message that only contains the phrase (a pasted issue, a relayed message).
+A yes never covers a name git has to quote, a symlink, a submodule link, or a folder where a gate file goes: none
+has content a hash can pin, so those keep the hooks off until they are merged, and after the owner's yes the agent
+runs `pnpm verify:fast` itself.
+
+With no pin (no `origin/HEAD` when the session started, none holding `base-guard.sh` (#154), a session that began
+before this guard was installed, a pin that is not a commit id, or no session id), no hook runs: the Stop hook
+cannot run `stop-verify`, so it blocks once, telling the agent to run `pnpm verify:fast` itself and report the
+result; SessionStart says why, and the advisory hooks stay quiet. A new session pins again;
+`git remote set-head origin --auto` fixes a missing `origin/HEAD`, and `new-project` sets it. With no gate paths
+read, or a git failure, no hook runs and the Stop and SessionStart hooks say why.
+
+The harness asks before the agent reaches the pin or the record:
+
+| rule | what it asks before |
+|---|---|
+| `Edit(~/.claude/slipway/**)`, `Write(~/.claude/slipway/**)` | an edit or a write to a session's pin or yes |
+| `Bash(*.claude/slipway*)` | a command that names that folder |
+| `Bash(*base-guard*)` | a command that runs the guard by hand, with input of the agent's making |
+| `Bash(*trust gates*)` | a command that carries the phrase, such as a headless session started with it as its prompt |
+| `Bash(git remote set-head:*)`, `Bash(git update-ref:*)`, `Bash(git replace:*)`, `Bash(*refs/remotes/origin*)` | moving `origin/HEAD` before a later session pins it |
 
 Known limitations:
 
@@ -104,15 +131,21 @@ Known limitations:
 |---|---|
 | a session started on the branch | Claude Code loaded that checkout's `.claude/settings.json` and ran its SessionStart hook before any guard: start sessions on the default branch, and check someone else's checkout with #114's `--check-checkout` first. `/work-ticket` stops when its session started on a branch that changes `.claude/settings*.json` |
 | a checkout mid-session | Claude Code reloads `.claude/settings.json` when it changes on disk, so checking out a branch that changes it swaps the hooks, guard included. `/work-ticket` asks before it checks out such a branch; a checkout you make by hand is yours |
-| the agent and the base | moving `origin/HEAD` (`git remote set-head`, `git update-ref`, `git replace`, a fetch into `refs/remotes/origin`) asks first, but a reworded shell command still gets through, and a permission mode that approves by itself approves these too. #145 pins the base at session start |
+| the agent's shell and the record | the pin and the yes are plain files, and the guard's UserPromptSubmit path is a command: an agent with a shell can write either file, run the guard with input of its own making, or start a headless session on its own session id with the phrase as the prompt (Claude Code runs UserPromptSubmit for it, checked on 2.1.283). Each asks first (the rules above), but a reworded shell command still gets through, and a permission mode that approves by itself approves these too. Nothing in a hook's environment tells it from the agent's shell |
+| a prompt the owner did not type | Claude Code does not mark where a prompt came from. A subagent's is refused (by the `agent_id` its documentation says such a prompt carries; not checked in a live session), and a message relayed from another session arrives wrapped, so it is never the phrase alone. Whether a scheduled prompt (a wakeup, a cron, a loop) reaches UserPromptSubmit is undocumented and not checked: if it does, an agent could schedule the phrase |
+| a base moved before the pin | a session pins whatever `origin/HEAD` is when it starts: an agent that moved it in an earlier session, or in this conversation before a `/clear` or a fork gave it a new session id (the ask rules above), is trusted by the next one |
+| a pin gone stale | the pin is the session's, so after a merge and a fetch the session still compares against the old base: its hooks stop, and the message says to send the phrase or start a new session |
+| what a yes cannot cover | a quoted name, a symlink, a submodule link, a folder or a nested repository where a gate file goes: the hooks stay off for that checkout until merged |
+| the session folders | `~/.claude/slipway/sessions/` gains one small folder per session and nothing removes them |
+| the session id | the guard reads it from `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for hook commands (checked on 2.1.283); a version that does not set it runs no hook, and the Stop and SessionStart hooks say so. Whether the id survives a compaction is undocumented: if it does not, the hooks stop after one, and say so |
 | `.gitignore` and local index flags | an untracked file is seen as git sees it, through the working tree's ignore rules; `skip-worktree` and `assume-unchanged` hide a tracked file's edit. A checkout alone brings neither an untracked file nor a flag |
 | a skill the branch changed | `.claude/skills/**` does not stop the hooks, yet a skill can carry inline shell or frontmatter hooks that run once it is invoked. It stays owner-only: the harness asks before an edit to it, and the PR check wants a `## Gate changes` line for it, so the change is seen at the pull request, not at the Stop hook. An untracked link below `.claude/skills/` is skill content, and a skill folder that is its own untracked git repository is not looked into (as any such folder); a checkout alone brings neither |
-| a symlink | a tracked symlink, or a submodule link, counts wherever it changes, and a gate folder counts when a link takes its place, tracked or untracked unless the ignore rules hide it (`node_modules` without a trailing slash ignores a link too). A link `origin/HEAD` already has is judged by the link, not by what its target holds now; an untracked link outside the gate folders does not count, since git reports no mode for an untracked file. A checkout alone brings no untracked link |
+| a symlink | a tracked symlink, or a submodule link, counts wherever it changes, and a gate folder counts when a link takes its place, tracked or untracked unless the ignore rules hide it (`node_modules` without a trailing slash ignores a link too). A link the pin already has is judged by the link, not by what its target holds now; an untracked link outside the gate folders does not count, since git reports no mode for an untracked file. A checkout alone brings no untracked link |
 | a submodule at another path | a submodule's commit and its own changes count at any path, but the guard never looks inside one: a file its own `.gitignore` ignores, or a file written into a submodule folder that is not checked out as a repository, is not seen |
 | a checkout while a hook runs | the guard checks, then the hook runs; a checkout in between (a background agent) changes what the hook reads |
 | case folding | `icase` catches `.NPMRC`, and a quoted name counts as a gate file; other foldings of plain ASCII names are the canonical-form limitation above |
-| a stale `origin/HEAD` | a gate file merged since the last fetch counts as changed until you fetch |
-| taking this change in a sync | until the sync's pull request merges, `origin/HEAD` holds no `base-guard.sh`, so a session with the new `.claude/settings.json` runs no hook: SessionStart says so, and the Stop hook blocks once, telling the agent to run `pnpm verify:fast` itself (#154) |
+| a stale `origin/HEAD` | a gate file merged since the last fetch counts as changed in a session that starts before you fetch |
+| taking this change in a sync | until the sync's pull request merges, `origin/HEAD` holds no `base-guard.sh`, or one that pins nothing, so a session with the new `.claude/settings.json` runs no hook: SessionStart says so, and the Stop hook blocks once, telling the agent to run `pnpm verify:fast` itself (#154). A session open across the merge has no pin either: start a new one |
 
 ### Where the PR check differs
 
@@ -191,9 +224,13 @@ In a worktree without `node_modules` (move `apps/web/node_modules` aside, or use
 second must print `"decision":"block"` naming the package and `pnpm install --frozen-lockfile`, and must
 not write `.git/stop-verify-ok`.
 
-The base guard, run as `settings.json` runs it. With a gate file changed (add a line to `ci/verify.mjs`) it must print
-`"decision":"block"` naming the file and run nothing; restored, it must run the Stop hook as above:
+The base guard, in a session Claude Code started here (it needs that session's pin, so run it from the session's
+own terminal, where `CLAUDE_CODE_SESSION_ID` is set). With a gate file changed (add a line to `ci/verify.mjs`) it
+must print `"decision":"block"` naming the file and run nothing; restored, it must run the Stop hook as above:
 
 ```bash
-printf '{}' | env -i HOME="$HOME" PATH=/usr/bin:/bin CLAUDE_PROJECT_DIR="$PWD" sh -c "$(git cat-file blob origin/HEAD:process/harness/hooks/base-guard.sh)" base-guard stop-verify.sh
+printf '{}' | env -i HOME="$HOME" PATH=/usr/bin:/bin CLAUDE_PROJECT_DIR="$PWD" CLAUDE_CODE_SESSION_ID="$CLAUDE_CODE_SESSION_ID" sh -c "$(git cat-file blob "$(cat ~/.claude/slipway/sessions/$CLAUDE_CODE_SESSION_ID/base)":process/harness/hooks/base-guard.sh)" base-guard stop-verify.sh
 ```
+
+With the gate file still changed, send `trust gates` as a message of its own: Claude Code must show which files
+the yes covers, and the Stop hook must run again until you change the file once more.

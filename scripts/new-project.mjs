@@ -224,7 +224,8 @@ if (!opts.github) {
 step(4, `Create ${repo} and push main`);
 onGitHub = true;
 run('gh', ['repo', 'create', repo, opts.public ? '--public' : '--private', '--source', dest, '--remote', 'origin', '--push']);
-// The harness runs its hooks from origin/HEAD's copy (process/harness/hooks/base-guard.sh, #126): name it.
+// The harness pins origin/HEAD's commit when a session starts and runs its hooks from that copy
+// (process/harness/hooks/base-guard.sh, #126, #145): name it.
 run('git', ['-C', dest, 'remote', 'set-head', 'origin', 'main']);
 
 // ---- 5. label
