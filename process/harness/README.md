@@ -108,6 +108,36 @@ A yes never covers a name git has to quote, a symlink, a submodule link, or a fo
 has content a hash can pin, so those keep the hooks off until they are merged, and after the owner's yes the agent
 runs `pnpm verify:fast` itself.
 
+**A prompt the session arranges cannot carry the phrase** (#222). A prompt a session schedules for itself reaches
+UserPromptSubmit exactly as a typed one does (#213), and nothing in that hook's input tells them apart. So the tool
+call that would arrange it is refused before it runs: a PreToolUse command in `settings.json` answers
+`permissionDecision: deny`, a hook decision, which holds in every permission mode, when any string value in the
+call's input is the phrase alone. It takes everything the yes takes (any case, spaces and line ends around it), and
+what a tool might turn into that before the prompt reaches the hook: `/loop`, an interval of the form `5m` (digits,
+then `s`, `m`, `h` or `d`), or both, in front; padding the yes does not trim but a tool may (any byte outside
+printable ASCII, such as a no-break space or a BOM, and an escaped control character). The value is a real JSON
+string of the call: a string that itself holds JSON is not read (below). An interval in other words (`every 5 minutes`) is not stripped:
+the scheduling call it leads to is refused instead. A value that only mentions the phrase is allowed. Under the three
+typing tool families a call that only searches a page for the phrase is refused too; the refusal says to use Grep or
+Bash. Input the command cannot read is refused: empty, not a PreToolUse call, a failing `grep`, or one that spells a printable ASCII character as a `\u00XX` escape, which no serialiser writes and which could spell the phrase unseen (a backslash-u in the text itself arrives with its backslash escaped, and is allowed). The command is
+`tr`, `grep` and `printf` on its input: it loads no guard and reads no pin, so it runs in a session with no pin too,
+which could otherwise hand the phrase to one that has. It covers the tools in its matcher:
+
+| tool | what it could arrange |
+|---|---|
+| `ScheduleWakeup`, `CronCreate`, `Skill` (`/loop`) | a wake-up, a recurring or one-off prompt, a loop, in this session |
+| `mcp__scheduled-tasks__create_scheduled_task`, `…update_scheduled_task`, `RemoteTrigger` | a scheduled task or a routine, in a later or a remote session |
+| `SendMessage`, `mcp__ccd_session_mgmt__send_message`, `mcp__ccd_session__spawn_task` | a message to another session, or the opening prompt of a new one |
+| `mcp__computer-use__*`, `mcp__claude-in-chrome__*`, `mcp__Claude_Browser__*`, `mcp__remote-devices__*` (the same on a linked computer) | text typed, or a field set, in the app or a page that holds a session |
+| `mcp__terminal__run_in_terminal` | a command in the owner's terminal that starts a session. No ask rule can read an MCP tool's input, so here the phrase anywhere in the command is refused, as `Bash(*trust gates*)` asks; the refusal says to run an ordinary command that only names it (a search) with Bash |
+
+This table is the list to extend when Claude Code gains another way to arrange a prompt: first check whether the tool
+takes its prompt inside a string it parses (JSON in a string): if it does, a matcher word is not enough and the tool
+needs its own handling. No tool on the table does, by its input schema (2.1.287): `RemoteTrigger`'s body and the batch
+tools' actions are objects, which the rule reads into. Otherwise add the tool to the matcher
+and to `ARRANGERS` in `scripts/harness-fixture.mjs`; `scripts/harness-yes.test.mjs` fails while the two differ, and
+runs the command as `settings.json` holds it, on one list of prompts shared with the yes.
+
 With no pin (no `origin/HEAD` when the session started, none holding `base-guard.sh` (#154), a session that began
 before this guard was installed, a pin that is not a commit id, or no session id), no hook runs: the Stop hook
 cannot run `stop-verify`, so it blocks once, telling the agent to run `pnpm verify:fast` itself and report the
@@ -132,12 +162,13 @@ Known limitations:
 | a session started on the branch | Claude Code loaded that checkout's `.claude/settings.json` and ran its SessionStart hook before any guard: start sessions on the default branch, and check someone else's checkout with #114's `--check-checkout` first. `/work-ticket` stops when its session started on a branch that changes `.claude/settings*.json` |
 | a checkout mid-session | Claude Code reloads `.claude/settings.json` when it changes on disk, so checking out a branch that changes it swaps the hooks, guard included. `/work-ticket` asks before it checks out such a branch; a checkout you make by hand is yours |
 | the agent's shell and the record | the pin and the yes are plain files, and the guard's UserPromptSubmit path is a command: an agent with a shell can write either file, run the guard with input of its own making, or start a headless session on its own session id with the phrase as the prompt (Claude Code runs UserPromptSubmit for it, checked on 2.1.283). Each asks first (the rules above), but a reworded shell command still gets through, and a permission mode that approves by itself approves these too. Nothing in a hook's environment tells it from the agent's shell |
-| a prompt the owner did not type | Claude Code does not mark where a prompt came from. A subagent's is refused (by the `agent_id` its documentation says such a prompt carries; not checked in a live session), and a message relayed from another session arrives wrapped, so it is never the phrase alone. Whether a scheduled prompt (a wakeup, a cron, a loop) reaches UserPromptSubmit is undocumented and not checked: if it does, an agent could schedule the phrase |
+| a prompt the owner did not type | Claude Code does not mark where a prompt came from. A `/loop` fire reaches UserPromptSubmit as if typed (same session id, no `agent_id`; 2.1.287, #213), so the harness refuses the tool call that would arrange the phrase (#222, above); a wakeup or a cron job was not tried, and both are refused the same way. A subagent's own prompt did not reach UserPromptSubmit at all in a live session (2.1.287, #213), so its `agent_id` refusal never ran; what did reach it were the harness's `<agent-message>` and `<task-notification>` relays, wrapped and with no `agent_id` (seen on one relay each), so not the phrase alone, like a message relayed from another session. What remains: a tool that is not in the matcher (a new Claude Code tool, another MCP server's); the phrase typed key by key, or put in a field by a script that holds it inside a longer string; a tool that parses a JSON string it was given (none on the table does, by its schema); and input forged from a shell (the row above). Whether PreToolUse fires for each tool in the matcher, and what each tool trims from a prompt before it enqueues it, is not documented and was not checked in a live session |
+| what the refusal rests on | the refusal is a command in `.claude/settings.json`, so it is as trusted as the settings file the session started with, like the lines that load the guard. A session started in a checkout whose settings differ does not have it: #114's `--check-checkout` and starting sessions on the default branch are what cover that, and nothing here does |
 | a base moved before the pin | a session pins whatever `origin/HEAD` is when it starts: an agent that moved it in an earlier session, or in this conversation before a `/clear` or a fork gave it a new session id (the ask rules above), is trusted by the next one |
 | a pin gone stale | the pin is the session's, so after a merge and a fetch the session still compares against the old base: its hooks stop, and the message says to send the phrase or start a new session |
 | what a yes cannot cover | a quoted name, a symlink, a submodule link, a folder or a nested repository where a gate file goes: the hooks stay off for that checkout until merged |
 | the session folders | `~/.claude/slipway/sessions/` gains one small folder per session and nothing removes them |
-| the session id | the guard reads it from `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for hook commands (checked on 2.1.283); a version that does not set it runs no hook, and the Stop and SessionStart hooks say so. Whether the id survives a compaction is undocumented: if it does not, the hooks stop after one, and say so |
+| the session id | the guard reads it from `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for hook commands (checked on 2.1.283); a version that does not set it runs no hook, and the Stop and SessionStart hooks say so. The id survives a manual `/compact` (a live session kept it, 2.1.287, #213), so a long session keeps its pin; an automatic compaction was not tried |
 | `.gitignore` and local index flags | an untracked file is seen as git sees it, through the working tree's ignore rules; `skip-worktree` and `assume-unchanged` hide a tracked file's edit. A checkout alone brings neither an untracked file nor a flag |
 | a skill the branch changed | `.claude/skills/**` does not stop the hooks, yet a skill can carry inline shell or frontmatter hooks that run once it is invoked. It stays owner-only: the harness asks before an edit to it, and the PR check wants a `## Gate changes` line for it, so the change is seen at the pull request, not at the Stop hook. An untracked link below `.claude/skills/` is skill content, and a skill folder that is its own untracked git repository is not looked into (as any such folder); a checkout alone brings neither |
 | a symlink | a tracked symlink, or a submodule link, counts wherever it changes, and a gate folder counts when a link takes its place, tracked or untracked unless the ignore rules hide it (`node_modules` without a trailing slash ignores a link too). A link the pin already has is judged by the link, not by what its target holds now; an untracked link outside the gate folders does not count, since git reports no mode for an untracked file. A checkout alone brings no untracked link |
@@ -145,7 +176,7 @@ Known limitations:
 | a checkout while a hook runs | the guard checks, then the hook runs; a checkout in between (a background agent) changes what the hook reads |
 | case folding | `icase` catches `.NPMRC`, and a quoted name counts as a gate file; other foldings of plain ASCII names are the canonical-form limitation above |
 | a stale `origin/HEAD` | a gate file merged since the last fetch counts as changed in a session that starts before you fetch |
-| taking this change in a sync | until the sync's pull request merges, `origin/HEAD` holds no `base-guard.sh`, or one that pins nothing, so a session with the new `.claude/settings.json` runs no hook: SessionStart says so, and the Stop hook blocks once, telling the agent to run `pnpm verify:fast` itself (#154). A session open across the merge has no pin either: start a new one |
+| taking this change in a sync | until the sync's pull request merges, `origin/HEAD` holds no `base-guard.sh`, or one that pins nothing, so a session with the new `.claude/settings.json` runs no hook: SessionStart says so, and the Stop hook blocks once, telling the agent to run `pnpm verify:fast` itself (#154). A session open across the merge has no pin either: start a new one. The refusal (#222) needs no pin: it is active from the next session after the settings are installed |
 
 ### Where the PR check differs
 
@@ -234,3 +265,9 @@ printf '{}' | env -i HOME="$HOME" PATH=/usr/bin:/bin CLAUDE_PROJECT_DIR="$PWD" C
 
 With the gate file still changed, send `trust gates` as a message of its own: Claude Code must show which files
 the yes covers, and the Stop hook must run again until you change the file once more.
+
+The refusal (#222), with an inert call: the first must print `"permissionDecision":"deny"`, the second nothing.
+
+```bash
+node -e 'const s=require("./process/harness/settings.json"),c=s.hooks.PreToolUse.find((e)=>e.matcher!=="Bash").hooks[0].command,r=(p)=>process.stdout.write(require("child_process").spawnSync("/bin/sh",["-c",c],{input:JSON.stringify({hook_event_name:"PreToolUse",tool_name:"CronCreate",tool_input:{cron:"* * * * *",prompt:p}}),encoding:"utf8"}).stdout);r("/loop 5m "+["trust","gates"].join(" "));r("say hi")'
+```

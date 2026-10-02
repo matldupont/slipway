@@ -9,13 +9,16 @@ import assert from 'node:assert/strict';
 import { mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { SETTINGS, HOOKS, TRUST, LOAD, commands, origin, work, git, put, stub, marks, reset, run, clean, commitAll } from './harness-fixture.mjs';
+import { SETTINGS, HOOKS, TRUST, REFUSE, LOAD, commands, origin, work, git, put, stub, marks, reset, run, clean, commitAll } from './harness-fixture.mjs';
 
 test('every hook in settings.json loads the guard from the session\'s pin; only SessionStart may read origin/HEAD, and none runs a working-tree script', () => {
-  assert.deepEqual([...commands.keys()].sort(), [...HOOKS, TRUST].sort());
+  assert.deepEqual([...commands.keys()].sort(), [...HOOKS, TRUST, REFUSE].sort());
   assert.deepEqual(Object.keys(SETTINGS.hooks).sort(), ['PreToolUse', 'SessionStart', 'Stop', 'UserPromptSubmit']);
   assert.ok(SETTINGS.hooks.UserPromptSubmit[0].hooks[0].command.endsWith(` base-guard ${TRUST}`));
+  // #222: the refusal is the one command that loads no guard, so it needs no pin. It reads its input and nothing else.
+  assert.doesNotMatch(commands.get(REFUSE), /git|cat-file|CLAUDE_PROJECT_DIR|\.claude|\$HOME|sh -c|>/, 'the refusal reaches the repository, the record or a file');
   for (const [hook, cmd] of commands) {
+    if (hook === REFUSE) continue;
     const loads = [...cmd.matchAll(LOAD)].map((m) => m[1]);
     assert.equal(cmd.match(/cat-file/g)?.length, 1, `${hook} must load the guard once: ${cmd}`);
     assert.deepEqual(loads, [hook === 'session-state.sh' ? 'r' : 'b'], `${hook} does not load base-guard.sh from the pin: ${cmd}`);
