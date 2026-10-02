@@ -116,6 +116,7 @@ D-004 holds for the checks it imports].
     "rows": [{ "kind": "replace", "label": "replace", "path": "<path>" }],
     "needsYou": [{ "kind": "<label>", "path": "<path or overrides line>", "next": "<next step>" }],
     "overrides": { "absorbed": [{ "line": 3, "path": "<path>" }], "stale": [{ "line": 5, "path": "<path>" }] },
+    "skillChanged": false,
     "next": "pnpm -s use-slipway sync --apply"
   }
   ```
@@ -125,6 +126,8 @@ D-004 holds for the checks it imports].
   - `buckets`: every kind with a count above 0, `unchanged` included, in `KINDS` order. `rows`: every row, as
     `--verbose` lists them. `needsYou`: the same items the human plan lists under "Needs you by hand".
   - Shas are full here: the skill cites them in the PR.
+  - `skillChanged` (#216, added under schema 1): `true` when a row that `--apply` writes (`replace`, `add` or
+    `merge`) is `.claude/skills/sync-slipway/SKILL.md` or `process/intake.md`, which the skill cites; else `false`.
 - `/sync-slipway` step 1 runs `sync --json` and explains from it: it groups `commits` by `scope`, and reads
   `needsYou` and the `seeded: upstream changed` bucket for what each will ask. Step 2 is unchanged: the owner
   runs `--apply` in their own terminal and the skill reads that output with them.
@@ -226,6 +229,12 @@ The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts il
   `keep (edited)` both kinds, stale overrides, `script kept, yours differs`, the harness when it is owed), one
   line per path with its instruction. Diffs written under `.slipway/upstream/` are counted in one line under
   "Settled with you", as in the plan.
+- **The skill changed in this sync (#216).** The command-line tool is always current, since a project runs slipway's `main` every time; the skill is as of the last sync, so a sync that changes it (or `process/intake.md`, which it cites) says so, and the session reads the new copy before it continues (#216). When `--apply` writes either file, "What changed" ends
+  with one line, `The sync skill changed in this sync: once your tree is on the sync commit, read
+  .claude/skills/sync-slipway/SKILL.md again before you continue.`; the plan's text never carries it, and
+  `--json` carries the same fact as `skillChanged`. The skill's step after the apply says: when the apply
+  reported that the skill changed, once your tree is on the sync commit, read the skill again from it and
+  follow it from the step after the apply.
 - "Already at <sha> — nothing to apply, nothing written." stays, as the only line after the header.
 - Exit codes are unchanged: 0, or 1 when the owner owes something.
 
@@ -265,6 +274,9 @@ rewrite earlier lines, retitle the terminal, or plant a hyperlink whose text and
 - `--json` is sync's alone in this slice; `sync --adopt` keeps its current output.
 - `commits` leaves merge commits out, so a change made only in a merge commit has no entry there; its files
   are still in `rows` and `buckets`.
+- The skill change line (#216) works from the first sync after it ships, since the tool is always current, but
+  the skill sentence that tells a session to act on it arrives with that same sync: the first sync still runs on
+  the old copy of the skill.
 
 ## Acceptance
 
@@ -368,3 +380,4 @@ none
 - 2026-09-30 · ADDED · shaped from the owner's report on sync's output · #161
 - 2026-10-01 · MODIFIED · step 2 built: `sync --json` and `/sync-slipway` step 1 reading it; `--json` also escapes DEL and C1 controls · #165
 - 2026-10-01 · MODIFIED · step 3 built: the plan, `--log`, the progress line and `--apply`'s output through ui.mjs (two spaces after a glyph, as the pictures show); `--verbose` cleans control characters; `--apply`'s `Next:` line serves both ways in · #166
+- 2026-10-01 · MODIFIED · `--apply` says when the sync skill (or the doc it cites) changed, `--json` gains `skillChanged`, and `/sync-slipway` reads its new copy before it continues · #216

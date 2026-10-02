@@ -315,6 +315,16 @@ test('/sync-slipway step 1 runs `sync --json` and names every field of the docum
   assert.doesNotMatch(two, /--json/, 'the owner reads --apply\'s own output; --json is refused with it');
 });
 
+// F-08 §4 (#216): the skill a session loaded is the copy from before the apply. When the apply says the skill changed,
+// the session reads the new copy from its tree before it goes on; scripts/sync.test.mjs pins the line and the field.
+test('/sync-slipway step 2 tells the session to read the new skill from the working tree, once the tree is on the sync commit, and follow it from the step after the apply', () => {
+  const two = (section(read(skillPath('sync-slipway')), '2 — The owner applies', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(two, /When the apply reported that the sync skill changed/, 'the trigger is what the apply reported');
+  assert.match(two, /once your tree is on the sync commit/, 'the session\'s tree may not hold the applied commit yet');
+  assert.ok(two.includes('read `.claude/skills/sync-slipway/SKILL.md` from the working tree'), 'step 2 does not name the file and where to read it');
+  assert.match(two, /follow it from the step after the apply/, 'the step numbers may change: the sentence never names one');
+});
+
 // F-08 §2 (#196): the sync PR's `## Gate changes` lines come from the check's own commands, the ones pr-body.yml runs,
 // never from a list the skill describes or the session picks by eye. scripts/sync.test.mjs proves the lines pass P1.
 test('/sync-slipway step 5 writes `## Gate changes` from the commands pr-body.yml runs, in the check\'s line format', () => {

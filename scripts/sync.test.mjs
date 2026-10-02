@@ -22,7 +22,7 @@ import { resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
-import { KINDS, checkWrites, shellQuote, withoutOverrides } from './sync.mjs';
+import { KINDS, checkWrites, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -83,6 +83,8 @@ const MAP_YAML = `paths:
   - glob: ci/checks/**
     class: internal
   - glob: process/**
+    class: managed
+  - glob: .claude/skills/**
     class: managed
   - glob: .gitattributes
     class: managed
@@ -1334,7 +1336,7 @@ test('--json: one schema-1 document with every row --verbose counts and every no
   assert.equal(treeHash(dir), before, 'sync --json wrote to the project');
 
   assert.equal(doc.schema, 1);
-  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'next']);
+  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'skillChanged', 'next']);
   assert.deepEqual([doc.branch, doc.source, doc.base, doc.target, doc.notes], ['main', jsonSlip, A, jsonTarget, []]);
   assert.equal(doc.remote, null, 'level with its upstream: the text plan prints no remote line');
   const lone = jsonProject((d) => git(d, 'branch', '--unset-upstream'));
@@ -1741,4 +1743,60 @@ test('a sync PR\'s Gate changes section, built from the P1 findings over the app
   const short = check(lines.slice(1).join('\n'));
   assert.equal(short.status, 1, 'a section missing a line passed');
   assert.match(short.stdout, new RegExp(`gate-changes/unmentioned:${paths[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+});
+
+// #216: /sync-slipway is one of the files a sync replaces, and the session that began the sync holds the old
+// copy. --apply says so in one line before `Next:`, and --json carries the same fact as `skillChanged`.
+test('skillChanged: a row that writes the skill or the doc it cites counts; a delete, a kept file, a collision, another path and nothing do not', () => {
+  const [skill, intake] = ['.claude/skills/sync-slipway/SKILL.md', 'process/intake.md'];
+  for (const kind of ['replace', 'add', 'merge']) {
+    for (const path of [skill, intake]) assert.equal(skillChanged([{ kind, path }]), true, `${kind} ${path}`);
+  }
+  for (const kind of ['delete', 'keep (edited)', 'collision', 'unchanged', 'seeded: upstream changed']) assert.equal(skillChanged([{ kind, path: skill }]), false, kind);
+  assert.equal(skillChanged([{ kind: 'replace', path: 'process/other.md' }]), false);
+  assert.equal(skillChanged([]), false);
+});
+
+let skillN = 0;
+// A slipway one commit past B, with `files` written; and a project before its owner's edits that syncs from it.
+function skillCase(files) {
+  const dir = join(root, `slipway-skill-${++skillN}`);
+  git(root, 'clone', '-q', slip, dir);
+  put(dir, files);
+  commit(dir, 'a change to the files a sync session reads');
+  return { from: dir, project: pristineFrom(dir) };
+}
+const SKILL_LINE = /sync skill changed/;
+
+for (const [what, files] of [
+  ['the skill', { '.claude/skills/sync-slipway/SKILL.md': 'a new step\n' }],
+  ['the doc it cites', { 'process/intake.md': 'a new rule\n' }],
+]) {
+  test(`a target that changes ${what}: --apply prints exactly 1 sync-skill line, before Next:, and --json has skillChanged: true`, () => {
+    const { from, project: dir } = skillCase(files);
+    assert.equal(JSON.parse(runFrom(from, dir, '--json').stdout).skillChanged, true);
+    const r = runFrom(from, dir, '--apply');
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const out = lines(r.stdout);
+    const at = out.flatMap((l, i) => (SKILL_LINE.test(l) ? [i] : []));
+    assert.equal(at.length, 1, r.stdout);
+    assert.match(out[at[0]], /read \.claude\/skills\/sync-slipway\/SKILL\.md again before you continue/);
+    assert.ok(at[0] < out.findIndex((l) => /Next: /.test(l)), 'the line comes after Next:');
+    assert.equal(out.length - 1, out.findIndex((l) => /Next: /.test(l)), 'Next: is the last line');
+  });
+}
+
+test('a target that changes neither: --apply prints 0 sync-skill lines, the plan text 0, and --json has skillChanged: false', () => {
+  const { from, project: dir } = skillCase({ 'process/other.md': 'unrelated\n' });
+  assert.equal(JSON.parse(runFrom(from, dir, '--json').stdout).skillChanged, false);
+  assert.doesNotMatch(runFrom(from, dir).stdout, SKILL_LINE);
+  const r = runFrom(from, dir, '--apply');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, SKILL_LINE);
+});
+
+test('the plan text never carries the sync-skill line: it is --apply\'s, and the plan\'s JSON field is the same fact', () => {
+  const { from, project: dir } = skillCase({ '.claude/skills/sync-slipway/SKILL.md': 'a new step\n' });
+  assert.doesNotMatch(runFrom(from, dir).stdout, SKILL_LINE);
+  assert.doesNotMatch(runFrom(from, dir, '--verbose').stdout, SKILL_LINE);
 });
