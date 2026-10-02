@@ -29,7 +29,8 @@ for (const entries of Object.values(SETTINGS.hooks)) {
 }
 
 // #222 — the tools a session can arrange a prompt with: `match` is the word in the settings matcher, `tool` a tool
-// it names, `input` that tool's own input carrying the prompt. The list to extend when Claude Code gains another.
+// it names, `input` that tool's own input carrying the prompt, `hint` set where the refusal also says to search with
+// Grep or Bash (the typing tool families, #224). The list to extend when Claude Code gains another.
 export const ARRANGERS = [
   { match: 'ScheduleWakeup', tool: 'ScheduleWakeup', input: (p) => ({ delaySeconds: 60, prompt: p, reason: 'inert', noop: false }) },
   { match: 'CronCreate', tool: 'CronCreate', input: (p) => ({ cron: '*/5 * * * *', prompt: p, recurring: false }) },
@@ -41,12 +42,12 @@ export const ARRANGERS = [
   { match: 'mcp__ccd_session_mgmt__send_message', tool: 'mcp__ccd_session_mgmt__send_message', input: (p) => ({ session_id: 'local_x', message: p }) },
   { match: 'mcp__ccd_session__spawn_task', tool: 'mcp__ccd_session__spawn_task', input: (p) => ({ title: 'inert', tldr: 'inert', prompt: p }) },
   { match: 'mcp__terminal__run_in_terminal', tool: 'mcp__terminal__run_in_terminal', input: (p) => ({ command: p }) },
-  { match: 'mcp__computer-use__.*', tool: 'mcp__computer-use__app_type', input: (p) => ({ text: p }) },
-  { match: 'mcp__computer-use__.*', tool: 'mcp__computer-use__computer_batch', input: (p) => ({ actions: [{ action: 'left_click', coordinate: [1, 2] }, { action: 'type', text: p }] }) },
-  { match: 'mcp__claude-in-chrome__.*', tool: 'mcp__claude-in-chrome__form_input', input: (p) => ({ ref: 'ref_1', value: p }) },
-  { match: 'mcp__Claude_Browser__.*', tool: 'mcp__Claude_Browser__computer', input: (p) => ({ action: 'type', text: p }) },
-  { match: 'mcp__remote-devices__.*', tool: 'mcp__remote-devices__Claude_Browser__form_input', input: (p) => ({ ref: 'ref_1', value: p }) },
-  { match: 'mcp__remote-devices__.*', tool: 'mcp__remote-devices__computer_type', input: (p) => ({ text: p }) },
+  { match: 'mcp__computer-use__.*', tool: 'mcp__computer-use__app_type', input: (p) => ({ text: p }), hint: true },
+  { match: 'mcp__computer-use__.*', tool: 'mcp__computer-use__computer_batch', input: (p) => ({ actions: [{ action: 'left_click', coordinate: [1, 2] }, { action: 'type', text: p }] }), hint: true },
+  { match: 'mcp__claude-in-chrome__.*', tool: 'mcp__claude-in-chrome__form_input', input: (p) => ({ ref: 'ref_1', value: p }), hint: true },
+  { match: 'mcp__Claude_Browser__.*', tool: 'mcp__Claude_Browser__computer', input: (p) => ({ action: 'type', text: p }), hint: true },
+  { match: 'mcp__remote-devices__.*', tool: 'mcp__remote-devices__Claude_Browser__form_input', input: (p) => ({ ref: 'ref_1', value: p }), hint: true },
+  { match: 'mcp__remote-devices__.*', tool: 'mcp__remote-devices__computer_type', input: (p) => ({ text: p }), hint: true },
 ];
 
 // One list for both paths (#222): what the yes records, the refusal refuses; what the yes ignores, the refusal allows.
