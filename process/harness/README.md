@@ -118,8 +118,9 @@ then `s`, `m`, `h` or `d`), or both, in front; padding the yes does not trim but
 printable ASCII, such as a no-break space or a BOM, and an escaped control character). The value is a real JSON
 string of the call: a string that itself holds JSON is not read (below). An interval in other words (`every 5 minutes`) is not stripped:
 the scheduling call it leads to is refused instead. A value that only mentions the phrase is allowed. Under the three
-typing tool families a call that only searches a page for the phrase is refused too; the refusal says to use Grep or
-Bash. Input the command cannot read is refused: empty, not a PreToolUse call, a failing `grep`, or one that spells a printable ASCII character as a `\u00XX` escape, which no serialiser writes and which could spell the phrase unseen (a backslash-u in the text itself arrives with its backslash escaped, and is allowed). The command is
+typing tool families a call that only searches a page for the phrase is refused too; only their refusal says to use Grep
+or Bash (#224): on any other tool the hint would read as a suggestion to go searching, and `ARRANGERS` marks the rows
+that carry it with `hint`. Input the command cannot read is refused: empty, not a PreToolUse call, a failing `grep`, or one that spells a printable ASCII character as a `\u00XX` escape, which no serialiser writes and which could spell the phrase unseen (a backslash-u in the text itself arrives with its backslash escaped, and is allowed). The command is
 `tr`, `grep` and `printf` on its input: it loads no guard and reads no pin, so it runs in a session with no pin too,
 which could otherwise hand the phrase to one that has. It covers the tools in its matcher:
 

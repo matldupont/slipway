@@ -237,9 +237,16 @@ test('each tool a session can arrange a prompt with is refused with the phrase a
   assert.equal(REFUSAL.length, 1);
   assert.equal(REFUSAL[0].hooks.length, 1);
   assert.equal(REFUSAL[0].matcher, [...new Set(ARRANGERS.map((a) => a.match))].join('|'), 'the settings matcher and the ARRANGERS table list different tools');
-  for (const { match, tool, input } of ARRANGERS) {
+  for (const { match, tool, input, hint } of ARRANGERS) {
     assert.match(tool, new RegExp(`^(?:${match})$`), `${tool} is not a tool ${match} names`);
-    denied(refuse(call(tool, input('trust gates'))), tool);
+    const out = refuse(call(tool, input('trust gates')));
+    denied(out, tool);
+    // The search hint is for the typing tool families alone, where a read-only call is refused; elsewhere it reads as a
+    // suggestion to go looking (#224). Every refusal still says that only the owner's own message says yes.
+    const reason = JSON.parse(out).hookSpecificOutput.permissionDecisionReason;
+    assert.match(reason, /only a message the owner types says yes|a terminal command may not carry the phrase that says yes/, `${tool}: the refusal lost its point`);
+    if (hint) assert.match(reason, /goes through Grep or Bash/, `${tool}: a typing tool lost the search hint`);
+    else assert.doesNotMatch(reason, /Grep/, `${tool}: carries the search hint`);
     assert.equal(refuse(call(tool, input('say hi'))), '', `${tool} was refused an ordinary call`);
   }
   assert.ok(!existsSync(yesOf()), 'a refusal recorded a yes');
