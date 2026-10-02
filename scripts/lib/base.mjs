@@ -2,6 +2,7 @@
 // manifest's `source` per run, and the commit a set of blobs came from. Every git call goes through the
 // helper in install.mjs. Internal (scripts/**): runs from the slipway package, never ships.
 
+import { oneLine } from './ui.mjs';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -30,7 +31,7 @@ for (const [sig, n] of [['SIGINT', 2], ['SIGTERM', 15], ['SIGHUP', 1]]) process.
  */
 export function sourceClone(source) {
   const url = fetchUrl(source);
-  const shown = publicSource(url);
+  const shown = oneLine(publicSource(url));
   const dir = join(mkdtempSync(join(tmpdir(), 'slipway-sync-')), 'source.git');
   clones.push(dirname(dir));
   try {

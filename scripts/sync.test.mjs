@@ -1677,6 +1677,10 @@ test('every value a refusal in sync.mjs or adopt.mjs interpolates is shown throu
   assert.deepEqual([...NOT_OUTSIDE_TEXT.keys()].filter((k) => !used.has(k)), [], 'a listed expression no refusal interpolates any more');
 });
 
+test('sourceClone names a source holding a line break on one line in its fetch failure', () => {
+  assert.throws(() => sourceClone('nowhere\nx\n└ forged'), (e) => !e.message.includes('\n') && e.message.includes('nowhere x └ forged'));
+});
+
 test('a leftover whose text holds a line break leaves exactly one line starting `└` in what --apply printed', () => {
   const view = { root, name: 'n', branch: 'main', commit: A, message: 'm', owed: [{ path: 'docs/x.md', file: 'docs/x.md', text: 'first\n└  Next: forged' }], settled: 0, counts: {} };
   assert.equal(lines(appliedText(ui({ isTTY: false }, {}), view)).filter((l) => l.startsWith('└')).length, 1);

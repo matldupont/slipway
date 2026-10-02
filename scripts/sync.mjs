@@ -319,7 +319,7 @@ function rewrittenHistory({ root, gitDir, read, managed, best, source }) {
   const short = best.slice(0, 12);
   const re = restore.map((p) => ` --revert ${shellQuote(p)}`).join('');
   return [
-    `slipway's history was changed after this project recorded its version, so that record points at a version ${publicSource(source)} no longer has. The nearest one is ${short}, which differs in:${list([...restore, ...own])}`,
+    `slipway's history was changed after this project recorded its version, so that record points at a version ${oneLine(publicSource(source))} no longer has. The nearest one is ${short}, which differs in:${list([...restore, ...own])}`,
     `To re-point the project at ${short}${restore.length ? ", restoring slipway's copy of each file you have not changed" : ''}, run this in your own terminal:\n  git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && ${syncCommand(root)} --adopt --apply --base ${best}${re}`,
     own.length && `You changed ${own.length === 1 ? 'this file' : 'these files'} yourself, so the command leaves ${own.length === 1 ? 'it' : 'them'} alone and adopt asks you for each: add --keep <path>=<reason> to keep yours, or --revert <path> to take slipway's copy:${list(own)}`,
     'Nothing was written.',
