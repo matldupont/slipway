@@ -265,6 +265,14 @@ verified" line included.
   A `fail` stays owed until a `Ran:` line further down says `pass` for the same check, or the fail line names
   the bug filed for it (` · bug #{n}`). There is no waiver: a check that will never run is removed in a PR
   that records a decision saying why.
+- **The `Owed:` line names the whole check.** When the issue's Acceptance names a QA plan, the `Owed:` line names
+  the whole plan (the file), never a selection from it, so a run that covers the line covers the plan.
+- **The comment has one row per journey of the check,** each `pass`, `fail` or `not run`. For a QA plan, the rows
+  are every journey the plan lists.
+- **A partial run is not a pass.** When the recorded run has any journey of the check at `not run`, the `Owed:`
+  line stays, or is replaced by a `Ran:` line for the journeys that ran plus a new `Owed:` line naming those that
+  did not. A `Ran: … pass` line for a check whose comment lists a journey `not run` is not allowed, even when the
+  comment says plainly which journeys were left out.
 - **A result counts only as that comment.** A claim that a result was posted, with no such comment, does not.
 - **The run's report to the owner** names each owed check, read from the `Owed:` lines or the section the PR
   wrote (`pnpm status` prints a count, never the check), and how to record it: the comment, the `Ran:` line,
