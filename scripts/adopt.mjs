@@ -1,8 +1,8 @@
 // sync --adopt — give a project created before the manifest existed its .slipway/manifest.json, once
 // (F-01 step 5, dev/features/template-sync.md#Adopt).
 //
-//   npx github:matldupont/slipway#<ref> sync --adopt [--base <sha>]              read-only: the report
-//   npx github:matldupont/slipway#<ref> sync --adopt --apply [--base <sha>] \
+//   npx use-slipway@latest sync --adopt [--base <sha>]              read-only: the report
+//   npx use-slipway@latest sync --adopt --apply [--base <sha>] \
 //       [--keep <path>=<reason>]… [--revert <path>]…                          the owner's step
 //
 // The base is `--base`, else a sha in the first commit (`chore: start from slipway <sha>`) or the

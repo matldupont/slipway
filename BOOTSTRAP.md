@@ -15,8 +15,8 @@ to exempt. The cheapest moment to install the spine is before there is anything 
 1. **Create the project** (you need Node 24+, pnpm, git, and `gh` logged in):
 
    ```bash
-   npx github:matldupont/slipway acme --dry-run     # from the folder you keep projects in
-   npx github:matldupont/slipway acme               # --public, --repo, --name: see the README
+   npx use-slipway acme --dry-run     # from the folder you keep projects in
+   npx use-slipway acme               # --public, --repo, --name: see the README
    ```
 
    From a slipway clone, `node scripts/new-project.mjs acme` takes the same options. The script:

@@ -222,7 +222,7 @@ test('the default plan is for the owner: what needs them first with each next st
 test('a project with the use-slipway script is told `pnpm -s use-slipway sync --apply`, and one without it the long form (#90)', () => {
   const dir = project((d) => {
     const pkg = JSON.parse(readFileSync(join(d, 'package.json'), 'utf8'));
-    pkg.scripts['use-slipway'] = 'npx --loglevel=error github:matldupont/slipway#main';
+    pkg.scripts['use-slipway'] = 'npx --loglevel=error use-slipway@latest';
     writeFileSync(join(d, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
     commit(d, 'add the use-slipway script');
   });
@@ -231,7 +231,7 @@ test('a project with the use-slipway script is told `pnpm -s use-slipway sync --
   assert.match(r.stdout, /└ {2}Next: pnpm -s use-slipway sync --apply\n$/);
   assert.match(r.stdout, /next: pnpm -s use-slipway sync --apply keeps your value/);
   assert.doesNotMatch(r.stdout, /npx github:/);
-  assert.match(sync(project()).stdout, /└ {2}Next: npx github:matldupont\/slipway#main sync --apply\n$/);
+  assert.match(sync(project()).stdout, /└ {2}Next: npx use-slipway@latest sync --apply\n$/);
 });
 
 // The command the owner is told to run, with slipway's shipped script, when sync exits 1 for a row that
@@ -239,7 +239,7 @@ test('a project with the use-slipway script is told `pnpm -s use-slipway sync --
 // package is swapped for a local stand-in that prints and exits 1, so nothing reaches a network.
 test('`pnpm -s use-slipway sync` with the shipped script: exit 1 kept, no ELIFECYCLE line and no npm warn lines', () => {
   const script = JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).scripts['use-slipway'];
-  const spec = 'github:matldupont/slipway#main';
+  const spec = 'use-slipway@latest';
   assert.ok(script.startsWith('npx ') && script.endsWith(` ${spec}`), script);
   const stand = mkdtempSync(join(root, 'stand-in-'));
   put(stand, {
@@ -371,7 +371,7 @@ test('a manifest recorded before slipway rewrote its history: names the closest 
   assert.match(first, /^sync: slipway's history was changed after this project recorded its version/);
   assert.doesNotMatch(first, /[0-9a-f]{40}|\b[A-Z]\d\b/, 'a blob id or check id in the first line');
   assert.match(r.stderr, new RegExp(`nearest one is ${A.slice(0, 12)}, which differs in:\\n {2}process/same\\.md\\n {2}process/ours\\.md`));
-  const cmd = `git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && npx github:matldupont/slipway#main sync --adopt --apply --base ${A} --revert process/same.md\n`;
+  const cmd = `git switch -c slipway/re-point && git rm -q ${MANIFEST} && git commit -qm "chore: drop the slipway record for a rewritten history" && npx use-slipway@latest sync --adopt --apply --base ${A} --revert process/same.md\n`;
   assert.ok(r.stderr.includes(cmd), r.stderr);
   assert.match(r.stderr, /You changed this file yourself[^\n]*\n {2}process\/ours\.md/);
   assert.doesNotMatch(cmd, /process\/ours\.md/, 'a file the project edited is restored silently');
@@ -895,7 +895,7 @@ test('apply refuses under an agent (CLAUDECODE set), writing nothing; the harnes
   const asks = JSON.parse(readFileSync(join(SRC, 'process/harness/settings.json'), 'utf8')).permissions.ask
     .filter((a) => a.startsWith('Bash('))
     .map((a) => new RegExp(`^${a.slice(5, -1).replace(/:\*$/, '*').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*')}$`));
-  for (const cmd of ['pnpm -s use-slipway sync --apply', 'pnpm use-slipway sync --apply', 'npx github:matldupont/slipway#main sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply', 'npx github:matldupont/slipway#main sync --adopt --apply --base abc', 'node ../slipway/scripts/new-project.mjs sync --apply --adopt']) {
+  for (const cmd of ['pnpm -s use-slipway sync --apply', 'pnpm use-slipway sync --apply', 'npx use-slipway@latest sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply', 'npx use-slipway@latest sync --adopt --apply --base abc', 'node ../slipway/scripts/new-project.mjs sync --apply --adopt']) {
     assert.ok(asks.some((re) => re.test(cmd)), `no ask rule matches: ${cmd}`);
   }
 });
@@ -965,7 +965,7 @@ test('a default adopt plan with nothing to decide says so in one line and prints
   const r = adopt(dir);
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^Nothing needs a decision\.$/m);
-  assert.match(r.stdout, new RegExp(`Plan only — nothing was written\\. Write it with: npx github:matldupont/slipway#main sync --adopt --apply --base ${A}\n$`));
+  assert.match(r.stdout, new RegExp(`Plan only — nothing was written\\. Write it with: npx use-slipway@latest sync --adopt --apply --base ${A}\n$`));
   assert.doesNotMatch(r.stdout, /Needs you/);
 });
 
@@ -990,7 +990,7 @@ test('adopt, a version in the first commit: proposes the closest commit with the
     // A and A0 hold the same managed blobs; the walk is newest first, so A0 leads and A is the runner-up.
     const n = git(slip, 'ls-tree', '-r', '--name-only', A).split('\n').filter((p) => p.startsWith('process/') || p === '.gitattributes').length;
     assert.match(r.stderr, new RegExp(`no slipway sha in the first commit or README \\(chore: start from slipway 0\\.0\\.0-fixture\\)\\. Closest commit on \\S+'s main:\\n  ${A0} — ${n} of slipway's file\\(s\\)[^\\n]*\\n[^\\n]*\\n  runner-up: ${A} — ${n} of slipway's file\\(s\\)`));
-    assert.match(r.stderr, new RegExp(`Confirm it \\(or name another\\) with: npx github:matldupont/slipway#main sync --adopt --base ${A0} — nothing was written`));
+    assert.match(r.stderr, new RegExp(`Confirm it \\(or name another\\) with: npx use-slipway@latest sync --adopt --base ${A0} — nothing was written`));
     assert.equal(treeHash(versioned), before);
   }
   const r = adopt(versioned, '--base', A.slice(0, 10));
@@ -1347,7 +1347,7 @@ test('--json: one schema-1 document with every row --verbose counts and every no
   const lone = jsonProject((d) => git(d, 'branch', '--unset-upstream'));
   assert.equal(JSON.parse(jsonSync(lone, '--json').stdout).remote, 'not checked — main has no upstream');
   assert.equal(remoteLine(jsonSync(lone).stdout), 'not checked — main has no upstream', 'the line the text plan prints');
-  assert.equal(doc.next, 'npx github:matldupont/slipway#main sync --apply');
+  assert.equal(doc.next, 'npx use-slipway@latest sync --apply');
 
   // The text plans of the same project: the merge is in this fixture, and only --json leaves it out.
   const verbose = jsonSync(dir, '--verbose').stdout;
@@ -2027,4 +2027,56 @@ test('releaseTag: only the tag refs/tags/v<version> answers, and only for a vers
   for (const v of ['not-a-version', '1.0', '9.9.9', '0.0.1', `${VERSION}^{tree}`, '../heads/main', '--all', '', null, undefined, 1]) {
     assert.equal(releaseTag(gitDir, v), null, String(v));
   }
+});
+
+// ---- the cutover (F-10, dev/features/release.md → How a project moves; #233): the use-slipway script moves to the release
+
+const OLD_SCRIPT = 'npx --loglevel=error github:matldupont/slipway#main';
+const NEW_SCRIPT = 'npx --loglevel=error use-slipway@latest';
+const scriptOf = (dir) => JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).scripts['use-slipway'];
+// A project whose base holds the old script, and a source one commit ahead that hands out the new one.
+function cutover(editProject) {
+  const source = releaseSource();
+  const setScript = (value) => {
+    const p = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'));
+    p.scripts['use-slipway'] = value;
+    put(source, { 'package.json': `${JSON.stringify(p, null, 2)}\n` });
+    return commitLater(source, `chore: the use-slipway script is ${value}`);
+  };
+  setScript(OLD_SCRIPT);
+  const dir = pristineFrom(source);
+  assert.equal(runFrom(source, dir, '--apply').status, 0);
+  const branch = git(dir, 'branch', '--show-current');
+  git(dir, 'switch', '-q', 'main');
+  git(dir, 'merge', '-q', '--ff-only', branch);
+  git(dir, 'branch', '-q', '-D', branch);
+  assert.equal(scriptOf(dir), OLD_SCRIPT);
+  if (editProject) {
+    editProject(dir);
+    git(dir, 'add', '-A');
+    git(dir, 'commit', '-q', '-m', 'the owner edits the script');
+  }
+  setScript(NEW_SCRIPT);
+  return { source, dir };
+}
+
+test('a project holding the old use-slipway script, unedited: the plan says it is updated, and --apply writes `npx --loglevel=error use-slipway@latest` (#233)', () => {
+  const { source, dir } = cutover();
+  const plan = runFrom(source, dir, '--verbose');
+  assert.equal(rows(plan.stdout)['package.json scripts.use-slipway'], 'script updated', plan.stdout);
+  const applied = runFrom(source, dir, '--apply');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.equal(scriptOf(dir), NEW_SCRIPT);
+});
+
+test('a project whose owner pinned the script to use-slipway@0.3.0: the plan reports the line, and --apply leaves it as it is (#233)', () => {
+  const { source, dir } = cutover((d) => {
+    const p = JSON.parse(readFileSync(join(d, 'package.json'), 'utf8'));
+    p.scripts['use-slipway'] = 'npx --loglevel=error use-slipway@0.3.0';
+    writeFileSync(join(d, 'package.json'), `${JSON.stringify(p, null, 2)}\n`);
+  });
+  const plan = runFrom(source, dir, '--verbose');
+  assert.equal(rows(plan.stdout)['package.json scripts.use-slipway'], 'script kept, yours differs', plan.stdout);
+  runFrom(source, dir, '--apply');
+  assert.equal(scriptOf(dir), 'npx --loglevel=error use-slipway@0.3.0');
 });

@@ -6,8 +6,7 @@
 //
 //   node scripts/new-project.mjs <dir> [--name "Acme"] [--repo owner/name] [--public]
 //                                      [--keep-email] [--no-harness] [--no-github] [--dry-run]
-//   npx github:<owner>/slipway <dir> …        once slipway is on GitHub
-//   npx use-slipway <dir> …                   once published to npm
+//   npx use-slipway <dir> …                   the published package (README: take an unreleased commit from GitHub)
 //
 // It records what it wrote in .slipway/manifest.json: each file's class, sha256 and git blob id — sync
 // finds the slipway base by those blobs — plus package.json's version and, only from a clean slipway
