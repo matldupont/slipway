@@ -109,6 +109,7 @@ D-004 holds for the checks it imports].
     "source": "github:matldupont/slipway",
     "base": "<40 hex>",
     "target": "<40 hex> | null",
+    "targetVersion": "<version> | null",
     "remote": "<the remote line> | null",
     "notes": ["<note>"],
     "commits": [{ "subject": "<subject>", "type": "feat | null", "scope": "sync | null" }],
@@ -117,6 +118,7 @@ D-004 holds for the checks it imports].
     "needsYou": [{ "kind": "<label>", "path": "<path or overrides line>", "next": "<next step>" }],
     "overrides": { "absorbed": [{ "line": 3, "path": "<path>" }], "stale": [{ "line": 5, "path": "<path>" }] },
     "skillChanged": false,
+    "alreadyPast": false,
     "next": "pnpm -s use-slipway sync --apply"
   }
   ```
@@ -128,6 +130,11 @@ D-004 holds for the checks it imports].
   - Shas are full here: the skill cites them in the PR.
   - `skillChanged` (#216, added under schema 1): `true` when a row that `--apply` writes (`replace`, `add` or
     `merge`) is `.claude/skills/sync-slipway/SKILL.md` or `process/intake.md`, which the skill cites; else `false`.
+  - `targetVersion` (#231, added under schema 1): the release the target is, when the tag `v<version>` in the
+    source names the target commit; else `null`.
+  - `alreadyPast` (#231, added under schema 1): `true` when the project's base is a descendant of the target.
+    Then `rows`, `commits`, `buckets` and `needsYou` are empty, and `next` is the sentence the text plan prints
+    (`your project is already past …; nothing to take`), not a command. `/sync-slipway` does not read it yet (#233).
 - `/sync-slipway` step 1 runs `sync --json` and explains from it: it groups `commits` by `scope`, and reads
   `needsYou` and the `seeded: upstream changed` bucket for what each will ask. Step 2 is unchanged: the owner
   runs `--apply` in their own terminal and the skill reads that output with them.
@@ -145,7 +152,7 @@ D-004 holds for the checks it imports].
 The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts illustrative):
 
 ```
-◇  slipway sync on main · 25b7c28 → a09b863 · 164 changes: 21 new, 118 fixes, 25 other
+◇  slipway sync on main · 25b7c28 → use-slipway 0.2.0, commit a09b863 · 164 changes: 21 new, 118 fixes, 25 other
 │  remote: <only when not level, or not checked>
 │  note: <each note>
 │
@@ -202,6 +209,7 @@ The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts il
 ```
 ◇  slipway sync applied on slipway/sync-a09b863c91e3 (from main) · commit 1a2b3c4
 │  chore: sync slipway 25b7c281238b..a09b863c91e3
+│  took use-slipway 0.2.0, commit a09b863
 │
 ◆  Needs you before this branch merges (3)
 │  docs/y.md  merge — 2 conflicts; resolve them, and keep its override
@@ -235,7 +243,9 @@ The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts il
   `--json` carries the same fact as `skillChanged`. The skill's step after the apply says: when the apply
   reported that the skill changed, once your tree is on the sync commit, read the skill again from it and
   follow it from the step after the apply.
-- "Already at <sha> — nothing to apply, nothing written." stays, as the only line after the header.
+- "Already at <target> — nothing to apply, nothing written." stays, as the only line after the header.
+- The target reads `use-slipway <version>, commit <sha>` wherever it is shown, or `commit <sha>, not a release`
+  when no release tag names that commit (#231, `dev/features/release.md` → Sync with releases).
 - Exit codes are unchanged: 0, or 1 when the owner owes something.
 
 ### What is reused
@@ -381,3 +391,4 @@ none
 - 2026-10-01 · MODIFIED · step 2 built: `sync --json` and `/sync-slipway` step 1 reading it; `--json` also escapes DEL and C1 controls · #165
 - 2026-10-01 · MODIFIED · step 3 built: the plan, `--log`, the progress line and `--apply`'s output through ui.mjs (two spaces after a glyph, as the pictures show); `--verbose` cleans control characters; `--apply`'s `Next:` line serves both ways in · #166
 - 2026-10-01 · MODIFIED · `--apply` says when the sync skill (or the doc it cites) changed, `--json` gains `skillChanged`, and `/sync-slipway` reads its new copy before it continues · #216
+- 2026-10-05 · MODIFIED · the target is named as its release (`use-slipway <version>, commit <sha>`) or as a commit that is not one; `--json` gains `targetVersion` and `alreadyPast` · #231

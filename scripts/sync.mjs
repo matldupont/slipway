@@ -19,7 +19,8 @@
 // It installs the harness, so the owner runs it: under an agent (CLAUDECODE set) it refuses, and the
 // harness asks before any Bash command that runs it.
 //
-//   target  the files of the slipway running this command, classified by its dev/ownership.yaml
+//   target  the files of the slipway running this command, classified by its dev/ownership.yaml; its commit
+//           is this checkout's HEAD, or under a registry install the release tag's (lib/base.mjs, F-10)
 //   base    the slipway commit whose tree holds exactly the manifest's managed blob ids (lib/base.mjs),
 //           read from a clone of the manifest's `source`
 //
@@ -35,11 +36,11 @@ import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
-import { commitFiles, readBlob, resolveBase, sourceClone } from './lib/base.mjs';
+import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
-import { alreadyText, appliedText, CONVENTIONAL, planText } from './lib/sync-text.mjs';
+import { alreadyText, appliedText, CONVENTIONAL, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
-import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
+import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: sync [--plan | --apply] [--verbose | --log | --json]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
@@ -77,6 +78,14 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
       settle = () => { settle = () => {}; err.write(`\r${' '.repeat(PROGRESS.length)}\r`); };
     }
     const ctx = { ...preflight(cwd), verbose: argv.includes('--verbose') };
+    if (ctx.past) {
+      // The project synced from a commit past this one: there is nothing to take, so nothing is planned or
+      // written, whichever of the plan and --apply was asked for.
+      settle();
+      if (json) writeDoc(out, planDoc(ctx, [], { stale: [], absorbed: [] }));
+      else out.write(pastText(ui(out, env), { branch: ctx.branch, remote: ctx.remote, notes: ctx.notes, version: ctx.targetVersion, target: ctx.targetSha }));
+      return 0;
+    }
     const rows = plan(ctx);
     if (!argv.includes('--apply')) {
       // The plan lists the stale overrides --apply will, and the ones it removes, so it computes the same
@@ -90,10 +99,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
       }
       settle();
       if (json) {
-        // JSON.stringify escapes C0 controls only. DEL and the C1 range (U+009B is CSI) would reach a
-        // terminal raw from a commit subject or a path, so they are escaped too; a parser reads the same text.
-        const text = JSON.stringify(planDoc(ctx, rows, { stale, absorbed }), null, 2);
-        out.write(`${text.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)}\n`);
+        writeDoc(out, planDoc(ctx, rows, { stale, absorbed }));
         return 0;
       }
       if (ctx.verbose) {
@@ -109,6 +115,28 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     if (!(e instanceof Refusal)) throw e;
     err.write(`sync: ${clean(e.message)}\n`); // a refusal quotes paths and git's words: no control character reaches the terminal
     return 1;
+  }
+}
+
+// JSON.stringify escapes C0 controls only. DEL and the C1 range (U+009B is CSI) would reach a terminal raw
+// from a commit subject or a path, so they are escaped too; a parser reads the same text.
+function writeDoc(out, doc) {
+  const text = JSON.stringify(doc, null, 2);
+  out.write(`${text.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)}\n`);
+}
+
+// Whether this package holds exactly what the commit with `tree` ships. Its ownership map must be that
+// commit's, byte for byte: then both sides ship the same paths, and one classification decides which files
+// are compared. A commit that only reclassified a path is another commit, whatever version it carries.
+const sameShipped = (tree, t) =>
+  tree.get(MAP) === blobSha(readFileSync(join(SRC, MAP))) && shippedDiffer(tree, SRC, t.copy, { rules: t.rules }).length === 0;
+
+// The version the target's package.json carries, or null: what the manifest records, and the release to look for.
+function packageVersion(target) {
+  try {
+    return JSON.parse(target.get('package.json')?.toString('utf8') ?? '{}').version ?? null;
+  } catch {
+    return null; // the plan refuses a package.json that is not JSON, by name
   }
 }
 
@@ -225,10 +253,16 @@ function preflight(cwd) {
   const base = read(() => commitFiles(gitDir, r.exact));
   if (!base.tree.has(MAP)) base.rules = t.rules;
 
-  // The target's sha, for the header: this checkout's clean HEAD, else the commit holding its managed
-  // blobs on any branch (`npx github:…#<ref>` may run a ref off the default branch).
+  // The target's sha: this checkout's clean HEAD, else the commit the package came from — the release's tag
+  // when the package holds exactly what that commit ships, then its managed blobs on the default branch, then
+  // on any branch (lib/base.mjs, resolveTarget). The version is shown only when the target is the commit the
+  // tag `v<version>` names: any other commit is not that release.
   const targetManaged = new Map(t.copy.filter((p) => classify(t.rules, p) === 'managed').map((p) => [p, blobSha(target.get(p))]));
-  const targetSha = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha ?? read(() => resolveBase(gitDir, targetManaged, { ref: '--branches' }).exact);
+  const version = packageVersion(target);
+  const head = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha;
+  const found = head ? { sha: head, release: read(() => releaseTag(gitDir, version)) === head } : read(() => resolveTarget(gitDir, targetManaged, { version, same: (tree) => sameShipped(tree, t) }));
+  const targetSha = found.sha;
+  const targetVersion = found.release ? version : null;
   // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk. Without
   // that commit the target's copy is unknown, and the plan says so rather than compare a stand-in.
   const notes = [];
@@ -246,8 +280,9 @@ function preflight(cwd) {
   // `log` is every subject, as --verbose lists them; `commits` leaves the merges out, for the plan and --json.
   let log = [];
   let commits = [];
-  if (targetSha && targetSha !== r.exact) {
-    forwardOnly(gitDir, r.exact, targetSha, source); // the plan and --apply refuse the same base
+  // The plan and --apply refuse the same base, and both say so when the project is already past the target.
+  const past = Boolean(targetSha) && targetSha !== r.exact && forwardOnly(gitDir, r.exact, targetSha, source) === 'past';
+  if (targetSha && targetSha !== r.exact && !past) {
     try {
       // Parents, a tab, the subject: a merge has two parents or more, so one walk gives both lists.
       const all = git(['--git-dir', gitDir, 'log', '--format=%P%x09%s', `${r.exact}..${targetSha}`]).split('\n')
@@ -260,14 +295,15 @@ function preflight(cwd) {
     }
   }
 
-  return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha };
+  return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha, targetVersion, past };
 }
 
 /**
  * Refuses a target that is not newer than the base: sync moves forward only, and a target the source
  * lacks cannot be the next base. Plan and --apply both call it, so a plan never reads as ready for a base
  * --apply would refuse. A target that shares no history with the base gets its own words: git could
- * name no commit between them.
+ * name no commit between them. A target the base descends from is no refusal: the project is already past
+ * it (it synced from a later commit than the release it runs now), and `'past'` is returned.
  */
 function forwardOnly(gitDir, base, target, source, { apply = false } = {}) {
   const short = (sha) => sha.slice(0, 12);
@@ -278,6 +314,12 @@ function forwardOnly(gitDir, base, target, source, { apply = false } = {}) {
       // The target is not in the source: the plan notes it and goes on; --apply cannot record it.
       if (apply) throw new Refusal(`the target ${short(target)} is not in ${oneLine(publicSource(source))} — push it first; nothing was written`);
       return;
+    }
+    try {
+      git(['--git-dir', gitDir, 'merge-base', '--is-ancestor', target, base]);
+      return 'past';
+    } catch {
+      // Not an ancestor, or git could not say: the refusals below.
     }
     let shared = true;
     try {
@@ -444,10 +486,11 @@ function needsYou({ root, targetSha }, rows, stale) {
 /**
  * The plan as data, schema 1 (F-08 §2, dev/features/cli-output.md): what /sync-slipway reads instead of
  * the text. Shas are full, the skill cites them. A field is added under the same schema number; one that
- * is renamed, removed or changes meaning takes the next.
+ * is renamed, removed or changes meaning takes the next. `targetVersion` is the release the target is, or
+ * null. `alreadyPast` is true when the project's base is past the target: no rows, and `next` is that sentence.
  */
 function planDoc(ctx, rows, { stale, absorbed }) {
-  const { root, branch, remote, source, base, targetSha, notes, commits } = ctx;
+  const { root, branch, remote, source, base, targetSha, targetVersion, past, notes, commits } = ctx;
   const entry = ({ line, path }) => ({ line, path });
   return {
     schema: 1,
@@ -455,6 +498,7 @@ function planDoc(ctx, rows, { stale, absorbed }) {
     source: publicSource(source),
     base: base.sha,
     target: targetSha ?? null,
+    targetVersion: targetVersion ?? null,
     remote: remote ?? null,
     notes,
     commits: commits.map((subject) => {
@@ -466,18 +510,20 @@ function planDoc(ctx, rows, { stale, absorbed }) {
     needsYou: needsYou(ctx, rows, stale).map(({ kind, path, next }) => ({ kind, path, next })),
     overrides: { absorbed: absorbed.map(entry), stale: stale.map(entry) },
     skillChanged: skillChanged(rows),
-    next: `${syncCommand(root)} --apply`,
+    alreadyPast: past,
+    next: past ? pastLine({ version: targetVersion, target: targetSha }) : `${syncCommand(root)} --apply`,
   };
 }
 
 // The plan as lib/sync-text.mjs lays it out for the owner (F-08 §3): the same lists --json carries.
 function planView(ctx, rows, { stale, absorbed, log }) {
-  const { root, branch, remote, source, base, targetSha, notes, commits } = ctx;
+  const { root, branch, remote, source, base, targetSha, targetVersion, notes, commits } = ctx;
   return {
     root, branch, remote, notes, commits, log,
     source: publicSource(source),
     base: base.sha,
     target: targetSha,
+    version: targetVersion,
     owed: needsYou(ctx, rows, stale),
     counts: Object.fromEntries(bucketCounts(rows)),
     absorbed: absorbed.length,
@@ -489,13 +535,13 @@ function planView(ctx, rows, { stale, absorbed, log }) {
 // --verbose: the header, every subject, one line per path, then the counts. Plain text, as it always
 // was; what sync did not write (a subject, a path, a note) is cleaned of control characters on the way out.
 function printVerbose(out, ctx, rows) {
-  const { branch, remote, source, base, targetSha, notes, log } = ctx;
+  const { branch, remote, source, base, targetSha, targetVersion, notes, log } = ctx;
   const width = Math.max(...KINDS.map((k) => label(k).length));
   out.write(clean([
     `slipway sync plan, on ${branch}\n`,
     `  source: ${publicSource(source)}\n`,
     `  base:   ${base.sha} (by content: the files slipway installed)\n`,
-    `  target: ${targetSha ?? `${SRC} (its files match no slipway commit)`}\n`,
+    `  target: ${targetSha ? targetName(targetVersion, targetSha) : `${SRC} (its files match no slipway commit)`}\n`,
     remote ? `  remote: ${remote}\n` : '',
     ...notes.map((n) => `  note:   ${n}\n`),
     log.length ? `\nslipway's commits, base → target (${log.length}, newest first):\n${log.map((l) => `  ${l}\n`).join('')}` : '',
@@ -530,7 +576,7 @@ function apply(out, u, ctx, rows) {
   const current = readProjectFile(root, MANIFEST);
   if (!todo.writes.size && !todo.removes.length && Buffer.isBuffer(current) && current.equals(todo.manifest)) {
     if (ctx.verbose) verboseFirst(out, ctx, rows);
-    out.write(alreadyText(u, { branch, target: targetSha }));
+    out.write(alreadyText(u, { branch, target: targetSha, version: ctx.targetVersion }));
     return 0;
   }
   const message = `chore: sync slipway ${short(base.sha)}..${short(targetSha)}`;
@@ -551,6 +597,8 @@ function apply(out, u, ctx, rows) {
   if (ctx.verbose) verboseFirst(out, ctx, rows);
   out.write(appliedText(u, {
     root, name, branch, commit, message,
+    target: targetSha,
+    version: ctx.targetVersion,
     remote: ctx.remote,
     notes: ctx.notes,
     owed: leftover,
@@ -768,7 +816,7 @@ export function land(root, from, name, message, { writes, removes = [] }) {
  */
 function nextManifest({ manifest, target, targetRules, targetSha }, rows, after) {
   const kind = new Map(rows.map((r) => [r.path, r.kind]));
-  const version = JSON.parse(target.get('package.json')?.toString('utf8') ?? '{}').version ?? manifest.version;
+  const version = packageVersion(target) ?? manifest.version;
   const next = buildManifest(null, [...target.keys()], {
     rules: targetRules,
     slipway: targetSha,

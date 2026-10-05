@@ -164,6 +164,18 @@ function localCandidate(src) {
 }
 
 /**
+ * The paths in which a commit's `tree` and the files at `src` differ, as an install sees them: each of
+ * `paths` (every path the install takes from `src`) whose bytes are not that commit's blob, then each path
+ * the commit ships that was not taken (a deleted file is a difference too). Internal paths and .gitignore
+ * (written, never copied) are not compared. Empty when `src` holds exactly what that commit ships.
+ */
+export function shippedDiffer(tree, src, paths, { rules }) {
+  const taken = new Set(paths);
+  const missing = [...tree.keys()].filter((p) => !taken.has(p) && p !== '.gitignore' && classify(rules, p) !== 'internal');
+  return [...paths.filter((p) => tree.get(p) !== blobSha(readFileSync(join(src, p)))), ...missing];
+}
+
+/**
  * A hint at the slipway sha `src` holds, with no network call. Only slipway's own checkout offers one:
  * HEAD, when every copied path's bytes equal that commit's blob and every path the commit ships was
  * copied (a deleted file is a difference too). Anywhere else — under `npx github:…` there is no .git,
@@ -184,9 +196,7 @@ export function resolveSlipway(src, paths, { rules }) {
   } catch (e) {
     return { sha: null, candidate: null, why: `could not read HEAD: ${String(e.stderr || e.message).trim().split(/\r?\n/).at(-1)}` };
   }
-  const taken = new Set(paths);
-  const missing = [...c.tree.keys()].filter((p) => !taken.has(p) && p !== '.gitignore' && classify(rules, p) !== 'internal');
-  const differ = [...paths.filter((p) => c.tree.get(p) !== blobSha(readFileSync(join(src, p)))), ...missing];
+  const differ = shippedDiffer(c.tree, src, paths, { rules });
   if (differ.length) {
     const shown = differ.slice(0, 3).join(', ') + (differ.length > 3 ? `, +${differ.length - 3} more` : '');
     return { sha: null, candidate: c.sha, why: `${differ.length} file(s) differ from ${c.sha.slice(0, 12)}: ${shown}` };

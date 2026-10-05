@@ -1,4 +1,4 @@
-◇  slipway sync on main · <A> → <B> · 3 changes: 3 other
+◇  slipway sync on main · <A> → commit <B>, not a release · 3 changes: 3 other
 │
 ◆  Needs you by hand (4)
 │  script kept, yours differs  package.json scripts.b

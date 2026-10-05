@@ -94,15 +94,62 @@ function commits(gitDir, start, ref) {
 export function resolveBase(gitDir, blobs, { start = null, ref = 'HEAD', cls = 'managed', fallback = null } = {}) {
   const ranked = [];
   for (const sha of commits(gitDir, start, ref)) {
-    const { tree, rules: own } = commitFiles(gitDir, sha);
-    const rules = tree.has(MAP) ? own : fallback; // an unreadable map stays unreadable
-    let matched = 0;
-    for (const [p, b] of blobs) if (tree.get(p) === b && (!rules || classify(rules, p) === cls)) matched++;
-    const extra = rules ? [...tree.keys()].filter((p) => !blobs.has(p) && classify(rules, p) === cls).length : null;
-    if (matched === blobs.size && extra === 0) return { exact: sha, best: { sha, matched, extra }, runnerUp: null, total: blobs.size };
-    ranked.push({ sha, matched, extra });
+    const c = candidate(gitDir, sha, blobs, { cls, fallback });
+    if (isExact(c, blobs)) return { exact: sha, best: c, runnerUp: null, total: blobs.size };
+    ranked.push(c);
   }
   // Stable sort: equal candidates keep the walk's order.
   ranked.sort((a, b) => b.matched - a.matched || (a.extra ?? Infinity) - (b.extra ?? Infinity));
   return { exact: null, best: ranked[0] ?? null, runnerUp: ranked[1] ?? null, total: blobs.size };
+}
+
+// One commit against `blobs`, as resolveBase ranks it: `{ sha, matched, extra }`.
+function candidate(gitDir, sha, blobs, { cls = 'managed', fallback = null } = {}) {
+  const { tree, rules: own } = commitFiles(gitDir, sha);
+  const rules = tree.has(MAP) ? own : fallback; // an unreadable map stays unreadable
+  let matched = 0;
+  for (const [p, b] of blobs) if (tree.get(p) === b && (!rules || classify(rules, p) === cls)) matched++;
+  const extra = rules ? [...tree.keys()].filter((p) => !blobs.has(p) && classify(rules, p) === cls).length : null;
+  return { sha, matched, extra };
+}
+const isExact = (c, blobs) => c.matched === blobs.size && c.extra === 0;
+
+// A release's version as `package.json` carries it: only this shape is ever put in a ref name.
+const RELEASE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+
+/**
+ * The commit the tag `v<version>` names in the source clone, or null: no such tag, a version that is not a
+ * release's, or a tag git cannot resolve to a commit. Asked for as `refs/tags/…`, so a branch of the same
+ * name never answers for it. A tag can move: the caller decides by content whether to take the commit.
+ */
+export function releaseTag(gitDir, version) {
+  if (typeof version !== 'string' || !RELEASE.test(version)) return null;
+  try {
+    return git(['--git-dir', gitDir, 'rev-parse', '--verify', '-q', `refs/tags/v${version}^{commit}`]).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The commit a package with no checkout came from (F-10, dev/features/release.md → Sync with releases):
+ * `blobs` are its managed files. In order: the tag `v<version>`, taken only when `same` says the package
+ * holds exactly what that commit ships; the newest commit on the source's default branch (the clone's HEAD)
+ * with exactly `blobs`; the newest on any branch, for a ref off the default branch run on purpose
+ * (`npx github:…#<ref>`). `release` is true only when the tag answered: any other commit carries a version
+ * without being that release.
+ *
+ * The tag is held to more than `blobs`: a later commit that changed only a template or a script still
+ * carries the release's version and its managed files, and a package from it is not the release. `same`
+ * compares the ownership map and every file the package ships (sync.mjs, sameShipped); without it no tag
+ * is taken.
+ *
+ * @param {{ version?: string|null, same?: ((tree: Map<string, string>) => boolean)|null }} [o]
+ * @returns {{ sha: string|null, release: boolean }}
+ */
+export function resolveTarget(gitDir, blobs, { version = null, same = null } = {}) {
+  const tag = releaseTag(gitDir, version);
+  if (tag && same && same(lsTree(gitDir, tag))) return { sha: tag, release: true };
+  const sha = resolveBase(gitDir, blobs).exact ?? resolveBase(gitDir, blobs, { ref: '--branches' }).exact;
+  return { sha, release: false };
 }

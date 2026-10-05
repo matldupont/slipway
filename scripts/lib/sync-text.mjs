@@ -52,6 +52,10 @@ function changeLines(counts, { absorbed = 0, stale = 0 } = {}) {
   ].filter(Boolean);
 }
 
+// The target as the owner reads it (F-10): the release and its commit, or the commit alone when it is no
+// release's — a commit carries a version number without being that release. `sha` is already as shown.
+export const targetName = (version, sha) => (version ? `use-slipway ${oneLine(version)}, commit ${sha}` : `commit ${sha}, not a release`);
+
 const gap = (u) => u.style('dim', '│');
 const remoteAndNotes = (u, { remote, notes = [] }) => [
   ...(remote ? [u.line(`remote: ${remote}`)] : []),
@@ -61,11 +65,11 @@ const settledTitle = (n) => `Settled with you: ${n} of your files started from s
 
 /**
  * The plan (§3). `view`: `{ root, branch, source, base, target, remote, notes, commits, owed, counts,
- * absorbed, stale, next, log }` — `commits` the non-merge subjects newest first, `owed` the items under
+ * absorbed, stale, next, log, version }` — `version` the release the target is, or null, `commits` the non-merge subjects newest first, `owed` the items under
  * "Needs you by hand" (`{ kind, path, next, file }`), `log` true for every change instead of what's new.
  */
 export function planText(u, view) {
-  const { root, branch, source, base, target, commits, owed, counts, next, log } = view;
+  const { root, branch, source, base, target, version, commits, owed, counts, next, log } = view;
   const sha = (s) => { const url = commitUrl(source, s); return url ? u.link(short(s), url) : u.clean(short(s)); };
   const parsed = commits.map((subject) => ({ subject, m: CONVENTIONAL.exec(subject) }));
   const feats = parsed.filter((c) => c.m?.[1] === 'feat');
@@ -75,7 +79,7 @@ export function planText(u, view) {
 
   const out = [[
     u.section('◇', `slipway sync on ${branch}`),
-    `${sha(base)} → ${target ? sha(target) : u.clean('this slipway (its files match no slipway commit)')}`,
+    `${sha(base)} → ${target ? targetName(version, sha(target)) : u.clean('this slipway (its files match no slipway commit)')}`,
     ...(commits.length ? [u.clean(`${plural(commits.length, 'change')}: ${split}`)] : []),
   ].join(' · '), ...remoteAndNotes(u, view), gap(u)];
 
@@ -108,13 +112,13 @@ export function planText(u, view) {
 
 /**
  * What --apply did (§4). `view`: `{ root, name, branch, commit, message, remote, notes, owed, settled,
- * counts, absorbed, stale, also }` — `owed` every leftover (`{ path, file, text }`), `settled` the reference
+ * counts, absorbed, stale, also, target, version }` — `target` and `version` what was taken, `owed` every leftover (`{ path, file, text }`), `settled` the reference
  * diffs written, `also` lines for "What changed" that are not counts (the harness, when nothing is owed), `skill`
  * true when --apply wrote the sync skill or a file it cites.
  */
 export function appliedText(u, view) {
-  const { root, name, branch, commit, message, owed, settled, counts, also = [], skill = false } = view;
-  const out = [u.section('◇', `slipway sync applied on ${name} (from ${branch}) · commit ${short(commit)}`), u.line(message), ...remoteAndNotes(u, view), gap(u)];
+  const { root, name, branch, commit, message, target, version, owed, settled, counts, also = [], skill = false } = view;
+  const out = [u.section('◇', `slipway sync applied on ${name} (from ${branch}) · commit ${short(commit)}`), u.line(message), u.line(`took ${targetName(version, short(target))}`), ...remoteAndNotes(u, view), gap(u)];
   if (owed.length) {
     out.push(u.section('◆', `Needs you before this branch merges (${owed.length})`));
     for (const i of owed) out.push(`${u.line('')}${fileLink(u, root, i.path, i.file)}${oneLine(`  ${i.text}`)}`);
@@ -130,6 +134,17 @@ export function appliedText(u, view) {
 }
 
 // --apply with nothing to do: the header, and the one line that says so.
-export function alreadyText(u, { branch, target }) {
-  return `${u.section('◇', `slipway sync on ${branch}`)}\n${u.line(`Already at ${target.slice(0, 12)} — nothing to apply, nothing written.`, { last: true })}\n`;
+export function alreadyText(u, { branch, target, version }) {
+  return `${u.section('◇', `slipway sync on ${branch}`)}\n${u.line(`Already at ${targetName(version, target.slice(0, 12))} — nothing to apply, nothing written.`, { last: true })}\n`;
+}
+
+// The project's base is past the target: the one sentence the plan, --apply and --json's `next` all carry.
+export const pastLine = ({ version, target }) =>
+  (version
+    ? `your project is already past use-slipway ${oneLine(version)} (commit ${target.slice(0, 12)}); nothing to take`
+    : `your project is already past commit ${target.slice(0, 12)}, which is not a release; nothing to take`);
+
+// The plan or --apply for such a project: the header, the remote and notes, and that sentence. Nothing was written.
+export function pastText(u, view) {
+  return `${[u.section('◇', `slipway sync on ${view.branch}`), ...remoteAndNotes(u, view), u.line(pastLine(view), { last: true })].join('\n')}\n`;
 }
