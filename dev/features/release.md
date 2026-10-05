@@ -393,17 +393,17 @@ dist-tags`, and `npx use-slipway acme --dry-run` against the published package. 
 Machinery before surface; each step merges alone with `pnpm meta` green. Designation scores each step on its
 own case (`process/designation.md`).
 
-1. **Package identity** — `package.json` (`name`, `bin`, `private`, `license`, `repository`), `LICENSE` and its
+1. **Package identity** (#230) — `package.json` (`name`, `bin`, `private`, `license`, `repository`), `LICENSE` and its
    `internal` row, `derivePackageJson`, the refusal of a project named `sync`, the stale comment, tests. ~150
    lines. Case 4: standard · `medium`.
-2. **Sync with releases** — the version beside the commit, the target by tag then default branch, "already past
+2. **Sync with releases** (#231) — the version beside the commit, the target by tag then default branch, "already past
    the release", `targetVersion` in `--json`, tests for each. `scripts/sync.mjs`, `scripts/lib/base.mjs`,
    `scripts/lib/sync-text.mjs`. ~250 lines. Case 5: strongest · `medium`.
-3. **Release workflow** — `.github/workflows/release.yml`, `scripts/release.mjs` and its test, the `internal` row
+3. **Release workflow** (#232) — `.github/workflows/release.yml`, `scripts/release.mjs` and its test, the `internal` row
    in `dev/ownership.yaml`, the `meta` line. Shown to the owner before writing; cold review on the strongest
    tier. Blocked by step 1. ~200 lines. Case 5: strongest · `medium`.
 4. *(the owner's, on #91: the four settings, then `0.1.0-rc.1` and `0.1.0`)*
-5. **Cutover** — the project script value, `syncCommand`'s long form, the sync output's commands and fixtures,
+5. **Cutover** (#233) — the project script value, `syncCommand`'s long form, the sync output's commands and fixtures,
    README, `BOOTSTRAP.md`, the landing page, the `sync-slipway` skill's command text; released in the same
    sitting. Blocked by steps 2 and 3 and by `0.1.0` being live. ~250 lines. Cases 3 and 4: standard · `medium`.
 
