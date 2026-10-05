@@ -1,7 +1,7 @@
 slipway sync plan, on main
   source: <slipway>
   base:   <A> (by content: the files slipway installed)
-  target: <B>
+  target: commit <B>, not a release
 
 slipway's commits, base → target (3, newest first):
   B

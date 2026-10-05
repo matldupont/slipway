@@ -110,7 +110,10 @@ names what it took: the branch `slipway/sync-<target sha>` (`scripts/sync.mjs:52
 - **The plan and apply name the version.** Where the target is shown (the plan's `target:` line, apply's
   result, the "already up to date" text), it reads `use-slipway <version>, commit <short sha>`. The plan's
   `--json` gains `targetVersion` beside `target`. A plan that named `0.2.0` and an apply that ran `0.3.0`
-  shows as such in apply's output.
+  shows as such in apply's output. The version is shown only when the tag `v<version>` in the source names the
+  target commit: any other commit (`#main`, a sha, a branch) carries a version number without being that
+  release, so it reads `commit <sha>, not a release`, and `targetVersion` is `null`. `--verbose` prints the
+  full sha, as it did.
 - **The target commit is the release's.** Under a registry install the package has no `.git`, and today the
   target is the newest commit on any branch whose slipway-owned files match the package's
   (`scripts/sync.mjs:231`, `resolveBase` with `--branches`). A match on a side branch that never merges is not an
@@ -123,7 +126,8 @@ names what it took: the branch `slipway/sync-<target sha>` (`scripts/sync.mjs:52
      (`npx github:…#<ref>`).
 - **A project already past the release is told so.** When the target is a strict ancestor of the base (the
   project synced from `main` or a sha past the newest release), the plan and apply print `your project is already
-  past use-slipway <version> (commit <short sha>); nothing to take` and exit 0, and nothing is written. A target
+  past use-slipway <version> (commit <short sha>); nothing to take` and exit 0, and nothing is written. `--json`
+  prints its document with `alreadyPast: true`, no rows, and that sentence as `next`. A target
   that diverged from the base, or shares no history with it, keeps today's refusals (`forwardOnly`,
   `scripts/sync.mjs:272`).
 - The history source is unchanged: `github:matldupont/slipway` (the manifest's `source`). The registry delivers
@@ -429,3 +433,4 @@ own case (`process/designation.md`).
 ## Changes
 
 - 2026-10-05 · ADDED · the feature doc and D-027 · #91
+- 2026-10-05 · MODIFIED · step 2 built: a target no release tag names reads `commit <sha>, not a release`; `--json` carries `alreadyPast` · #231

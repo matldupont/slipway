@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { classify, loadOwnership } from '../ci/checks/lib/ownership.mjs';
 import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { ownDecisions } from './adopt.mjs';
-import { resolveBase, sourceClone } from './lib/base.mjs';
+import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
@@ -491,7 +491,7 @@ test('from a packed install (no .git, no .gitignore) of B: the target is B by co
   rmSync(join(pkgDir, '.gitignore'));
   const r = spawnSync(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), 'sync', '--verbose'], { cwd: project(), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, new RegExp(`target: ${B}\n`));
+  assert.match(r.stdout, new RegExp(`target: commit ${B}, not a release\n`));
   assert.equal(rows(r.stdout)['.gitignore'], 'unchanged');
   assert.doesNotMatch(r.stdout, /note:/);
 });
@@ -900,7 +900,7 @@ test('apply refuses under an agent (CLAUDECODE set), writing nothing; the harnes
   }
 });
 
-test('apply only moves forward: a target older than the base is refused', () => {
+test('a target the base descends from, with no release tag: the plan and --apply say the project is already past that commit, exit 0, and write nothing (#231)', () => {
   const dir = project((d) => git(d, 'reset', '-q', '--hard', 'HEAD~1'));
   assert.equal(sync(dir, '--apply').status, 0); // now at B
   const older = join(root, 'packed-a');
@@ -910,10 +910,14 @@ test('apply only moves forward: a target older than the base is refused', () => 
   git(dir, 'merge', '-q', '--ff-only', BRANCH);
   git(dir, 'branch', '-q', '-D', BRANCH);
   const before = treeHash(dir);
-  const r = spawnSync(process.execPath, [join(older, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: dir, encoding: 'utf8' });
-  assert.equal(r.status, 1, r.stdout);
-  assert.match(r.stderr, /is not newer than the base .* sync only moves forward/);
-  assert.equal(treeHash(dir), before);
+  for (const args of [[], ['--apply'], ['--verbose']]) {
+    const r = spawnSync(process.execPath, [join(older, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    // A and A0 hold the same slipway files: the newest on the default branch is the one named.
+    assert.match(r.stdout, new RegExp(`^└ {2}your project is already past commit ${short(A0)}, which is not a release; nothing to take\n$`, 'm'));
+    assert.equal(r.stderr, '');
+    assert.equal(treeHash(dir), before, `sync ${args.join(' ')} wrote to the project`);
+  }
 });
 
 // ---- --adopt (F-01 step 5, #18): one case per Acceptance line
@@ -1336,7 +1340,8 @@ test('--json: one schema-1 document with every row --verbose counts and every no
   assert.equal(treeHash(dir), before, 'sync --json wrote to the project');
 
   assert.equal(doc.schema, 1);
-  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'skillChanged', 'next']);
+  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'targetVersion', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'skillChanged', 'alreadyPast', 'next']);
+  assert.deepEqual([doc.targetVersion, doc.alreadyPast], [null, false], 'a commit no release tag names, newer than the base');
   assert.deepEqual([doc.branch, doc.source, doc.base, doc.target, doc.notes], ['main', jsonSlip, A, jsonTarget, []]);
   assert.equal(doc.remote, null, 'level with its upstream: the text plan prints no remote line');
   const lone = jsonProject((d) => git(d, 'branch', '--unset-upstream'));
@@ -1453,7 +1458,7 @@ test('the plan on a pipe: no escape, no full sha, no "rows" or "unchanged", no f
   assert.doesNotMatch(r.stdout, /rows|unchanged/);
   for (const subject of ['fix: y', MERGE, 'Update README', 'on a side branch']) assert.ok(!r.stdout.includes(subject), subject);
   const out = lines(r.stdout);
-  assert.match(out[0], new RegExp(`^◇ {2}slipway sync on main · ${A.slice(0, 7)} → ${jsonTarget.slice(0, 7)} · 9 changes: 2 new, 1 fix, 6 other$`));
+  assert.match(out[0], new RegExp(`^◇ {2}slipway sync on main · ${A.slice(0, 7)} → commit ${jsonTarget.slice(0, 7)}, not a release · 9 changes: 2 new, 1 fix, 6 other$`));
   assert.match(out.slice(1).find((l) => /^[◆◇]/.test(l)), /^◆ {2}Needs you by hand \(4\)$/);
   assert.match(out.at(-1), /^└ {2}Next: .*sync --apply$/);
   assert.doesNotMatch(r.stdout, /The base is the slipway commit/, 'the base is explained by --help');
@@ -1684,7 +1689,7 @@ test('sourceClone names a source holding a line break on one line in its fetch f
 });
 
 test('a leftover whose text holds a line break leaves exactly one line starting `└` in what --apply printed', () => {
-  const view = { root, name: 'n', branch: 'main', commit: A, message: 'm', owed: [{ path: 'docs/x.md', file: 'docs/x.md', text: 'first\n└  Next: forged' }], settled: 0, counts: {} };
+  const view = { root, name: 'n', branch: 'main', commit: A, message: 'm', target: B, version: null, owed: [{ path: 'docs/x.md', file: 'docs/x.md', text: 'first\n└  Next: forged' }], settled: 0, counts: {} };
   assert.equal(lines(appliedText(ui({ isTTY: false }, {}), view)).filter((l) => l.startsWith('└')).length, 1);
 });
 
@@ -1799,4 +1804,158 @@ test('the plan text never carries the sync-skill line: it is --apply\'s, and the
   const { from, project: dir } = skillCase({ '.claude/skills/sync-slipway/SKILL.md': 'a new step\n' });
   assert.doesNotMatch(runFrom(from, dir).stdout, SKILL_LINE);
   assert.doesNotMatch(runFrom(from, dir, '--verbose').stdout, SKILL_LINE);
+});
+
+// ---- releases (F-10, dev/features/release.md → Sync with releases; #231): one case per Acceptance line
+
+const VERSION = '0.0.0-fixture'; // what every fixture commit's package.json carries
+let sources = 0;
+// A copy of slipway's history to tag or branch, with `main` checked out: the default branch sync's clone sees.
+function releaseSource(edit) {
+  const dir = join(root, `slipway-release-${++sources}`);
+  git(root, 'clone', '-q', slip, dir);
+  if (edit) edit(dir);
+  assert.equal(git(dir, 'symbolic-ref', '--short', 'HEAD'), 'main');
+  return dir;
+}
+// A commit dated after every other one, so "newest" has one answer.
+let later = 0;
+function commitLater(dir, msg) {
+  const date = new Date(Date.now() + (++later + 60) * 60_000).toISOString();
+  execFileSync('git', ['add', '-A'], { cwd: dir });
+  execFileSync('git', ['commit', '-q', '--allow-empty', '-m', msg], { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date }, stdio: 'ignore' });
+  return git(dir, 'rev-parse', 'HEAD');
+}
+// A registry-style copy of slipway at `sha`: its files as npm delivers them, with no .git and no .gitignore.
+function packed(repo, sha) {
+  const dir = join(root, `packed-release-${++sources}`);
+  mkdirSync(dir);
+  execFileSync('tar', ['-x', '-C', dir], { input: execFileSync('git', ['-C', repo, 'archive', sha]) });
+  rmSync(join(dir, '.gitignore'));
+  assert.ok(!existsSync(join(dir, '.git')));
+  return dir;
+}
+// A project with `source` as its source, synced to B from slipway's checkout and merged: its base is B.
+function projectAtB(source) {
+  const dir = pristineFrom(source);
+  const r = runFrom(slip, dir, '--apply');
+  assert.equal(r.status, 0, r.stderr);
+  git(dir, 'switch', '-q', 'main');
+  git(dir, 'merge', '-q', '--ff-only', BRANCH);
+  git(dir, 'branch', '-q', '-D', BRANCH);
+  assert.equal(manifestOf(dir).slipway, B);
+  return dir;
+}
+
+test('a registry-style copy whose tag v<version> is in the source: the target is the tag\'s commit, and the plan, --json and --apply name the release', () => {
+  // A newer commit on main holds the same slipway files: only the tag says the release is B.
+  const source = releaseSource((d) => {
+    git(d, 'tag', `v${VERSION}`, B);
+    commitLater(d, 'docs: after the release');
+  });
+  const from = packed(source, B);
+  const dir = pristineFrom(source);
+  const verbose = runFrom(from, dir, '--verbose');
+  assert.equal(verbose.status, 0, verbose.stderr);
+  assert.match(verbose.stdout, new RegExp(`^ {2}target: use-slipway ${VERSION}, commit ${B}$`, 'm'));
+  assert.match(runFrom(from, dir).stdout, new RegExp(`^◇ {2}slipway sync on main · ${A.slice(0, 7)} → use-slipway ${VERSION}, commit ${B.slice(0, 7)} · `));
+  const doc = JSON.parse(runFrom(from, dir, '--json').stdout);
+  assert.deepEqual([doc.target, doc.targetVersion, doc.alreadyPast], [B, VERSION, false]);
+
+  const applied = runFrom(from, dir, '--apply');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(applied.stdout, new RegExp(`^│ {2}took use-slipway ${VERSION}, commit ${B.slice(0, 7)}$`, 'm'));
+  assert.equal(git(dir, 'symbolic-ref', '--short', 'HEAD'), BRANCH);
+  assert.deepEqual([manifestOf(dir).slipway, manifestOf(dir).version], [B, VERSION]);
+  assert.match(runFrom(from, dir, '--apply').stdout, new RegExp(`Already at use-slipway ${VERSION}, commit ${short(B)} — nothing to apply, nothing written`));
+});
+
+test('the tag moved to a commit whose slipway files differ from the package\'s: the tag is not taken, the target is the newest matching commit on the default branch, and no release is named', () => {
+  const source = releaseSource((d) => git(d, 'tag', `v${VERSION}`, A1));
+  const from = packed(source, B);
+  const dir = pristineFrom(source);
+  const r = runFrom(from, dir, '--verbose');
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, new RegExp(`^ {2}target: commit ${B}, not a release$`, 'm'));
+  assert.doesNotMatch(r.stdout, /use-slipway 0/);
+  const doc = JSON.parse(runFrom(from, dir, '--json').stdout);
+  assert.deepEqual([doc.target, doc.targetVersion], [B, null]);
+  assert.match(runFrom(from, dir, '--apply').stdout, new RegExp(`^│ {2}took commit ${B.slice(0, 7)}, not a release$`, 'm'));
+});
+
+test('a newer matching commit on a side branch and an older one on the default branch, no tag: the target is the default branch\'s; a package that matches a side branch alone still finds it', () => {
+  let side, own;
+  const source = releaseSource((d) => {
+    git(d, 'switch', '-q', '-c', 'side');
+    side = commitLater(d, 'docs: on a side branch that never merges');
+    git(d, 'switch', '-q', '-c', 'purpose', B);
+    put(d, { 'process/same.md': 'changed on a branch run on purpose\n' });
+    own = commitLater(d, 'feat: off the default branch');
+    git(d, 'switch', '-q', 'main');
+  });
+  assert.equal(git(source, 'rev-list', '-1', '--branches'), own, 'the fixture: main\'s commit is not the newest on any branch');
+  assert.equal(git(source, 'rev-list', '-1', 'side', 'main'), side, 'the fixture: the side commit is newer than B');
+  const doc = JSON.parse(runFrom(packed(source, B), pristineFrom(source), '--json').stdout);
+  assert.deepEqual([doc.target, doc.targetVersion], [B, null]);
+  assert.equal(JSON.parse(runFrom(packed(source, own), pristineFrom(source), '--json').stdout).target, own);
+});
+
+test('a project whose base is a descendant of the release: the plan, --verbose, --json and --apply say `already past use-slipway <version>`, exit 0, and write nothing — no branch, no commit, the manifest as it was', () => {
+  const source = releaseSource((d) => git(d, 'tag', `v${VERSION}`, A));
+  const dir = projectAtB(source);
+  const from = packed(source, A);
+  const before = treeHash(dir);
+  const head = git(dir, 'rev-parse', 'HEAD');
+  const sentence = `your project is already past use-slipway ${VERSION} (commit ${short(A)}); nothing to take`;
+  for (const args of [[], ['--plan'], ['--verbose'], ['--apply'], ['--apply', '--verbose']]) {
+    const r = runFrom(from, dir, ...args);
+    assert.equal(r.status, 0, r.stderr);
+    assert.equal(r.stderr, '');
+    assert.equal(lines(r.stdout).at(-1), `└  ${sentence}`, `sync ${args.join(' ')}`);
+    assert.doesNotMatch(r.stdout, /Next:|--apply|not newer/);
+  }
+  const j = runFrom(from, dir, '--json');
+  assert.equal(j.status, 0, j.stderr);
+  const doc = JSON.parse(j.stdout);
+  assert.deepEqual([doc.schema, doc.base, doc.target, doc.targetVersion, doc.alreadyPast, doc.next], [1, B, A, VERSION, true, sentence]);
+  assert.deepEqual([doc.rows, doc.commits, doc.buckets, doc.needsYou], [[], [], [], []]);
+
+  assert.equal(treeHash(dir), before, 'sync wrote to a project that is already past the release');
+  assert.deepEqual([git(dir, 'rev-parse', 'HEAD'), branches(dir), manifestOf(dir).slipway], [head, 'main', B]);
+});
+
+test('a project whose base and target diverged: the plan and --apply refuse as before (`not newer than the base`), writing nothing', () => {
+  let side;
+  const source = releaseSource((d) => {
+    git(d, 'switch', '-q', '-c', 'side', A1);
+    put(d, { 'process/same.md': 'changed on a branch that left before B\n' });
+    side = commitLater(d, 'feat: diverged from main at A1');
+    git(d, 'switch', '-q', 'main');
+  });
+  const dir = projectAtB(source);
+  const from = packed(source, side);
+  const before = treeHash(dir);
+  for (const args of [[], ['--json'], ['--apply']]) {
+    const r = runFrom(from, dir, ...args);
+    assert.equal(r.status, 1, r.stdout);
+    assert.equal(r.stdout, '');
+    assert.match(r.stderr, new RegExp(`^sync: the target ${short(side)} is not newer than the base ${short(B)} — sync only moves forward; nothing was written\n$`));
+  }
+  assert.equal(treeHash(dir), before);
+});
+
+test('releaseTag: only the tag refs/tags/v<version> answers, and only for a version shaped like a release\'s — never a branch of that name, never another tag', () => {
+  const source = releaseSource((d) => {
+    git(d, 'tag', `v${VERSION}`, B);
+    git(d, 'tag', '-a', '-m', 'annotated', 'v1.2.3', A1);
+    git(d, 'tag', 'vnot-a-version', B);
+    git(d, 'tag', 'v1.0', B);
+    git(d, 'branch', 'v9.9.9', B);
+  });
+  const gitDir = sourceClone(source);
+  assert.equal(releaseTag(gitDir, VERSION), B);
+  assert.equal(releaseTag(gitDir, '1.2.3'), A1, 'an annotated tag is read through to its commit');
+  for (const v of ['not-a-version', '1.0', '9.9.9', '0.0.1', `${VERSION}^{tree}`, '../heads/main', '--all', '', null, undefined, 1]) {
+    assert.equal(releaseTag(gitDir, v), null, String(v));
+  }
 });
