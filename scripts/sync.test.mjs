@@ -1902,6 +1902,42 @@ test('the tag on A, the package from A0 — the same slipway files, another temp
   assert.match(runFrom(packed(source, A), pristineFrom(source), '--apply').stdout, new RegExp(`Already at use-slipway ${VERSION}, commit ${short(A)} `));
 });
 
+test('the tag on B, the package from a later commit that changed only the ownership map (a slipway file made internal): the tag is not taken, and no release is named', () => {
+  let reclassed;
+  const source = releaseSource((d) => {
+    git(d, 'tag', `v${VERSION}`, B);
+    put(d, { 'dev/ownership.yaml': MAP_YAML.replace('paths:\n', 'paths:\n  - glob: process/same.md\n    class: internal\n') });
+    reclassed = commitLater(d, 'chore: a path changes class');
+  });
+  assert.deepEqual(git(source, 'diff', '--name-only', B, reclassed).split('\n'), ['dev/ownership.yaml'], 'the fixture: only the map changed');
+  const from = packed(source, reclassed);
+  const dir = pristineFrom(source);
+  const doc = JSON.parse(runFrom(from, dir, '--json').stdout);
+  assert.deepEqual([doc.target, doc.targetVersion], [reclassed, null]);
+  const applied = runFrom(from, dir, '--apply');
+  assert.match(applied.stdout, new RegExp(`^│ {2}took commit ${reclassed.slice(0, 7)}, not a release$`, 'm'));
+  assert.equal(manifestOf(dir).slipway, reclassed, 'the manifest records the commit the package came from, not the tag\'s');
+});
+
+// The documented limit (dev/features/release.md → Known limitations), pinned so it is a choice: a project
+// receives the same files from both commits, so sync cannot tell them apart and names the release. A change
+// that tightens the rule changes this test.
+test('known limitation: the tag on B, the package from a later commit that changed only an internal file other than the map — it is named as the release, and the manifest records the tag\'s commit', () => {
+  let internal;
+  const source = releaseSource((d) => {
+    git(d, 'tag', `v${VERSION}`, B);
+    put(d, { 'dev/notes.md': 'slipway\'s own planning note\n' });
+    internal = commitLater(d, 'docs: an internal note');
+  });
+  assert.deepEqual(git(source, 'diff', '--name-only', B, internal).split('\n'), ['dev/notes.md']);
+  const from = packed(source, internal);
+  const dir = pristineFrom(source);
+  const doc = JSON.parse(runFrom(from, dir, '--json').stdout);
+  assert.deepEqual([doc.target, doc.targetVersion], [B, VERSION]);
+  assert.equal(runFrom(from, dir, '--apply').status, 0);
+  assert.equal(manifestOf(dir).slipway, B);
+});
+
 test('a clean slipway checkout names its release only when the tag v<version> in the source names its HEAD', () => {
   const tagged = releaseSource((d) => git(d, 'tag', `v${VERSION}`, B));
   const doc = JSON.parse(runFrom(tagged, pristineFrom(tagged), '--json').stdout);

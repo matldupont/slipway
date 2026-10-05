@@ -141,7 +141,8 @@ export function releaseTag(gitDir, version) {
  *
  * The tag is held to more than `blobs`: a later commit that changed only a template or a script still
  * carries the release's version and its managed files, and a package from it is not the release. `same`
- * compares every file the package ships (install.mjs, shippedDiffer); without it no tag is taken.
+ * compares the ownership map and every file the package ships (sync.mjs, sameShipped); without it no tag
+ * is taken.
  *
  * @param {{ version?: string|null, same?: ((tree: Map<string, string>) => boolean)|null }} [o]
  * @returns {{ sha: string|null, release: boolean }}

@@ -125,6 +125,12 @@ function writeDoc(out, doc) {
   out.write(`${text.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)}\n`);
 }
 
+// Whether this package holds exactly what the commit with `tree` ships. Its ownership map must be that
+// commit's, byte for byte: then both sides ship the same paths, and one classification decides which files
+// are compared. A commit that only reclassified a path is another commit, whatever version it carries.
+const sameShipped = (tree, t) =>
+  tree.get(MAP) === blobSha(readFileSync(join(SRC, MAP))) && shippedDiffer(tree, SRC, t.copy, { rules: t.rules }).length === 0;
+
 // The version the target's package.json carries, or null: what the manifest records, and the release to look for.
 function packageVersion(target) {
   try {
@@ -254,7 +260,7 @@ function preflight(cwd) {
   const targetManaged = new Map(t.copy.filter((p) => classify(t.rules, p) === 'managed').map((p) => [p, blobSha(target.get(p))]));
   const version = packageVersion(target);
   const head = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha;
-  const found = head ? { sha: head, release: read(() => releaseTag(gitDir, version)) === head } : read(() => resolveTarget(gitDir, targetManaged, { version, same: (tree) => shippedDiffer(tree, SRC, t.copy, { rules: t.rules }).length === 0 }));
+  const found = head ? { sha: head, release: read(() => releaseTag(gitDir, version)) === head } : read(() => resolveTarget(gitDir, targetManaged, { version, same: (tree) => sameShipped(tree, t) }));
   const targetSha = found.sha;
   const targetVersion = found.release ? version : null;
   // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk. Without

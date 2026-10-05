@@ -121,9 +121,10 @@ names what it took: the branch `slipway/sync-<target sha>` (`apply` in `scripts/
   1. slipway's own clean checkout: its `HEAD`, as today;
   2. the tag `v<version>` in the source clone, taken only when the slipway-owned files of its commit equal the
      package's exactly (a tag can move, so the content decides). "Slipway-owned" is every file the package
-     ships to a project here, templates and `package.json` included, not only the managed class: a later
-     commit that changed only a template or a script still carries the release's version and its managed
-     files, and a package from it is not the release;
+     ships to a project here, templates and `package.json` included, not only the managed class, and the
+     ownership map itself, which says which files those are: a later commit that changed only a template, a
+     script or a path's class still carries the release's version and its managed files, and a package from
+     it is not the release;
   3. the newest matching commit reachable from the source's default branch;
   4. the newest matching commit on any branch, as today: the case of a ref off the default branch run on purpose
      (`npx github:…#<ref>`).
@@ -260,6 +261,12 @@ Each release:
    (`npm stage view`, `npm stage download`), and check it is the tag just pushed; then approve with the second
    factor (`npm stage approve`, or npmjs.com → Staged Packages).
 
+On the first pre-release (`0.1.0-rc.1`), once:
+
+7. In a scratch project, run a sync from `use-slipway@next` and confirm the plan names that version
+   (`use-slipway <version>, commit <sha>`, not `commit <sha>, not a release`). Only a real registry copy can
+   show that sync believes the tag: the tests use a `git archive` copy, which is not what npm packs.
+
 The first release is cut in the same sitting as the cutover merge (Order, below).
 
 ### Order
@@ -308,9 +315,9 @@ What the release defends, and against whom (a review stops here, per `process/co
   owner's choice and is reported, not overridden.
 - With no tag and no clean checkout (the GitHub form on an untagged commit), several commits can hold the same
   slipway-owned files; sync takes the newest on the default branch, as F-01 already accepts.
-- A commit after a release that changes only slipway's internal files (its own scripts, checks and planning
-  docs) ships a project the same files as the release, so a package from it is named as the release and the
-  manifest records the tag's commit: for a project the two are the same content.
+- A commit after a release that changes only slipway's internal files other than the ownership map (its own
+  scripts, checks and planning docs) ships a project the same files as the release, so a package from it is
+  named as the release and the manifest records the tag's commit: for a project the two are the same content.
 - Sync takes a tag whatever branch holds its commit. A tag off the default branch gives a manifest record the
   next sync's walk does not reach; that sync then finds the base by content or refuses, writing nothing. The
   release workflow's check that the tagged commit is on `main` is what keeps tags there.
