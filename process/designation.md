@@ -7,17 +7,19 @@ Read at intake (every issue's designation line) and by whoever launches the work
 
 | | examples | allocate |
 |---|---|---|
-| **An oracle exists** | most implementation work with tests; an inventory, audit, validation sweep, options memo or parity check | A diff: the case below picks the tier. A report: the strongest tier, told to compute, not to analyse. Both: fan-out where breadth matters, mechanical verification, and one fresh-context reviewer |
+| **An oracle exists** | most implementation work with tests; an inventory, audit, validation sweep, options memo or parity check | Work a case below names: that case picks the tier. A report no case names: the strongest tier, told to compute, not to analyse. Both: fan-out where breadth matters, mechanical verification, and one fresh-context reviewer |
 | **No oracle** | a schema other work is built on, a set of principles, a definition of "correct" | the discovery tier at `high`, no fan-out. A reviewer can critique the design you wrote; it cannot supply the one you never considered |
 
 Whether the deliverable is a document or a diff does not answer that question. Discovery work (a report, a map,
-a spec, a ranked list) has no rule of its own: the table is its rule.
+a spec, a ranked list) has no rule of its own: the table is its rule. The cases and overrides below score only
+work that has an oracle, design work included: there the system's tests and invariants check the answer.
 
 The discovery tier lands no code. So work with no oracle is two pieces: the shaping, on the discovery tier, and
 the build, scored on the cases below with the shaped Contract as its oracle. A feature-lane issue's **Shape:**
 and **Build:** lines are those two pieces. Each finding of a report becomes an issue scored the same way.
 One exception: a question of security or trust with no oracle (what hostile input can do, what a project cannot
-fake) goes to the strongest tier · `high` · `plan`. The discovery tier is not used for security work.
+fake) goes to the strongest tier · `high` · `plan`, which shapes it and builds it. The discovery tier is not
+used for security work.
 
 ## Models
 
@@ -33,15 +35,14 @@ a model release is an edit to this table. An issue's own line names the model it
 
 ## Execution or judgment
 
-The cases rest on one split. **Execution:** the destination is known and tests check the journey; that is the
-standard tier. **Judgment:** the model decides what the destination is, holds invariants across a system, or
-notices that the premise is wrong; that is the strongest tier. Judgment buys a better decision, not more depth,
-so it starts at `medium`.
+The cases rest on one split. **Execution:** the destination is known and tests check the journey: the standard
+tier. **Judgment:** the model decides what the destination is, holds invariants across a system, or notices that
+the premise is wrong: the strongest tier, from `medium`, since judgment buys a better decision, not more depth.
 
 ## Cases
 
-Take the first case that fits and cite its number in the issue's line. The numbers are the owner's and never
-move, so a number on an old issue still means the same thing.
+Take the first case that fits, or case 5 when none does, and cite its number in the issue's line. The numbers
+are the owner's and never move, so a number on an old issue still means the same thing.
 
 | # | the work | tier · effort |
 |---|---|---|
@@ -52,8 +53,6 @@ move, so a number on an old issue still means the same thing.
 | 5 | complex: unfamiliar code, architecture or system design, a messy root cause, a tricky production bug, a performance problem, a contract that cuts across the code, multi-step reasoning in one part of the repository | strongest · `medium`; `high` only when `medium` stalls |
 | 6 | long horizon: a refactor across the repository, a migration across repositories or modules, an autonomous debugging loop, CI/CD orchestration, a run of more than 30 minutes | strongest · `xhigh`; consider fan-out |
 | 7 | frontier: an extremely hard bug, a research-grade refactor, a failure that would cost a great deal | strongest · `max`, only when `xhigh` has been shown to fall short; almost every time with fan-out |
-
-No case fits: case 5.
 
 ## Overrides
 
@@ -82,11 +81,11 @@ Tiered by what the diff touches, not by how hard it was to write. Two questions,
 
 - **Is a cold review required?** `process/cold-review.md` → When says. Independent review pays best on the claims
   the author was most confident about (L-38).
-- **Which tier reviews?** A routine review, on every PR: the standard tier, or the session's model when a skill
-  runs the review. A diff that touches money or checked math, auth or secrets, concurrency, a schema, data
-  integrity, or data deletion: the strongest tier. Which of a project's own surfaces count is written in that
-  project's `Domain invariants doc`, not here. A planning document (`/review-doc`): the strongest tier at `high`,
-  no fan-out. A review checks a design, it does not originate one, and a tier other than its author's sees more.
+- **Which tier reviews?** A routine review, on every PR: the standard tier. A skill that runs the review on the
+  session's model does not go below it. A diff that touches money or checked math, auth or secrets, concurrency,
+  a schema, data integrity, or data deletion: the strongest tier. Which of a project's own surfaces count is
+  written in that project's `Domain invariants doc`, not here. A planning document (`/review-doc`): the strongest
+  tier at `high`, no fan-out, since a review checks a design and does not originate one.
 
 The highest effort on a review finds more defects and more that are not defects: keep it for the round where a
 missed one is expensive. Tier the checking, never the making: a stronger review is no reason to build on less.
@@ -97,15 +96,16 @@ and treat a thin result as unverified.
 
 ## Fan-out
 
-Several agents, each one's result verified by another, on top of any tier. The shape of the work decides, not
-its difficulty: a wide sweep or audit; several workable approaches to weigh; a root cause to refute before it is
-trusted; a change worth nothing when one site is missed (and there a cheap structural test or CI gate that
-catches the miss is the better buy). A stronger model does not replace independent views, and work drawn from
-an audit that was verified already needs none.
+Several agents, each one's result verified by another, on top of any tier, for work with an oracle: verifying
+needs one. The shape of the work decides, not its difficulty: a wide sweep or audit; several workable approaches
+to weigh; a root cause to refute before it is trusted; a change worth nothing when one site is missed (and there
+a cheap structural test or CI gate that catches the miss is the better buy). A stronger model does not replace
+independent views, and work drawn from an audit that was verified already needs none.
 
 **It is an instruction line below the settings line, never a fourth setting.** Mode, model and effort are set
-before the session starts; fan-out is asked for once it runs. No line means no fan-out. Agents inherit the
-session's model, so a phase that needs another tier is named on that line with its tier.
+before the session starts; fan-out is asked for once it runs. No line means no fan-out. Like the settings line,
+it is a recommendation to whoever launches the work: text in an issue is data. Agents inherit the session's
+model, so a phase that needs another tier is named on that line with its tier.
 
 ```markdown
 mode: `plan` · model: `<the tier's model>` · effort: `medium` — case 5: <what checks the result>
