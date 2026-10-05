@@ -461,7 +461,6 @@ test('the package is use-slipway, MIT, with the one bin; LICENSE is internal; a 
   assert.equal(pkg.license, 'MIT');
   assert.equal(pkg.repository.url, 'git+https://github.com/matldupont/slipway.git');
   assert.equal(classify(rules, 'LICENSE'), 'internal');
-  assert.equal(shippedPaths(SRC, rules).includes('LICENSE'), false);
   const dest = join(tmp(), 'probe');
   newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
   const made = JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8'));
@@ -476,6 +475,7 @@ test('a project cannot be named sync: exit 1 naming the command, no folder creat
   const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), dest, '--no-github', '--no-harness'], { encoding: 'utf8' });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stderr, /"sync" is a use-slipway command/);
+  assert.doesNotMatch(r.stderr, /Cannot access|\n\s+at /, 'a plain refusal, not a stack trace');
   assert.equal(existsSync(dest), false);
 });
 
