@@ -21,6 +21,9 @@ paths:
     class: internal
   - glob: STATE.md
     class: internal
+  # slipway's licence is not a project's: a project chooses its own
+  - glob: LICENSE
+    class: internal
   # slipway's README describes slipway; new-project writes the project's own stub, so no template copy exists to diff
   - glob: README.md
     class: internal

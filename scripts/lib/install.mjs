@@ -94,7 +94,7 @@ export function gitReason(e) {
   return lines.find((l) => /^(fatal|error): /.test(l)) ?? lines.at(-1);
 }
 
-// The project's package.json from the template's: its own name, private, no bin/description/version,
+// The project's package.json from the template's: its own name, private, no bin/description/version/license/repository,
 // and no command that calls an internal path (O1) — the project never receives one.
 export function derivePackageJson(template, { name, rules }) {
   const pkg = structuredClone(template);
@@ -103,6 +103,8 @@ export function derivePackageJson(template, { name, rules }) {
   delete pkg.bin;
   delete pkg.description;
   delete pkg.version;
+  delete pkg.license;
+  delete pkg.repository;
   const callsInternal = (c) => parseCommand(c).some((x) => x.kind === 'node' && classify(rules, x.path) === 'internal');
   for (const [k, v] of Object.entries(pkg.scripts ?? {})) {
     const kept = v.split(/\s*&&\s*/).filter((c) => !callsInternal(c));
