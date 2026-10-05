@@ -57,6 +57,9 @@ paths:
     class: internal
   - glob: ci/fixtures/known-bad/s1/**
     class: internal
+  # the workflow that stages slipway's own releases at npm (F-10): a project publishes nothing of slipway's
+  - glob: .github/workflows/release.yml
+    class: internal
   # local secrets and settings, wherever they sit: a directory walk would otherwise ship them
   - glob: '**/.env*'
     class: internal

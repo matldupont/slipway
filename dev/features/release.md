@@ -133,37 +133,47 @@ names what it took: the branch `slipway/sync-<target sha>` (`scripts/sync.mjs:52
 
 `.github/workflows/release.yml`, shown to the owner before it is written. It is slipway's own: `internal` in
 `dev/ownership.yaml`, above the `.github/**` managed row (first match wins), so no project receives it. It is
-written in block style, as `ci.yml` is, so FO1 and W1 read it. The shape (action shas filled in at build):
+written in block style, as `ci.yml` is, so FO1 and W1 read it: a comment sits on the line above its job, never
+after the job's name, which FO1 cannot read. The file as written (#232):
 
 ```yaml
 name: release
+
+# The owner pushes v<version> on a commit of main; this stages the package at npm, and the owner's approval
+# there makes it public (D-027, dev/features/release.md). No token: npm trusted publishing.
 on:
   push:
     tags: ['v*']
+
 permissions:
   contents: read
+
 concurrency:
   group: release
   cancel-in-progress: false
+
 jobs:
-  check: # no credential in this job
+  # No credential in this job: it runs the repository's own code.
+  check:
     if: github.repository == 'matldupont/slipway'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@<commit sha>
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
       - name: The tagged commit is on main
         run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-      - uses: pnpm/action-setup@<commit sha>
-      - uses: actions/setup-node@<commit sha>
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       - name: Nothing under node_modules/ is tracked
         run: node ci/checks/meta/n1-node-modules.mjs .
       - run: pnpm meta
-  publish: # the only job that can reach npm
+
+  # The only job that can reach npm: GitHub's own actions, scripts/release.mjs and npm. Installs nothing.
+  publish:
     needs: check
     runs-on: ubuntu-latest
     environment: npm
@@ -171,12 +181,12 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@<commit sha>
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
-      - uses: actions/setup-node@<commit sha>
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24.21.0
+          node-version: 24.21.0 # bundles npm 11.19.0; staging needs 11.15.0 or later
           registry-url: https://registry.npmjs.org
           package-manager-cache: false
       - name: The tag is this version, and npm can stage
@@ -429,3 +439,4 @@ own case (`process/designation.md`).
 ## Changes
 
 - 2026-10-05 · ADDED · the feature doc and D-027 · #91
+- 2026-10-05 · MODIFIED · the workflow block is the file as written: actions pinned by commit sha, job comments on their own lines · #232
