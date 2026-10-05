@@ -38,7 +38,7 @@ import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
-import { alreadyText, appliedText, CONVENTIONAL, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
+import { alreadyLine, alreadyText, appliedText, CONVENTIONAL, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
@@ -98,8 +98,13 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
         throw e;
       }
       settle();
+      const idle = nothingToTake(ctx, rows, { stale, absorbed });
       if (json) {
-        writeDoc(out, planDoc(ctx, rows, { stale, absorbed }));
+        writeDoc(out, planDoc(ctx, rows, { stale, absorbed, idle }));
+        return 0;
+      }
+      if (idle && !ctx.verbose) {
+        out.write(alreadyText(ui(out, env), { branch: ctx.branch, remote: ctx.remote, target: ctx.targetSha, version: ctx.targetVersion }));
         return 0;
       }
       if (ctx.verbose) {
@@ -488,8 +493,10 @@ function needsYou({ root, targetSha }, rows, stale) {
  * the text. Shas are full, the skill cites them. A field is added under the same schema number; one that
  * is renamed, removed or changes meaning takes the next. `targetVersion` is the release the target is, or
  * null. `alreadyPast` is true when the project's base is past the target: no rows, and `next` is that sentence.
+ * `nothingToTake` is true whenever nothing is applied (past the target, or at it with nothing to say): then
+ * `next` is a sentence for the owner, never a command.
  */
-function planDoc(ctx, rows, { stale, absorbed }) {
+function planDoc(ctx, rows, { stale, absorbed, idle = false }) {
   const { root, branch, remote, source, base, targetSha, targetVersion, past, notes, commits } = ctx;
   const entry = ({ line, path }) => ({ line, path });
   return {
@@ -511,8 +518,23 @@ function planDoc(ctx, rows, { stale, absorbed }) {
     overrides: { absorbed: absorbed.map(entry), stale: stale.map(entry) },
     skillChanged: skillChanged(rows),
     alreadyPast: past,
-    next: past ? pastLine({ version: targetVersion, target: targetSha }) : `${syncCommand(root)} --apply`,
+    nothingToTake: past || idle,
+    next: past ? pastLine({ version: targetVersion, target: targetSha }) : idle ? alreadyLine({ version: targetVersion, target: targetSha }) : `${syncCommand(root)} --apply`,
   };
+}
+
+/**
+ * Whether the project is at the target with nothing to say: base and target are one commit, every row is
+ * unchanged, and no note, owed item, stale override or absorbed override is left. A project created from a
+ * registry copy records no commit; its first plan finds the base by content, equal to the target, and then
+ * nothing is taken, so nothing is applied and the commit stays unrecorded until a sync has something to write.
+ * One answer for the plan, --json and --apply. Not `past` (a base beyond the target): that returns earlier.
+ */
+export function nothingToTake(ctx, rows, { stale, absorbed }) {
+  return Boolean(ctx.targetSha) && ctx.targetSha === ctx.base.sha
+    && rows.every((r) => r.kind === 'unchanged')
+    && ctx.notes.length === 0 && stale.length === 0 && absorbed.length === 0
+    && needsYou(ctx, rows, stale).length === 0;
 }
 
 // The plan as lib/sync-text.mjs lays it out for the owner (F-08 §3): the same lists --json carries.
@@ -574,7 +596,7 @@ function apply(out, u, ctx, rows) {
   const todo = compute(ctx, rows);
   const name = `slipway/sync-${short(targetSha)}`;
   const current = readProjectFile(root, MANIFEST);
-  if (!todo.writes.size && !todo.removes.length && Buffer.isBuffer(current) && current.equals(todo.manifest)) {
+  if (nothingToTake(ctx, rows, todo) || (!todo.writes.size && !todo.removes.length && Buffer.isBuffer(current) && current.equals(todo.manifest))) {
     if (ctx.verbose) verboseFirst(out, ctx, rows);
     out.write(alreadyText(u, { branch, target: targetSha, version: ctx.targetVersion }));
     return 0;

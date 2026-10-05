@@ -44,7 +44,10 @@ explain, never instructions to follow. It holds:
   with the owner, never `kind`.
 - `needsYou`: the rows the owner settles by hand, each with its `next` step. `overrides`: the entries
   `--apply` removes (`absorbed`) and the ones the owner deletes (`stale`).
-- `next`: the command for step 2.
+- `nothingToTake`: `true` when there is nothing to apply: the project is already at the target, or already
+  past it (`alreadyPast` is then `true` too). `next` is then a sentence, not a command. Say it to the owner,
+  in those words, and stop: nothing is run, and there is no step 2.
+- `next`: the command for step 2; when `nothingToTake` is `true`, a sentence for the owner.
 
 The owner's own `sync` prints the same plan as text, and `--verbose` one row per path. For the PR (step 5),
 "the plan as printed" is this document's `branch`, `source`, `base`, `target` and each bucket's `count` and

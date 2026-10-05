@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, chmodSync, copyFileSync, lstatSync, openSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -22,7 +22,7 @@ import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
-import { KINDS, checkWrites, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
+import { KINDS, checkWrites, nothingToTake, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -1340,8 +1340,8 @@ test('--json: one schema-1 document with every row --verbose counts and every no
   assert.equal(treeHash(dir), before, 'sync --json wrote to the project');
 
   assert.equal(doc.schema, 1);
-  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'targetVersion', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'skillChanged', 'alreadyPast', 'next']);
-  assert.deepEqual([doc.targetVersion, doc.alreadyPast], [null, false], 'a commit no release tag names, newer than the base');
+  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'targetVersion', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'skillChanged', 'alreadyPast', 'nothingToTake', 'next']);
+  assert.deepEqual([doc.targetVersion, doc.alreadyPast, doc.nothingToTake], [null, false, false], 'a commit no release tag names, newer than the base');
   assert.deepEqual([doc.branch, doc.source, doc.base, doc.target, doc.notes], ['main', jsonSlip, A, jsonTarget, []]);
   assert.equal(doc.remote, null, 'level with its upstream: the text plan prints no remote line');
   const lone = jsonProject((d) => git(d, 'branch', '--unset-upstream'));
@@ -1986,7 +1986,7 @@ test('a project whose base is a descendant of the release: the plan, --verbose, 
   const j = runFrom(from, dir, '--json');
   assert.equal(j.status, 0, j.stderr);
   const doc = JSON.parse(j.stdout);
-  assert.deepEqual([doc.schema, doc.base, doc.target, doc.targetVersion, doc.alreadyPast, doc.next], [1, B, A, VERSION, true, sentence]);
+  assert.deepEqual([doc.schema, doc.base, doc.target, doc.targetVersion, doc.alreadyPast, doc.nothingToTake, doc.next], [1, B, A, VERSION, true, true, sentence]);
   assert.deepEqual([doc.rows, doc.commits, doc.buckets, doc.needsYou], [[], [], [], []]);
 
   assert.equal(treeHash(dir), before, 'sync wrote to a project that is already past the release');
@@ -2027,4 +2027,131 @@ test('releaseTag: only the tag refs/tags/v<version> answers, and only for a vers
   for (const v of ['not-a-version', '1.0', '9.9.9', '0.0.1', `${VERSION}^{tree}`, '../heads/main', '--all', '', null, undefined, 1]) {
     assert.equal(releaseTag(gitDir, v), null, String(v));
   }
+});
+
+// ---- a whole plan through a pipe, and a project with nothing to take (#245)
+
+// A slipway of 1800 managed files, a project made from it, then slipway ahead by one changed file and three
+// commits with very long subjects: the plan is longer than a pipe's 65,536 bytes in every form sync prints.
+const BIG = 65_536;
+const bigSlip = join(root, 'slipway-big');
+mkdirSync(bigSlip);
+git(bigSlip, 'init', '-q', '-b', 'main');
+copyCode(bigSlip);
+put(bigSlip, {
+  'dev/ownership.yaml': MAP_YAML,
+  '.gitignore': 'node_modules/\n',
+  'README.md': '# slipway\n',
+  'package.json': pkg({ a: 'echo a' }),
+  ...Object.fromEntries(Array.from({ length: 1800 }, (_, i) => [`process/big/f${String(i).padStart(4, '0')}.md`, `file ${i}\n`])),
+});
+commit(bigSlip, 'big: 1800 managed files');
+const bigProject = join(root, 'project-big');
+{
+  const r = spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), bigProject, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: bigSlip } });
+  assert.equal(r.status, 0, `new-project failed:\n${r.stdout}\n${r.stderr}`);
+}
+put(bigSlip, { 'process/big/f0000.md': 'file 0, changed\n' });
+commit(bigSlip, 'fix(big): one file changed');
+for (const c of 'abc') git(bigSlip, 'commit', '-q', '--allow-empty', '-m', `feat(big): ${c.repeat(25_000)}`);
+// The bin's output through a pipe, and the same command written to a file: what a pipe reader receives
+// must be what the file holds. A timeout, so a process that no longer ends shows as a failing case.
+const piped = (dir, ...args) => spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'buffer', timeout: 60_000 });
+function toFile(dir, ...args) {
+  const file = join(root, `plan-${++n}.out`);
+  const fd = openSync(file, 'w');
+  const r = spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, stdio: ['ignore', fd, 'pipe'], timeout: 60_000 });
+  closeSync(fd);
+  assert.equal(r.status, 0, String(r.stderr));
+  return readFileSync(file);
+}
+
+test('a plan longer than a pipe takes at once arrives whole through the bin: --json, --verbose and --log are what the same command writes to a file', () => {
+  for (const flag of ['--json', '--verbose', '--log']) {
+    const dir = join(root, `project-${++n}`);
+    git(root, 'clone', '-q', bigProject, dir);
+    const file = toFile(dir, flag);
+    const r = piped(dir, flag);
+    assert.equal(r.error, undefined, `sync ${flag} did not end: ${r.error}`);
+    assert.equal(r.status, 0, String(r.stderr));
+    assert.ok(file.length > BIG, `${flag}: the plan is only ${file.length} bytes, so it proves nothing about the pipe`);
+    assert.equal(r.stdout.length, file.length, `${flag}: ${r.stdout.length} bytes through the pipe, ${file.length} in the file`);
+    assert.ok(r.stdout.equals(file), `${flag}: the pipe and the file differ`);
+    if (flag === '--json') assert.ok(JSON.parse(r.stdout.toString('utf8')).rows.length >= 1800, '--json parses, with every row');
+  }
+});
+
+test('the bin ends on its own whatever it printed: a plan, a refusal (stderr) and --apply each end with their exit code, through pipes', () => {
+  const dir = join(root, `project-${++n}`);
+  git(root, 'clone', '-q', bigProject, dir);
+  const plan = piped(dir);
+  assert.deepEqual([plan.error, plan.status], [undefined, 0]);
+  put(dir, { 'process/dirty.md': 'untracked\n' });
+  const refusal = piped(dir, '--json');
+  assert.deepEqual([refusal.error, refusal.status, refusal.stdout.length], [undefined, 1, 0]);
+  assert.match(refusal.stderr.toString('utf8'), /^sync: the working tree is not clean/);
+  rmSync(join(dir, 'process/dirty.md'));
+  const applied = piped(dir, '--apply');
+  assert.deepEqual([applied.error, applied.status], [undefined, 0], String(applied.stderr));
+  assert.match(git(dir, 'rev-parse', '--abbrev-ref', 'HEAD'), /^slipway\/sync-/);
+});
+
+test('the bin does not exit the process under the output it just wrote', () => {
+  assert.doesNotMatch(readFileSync(join(SRC, 'scripts', 'new-project.mjs'), 'utf8'), /process\.exit\(main\(/);
+});
+
+// A project at the release, its package the release's own: nothing in it differs from what sync would take.
+function atRelease({ recorded }) {
+  const source = releaseSource((d) => git(d, 'tag', `v${VERSION}`, B));
+  const dir = projectAtB(source);
+  if (!recorded) {
+    const m = manifestOf(dir);
+    m.slipway = null; // what a project created from a registry copy records: the package holds no commit
+    put(dir, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+    commit(dir, 'a manifest that records no commit');
+  }
+  return { dir, from: packed(source, B) };
+}
+
+for (const recorded of [true, false]) {
+  test(`nothing to take (base and target are one commit, the manifest ${recorded ? 'records' : 'records no'} commit): the plan, --json and --apply say "Already at" and name no --apply, and write nothing`, () => {
+    const { dir, from } = atRelease({ recorded });
+    const before = treeHash(dir);
+    const head = git(dir, 'rev-parse', 'HEAD');
+    const line = `Already at use-slipway ${VERSION}, commit ${short(B)} — nothing to apply, nothing written`;
+    for (const args of [[], ['--plan'], ['--apply']]) {
+      const r = runFrom(from, dir, ...args);
+      assert.equal(r.status, 0, r.stderr);
+      assert.equal(r.stderr, '');
+      assert.equal(lines(r.stdout).at(-1), `└  ${line}.`, `sync ${args.join(' ')}`);
+      assert.doesNotMatch(r.stdout, /Next:|--apply/, `sync ${args.join(' ')}`);
+    }
+    const j = runFrom(from, dir, '--json');
+    assert.equal(j.status, 0, j.stderr);
+    const doc = JSON.parse(j.stdout);
+    assert.deepEqual([doc.base, doc.target, doc.targetVersion, doc.alreadyPast, doc.nothingToTake, doc.next], [B, B, VERSION, false, true, line]);
+    assert.deepEqual([doc.needsYou, doc.notes], [[], []]);
+    // --verbose is the listing of every path: it names no --apply either, and every row is unchanged.
+    const v = runFrom(from, dir, '--verbose');
+    assert.deepEqual([v.status, [...new Set(Object.values(rows(v.stdout)))], /--apply/.test(v.stdout)], [0, ['unchanged'], false]);
+    assert.equal(treeHash(dir), before, 'sync wrote to a project with nothing to take');
+    assert.deepEqual([git(dir, 'rev-parse', 'HEAD'), branches(dir)], [head, 'main']);
+    assert.equal(manifestOf(dir).slipway, recorded ? B : null, 'the manifest is as it was');
+  });
+}
+
+test('nothingToTake: true only with base and target one commit, every row unchanged, and no note, owed item or override to say anything about', () => {
+  const ctx = { root: '/p', targetSha: B, base: { sha: B }, notes: [] };
+  const unchanged = [{ kind: 'unchanged', path: 'process/same.md' }];
+  const none = { stale: [], absorbed: [] };
+  const ok = (c, r = unchanged, o = none) => nothingToTake(c, r, o);
+  assert.equal(ok(ctx), true);
+  assert.equal(ok({ ...ctx, targetSha: null, base: { sha: null } }), false, 'no target commit: nothing to name');
+  assert.equal(ok({ ...ctx, base: { sha: A } }), false, 'another base');
+  assert.equal(ok(ctx, [...unchanged, { kind: 'replace', path: 'process/replace.md' }]), false, 'a row that changes');
+  assert.equal(ok(ctx, [...unchanged, { kind: 'keep (edited)', path: 'process/kept.md' }]), false, 'a row that needs the owner');
+  assert.equal(ok({ ...ctx, notes: ['a note'] }), false, 'a note');
+  assert.equal(ok(ctx, unchanged, { stale: [{ line: 2, path: 'x' }], absorbed: [] }), false, 'a stale override');
+  assert.equal(ok(ctx, unchanged, { stale: [], absorbed: [{ line: 2, path: 'x' }] }), false, 'an override --apply removes');
+  assert.equal(ok(ctx, []), true, 'no rows at all');
 });

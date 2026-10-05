@@ -133,9 +133,12 @@ export function appliedText(u, view) {
   return `${out.join('\n')}\n`;
 }
 
-// --apply with nothing to do: the header, and the one line that says so.
-export function alreadyText(u, { branch, target, version }) {
-  return `${u.section('◇', `slipway sync on ${branch}`)}\n${u.line(`Already at ${targetName(version, target.slice(0, 12))} — nothing to apply, nothing written.`, { last: true })}\n`;
+// The project's base is the target and nothing differs: the one sentence the plan, --apply and --json's `next` all carry.
+export const alreadyLine = ({ version, target }) => `Already at ${targetName(version, target.slice(0, 12))} — nothing to apply, nothing written`;
+
+// The plan or --apply with nothing to take: the header, the remote when it has a warning, and that sentence.
+export function alreadyText(u, { branch, target, version, remote = null }) {
+  return `${[u.section('◇', `slipway sync on ${branch}`), ...remoteAndNotes(u, { remote }), u.line(`${alreadyLine({ version, target })}.`, { last: true })].join('\n')}\n`;
 }
 
 // The project's base is past the target: the one sentence the plan, --apply and --json's `next` all carry.
