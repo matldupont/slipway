@@ -97,7 +97,7 @@ const MAP_YAML = `paths:
   - glob: package.json
     class: merged
 `;
-const pkg = (scripts) => `${JSON.stringify({ name: 'create-slipway', version: '0.0.0-fixture', bin: { 'create-slipway': 'scripts/new-project.mjs' }, scripts }, null, 2)}\n`;
+const pkg = (scripts) => `${JSON.stringify({ name: 'use-slipway', version: '0.0.0-fixture', bin: { 'use-slipway': 'scripts/new-project.mjs' }, scripts }, null, 2)}\n`;
 
 // slipway: A (base) → A0 (seeded and scripts only: the same managed blobs as A, so a tie) → A1 (adds one managed
 // file, nothing else) → B (target).

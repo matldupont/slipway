@@ -443,12 +443,40 @@ test('readManifest refuses a manifest it cannot trust', () => {
 test('derivePackageJson: the project gets its own name and no command that calls an internal path', () => {
   const pkg = derivePackageJson(
     {
-      name: 'create-slipway', version: '0.1.0', description: 'x', bin: { x: 'scripts/new-project.mjs' },
+      name: 'use-slipway', version: '0.1.0', description: 'x', bin: { x: 'scripts/new-project.mjs' },
+      license: 'MIT', repository: { type: 'git', url: 'git+https://github.com/o/r.git' },
       scripts: { meta: 'node ci/checks/meta/d1-drift.mjs . && node scripts/new-project.test.mjs', dev: 'node scripts/x.mjs' },
     },
     { name: 'acme', rules },
   );
   assert.deepEqual(pkg, { name: 'acme', private: true, scripts: { meta: 'node ci/checks/meta/d1-drift.mjs .' } });
+});
+
+test('the package is use-slipway, MIT, with the one bin; LICENSE is internal; a created project carries none of it', () => {
+  const r = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts', '--offline', '--userconfig=/dev/null'], { cwd: SRC, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const pkg = JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8'));
+  assert.equal(JSON.parse(r.stdout)[0].name, 'use-slipway');
+  assert.deepEqual(pkg.bin, { 'use-slipway': 'scripts/new-project.mjs' });
+  assert.equal(pkg.license, 'MIT');
+  assert.equal(pkg.repository.url, 'git+https://github.com/matldupont/slipway.git');
+  assert.equal(classify(rules, 'LICENSE'), 'internal');
+  assert.equal(shippedPaths(SRC, rules).includes('LICENSE'), false);
+  const dest = join(tmp(), 'probe');
+  newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
+  const made = JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8'));
+  assert.equal(made.private, true);
+  for (const k of ['bin', 'version', 'license', 'repository']) assert.equal(k in made, false, k);
+  assert.equal(existsSync(join(dest, 'LICENSE')), false);
+});
+
+test('a project cannot be named sync: exit 1 naming the command, no folder created', () => {
+  const parent = tmp();
+  const dest = join(parent, 'sync');
+  const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), dest, '--no-github', '--no-harness'], { encoding: 'utf8' });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /"sync" is a use-slipway command/);
+  assert.equal(existsSync(dest), false);
 });
 
 test('.gitattributes ships as managed, under a checkout and a packed install; a CRLF re-checkout stays LF and D1-green; raw CRLF is drift', () => {

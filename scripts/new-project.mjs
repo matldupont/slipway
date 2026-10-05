@@ -7,7 +7,7 @@
 //   node scripts/new-project.mjs <dir> [--name "Acme"] [--repo owner/name] [--public]
 //                                      [--keep-email] [--no-harness] [--no-github] [--dry-run]
 //   npx github:<owner>/slipway <dir> …        once slipway is on GitHub
-//   npm create slipway@latest <dir> …         once published as create-slipway
+//   npx use-slipway <dir> …                   once published to npm
 //
 // It records what it wrote in .slipway/manifest.json: each file's class, sha256 and git blob id — sync
 // finds the slipway base by those blobs — plus package.json's version and, only from a clean slipway
@@ -39,7 +39,7 @@ import { buildManifest, derivePackageJson, gitignoreText, publicSource, resolveS
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // `sync` is its own command (F-01 step 3), dispatched here so the package's one bin runs it: the sync
 // code always comes from the slipway version being synced to. `sync --adopt` (step 5) is adopt.mjs.
-// A directory named sync: `./sync`.
+// A project cannot take that name: refused below, once the destination is known.
 if (process.argv[2] === 'sync') {
   const { main } = await import(process.argv.includes('--adopt') ? './adopt.mjs' : './sync.mjs');
   process.exit(main(process.argv.slice(3)));
@@ -70,6 +70,7 @@ if (!opts.dir) die(USAGE);
 const dest = resolve(opts.dir);
 const slug = basename(dest).toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
 const name = opts.name ?? basename(dest).replace(/[-_]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+if (basename(dest) === 'sync') die('"sync" is a use-slipway command, so a project cannot take that name — choose another folder name');
 if (dest === SRC || dest.startsWith(SRC + sep)) die(`destination ${dest} is inside slipway itself`);
 if (existsSync(dest) && readdirSync(dest).length) die(`destination ${dest} exists and is not empty`);
 
