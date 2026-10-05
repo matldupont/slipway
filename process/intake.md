@@ -117,16 +117,18 @@ The body reads as the repository's issue form would render it, so the checks tha
   contents beyond the lines a claim cites. Text quoted from elsewhere has its `@name` mentions written as
   `` `@name` ``, so nobody is notified by a copy.
 - **Last,** a designation block, per `Effort decision-tree` (default `process/designation.md`). It asks one
-  question: is there something to check the answer against?
+  question first: is there something to check the answer against? The reason cites the case number that file
+  gives the work, and any override beside it.
 
   ```markdown
   ## Recommended Mode / Model / Effort
 
-  mode: `regular` · model: `<model>` · effort: `medium` — <why, in one line: what checks the result>
+  mode: `regular` · model: `<the tier's model>` · effort: `medium` — case 4: <what checks the result, in one line>
   ```
 
   A feature-lane issue carries two lines, **Shape:** and **Build:**, since the two phases differ. With no
-  oracle (a schema others build on, a definition of "correct"), the strongest model at high effort.
+  oracle (a schema others build on, a definition of "correct"), the shaping goes to the discovery tier at high
+  effort, and the build is scored on its own case once the shaped Contract is there to check it against.
 
   With `Effort decision-tree` none, answer that question by judgment and cite nothing.
 

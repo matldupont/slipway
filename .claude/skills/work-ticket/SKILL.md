@@ -211,8 +211,8 @@ A `Head reviewed` other than `git rev-parse HEAD` saw a stale push: push, and ru
 that comes back empty-handed or short may be a declined one: run it again on another model; thin again,
 the run is STOPPED and the owner is shown why.
 
-**Model.** Both inherit the session's model, unless the diff touches checked math, auth or secrets, a schema,
-or data deletion: then the strongest model at the highest effort, for round 1 (`process/designation.md`).
+**Model.** Both inherit the session's model, unless the diff touches money or checked math, auth or secrets, concurrency, a schema,
+data integrity, or data deletion: then the strongest tier at the highest effort, for round 1 (`process/designation.md` → Review).
 
 ### Which findings count
 

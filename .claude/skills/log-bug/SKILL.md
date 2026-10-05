@@ -232,8 +232,8 @@ Review:   {PRD entry's owner message, when R1 reports it} | none
   `Breaks: #n` (the issue that promised it), `Part of: #n` for a parent, `Spec:` the doc, `Touches:` (the files the fix changes, per `process/intake.md` → Issue body), any `Decision:`,
   and `Lane:` (a fix in one layer with no new data shape is bounded, however many sites; a class across
   layers, or a new data shape, is feature).
-- The designation block. A root cause not yet found: the strongest model, `plan`, effort `high`, and say that
-  finding it is the work.
+- The designation block. A root cause not yet found: mode `plan`, case 5 of `process/designation.md`, and say
+  that finding it is the work.
 
 Title: `fix({scope}): {what breaks, in the person's words}`. Label: the bug entry of `Labels`. Milestone:
 per `Issue milestone` only.

@@ -13,9 +13,9 @@ version line still in the target.
 plan: contradictions, gaps, assumptions stated as facts, things that cannot fail. A pull request
 is reviewed by a code-review skill instead.
 
-**Designation: the strongest model available, effort high, no fan-out.** A document review has
-no oracle — there is no answer to check it against — so `process/designation.md` gives the same
-answer every time (L-31). Splitting the document across agents loses the contradictions between
+**Designation: the strongest tier, effort high, no fan-out** (`process/designation.md` → Review).
+A review checks a design, it does not originate one, and a tier other than the document's author's
+sees more (L-38). Splitting the document across agents loses the contradictions between
 its sections, which are most of what this review finds.
 
 **Run it in a session that did not write the document.** If this session drafted or edited the
