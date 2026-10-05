@@ -133,16 +133,22 @@ export function releaseTag(gitDir, version) {
 
 /**
  * The commit a package with no checkout came from (F-10, dev/features/release.md → Sync with releases):
- * `blobs` are its slipway-owned files. In order: the tag `v<version>`, taken only when that commit ships
- * exactly `blobs`; the newest exact commit on the source's default branch (the clone's HEAD); the newest on
- * any branch, for a ref off the default branch run on purpose (`npx github:…#<ref>`). `release` is true
- * only when the tag answered: any other commit carries a version without being that release.
+ * `blobs` are its managed files. In order: the tag `v<version>`, taken only when `same` says the package
+ * holds exactly what that commit ships; the newest commit on the source's default branch (the clone's HEAD)
+ * with exactly `blobs`; the newest on any branch, for a ref off the default branch run on purpose
+ * (`npx github:…#<ref>`). `release` is true only when the tag answered: any other commit carries a version
+ * without being that release.
  *
+ * The tag is held to more than `blobs`: a later commit that changed only a template or a script still
+ * carries the release's version and its managed files, and a package from it is not the release. `same`
+ * compares every file the package ships (install.mjs, shippedDiffer); without it no tag is taken.
+ *
+ * @param {{ version?: string|null, same?: ((tree: Map<string, string>) => boolean)|null }} [o]
  * @returns {{ sha: string|null, release: boolean }}
  */
-export function resolveTarget(gitDir, blobs, { version = null } = {}) {
+export function resolveTarget(gitDir, blobs, { version = null, same = null } = {}) {
   const tag = releaseTag(gitDir, version);
-  if (tag && isExact(candidate(gitDir, tag, blobs), blobs)) return { sha: tag, release: true };
+  if (tag && same && same(lsTree(gitDir, tag))) return { sha: tag, release: true };
   const sha = resolveBase(gitDir, blobs).exact ?? resolveBase(gitDir, blobs, { ref: '--branches' }).exact;
   return { sha, release: false };
 }

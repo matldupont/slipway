@@ -40,7 +40,7 @@ import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceCl
 import { BASE_WHY } from './lib/summary.mjs';
 import { alreadyText, appliedText, CONVENTIONAL, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
-import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
+import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const USAGE = 'usage: sync [--plan | --apply] [--verbose | --log | --json]   (run in the project; a project with no manifest: sync --adopt, see --adopt --help)';
@@ -247,13 +247,14 @@ function preflight(cwd) {
   const base = read(() => commitFiles(gitDir, r.exact));
   if (!base.tree.has(MAP)) base.rules = t.rules;
 
-  // The target's sha: this checkout's clean HEAD, else the commit its managed blobs came from — the release's
-  // tag, then the default branch, then any branch (lib/base.mjs, resolveTarget). The version is shown only
-  // when the target is the commit the tag `v<version>` names: any other commit is not that release.
+  // The target's sha: this checkout's clean HEAD, else the commit the package came from — the release's tag
+  // when the package holds exactly what that commit ships, then its managed blobs on the default branch, then
+  // on any branch (lib/base.mjs, resolveTarget). The version is shown only when the target is the commit the
+  // tag `v<version>` names: any other commit is not that release.
   const targetManaged = new Map(t.copy.filter((p) => classify(t.rules, p) === 'managed').map((p) => [p, blobSha(target.get(p))]));
   const version = packageVersion(target);
   const head = resolveSlipway(SRC, t.copy, { rules: t.rules }).sha;
-  const found = head ? { sha: head, release: read(() => releaseTag(gitDir, version)) === head } : read(() => resolveTarget(gitDir, targetManaged, { version }));
+  const found = head ? { sha: head, release: read(() => releaseTag(gitDir, version)) === head } : read(() => resolveTarget(gitDir, targetManaged, { version, same: (tree) => shippedDiffer(tree, SRC, t.copy, { rules: t.rules }).length === 0 }));
   const targetSha = found.sha;
   const targetVersion = found.release ? version : null;
   // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk. Without

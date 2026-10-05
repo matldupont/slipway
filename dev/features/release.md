@@ -103,7 +103,7 @@ with where it lives and what it stops:
 
 Today the plan and `--apply` are two separate runs of whatever `#main` is when each starts; neither is told the
 other's target. What keeps them consistent is that apply computes its own rows from the code it is running and
-names what it took: the branch `slipway/sync-<target sha>` (`scripts/sync.mjs:529`), the commit message
+names what it took: the branch `slipway/sync-<target sha>` (`apply` in `scripts/sync.mjs`), the commit message
 `base..target`, and the manifest's `slipway` and `version` (`nextManifest`, which already reads the target's
 `package.json`). A release that lands between the two is taken by apply, and apply says so. With releases:
 
@@ -114,22 +114,26 @@ names what it took: the branch `slipway/sync-<target sha>` (`scripts/sync.mjs:52
   target commit: any other commit (`#main`, a sha, a branch) carries a version number without being that
   release, so it reads `commit <sha>, not a release`, and `targetVersion` is `null`. `--verbose` prints the
   full sha, as it did.
-- **The target commit is the release's.** Under a registry install the package has no `.git`, and today the
-  target is the newest commit on any branch whose slipway-owned files match the package's
-  (`scripts/sync.mjs:231`, `resolveBase` with `--branches`). A match on a side branch that never merges is not an
-  ancestor of later `main`, so the project's next sync is refused. The order becomes:
+- **The target commit is the release's.** Under a registry install the package has no `.git`, and before #231
+  the target was the newest commit on any branch whose slipway-owned files match the package's
+  (`resolveBase` with `--branches`). A match on a side branch that never merges is not an
+  ancestor of later `main`, so the project's next sync is refused. The order (`resolveTarget`, `scripts/lib/base.mjs`):
   1. slipway's own clean checkout: its `HEAD`, as today;
   2. the tag `v<version>` in the source clone, taken only when the slipway-owned files of its commit equal the
-     package's exactly (a tag can move, so the content decides);
+     package's exactly (a tag can move, so the content decides). "Slipway-owned" is every file the package
+     ships to a project here, templates and `package.json` included, not only the managed class: a later
+     commit that changed only a template or a script still carries the release's version and its managed
+     files, and a package from it is not the release;
   3. the newest matching commit reachable from the source's default branch;
   4. the newest matching commit on any branch, as today: the case of a ref off the default branch run on purpose
      (`npx github:…#<ref>`).
 - **A project already past the release is told so.** When the target is a strict ancestor of the base (the
   project synced from `main` or a sha past the newest release), the plan and apply print `your project is already
   past use-slipway <version> (commit <short sha>); nothing to take` and exit 0, and nothing is written. `--json`
-  prints its document with `alreadyPast: true`, no rows, and that sentence as `next`. A target
-  that diverged from the base, or shares no history with it, keeps today's refusals (`forwardOnly`,
-  `scripts/sync.mjs:272`).
+  prints its document with `alreadyPast: true`, no rows, and that sentence as `next`. When the target is not a
+  release the sentence is `your project is already past commit <short sha>, which is not a release; nothing to
+  take`. A target that diverged from the base, or shares no history with it, keeps today's refusals
+  (`forwardOnly` in `scripts/sync.mjs`).
 - The history source is unchanged: `github:matldupont/slipway` (the manifest's `source`). The registry delivers
   the code; git still says what changed.
 
@@ -280,6 +284,12 @@ What the release defends, and against whom (a review stops here, per `process/co
   owner's choice and is reported, not overridden.
 - With no tag and no clean checkout (the GitHub form on an untagged commit), several commits can hold the same
   slipway-owned files; sync takes the newest on the default branch, as F-01 already accepts.
+- A commit after a release that changes only slipway's internal files (its own scripts, checks and planning
+  docs) ships a project the same files as the release, so a package from it is named as the release and the
+  manifest records the tag's commit: for a project the two are the same content.
+- Sync takes a tag whatever branch holds its commit. A tag off the default branch gives a manifest record the
+  next sync's walk does not reach; that sync then finds the base by content or refuses, writing nothing. The
+  release workflow's check that the tagged commit is on `main` is what keeps tags there.
 
 ## Seams
 

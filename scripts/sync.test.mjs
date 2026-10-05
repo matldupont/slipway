@@ -1883,6 +1883,39 @@ test('the tag moved to a commit whose slipway files differ from the package\'s: 
   assert.match(runFrom(from, dir, '--apply').stdout, new RegExp(`^│ {2}took commit ${B.slice(0, 7)}, not a release$`, 'm'));
 });
 
+test('the tag on A, the package from A0 — the same slipway files, another template and script: the tag is not taken, A0 is the target and the manifest\'s record, and a second --apply has nothing to do', () => {
+  const source = releaseSource((d) => git(d, 'tag', `v${VERSION}`, A));
+  assert.deepEqual(git(slip, 'diff', '--name-only', A, A0).split('\n'), ['docs/PRD.md', 'package.json'], 'the fixture: A0 changes no slipway file');
+  const from = packed(source, A0);
+  const dir = pristineFrom(source);
+  const doc = JSON.parse(runFrom(from, dir, '--json').stdout);
+  assert.deepEqual([doc.base, doc.target, doc.targetVersion, doc.alreadyPast], [A, A0, null, false]);
+  const applied = runFrom(from, dir, '--apply');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.match(applied.stdout, new RegExp(`^│ {2}took commit ${A0.slice(0, 7)}, not a release$`, 'm'));
+  assert.equal(manifestOf(dir).slipway, A0);
+  const again = runFrom(from, dir, '--apply');
+  assert.equal(again.status, 0, again.stderr);
+  assert.match(again.stdout, new RegExp(`Already at commit ${short(A0)}, not a release — nothing to apply, nothing written`));
+  // The package the tag does name is still the release.
+  assert.equal(JSON.parse(runFrom(packed(source, A), pristineFrom(source), '--json').stdout).alreadyPast, false);
+  assert.match(runFrom(packed(source, A), pristineFrom(source), '--apply').stdout, new RegExp(`Already at use-slipway ${VERSION}, commit ${short(A)} `));
+});
+
+test('a clean slipway checkout names its release only when the tag v<version> in the source names its HEAD', () => {
+  const tagged = releaseSource((d) => git(d, 'tag', `v${VERSION}`, B));
+  const doc = JSON.parse(runFrom(tagged, pristineFrom(tagged), '--json').stdout);
+  assert.deepEqual([doc.target, doc.targetVersion], [B, VERSION]);
+  let head;
+  const ahead = releaseSource((d) => {
+    git(d, 'tag', `v${VERSION}`, B);
+    head = commitLater(d, 'docs: after the release');
+  });
+  const after = JSON.parse(runFrom(ahead, pristineFrom(ahead), '--json').stdout);
+  assert.deepEqual([after.target, after.targetVersion], [head, null]);
+  assert.match(runFrom(ahead, pristineFrom(ahead), '--verbose').stdout, new RegExp(`^ {2}target: commit ${head}, not a release$`, 'm'));
+});
+
 test('a newer matching commit on a side branch and an older one on the default branch, no tag: the target is the default branch\'s; a package that matches a side branch alone still finds it', () => {
   let side, own;
   const source = releaseSource((d) => {
