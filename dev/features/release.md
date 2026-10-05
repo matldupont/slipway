@@ -162,9 +162,10 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
+          persist-credentials: false
       - name: The tagged commit is on main
         run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -184,6 +185,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24.21.0 # bundles npm 11.19.0; staging needs 11.15.0 or later
@@ -215,6 +217,8 @@ Rules the file keeps:
 6. The exact Node version is pinned in `publish` (24.21.0 bundles npm 11.19.0), so the bundled npm does not
    drift; staging needs npm 11.15.0 or later. The job never upgrades npm in place.
 7. One `concurrency` group, nothing cancelled: two tags cannot stage at once.
+8. Neither checkout leaves GitHub's token in `.git/config` (`persist-credentials: false`): nothing after it needs git's
+   credentials.
 
 `scripts/release.mjs` holds the logic, with a test, so none of it is inline shell:
 
@@ -224,7 +228,12 @@ Rules the file keeps:
   stdout. Success prints one line: `label=next` when the version has a pre-release part, else `label=latest`.
 - `release.mjs --summary`: reads `npm pack --dry-run --json` on stdin and prints the package name, version,
   integrity hash, shasum, file count and file list as markdown. Unreadable input exits 1.
-- Node stdlib only (D-004). `scripts/release.test.mjs` is on the `meta` line of `package.json` (W1 requires it).
+- Node stdlib only (D-004), and it imports no file of the repository: the `publish` job runs this one file. Its
+  one-line text cleaner is a copy of the idea in `scripts/lib/ui.mjs` for that reason, and also drops bidi and
+  zero-width characters. `scripts/release.test.mjs` is on the `meta` line of `package.json` (W1 requires it).
+- `scripts/release.test.mjs` also requires `ci.yml` itself to run `pnpm meta` after N1 on pull requests and on
+  `main`: W1 reads every workflow whatever starts it, so `release.yml`'s own `pnpm meta` would otherwise satisfy it
+  with that step gone from `ci.yml`. The assertion goes when W1 counts only pull-request and branch workflows.
 
 ### Owner steps (outside the repository; a session never does these)
 
@@ -275,6 +284,11 @@ What the release defends, and against whom (a review stops here, per `process/co
   `0.0.0-stage` placeholder for new packages touches the existing `0.0.0`; whether a staged package shows its
   provenance before approval. Nothing reads `latest` until the cutover, so a wrong label on the pre-release
   costs nothing.
+- Also for the `0.1.0-rc.1` run: `actions/setup-node` with `registry-url` writes an `.npmrc` that names
+  `NODE_AUTH_TOKEN`, which this workflow never sets. If npm reads the unset variable before trying its OIDC
+  identity, the stage fails and nothing is staged; no secret is involved either way.
+- The summary step is a pipe, and the shell reports only its last command: a failed `npm pack` fails the step
+  because `release.mjs --summary` refuses input that is not npm's list.
 - The settings in the owner steps live on npmjs.com and GitHub; no file in the repository can enforce or check
   them. A release with one missing is still held by the others.
 - A hostile run prints its own summary, so the summary only proves anything for a run of the workflow as `main`
@@ -439,4 +453,4 @@ own case (`process/designation.md`).
 ## Changes
 
 - 2026-10-05 · ADDED · the feature doc and D-027 · #91
-- 2026-10-05 · MODIFIED · the workflow block is the file as written: actions pinned by commit sha, job comments on their own lines · #232
+- 2026-10-05 · MODIFIED · the workflow block is the file as written: actions pinned by commit sha, job comments on their own lines, no token left by checkout; `release.mjs` imports no repository file · #232

@@ -11,26 +11,32 @@
 // Any failure exits 1 with its reason on stderr and nothing on stdout: stdout goes to $GITHUB_OUTPUT and
 // $GITHUB_STEP_SUMMARY. package.json is the one beside this folder, never the working directory's. These guard
 // the owner's mistakes; they are not security controls: a run that edits this file removes them.
+//
+// It imports nothing but node: built-ins, on purpose: the job that holds the publishing identity runs this one
+// file of the repository and no other (scripts/release.test.mjs holds that).
 
 import { spawnSync } from 'node:child_process';
 import { readFileSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { oneLine } from './lib/ui.mjs';
 
 export const NPM_MIN = '11.15.0';
 const TAG = /^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
 const PLAIN = /^(\d+)\.(\d+)\.(\d+)$/;
+// Text headed to a job summary, on one line: no control character, and none that reorders or hides text (bidi
+// and zero-width formats, line and paragraph separators). scripts/lib/ui.mjs has `oneLine` for a terminal; it is
+// not imported, see above.
+const oneLine = (text) => String(text).replace(/[\n\t\u2028\u2029]+/g, ' ').replace(/[\p{Cc}\p{Cf}]/gu, '');
 // A value as it was given, on one line: a tag can hold a line break.
 const shown = (v) => JSON.stringify(v) ?? String(v);
 
 // 'latest' or 'next' for a release of `version` tagged `tag`, staged by npm `npmVersion`. Throws otherwise.
 export function label(tag, version, npmVersion) {
   const both = `the tag is ${shown(tag)} and package.json's version is ${shown(version)}`;
-  if (typeof tag !== 'string' || !TAG.test(tag)) {
+  if (!TAG.test(tag)) {
     throw new Error(`${both}: a release tag is v<MAJOR>.<MINOR>.<PATCH> with an optional -pre part of letters, digits, . and -, and nothing else`);
   }
-  if (tag !== `v${version}`) throw new Error(`${both}: the tag must be v + that version — set the version in a pull request first, then tag its merge commit`);
+  if (typeof version !== 'string' || tag !== `v${version}`) throw new Error(`${both}: the tag must be v + that version — set the version in a pull request first, then tag its merge commit`);
   const found = PLAIN.exec(typeof npmVersion === 'string' ? npmVersion : '');
   if (!found) throw new Error(`staging needs npm ${NPM_MIN} or later, and npm's version reads as ${shown(npmVersion)}`);
   const min = PLAIN.exec(NPM_MIN);
@@ -71,7 +77,7 @@ function main(args) {
   try {
     version = JSON.parse(readFileSync(manifest, 'utf8')).version;
   } catch (e) {
-    throw new Error(`the tag is ${shown(args[0])}, and package.json's version cannot be read (${e.code ?? e.message})`);
+    throw new Error(`the tag is ${shown(args[0])}, and package.json's version cannot be read (${shown(e.code ?? e.message)})`);
   }
   const npm = spawnSync('npm', ['--version'], { encoding: 'utf8' });
   const npmVersion = npm.error || npm.status !== 0 ? `nothing (${npm.error?.code ?? `npm exited ${npm.status}`})` : npm.stdout.trim();
