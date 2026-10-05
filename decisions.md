@@ -272,6 +272,35 @@ those projects keep a dated exception per package. Declined: keeping an exceptio
 excuses, or the check dropped), a separate owner-written list of hosts (a second place to keep in step with
 `.npmrc`), and trusting any `https` host. #147.
 
+## D-027 — Slipway is released from version tags, staged by CI and approved by the owner at npm *(decided 2026-10-05)*
+
+Slipway is published to npm as `use-slipway`, under the MIT licence. A release is a pull request that sets
+`package.json`'s `version`, merged to `main`; then the tag `v<version>`, pushed by the owner on that merge commit;
+then the owner's approval. CI does not publish: on the tag it stages the package with npm trusted publishing (no
+token exists, in the repository or anywhere), and the package becomes public only when the owner approves that
+exact package at npm with their second factor. Nothing else releases: not a merge, not a schedule, not a local
+machine, not a session. Versions are semantic: below 1.0 a breaking change to what a project receives or to a
+command raises the minor number, anything else the patch number. A version with a pre-release part (`0.2.0-rc.1`)
+goes out under the npm label `next`, never `latest`. A project's `use-slipway` script runs `use-slipway@latest`,
+so it takes the newest release each time it syncs; to pin one, the owner edits that line to `use-slipway@0.3.0`,
+and sync reports the edited line instead of overwriting it. A published version is never replaced: a fix is the
+next version.
+
+Why: until now every project took whatever `main` was that minute, so there was nothing to pin, announce or roll
+back to. npm matches a trusted publisher on the repository and the workflow's file name, not on the ref or the
+file's content, so checks inside the workflow guard against mistakes only; an approval of the package itself, with
+a factor no session holds, is the one gate that binds what is published. Consequences: `release.yml` is slipway's
+own (internal, never shipped) and owner-only gate code, in two jobs so that tested code never holds the publishing
+identity. The owner, outside the repository: links `use-slipway` to the workflow as a stage-only publisher under an
+environment `npm` limited to `v*` tags, sets the package to require two-factor authentication and disallow tokens,
+adds a rule that only they create `v*` tags, pushes each tag and approves each staged package. The first versions
+are `0.1.0-rc.1` and `0.1.0`, above the placeholder `0.0.0`. Spec: `dev/features/release.md` (F-10); #91.
+
+Declined: publishing directly from CI after an approval click on the GitHub run (the click comes before the
+package exists, so it does not bind it), a project script pinned to the version the last sync wrote (it would run
+the old code to do the sync, so it never moves forward), calendar versions (no signal for a breaking change),
+publishing on every merge (a release nobody chose), a scoped package or organisation, a second `create-slipway`
+bin, and a `prepublishOnly` guard (package scripts are merged into every project, where it would block theirs).
 
 ## Week 1 — decide before M1 closes
 
