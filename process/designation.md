@@ -7,19 +7,20 @@ Read at intake (every issue's designation line) and by whoever launches the work
 
 | | examples | allocate |
 |---|---|---|
-| **An oracle exists** | most implementation work with tests; an inventory, audit, validation sweep, options memo or parity check | Work a case below names: that case picks the tier. A report no case names: the strongest tier, told to compute, not to analyse. Both: fan-out where breadth matters, mechanical verification, and one fresh-context reviewer |
+| **An oracle exists** | most implementation work with tests; an inventory, audit, validation sweep, options memo or parity check | Discovery work: the strongest tier, told to compute, not to analyse. All other work: the case below picks the tier. Both: fan-out where breadth matters, mechanical verification, and one fresh-context reviewer |
 | **No oracle** | a schema other work is built on, a set of principles, a definition of "correct" | the discovery tier at `high`, no fan-out. A reviewer can critique the design you wrote; it cannot supply the one you never considered |
 
-Whether the deliverable is a document or a diff does not answer that question. Discovery work (a report, a map,
-a spec, a ranked list) has no rule of its own: the table is its rule. The cases and overrides below score only
-work that has an oracle, design work included: there the system's tests and invariants check the answer.
+Whether the deliverable is a document or a diff does not answer that question. Ask next whether it is
+**discovery work**: work whose findings become issues (an inventory, an audit, a sweep, a parity check), or the
+shaping of something with no oracle that other work is built on. The table is its only rule, and the cases never
+score it. A triage, a classification or a short summary is used as it is and nothing is built on it: that is
+case 1. All other work has an oracle, design inside a system whose tests and invariants check it included.
 
 The discovery tier lands no code. So work with no oracle is two pieces: the shaping, on the discovery tier, and
-the build, scored on the cases below with the shaped Contract as its oracle. A feature-lane issue's **Shape:**
-and **Build:** lines are those two pieces. Each finding of a report becomes an issue scored the same way.
-One exception: a question of security or trust with no oracle (what hostile input can do, what a project cannot
-fake) goes to the strongest tier · `high` · `plan`, which shapes it and builds it. The discovery tier is not
-used for security work.
+the build, scored on a case with the shaped Contract as its oracle: a feature-lane issue's **Shape:** and
+**Build:** lines. Each finding becomes an issue scored the same way. One exception: security or trust design
+with no oracle (what hostile input can do, what a project cannot fake) goes to the strongest tier · `high` ·
+`plan`, which shapes it and builds it. The discovery tier is not used for security work.
 
 ## Models
 
@@ -41,8 +42,8 @@ the premise is wrong: the strongest tier, from `medium`, since judgment buys a b
 
 ## Cases
 
-Take the first case that fits, or case 5 when none does, and cite its number in the issue's line. The numbers
-are the owner's and never move, so a number on an old issue still means the same thing.
+Work that is not discovery work takes the first case that fits, or case 5 when none does, and its issue's line
+cites the number. The numbers are the owner's and never move: a number on an old issue means what it meant.
 
 | # | the work | tier · effort |
 |---|---|---|
@@ -64,16 +65,15 @@ Applied after the case, and cited beside its number.
   missing context, the work belongs to the next tier: strongest · `medium`.
 - **The surfaces Review names are case 5 at least,** whatever the size of the diff.
 - **A long unattended run is case 6,** however simple each step looks: nobody is there to catch drift.
-- **A large initiative is framed on the strongest tier,** which sets its invariants. Its sub-issues are scored on
-  their own, and most land on the standard tier.
+- **A large initiative is framed on the strongest tier.** Its sub-issues are scored on their own, and most land
+  on the standard tier.
 
 ## Mode
 
-Separate from model and effort. `plan`: something has to be found out before any change. The root cause is
-unclear, the design needs judgment, or the change reaches several areas. `regular`: the cause is named, the
-change is surgical and its reach is bounded. Cases 1 to 4 default to `regular`; cases 5 to 7, unclear
-requirements and an unknown root cause default to `plan`. Work whose deliverable is a report is `regular`:
-`plan` gates edits, and a report edits no product code.
+Separate from model and effort. `plan`: something has to be found out before any change (an unclear root
+cause, a design that needs judgment, a change that reaches several areas). `regular`: the cause is named and the
+change is surgical and bounded. Cases 1 to 4 default to `regular`; cases 5 to 7, unclear requirements and an
+unknown root cause to `plan`. Discovery work is `regular`: `plan` gates edits, and it edits no product code.
 
 ## Review
 

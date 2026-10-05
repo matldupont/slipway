@@ -118,8 +118,8 @@ The body reads as the repository's issue form would render it, so the checks tha
   `` `@name` ``, so nobody is notified by a copy.
 - **Last,** a designation block, per `Effort decision-tree` (default `process/designation.md`). It asks one
   question first: is there something to check the answer against? The reason cites the case number that file
-  gives the work, and any override beside it; where its first table decides without a case, the reason says
-  which row (`no oracle`, or a report with one).
+  gives the work, and any override beside it. Only discovery work has no case number: its reason says
+  `discovery work, with an oracle` or `discovery work, no oracle` instead (`no oracle` on a **Shape:** line).
 
   ```markdown
   ## Recommended Mode / Model / Effort
