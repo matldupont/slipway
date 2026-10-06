@@ -74,28 +74,54 @@ const LEAVES = new RegExp(`\\bleaves\\s{1,5}${REPO}#(\\d{1,20})\\s{1,5}open\\b`,
 const stated = (md) => md.replace(/<!--[\s\S]*?-->/g, '');
 const written = (md) => prose(md).split(/\r?\n/).filter((l) => !/^(?: {4}|\t)/.test(l)).join('\n').replace(/`[^`\n]*`/g, ' ');
 
-// `## Follow-ups` against the rest of the body (#242), read from `written` so a code span, a fence or a comment
-// answers and triggers nothing. Headings are not prose: the template's own `## Follow-ups` line is not a mention.
-const FOLLOW_UP = /follow[-\s]?ups?\b/i;
+// `## Follow-ups` against the rest of the body (#242). Read from the prose with fences, comments and inline code taken
+// out (so a quoted title or example answers and triggers nothing), indented lines kept: a nested bullet is prose.
+// Headings are not prose: the template's own `## Follow-ups` line is not a mention. "no follow-ups" and the skill's
+// own `/log-followup` are not a mention either.
+const FOLLOW_UP = /(?<![\w/-])follow[-\s]?ups?\b/i;
+const DENIED = /\b(?:no|zero|without|none)\s+follow[-\s]?ups?\b/gi;
 const NONE = /^(?:[-*+]\s+)?none\b/i;
-const ITEM = /^(?: {0,3})(?:[-*+]|\d{1,9}[.)])\s/;
+const ITEM = /^ {0,3}(?:[-*+]|\d{1,9}[.)])\s/;
 const HEADING = /^ {0,3}#{1,6}(?:\s|$)/;
-const entriesOf = (text) => {
-  const lines = text.split('\n').filter((l) => l.trim());
+const FOLLOW_HEADING = /^##[^\S\n]+Follow-ups[^\S\n]*$/i;
+const ENDS = /^ {0,3}#{1,2}(?:\s|$)/;
+const seen = (md) => prose(md).replace(/\r\n?/g, '\n').replace(/`[^`\n]*`/g, ' ');
+// The entries of one section: its list items, or its blank-line-separated paragraphs when it has none; a heading
+// inside it is not an entry, and prose after a leading "none" elaborates it.
+const entriesOf = (lines) => {
+  const body = lines.filter((l) => l.trim() && !HEADING.test(l));
+  const hasItem = body.some((l) => ITEM.test(l));
   const items = [];
+  if (hasItem) {
+    for (const l of body) {
+      if (ITEM.test(l) || !items.length) items.push(l.trim());
+      else items[items.length - 1] += ` ${l.trim()}`;
+    }
+    return items;
+  }
+  let gap = true;
   for (const l of lines) {
-    if (ITEM.test(l) || !items.length || !lines.some((x) => ITEM.test(x))) items.push(l.trim());
+    if (!l.trim()) gap = true;
+    else if (HEADING.test(l)) gap = true;
+    else if (gap || !items.length) { items.push(l.trim()); gap = false; }
     else items[items.length - 1] += ` ${l.trim()}`;
   }
-  return items;
+  return NONE.test(items[0] ?? '') ? items.slice(0, 1) : items;
 };
+// Every `## Follow-ups` section, not only the first: { sections: [entries], outside: [lines] }, null with none.
 const followUps = (md) => {
-  const text = written(md).replace(/\r\n?/g, '\n');
-  const at = /^##[^\S\n]+Follow-ups[^\S\n]*$/im.exec(text);
-  if (!at) return null;
-  const rest = text.slice(at.index + at[0].length + 1);
-  const own = strictSection(text, 'Follow-ups', 2) ?? '';
-  return { own: entriesOf(own), outside: `${text.slice(0, at.index)}\n${rest.slice(own.length + 1)}` };
+  const lines = seen(md).split('\n');
+  const sections = [];
+  const outside = [];
+  let into = null;
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const setext = into && into.length && /^(?:=+|-+)$/.test(l.replace(/\s+/g, '')) && into.length > 1;
+    if (FOLLOW_HEADING.test(l)) { into = []; sections.push(into); continue; }
+    if (into && (ENDS.test(l) || setext)) into = null;
+    (into ?? outside).push(l);
+  }
+  return sections.length ? { sections: sections.map(entriesOf), outside } : null;
 };
 
 const dir = process.argv[2] ?? '.';
@@ -174,12 +200,12 @@ for (const f of bodies) {
   }
   const fu = followUps(md);
   if (fu) {
-    const mentions = fu.outside.split('\n').filter((l) => !HEADING.test(l) && FOLLOW_UP.test(l));
-    if (fu.own.length === 1 && NONE.test(fu.own[0]) && mentions.length) {
+    const mentions = fu.outside.filter((l) => !HEADING.test(l) && FOLLOW_UP.test(l.replace(DENIED, ' ')));
+    if (fu.sections.every((e) => e.length === 1 && NONE.test(e[0])) && mentions.length) {
       findings.push({ where: `${f}#followups/none-contradicted`, detail: `\`## Follow-ups\` says none, and another section says "${mentions[0].trim().slice(0, 80)}": work deferred in a sentence has no issue. List it under Follow-ups as \`#n — title\` (\`/log-followup\`), or \`not filed: {why}\`, or take the word out of the other section` });
     }
-    fu.own.forEach((e, i) => {
-      if (!NONE.test(e) && !/#\d/.test(e) && !/\bnot filed:\s*\S/i.test(e)) {
+    fu.sections.flat().forEach((e, i) => {
+      if (!NONE.test(e) && !/#\d/.test(e) && !/\/(?:issues|pull)\/\d/.test(e) && !/\bnot filed:\s*\S/i.test(e)) {
         findings.push({ where: `${f}#followups/entry-unreferenced:${i + 1}`, detail: `Follow-ups entry ${i + 1} ("${e.slice(0, 60)}") has no issue reference and no \`not filed: {why}\`; file it with \`/log-followup\` and write \`#n — title\`, or say why none was filed` });
       }
     });
