@@ -302,6 +302,25 @@ the old code to do the sync, so it never moves forward), calendar versions (no s
 publishing on every merge (a release nobody chose), a scoped package or organisation, a second `create-slipway`
 bin, and a `prepublishOnly` guard (package scripts are merged into every project, where it would block theirs).
 
+## D-028 — A cold review is required on four surfaces; the reviewing-tier list stays wider *(decided 2026-10-06)*
+
+A cold review is required before merge on a change touching money, auth, schema or data deletion, and
+`process/cold-review.md` → When is the one place that says so: every other file points at it or repeats those
+words exactly. The wider list in `process/designation.md` → Review (money or checked math, auth or secrets,
+concurrency, a schema, data integrity, data deletion) only picks the tier that reviews once a review runs. The two
+lists differ on purpose.
+
+Why: the two lists cost different things. A wider tier list costs a stronger model on a review that already runs.
+A wider required list costs a second review, and "concurrency" and "data integrity" have no edge a reader can
+check: most changes that store anything touch one of them, so the rule would mean every change, and a rule that
+means every change is read as none. `/work-ticket` already runs a cold review on each pull request it opens, so
+the required list matters for changes made by hand, where four surfaces a person can recognise serve better
+than six they have to argue about. Which of a project's own surfaces count as data integrity stays in its
+`Domain invariants doc`. #229.
+
+Declined: requiring a cold review on concurrency and data integrity as well (more second reviews, on a trigger
+nobody can test), and narrowing the reviewing-tier list to the four (a stronger reviewer there is cheap).
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
