@@ -274,7 +274,7 @@ Only after CLEAN, with nothing committed since the last verified head. Rewrite `
 - `## Reuse`, `## Tests`, `## Manual testing`: Phase 2's list; the layers added; the journey, or N/A and why.
 - `## Cold review`: who reviewed, the head each round saw, each finding with `file:line` and what became of it (a
   security finding not fixed here: its count and tracker only), and the verdict (`process/cold-review.md` → How).
-- `## Follow-ups`: `#n — title` for each, or none.
+- `## Follow-ups`: `#n — title` for each, or none. Anything the body calls a follow-up, in any section, is listed here as `#n — title` or `not filed: {why}`; P1 reports "none" beside a follow-up said elsewhere, and an entry with neither.
 - `## Links`: `Closes #n` or `Part of #n`, and the parent; a check left for after merge: `process/intake.md` → Deferred check. `Part of` with nothing closed: the body says what it leaves open, and why.
 
 ```bash
