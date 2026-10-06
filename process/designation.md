@@ -79,8 +79,9 @@ unknown root cause to `plan`. Discovery work is `regular`: `plan` gates edits, a
 
 Tiered by what the diff touches, not by how hard it was to write. Two questions, each answered once.
 
-- **Is a cold review required?** `process/cold-review.md` → When says. Independent review pays best on the claims
-  the author was most confident about (L-38).
+- **Is a cold review required?** `process/cold-review.md` → When says; independent review pays best where the
+  author was most confident (L-38). The list below is wider on purpose (D-028): it only picks a tier, and requiring
+  a review for concurrency or data integrity would require one on most changes that store anything.
 - **Which tier reviews?** A routine review, on every PR: the standard tier. A skill that runs the review on the
   session's model does not go below it. A diff that touches money or checked math, auth or secrets, concurrency,
   a schema, data integrity, or data deletion: the strongest tier. Which of a project's own surfaces count is
