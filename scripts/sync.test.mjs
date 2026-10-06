@@ -8,8 +8,8 @@
 // created from the base. `source` is that local slipway, so nothing reaches a network.
 
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, chmodSync, copyFileSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
+import { closeSync, existsSync, chmodSync, copyFileSync, lstatSync, openSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -152,6 +152,11 @@ const np = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs')
   env: { ...process.env, SLIPWAY_SOURCE: slip },
 });
 assert.equal(np.status, 0, `new-project failed:\n${np.stdout}\n${np.stderr}`);
+// The bin must end on its own (#245: it sets its exit code and no longer forces the exit). Checked here, with a
+// timeout, before anything else runs sync: the calls below have none, so a bin that stays open would stall this
+// file instead of failing it.
+const ends = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--help'], { encoding: 'utf8', timeout: 30_000 });
+assert.deepEqual([ends.error, ends.status], [undefined, 0], `the bin did not end on its own after sync --help: ${ends.error}`);
 git(slip, 'checkout', '-q', 'main');
 const baseManifest = JSON.parse(readFileSync(join(base, MANIFEST), 'utf8'));
 assert.equal(baseManifest.slipway, A);
@@ -2027,4 +2032,94 @@ test('releaseTag: only the tag refs/tags/v<version> answers, and only for a vers
   for (const v of ['not-a-version', '1.0', '9.9.9', '0.0.1', `${VERSION}^{tree}`, '../heads/main', '--all', '', null, undefined, 1]) {
     assert.equal(releaseTag(gitDir, v), null, String(v));
   }
+});
+
+// ---- a whole plan through a pipe (#245)
+
+// A slipway of 1800 managed files, a project made from it, then slipway ahead by one changed file and three
+// commits with very long subjects: the plan is longer than a pipe's 65,536 bytes in every form sync prints.
+const BIG = 65_536;
+const bigSlip = join(root, 'slipway-big');
+mkdirSync(bigSlip);
+git(bigSlip, 'init', '-q', '-b', 'main');
+copyCode(bigSlip);
+put(bigSlip, {
+  'dev/ownership.yaml': MAP_YAML,
+  '.gitignore': 'node_modules/\n',
+  'README.md': '# slipway\n',
+  'package.json': pkg({ a: 'echo a' }),
+  ...Object.fromEntries(Array.from({ length: 1800 }, (_, i) => [`process/big/f${String(i).padStart(4, '0')}.md`, `file ${i}\n`])),
+});
+commit(bigSlip, 'big: 1800 managed files');
+const bigProject = join(root, 'project-big');
+{
+  const r = spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), bigProject, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: bigSlip } });
+  assert.equal(r.status, 0, `new-project failed:\n${r.stdout}\n${r.stderr}`);
+}
+put(bigSlip, { 'process/big/f0000.md': 'file 0, changed\n' });
+commit(bigSlip, 'fix(big): one file changed');
+for (const c of 'abc') git(bigSlip, 'commit', '-q', '--allow-empty', '-m', `feat(big): ${c.repeat(25_000)}`);
+// The bin's output through a pipe, and the same command written to a file: what a pipe reader receives
+// must be what the file holds. A timeout, so a process that no longer ends shows as a failing case.
+const piped = (dir, ...args) => spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'buffer', timeout: 30_000 });
+function toFile(dir, ...args) {
+  const file = join(root, `plan-${++n}.out`);
+  const fd = openSync(file, 'w');
+  const r = spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, stdio: ['ignore', fd, 'pipe'], timeout: 30_000 });
+  closeSync(fd);
+  assert.equal(r.status, 0, String(r.stderr));
+  return readFileSync(file);
+}
+
+test('a plan longer than a pipe takes at once arrives whole through the bin: --json, --verbose and --log are what the same command writes to a file', () => {
+  for (const flag of ['--json', '--verbose', '--log']) {
+    const dir = join(root, `project-${++n}`);
+    git(root, 'clone', '-q', bigProject, dir);
+    const file = toFile(dir, flag);
+    const r = piped(dir, flag);
+    assert.equal(r.error, undefined, `sync ${flag} did not end: ${r.error}`);
+    assert.equal(r.status, 0, String(r.stderr));
+    assert.ok(file.length > BIG, `${flag}: the plan is only ${file.length} bytes, so it proves nothing about the pipe`);
+    assert.equal(r.stdout.length, file.length, `${flag}: ${r.stdout.length} bytes through the pipe, ${file.length} in the file`);
+    assert.ok(r.stdout.equals(file), `${flag}: the pipe and the file differ`);
+    if (flag === '--json') assert.ok(JSON.parse(r.stdout.toString('utf8')).rows.length >= 1800, '--json parses, with every row');
+  }
+});
+
+test('the bin ends on its own whatever it printed: a plan, a refusal (stderr) and --apply each end with their exit code, through pipes', () => {
+  const dir = join(root, `project-${++n}`);
+  git(root, 'clone', '-q', bigProject, dir);
+  const plan = piped(dir);
+  assert.deepEqual([plan.error, plan.status], [undefined, 0]);
+  put(dir, { 'process/dirty.md': 'untracked\n' });
+  const refusal = piped(dir, '--json');
+  assert.deepEqual([refusal.error, refusal.status, refusal.stdout.length], [undefined, 1, 0]);
+  assert.match(refusal.stderr.toString('utf8'), /^sync: the working tree is not clean/);
+  rmSync(join(dir, 'process/dirty.md'));
+  const applied = piped(dir, '--apply');
+  assert.deepEqual([applied.error, applied.status], [undefined, 0], String(applied.stderr));
+  assert.match(git(dir, 'rev-parse', '--abbrev-ref', 'HEAD'), /^slipway\/sync-/);
+});
+
+test('the bin does not exit the process under the output it just wrote', () => {
+  assert.doesNotMatch(readFileSync(join(SRC, 'scripts', 'new-project.mjs'), 'utf8'), /process\.exit\(main\(/);
+});
+
+// The bin with a stdout whose reader has gone before anything is written, as `sync … | head` leaves it: the
+// exit code, the signal (the timeout's, when the process did not end) and what reached stderr.
+function readerGone(...args) {
+  return new Promise((done) => {
+    const child = spawn(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30_000 });
+    child.stdout.destroy();
+    let stderr = '';
+    child.stderr.setEncoding('utf8').on('data', (d) => { stderr += d; });
+    child.on('close', (code, signal) => done({ code, signal, stderr }));
+  });
+}
+
+test('a reader that closes early is not an error: sync --help into a closed pipe ends with exit 0 and nothing on stderr, and a refusal still exits 1 with its message', async () => {
+  assert.deepEqual(await readerGone('--help'), { code: 0, signal: null, stderr: '' });
+  const refusal = await readerGone('--bogus');
+  assert.deepEqual([refusal.code, refusal.signal], [1, null]);
+  assert.match(refusal.stderr, /^sync: unknown argument --bogus\n/);
 });
