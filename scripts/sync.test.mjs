@@ -22,7 +22,7 @@ import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
-import { KINDS, checkWrites, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
+import { KINDS, checkWrites, nothingToTake, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -1345,8 +1345,8 @@ test('--json: one schema-1 document with every row --verbose counts and every no
   assert.equal(treeHash(dir), before, 'sync --json wrote to the project');
 
   assert.equal(doc.schema, 1);
-  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'targetVersion', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'skillChanged', 'alreadyPast', 'next']);
-  assert.deepEqual([doc.targetVersion, doc.alreadyPast], [null, false], 'a commit no release tag names, newer than the base');
+  assert.deepEqual(Object.keys(doc), ['schema', 'branch', 'source', 'base', 'target', 'targetVersion', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'skillChanged', 'alreadyPast', 'nothingToTake', 'next']);
+  assert.deepEqual([doc.targetVersion, doc.alreadyPast, doc.nothingToTake], [null, false, false], 'a commit no release tag names, newer than the base');
   assert.deepEqual([doc.branch, doc.source, doc.base, doc.target, doc.notes], ['main', jsonSlip, A, jsonTarget, []]);
   assert.equal(doc.remote, null, 'level with its upstream: the text plan prints no remote line');
   const lone = jsonProject((d) => git(d, 'branch', '--unset-upstream'));
@@ -2174,4 +2174,224 @@ test('a reader that closes early is not an error: sync --help into a closed pipe
   const refusal = await readerGone('--bogus');
   assert.deepEqual([refusal.code, refusal.signal], [1, null]);
   assert.match(refusal.stderr, /^sync: unknown argument --bogus\n/);
+});
+
+// ---- nothing to take (#247): one rule for the plan, --json and --apply. One case per line of the design on the issue.
+
+const alreadyAt = (version, sha) => `└  Already at ${version ? `use-slipway ${version}, commit ${short(sha)}` : `commit ${short(sha)}, not a release`} — nothing to apply, nothing written.`;
+// Merge the sync branch --apply left, as the owner does, and return to main.
+function mergeSync(dir) {
+  const branch = git(dir, 'branch', '--show-current');
+  assert.match(branch, /^slipway\/sync-/);
+  git(dir, 'switch', '-q', 'main');
+  git(dir, 'merge', '-q', '--ff-only', branch);
+  git(dir, 'branch', '-q', '-D', branch);
+}
+// Rewrite the project's manifest and commit it: the tree stays clean.
+function setManifest(dir, edit) {
+  const m = manifestOf(dir);
+  edit(m);
+  put(dir, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+  commit(dir, 'the manifest, edited');
+  return dir;
+}
+// A project holding B's files that records no commit, as one created from a registry copy does.
+const unrecordedAtB = (source) => setManifest(projectAtB(source), (m) => { m.slipway = null; });
+// Every form of the command answers "Already at", names no --apply, and leaves every byte and branch as it was.
+function assertAlready(from, dir, last, { owed = 0 } = {}) {
+  const before = treeHash(dir);
+  for (const args of [[], ['--plan'], ['--verbose'], ['--apply'], ['--apply', '--verbose']]) {
+    const r = runFrom(from, dir, ...args);
+    assert.equal(r.status, 0, `sync ${args.join(' ')}: ${r.stderr}`);
+    assert.equal(r.stderr, '');
+    assert.equal(lines(r.stdout).at(-1), last, `sync ${args.join(' ')}`);
+    assert.doesNotMatch(r.stdout, /Next:|--apply|already past/, `sync ${args.join(' ')}`);
+    assert.equal((r.stdout.match(/Needs you by hand \((\d+)\)/) ?? [0, 0])[1] | 0, owed, `sync ${args.join(' ')}`);
+  }
+  const j = runFrom(from, dir, '--json');
+  assert.equal(j.status, 0, j.stderr);
+  const doc = JSON.parse(j.stdout);
+  assert.deepEqual([doc.nothingToTake, doc.alreadyPast, `└  ${doc.next}`, doc.needsYou.length], [true, false, last, owed]);
+  assert.equal(treeHash(dir), before, 'sync wrote to a project with nothing to take');
+  assert.equal(branches(dir), 'main');
+  return doc;
+}
+
+test('case 1 — no commit recorded, the base found by content is the target, every file unchanged: the plan, --json and --apply say "Already at", name no --apply and write nothing', () => {
+  const source = releaseSource((d) => git(d, 'tag', `v${VERSION}`, B));
+  const dir = unrecordedAtB(source);
+  const doc = assertAlready(packed(source, B), dir, alreadyAt(VERSION, B));
+  assert.deepEqual([doc.base, doc.target, doc.targetVersion], [B, B, VERSION]);
+  assert.deepEqual([...new Set(doc.rows.map((r) => r.kind))], ['unchanged'], 'the rows stay as computed');
+  assert.equal(manifestOf(dir).slipway, null, 'the commit is recorded by the first sync that has something to apply');
+  // The remote line is printed, as the plan prints it: a branch behind its remote plans against the wrong tree.
+  git(dir, 'branch', '--unset-upstream');
+  for (const args of [[], ['--apply']]) assert.equal(remoteLine(runFrom(packed(source, B), dir, ...args).stdout), 'not checked — main has no upstream', `sync ${args.join(' ')}`);
+});
+
+// What main (31adb3a) does with one key of the manifest wrong and everything else at the target; the rule
+// changes none of it. A key the manifest writer gains has no row here, and the test says so.
+const WRONG = {
+  slipway: [(m) => { m.slipway = A; }, 'corrected'],
+  version: [(m) => { m.version = '9.9.9'; }, 'corrected'],
+  source: [(m, other) => { m.source = other; }, 'carried'],
+  answers: [(m) => { m.answers = { ...m.answers, extra: 'x' }; }, 'carried'],
+  'files.class': [(m) => { m.files['process/same.md'].class = 'seeded'; }, /no slipway commit holds exactly/],
+  'files.sha256': [(m) => { m.files['process/same.md'].sha256 = '0'.repeat(64); }, /D1 is red/],
+  'files.blob': [(m) => { m.files['process/same.md'].blob = '0'.repeat(40); }, /no slipway commit holds exactly/],
+};
+test('case 2 — one key of the manifest wrong, everything else at the target: --apply corrects it, refuses or carries it exactly as before, one row per key the manifest writer produces', () => {
+  const source = releaseSource();
+  const good = manifestOf(projectAtB(source));
+  const keys = [...Object.keys(good).filter((k) => k !== 'files'), ...Object.keys(good.files['process/same.md']).map((k) => `files.${k}`)];
+  assert.deepEqual(Object.keys(WRONG).sort(), keys.sort(), 'a key the manifest writer produces has no row');
+  const other = releaseSource();
+  for (const [key, [edit, expected]] of Object.entries(WRONG)) {
+    const dir = setManifest(projectAtB(source), (m) => edit(m, other));
+    const wrong = manifestOf(dir);
+    assert.notDeepEqual(wrong, good, key);
+    const before = treeHash(dir);
+    const r = runFrom(slip, dir, '--apply');
+    if (expected === 'corrected') {
+      assert.equal(r.status, 0, `${key}: ${r.stderr}`);
+      assert.equal(git(dir, 'branch', '--show-current'), BRANCH, key);
+      assert.deepEqual(manifestOf(dir), good, key);
+    } else if (expected === 'carried') {
+      assert.equal(r.status, 0, `${key}: ${r.stderr}`);
+      assert.equal(lines(r.stdout).at(-1), alreadyAt(null, B), key);
+      assert.equal(treeHash(dir), before, key);
+    } else {
+      assert.equal(r.status, 1, key);
+      assert.match(r.stderr, expected, key);
+      assert.equal(treeHash(dir), before, key);
+    }
+  }
+});
+
+// The release tagged on a side branch, one commit past B: `files` is what that commit changes. The project
+// records it after one --apply; its base is then found by content on the default branch, at B.
+function sideRelease(files, editProject) {
+  let T;
+  const source = releaseSource((d) => {
+    git(d, 'switch', '-q', '-c', 'side', B);
+    put(d, files);
+    T = commitLater(d, 'chore: a release cut on a side branch');
+    git(d, 'tag', `v${VERSION}`, T);
+    git(d, 'switch', '-q', 'main');
+  });
+  const from = packed(source, T);
+  const dir = projectAtB(source);
+  if (editProject) editProject(dir);
+  const first = runFrom(from, dir, '--apply');
+  assert.match(first.stdout, new RegExp(`took use-slipway ${VERSION}, commit ${T.slice(0, 7)}$`, 'm'), first.stderr);
+  mergeSync(dir);
+  assert.equal(manifestOf(dir).slipway, T);
+  return { from, dir, T };
+}
+
+test('case 3 — the recorded target is not on the default branch and every file is unchanged: a second --apply says "Already at" and opens no branch, though base and target differ', () => {
+  const { from, dir, T } = sideRelease({ 'dev/notes.md': 'an internal note\n' });
+  const doc = assertAlready(from, dir, alreadyAt(VERSION, T));
+  assert.deepEqual([doc.base, doc.target], [B, T], 'the base is found by content on the default branch');
+});
+
+test('case 4 — --json: nothingToTake is true in "Already at" with a recorded commit, in "Already at" without one, and in "already past"; false in a plan with something to take', () => {
+  const source = releaseSource((d) => git(d, 'tag', `v${VERSION}`, B));
+  const read = (from, dir) => JSON.parse(runFrom(from, dir, '--json').stdout);
+  const recorded = read(packed(source, B), projectAtB(source));
+  const unrecorded = read(packed(source, B), unrecordedAtB(source));
+  const older = releaseSource((d) => git(d, 'tag', `v${VERSION}`, A));
+  const past = read(packed(older, A), projectAtB(older));
+  assert.deepEqual([recorded, unrecorded, past].map((d) => [d.nothingToTake, d.alreadyPast]), [[true, false], [true, false], [true, true]]);
+  for (const d of [recorded, unrecorded]) assert.equal(d.next, alreadyAt(VERSION, B).slice(3));
+  assert.match(past.next, /^your project is already past /);
+  for (const d of [recorded, unrecorded, past]) assert.doesNotMatch(d.next, /--apply|^(pnpm|npx) /, '`next` is a sentence, not a command');
+  const ahead = read(packed(source, B), pristineFrom(source));
+  assert.equal(ahead.nothingToTake, false);
+  assert.match(ahead.next, / sync --apply$/);
+});
+
+test('case 5 — no commit recorded, and the base is found by content at a later commit that changed internal files only: "Already at" the release, never "already past" it', () => {
+  let internal;
+  const source = releaseSource((d) => {
+    git(d, 'tag', `v${VERSION}`, B);
+    put(d, { 'dev/notes.md': 'slipway\'s own planning note\n' });
+    internal = commitLater(d, 'docs: an internal note');
+  });
+  const doc = assertAlready(packed(source, B), unrecordedAtB(source), alreadyAt(VERSION, B));
+  assert.deepEqual([doc.base, doc.target], [internal, B], 'the fixture: the base is the later commit');
+});
+
+test('case 5, with a script the project changed — the base is past the target, so no item is listed by hand: the row compares the target with a later commit', () => {
+  const source = releaseSource((d) => {
+    git(d, 'tag', `v${VERSION}`, B);
+    put(d, { 'package.json': pkg({ ...JSON.parse(show(B, 'package.json')).scripts, a: 'echo a3' }) });
+    commitLater(d, 'chore: a script changed after the release');
+  });
+  const dir = unrecordedAtB(source);
+  const p = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+  p.scripts.a = 'echo mine';
+  put(dir, { 'package.json': `${JSON.stringify(p, null, 2)}\n` });
+  commit(dir, 'the owner changes a script');
+  const doc = assertAlready(packed(source, B), dir, alreadyAt(VERSION, B));
+  assert.ok(doc.rows.some((r) => r.kind === 'merged: key reported'), 'the fixture: the row is there, and not listed by hand');
+});
+
+test('case A — a project past the target in which the writes cannot be worked out: the "already past" sentence and exit 0, as before', () => {
+  const source = releaseSource((d) => git(d, 'tag', `v${VERSION}`, A));
+  const dir = projectAtB(source);
+  put(dir, { 'package.json': '{ not json' });
+  commit(dir, 'a package.json sync cannot read');
+  const sentence = `your project is already past use-slipway ${VERSION} (commit ${short(A)}); nothing to take`;
+  for (const args of [[], ['--verbose'], ['--apply']]) {
+    const r = runFrom(packed(source, A), dir, ...args);
+    assert.deepEqual([r.status, r.stderr, lines(r.stdout).at(-1)], [0, '', `└  ${sentence}`], `sync ${args.join(' ')}`);
+  }
+  const doc = JSON.parse(runFrom(packed(source, A), dir, '--json').stdout);
+  assert.deepEqual([doc.alreadyPast, doc.nothingToTake, doc.next, doc.rows], [true, true, sentence, []]);
+});
+
+test('case B — at the target with a script the project changed: the item is still listed, with slipway\'s value in its own line, then "Already at"; no --apply anywhere', () => {
+  const scripts = { ...JSON.parse(show(B, 'package.json')).scripts, a: 'echo a3' };
+  const { from, dir, T } = sideRelease({ 'package.json': pkg(scripts) }, (d) => {
+    const p = JSON.parse(readFileSync(join(d, 'package.json'), 'utf8'));
+    p.scripts.a = 'echo mine';
+    put(d, { 'package.json': `${JSON.stringify(p, null, 2)}\n` });
+    commit(d, 'the owner changes a script');
+  });
+  const doc = assertAlready(from, dir, alreadyAt(VERSION, T), { owed: 1 });
+  const next = 'your value stays; slipway\'s is "echo a3"; edit the key by hand to take it';
+  assert.deepEqual(doc.needsYou, [{ kind: 'script kept, yours differs', path: 'package.json scripts.a', next }]);
+  for (const args of [[], ['--apply']]) {
+    assert.match(runFrom(from, dir, ...args).stdout, /^│ {2}script kept, yours differs {2}package\.json scripts\.a\n│ {4}next: your value stays; slipway's is "echo a3"; edit the key by hand to take it$/m);
+  }
+});
+
+test('case C — the only write is a reference diff already on disk: a second --apply says "Already at" and opens no branch', () => {
+  const { from, dir, T } = sideRelease({ 'docs/PRD.md': '# PRD v3\n' });
+  assert.ok(existsSync(join(dir, '.slipway/upstream/docs/PRD.md.diff')), 'the fixture: the first --apply wrote the diff');
+  assertAlready(from, dir, alreadyAt(VERSION, T));
+});
+
+test('nothingToTake is not asked for a target the source lacks: with no commit recorded and every file unchanged, the plan still names --apply and --apply still refuses', () => {
+  const source = releaseSource();
+  const ahead = join(root, 'slipway-ahead-internal');
+  git(root, 'clone', '-q', source, ahead);
+  put(ahead, { 'process/same.md': 'changed locally, never pushed\n' });
+  commit(ahead, 'unpushed');
+  const dir = setManifest(pristineFrom(source), (m) => { m.slipway = null; });
+  assert.match(lines(runFrom(ahead, dir).stdout).at(-1), /^└ {2}Next: .* sync --apply$/);
+  assert.match(runFrom(ahead, dir, '--apply').stderr, /push it first; nothing was written/);
+  // The rule itself: no target commit, a target the source lacks, a removal, a write that differs, another manifest.
+  const todo = (over) => ({ writes: new Map(), removes: [], manifest: readFileSync(join(dir, MANIFEST)), unrecorded: Buffer.from('x'), ...over });
+  const ctx = { root: dir, targetSha: B, absent: false };
+  assert.equal(nothingToTake(ctx, todo()), true);
+  assert.equal(nothingToTake(ctx, todo({ manifest: Buffer.from('x'), unrecorded: readFileSync(join(dir, MANIFEST)) })), true, 'the manifest with no commit');
+  assert.equal(nothingToTake(ctx, todo({ writes: new Map([['process/same.md', { bytes: readFileSync(join(dir, 'process/same.md')) }]]) })), true, 'a write the file already holds');
+  assert.equal(nothingToTake({ ...ctx, targetSha: null }, todo()), false);
+  assert.equal(nothingToTake({ ...ctx, absent: true }, todo()), false);
+  assert.equal(nothingToTake(ctx, todo({ removes: ['process/same.md'] })), false);
+  assert.equal(nothingToTake(ctx, todo({ writes: new Map([['process/same.md', { bytes: Buffer.from('other\n') }]]) })), false);
+  assert.equal(nothingToTake(ctx, todo({ writes: new Map([['process/same.md', { bytes: readFileSync(join(dir, 'process/same.md')), exec: true }]]) })), false, 'the same bytes, another mode');
+  assert.equal(nothingToTake(ctx, todo({ manifest: Buffer.from('x') })), false);
 });

@@ -38,7 +38,7 @@ import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
-import { alreadyText, appliedText, CONVENTIONAL, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
+import { alreadyLine, alreadyText, appliedText, CONVENTIONAL, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
@@ -78,25 +78,52 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
       settle = () => { settle = () => {}; err.write(`\r${' '.repeat(PROGRESS.length)}\r`); };
     }
     const ctx = { ...preflight(cwd), verbose: argv.includes('--verbose') };
-    if (ctx.past) {
-      // The project synced from a commit past this one: there is nothing to take, so nothing is planned or
-      // written, whichever of the plan and --apply was asked for.
+    const applying = argv.includes('--apply');
+    // Nothing to take (nothingToTake): the plan, --json and --apply all say "Already at", and nothing is written.
+    const already = (rows, todo) => {
       settle();
-      if (json) writeDoc(out, planDoc(ctx, [], { stale: [], absorbed: [] }));
-      else out.write(pastText(ui(out, env), { branch: ctx.branch, remote: ctx.remote, notes: ctx.notes, version: ctx.targetVersion, target: ctx.targetSha }));
+      if (json) return writeDoc(out, planDoc(ctx, rows, { stale: todo.stale, absorbed: todo.absorbed, reported: todo.reported, at: true }));
+      if (ctx.verbose) verboseFirst(out, ctx, rows);
+      out.write(alreadyText(ui(out, env), alreadyView(ctx, rows, todo)));
+    };
+    if (ctx.past) {
+      // The base is past the target. The project may still be at the target: the base is found at the newest
+      // commit that matches, so a later commit that changed nothing a project receives reads as past (#247).
+      // main ran none of this for such a project, so whatever stops it here leaves the answer as it was.
+      let at = null;
+      try {
+        const rows = plan(ctx);
+        const todo = compute(ctx, rows);
+        if (nothingToTake(ctx, todo)) at = { rows, todo };
+      } catch {
+        // not at the target, as far as sync can tell: already past it
+      }
+      if (at) already(at.rows, at.todo);
+      else {
+        // The project synced from a commit past this one: there is nothing to take, so nothing is planned or
+        // written, whichever of the plan and --apply was asked for.
+        settle();
+        if (json) writeDoc(out, planDoc(ctx, [], { stale: [], absorbed: [] }));
+        else out.write(pastText(ui(out, env), { branch: ctx.branch, remote: ctx.remote, notes: ctx.notes, version: ctx.targetVersion, target: ctx.targetSha }));
+      }
       return 0;
     }
     const rows = plan(ctx);
-    if (!argv.includes('--apply')) {
+    if (!applying) {
       // The plan lists the stale overrides --apply will, and the ones it removes, so it computes the same
       // writes, in its temp dir only. What stops that stops --apply too, and the owner hears it now.
-      let stale, absorbed;
+      let todo;
       try {
-        ({ stale, absorbed } = compute(ctx, rows, { check: false }));
+        todo = compute(ctx, rows);
       } catch (e) {
         if (e instanceof Refusal) throw new Refusal(`${e.message}\n--apply would refuse this too, so the plan stops here.`);
         throw e;
       }
+      if (nothingToTake(ctx, todo)) {
+        already(rows, todo);
+        return 0;
+      }
+      const { stale, absorbed } = todo;
       settle();
       if (json) {
         writeDoc(out, planDoc(ctx, rows, { stale, absorbed }));
@@ -281,7 +308,10 @@ function preflight(cwd) {
   let log = [];
   let commits = [];
   // The plan and --apply refuse the same base, and both say so when the project is already past the target.
-  const past = Boolean(targetSha) && targetSha !== r.exact && forwardOnly(gitDir, r.exact, targetSha, source) === 'past';
+  // `absent`: the source does not have the target, so --apply will refuse it and the plan says nothing is ready.
+  const order = targetSha && targetSha !== r.exact ? forwardOnly(gitDir, r.exact, targetSha, source) : null;
+  const past = order === 'past';
+  const absent = order === 'absent';
   if (targetSha && targetSha !== r.exact && !past) {
     try {
       // Parents, a tab, the subject: a merge has two parents or more, so one walk gives both lists.
@@ -295,7 +325,7 @@ function preflight(cwd) {
     }
   }
 
-  return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha, targetVersion, past };
+  return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha, targetVersion, past, absent };
 }
 
 /**
@@ -303,7 +333,8 @@ function preflight(cwd) {
  * lacks cannot be the next base. Plan and --apply both call it, so a plan never reads as ready for a base
  * --apply would refuse. A target that shares no history with the base gets its own words: git could
  * name no commit between them. A target the base descends from is no refusal: the project is already past
- * it (it synced from a later commit than the release it runs now), and `'past'` is returned.
+ * it (it synced from a later commit than the release it runs now), and `'past'` is returned. For the plan, a
+ * target the source lacks returns `'absent'`.
  */
 function forwardOnly(gitDir, base, target, source, { apply = false } = {}) {
   const short = (sha) => sha.slice(0, 12);
@@ -313,7 +344,7 @@ function forwardOnly(gitDir, base, target, source, { apply = false } = {}) {
     if (e.status !== 1) {
       // The target is not in the source: the plan notes it and goes on; --apply cannot record it.
       if (apply) throw new Refusal(`the target ${short(target)} is not in ${oneLine(publicSource(source))} — push it first; nothing was written`);
-      return;
+      return 'absent';
     }
     try {
       git(['--git-dir', gitDir, 'merge-base', '--is-ancestor', target, base]);
@@ -461,12 +492,15 @@ const MEANING = {
 const STALE_WHY = 'slipway no longer maintains this file, so the entry excuses nothing and D1 flags it';
 const staleLine = (s) => `${OVERRIDES}:${s.line}  path: ${s.path}`;
 
-// The next command for a row that needs the owner (OWNER_ROWS).
-function nextStep(r, targetSha, cmd) {
+// The next step for a row that needs the owner (OWNER_ROWS). With nothing to take (`at`), no step names
+// --apply: it would do nothing, so a script's line carries slipway's value itself (`value`, from compute).
+function nextStep(r, targetSha, cmd, { at = false, value } = {}) {
   const from = targetSha ? targetSha.slice(0, 12) : 'the target';
   if (r.kind === 'collision') return `to keep yours, list it in ${OVERRIDES} with a reason; to take slipway's, copy its file from ${from} over yours`;
-  if (r.kind === 'merged: key reported') return `${cmd} --apply keeps your value and prints slipway's; edit the key by hand to take it`;
-  return `${cmd} --apply leaves your file as it is; port slipway's change by hand if you want it`;
+  if (r.kind === 'merged: key reported') {
+    return at ? `your value stays; slipway's is ${value}; edit the key by hand to take it` : `${cmd} --apply keeps your value and prints slipway's; edit the key by hand to take it`;
+  }
+  return `${at ? 'your file stays as it is' : `${cmd} --apply leaves your file as it is`}; port slipway's change by hand if you want it`;
 }
 
 // The non-empty buckets, in KINDS order: `[kind, count]`.
@@ -475,21 +509,29 @@ const bucketCounts = (rows) => KINDS.map((k) => [k, rows.filter((r) => r.kind ==
 // What the plan lists under "Needs you by hand": the rows --apply leaves to the owner and the overrides
 // that go stale, each with its next step. The text plan and --json read the same list; `file` is the
 // project file the text plan links the item to, and --json leaves it out.
-function needsYou({ root, targetSha }, rows, stale) {
+function needsYou({ root, targetSha }, rows, stale, { at = false, reported = [] } = {}) {
   const cmd = syncCommand(root);
+  const value = (r) => reported.find((x) => x.path === r.path)?.value;
   return [
-    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd), file: r.file ?? r.path })),
-    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `after ${cmd} --apply, delete this entry on the sync branch: ${STALE_WHY}`, file: OVERRIDES })),
+    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd, { at, value: value(r) }), file: r.file ?? r.path })),
+    ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `${at ? '' : `after ${cmd} --apply, `}delete this entry${at ? '' : ' on the sync branch'}: ${STALE_WHY}`, file: OVERRIDES })),
   ];
 }
+
+// What "Already at" still lists for the owner: the by-hand items of a project at the target. None when the
+// base is past the target: its rows compare the target with a later commit, and main listed none there.
+const stillOwed = (ctx, rows, todo) => (ctx.past ? [] : needsYou(ctx, rows, todo.stale, { at: true, reported: todo.reported }));
+const alreadyView = (ctx, rows, todo) => ({ root: ctx.root, branch: ctx.branch, remote: ctx.remote, notes: ctx.notes, version: ctx.targetVersion, target: ctx.targetSha, owed: stillOwed(ctx, rows, todo) });
 
 /**
  * The plan as data, schema 1 (F-08 §2, dev/features/cli-output.md): what /sync-slipway reads instead of
  * the text. Shas are full, the skill cites them. A field is added under the same schema number; one that
  * is renamed, removed or changes meaning takes the next. `targetVersion` is the release the target is, or
- * null. `alreadyPast` is true when the project's base is past the target: no rows, and `next` is that sentence.
+ * null. `alreadyPast` is true when the project's base is past the target and the project is not at it: no rows,
+ * and `next` is that sentence. `nothingToTake` is true then, and when the project is at the target (`at`),
+ * whichever commit is later: `next` is a sentence in both.
  */
-function planDoc(ctx, rows, { stale, absorbed }) {
+function planDoc(ctx, rows, { stale, absorbed, reported = [], at = false }) {
   const { root, branch, remote, source, base, targetSha, targetVersion, past, notes, commits } = ctx;
   const entry = ({ line, path }) => ({ line, path });
   return {
@@ -507,11 +549,12 @@ function planDoc(ctx, rows, { stale, absorbed }) {
     }),
     buckets: bucketCounts(rows).map(([kind, count]) => ({ kind, label: label(kind), count, meaning: MEANING[kind] })),
     rows: rows.map(({ kind, path }) => ({ kind, label: label(kind), path })),
-    needsYou: needsYou(ctx, rows, stale).map(({ kind, path, next }) => ({ kind, path, next })),
+    needsYou: (at && past ? [] : needsYou(ctx, rows, stale, { at, reported })).map(({ kind, path, next }) => ({ kind, path, next })),
     overrides: { absorbed: absorbed.map(entry), stale: stale.map(entry) },
     skillChanged: skillChanged(rows),
-    alreadyPast: past,
-    next: past ? pastLine({ version: targetVersion, target: targetSha }) : `${syncCommand(root)} --apply`,
+    alreadyPast: past && !at,
+    nothingToTake: at || past,
+    next: at ? alreadyLine({ version: targetVersion, target: targetSha }) : past ? pastLine({ version: targetVersion, target: targetSha }) : `${syncCommand(root)} --apply`,
   };
 }
 
@@ -551,6 +594,26 @@ function printVerbose(out, ctx, rows) {
   ].join('')));
 }
 
+/**
+ * Is there anything to take? The one answer the plan, --json and --apply share (#247): nothing, when the
+ * commit --apply would make is empty, apart from recording a commit where the project records none. Every
+ * write already holds its bytes, nothing is removed, and the manifest --apply would write is the one on disk,
+ * or is it when built with no commit. Bytes on disk stand for "the commit would be empty" because repoState
+ * refuses a tree that is not clean, untracked files included. The manifest on disk is compared as bytes, never
+ * parsed: one printed another way is rewritten. Which of base and target is the later commit plays no part.
+ * Not asked without a target commit, or with one the source lacks: --apply refuses both, as before.
+ */
+export function nothingToTake({ root, targetSha, absent }, todo) {
+  if (!targetSha || absent || todo.removes.length) return false;
+  const held = (p, { bytes, exec }) => {
+    const cur = readProjectFile(root, p);
+    return Buffer.isBuffer(cur) && cur.equals(bytes) && (exec === undefined || exec === ((statSync(join(root, p)).mode & 0o111) !== 0));
+  };
+  if (![...todo.writes].every(([p, w]) => held(p, w))) return false;
+  const current = readProjectFile(root, MANIFEST);
+  return Buffer.isBuffer(current) && (current.equals(todo.manifest) || current.equals(todo.unrecorded));
+}
+
 // ---- apply (F-01 step 4, #17)
 
 const HARNESS = 'process/harness/settings.json';
@@ -571,14 +634,15 @@ function apply(out, u, ctx, rows) {
   const short = (sha) => sha.slice(0, 12);
   // Forward only, and only to a commit the source has: the next sync finds its base there.
   forwardOnly(gitDir, base.sha, targetSha, ctx.source, { apply: true });
+  // Where each write lands is checked only once there is something to write.
   const todo = compute(ctx, rows);
   const name = `slipway/sync-${short(targetSha)}`;
-  const current = readProjectFile(root, MANIFEST);
-  if (!todo.writes.size && !todo.removes.length && Buffer.isBuffer(current) && current.equals(todo.manifest)) {
+  if (nothingToTake(ctx, todo)) {
     if (ctx.verbose) verboseFirst(out, ctx, rows);
-    out.write(alreadyText(u, { branch, target: targetSha, version: ctx.targetVersion }));
+    out.write(alreadyText(u, alreadyView(ctx, rows, todo)));
     return 0;
   }
+  checkWrites(root, [...todo.writes.keys(), MANIFEST], todo.removes);
   const message = `chore: sync slipway ${short(base.sha)}..${short(targetSha)}`;
   const commit = land(root, branch, name, message, { writes: new Map([...todo.writes, [MANIFEST, { bytes: todo.manifest }]]), removes: todo.removes });
 
@@ -620,10 +684,10 @@ function verboseFirst(out, ctx, rows) {
 }
 
 // Every write --apply makes, and nothing written yet. Throws a Refusal on anything that would break
-// the invariant or that git cannot do: a changed file, a symlink or directory where a file goes, a path
-// the project ignores, a failed merge. The plan calls it with `check: false` for the overrides:
-// it writes only inside the clone's temp dir, and skips the checks of where each write lands.
-function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows, { check = true } = {}) {
+// the invariant or that git cannot do: a changed file, a failed merge. It writes only inside the clone's temp
+// dir, so the plan calls it too. Where each write lands is not checked here: --apply does that (checkWrites),
+// once it knows there is something to write.
+function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows) {
   const tmp = mkdtempSync(join(dirname(gitDir), 'apply-')); // inside the clone's temp dir: removed on exit
   const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
   const pristine = (p) => {
@@ -633,7 +697,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   // The executable bit, as slipway ships it: a hook it adds must still run.
   const exec = (p) => existsSync(join(SRC, p)) && (statSync(join(SRC, p)).mode & 0o111) !== 0;
   const moved = (p) => new Refusal(`${oneLine(p)} changed after it was planned — nothing was written`);
-  const todo = { writes: new Map(), removes: [], conflicts: [], diffs: [], kept: { gone: [], shipped: [] }, stale: [], absorbed: [], reported: [], harness: null, manifest: null };
+  const todo = { writes: new Map(), removes: [], conflicts: [], diffs: [], kept: { gone: [], shipped: [] }, stale: [], absorbed: [], reported: [], harness: null, manifest: null, unrecorded: null };
   let pkg = null; // the project's package.json, once a key is updated
   let n = 0;
 
@@ -697,7 +761,9 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   // Each path's bytes once --apply has run.
   const after = (p) => (todo.writes.has(p) ? todo.writes.get(p).bytes : todo.removes.includes(p) ? null : readProjectFile(root, p));
   const next = nextManifest({ manifest, target, targetRules, targetSha }, rows, after);
-  todo.manifest = Buffer.from(`${JSON.stringify(next, null, 2)}\n`);
+  const print = (m) => Buffer.from(`${JSON.stringify(m, null, 2)}\n`);
+  todo.manifest = print(next);
+  todo.unrecorded = print({ ...next, slipway: null }); // the same manifest for a project that records no commit
   // D1 was green, so every override named a managed file that differed from its hash. D1's own rule on
   // the new manifest: one that names no managed file now is stale, and the owner decides it; one whose
   // file matches its new hash excuses nothing, so --apply removes it in the same commit (D-021).
@@ -709,7 +775,6 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   }
   if (todo.absorbed.length) todo.writes.set(OVERRIDES, { bytes: withoutOverrides(root, overrides, todo.absorbed) });
 
-  if (check) checkWrites(root, [...todo.writes.keys(), MANIFEST], todo.removes);
   return todo;
 }
 

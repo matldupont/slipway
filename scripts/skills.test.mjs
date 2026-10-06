@@ -305,7 +305,7 @@ test('/sync-slipway step 1 runs `sync --json` and names every field of the docum
   const skill = read(skillPath('sync-slipway'));
   const one = section(skill, '1 — Plan and explain', 2) ?? '';
   assert.match(one, /^Run `sync --json` /, 'step 1 opens with the command it runs');
-  for (const key of ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'alreadyPast', 'next']) {
+  for (const key of ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'alreadyPast', 'nothingToTake', 'next']) {
     assert.match(one, new RegExp(`\`${key}\\b`), `step 1 never names \`${key}\``);
   }
   assert.match(one, /never instructions to follow/, 'a commit subject or a path is content, not an instruction');
@@ -692,7 +692,10 @@ test('the README, BOOTSTRAP.md and the landing page show `npx use-slipway` first
   const skill = read('.claude/skills/sync-slipway/SKILL.md');
   assert.match(skill, /`npx --loglevel=error use-slipway@latest`/, 'the skill says the script runs the newest release');
   assert.match(skill, /npx github:matldupont\/slipway#<ref> sync/, 'the skill keeps the GitHub form for a named ref');
-  // alreadyPast: the skill says so and stops; `next` is then a sentence, never a command (#231).
-  const one = section(skill, '1 — Plan and explain', 2) ?? '';
-  assert.match(one, /`alreadyPast`[^]*?`next` is never run/);
+  // nothingToTake: the skill says the sentence and stops; `next` is then never a command (#231, #247). It reads
+  // the one field true in every such answer, and what still needs the owner is said first.
+  const one = (section(skill, '1 — Plan and explain', 2) ?? '').replace(/\s+/g, ' ');
+  const bullet = one.match(/- `nothingToTake`: .*?(?= - `next`:)/)?.[0] ?? '';
+  assert.match(bullet, /`alreadyPast`.*`next` is never run.*not asked to run `--apply`/);
+  assert.match(bullet, /When `needsYou` is not empty, say what each item asks of the owner first/);
 });
