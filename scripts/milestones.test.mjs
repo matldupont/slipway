@@ -32,6 +32,17 @@ test('an item with an Owed: line and a Ran: line keeps its text, its marker and 
   assert.deepEqual(owing(i), [i.checks[0]]);
 });
 
+// #241: the split writes the item's `Owed:` line, and /work-ticket's last step reads the item for one. This is the
+// reading both rest on: 1 item with the line, 1 without.
+test('an item whose split wrote its Owed: line owes 1 check, naming the whole plan; the item beside it, with no line, has none to read', () => {
+  const [bare, split] = contents(doc(ITEM, '   Owed: docs/qa/booking.md — staging'));
+  assert.equal(marker(bare.text).issue, 12);
+  assert.deepEqual(bare.checks, [], 'an item with no Owed: or Ran: line has no check on record');
+  assert.deepEqual(owing(bare), []);
+  assert.equal(marker(split.text).issue, 13);
+  assert.deepEqual(owing(split).map((c) => [c.kind, c.check, c.env]), [['owed', 'docs/qa/booking.md', 'staging']]);
+});
+
 test('a bulleted lower-case line, an Owed: with no environment and a Ran: on a day that does not exist are unreadable, and owed', () => {
   const i = item('   - owed: x', '   Owed: x', `   Ran: x — staging 2026-02-30 pass ${URL13}`);
   assert.deepEqual(kinds(i), ['unreadable', 'unreadable', 'unreadable']);

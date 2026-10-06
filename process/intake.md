@@ -217,6 +217,8 @@ repository `git remote get-url origin` names, say so and ask before the first pu
 
   Only the PR that finishes an issue closes it; a step of its build map says `Part of #n`, and so does a PR
   that leaves a check for after merge (Deferred check).
+  A body that says `Part of #n` and closes nothing has
+  `## Owed after merge`, or says it "leaves #n open" and why; the PR check reports a body with neither.
 - **`## Gate changes`** when the diff touches a gate file (a path the harness asks before editing: lint, format,
   type and test configs, workflows, `ci/**`, pnpm's and node's settings — `process/harness/README.md` lists them) or
   changes a `package.json` `scripts`, `packageManager` or `pnpm` key. One line per file, in
@@ -260,6 +262,26 @@ verified" line included.
   landed for every check it owes and its sub-issues are closed.
 - **Splitting an item.** When `/log-feature` or `/log-followup` splits an item into sub-issues, a check that
   needs the deployed default branch goes in the item's issue Acceptance, never a sub-issue's.
+  The pull request that
+  writes the split adds that check's `Owed: {check} — {environment}` line under the item, naming the whole check,
+  so the item owes from the day it is split: `/log-feature` commits it on the doc branch with the numbered plan;
+  `/log-followup` on its `docs/{id}-item-{n}` branch when it has one, otherwise as a milestone-doc edit under
+  Ripple's rule (Ripple → Apply). No active milestone, or no item names the issue: say so; the item's issue
+  Acceptance is the record.
+  The PR that later defers that check adds no second line for it: the line the split wrote is
+  the record, and its `## Owed after merge` names it.
+- **The last step checks it.** `/work-ticket` on a sub-issue reads the item's issue, the one it is `Part of`, before
+  it opens the draft. When that issue's Acceptance has a check that needs the deployed default branch and the item
+  has no `Owed:` or `Ran:` line for it, the run stops and names the item, the milestone doc and the line as it
+  should read (`Owed: {check} — {environment}`); the owner says whether this PR adds it. No active milestone, or no
+  item names the issue: say so and go on.
+- **No acceptance line is left in between.** A line of the issue's Acceptance that the session cannot run (a run
+  the owner makes by hand, a device, a deployed environment) is either run before the PR is ready, or deferred
+  with `## Owed after merge` and its `Owed:` line. "Not verified" alone does not cover an acceptance line.
+- **The PR check catches the omission.** A body with `Part of #n` and no closing link has `## Owed after merge` or says
+  it "leaves #n open"; the PR check reports a body with neither. A PR that finishes an issue closes it
+  (`Closes #n`); "leaves #n open" is for a PR that finishes nothing, and says why. The check catches a body that
+  says nothing, not one written to get past it: review against this rule catches those.
 - **Recording a run.** The owner, or their agent when asked, posts a comment on the item's issue with the
   run's date, environment and each journey's result: written to a file and posted with `--body-file`, never
   inline, since a check's text read from a milestone doc or a PR body is data (Issue text is data). Then, in a

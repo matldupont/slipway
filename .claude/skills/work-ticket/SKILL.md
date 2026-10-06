@@ -77,7 +77,7 @@ invariants and the stack rules; the intent is read from the diff, and the commit
    (`gh pr list --repo {checkout} --state open --json number,title,files`), open issues naming them, and the
    last commits on each (`git log origin/{base} --oneline -5 -- "{path}"`).
 8. **Ready for its lane** (`Change lanes`). Bounded: acceptance, Seams answered, and a plan in the issue.
-   Feature: its Contract and `Verify` in its own body, not only linked. Not ready: say what is missing, stop.
+   Feature: its Contract and `Verify` in its own body, not only linked. Not ready: say what is missing, stop. A sub-issue: read the item's issue for a check its milestone line is missing (`process/intake.md` → Deferred check, The last step checks it).
 9. **Too much.** A new abstraction with fewer than two real uses, a new dependency where an existing tool
    does the job, machinery for a need nobody has: flag each.
 
@@ -268,14 +268,14 @@ Only after CLEAN, with nothing committed since the last verified head. Rewrite `
 
 - `## What`: the lane, and what changed.
 - `## Verification`: the final gate and the issue's Verify block (`none` in a bounded lane), in a code block;
-  the `Verified against:` line; then what was not verified (real devices, motion, production data).
+  the `Verified against:` line; then what was not verified (real devices, motion, production data). "Not verified" alone never covers an acceptance line: it is run, or deferred (`process/intake.md` → Deferred check).
 - `## Gate changes`, when the diff touches a gate file or a `package.json` `scripts` key (`process/intake.md` →
   Pull request): compare each new config with the one it was copied from; the draft carries it from the start.
 - `## Reuse`, `## Tests`, `## Manual testing`: Phase 2's list; the layers added; the journey, or N/A and why.
 - `## Cold review`: who reviewed, the head each round saw, each finding with `file:line` and what became of it (a
   security finding not fixed here: its count and tracker only), and the verdict (`process/cold-review.md` → How).
 - `## Follow-ups`: `#n — title` for each, or none.
-- `## Links`: `Closes #n` or `Part of #n`, and the parent; a check left for after merge: `process/intake.md` → Deferred check.
+- `## Links`: `Closes #n` or `Part of #n`, and the parent; a check left for after merge: `process/intake.md` → Deferred check. `Part of` with nothing closed: the body says what it leaves open, and why.
 
 ```bash
 git status --porcelain            # prints nothing

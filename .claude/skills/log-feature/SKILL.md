@@ -244,7 +244,7 @@ or data deletion deserves its own review, apart from the rest).
    apply, copied), `### Verify`, `### Seams`, `### Seams detail`, `### Out of scope` (the later steps),
    `### Links` (`Part of: #{n}`, `Blocked by:` the previous step, `Touches:` for the files that step changes), and a designation per step: a schema step
    and a screen step rarely share one. A reader of the title alone should expect every file its PR touches.
-3. **Number the plan.** Add each sub-issue's number to its Build map line in the doc, and commit. GitHub lists
+3. **Number the plan.** Add each sub-issue's number to its Build map line in the doc, and the `Owed:` line for a check that stayed in the parent's (`process/intake.md` → Deferred check, Splitting an item), and commit. GitHub lists
    the sub-issues under the feature issue; its body is not edited again.
 
 The feature issue closes with its last sub-issue; only that step's PR claims the end-to-end acceptance.
@@ -261,7 +261,7 @@ The PR's title and body go in a fresh folder of their own, `{prdir}`, never the 
 stays green. Title: `docs({scope}): spec {feature name}`. Body, under the never-in-a-body rule of an issue
 (`process/intake.md` → Issue body): `## What` (`Lane: feature`, spec only, the verdict in one line),
 `## Verification` (the issue check and `pnpm meta` as run, in a code block), `## Links` (`Part of #{issue}`, or
-`Part of {repo}#{issue}` when the repositories differ; the issue closes with its last build step, not this PR).
+`Part of {repo}#{issue}` when the repositories differ; the issue closes with its last build step, not this PR, so the body says it "leaves #{issue} open": the PR check asks for that).
 It goes to `{checkout}` (`process/intake.md` → Pull request); its number is `{pr}`.
 
 ```bash
