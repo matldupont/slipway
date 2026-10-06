@@ -45,6 +45,9 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // is the `else` of this branch, not indented: it holds template text that is written out as it stands.
 if (process.argv[2] === 'sync') {
   const { main } = await import(process.argv.includes('--adopt') ? './adopt.mjs' : './sync.mjs');
+  // A reader that closes early (`sync | head`) is not an error: the write it no longer takes fails with
+  // EPIPE, which is ignored, and the process still ends on its own with main's code. Any other is thrown.
+  for (const stream of [process.stdout, process.stderr]) stream.on('error', (e) => { if (e.code !== 'EPIPE') throw e; });
   process.exitCode = main(process.argv.slice(3));
 } else {
 

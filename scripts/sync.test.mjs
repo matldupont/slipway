@@ -8,7 +8,7 @@
 // created from the base. `source` is that local slipway, so nothing reaches a network.
 
 import assert from 'node:assert/strict';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { closeSync, existsSync, chmodSync, copyFileSync, lstatSync, openSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
@@ -2103,4 +2103,23 @@ test('the bin ends on its own whatever it printed: a plan, a refusal (stderr) an
 
 test('the bin does not exit the process under the output it just wrote', () => {
   assert.doesNotMatch(readFileSync(join(SRC, 'scripts', 'new-project.mjs'), 'utf8'), /process\.exit\(main\(/);
+});
+
+// The bin with a stdout whose reader has gone before anything is written, as `sync … | head` leaves it: the
+// exit code, the signal (the timeout's, when the process did not end) and what reached stderr.
+function readerGone(...args) {
+  return new Promise((done) => {
+    const child = spawn(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30_000 });
+    child.stdout.destroy();
+    let stderr = '';
+    child.stderr.setEncoding('utf8').on('data', (d) => { stderr += d; });
+    child.on('close', (code, signal) => done({ code, signal, stderr }));
+  });
+}
+
+test('a reader that closes early is not an error: sync --help into a closed pipe ends with exit 0 and nothing on stderr, and a refusal still exits 1 with its message', async () => {
+  assert.deepEqual(await readerGone('--help'), { code: 0, signal: null, stderr: '' });
+  const refusal = await readerGone('--bogus');
+  assert.deepEqual([refusal.code, refusal.signal], [1, null]);
+  assert.match(refusal.stderr, /^sync: unknown argument --bogus\n/);
 });
