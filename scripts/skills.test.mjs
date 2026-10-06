@@ -467,7 +467,7 @@ test('process/intake.md → Deferred check: a sub-issue with a deferred check st
 });
 
 // #241: a split item's check is written as owed by the split, the last step reads the item for it, no acceptance line
-// is left neither run nor deferred, and a `Part of` body that closes nothing says what stays open (P1 holds that one).
+// is left neither run nor deferred, and a `Part of` body that closes nothing says what stays open (P1 reports the body that says nothing).
 test('process/intake.md → Deferred check: the split writes the `Owed:` line, the last step checks it, and "Not verified" alone covers no acceptance line', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const d = flat(section(intake, 'Deferred check', 2));
@@ -478,6 +478,7 @@ test('process/intake.md → Deferred check: the split writes the `Owed:` line, t
   assert.match(d, /is either run before the PR is ready, or deferred with `## Owed after merge` and its `Owed:` line\. "Not verified" alone does not cover an acceptance line/, 'an acceptance line is run or deferred, never only "not verified"');
   assert.match(d, /A body with `Part of #n` and no closing link has `## Owed after merge` or says it "leaves #n open"; the PR check reports a body with neither/, 'the pair P1 holds is written where the rule lives');
   assert.match(d, /A PR that finishes an issue closes it \(`Closes #n`\); "leaves #n open" is for a PR that finishes nothing, and says why/, 'closing the finished issue comes before saying it stays open');
+  assert.match(d, /The check catches a body that says nothing, not one written to get past it: review against this rule catches those/, 'the rule says what the PR check does not catch');
   assert.match(flat(section(intake, 'Pull request', 2)), /A body that says `Part of #n` and closes nothing has `## Owed after merge`, or says it "leaves #n open" and why; the PR check reports a body with neither/, 'the draft is written by the Pull request section, so it says the pair too');
   assert.match(d, /The PR that later defers that check adds no second line for it: the line the split wrote is the record/, 'one check has one `Owed:` line, so status counts 1');
   const wt = read(skillPath('work-ticket'));

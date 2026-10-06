@@ -271,10 +271,12 @@ their own escapes; neither is read by every session.
 - P1 cannot know which issue a PR worked. A PR that finishes a sub-issue, links only the parent and says it
   "leaves #parent open" passes with the sub-issue still open; the finding's message asks for `Closes #n` first
   for that reason. A body that names no `Part of` at all is not read by this rule.
-- P1 reads what answers the rule (a closing link, the section, the sentence) from the body's prose only: one in
-  a comment, a code block or inline code is not counted, nor is a line indented four spaces, even in a list. A
-  commit message is not read. It reads `Part of #n` from everything but comments, so a body that only quotes
-  one as an example is reported too.
+- P1 catches an omission, not a body written to avoid it. What it reports is a body that links `Part of #n` and
+  says nothing else about its issue: the two cases #241 came from. A body that hides its `Part of` or only quotes
+  an answer can pass, as can one that says "leaves #n open" untruthfully; review against the rule is what catches
+  those. The check takes plain examples out before it reads (comments, fenced and indented code, a one-line
+  single-backtick span) and reads no commit message; it is not a markdown parser and is not held to be one. It
+  reads `Part of #n` from everything but comments, so a body that only quotes one as an example is reported too.
 - An `## Owed after merge` section with any text in it answers the rule, "none" included; one "leaves #n open"
   answers it for every `Part of` in the body, and the number is compared, not its repository.
 - From the day a split writes the `Owed:` line, status lists the item under Needs attention as a check "moved

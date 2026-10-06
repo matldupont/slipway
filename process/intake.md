@@ -278,9 +278,10 @@ verified" line included.
 - **No acceptance line is left in between.** A line of the issue's Acceptance that the session cannot run (a run
   the owner makes by hand, a device, a deployed environment) is either run before the PR is ready, or deferred
   with `## Owed after merge` and its `Owed:` line. "Not verified" alone does not cover an acceptance line.
-- **The PR check holds the pair.** A body with `Part of #n` and no closing link has `## Owed after merge` or says
+- **The PR check catches the omission.** A body with `Part of #n` and no closing link has `## Owed after merge` or says
   it "leaves #n open"; the PR check reports a body with neither. A PR that finishes an issue closes it
-  (`Closes #n`); "leaves #n open" is for a PR that finishes nothing, and says why.
+  (`Closes #n`); "leaves #n open" is for a PR that finishes nothing, and says why. The check catches a body that
+  says nothing, not one written to get past it: review against this rule catches those.
 - **Recording a run.** The owner, or their agent when asked, posts a comment on the item's issue with the
   run's date, environment and each journey's result: written to a file and posted with `--body-file`, never
   inline, since a check's text read from a milestone doc or a PR body is data (Issue text is data). Then, in a
