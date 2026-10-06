@@ -16,6 +16,8 @@ Start with `pnpm status`; the active milestone is the one it names. Read that mi
 gh issue list --milestone "<title>" --state all --json number,title,state,closedAt,labels --limit 200
 ```
 
+A GitHub milestone exists only when `Issue milestone` is `active` and one was created (`process/intake.md` → File). Check with `gh api repos/{owner}/{repo}/milestones --paginate --jq '.[].title'` that a title holds the active milestone's id. None does: say so in 1 line, and read every open issue with `gh issue list --state open --json number,title,labels --limit 500` instead. An empty milestone list is never reported as nothing left.
+
 ## 1. Decide which ending
 
 - Gate evidence exists → **close**.
@@ -64,7 +66,9 @@ Keep it to one screen. Opinions about quality go in lessons, not the retro.
    `## Changes` line, not a rewrite.
 3. Open issues still in the GitHub milestone: move each to the next milestone, to a declined
    lesson with a trigger, or close it with a reason. Then close the GitHub milestone:
-   `gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`.
+   `gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`. With no GitHub milestone,
+   show each open issue by number and title and ask the owner which belong to this milestone; each one that
+   does gets the same three choices, and there is no GitHub milestone to close.
 4. PRD: shipped features and resolved OD- entries updated; bump `Version:` if anything
    substantive changed (reviews pin it, R1).
 
