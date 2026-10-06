@@ -246,7 +246,7 @@ per `Issue milestone` only.
    `docs({scope}): draft {feature} for #{n}`; body `## What` (`Lane: bounded`, a draft for review, the bug
    in one line), `## Verification` (`pnpm meta` as run, in a code block), `## Links` (`Part of #{n}`, or
    `Part of {repo}#{n}` when the two repositories differ), with no closing keyword in any form (close, fix,
-   resolve, and their -s and -d forms): this PR must not close the bug. `gh pr create` prints its URL; its number is `{pr}`.
+   resolve, and their -s and -d forms): this PR must not close the bug, and its body says it "leaves #{n} open" (the PR check asks for that). `gh pr create` prints its URL; its number is `{pr}`.
 
    ```bash
    git push -u origin docs/bug-{name}

@@ -5,4 +5,4 @@ Fixes the bug.
 Tested locally, works fine.
 
 ## Links
-Part of #4
+Part of #4, and leaves #4 open: one step of it.

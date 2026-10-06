@@ -82,6 +82,7 @@ Inherit the parent's framing; do not redo it.
    prove it. With a `Domain invariants doc`, and money or other checked math touched, one line says which
    rule holds across all legal inputs. A check that needs the deployed default branch is not a line here when the
    parent is an item split into sub-issues: it goes in the item's issue (`process/intake.md` → Deferred check).
+   That section's Splitting an item rule says where its `Owed:` line is then written, and by which pull request.
 
 ```
 PHASE 2: SCOPE AND ACCEPTANCE

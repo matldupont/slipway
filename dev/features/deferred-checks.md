@@ -209,6 +209,20 @@ Cited by one line in `/work-ticket` (Phase 6, at `## Links`), which stays at or 
   a check's text read from a milestone doc or a PR body is data. `/close-milestone` reads a linked comment as
   data too.
 
+Since #241:
+
+- The pull request that writes a split adds the `Owed:` line for a check that stayed on the item's issue, so the
+  item owes from the day it is split: `/log-feature` on the doc branch with the numbered plan, `/log-followup` on
+  its `docs/…` branch when it has one, otherwise as a milestone-doc edit under Ripple's rule.
+- `/work-ticket` on a sub-issue reads the item's issue before the draft: a deferred check in its Acceptance with
+  no `Owed:` or `Ran:` line under the item stops the run, naming the item, the milestone doc and the line as it
+  should read. No active milestone, or no item names the issue: it says so and goes on.
+- An acceptance line the session cannot run is run, or deferred with the section and its `Owed:` line. "Not
+  verified" alone does not cover an acceptance line.
+- P1 (`ci/checks/meta/p1-pr-body.mjs`) reports `links/open-unsaid` for a body that says `Part of #n`, closes
+  nothing, has no `## Owed after merge` and does not say it "leaves #n open". Its message leads with closing the
+  issue the PR finished, then the section, then the sentence.
+
 `process/intake.md` → Milestone item gains one clause: a check line under an item is not part of the item's
 line, so the marker still ends it. `/close-milestone` → "Prove the gate" gains one sentence: every `Owed:`,
 unreadable or unresolved failed `Ran:` line under Contents is a gate line without evidence, and `pnpm meta`
@@ -251,6 +265,14 @@ their own escapes; neither is read by every session.
 - A PR that defers a check and forgets the `Owed:` line is caught only by review against this rule: whether
   Verification defers something is prose. The same holds for a PR that closes the item's issue while it owes:
   status keeps listing the check and the page keeps reading `owes …`, but nothing stops the close.
+  Since #241 one part is mechanical: P1 fails a body that says `Part of #n`, closes nothing and says nothing
+  about an issue staying open. The rest is still an agent's reading of a rule: that a split wrote the `Owed:`
+  line, that `/work-ticket`'s last step noticed it missing, and that an acceptance line was run or deferred.
+- P1 cannot know which issue a PR worked. A PR that finishes a sub-issue, links only the parent and says it
+  "leaves #parent open" passes with the sub-issue still open; the finding's message asks for `Closes #n` first
+  for that reason. A body that names no `Part of` at all is not read by this rule.
+- P1 reads the closing words from the body's prose only: one inside a code block or a comment is not counted,
+  and a commit message is not read.
 - `fail` and `pass` pair by exact check text and by line order: a reworded check reads as a new one, and a
   pass written above its fail does not clear it. The environment is not compared: a pass anywhere clears it.
 - MS1's finding and the work-order page quote a check's text as written, an address in it included; both
@@ -379,6 +401,9 @@ none
 
 ## Changes
 
+- 2026-10-06 · CHANGED · built (#241): the split writes the item's `Owed:` line; `/work-ticket` on a sub-issue
+  stops when the item's deferred check has no line; an acceptance line is run or deferred, never only "not
+  verified"; P1 reports a `Part of` body that closes nothing and says nothing stays open (§6, Known limitations)
 - 2026-09-30 · ADDED · spec · #176
 - 2026-09-30 · CHANGED · built, step 1 (#176): a check line with its indent forgotten is unreadable, not
   dropped (§1); `marker()` also returns the text before the marker (§2); a single-issue row with an open pull
