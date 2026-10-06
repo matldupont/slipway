@@ -76,10 +76,10 @@ const written = (md) => prose(md).split(/\r?\n/).filter((l) => !/^(?: {4}|\t)/.t
 
 // `## Follow-ups` against the rest of the body (#242). Read from the prose with fences, comments and inline code taken
 // out (so a quoted title or example answers and triggers nothing), indented lines kept: a nested bullet is prose.
-// Headings are not prose: the template's own `## Follow-ups` line is not a mention. "no follow-ups" and the skill's
+// Headings are not prose: the template's own `## Follow-ups` line is not a mention. "no follow-ups" (not one followed by a colon, which names the work) and the skill's
 // own `/log-followup` are not a mention either.
 const FOLLOW_UP = /(?<![\w/-])follow[-\s]?ups?\b/i;
-const DENIED = /\b(?:no|zero|without|none)\s+follow[-\s]?ups?\b/gi;
+const DENIED = /\b(?:no|zero|without|none)\s+follow[-\s]?ups?\b(?!\s*:)/gi;
 const NONE = /^(?:[-*+]\s+)?none\b/i;
 const ITEM = /^ {0,3}(?:[-*+]|\d{1,9}[.)])\s/;
 const HEADING = /^ {0,3}#{1,6}(?:\s|$)/;
