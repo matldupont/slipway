@@ -224,7 +224,7 @@ Split:       → Phase 6 | not needed — {one step fits one session and one PR}
 One issue should be one fresh session and one PR a person reviews in about 15–20 minutes. Split when the
 build map has more than one step and at least one holds: a step will not fit one session or its PR would pass
 ~400 changed lines; order matters (machinery merges before its surface); or risk is mixed (money, auth, schema
-or deletion deserves its own review, apart from the rest).
+or data deletion deserves its own review, apart from the rest).
 
 2–5 sub-issues. More than 5 means the cut is too big: back to Phase 4. Deferred items never get one.
 
