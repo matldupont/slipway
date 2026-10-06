@@ -357,7 +357,7 @@ rest — judged from the diff, never from `slipway.lane`: the lane is the
 author's claim, and a PR body cannot buy itself a lighter review. A lane of
 `trivial` on a diff that is not is itself a `[FIX]`.
 `slipway.coldReviewApplies === true` overrides in the other direction:
-money/auth/schema/deletion always earns 3 lenses regardless of LOC.
+money, auth, schema or data deletion always earns 3 lenses regardless of LOC.
 
 When dispatching ≥2 on the same layer, rotate lenses:
 

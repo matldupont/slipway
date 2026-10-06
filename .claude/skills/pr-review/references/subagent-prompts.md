@@ -167,7 +167,7 @@ review cannot close by reading harder.
 >
 > If `slipway.coldReviewApplies` is true, also apply
 > `process/cold-review.md`'s checklist — this diff touches money, auth,
-> schema, or data deletion, which is exactly the class of change that
+> schema or data deletion, which is exactly the class of change that
 > checklist exists for.
 
 ### Testing + a11y

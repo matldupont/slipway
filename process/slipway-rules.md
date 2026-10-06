@@ -35,7 +35,7 @@ milestone at a time → `/close-milestone`.
   `Verified against: <sha> <date>` (L-18).
 - Record decisions in `decisions.md` when they are made, not afterwards. Answer D-001–D-014 in place; number
   the decisions you add `PD-1`, `PD-2`…, so a slipway update never collides with them.
-- Before calling work done on money, auth, schema or data-deletion paths, run `process/cold-review.md` from
+- Before calling work done on a change touching money, auth, schema or data deletion, run `process/cold-review.md` from
   a fresh context, refuting by default.
 - Choose model and effort with `process/designation.md`.
 

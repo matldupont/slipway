@@ -285,7 +285,7 @@ there validates the shape.
     "readFrom": null,              // the base commit the markers were read from; null: base not fetched
     "lane": null,                  // "trivial" | "bounded" | "feature", from a `Lane:` line in the PR body
     "verificationSection": null,   // the PR body's "## Verification" section, if present
-    "coldReviewApplies": false,    // the --cold-review checklist exists AND diff touches a money/auth/schema/deletion path
+    "coldReviewApplies": false,    // the --cold-review checklist exists AND diff touches money, auth, schema or data deletion
     "coldReviewChecklistPath": null,
     "domainInvariants": [],        // parsed from the --invariants doc
     "invariantsAtRisk": [],        // invariant IDs whose enforcing test path was touched by a removed hunk

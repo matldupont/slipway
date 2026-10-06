@@ -164,7 +164,7 @@ second click resolves the user-visible damage, it isn't one.
 
 When `slipway.coldReviewApplies` is true (the repo carries a
 `process/cold-review.md` checklist and this diff touches money, auth,
-schema, or data deletion), apply that checklist's items alongside these
+schema or data deletion), apply that checklist's items alongside these
 four gates rather than instead of them — the checklist catches a
 different class of miss (a criterion that passes no matter what, a title
 that doesn't bound the diff) that these gates don't test for. See
