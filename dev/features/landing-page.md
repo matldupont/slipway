@@ -320,11 +320,11 @@ npx use-slipway acme                                             # output pasted
 
 1. Refresh `SLIPWAY.md`: "Exercised on a real project", the sync yardstick lines (one per real sync, dated,
    counts only) and "Not verified here" as of the release current then, each kept line verified against
-   `main`; the first close's lines. Docs, ~80 lines. **After the first real `/close-milestone`.**
+   `main`; the first close's lines. Docs, ~80 lines. **After the first real `/close-milestone`.** · #270
 2. The page and what it mirrors: §04, §05 and §06 rewritten from the claims table; the §01 clause cut; the
    scrollbar gutter in `site/css/base.css`; `README.md`'s first screen aligned with the page's; the word grep;
    then the commands run from `use-slipway@latest`, the person-run path, the two screenshots, the scroll-width
-   check and the three-reader test, with findings fixed in the same PR. Site and docs, ~200 lines. Blocked by 1.
+   check and the three-reader test, with findings fixed in the same PR. Site and docs, ~200 lines. Blocked by 1. · #271
 
 ## Out of scope
 
@@ -343,4 +343,4 @@ shaping (advice from the orchestrator session, 2026-10-06) and are the owner's t
 
 ## Changes
 
-- 2026-10-06 · ADDED · shaped for #252 (part of #55); the Contract and Verify above are embedded in #252's body
+- 2026-10-06 · ADDED · shaped for #252 (part of #55); the Contract and Verify above are embedded in #252's body; built by #270 then #271
