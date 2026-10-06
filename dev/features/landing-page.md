@@ -512,7 +512,8 @@ npx use-slipway <unique-name>                                    # a person, the
    screenshots; the scroll-width check; the reader test, up to 3 rounds. Site and docs, ~250 lines. Blocked by 1.
    · #271
 3. After the first real `/close-milestone`: the close's lines in `SLIPWAY.md` (3 or more), row 61 and Q8's last
-   sentence on the page, step 6's time, the pairing re-shown. Docs and site, ~30 lines. Blocked by 2.
+   sentence on the page, step 6's time, the pairing re-shown. Docs and site, ~30 lines. Blocked by 2. Closes
+   #252. Its sub-issue is filed once this version of the doc is on `main`.
 
 Before #55 publishes, and #55's to check: step 3 has merged, and a patch release carries the aligned README
 (`npm view use-slipway readme` passes the three `grep -F` of A11).
@@ -533,11 +534,12 @@ Before #55 publishes, and #55's to check: step 3 has merged, and a patch release
 ## Open questions
 
 none open. Settled by the owner: the reader and the real-project wording (2026-10-06); the first line
-(2026-09-24); the resolutions of the review of 0.1, AR-1 to AR-14 (2026-10-06, relayed by the review session).
+(2026-09-24); the resolutions of the review of 0.1, AR-1 to AR-14 (2026-10-06, relayed by the review session);
+that the two sentences in §01's stages 2 and 3 about what changed for the author ("the quality I could expect
+changed overnight", "the results became consistent") stay as biography, what happened on the author's own
+projects before slipway (2026-10-06); and that the after-close step gets a sub-issue of its own (2026-10-06).
 Settled in shaping, and the owner's to move in this doc: the order of the nine questions, the required facts,
-the wording of rows 19, 22 and 27, and that the two sentences in §01's stages 2 and 3 about what changed for
-the author ("the quality I could expect changed overnight", "the results became consistent") are biography:
-what happened on the author's own projects before slipway, in the past tense.
+the wording of rows 19, 22 and 27, and the models named for the reader test.
 
 ## Changes
 
