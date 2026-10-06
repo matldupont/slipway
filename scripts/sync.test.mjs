@@ -2224,6 +2224,9 @@ test('case 1 — no commit recorded, the base found by content is the target, ev
   assert.deepEqual([doc.base, doc.target, doc.targetVersion], [B, B, VERSION]);
   assert.deepEqual([...new Set(doc.rows.map((r) => r.kind))], ['unchanged'], 'the rows stay as computed');
   assert.equal(manifestOf(dir).slipway, null, 'the commit is recorded by the first sync that has something to apply');
+  // The remote line is printed, as the plan prints it: a branch behind its remote plans against the wrong tree.
+  git(dir, 'branch', '--unset-upstream');
+  for (const args of [[], ['--apply']]) assert.equal(remoteLine(runFrom(packed(source, B), dir, ...args).stdout), 'not checked — main has no upstream', `sync ${args.join(' ')}`);
 });
 
 // What main (31adb3a) does with one key of the manifest wrong and everything else at the target; the rule
@@ -2317,6 +2320,21 @@ test('case 5 — no commit recorded, and the base is found by content at a later
   });
   const doc = assertAlready(packed(source, B), unrecordedAtB(source), alreadyAt(VERSION, B));
   assert.deepEqual([doc.base, doc.target], [internal, B], 'the fixture: the base is the later commit');
+});
+
+test('case 5, with a script the project changed — the base is past the target, so no item is listed by hand: the row compares the target with a later commit', () => {
+  const source = releaseSource((d) => {
+    git(d, 'tag', `v${VERSION}`, B);
+    put(d, { 'package.json': pkg({ ...JSON.parse(show(B, 'package.json')).scripts, a: 'echo a3' }) });
+    commitLater(d, 'chore: a script changed after the release');
+  });
+  const dir = unrecordedAtB(source);
+  const p = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+  p.scripts.a = 'echo mine';
+  put(dir, { 'package.json': `${JSON.stringify(p, null, 2)}\n` });
+  commit(dir, 'the owner changes a script');
+  const doc = assertAlready(packed(source, B), dir, alreadyAt(VERSION, B));
+  assert.ok(doc.rows.some((r) => r.kind === 'merged: key reported'), 'the fixture: the row is there, and not listed by hand');
 });
 
 test('case A — a project past the target in which the writes cannot be worked out: the "already past" sentence and exit 0, as before', () => {

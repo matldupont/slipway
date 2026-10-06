@@ -133,14 +133,16 @@ D-004 holds for the checks it imports].
     `merge`) is `.claude/skills/sync-slipway/SKILL.md` or `process/intake.md`, which the skill cites; else `false`.
   - `targetVersion` (#231, added under schema 1): the release the target is, when the tag `v<version>` in the
     source names the target commit; else `null`.
-  - `alreadyPast` (#231, added under schema 1): `true` when the project's base is a descendant of the target.
+  - `alreadyPast` (#231, added under schema 1): `true` when the project's base is a descendant of the target and
+    the project is not at the target (#247: a project whose files are the target's reads `false`, whichever commit is later).
     Then `rows`, `commits`, `buckets` and `needsYou` are empty, and `next` is the sentence the text plan prints
     (`your project is already past …; nothing to take`), not a command.
   - `nothingToTake` (#247, added under schema 1): `true` in every answer with nothing to take: the project is at
     the target ("Already at …", with or without a recorded commit), or already past it (`alreadyPast`). `next` is
     then the sentence the text prints, not a command, and it is never run. At the target, `rows`, `buckets` and
     `needsYou` stay as computed: `needsYou` may still hold an item the owner settles by hand, and its `next`
-    names no `--apply`. `/sync-slipway` step 1 reads this field.
+    names no `--apply`. A bucket's `meaning` is the fixed text of its kind, so it may still say what `--apply`
+    does with such a row in general. `/sync-slipway` step 1 reads this field.
 - `/sync-slipway` step 1 runs `sync --json` and explains from it: it groups `commits` by `scope`, and reads
   `needsYou` and the `seeded: upstream changed` bucket for what each will ask. Step 2 is unchanged: the owner
   runs `--apply` in their own terminal and the skill reads that output with them.
@@ -262,7 +264,8 @@ The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts il
   the target answers "already past", as before, also when working out the rule fails for such a project.
 - The target reads `use-slipway <version>, commit <sha>` wherever it is shown, or `commit <sha>, not a release`
   when no release tag names that commit (#231, `dev/features/release.md` → Sync with releases).
-- Exit codes are unchanged: 0, or 1 when the owner owes something.
+- Exit codes are unchanged: 0, or 1 when the owner owes something. "Already at" exits 0, also when it lists an
+  item to settle by hand: nothing was applied, so nothing waits on a branch.
 
 ### What is reused
 

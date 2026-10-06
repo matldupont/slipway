@@ -82,8 +82,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     // Nothing to take (nothingToTake): the plan, --json and --apply all say "Already at", and nothing is written.
     const already = (rows, todo) => {
       settle();
-      const stale = ctx.past ? [] : todo.stale;
-      if (json) return writeDoc(out, planDoc(ctx, rows, { stale, absorbed: todo.absorbed, reported: todo.reported, at: true }));
+      if (json) return writeDoc(out, planDoc(ctx, rows, { stale: todo.stale, absorbed: todo.absorbed, reported: todo.reported, at: true }));
       if (ctx.verbose) verboseFirst(out, ctx, rows);
       out.write(alreadyText(ui(out, env), alreadyView(ctx, rows, todo)));
     };
@@ -94,7 +93,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
       let at = null;
       try {
         const rows = plan(ctx);
-        const todo = compute(ctx, rows, { check: false });
+        const todo = compute(ctx, rows);
         if (nothingToTake(ctx, todo)) at = { rows, todo };
       } catch {
         // not at the target, as far as sync can tell: already past it
@@ -115,7 +114,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
       // writes, in its temp dir only. What stops that stops --apply too, and the owner hears it now.
       let todo;
       try {
-        todo = compute(ctx, rows, { check: false });
+        todo = compute(ctx, rows);
       } catch (e) {
         if (e instanceof Refusal) throw new Refusal(`${e.message}\n--apply would refuse this too, so the plan stops here.`);
         throw e;
@@ -528,8 +527,9 @@ const alreadyView = (ctx, rows, todo) => ({ root: ctx.root, branch: ctx.branch, 
  * The plan as data, schema 1 (F-08 §2, dev/features/cli-output.md): what /sync-slipway reads instead of
  * the text. Shas are full, the skill cites them. A field is added under the same schema number; one that
  * is renamed, removed or changes meaning takes the next. `targetVersion` is the release the target is, or
- * null. `alreadyPast` is true when the project's base is past the target: no rows, and `next` is that sentence.
- * `nothingToTake` is true then, and when the project is at the target (`at`): `next` is a sentence in both.
+ * null. `alreadyPast` is true when the project's base is past the target and the project is not at it: no rows,
+ * and `next` is that sentence. `nothingToTake` is true then, and when the project is at the target (`at`),
+ * whichever commit is later: `next` is a sentence in both.
  */
 function planDoc(ctx, rows, { stale, absorbed, reported = [], at = false }) {
   const { root, branch, remote, source, base, targetSha, targetVersion, past, notes, commits } = ctx;
@@ -635,7 +635,7 @@ function apply(out, u, ctx, rows) {
   // Forward only, and only to a commit the source has: the next sync finds its base there.
   forwardOnly(gitDir, base.sha, targetSha, ctx.source, { apply: true });
   // Where each write lands is checked only once there is something to write.
-  const todo = compute(ctx, rows, { check: false });
+  const todo = compute(ctx, rows);
   const name = `slipway/sync-${short(targetSha)}`;
   if (nothingToTake(ctx, todo)) {
     if (ctx.verbose) verboseFirst(out, ctx, rows);
@@ -684,10 +684,10 @@ function verboseFirst(out, ctx, rows) {
 }
 
 // Every write --apply makes, and nothing written yet. Throws a Refusal on anything that would break
-// the invariant or that git cannot do: a changed file, a symlink or directory where a file goes, a path
-// the project ignores, a failed merge. The plan calls it with `check: false` for the overrides:
-// it writes only inside the clone's temp dir, and skips the checks of where each write lands.
-function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows, { check = true } = {}) {
+// the invariant or that git cannot do: a changed file, a failed merge. It writes only inside the clone's temp
+// dir, so the plan calls it too. Where each write lands is not checked here: --apply does that (checkWrites),
+// once it knows there is something to write.
+function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows) {
   const tmp = mkdtempSync(join(dirname(gitDir), 'apply-')); // inside the clone's temp dir: removed on exit
   const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
   const pristine = (p) => {
@@ -775,7 +775,6 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   }
   if (todo.absorbed.length) todo.writes.set(OVERRIDES, { bytes: withoutOverrides(root, overrides, todo.absorbed) });
 
-  if (check) checkWrites(root, [...todo.writes.keys(), MANIFEST], todo.removes);
   return todo;
 }
 
