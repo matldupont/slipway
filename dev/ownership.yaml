@@ -95,6 +95,9 @@ paths:
     class: managed
   - glob: docs/**/TEMPLATE.md
     class: managed
+  # slipway's own reviews of its feature docs: R1 reads them here, and no project receives them
+  - glob: docs/reviews/**
+    class: internal
 
   # seeded
   - glob: docs/PRD.md
