@@ -137,11 +137,12 @@ D-004 holds for the checks it imports].
     Then `rows`, `commits`, `buckets` and `needsYou` are empty, and `next` is the sentence the text plan prints
     (`your project is already past …; nothing to take`), not a command.
   - `nothingToTake` (#245, added under schema 1): `true` whenever nothing is applied. Two cases: `alreadyPast`,
-    and a project at the target (base and target are one commit, every row is `unchanged`, and no note
-    or override is left to say anything about), with a manifest that records the target's version and either
-    that commit or none. A manifest that records another commit or version is corrected by `--apply`, as before. `next`
-    is a command; when `nothingToTake` is `true`, it is a sentence for the owner (`Already at <target> — nothing
-    to apply, nothing written`, or the `alreadyPast` one). `/sync-slipway` step 1 reads it: it says the sentence
+    and a project at the target. At the target means: base equals target, `--apply` has nothing to write or
+    remove, there is no note and no stale or absorbed override, and the manifest `--apply` would write is
+    byte-equal to the one on disk, with exactly one difference allowed: a null `slipway` filled with the
+    target's sha. Any other difference in the manifest is a normal plan, and `--apply` corrects it. `next` is a
+    command; when `nothingToTake` is `true`, it is a sentence for the owner (`Already at <target> — nothing to
+    apply, nothing written`, or the `alreadyPast` one). `/sync-slipway` step 1 reads it: it says the sentence
     and stops.
 - `/sync-slipway` step 1 runs `sync --json` and explains from it: it groups `commits` by `scope`, and reads
   `needsYou` and the `seeded: upstream changed` bucket for what each will ask. Step 2 is unchanged: the owner

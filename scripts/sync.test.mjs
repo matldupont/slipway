@@ -2140,38 +2140,77 @@ for (const recorded of [true, false]) {
   });
 }
 
-test('nothingToTake: true only with base and target one commit, every row unchanged, no note or override to say anything about, and a manifest that records the target\'s version and its commit or none', () => {
-  const target = new Map([['package.json', Buffer.from(pkg({}))]]);
-  const ctx = { root: '/p', targetSha: B, base: { sha: B }, notes: [], target, manifest: { slipway: null, version: VERSION } };
-  const unchanged = [{ kind: 'unchanged', path: 'process/same.md' }];
-  const none = { stale: [], absorbed: [] };
-  const ok = (c, r = unchanged, o = none) => nothingToTake(c, r, o);
-  assert.equal(ok(ctx), true);
-  assert.equal(ok({ ...ctx, manifest: { slipway: B, version: VERSION } }), true, 'the target recorded');
-  assert.equal(ok({ ...ctx, manifest: { slipway: A, version: VERSION } }), false, 'another commit recorded: --apply corrects it');
-  assert.equal(ok({ ...ctx, manifest: { slipway: null, version: '0.0.1' } }), false, 'another version recorded: --apply corrects it');
-  assert.equal(ok({ ...ctx, targetSha: null, base: { sha: null } }), false, 'no target commit: nothing to name');
-  assert.equal(ok({ ...ctx, base: { sha: A } }), false, 'another base');
-  assert.equal(ok(ctx, [...unchanged, { kind: 'replace', path: 'process/replace.md' }]), false, 'a row that changes');
-  assert.equal(ok(ctx, [...unchanged, { kind: 'keep (edited)', path: 'process/kept.md' }]), false, 'a row that needs the owner');
-  assert.equal(ok({ ...ctx, notes: ['a note'] }), false, 'a note');
-  assert.equal(ok(ctx, unchanged, { stale: [{ line: 2, path: 'x' }], absorbed: [] }), false, 'a stale override');
-  assert.equal(ok(ctx, unchanged, { stale: [], absorbed: [{ line: 2, path: 'x' }] }), false, 'an override --apply removes');
-  assert.equal(ok(ctx, []), true, 'no rows at all');
+// The predicate is defined by what --apply would write: `todo.manifest` against the manifest on disk. Each row
+// changes one thing in the manifest on disk, one row per key the manifest holds, so a new key adds a row.
+test('nothingToTake: true only when --apply would write nothing and its manifest is the one on disk, a null commit aside; any other difference in the manifest is a normal plan', () => {
+  const written = manifestOf(atRelease({ recorded: true }).dir);
+  const bytesOf = (m) => Buffer.from(`${JSON.stringify(m, null, 2)}\n`);
+  const todo = { writes: new Map(), removes: [], stale: [], absorbed: [], manifest: bytesOf(written) };
+  const ctx = { targetSha: B, base: { sha: B }, notes: [] };
+  const disk = (edit) => { const m = structuredClone(written); edit(m); return bytesOf(m); };
+  assert.equal(written.slipway, B);
+  assert.equal(nothingToTake(ctx, todo, bytesOf(written)), true, 'the manifest --apply would write');
+  assert.equal(nothingToTake(ctx, todo, disk((m) => { m.slipway = null; })), true, 'the same, recording no commit');
+
+  const file = Object.keys(written.files)[0];
+  const wrong = (v) => (typeof v === 'string' ? `${v}x` : v === null ? 'x' : typeof v === 'object' ? { ...v, x: 1 } : !v);
+  const cases = [
+    ...Object.keys(written).map((k) => [`${k} differs`, (m) => { m[k] = wrong(m[k]); }]),
+    ...Object.keys(written).filter((k) => k !== 'slipway').map((k) => [`${k} is null`, (m) => { m[k] = null; }]),
+    ...Object.keys(written.files[file]).map((k) => [`a file's ${k} differs`, (m) => { m.files[file][k] = `${m.files[file][k]}x`; }]),
+    ['a file removed', (m) => { delete m.files[file]; }],
+    ['a file added', (m) => { m.files['process/extra.md'] = { ...m.files[file] }; }],
+    ['a key added', (m) => { m.extra = 1; }],
+    ['a null commit and another difference', (m) => { m.slipway = null; m.version = '0.0.1'; }],
+  ];
+  assert.ok(cases.length >= 5 + 4 + 3 + 4, 'the manifest lost a key this test derives its rows from');
+  for (const [name, edit] of cases) assert.equal(nothingToTake(ctx, todo, disk(edit)), false, name);
+  assert.equal(nothingToTake(ctx, todo, Buffer.from('not json')), false, 'a manifest that does not parse');
+  assert.equal(nothingToTake(ctx, todo, null), false, 'no manifest');
+
+  const at = bytesOf(written);
+  assert.equal(nothingToTake({ ...ctx, targetSha: null, base: { sha: null } }, todo, at), false, 'no target commit');
+  assert.equal(nothingToTake({ ...ctx, base: { sha: A } }, todo, at), false, 'another base');
+  assert.equal(nothingToTake({ ...ctx, notes: ['a note'] }, todo, at), false, 'a note');
+  assert.equal(nothingToTake(ctx, { ...todo, writes: new Map([['process/x.md', {}]]) }, at), false, 'a file to write');
+  assert.equal(nothingToTake(ctx, { ...todo, removes: ['process/x.md'] }, at), false, 'a file to remove');
+  assert.equal(nothingToTake(ctx, { ...todo, stale: [{ line: 2, path: 'x' }] }, at), false, 'a stale override');
+  assert.equal(nothingToTake(ctx, { ...todo, absorbed: [{ line: 2, path: 'x' }] }, at), false, 'an override --apply removes');
 });
 
-test('content at the target but a manifest that records another commit: not "Already at" — the plan names --apply, and --apply records the target on a branch', () => {
-  const { dir, from } = atRelease({ recorded: true });
-  const m = manifestOf(dir);
-  m.slipway = A;
-  put(dir, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
-  commit(dir, 'a manifest that records the wrong commit');
-  const doc = JSON.parse(runFrom(from, dir, '--json').stdout);
-  assert.deepEqual([doc.base, doc.target, doc.nothingToTake], [B, B, false]);
-  assert.match(doc.next, /--apply$/);
-  const applied = runFrom(from, dir, '--apply');
-  assert.equal(applied.status, 0, applied.stderr);
-  assert.deepEqual([git(dir, 'symbolic-ref', '--short', 'HEAD'), manifestOf(dir).slipway], [BRANCH, B]);
+for (const [name, edit] of [
+  ['another commit', (m) => { m.slipway = A; }],
+  ['another version', (m) => { m.version = '0.0.1'; }],
+  ['another class for one of its own files', (m) => { m.files['docs/same.md'].class = 'merged'; }],
+]) {
+  test(`content at the target but a manifest that records ${name}: not "Already at" — the plan names --apply, and --apply writes the corrected manifest on a branch`, () => {
+    const { dir, from } = atRelease({ recorded: true });
+    const right = manifestOf(dir);
+    const m = structuredClone(right);
+    edit(m);
+    assert.notDeepEqual(m, right);
+    put(dir, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+    commit(dir, 'a manifest that records something untrue');
+    const j = runFrom(from, dir, '--json');
+    assert.equal(j.status, 0, j.stderr);
+    const doc = JSON.parse(j.stdout);
+    assert.deepEqual([doc.base, doc.target, doc.nothingToTake, doc.alreadyPast], [B, B, false, false]);
+    assert.match(doc.next, /--apply$/);
+    assert.match(runFrom(from, dir).stdout, /Next: .*--apply/);
+    const applied = runFrom(from, dir, '--apply');
+    assert.equal(applied.status, 0, applied.stderr);
+    assert.equal(git(dir, 'symbolic-ref', '--short', 'HEAD'), BRANCH);
+    assert.deepEqual(manifestOf(dir), right);
+  });
+}
+
+test('nothing to take on a branch with no upstream: the plan and --apply both print the remote line above "Already at"', () => {
+  const { dir, from } = atRelease({ recorded: false });
+  git(dir, 'switch', '-q', '-c', 'lone');
+  for (const args of [[], ['--apply']]) {
+    const out = lines(runFrom(from, dir, ...args).stdout);
+    assert.deepEqual([out.at(-2), /^└ {2}Already at /.test(out.at(-1))], ['│  remote: not checked — lone has no upstream', true], `sync ${args.join(' ')}`);
+  }
 });
 
 test('alreadyText: a remote warning is printed between the header and the sentence, for the plan and --apply alike', () => {

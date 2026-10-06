@@ -90,15 +90,16 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
     if (!argv.includes('--apply')) {
       // The plan lists the stale overrides --apply will, and the ones it removes, so it computes the same
       // writes, in its temp dir only. What stops that stops --apply too, and the owner hears it now.
-      let stale, absorbed;
+      let todo;
       try {
-        ({ stale, absorbed } = compute(ctx, rows, { check: false }));
+        todo = compute(ctx, rows, { check: false });
       } catch (e) {
         if (e instanceof Refusal) throw new Refusal(`${e.message}\n--apply would refuse this too, so the plan stops here.`);
         throw e;
       }
       settle();
-      const idle = nothingToTake(ctx, rows, { stale, absorbed });
+      const { stale, absorbed } = todo;
+      const idle = nothingToTake(ctx, todo, readProjectFile(ctx.root, MANIFEST));
       if (json) {
         writeDoc(out, planDoc(ctx, rows, { stale, absorbed, idle }));
         return 0;
@@ -524,21 +525,27 @@ function planDoc(ctx, rows, { stale, absorbed, idle = false }) {
 }
 
 /**
- * Whether the project is at the target with nothing to say: base and target are one commit, every row is
- * unchanged (so no row needs the owner), no note, stale override or absorbed override is left, and the
- * manifest records nothing untrue: the target's version, and the target's commit or none. A project created
- * from a registry copy records no commit; its first plan finds the base by content, equal to the target, and
- * then nothing is taken, so nothing is applied and the commit stays unrecorded until a sync has something to
- * write. A manifest that records another commit or version is not this case: --apply corrects it on a branch.
- * One answer for the plan, --json and --apply. Not `past` (a base beyond the target): that returns earlier.
+ * Nothing to take: base equals target, `todo` (compute's) has nothing to write or remove, there is no note
+ * and no stale or absorbed override, and the manifest --apply would write is byte-equal to `current`, the
+ * one on disk, with exactly one difference allowed: a null `slipway` filled with the target's sha. A project
+ * created from a registry copy records no commit; at the target it has nothing to apply, and the commit stays
+ * unrecorded until a sync has something to write. Any other difference is a normal plan, and --apply
+ * corrects it. One answer for the plan, --json and --apply, defined by what --apply would write. Not `past`
+ * (a base beyond the target): that returns earlier.
  */
-export function nothingToTake(ctx, rows, { stale, absorbed }) {
-  const { manifest, target, targetSha, base, notes } = ctx;
-  return Boolean(targetSha) && targetSha === base.sha
-    && (manifest.slipway == null || manifest.slipway === targetSha)
-    && manifest.version === (packageVersion(target) ?? manifest.version)
-    && rows.every((r) => r.kind === 'unchanged')
-    && notes.length === 0 && stale.length === 0 && absorbed.length === 0;
+export function nothingToTake({ targetSha, base, notes }, todo, current) {
+  if (!targetSha || targetSha !== base.sha || notes.length || todo.writes.size || todo.removes.length || todo.stale.length || todo.absorbed.length) return false;
+  if (!Buffer.isBuffer(current) || !Buffer.isBuffer(todo.manifest)) return false;
+  if (current.equals(todo.manifest)) return true;
+  let recorded;
+  try {
+    recorded = JSON.parse(current.toString('utf8'));
+  } catch {
+    return false;
+  }
+  if (recorded === null || typeof recorded !== 'object' || recorded.slipway !== null) return false;
+  recorded.slipway = targetSha;
+  return Buffer.from(`${JSON.stringify(recorded, null, 2)}\n`).equals(todo.manifest);
 }
 
 // The plan as lib/sync-text.mjs lays it out for the owner (F-08 §3): the same lists --json carries.
@@ -600,7 +607,7 @@ function apply(out, u, ctx, rows) {
   const todo = compute(ctx, rows);
   const name = `slipway/sync-${short(targetSha)}`;
   const current = readProjectFile(root, MANIFEST);
-  if (nothingToTake(ctx, rows, todo) || (!todo.writes.size && !todo.removes.length && Buffer.isBuffer(current) && current.equals(todo.manifest))) {
+  if (nothingToTake(ctx, todo, current)) {
     if (ctx.verbose) verboseFirst(out, ctx, rows);
     out.write(alreadyText(u, { branch, remote: ctx.remote, target: targetSha, version: ctx.targetVersion }));
     return 0;
