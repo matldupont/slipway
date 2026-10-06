@@ -19,9 +19,12 @@ React + Vite, Cloudflare.
 From the folder you keep projects in, pass the new project's folder name:
 
 ```bash
-npx github:matldupont/slipway acme --dry-run    # print the plan, change nothing
-npx github:matldupont/slipway acme              # create ./acme and the GitHub repo
+npx use-slipway acme --dry-run    # print the plan, change nothing
+npx use-slipway acme              # create ./acme and the GitHub repo
 ```
+
+To take a commit that is not released yet, name it: `npx github:matldupont/slipway#<ref> acme` and
+`npx github:matldupont/slipway#<ref> sync`, where `<ref>` is `main`, a tag or a sha.
 
 That creates `./acme` and a **private** GitHub repository named after the folder, under your account. Then
 `cd acme`, open Claude Code and run **`/bootstrap`**: it scaffolds the app, opens the first PR and runs the

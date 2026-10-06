@@ -180,10 +180,10 @@ The entry point is a subcommand of the package's existing bin, so the sync code 
 ```bash
 pnpm -s use-slipway sync            # plan only, the default
 pnpm -s use-slipway sync --apply
-npx github:matldupont/slipway#<ref> sync --adopt    # a project without a manifest: no script yet
+npx use-slipway@latest sync --adopt    # a project without a manifest: no script yet
 ```
 
-A project's `package.json` carries `"use-slipway": "npx --loglevel=error github:matldupont/slipway#main"`, so
+A project's `package.json` carries `"use-slipway": "npx --loglevel=error use-slipway@latest"` (before the release, `github:matldupont/slipway#main`), so
 its owner types a short, stable name, not slipway's repository address (#90). Exit 1 means a row needs the
 owner, not a crash, so neither package manager adds to sync's own output (#135): `-s` stops pnpm printing
 `ELIFECYCLE Command failed` under it, and `--loglevel=error` stops npx warning about the pnpm settings

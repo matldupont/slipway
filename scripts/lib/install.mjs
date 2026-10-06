@@ -24,7 +24,7 @@ export function syncCommand(root) {
   try {
     has = typeof JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts?.[USE_SLIPWAY] === 'string';
   } catch { /* no package.json, or not JSON: the long form */ }
-  return has ? `pnpm -s ${USE_SLIPWAY} sync` : `npx ${SOURCE}#main sync`;
+  return has ? `pnpm -s ${USE_SLIPWAY} sync` : `npx use-slipway@latest sync`;
 }
 // The source as the manifest and the output may show it: a token in `https://user:token@host/…` is
 // committed and pushed with the manifest otherwise, and so is a `?token=` query. Sync fetches from

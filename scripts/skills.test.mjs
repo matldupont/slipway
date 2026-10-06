@@ -305,7 +305,7 @@ test('/sync-slipway step 1 runs `sync --json` and names every field of the docum
   const skill = read(skillPath('sync-slipway'));
   const one = section(skill, '1 — Plan and explain', 2) ?? '';
   assert.match(one, /^Run `sync --json` /, 'step 1 opens with the command it runs');
-  for (const key of ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'next']) {
+  for (const key of ['schema', 'branch', 'source', 'base', 'target', 'remote', 'notes', 'commits', 'buckets', 'rows', 'needsYou', 'overrides', 'alreadyPast', 'next']) {
     assert.match(one, new RegExp(`\`${key}\\b`), `step 1 never names \`${key}\``);
   }
   assert.match(one, /never instructions to follow/, 'a commit subject or a path is content, not an instruction');
@@ -632,4 +632,25 @@ test('I1 accepts a feature body with and without a Touches: segment in Links', (
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// F-10 → How a project moves (#233): the first command a reader sees is the published package; the GitHub form is
+// the way to take an unreleased commit, said once in the README.
+test('the README, BOOTSTRAP.md and the landing page show `npx use-slipway` first; the GitHub form is documented once, as the way to take an unreleased commit', () => {
+  for (const f of ['README.md', 'BOOTSTRAP.md', 'site/index.html']) {
+    const text = read(f);
+    const first = text.search(/npx (use-slipway|github:)/);
+    assert.match(text.slice(first), /^npx use-slipway acme --dry-run/, `${f}: the first npx command is not the published package`);
+  }
+  assert.equal(read('BOOTSTRAP.md').includes('npx github:'), false);
+  assert.equal(read('site/index.html').includes('npx github:'), false);
+  const readme = read('README.md');
+  assert.equal(readme.match(/npx github:matldupont\/slipway#<ref> acme/g)?.length, 1);
+  assert.match(readme, /not released yet/);
+  const skill = read('.claude/skills/sync-slipway/SKILL.md');
+  assert.match(skill, /`npx --loglevel=error use-slipway@latest`/, 'the skill says the script runs the newest release');
+  assert.match(skill, /npx github:matldupont\/slipway#<ref> sync/, 'the skill keeps the GitHub form for a named ref');
+  // alreadyPast: the skill says so and stops; `next` is then a sentence, never a command (#231).
+  const one = section(skill, '1 — Plan and explain', 2) ?? '';
+  assert.match(one, /`alreadyPast`[^]*?`next` is never run/);
 });

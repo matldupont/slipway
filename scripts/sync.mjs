@@ -4,7 +4,7 @@
 //   pnpm -s use-slipway sync --apply    carry it out on a branch, in one commit
 //   pnpm -s use-slipway sync --json     the plan as one JSON document, for /sync-slipway (F-08 §2)
 //   pnpm -s use-slipway sync --log      the plan, with every change of slipway's instead of what's new
-//   (the script is `npx github:matldupont/slipway#main`; a project without it yet runs that, #<ref> for another ref)
+//   (the script is `npx --loglevel=error use-slipway@latest`; a project without it yet runs `npx use-slipway@latest`)
 //   node <slipway>/scripts/new-project.mjs sync …
 //
 // Reached through new-project's bin, so this code is always the target version's. The plan computes one

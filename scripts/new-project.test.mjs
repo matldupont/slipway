@@ -92,7 +92,7 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   assert.doesNotMatch(meta, /scripts\//);
   assert.equal(readme.includes('Built on [slipway](SLIPWAY.md) '), true);
   // The owner updates with a short name, not slipway's repository address (#90).
-  assert.equal(JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8')).scripts['use-slipway'], 'npx --loglevel=error github:matldupont/slipway#main');
+  assert.equal(JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8')).scripts['use-slipway'], 'npx --loglevel=error use-slipway@latest');
   assert.match(readme, /`pnpm -s use-slipway sync`/);
 
   // PC1 too: every known-bad fixture the project gets must go red there as it does in slipway (#123).

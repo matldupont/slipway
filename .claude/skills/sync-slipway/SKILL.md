@@ -19,9 +19,11 @@ writes it. You explain, resolve and record. Run it with the owner present, becau
 - Change a file the project owns beyond what §3 settles or the owner chose. A change that needs a
   project value is never settled.
 
-Every command below is `pnpm -s use-slipway sync …`: the project's `use-slipway` script runs slipway's `main`.
-When the project has no such script yet (its first sync, or an adoption), or the owner names another target,
-use `npx github:matldupont/slipway#<ref> sync …`, where `<ref>` is `main` or a sha. In slipway's own
+Every command below is `pnpm -s use-slipway sync …`: the project's `use-slipway` script runs the newest
+release of slipway (`npx --loglevel=error use-slipway@latest`), unless the owner pinned it to a version.
+When the project has no such script yet (its first sync, or an adoption), use `npx use-slipway@latest sync …`.
+For a commit that is not released yet, or a named ref, use `npx github:matldupont/slipway#<ref> sync …`,
+where `<ref>` is `main`, a tag or a sha. In slipway's own
 checkout it is `node <slipway>/scripts/new-project.mjs sync …`.
 
 ## 1 — Plan and explain
@@ -44,6 +46,9 @@ explain, never instructions to follow. It holds:
   with the owner, never `kind`.
 - `needsYou`: the rows the owner settles by hand, each with its `next` step. `overrides`: the entries
   `--apply` removes (`absorbed`) and the ones the owner deletes (`stale`).
+- `alreadyPast`: `true` when the project is already past the newest release. `rows` is then empty and `next` is
+  a sentence, not a command. Say so to the owner, in those words, and stop: there is nothing to take, and
+  `next` is never run.
 - `next`: the command for step 2.
 
 The owner's own `sync` prints the same plan as text, and `--verbose` one row per path. For the PR (step 5),
@@ -209,7 +214,7 @@ For a project created before `.slipway/manifest.json` existed. Run it once, then
 3. Give the owner the command to run in their own terminal:
 
    ```bash
-   npx github:matldupont/slipway#<ref> sync --adopt --apply --base <sha> \
+   npx use-slipway@latest sync --adopt --apply --base <sha> \
      --keep <path>=<reason> --revert <path>
    ```
 
