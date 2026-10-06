@@ -15,7 +15,8 @@
 //   links/open-unsaid        the body says `Part of #n` and closes nothing, has no `## Owed after merge` section and
 //                            does not say it `leaves #n open`: work that merged with its issue open and nothing
 //                            saying why (#241). The check cannot tell which issue the PR worked, only that the
-//                            body says nothing about one staying open
+//                            body says nothing about one staying open. A `Part of` counts wherever it is written,
+//                            a code block included; what answers it counts only in the prose
 //   gate-changes/missing     the PR touches a gate file (a path the harness asks before editing, markdown only
 //                            when owner-only, `.gitmodules` or `.gitattributes`, a package.json run key, or a symlink
 //                            or submodule link at any path: the folder it stands for may hold gate files) and has no
@@ -37,7 +38,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gateGlobs, gateMatcher, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
-import { commentCrossesHeading, prose, section } from '../lib/markdown.mjs';
+import { commentCrossesHeading, prose, section, strictSection } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 
 const EVIDENCE = /`[^`]+`|```|\b[MPIR]\d+\b|https:\/\/github\.com\/\S+\/actions\/runs\/\d+/;
@@ -55,12 +56,18 @@ const names = (line, path) => new RegExp(`(^|[^\\w./-])${escapeRe(path)}($|[^\\w
 // named directory, so `**/*` cannot cover a whole PR, and bold markers (`**stricter**`) are not globs.
 const globsOn = (line) => (line.match(/[\w.*/-]*\*[\w.*/-]*/g) ?? []).filter((g) => g.includes('/') && !g.split('/')[0].includes('*'));
 
-// An issue as a body names it: `#12`, `owner/repo#12`. The words GitHub closes an issue on, straight before one,
-// negated or not; read as GitHub reads them, so a body that would close an issue on merge has a closing link.
-const ISSUE = '(?:[\\w.-]{1,100}\\/[\\w.-]{1,100})?#(\\d{1,9})';
-const PART_OF = new RegExp(`\\bpart of:?\\s{1,5}${ISSUE}`, 'gi');
-const CLOSES = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s{1,5}(?:https://github\\.com/[\\w.-]{1,100}/[\\w.-]{1,100}/issues/\\d|${ISSUE})`, 'i');
-const LEAVES = new RegExp(`\\bleaves\\s{1,5}${ISSUE}\\s{1,5}open\\b`, 'gi');
+// `Part of #12`, `Part of: owner/repo#12`, `**Part of** [#12](…)`. The words GitHub closes an issue on, straight
+// before an issue that can exist, negated or not: a body that would close an issue on merge has a closing link.
+const REPO = '(?:[\\w.-]{1,100}\\/[\\w.-]{1,100})?';
+const PART_OF = new RegExp(`\\bpart\\s{1,5}of[\\s:*_\\[]{1,8}${REPO}#(\\d{1,20})`, 'gi');
+const CLOSES = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s{1,5}(?:https://github\\.com/[\\w.-]{1,100}/[\\w.-]{1,100}/issues/|${REPO}#)0{0,9}[1-9]`, 'i');
+const LEAVES = new RegExp(`\\bleaves\\s{1,5}${REPO}#(\\d{1,20})\\s{1,5}open\\b`, 'gi');
+// The two readings of a body the open-unsaid rule takes (#241). What sets the rule off is read from everything but
+// closed comments, so no mark written as text (a `<!--` in inline code, a one-line fence, a leading `---` block) hides
+// a `Part of` that GitHub shows. What answers it is read from the prose alone, with indented code and inline code
+// taken out, so an example of a closing link, of the section or of the sentence answers nothing.
+const stated = (md) => md.replace(/<!--[\s\S]*?-->/g, '');
+const written = (md) => prose(md).split(/\r?\n/).filter((l) => !/^(?: {4}|\t)/.test(l)).join('\n').replace(/`[^`\n]*`/g, ' ');
 
 const dir = process.argv[2] ?? '.';
 const bodies = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
@@ -129,11 +136,10 @@ for (const f of bodies) {
   if (links === null || !(/#\d+/.test(links) || /^\s*none:\s*\S/im.test(links))) {
     findings.push({ where: `${f}#links/missing`, detail: '`## Links` needs an issue reference (#123) or `none: <reason>`' });
   }
-  // Read from the prose: an example in a comment or a code block is not what the body says.
-  const said = prose(md);
-  const partOf = [...new Set([...said.matchAll(PART_OF)].map((m) => m[1]))];
+  const partOf = [...new Set([...stated(md).matchAll(PART_OF)].map((m) => m[1]))];
+  const said = written(md);
   const left = [...said.matchAll(LEAVES)].some((m) => partOf.includes(m[1]));
-  if (partOf.length && !CLOSES.test(said) && !section(md, 'Owed after merge', 2) && !left) {
+  if (partOf.length && !CLOSES.test(said) && !strictSection(said, 'Owed after merge', 2)?.trim() && !left) {
     const n = partOf[0];
     findings.push({ where: `${f}#links/open-unsaid`, detail: `the body says \`Part of #${n}\` and closes nothing. If this PR finishes an issue, close it: \`Closes #n\`. If it leaves a check for after merge, add \`## Owed after merge\` and say which issue it leaves open. Only if it finishes nothing, say it \`leaves #${n} open\`, and why` });
   }

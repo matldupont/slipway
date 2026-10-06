@@ -271,8 +271,14 @@ their own escapes; neither is read by every session.
 - P1 cannot know which issue a PR worked. A PR that finishes a sub-issue, links only the parent and says it
   "leaves #parent open" passes with the sub-issue still open; the finding's message asks for `Closes #n` first
   for that reason. A body that names no `Part of` at all is not read by this rule.
-- P1 reads the closing words from the body's prose only: one inside a code block or a comment is not counted,
-  and a commit message is not read.
+- P1 reads what answers the rule (a closing link, the section, the sentence) from the body's prose only: one in
+  a comment, a code block or inline code is not counted, nor is a line indented four spaces, even in a list. A
+  commit message is not read. It reads `Part of #n` from everything but comments, so a body that only quotes
+  one as an example is reported too.
+- An `## Owed after merge` section with any text in it answers the rule, "none" included; one "leaves #n open"
+  answers it for every `Part of` in the body, and the number is compared, not its repository.
+- From the day a split writes the `Owed:` line, status lists the item under Needs attention as a check "moved
+  to after merge", before any step is built: true to the record, early in its wording (`ci/status.mjs`, unchanged).
 - `fail` and `pass` pair by exact check text and by line order: a reworded check reads as a new one, and a
   pass written above its fail does not clear it. The environment is not compared: a pass anywhere clears it.
 - MS1's finding and the work-order page quote a check's text as written, an address in it included; both

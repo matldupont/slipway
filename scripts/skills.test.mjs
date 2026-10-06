@@ -479,10 +479,12 @@ test('process/intake.md → Deferred check: the split writes the `Owed:` line, t
   assert.match(d, /A body with `Part of #n` and no closing link has `## Owed after merge` or says it "leaves #n open"; the PR check reports a body with neither/, 'the pair P1 holds is written where the rule lives');
   assert.match(d, /A PR that finishes an issue closes it \(`Closes #n`\); "leaves #n open" is for a PR that finishes nothing, and says why/, 'closing the finished issue comes before saying it stays open');
   assert.match(flat(section(intake, 'Pull request', 2)), /A body that says `Part of #n` and closes nothing has `## Owed after merge`, or says it "leaves #n open" and why; the PR check reports a body with neither/, 'the draft is written by the Pull request section, so it says the pair too');
+  assert.match(d, /The PR that later defers that check adds no second line for it: the line the split wrote is the record/, 'one check has one `Owed:` line, so status counts 1');
   const wt = read(skillPath('work-ticket'));
   assert.match(flat(section(wt, 'Phase 1 — Can it start', 2)), /A sub-issue: read the item's issue for a check its milestone line is missing \(`process\/intake\.md` → Deferred check, The last step checks it\)/, '/work-ticket must read the item\'s issue before it builds a sub-issue');
   const verification = (section(wt, 'Phase 6 — Ready', 2) ?? '').split('\n- ').find((l) => l.startsWith('`## Verification`')) ?? '';
   assert.match(flat(verification), /"Not verified" alone never covers an acceptance line: it is run, or deferred \(`process\/intake\.md` → Deferred check\)/, '/work-ticket must say so where it writes `## Verification`');
+  assert.match((section(wt, 'Phase 6 — Ready', 2) ?? '').split('\n').find((l) => l.startsWith('- `## Links`')) ?? '', /`Part of` with nothing closed: the body says what it leaves open, and why/, '/work-ticket must say so where it writes `## Links`');
   assert.match(flat(section(read(skillPath('log-feature')), 'Phase 6 — Split (when it is too big)', 2)), /and the `Owed:` line for a check that stayed in the parent's \(`process\/intake\.md` → Deferred check, Splitting an item\), and commit/, '/log-feature must write the `Owed:` line with the numbered plan');
   // The two doc PRs the intake skills open say `Part of` and close nothing: each says what it leaves open, or P1 fails it.
   assert.match(flat(read(skillPath('log-feature'))), /not this PR, so the body says it "leaves #\{issue\} open": the PR check asks for that/, '/log-feature\'s doc PR must say it leaves the issue open');

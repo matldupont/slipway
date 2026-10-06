@@ -268,6 +268,8 @@ verified" line included.
   `/log-followup` on its `docs/{id}-item-{n}` branch when it has one, otherwise as a milestone-doc edit under
   Ripple's rule (Ripple → Apply). No active milestone, or no item names the issue: say so; the item's issue
   Acceptance is the record.
+  The PR that later defers that check adds no second line for it: the line the split wrote is
+  the record, and its `## Owed after merge` names it.
 - **The last step checks it.** `/work-ticket` on a sub-issue reads the item's issue, the one it is `Part of`, before
   it opens the draft. When that issue's Acceptance has a check that needs the deployed default branch and the item
   has no `Owed:` or `Ran:` line for it, the run stops and names the item, the milestone doc and the line as it
