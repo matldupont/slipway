@@ -217,7 +217,7 @@ export interface SlipwayContext {
   lane: "trivial" | "bounded" | "feature" | null;
   /** Raw text of the PR body's "## Verification" section, if present. */
   verificationSection: string | null;
-  /** True when the cold-review checklist exists AND the diff touches a money/auth/schema/deletion path — always 3 lenses. */
+  /** True when the cold-review checklist exists AND the diff touches money, auth, schema or data deletion — always 3 lenses. */
   coldReviewApplies: boolean;
   coldReviewChecklistPath: string | null;
   domainInvariants: SlipwayInvariant[];
