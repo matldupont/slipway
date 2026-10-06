@@ -525,16 +525,20 @@ function planDoc(ctx, rows, { stale, absorbed, idle = false }) {
 
 /**
  * Whether the project is at the target with nothing to say: base and target are one commit, every row is
- * unchanged, and no note, owed item, stale override or absorbed override is left. A project created from a
- * registry copy records no commit; its first plan finds the base by content, equal to the target, and then
- * nothing is taken, so nothing is applied and the commit stays unrecorded until a sync has something to write.
+ * unchanged (so no row needs the owner), no note, stale override or absorbed override is left, and the
+ * manifest records nothing untrue: the target's version, and the target's commit or none. A project created
+ * from a registry copy records no commit; its first plan finds the base by content, equal to the target, and
+ * then nothing is taken, so nothing is applied and the commit stays unrecorded until a sync has something to
+ * write. A manifest that records another commit or version is not this case: --apply corrects it on a branch.
  * One answer for the plan, --json and --apply. Not `past` (a base beyond the target): that returns earlier.
  */
 export function nothingToTake(ctx, rows, { stale, absorbed }) {
-  return Boolean(ctx.targetSha) && ctx.targetSha === ctx.base.sha
+  const { manifest, target, targetSha, base, notes } = ctx;
+  return Boolean(targetSha) && targetSha === base.sha
+    && (manifest.slipway == null || manifest.slipway === targetSha)
+    && manifest.version === (packageVersion(target) ?? manifest.version)
     && rows.every((r) => r.kind === 'unchanged')
-    && ctx.notes.length === 0 && stale.length === 0 && absorbed.length === 0
-    && needsYou(ctx, rows, stale).length === 0;
+    && notes.length === 0 && stale.length === 0 && absorbed.length === 0;
 }
 
 // The plan as lib/sync-text.mjs lays it out for the owner (F-08 §3): the same lists --json carries.
@@ -598,7 +602,7 @@ function apply(out, u, ctx, rows) {
   const current = readProjectFile(root, MANIFEST);
   if (nothingToTake(ctx, rows, todo) || (!todo.writes.size && !todo.removes.length && Buffer.isBuffer(current) && current.equals(todo.manifest))) {
     if (ctx.verbose) verboseFirst(out, ctx, rows);
-    out.write(alreadyText(u, { branch, target: targetSha, version: ctx.targetVersion }));
+    out.write(alreadyText(u, { branch, remote: ctx.remote, target: targetSha, version: ctx.targetVersion }));
     return 0;
   }
   const message = `chore: sync slipway ${short(base.sha)}..${short(targetSha)}`;

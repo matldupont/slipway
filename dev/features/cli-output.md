@@ -137,8 +137,9 @@ D-004 holds for the checks it imports].
     Then `rows`, `commits`, `buckets` and `needsYou` are empty, and `next` is the sentence the text plan prints
     (`your project is already past …; nothing to take`), not a command.
   - `nothingToTake` (#245, added under schema 1): `true` whenever nothing is applied. Two cases: `alreadyPast`,
-    and a project at the target (base and target are one commit, every row is `unchanged`, and no note, owed
-    item or override is left to say anything about), whether or not its manifest records that commit. `next`
+    and a project at the target (base and target are one commit, every row is `unchanged`, and no note
+    or override is left to say anything about), with a manifest that records the target's version and either
+    that commit or none. A manifest that records another commit or version is corrected by `--apply`, as before. `next`
     is a command; when `nothingToTake` is `true`, it is a sentence for the owner (`Already at <target> — nothing
     to apply, nothing written`, or the `alreadyPast` one). `/sync-slipway` step 1 reads it: it says the sentence
     and stops.
@@ -297,6 +298,10 @@ rewrite earlier lines, retitle the terminal, or plant a hyperlink whose text and
 - `--json` is sync's alone in this slice; `sync --adopt` keeps its current output.
 - `commits` leaves merge commits out, so a change made only in a merge commit has no entry there; its files
   are still in `rows` and `buckets`.
+- A project that records no commit (created from a registry copy) and has nothing to take keeps none (#245), so
+  each sync finds its base by content until one has something to apply. When several commits hold the same
+  slipway files the newest is taken (F-01's limitation), so a base can sit later than the release the project
+  came from; template and script changes between the two are then not reported at the first real sync.
 - The skill change line (#216) works from the first sync after it ships, since the tool is always current, but
   the skill sentence that tells a session to act on it arrives with that same sync: the first sync still runs on
   the old copy of the skill.

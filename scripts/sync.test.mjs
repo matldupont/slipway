@@ -20,7 +20,7 @@ import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/l
 import { ownDecisions } from './adopt.mjs';
 import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
-import { appliedText, planText } from './lib/sync-text.mjs';
+import { alreadyText, appliedText, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
 import { KINDS, checkWrites, nothingToTake, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
 
@@ -2140,12 +2140,16 @@ for (const recorded of [true, false]) {
   });
 }
 
-test('nothingToTake: true only with base and target one commit, every row unchanged, and no note, owed item or override to say anything about', () => {
-  const ctx = { root: '/p', targetSha: B, base: { sha: B }, notes: [] };
+test('nothingToTake: true only with base and target one commit, every row unchanged, no note or override to say anything about, and a manifest that records the target\'s version and its commit or none', () => {
+  const target = new Map([['package.json', Buffer.from(pkg({}))]]);
+  const ctx = { root: '/p', targetSha: B, base: { sha: B }, notes: [], target, manifest: { slipway: null, version: VERSION } };
   const unchanged = [{ kind: 'unchanged', path: 'process/same.md' }];
   const none = { stale: [], absorbed: [] };
   const ok = (c, r = unchanged, o = none) => nothingToTake(c, r, o);
   assert.equal(ok(ctx), true);
+  assert.equal(ok({ ...ctx, manifest: { slipway: B, version: VERSION } }), true, 'the target recorded');
+  assert.equal(ok({ ...ctx, manifest: { slipway: A, version: VERSION } }), false, 'another commit recorded: --apply corrects it');
+  assert.equal(ok({ ...ctx, manifest: { slipway: null, version: '0.0.1' } }), false, 'another version recorded: --apply corrects it');
   assert.equal(ok({ ...ctx, targetSha: null, base: { sha: null } }), false, 'no target commit: nothing to name');
   assert.equal(ok({ ...ctx, base: { sha: A } }), false, 'another base');
   assert.equal(ok(ctx, [...unchanged, { kind: 'replace', path: 'process/replace.md' }]), false, 'a row that changes');
@@ -2154,4 +2158,23 @@ test('nothingToTake: true only with base and target one commit, every row unchan
   assert.equal(ok(ctx, unchanged, { stale: [{ line: 2, path: 'x' }], absorbed: [] }), false, 'a stale override');
   assert.equal(ok(ctx, unchanged, { stale: [], absorbed: [{ line: 2, path: 'x' }] }), false, 'an override --apply removes');
   assert.equal(ok(ctx, []), true, 'no rows at all');
+});
+
+test('content at the target but a manifest that records another commit: not "Already at" — the plan names --apply, and --apply records the target on a branch', () => {
+  const { dir, from } = atRelease({ recorded: true });
+  const m = manifestOf(dir);
+  m.slipway = A;
+  put(dir, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+  commit(dir, 'a manifest that records the wrong commit');
+  const doc = JSON.parse(runFrom(from, dir, '--json').stdout);
+  assert.deepEqual([doc.base, doc.target, doc.nothingToTake], [B, B, false]);
+  assert.match(doc.next, /--apply$/);
+  const applied = runFrom(from, dir, '--apply');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.deepEqual([git(dir, 'symbolic-ref', '--short', 'HEAD'), manifestOf(dir).slipway], [BRANCH, B]);
+});
+
+test('alreadyText: a remote warning is printed between the header and the sentence, for the plan and --apply alike', () => {
+  const text = lines(alreadyText(ui({ isTTY: false }, {}), { branch: 'main', target: B, version: null, remote: 'WARNING — main is 1 commit behind origin/main' }));
+  assert.deepEqual(text.slice(1), ['│  remote: WARNING — main is 1 commit behind origin/main', `└  Already at commit ${short(B)}, not a release — nothing to apply, nothing written.`]);
 });
