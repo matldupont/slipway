@@ -61,6 +61,14 @@ const remoteAndNotes = (u, { remote, notes = [] }) => [
   ...(remote ? [u.line(`remote: ${remote}`)] : []),
   ...notes.map((n) => u.line(`note: ${n}`)),
 ];
+// "Needs you by hand": one item per path, its next step beneath.
+function owedLines(u, root, owed) {
+  const width = Math.max(...owed.map((i) => i.kind.length));
+  return [
+    u.section('◆', `Needs you by hand (${owed.length})`),
+    ...owed.flatMap((i) => [`${u.line(`${i.kind.padEnd(width)}  `)}${fileLink(u, root, i.path, i.file)}`, u.line(`next: ${i.next}`, { indent: 2 })]),
+  ];
+}
 const settledTitle = (n) => `Settled with you: ${n} of your files started from slipway's template, and the template changed.`;
 
 /**
@@ -83,11 +91,8 @@ export function planText(u, view) {
     ...(commits.length ? [u.clean(`${plural(commits.length, 'change')}: ${split}`)] : []),
   ].join(' · '), ...remoteAndNotes(u, view), gap(u)];
 
-  if (owed.length) {
-    const width = Math.max(...owed.map((i) => i.kind.length));
-    out.push(u.section('◆', `Needs you by hand (${owed.length})`));
-    for (const i of owed) out.push(`${u.line(`${i.kind.padEnd(width)}  `)}${fileLink(u, root, i.path, i.file)}`, u.line(`next: ${i.next}`, { indent: 2 }));
-  } else out.push(u.section('◇', 'Nothing needs you by hand.'));
+  if (owed.length) out.push(...owedLines(u, root, owed));
+  else out.push(u.section('◇', 'Nothing needs you by hand.'));
   out.push(gap(u));
 
   const settled = counts['seeded: upstream changed'] ?? 0;
@@ -133,9 +138,14 @@ export function appliedText(u, view) {
   return `${out.join('\n')}\n`;
 }
 
-// --apply with nothing to do: the header, and the one line that says so.
-export function alreadyText(u, { branch, target, version }) {
-  return `${u.section('◇', `slipway sync on ${branch}`)}\n${u.line(`Already at ${targetName(version, target.slice(0, 12))} — nothing to apply, nothing written.`, { last: true })}\n`;
+// Nothing to take: the one sentence the plan, --apply and --json's `next` all carry.
+export const alreadyLine = ({ version, target }) => `Already at ${targetName(version, target.slice(0, 12))} — nothing to apply, nothing written.`;
+
+// The plan or --apply with nothing to take: the header, the remote and notes, what still needs the owner by
+// hand (`owed`, as the plan lists it), and that sentence where `Next:` would be.
+export function alreadyText(u, view) {
+  const { root, branch, owed = [] } = view;
+  return `${[u.section('◇', `slipway sync on ${branch}`), ...remoteAndNotes(u, view), ...(owed.length ? [gap(u), ...owedLines(u, root, owed), gap(u)] : []), u.line(alreadyLine(view), { last: true })].join('\n')}\n`;
 }
 
 // The project's base is past the target: the one sentence the plan, --apply and --json's `next` all carry.

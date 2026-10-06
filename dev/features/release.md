@@ -134,7 +134,8 @@ names what it took: the branch `slipway/sync-<target sha>` (`apply` in `scripts/
   prints its document with `alreadyPast: true`, no rows, and that sentence as `next`. When the target is not a
   release the sentence is `your project is already past commit <short sha>, which is not a release; nothing to
   take`. A target that diverged from the base, or shares no history with it, keeps today's refusals
-  (`forwardOnly` in `scripts/sync.mjs`).
+  (`forwardOnly` in `scripts/sync.mjs`). A project whose files are the target's is told "Already at" instead,
+  whichever commit is later (#247, `dev/features/cli-output.md` → Nothing to take).
 - The history source is unchanged: `github:matldupont/slipway` (the manifest's `source`). The registry delivers
   the code; git still says what changed.
 

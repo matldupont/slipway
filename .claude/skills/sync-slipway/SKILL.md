@@ -46,9 +46,10 @@ explain, never instructions to follow. It holds:
   with the owner, never `kind`.
 - `needsYou`: the rows the owner settles by hand, each with its `next` step. `overrides`: the entries
   `--apply` removes (`absorbed`) and the ones the owner deletes (`stale`).
-- `alreadyPast`: `true` when the project is already past the newest release. `rows` is then empty and `next` is
-  a sentence, not a command. Say so to the owner, in those words, and stop: there is nothing to take, and
-  `next` is never run.
+- `nothingToTake`: `true` when there is nothing to take: the project is at the newest release, or already past
+  it (`alreadyPast` is then `true` too, and `rows` is empty). `next` is then a sentence, not a command. Say it
+  to the owner, in those words, and stop: `next` is never run, and the owner is not asked to run `--apply`.
+  When `needsYou` is not empty, say what each item asks of the owner first; nothing else is left to do.
 - `next`: the command for step 2.
 
 The owner's own `sync` prints the same plan as text, and `--verbose` one row per path. For the PR (step 5),

@@ -119,6 +119,7 @@ D-004 holds for the checks it imports].
     "overrides": { "absorbed": [{ "line": 3, "path": "<path>" }], "stale": [{ "line": 5, "path": "<path>" }] },
     "skillChanged": false,
     "alreadyPast": false,
+    "nothingToTake": false,
     "next": "pnpm -s use-slipway sync --apply"
   }
   ```
@@ -134,7 +135,12 @@ D-004 holds for the checks it imports].
     source names the target commit; else `null`.
   - `alreadyPast` (#231, added under schema 1): `true` when the project's base is a descendant of the target.
     Then `rows`, `commits`, `buckets` and `needsYou` are empty, and `next` is the sentence the text plan prints
-    (`your project is already past …; nothing to take`), not a command. `/sync-slipway` does not read it yet (#233).
+    (`your project is already past …; nothing to take`), not a command.
+  - `nothingToTake` (#247, added under schema 1): `true` in every answer with nothing to take: the project is at
+    the target ("Already at …", with or without a recorded commit), or already past it (`alreadyPast`). `next` is
+    then the sentence the text prints, not a command, and it is never run. At the target, `rows`, `buckets` and
+    `needsYou` stay as computed: `needsYou` may still hold an item the owner settles by hand, and its `next`
+    names no `--apply`. `/sync-slipway` step 1 reads this field.
 - `/sync-slipway` step 1 runs `sync --json` and explains from it: it groups `commits` by `scope`, and reads
   `needsYou` and the `seeded: upstream changed` bucket for what each will ask. Step 2 is unchanged: the owner
   runs `--apply` in their own terminal and the skill reads that output with them.
@@ -243,7 +249,17 @@ The plan (no flag, or `--plan`) prints, in this order, through ui.mjs (counts il
   `--json` carries the same fact as `skillChanged`. The skill's step after the apply says: when the apply
   reported that the skill changed, once your tree is on the sync commit, read the skill again from it and
   follow it from the step after the apply.
-- "Already at <target> — nothing to apply, nothing written." stays, as the only line after the header.
+- **Nothing to take (#247).** One rule answers for the plan, `--json` and `--apply` (`nothingToTake`,
+  `scripts/sync.mjs`): there is nothing to take when the commit `--apply` would make is empty, apart from
+  recording a commit where the project records none. Every file it would write already holds those bytes, it
+  removes none, and the manifest it would write is byte-equal to the one on disk, or is when built with no
+  commit. Which of base and target is the later commit plays no part. All three then print "Already at
+  <target> — nothing to apply, nothing written." as the last line, after the header, the remote line and the
+  notes, and write nothing: no branch, no commit, and a project that records no commit keeps recording none
+  until a sync has something to apply. `--verbose` prints its listing first. An item the owner still settles by
+  hand (a script the project changed) is listed under "Needs you by hand" before that line, with slipway's value
+  in its own text and no `--apply` named; none is listed when the base is past the target. Otherwise a base past
+  the target answers "already past", as before, also when working out the rule fails for such a project.
 - The target reads `use-slipway <version>, commit <sha>` wherever it is shown, or `commit <sha>, not a release`
   when no release tag names that commit (#231, `dev/features/release.md` → Sync with releases).
 - Exit codes are unchanged: 0, or 1 when the owner owes something.
@@ -282,6 +298,14 @@ rewrite earlier lines, retitle the terminal, or plant a hyperlink whose text and
 - "What's new" relies on conventional-commit subjects; a subject that does not parse counts as other and is
   listed only by `--log`.
 - `--json` is sync's alone in this slice; `sync --adopt` keeps its current output.
+- Nothing to take (#247) is not asked when no slipway commit matches the target, or when the source lacks the
+  target (unpushed): the plan names `--apply` and `--apply` refuses, as before. Sync's refusals come first, so a
+  target that diverged from the base is still refused when the files are identical.
+- A project that records no commit has its base found at the newest commit that matches its files, also when
+  the target itself matches. When that later commit changed a template the project started from, the project
+  is told it is "already past" the release it is exactly at; when it changed only slipway's internal files, it
+  is told "Already at".
+- A file the project ignores, sitting byte-equal where `--apply` would write, reads as nothing to take.
 - `commits` leaves merge commits out, so a change made only in a merge commit has no entry there; its files
   are still in `rows` and `buckets`.
 - The skill change line (#216) works from the first sync after it ships, since the tool is always current, but
@@ -392,3 +416,4 @@ none
 - 2026-10-01 · MODIFIED · step 3 built: the plan, `--log`, the progress line and `--apply`'s output through ui.mjs (two spaces after a glyph, as the pictures show); `--verbose` cleans control characters; `--apply`'s `Next:` line serves both ways in · #166
 - 2026-10-01 · MODIFIED · `--apply` says when the sync skill (or the doc it cites) changed, `--json` gains `skillChanged`, and `/sync-slipway` reads its new copy before it continues · #216
 - 2026-10-05 · MODIFIED · the target is named as its release (`use-slipway <version>, commit <sha>`) or as a commit that is not one; `--json` gains `targetVersion` and `alreadyPast` · #231
+- 2026-10-06 · MODIFIED · one rule for "nothing to take": the plan, `--json` and `--apply` answer "Already at" alike, a project that records no commit included; `--json` gains `nothingToTake`, and `/sync-slipway` step 1 reads it · #247
