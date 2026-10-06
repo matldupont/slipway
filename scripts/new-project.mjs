@@ -39,10 +39,16 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // `sync` is its own command (F-01 step 3), dispatched here so the package's one bin runs it: the sync
 // code always comes from the slipway version being synced to. `sync --adopt` (step 5) is adopt.mjs.
 // A project cannot take that name: refused below, once the destination is known.
+// The exit code is set, not forced: a pipe takes what was written to it at its reader's pace, and exiting
+// under that output cuts it at the pipe's size (65,536 bytes). Everything below is for a new project, so it
+// is the `else` of this branch, not indented: it holds template text that is written out as it stands.
 if (process.argv[2] === 'sync') {
   const { main } = await import(process.argv.includes('--adopt') ? './adopt.mjs' : './sync.mjs');
-  process.exit(main(process.argv.slice(3)));
-}
+  // A reader that closes early (`sync | head`) is not an error: the write it no longer takes fails with
+  // EPIPE, which is ignored, and the process still ends on its own with main's code. Any other is thrown.
+  for (const stream of [process.stdout, process.stderr]) stream.on('error', (e) => { if (e.code !== 'EPIPE') throw e; });
+  process.exitCode = main(process.argv.slice(3));
+} else {
 
 const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
 const REQUIRED_CHECKS = ['meta', 'verify', 'pr-body'];
@@ -280,4 +286,5 @@ ${outcome ? `  git status             # decisions.md carries D-001 — commit it
 
 Later, to take a newer slipway: /sync-slipway.
 `);
+}
 }
