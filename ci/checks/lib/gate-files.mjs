@@ -103,6 +103,8 @@ export const NAMED_ROWS = [['Domain invariants doc', null], ['Cold review', COLD
 const PATH_CHARS = /^[\x20-\x7e]+$/;
 const NOT_A_PATH = /[*\\`#[\]()<>]/;
 const isPath = (p) => PATH_CHARS.test(p) && !NOT_A_PATH.test(p) && !p.startsWith('/') && p.split('/').every((seg) => seg.trim() && !/^\.+$/.test(seg));
+// A row's text in a message is data: no control, line-separator or direction marks reach the log (P1's `shown`, wider).
+const UNSHOWN = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
 const HOW = 'Write the file\'s path in backticks (`docs/rules.md`), or none. Letters, digits, spaces and most punctuation are fine; * \\ # [ ] ( ) < >, a leading / and letters outside ASCII are not';
 
 // The paths those rows name in `agentText` (the root AGENT.md), each a gate path matched exactly. A row is a table
@@ -119,7 +121,7 @@ export function namedDocs(agentText, where = '') {
     if (!lines.length) return whenMissing ? [whenMissing] : [];
     return lines.flatMap((line) => {
       const raw = rowValue(line, row);
-      const fail = (what) => new Error(`AGENT.md${where}, row "${row}": ${what}. ${HOW}`);
+      const fail = (what) => new Error(`AGENT.md${where}, row "${row}": ${what.replace(UNSHOWN, '?')}. ${HOW}`);
       if (!raw) throw fail(`the check for pull requests cannot read this row (${JSON.stringify(line.trim().slice(0, 80))})`);
       if (/^none[,.;:]?$/i.test(raw) || raw.startsWith('<')) return [];
       const path = raw.replace(/^(?:\.\/)+/, '');
@@ -203,8 +205,8 @@ export function changes(base, head, cwd = process.cwd()) {
   // a branch cut before the base named it. Absent at a commit: no row there, so the cold-review default still counts.
   // The head's rows are read too, only to refuse one that cannot be read: a PR that writes such a row is red, and is
   // fixed in that PR. When the base's own rows cannot be read (a project whose row was written before this check),
-  // every PR is red but the one that repairs them: it is held to the head's paths and the defaults, and says so.
-  // That PR changes AGENT.md, a gate file with its own line to write. None of this is inside a try that passes.
+  // every PR is red but one that changes AGENT.md so that its rows read: it is held to the head's paths and the
+  // defaults, and says so. AGENT.md is a gate file with its own line to write. None of this is inside a try that passes.
   const agentAt = (rev) => {
     try {
       return git('show', `${rev}:AGENT.md`);
@@ -217,7 +219,8 @@ export function changes(base, head, cwd = process.cwd()) {
   try {
     named = namedDocs(agentAt(base), ' on the base branch');
   } catch (e) {
-    named = [...atHead, ...NAMED_ROWS.flatMap(([, whenMissing]) => (whenMissing ? [whenMissing] : []))];
+    if (!files.includes('AGENT.md')) throw e; // not the repair: a PR that leaves the row as it is stays red
+    named = [...new Set([...atHead, ...NAMED_ROWS.flatMap(([, whenMissing]) => (whenMissing ? [whenMissing] : []))])];
     process.stderr.write(`gate-files: ${e.message.split('. ')[0]}. This pull request repairs it, so its own rows were used: ${named.join(', ')}\n`);
   }
   globs = [...new Set([...globs, ...named])];

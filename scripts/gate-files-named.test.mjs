@@ -191,6 +191,21 @@ test('a row the base cannot be read by fails every PR but the one that repairs i
   const r = p1(from, tip);
   missing(r, 'docs/rules.md');
   missing(r, 'process/cold-review.md');
+  // A PR that edits the document and leaves AGENT.md alone is not the repair, even when its own AGENT.md reads:
+  // a branch cut while the row still read, checked against a base whose row no longer does.
+  git('switch', '-q', '-c', 'cut-early', head);
+  const early = commit('a readable row', { 'AGENT.md': table({ 'Domain invariants doc': 'none', 'Cold review': 'none' }), 'docs/rules.md': '# Rules\n' });
+  const stale = commit('edit the rules only', { 'docs/rules.md': '# Rules\n\nNone.\n' });
+  git('switch', '-q', '-c', 'base-breaks', early);
+  const broken = commit('the base\'s row stops reading', { 'AGENT.md': table({ 'Domain invariants doc': '[docs/rules.md](docs/rules.md)', 'Cold review': 'none' }) });
+  const notRepair = script(broken, stale);
+  assert.notEqual(notRepair.status, 0, notRepair.stdout);
+  assert.equal(notRepair.stdout, '');
+  assert.match(notRepair.stderr, /AGENT\.md on the base branch, row "Domain invariants doc"/);
+  // The default is named once, and a row's control and direction marks do not reach the message.
+  const again = script(from, commit('repair with no Cold review row', { 'AGENT.md': table({ 'Domain invariants doc': 'none' }) }));
+  assert.match(again.stderr, /its own rows were used: process\/cold-review\.md\n$/);
+  assert.throws(() => namedDocs(table({ 'Domain invariants doc': '`docs/a\u2028b\u202e\u009bc.md`' })), (e) => !/[\u2028\u202e\u009b]/.test(e.message) && /"docs\/a\?b\?\?c\.md"/.test(e.message));
 });
 
 test('a PR that writes a row the check cannot read is red, whatever the base says', () => {
