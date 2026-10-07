@@ -49,6 +49,25 @@ delete process.env.CLAUDECODE; // --apply refuses under an agent; one case sets 
 // What a runner sets must not colour or link the output the cases read: each case that wants either passes its own.
 for (const k of ['FORCE_COLOR', 'FORCE_HYPERLINK', 'NO_COLOR']) delete process.env[k];
 
+// Every call to the bin goes through a runner like this one (#249): a call that does not end within `ms` is
+// killed and throws, naming the command, so a hang on one path fails its case instead of stalling the file.
+// The first hang also stops the runner: each later call throws at once, so one stuck path ends the file in
+// `ms`, not in `ms` times the calls left.
+const timedRunner = (ms) => {
+  let stuck = null;
+  return (file, args, opts = {}) => {
+    const call = `${file} ${args.join(' ')}`.replaceAll(SRC, '<slipway>');
+    if (stuck) throw new Error(`not run, an earlier call did not end: ${stuck}\n  skipped: ${call}`);
+    const r = spawnSync(file, args, { encoding: 'utf8', ...opts, timeout: ms });
+    if (r.error?.code === 'ETIMEDOUT') {
+      stuck = call;
+      throw new Error(`timed out after ${ms} ms, the call did not end: ${call}`);
+    }
+    return r;
+  };
+};
+const spawnBin = timedRunner(30_000);
+
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const put = (dir, files) => {
   for (const [p, body] of Object.entries(files)) {
@@ -148,15 +167,14 @@ const B = commit(slip, 'B');
 // The project, from A, then edited by its owner in every way the plan distinguishes.
 git(slip, 'checkout', '-q', A);
 const base = join(root, 'base-project');
-const np = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), base, '--no-github', '--no-harness'], {
+const np = spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), base, '--no-github', '--no-harness'], {
   encoding: 'utf8',
   env: { ...process.env, SLIPWAY_SOURCE: slip },
 });
 assert.equal(np.status, 0, `new-project failed:\n${np.stdout}\n${np.stderr}`);
-// The bin must end on its own (#245: it sets its exit code and no longer forces the exit). Checked here, with a
-// timeout, before anything else runs sync: the calls below have none, so a bin that stays open would stall this
-// file instead of failing it.
-const ends = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--help'], { encoding: 'utf8', timeout: 30_000 });
+// The bin must end on its own (#245: it sets its exit code and no longer forces the exit). Checked here first, so
+// a bin that never ends fails on this line; a hang on one path only is caught by the timeout every call carries.
+const ends = spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--help'], { encoding: 'utf8' });
 assert.deepEqual([ends.error, ends.status], [undefined, 0], `the bin did not end on its own after sync --help: ${ends.error}`);
 git(slip, 'checkout', '-q', 'main');
 const baseManifest = JSON.parse(readFileSync(join(base, MANIFEST), 'utf8'));
@@ -184,7 +202,7 @@ function project(edit) {
   return dir;
 }
 const sync = (dir, ...args) =>
-  spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+  spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
 const rows = (stdout) => Object.fromEntries([...stdout.matchAll(/^ {2}(\S.*?) {2,}(\S+(?: scripts\.\S+)?)$/gm)].map((m) => [m[2], m[1]]));
 const normalise = (stdout) => stdout.replaceAll(slip, '<slipway>').replaceAll(A, '<A>').replaceAll(B, '<B>').replaceAll(B.slice(0, 12), '<B>').replaceAll(A.slice(0, 7), '<A>').replaceAll(B.slice(0, 7), '<B>');
 
@@ -259,7 +277,7 @@ test('`pnpm -s use-slipway sync` with the shipped script: exit 1 kept, no ELIFEC
   assert.equal(bin, 'pnpm');
   // As an owner's terminal has it: none of the npm_* settings a package manager running this test set.
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^npm_/i.test(k)));
-  const r = spawnSync(bin, [...args, '--apply'], { cwd: dir, encoding: 'utf8', env: { ...env, npm_config_cache: join(root, 'npm-cache') } });
+  const r = spawnBin(bin, [...args, '--apply'], { cwd: dir, encoding: 'utf8', env: { ...env, npm_config_cache: join(root, 'npm-cache') } });
   const all = r.stdout + r.stderr;
   assert.equal(r.status, 1, all);
   assert.match(r.stdout, /^Sync exits 1: sync --apply\n$/);
@@ -466,7 +484,7 @@ test('a target that shares no history with the base is refused in the plan and i
   });
   const before = treeHash(dir);
   for (const args of [[], ['--apply']]) {
-    const r = spawnSync(process.execPath, [join(unrelated, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+    const r = spawnBin(process.execPath, [join(unrelated, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
     assert.equal(r.status, 1, r.stdout);
     assert.doesNotMatch(r.stdout, /Nothing needs you|commits, base → target/);
     assert.match(r.stderr, /share no history in \S+, so sync cannot say what changed between them; nothing was written/);
@@ -495,7 +513,7 @@ test('from a packed install (no .git, no .gitignore) of B: the target is B by co
   mkdirSync(pkgDir);
   execFileSync('tar', ['-x', '-C', pkgDir], { input: execFileSync('git', ['-C', slip, 'archive', B]) });
   rmSync(join(pkgDir, '.gitignore'));
-  const r = spawnSync(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), 'sync', '--verbose'], { cwd: project(), encoding: 'utf8' });
+  const r = spawnBin(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), 'sync', '--verbose'], { cwd: project(), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, new RegExp(`target: commit ${B}, not a release\n`));
   assert.equal(rows(r.stdout)['.gitignore'], 'unchanged');
@@ -505,7 +523,7 @@ test('from a packed install (no .git, no .gitignore) of B: the target is B by co
 test('the clone of slipway is gone when sync exits, and when it is interrupted', () => {
   const clones = (tmp) => readdirSync(tmp).filter((e) => e.startsWith('slipway-sync-'));
   const plain = mkdtempSync(join(root, 'tmp-'));
-  const r = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync'], { cwd: project(), encoding: 'utf8', env: { ...process.env, TMPDIR: plain } });
+  const r = spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync'], { cwd: project(), encoding: 'utf8', env: { ...process.env, TMPDIR: plain } });
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(clones(plain), []);
   const killed = mkdtempSync(join(root, 'tmp-'));
@@ -893,7 +911,7 @@ test('apply refuses a write the project ignores before branching, naming it', ()
 test('apply refuses under an agent (CLAUDECODE set), writing nothing; the harness asks before either form of the command', () => {
   const dir = project();
   const before = treeHash(dir);
-  const r = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: dir, encoding: 'utf8', env: { ...process.env, CLAUDECODE: '1' } });
+  const r = spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: dir, encoding: 'utf8', env: { ...process.env, CLAUDECODE: '1' } });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /the owner runs it in their own terminal, not an agent \(CLAUDECODE is set\)/);
   assert.equal(treeHash(dir), before);
@@ -914,7 +932,7 @@ test('a target the base descends from, with no release tag: the plan and --apply
   git(dir, 'branch', '-q', '-D', BRANCH);
   const before = treeHash(dir);
   for (const args of [[], ['--apply'], ['--verbose']]) {
-    const r = spawnSync(process.execPath, [join(older, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+    const r = spawnBin(process.execPath, [join(older, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     // A and A0 hold the same slipway files: the newest on the default branch is the one named.
     assert.match(r.stdout, new RegExp(`^└ {2}your project is already past commit ${short(A0)}, which is not a release; nothing to take\n$`, 'm'));
@@ -926,7 +944,7 @@ test('a target the base descends from, with no release tag: the plan and --apply
 // ---- --adopt (F-01 step 5, #18): one case per Acceptance line
 
 const adopt = (dir, ...args) =>
-  spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--adopt', ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
+  spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--adopt', ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
 // The edited project with its .slipway/ gone: what a project created before the manifest looks like.
 // Its first commit is new-project's `chore: start from slipway <A>`.
 const unadopted = (edit) => project((d) => {
@@ -978,7 +996,7 @@ const versioned = join(root, 'versioned');
   const pkgDir = join(root, 'packed-a-adopt');
   mkdirSync(pkgDir);
   execFileSync('tar', ['-x', '-C', pkgDir], { input: execFileSync('git', ['-C', slip, 'archive', A]) });
-  const r = spawnSync(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), versioned, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
+  const r = spawnBin(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), versioned, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   rmSync(join(versioned, '.slipway'), { recursive: true });
   commit(versioned, 'before the manifest');
@@ -1032,7 +1050,7 @@ test('adopt refuses a project that has a manifest, and --apply under an agent, w
   assert.match(adopt(has).stderr, /\.slipway\/manifest\.json exists already — this project has adopted sync; run `sync`/);
   const dir = unadopted();
   const before = treeHash(dir);
-  const r = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--adopt', '--apply', '--revert', 'process/kept.md'], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip, CLAUDECODE: '1' } });
+  const r = spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--adopt', '--apply', '--revert', 'process/kept.md'], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip, CLAUDECODE: '1' } });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /the owner runs it in their own terminal, not an agent \(CLAUDECODE is set\)/);
   assert.equal(treeHash(dir), before);
@@ -1151,7 +1169,7 @@ test('sync from a target the source does not have (an unpushed commit): the plan
   put(ahead, { 'process/same.md': 'changed locally, never pushed\n' });
   commit(ahead, 'unpushed');
   const dir = project();
-  const run = (...args) => spawnSync(process.execPath, [join(ahead, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+  const run = (...args) => spawnBin(process.execPath, [join(ahead, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
   const r = run();
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^│ {2}note: slipway's commits base → target are not listed: \S+ is not in \S+ \(unpushed\?\)$/m);
@@ -1184,7 +1202,7 @@ test('adopt, then sync, from a base older than the ownership map: classified by 
   git(proj, 'init', '-q', '-b', 'main');
   put(proj, { ...files, 'README.md': '# Ours\n\nBuilt on [slipway](SLIPWAY.md) 0.0.0-fixture.\n', 'process/two.md': 'two, ours\n' });
   commit(proj, 'chore: start from slipway 0.0.0-fixture');
-  const run = (...args) => spawnSync(process.execPath, [join(old, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: proj, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: old } });
+  const run = (...args) => spawnBin(process.execPath, [join(old, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: proj, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: old } });
   const proposed = run('--adopt');
   assert.equal(proposed.status, 1);
   assert.match(proposed.stderr, new RegExp(`Closest commit on \\S+'s main:\\n  ${P0} — 1 of slipway's file`));
@@ -1205,7 +1223,7 @@ test('adopt: a lesson the target ships under another file name (same id, same ru
   const lesson = (rule) => `---\nid: L-05\nrule: ${rule}\nenforcement:\n  status: check\n  pointer: d1\n---\n`;
   put(renamed, { 'process/lessons/L-05-new-name.md': lesson('slipway rule') });
   commit(renamed, 'a lesson, renamed');
-  const run = (dir) => spawnSync(process.execPath, [join(renamed, 'scripts', 'new-project.mjs'), 'sync', '--adopt'], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
+  const run = (dir) => spawnBin(process.execPath, [join(renamed, 'scripts', 'new-project.mjs'), 'sync', '--adopt'], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
   const copied = run(unadopted((d) => put(d, { 'process/lessons/L-05-old-name.md': lesson('slipway rule') })));
   assert.equal(copied.status, 0, copied.stderr);
   assert.doesNotMatch(copied.stdout, /L-05/);
@@ -1243,7 +1261,7 @@ test('behind its upstream: sync and sync --adopt print one warning with the coun
   const again = withUpstream();
   put(again.up, { 'notes.md': 'one\n' });
   commit(again.up, 'merged on the remote');
-  const applied = spawnSync(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: again.dir, encoding: 'utf8' });
+  const applied = spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--apply'], { cwd: again.dir, encoding: 'utf8' });
   assert.match(applied.stdout, /slipway sync applied on slipway\/sync-/);
   assert.match(remoteLine(applied.stdout), /behind/);
 });
@@ -1329,7 +1347,7 @@ const jsonProject = (edit) => project((d) => {
   commit(d, 'a source ahead of B');
   if (edit) edit(d);
 });
-const jsonSync = (dir, ...args) => spawnSync(process.execPath, [join(jsonSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+const jsonSync = (dir, ...args) => spawnBin(process.execPath, [join(jsonSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
 const branches = (dir) => git(dir, 'branch', '--list', '--format=%(refname:short)');
 
 test('--json: one schema-1 document with every row --verbose counts and every non-merge subject, nothing on stderr, exit 0, nothing written', () => {
@@ -1450,7 +1468,7 @@ const pristineFrom = (from) => pristine((d) => {
   m.source = from;
   put(d, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
 });
-const runFrom = (from, dir, ...args) => spawnSync(process.execPath, [join(from, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
+const runFrom = (from, dir, ...args) => spawnBin(process.execPath, [join(from, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8' });
 
 test('the plan on a pipe: no escape, no full sha, no "rows" or "unchanged", no fix or merge subject; what needs the owner is the first section and the next command the last line', () => {
   const r = jsonSync(jsonProject());
@@ -2103,7 +2121,7 @@ put(bigSlip, {
 commit(bigSlip, 'big: 1800 managed files');
 const bigProject = join(root, 'project-big');
 {
-  const r = spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), bigProject, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: bigSlip } });
+  const r = spawnBin(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), bigProject, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: bigSlip } });
   assert.equal(r.status, 0, `new-project failed:\n${r.stdout}\n${r.stderr}`);
 }
 put(bigSlip, { 'process/big/f0000.md': 'file 0, changed\n' });
@@ -2111,11 +2129,11 @@ commit(bigSlip, 'fix(big): one file changed');
 for (const c of 'abc') git(bigSlip, 'commit', '-q', '--allow-empty', '-m', `feat(big): ${c.repeat(25_000)}`);
 // The bin's output through a pipe, and the same command written to a file: what a pipe reader receives
 // must be what the file holds. A timeout, so a process that no longer ends shows as a failing case.
-const piped = (dir, ...args) => spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'buffer', timeout: 30_000 });
+const piped = (dir, ...args) => spawnBin(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'buffer' });
 function toFile(dir, ...args) {
   const file = join(root, `plan-${++n}.out`);
   const fd = openSync(file, 'w');
-  const r = spawnSync(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, stdio: ['ignore', fd, 'pipe'], timeout: 30_000 });
+  const r = spawnBin(process.execPath, [join(bigSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, stdio: ['ignore', fd, 'pipe'] });
   closeSync(fd);
   assert.equal(r.status, 0, String(r.stderr));
   return readFileSync(file);
@@ -2404,13 +2422,13 @@ test('a collision on a seeded path: the step names no override, --apply records 
   put(tslip, { 'dev/ownership.yaml': MAP_YAML, '.gitignore': 'node_modules/\n', 'README.md': '# slipway\n', 'package.json': pkg({ a: 'echo a' }), 'process/one.md': 'one\n', 'docs/PRD.md': '# PRD\n' });
   const T0 = commit(tslip, 'T0');
   const tproj = join(root, 'template-collision-project');
-  const made = spawnSync(process.execPath, [join(tslip, 'scripts', 'new-project.mjs'), tproj, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: tslip } });
+  const made = spawnBin(process.execPath, [join(tslip, 'scripts', 'new-project.mjs'), tproj, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: tslip } });
   assert.equal(made.status, 0, made.stdout + made.stderr);
   put(tslip, { 'docs/extra.md': 'slipway template\n' });
   const T1 = commit(tslip, 'T1: a template slipway now ships');
   put(tproj, { 'docs/extra.md': 'our own file\n' });
   commit(tproj, 'owner has its own docs/extra.md');
-  const run = (...args) => spawnSync(process.execPath, [join(tslip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: tproj, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: tslip } });
+  const run = (...args) => spawnBin(process.execPath, [join(tslip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: tproj, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: tslip } });
   const first = run();
   assert.equal(first.status, 0, first.stderr);
   const step = first.stdout.match(/^│ {2}collision +docs\/extra\.md\n│ {4}next: (.*)$/m)?.[1];
@@ -2431,4 +2449,15 @@ test('a collision on a seeded path: the step names no override, --apply records 
   assert.equal(second.status, 0, second.stdout + second.stderr);
   assert.doesNotMatch(second.stdout, /collision/);
   assert.notEqual(T0, T1);
+});
+
+test('a call that never ends fails with its command and "timed out" inside a few seconds, and the calls after it are not run (#249)', () => {
+  const hang = timedRunner(1_000);
+  const started = Date.now();
+  assert.throws(() => hang(process.execPath, ['-e', 'setInterval(() => {}, 1000)']), /timed out after 1000 ms.*setInterval/);
+  assert.ok(Date.now() - started < 5_000, `took ${Date.now() - started} ms`);
+  const again = Date.now();
+  assert.throws(() => hang(process.execPath, ['--version']), /not run, an earlier call did not end.*setInterval/s);
+  assert.ok(Date.now() - again < 1_000);
+  assert.equal(timedRunner(1_000)(process.execPath, ['--version']).status, 0);
 });
