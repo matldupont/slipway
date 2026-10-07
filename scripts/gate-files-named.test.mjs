@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // The two owner-only documents a project names in AGENT.md (#259): the `Domain invariants doc` and `Cold review` rows,
-// read from the base commit by ci/checks/lib/gate-files.mjs and counted by P1 as gate files. Beside
+// read from the base commit, the checked-out tree and the base branch's tip by ci/checks/lib/gate-files.mjs and counted by P1 as gate files. Beside
 // scripts/gate-files.test.mjs, which covers the harness's paths. Internal: `pnpm meta` runs it in slipway, never in a
 // project.
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -31,12 +31,12 @@ git('add', '-A');
 git('commit', '-q', '-m', 'base');
 const head = git('rev-parse', 'HEAD');
 
-// P1 on one body with no `## Gate changes` section, beside the sidecar changes() writes for base...tip: the helper of
+// P1 on one body with no `## Gate changes` section (or the `gate` lines given), beside the sidecar changes() writes for base...tip: the helper of
 // scripts/gate-files.test.mjs, on this file's repository.
-const p1 = (from, tip) => {
+const p1 = (from, tip, gate = '') => {
   const dir = mkdtempSync(join(tmpdir(), 'gate-files-named-p1-'));
   try {
-    writeFileSync(join(dir, 'body.md'), '## What\nLane: bounded.\n\n## Verification\n```\npnpm meta\n```\n\n## Links\nCloses #1\n');
+    writeFileSync(join(dir, 'body.md'), `## What\nLane: bounded.\n\n## Verification\n\`\`\`\npnpm meta\n\`\`\`\n\n${gate && `## Gate changes\n${gate}\n`}## Links\nCloses #1\n`);
     writeFileSync(join(dir, 'body.changes.json'), JSON.stringify(changes(from, tip, repo)));
     return spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/p1-pr-body.mjs'), dir], { encoding: 'utf8' });
   } finally {
@@ -251,6 +251,49 @@ test('a named document with a scope or a space in its path is counted when a PR 
   const r = p1(from, tip);
   missing(r, 'packages/@app/money rules');
   missing(r, 'docs/"cold" review');
+});
+
+test('a PR that moves the root AGENT.md away is held to the documents the base branch names now, and lists them to pass', () => {
+  git('switch', '-q', '-c', 'tip-base', head);
+  const opened = commit('no document named yet', { 'AGENT.md': table({ 'Domain invariants doc': 'none', 'Cold review': 'none' }), 'docs/rules.md': '# Rules\n' });
+  git('switch', '-q', '-c', 'moves');
+  git('mv', 'AGENT.md', 'docs/AGENT.md');
+  const tip = commit('move the settings, edit the rules', { 'docs/rules.md': '# Rules\n\nNone.\n' });
+  git('switch', '-q', 'tip-base');
+  const now = commit('the base names its rules', { 'AGENT.md': table({ 'Domain invariants doc': '`docs/rules.md`', 'Cold review': 'none' }) });
+  // By hand, on the branch: the base given and the default of a tree with no AGENT.md, as before.
+  git('switch', '-q', 'moves');
+  assert.deepEqual(changes(opened, tip, repo).globs, [COLD_REVIEW_DEFAULT]);
+  // What CI checks out: the PR merged into the base branch as it is now. The merge has no root AGENT.md.
+  git('switch', '-q', '--detach', now);
+  git('merge', '-q', '--no-ff', '-m', 'merge ref', tip);
+  assert.ok(!existsSync(join(repo, 'AGENT.md')) && existsSync(join(repo, 'docs/AGENT.md')), 'the merge keeps the move');
+  const r = script(opened, tip);
+  assert.equal(r.status, 0, r.stderr);
+  assert.deepEqual(JSON.parse(r.stdout).globs, [COLD_REVIEW_DEFAULT, 'docs/rules.md'], 'the second is read from the merge\'s first parent');
+  assert.equal(r.stderr, 'gate-files: this pull request leaves no AGENT.md at the root, so the documents the base branch names still count (docs/rules.md): a pull request that changes one lists it under `## Gate changes`.\n');
+  missing(p1(opened, tip), 'docs/rules.md');
+  const listed = p1(opened, tip, '- `AGENT.md`, `docs/AGENT.md` — the same: moved\n- `docs/rules.md` — stricter: one more rule\n');
+  assert.equal(listed.status, 0, listed.stdout + listed.stderr);
+  // Only the merge of the head given counts: checked against another head, the commit checked out says nothing.
+  assert.deepEqual(changes(opened, now, repo).globs, [COLD_REVIEW_DEFAULT]);
+});
+
+test('a PR that moves the root AGENT.md away is not the repair of a row the base branch\'s tip cannot be read by', () => {
+  git('switch', '-q', '-c', 'tip-bad', head);
+  const opened = commit('readable rows', { 'AGENT.md': table({ 'Domain invariants doc': 'none', 'Cold review': 'none' }), 'docs/review.md': '# Review\n' });
+  git('switch', '-q', '-c', 'tip-bad-pr');
+  git('mv', 'AGENT.md', 'docs/AGENT.md');
+  const tip = commit('move the settings, edit the review file', { 'docs/review.md': '# Review\n\nPass.\n' });
+  git('switch', '-q', 'tip-bad');
+  const now = commit('one row stops reading', { 'AGENT.md': table({ 'Domain invariants doc': '`docs/*.md`', 'Cold review': '`docs/review.md`' }) });
+  git('switch', '-q', '--detach', now);
+  git('merge', '-q', '--no-ff', '-m', 'merge ref', tip);
+  const r = script(opened, tip);
+  assert.notEqual(r.status, 0, r.stdout);
+  assert.equal(r.stdout, '');
+  assert.match(r.stderr, /AGENT\.md on the base branch as it is now, row "Domain invariants doc"/);
+  assert.doesNotMatch(r.stderr, /repairs it/);
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));

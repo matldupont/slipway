@@ -3,12 +3,12 @@
 // owner-only), the paths the base guard adds to them (GUARD_GLOBS), plus a `package.json` whose run keys changed
 // (RUN_KEYS, and a dependency on local code or a runtime): what a gate command runs, the pnpm and node that run
 // it, and pnpm's settings. Read by P1. One list: a gate path added to the harness is a gate path here.
-// Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and its rows at the base commit and
-// in the checked-out tree add them. A row the check cannot read fails it; a project fixes the row in a PR, which is then held to its own.
+// Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and its rows at the base commit, in
+// the checked-out tree and at the base branch's tip (the first parent of the merge checked out) add them. A row the check cannot read fails it; a project fixes the row in a PR, which is then held to its own.
 //
 // As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…]}` for
 // the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
-// gate paths the base branch's harness asked about and the documents AGENT.md names (at the base and as checked out), and each symlink or submodule link added, removed or changed.
+// gate paths the base branch's harness asked about and the documents AGENT.md names (at the base, as checked out and at the base branch's tip), and each symlink or submodule link added, removed or changed.
 // pr-body.yml writes it beside the PR body.
 //
 // Not shared with ownership.mjs: that file is slipway's own and never ships to a project.
@@ -201,18 +201,18 @@ export function changes(base, head, cwd = process.cwd()) {
   try {
     globs = gateGlobs(git('show', `${from}:process/harness/settings.json`)); // absent before the harness existed
   } catch {}
-  // The two documents AGENT.md names are read from two places, as P1 reads the harness's rules from two: AGENT.md at
+  // The two documents AGENT.md names are read from three places (the third is below, beside its code): AGENT.md at
   // the base commit given, so a PR that rewrites a row is held to the path the base names; and AGENT.md in the
   // checked-out tree, which in CI is the PR merged into the base branch's tip as it is now (pr-body.yml checks out the
   // pull request's merge ref), so a PR opened before the base named a document is held to it too. The base commit a
-  // pull request event gives is the tip when the PR was opened or last took the base, not the tip now. Both sources
-  // count: the list is their union. A PR that rewrites a row the base named after it was opened conflicts in
+  // pull request event gives is the tip when the PR was opened or last took the base, not the tip now. Every source
+  // counts: the list is their union. A PR that rewrites a row the base named after it was opened conflicts in
   // AGENT.md, so it has no merge to check until it takes the base, and then the base given names the path.
   // Run by hand, the tree is the branch itself, so the second source adds only the branch's own rows.
   // Absent at a commit or in the tree: no row there, so the cold-review default still counts.
   // The head's rows are read too, only to refuse one that cannot be read: a PR that writes such a row is red, and is
   // fixed in that PR. When the base's own rows cannot be read (a project whose row was written before this check),
-  // every PR is red but one that changes AGENT.md so that its rows read: it is held to the head's paths and the
+  // every PR is red but one that changes AGENT.md, and keeps it at the root, so that its rows read: it is held to the head's paths and the
   // defaults, and says so. AGENT.md is a gate file with its own line to write. None of this is inside a try that passes.
   const agentAt = (rev) => {
     try {
@@ -222,21 +222,38 @@ export function changes(base, head, cwd = process.cwd()) {
     }
   };
   const atHead = namedDocs(agentAt(head), ' in this pull request');
-  let named;
-  try {
-    named = namedDocs(agentAt(base), ' on the base branch');
-  } catch (e) {
-    if (!files.includes('AGENT.md')) throw e; // not the repair: a PR that leaves the row as it is stays red
-    named = [...new Set([...atHead, ...NAMED_ROWS.flatMap(([, whenMissing]) => (whenMissing ? [whenMissing] : []))])];
-    process.stderr.write(`gate-files: ${e.message.split('. ')[0]}. This pull request repairs it, so its own rows were used: ${named.join(', ')}\n`);
-  }
+  const defaults = NAMED_ROWS.flatMap(([, whenMissing]) => (whenMissing ? [whenMissing] : []));
+  const rowsAt = (rev, where) => {
+    try {
+      return namedDocs(agentAt(rev), where);
+    } catch (e) {
+      // Not the repair: a PR that leaves the row as it is, or leaves no root AGENT.md with rows to hold it to, stays red.
+      if (!files.includes('AGENT.md') || !agentAt(head)) throw e;
+      const own = [...new Set([...atHead, ...defaults])];
+      process.stderr.write(`gate-files: ${e.message.split('. ')[0]}. This pull request repairs it, so its own rows were used: ${own.join(', ')}\n`);
+      return own;
+    }
+  };
+  const named = rowsAt(base, ' on the base branch');
   let tree = '';
   try {
     tree = readFileSync(join(git('rev-parse', '--show-toplevel').trim(), 'AGENT.md'), 'utf8');
   } catch (e) {
     if (e.code !== 'ENOENT') throw e;
   }
-  globs = [...new Set([...globs, ...named, ...namedDocs(tree, ' as checked out')])];
+  // A third source, for a PR that removes or renames the root AGENT.md: the merge then has no file to read. When the
+  // commit checked out is that merge (its second parent is the head given), its first parent is the base branch's tip
+  // as GitHub merged into it, and AGENT.md there names the documents. Read whenever HEAD is that merge: for a PR that
+  // does not change AGENT.md the merged tree holds those rows already, and one that rewrites a row is held to the path
+  // the tip names as well. By hand, or checked out as anything but that merge, nothing is added.
+  let atTip = [];
+  const parents = git('rev-list', '--parents', '-n', '1', 'HEAD').trim().split(' ').slice(1);
+  if (parents.length === 2 && parents[1] === git('rev-parse', head).trim()) {
+    atTip = rowsAt(parents[0], ' on the base branch as it is now');
+    const only = tree ? [] : atTip.filter((p) => !named.includes(p));
+    if (only.length) process.stderr.write(`gate-files: this pull request leaves no AGENT.md at the root, so the documents the base branch names still count (${only.join(', ')}): a pull request that changes one lists it under \`## Gate changes\`.\n`);
+  }
+  globs = [...new Set([...globs, ...named, ...namedDocs(tree, ' as checked out'), ...atTip])];
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
   return { files, scripts, globs, links };
 }

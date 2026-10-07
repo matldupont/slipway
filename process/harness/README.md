@@ -47,7 +47,11 @@ Under `bypassPermissions` nothing asks; required checks on `main` remain the bac
 and a write rule here, the slipway-only ones included, since a rule for a file a project lacks never fires.
 `scripts/skills.test.mjs` fails when a path on the list has no rule. The two files a setting names (the
 `Domain invariants doc`, the cold-review file) have no fixed path, so nothing here asks before an edit to one.
-The PR check counts both, at the paths the base commit's root `AGENT.md` names (#259).
+The PR check counts both, at the paths the base commit's root `AGENT.md` names (#259), and at the paths it names at the
+base branch's tip, read from the merge CI checks out, so a pull request that moves or removes the root `AGENT.md` is
+held to them too (#305). A pull request that leaves no root `AGENT.md` is never the repair of a row the check cannot read:
+repair the row first. Known limitation: run by hand on a branch, or from a workflow that checks out anything but the
+pull request's merge, the check has no merge to read the tip from, so only the base given counts there.
 
 **So are the files that change which program a gate command runs, or how pnpm and node start it** (#133).
 Each is a gate file here and in the PR check:
