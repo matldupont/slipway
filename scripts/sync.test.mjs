@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { classify, loadOwnership } from '../ci/checks/lib/ownership.mjs';
 import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { ownDecisions } from './adopt.mjs';
+import { bashAsks } from './ask-rules.mjs';
 import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, planText } from './lib/sync-text.mjs';
@@ -896,12 +897,9 @@ test('apply refuses under an agent (CLAUDECODE set), writing nothing; the harnes
   assert.equal(r.status, 1);
   assert.match(r.stderr, /the owner runs it in their own terminal, not an agent \(CLAUDECODE is set\)/);
   assert.equal(treeHash(dir), before);
-  // Claude Code's Bash rules: `*` matches anything, `:*` a trailing prefix.
-  const asks = JSON.parse(readFileSync(join(SRC, 'process/harness/settings.json'), 'utf8')).permissions.ask
-    .filter((a) => a.startsWith('Bash('))
-    .map((a) => new RegExp(`^${a.slice(5, -1).replace(/:\*$/, '*').replace(/[.+?^${}()|[\]\\]/g, '\\$&').replaceAll('*', '.*')}$`));
+  const asks = bashAsks(JSON.parse(readFileSync(join(SRC, 'process/harness/settings.json'), 'utf8')));
   for (const cmd of ['pnpm -s use-slipway sync --apply', 'pnpm use-slipway sync --apply', 'npx use-slipway@latest sync --apply', 'node scripts/new-project.mjs sync --apply', 'node ../slipway/scripts/new-project.mjs sync --apply', 'npx use-slipway@latest sync --adopt --apply --base abc', 'node ../slipway/scripts/new-project.mjs sync --apply --adopt']) {
-    assert.ok(asks.some((re) => re.test(cmd)), `no ask rule matches: ${cmd}`);
+    assert.ok(asks.some((a) => a.test(cmd)), `no ask rule matches: ${cmd}`);
   }
 });
 

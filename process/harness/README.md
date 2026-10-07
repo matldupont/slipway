@@ -21,6 +21,22 @@ Destructive git operations are **ask-level**, never allowed silently (L-20):
 `git stash list` and `git stash apply <sha>` — the safe halves — stay allowed. A prompt can still be approved
 reflexively; protection on `main` backstops the worst case.
 
+**So are two things the GitHub CLI can do beyond this repository** (#279). Each rule matches the words anywhere
+in the command, so one behind an environment variable or after `&&` asks too:
+
+| rule | the failure it prevents |
+|---|---|
+| `gh repo delete` | a session cleaning up after itself deletes a repository; nothing on `main` backstops that |
+| `gh api` with `-X` or `--method` and `DELETE` or `delete`, with a space, `=` or nothing between (`-XDELETE`) | the same through the API, and any other delete sent with that method (a branch, a release, a secret) |
+| `gh auth refresh`, `gh auth login` | either can add permissions to the CLI's token; every session on the machine then uses the wider token, and nothing narrows it afterwards |
+
+`gh repo view`, `gh issue list`, `gh pr create`, `gh auth status` and a `gh api` read do not ask; a command that only
+names the words (a commit message, a pull request title) does. These rules are a
+prompt, not a boundary: what holds is a token that lacks the permission to delete. They do not cover a session under
+`bypassPermissions` (below); a command worded another way, the method in mixed case (`Delete`) among them; the CLI's
+other deleting commands (`gh release delete`, `gh secret delete`); narrowing a token once it was widened; or anything
+set on GitHub's side (repository rules, a fine-grained token).
+
 **Gate configuration is ask-level too.** An agent that cannot make a check pass will weaken the check:
 edit the lint config, loosen `tsconfig`, add `continue-on-error`, touch a fixture. Edits to lint, format,
 type and test-runner configs, workflows, `ci/**`, this directory and `.claude/settings*.json` ask first,
