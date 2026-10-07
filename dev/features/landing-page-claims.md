@@ -170,6 +170,11 @@ method; each stays on the page without a row:
 - §04: "That can feel like a barrier, and I've felt it too." and "Nobody trusts a finance app with half its
   features. Some products can't be tested by hand in a spreadsheet first." (the author's opinion and experience,
   signed; row 45 covers the sentence after them, which is the claim).
+- §01: "Agents made writing code cheap. They didn't make it right, useful or coherent." (the section's answer line),
+  "None of it was new. It was ordinary engineering discipline, applied to agents." and "The agent's coding was never
+  the bottleneck. Everything around it was…" (the author's account of his own stages, signed).
+- §04: "Plenty of good features start as experience: you're the user, or it's table stakes in the domain." (opinion,
+  followed by row 45).
 - Section answers and headings written as questions or framing ("It will ask you why. That's the cost, and most of
   the point.", "Refactoring has never been cheaper, and debt still compounds.").
 
