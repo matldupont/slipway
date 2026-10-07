@@ -3,12 +3,12 @@
 // owner-only), the paths the base guard adds to them (GUARD_GLOBS), plus a `package.json` whose run keys changed
 // (RUN_KEYS, and a dependency on local code or a runtime): what a gate command runs, the pnpm and node that run
 // it, and pnpm's settings. Read by P1. One list: a gate path added to the harness is a gate path here.
-// Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and its rows at the base branch's
-// tip add them. A row the check cannot read fails it; a project fixes the row in a PR, which is then held to its own.
+// Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and its rows at the base commit and
+// in the checked-out tree add them. A row the check cannot read fails it; a project fixes the row in a PR, which is then held to its own.
 //
 // As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…]}` for
 // the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
-// gate paths the base branch's harness asked about and the documents its AGENT.md named, and each symlink or submodule link added, removed or changed.
+// gate paths the base branch's harness asked about and the documents AGENT.md names (at the base and as checked out), and each symlink or submodule link added, removed or changed.
 // pr-body.yml writes it beside the PR body.
 //
 // Not shared with ownership.mjs: that file is slipway's own and never ships to a project.
@@ -201,8 +201,15 @@ export function changes(base, head, cwd = process.cwd()) {
   try {
     globs = gateGlobs(git('show', `${from}:process/harness/settings.json`)); // absent before the harness existed
   } catch {}
-  // AGENT.md as the base branch's tip has it: a PR that rewrites a row is held to the path the base names, and so is
-  // a branch cut before the base named it. Absent at a commit: no row there, so the cold-review default still counts.
+  // The two documents AGENT.md names are read from two places, as P1 reads the harness's rules from two: AGENT.md at
+  // the base commit given, so a PR that rewrites a row is held to the path the base names; and AGENT.md in the
+  // checked-out tree, which in CI is the PR merged into the base branch's tip as it is now (pr-body.yml checks out the
+  // pull request's merge ref), so a PR opened before the base named a document is held to it too. The base commit a
+  // pull request event gives is the tip when the PR was opened or last took the base, not the tip now. Both sources
+  // count: the list is their union. A PR that rewrites a row the base named after it was opened conflicts in
+  // AGENT.md, so it has no merge to check until it takes the base, and then the base given names the path.
+  // Run by hand, the tree is the branch itself, so the second source adds only the branch's own rows.
+  // Absent at a commit or in the tree: no row there, so the cold-review default still counts.
   // The head's rows are read too, only to refuse one that cannot be read: a PR that writes such a row is red, and is
   // fixed in that PR. When the base's own rows cannot be read (a project whose row was written before this check),
   // every PR is red but one that changes AGENT.md so that its rows read: it is held to the head's paths and the
@@ -223,7 +230,13 @@ export function changes(base, head, cwd = process.cwd()) {
     named = [...new Set([...atHead, ...NAMED_ROWS.flatMap(([, whenMissing]) => (whenMissing ? [whenMissing] : []))])];
     process.stderr.write(`gate-files: ${e.message.split('. ')[0]}. This pull request repairs it, so its own rows were used: ${named.join(', ')}\n`);
   }
-  globs = [...new Set([...globs, ...named])];
+  let tree = '';
+  try {
+    tree = readFileSync(join(git('rev-parse', '--show-toplevel').trim(), 'AGENT.md'), 'utf8');
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e;
+  }
+  globs = [...new Set([...globs, ...named, ...namedDocs(tree, ' as checked out')])];
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
   return { files, scripts, globs, links };
 }

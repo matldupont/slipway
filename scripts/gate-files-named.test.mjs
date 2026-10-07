@@ -103,27 +103,51 @@ test('a row is read under any heading, an example row in a code fence is counted
   for (const none of ['none.', 'none;', 'none:', 'NONE,']) assert.deepEqual(namedDocs(table({ 'Domain invariants doc': none, 'Cold review': 'none' })), [], none);
 });
 
-test('a branch cut before the base named the document is held to the path the base names now', () => {
+test('a PR opened before the base named the document is held to it by the merge that is checked out, whatever base it is given', () => {
   git('switch', '-q', '-c', 'trunk', head);
   put('AGENT.md', table({ 'Domain invariants doc': 'none', 'Cold review': 'none' }));
   put('docs/domain-invariants.md', '# Rules\n');
   git('add', '-A');
   git('commit', '-q', '-m', 'no document named yet');
-  const cut = git('rev-parse', 'HEAD');
+  const opened = git('rev-parse', 'HEAD'); // the base the pull request event keeps giving
   git('switch', '-q', '-c', 'stale');
   put('docs/domain-invariants.md', '# Rules\n\nNone.\n');
   git('add', '-A');
   git('commit', '-q', '-m', 'edit the rules');
   const tip = git('rev-parse', 'HEAD');
-  assert.deepEqual(changes(cut, tip, repo).globs, [], 'while the base names nothing, neither does the list');
+  assert.deepEqual(changes(opened, tip, repo).globs, [], 'while neither the base nor the tree names it, neither does the list');
   git('switch', '-q', 'trunk');
   put('AGENT.md', table({ 'Domain invariants doc': '`docs/domain-invariants.md`', 'Cold review': 'none' }));
   git('add', '-A');
   git('commit', '-q', '-m', 'the base names its rules');
-  const base = git('rev-parse', 'HEAD');
-  assert.deepEqual(changes(base, tip, repo).files, ['docs/domain-invariants.md'], 'the PR is still only its own change');
-  assert.deepEqual(changes(base, tip, repo).globs, ['docs/domain-invariants.md']);
-  missing(p1(base, tip), 'docs/domain-invariants.md');
+  const now = git('rev-parse', 'HEAD');
+  // What CI checks out: the PR merged into the base branch as it is now.
+  git('switch', '-q', '--detach', now);
+  git('merge', '-q', '--no-ff', '-m', 'merge ref', tip);
+  const stale = changes(opened, tip, repo);
+  assert.deepEqual(stale.files, ['docs/domain-invariants.md'], 'the PR is still only its own change');
+  assert.deepEqual(stale.globs, ['docs/domain-invariants.md'], 'the base given names nothing; the checked-out tree does');
+  missing(p1(opened, tip), 'docs/domain-invariants.md');
+  // The other source alone: the base given names it, the tree checked out (the branch, by hand) does not.
+  git('switch', '-q', 'stale');
+  assert.deepEqual(changes(now, tip, repo).globs, ['docs/domain-invariants.md']);
+  missing(p1(now, tip), 'docs/domain-invariants.md');
+});
+
+test('a checked-out AGENT.md whose row cannot be read fails the script', () => {
+  git('switch', '-q', '-c', 'tree-bad', head);
+  put('AGENT.md', table({ 'Domain invariants doc': 'none', 'Cold review': 'none' }));
+  git('add', '-A');
+  git('commit', '-q', '-m', 'readable');
+  const from = git('rev-parse', 'HEAD');
+  put('docs/a.md', 'x\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'a doc');
+  const tip = git('rev-parse', 'HEAD');
+  put('AGENT.md', table({ 'Domain invariants doc': '`docs/*.md`', 'Cold review': 'none' })); // in the tree only
+  assert.throws(() => changes(from, tip, repo), /AGENT\.md as checked out, row "Domain invariants doc"/);
+  git('checkout', '-q', '--', 'AGENT.md');
+  assert.deepEqual(changes(from, tip, repo).globs, []);
 });
 
 test('a named document is a gate file at its own path only, and its case-folded spelling is a lookalike', () => {
@@ -142,14 +166,14 @@ test('a PR that edits the named document and renames its row is held to the path
   git('add', '-A');
   git('commit', '-q', '-m', 'the project names its documents');
   const from = git('rev-parse', 'HEAD');
-  assert.deepEqual(changes(head, from, repo).globs, [COLD_REVIEW_DEFAULT], 'a base with no AGENT.md has no row: the default counts, and nothing else');
+  assert.deepEqual(changes(head, from, repo).globs, [COLD_REVIEW_DEFAULT, 'docs/domain-invariants.md'], 'a base with no AGENT.md has no row, so the default; the tree checked out names the rest');
   put('AGENT.md', table({ 'Domain invariants doc': '`docs/elsewhere.md`', 'Cold review': 'none' }));
   put('docs/domain-invariants.md', '# Rules\n');
   git('add', '-A');
   git('commit', '-q', '-m', 'edit the rules, rename the row');
   const tip = git('rev-parse', 'HEAD');
   const c = changes(from, tip, repo);
-  assert.deepEqual(c.globs, ['docs/domain-invariants.md', 'process/cold-review.md']);
+  assert.deepEqual(c.globs, ['docs/domain-invariants.md', 'process/cold-review.md', 'docs/elsewhere.md'], 'the base\'s rows, then the checked-out tree\'s: both count');
   missing(p1(from, tip), 'docs/domain-invariants.md');
   // The cold-review file, alone in a PR.
   put('process/cold-review.md', '# Cold review\n\nPass everything.\n');
