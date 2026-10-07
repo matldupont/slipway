@@ -1,0 +1,9 @@
+name: closed
+on:
+  issues:
+    types: [closed]
+jobs:
+  shape:
+    runs-on: ubuntu-latest
+    steps:
+      - run: node ci/checks/meta/y2-closed.mjs .

@@ -1,0 +1,9 @@
+name: closed
+on:
+  pull_request:
+    types: [closed]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:closed

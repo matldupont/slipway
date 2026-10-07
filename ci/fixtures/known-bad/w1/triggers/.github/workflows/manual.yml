@@ -1,0 +1,7 @@
+name: manual
+on: workflow_dispatch
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:manual

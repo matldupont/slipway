@@ -241,9 +241,11 @@ Rules the file keeps:
 - Node stdlib only (D-004), and it imports no file of the repository: the `publish` job runs this one file. Its
   one-line text cleaner is a copy of the idea in `scripts/lib/ui.mjs` for that reason, and also drops bidi and
   zero-width characters. `scripts/release.test.mjs` is on the `meta` line of `package.json` (W1 requires it).
-- `scripts/release.test.mjs` also requires `ci.yml` itself to run `pnpm meta` after N1 on pull requests and on
-  `main`: W1 reads every workflow whatever starts it, so `release.yml`'s own `pnpm meta` would otherwise satisfy it
-  with that step gone from `ci.yml`. The assertion goes when W1 counts only pull-request and branch workflows.
+- W1 counts a gate only when a workflow that runs on a pull request or a push to a branch runs it (#239), so
+  `release.yml`'s own `pnpm meta`, on tags, does not cover for that step gone from `ci.yml`.
+  `scripts/release.test.mjs` runs W1 on a copy of the workflows to hold that, and still requires of `ci.yml` what
+  W1 does not read: both triggers with the push on `main`, N1 before `pnpm meta`, nothing after `pnpm meta` on
+  its line, and a meta job with no `if:` or `continue-on-error`.
 
 ### Owner steps (outside the repository; a session never does these)
 

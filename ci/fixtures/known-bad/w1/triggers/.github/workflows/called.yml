@@ -1,0 +1,10 @@
+name: called
+on:
+  workflow_call:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:called
+  nested:
+    uses: ./.github/workflows/nested.yml

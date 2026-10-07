@@ -1,0 +1,11 @@
+name: issue
+on:
+  issues:
+    types: [opened, edited]
+jobs:
+  shape:
+    runs-on: ubuntu-latest
+    steps:
+      - run: node ci/checks/meta/y1-issue.mjs .
+      - run: pnpm test:issue
+      - run: pnpm meta

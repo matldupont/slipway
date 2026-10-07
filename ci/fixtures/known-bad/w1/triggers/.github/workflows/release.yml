@@ -1,0 +1,11 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:release
+  tagged:
+    uses: ./.github/workflows/tagged.yml

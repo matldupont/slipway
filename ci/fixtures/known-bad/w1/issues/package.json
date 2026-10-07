@@ -1,0 +1,9 @@
+{
+  "name": "fixture-issues",
+  "private": true,
+  "scripts": {
+    "test": "node -e 0",
+    "test:issue": "node -e 0",
+    "meta": "node ci/checks/meta/y3-script.mjs ."
+  }
+}
