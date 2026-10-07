@@ -711,6 +711,8 @@ test('the earlier review of a revised document: intake, /review-doc and the revi
   assert.ok(flat(section(skill, '4 — Hand back', 2) ?? '').includes('The earlier review stays in `docs/reviews/` as it was written, and stops being reported as stale once the fresh review names it in `Supersedes:`.'), '/review-doc step 4 does not say what happens to the earlier review');
   assert.match(flat(section(skill, '3 — Write the file', 2) ?? ''), /- `Supersedes: docs\/reviews\/<file>` — one line for each earlier review .*? names the same path, every one of them/, '/review-doc step 3 does not tell the reviewer to write the line');
   const template = read('docs/reviews/TEMPLATE.md');
-  assert.match(template, /^Supersedes: </m, 'docs/reviews/TEMPLATE.md has no Supersedes: line');
+  // Not a line of its own: /kickoff copies the template as a stub, and an unfilled Supersedes: line is a finding.
+  assert.doesNotMatch(template, /^[>\s*_-]*Supersedes:/m, 'docs/reviews/TEMPLATE.md must describe the line, not carry one');
+  assert.ok(flat(template).includes('for each earlier review of that document, written > as `Supersedes: docs/reviews/<file>`'), 'the template does not say how the line is written');
   assert.ok(flat(template).includes('until a current review of the same document names it in `Supersedes:`'), 'the template still says a stale review is red for good');
 });

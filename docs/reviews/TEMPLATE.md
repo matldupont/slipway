@@ -2,13 +2,14 @@
 
 Reviewed: <path to the document> @ <git sha of the commit you read>
 Version line: <the document's version line, copied from the file, not from memory>
-Supersedes: <docs/reviews/ path of an earlier review of this document; one line each, or delete this line>
 Review date: <yyyy-mm-dd>
 Status: for argument — nothing here is a decision until the owners resolve it
 
 > R1 checks `Reviewed:` and `Version line:` against the tree. A review whose version line is no longer in the
 > document is stale and turns CI red, until a current review of the same document names it in `Supersedes:`.
-> Copying the line is the point: it cannot be transcribed without opening the file under review.
+> Copying the line is the point: it cannot be transcribed without opening the file under review. A review of
+> a revised document adds one line under `Version line:` for each earlier review of that document, written
+> as `Supersedes: docs/reviews/<file>`.
 
 ## Severity
 

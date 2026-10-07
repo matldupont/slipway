@@ -6,11 +6,11 @@
 //
 //   provenance/missing          no `Reviewed: <path> @ <ref>` line
 //   provenance/no-version-line  no `Version line: <verbatim text>` line
-//   provenance/target-missing   the reviewed path does not exist
+//   provenance/target-missing   the reviewed path does not exist, or leaves the repository
 //   provenance/stale            the version line is not in the current file — the document
 //                               moved on, or the line was written from memory
 //   provenance/supersedes-invalid  a `Supersedes:` line names something other than a review of the
-//                               same document
+//                               same document, or sits in a review that quotes no whole line of it
 //   template/provenance-lines   TEMPLATE.md lost either line (so the template cannot drift)
 //   review/missing              the PRD has left draft with no review of its current version — the
 //                               review was skipped, or written somewhere other than docs/reviews/
@@ -26,7 +26,8 @@
 // A stale review retires when the review that replaces it says so (D-029): a review whose own version
 // line is still in the document names it, `Supersedes: docs/reviews/<file>`, one line per file. Nothing
 // is inferred from a second review being there, so a line written from memory is still reported beside
-// an honest review. A stale review's own Supersedes: lines retire nothing, and there is no chain.
+// an honest review. A stale review's own Supersedes: lines retire nothing, and there is no chain. The
+// review that retires another quotes a whole line of the document, not a word found somewhere in it.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
@@ -50,7 +51,7 @@ for (const f of files) {
   const rel = `docs/reviews/${f}`;
   const lines = readFileSync(join(dir, f), 'utf8').split(/\r?\n/).map(clean);
   const reviewed = lines.map((l) => l.match(/^Reviewed:\s*(.+?)\s+@\s+(\S+)/)).find(Boolean);
-  const version = lines.map((l) => l.match(/^Version line:\s*(.+)$/)).find(Boolean);
+  let version = lines.map((l) => l.match(/^Version line:\s*(.+)$/)).find(Boolean);
 
   if (f === 'TEMPLATE.md') {
     if (!reviewed || !version) {
@@ -59,19 +60,24 @@ for (const f of files) {
     continue;
   }
   if (!reviewed) findings.push({ where: `${rel}#provenance/missing`, detail: 'no `Reviewed: <path> @ <ref>` line: add one under the title, naming the file read and the commit it was read at' });
+  if (version && !unquote(version[1])) version = null;
   if (!version) findings.push({ where: `${rel}#provenance/no-version-line`, detail: 'no `Version line: <verbatim text>` line: add one, copying the reviewed document\'s Version line as it is' });
   if (!reviewed || !version) continue;
 
   const targetRel = unquote(reviewed[1]);
   const target = join(root, targetRel);
-  if (!existsSync(target)) {
+  if (posix.normalize(targetRel).startsWith('..') || !existsSync(target)) {
     findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${targetRel} does not exist: fix the Reviewed: line, or delete the review` });
     continue;
   }
   const want = unquote(version[1]);
   if (targetRel.endsWith('docs/PRD.md') && prdVersion && want.includes(prdVersion)) reviewedPrd.push(rel);
-  const supersedes = lines.map((l) => l.match(/^Supersedes:\s*(.+)$/)).filter(Boolean).map((m) => unquote(m[1]).replace(/^\.\//, ''));
-  reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: !readFileSync(target, 'utf8').includes(want), supersedes });
+  const text = readFileSync(target, 'utf8');
+  // To retire another review, the version line has to be a whole line of the document: a word that is
+  // merely somewhere in it ("#", "Spec") keeps this review from being stale, as it always has, and no more.
+  const wholeLine = text.split(/\r?\n/).some((l) => l.trim() === want || clean(l) === want);
+  const supersedes = lines.filter((l) => l.startsWith('Supersedes:')).map((l) => unquote(l.slice('Supersedes:'.length)).replace(/^\.\//, ''));
+  reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: !text.includes(want), wholeLine, supersedes });
 }
 
 // Two spellings of one path that do not normalise alike read as two documents: nothing retires.
@@ -81,8 +87,9 @@ for (const r of reviews) {
   for (const name of r.supersedes) {
     const named = byRel.get(name);
     const why = !named || named === r
-      ? 'is not another review in docs/reviews/ that carries both provenance lines'
-      : named.doc !== r.doc ? `is a review of ${named.targetRel}, not of ${r.targetRel}` : null;
+      ? 'is not another review in docs/reviews/ with both provenance lines and a reviewed path that exists'
+      : named.doc !== r.doc ? `is a review of ${named.targetRel}, not of ${r.targetRel}`
+        : !r.stale && !r.wholeLine ? `is named by a review whose own version line is not a whole line of ${r.targetRel}` : null;
     if (why) findings.push({ where: `${r.rel}#provenance/supersedes-invalid`, detail: `Supersedes: ${name} ${why}, so it retires nothing: name an earlier review of the same document by its path, or remove the line` });
     else if (!r.stale) retired.add(named.rel);
   }
