@@ -160,7 +160,7 @@ docs/testing-strategy.md            test layers, and what makes a test able to f
 docs/qa/ · docs/reviews/            QA plans · adversarial reviews with provenance lines
 process/lessons/                    61 lessons, each stating where it lives (L1 checks it)
 process/cold-review.md              the cold-review checklist, one line per lesson
-process/designation.md              which model and effort, by whether an oracle exists
+process/designation.md              which mode, model and effort, by whether an oracle exists
 process/decision-defaults.md        the ten defaults a session applies before asking the owner
 process/harness/                    permissions and hooks — installed into .claude/ by new-project
 .claude/skills/                     /bootstrap, /kickoff, /clarify, /review-doc, /close-milestone and /sync-slipway
