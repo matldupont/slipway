@@ -40,6 +40,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { excerpt, report, UNSAFE } from '../lib/report.mjs';
+import { reviewProvenance, unquote } from '../lib/review-header.mjs';
 
 const root = process.argv[2] ?? '.';
 const prdPath = join(root, 'docs', 'PRD.md');
@@ -54,27 +55,11 @@ const reviews = [];
 
 const BOUND = 120;
 const shown = (s) => `${excerpt(s, BOUND)}${UNSAFE.test(s) ? ' [hidden characters left out]' : ''}`;
-const hidden = new RegExp(UNSAFE.source, 'gv');
 const clean = (l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim();
-// A header line keeps its emphasis and list marks out of the way, as `clean` does, but never a quote mark: a
-// line left starting with `>` matches none of the three names.
-const mark = (l) => l.replace(/\*\*/g, '').replace(/^[\s*_-]+/, '').trim();
-const header = (text) => {
-  const all = text.replace(/^\ufeff/, '').split(/\r?\n/).map((l) => (l.replace(hidden, '').trim() ? l : ''));
-  const title = all.findIndex((l) => l.trim());
-  if (title < 0 || !/^# /.test(all[title])) return [];
-  const start = all.findIndex((l, i) => i > title && l.trim());
-  if (start < 0) return [];
-  const end = all.findIndex((l, i) => i > start && !l.trim());
-  return all.slice(start, end < 0 ? all.length : end).map(mark);
-};
-const unquote = (s) => s.trim().replace(/^[`'"]+|[`'"]+$/g, '');
 
 for (const f of files) {
   const rel = `docs/reviews/${f}`;
-  const lines = header(readFileSync(join(dir, f), 'utf8'));
-  const reviewed = lines.map((l) => l.match(/^Reviewed:\s*(.+?)\s+@\s+(\S+)/)).find(Boolean);
-  let version = lines.map((l) => l.match(/^Version line:\s*(.+)$/)).find(Boolean);
+  const { reviewed, version, supersedes } = reviewProvenance(readFileSync(join(dir, f), 'utf8'));
 
   if (f === 'TEMPLATE.md') {
     if (!reviewed || !version) {
@@ -83,24 +68,22 @@ for (const f of files) {
     continue;
   }
   if (!reviewed) findings.push({ where: `${rel}#provenance/missing`, detail: 'no `Reviewed: <path> @ <ref>` line: add one in the header (the lines under the title, before the first blank line, not quoted), naming the file read and the commit it was read at' });
-  if (version && !unquote(version[1])) version = null;
   if (!version) findings.push({ where: `${rel}#provenance/no-version-line`, detail: 'no `Version line: <verbatim text>` line: add one in the header, copying the reviewed document\'s Version line as it is' });
   if (!reviewed || !version) continue;
 
-  const targetRel = unquote(reviewed[1]);
+  const targetRel = reviewed.path;
   const target = join(root, targetRel);
   const outside = posix.normalize(targetRel).startsWith('..');
   if (outside || !existsSync(target)) {
     findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${shown(targetRel)} ${outside ? 'leaves the repository' : 'does not exist'}: fix the Reviewed: line, or delete the review` });
     continue;
   }
-  const want = unquote(version[1]);
+  const want = version;
   if (targetRel.endsWith('docs/PRD.md') && prdVersion && want.includes(prdVersion)) reviewedPrd.push(rel);
   const text = readFileSync(target, 'utf8');
   // To retire another review, the version line has to be a whole line of the document: a word that is
   // merely somewhere in it ("#", "Spec") keeps this review from being stale, as it always has, and no more.
   const wholeLine = text.split(/\r?\n/).some((l) => [l.trim(), clean(l), unquote(l)].includes(want));
-  const supersedes = lines.filter((l) => l.startsWith('Supersedes:')).map((l) => unquote(l.slice('Supersedes:'.length)).replace(/^\.\//, ''));
   reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: !text.includes(want), wholeLine, supersedes });
 }
 

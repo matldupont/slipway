@@ -1,0 +1,9 @@
+{
+  "_note": "#320. The PRD is at Version 0.3.0. The only review in docs/reviews/ has Reviewed: and Version line: in a quoted block lower down, outside its header: R1 reads neither as provenance, so status must not count the PRD as reviewed (it said \"review: none\" and listed the missing review under Needs attention). RISK states are those of experience-settled.",
+  "today": "2026-03-10",
+  "next": "Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: RISK-4 scheduled (#5) · blocks every milestone past the skeleton. An agent can prepare the materials; running the test with real people is yours. Thresholds and results go in docs/product/evidence/ — or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the risk's Result.",
+  "frame": "framed · risks: RISK-1 settled by experience (table stakes), RISK-2 settled by experience (creator is the user), RISK-3 needs a Wrong if: line (experience: domain expertise), RISK-4 scheduled (#5), RISK-5 tested, RISK-6 needs an experience reason (table stakes, creator is the user or domain expertise) · blocks every milestone past the skeleton",
+  "attention": [
+    "PRD 0.3.0 has no adversarial review — run /review-doc docs/PRD.md in a fresh session (needed before the PRD leaves draft)"
+  ]
+}
