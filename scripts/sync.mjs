@@ -492,11 +492,20 @@ const MEANING = {
 const STALE_WHY = 'slipway no longer maintains this file, so the entry excuses nothing and D1 flags it';
 const staleLine = (s) => `${OVERRIDES}:${s.line}  path: ${s.path}`;
 
+// What the owner does about a collision. On a file slipway maintains, keeping yours is an override. A template
+// (seeded) is the project's once it has it: --apply records it, so nothing is left to keep, and an override
+// naming it is stale to D1 (#266).
+const upperFirst = (s) => s[0].toUpperCase() + s.slice(1);
+const collisionAdvice = (path, targetRules, from) =>
+  classify(targetRules, path) === 'managed'
+    ? `to keep yours, list it in ${OVERRIDES} with a reason; to take slipway's, copy its file from ${from} over yours`
+    : `yours stays as it is, and sync records it as yours now; to take slipway's template, copy its file from ${from} over yours`;
+
 // The next step for a row that needs the owner (OWNER_ROWS). With nothing to take (`at`), no step names
 // --apply: it would do nothing, so a script's line carries slipway's value itself (`value`, from compute).
-function nextStep(r, targetSha, cmd, { at = false, value } = {}) {
+function nextStep(r, targetSha, cmd, { at = false, value, targetRules } = {}) {
   const from = targetSha ? targetSha.slice(0, 12) : 'the target';
-  if (r.kind === 'collision') return `to keep yours, list it in ${OVERRIDES} with a reason; to take slipway's, copy its file from ${from} over yours`;
+  if (r.kind === 'collision') return collisionAdvice(r.path, targetRules, from);
   if (r.kind === 'merged: key reported') {
     return at ? `your value stays; slipway's is ${value}; edit the key by hand to take it` : `${cmd} --apply keeps your value and prints slipway's; edit the key by hand to take it`;
   }
@@ -509,11 +518,11 @@ const bucketCounts = (rows) => KINDS.map((k) => [k, rows.filter((r) => r.kind ==
 // What the plan lists under "Needs you by hand": the rows --apply leaves to the owner and the overrides
 // that go stale, each with its next step. The text plan and --json read the same list; `file` is the
 // project file the text plan links the item to, and --json leaves it out.
-function needsYou({ root, targetSha }, rows, stale, { at = false, reported = [] } = {}) {
+function needsYou({ root, targetSha, targetRules }, rows, stale, { at = false, reported = [] } = {}) {
   const cmd = syncCommand(root);
   const value = (r) => reported.find((x) => x.path === r.path)?.value;
   return [
-    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd, { at, value: value(r) }), file: r.file ?? r.path })),
+    ...rows.filter((r) => OWNER_ROWS.includes(r.kind)).map((r) => ({ kind: label(r.kind), path: r.path, next: nextStep(r, targetSha, cmd, { at, value: value(r), targetRules }), file: r.file ?? r.path })),
     ...stale.map((s) => ({ kind: 'stale override', path: staleLine(s), next: `${at ? '' : `after ${cmd} --apply, `}delete this entry${at ? '' : ' on the sync branch'}: ${STALE_WHY}`, file: OVERRIDES })),
   ];
 }
@@ -650,7 +659,7 @@ function apply(out, u, ctx, rows) {
   const from = short(targetSha);
   const leftover = [
     ...todo.conflicts.map((c) => ({ path: c.path, text: `merge — ${c.n} conflict${c.n > 1 ? 's' : ''}; resolve ${c.n > 1 ? 'them' : 'it'}, and keep its override` })),
-    ...rows.filter((r) => r.kind === 'collision').map((r) => ({ path: r.path, text: `collision — slipway ships this path now, and your file was not touched. To keep yours, list it in ${OVERRIDES} with a reason; to take slipway's, copy its file from ${from} over yours` })),
+    ...rows.filter((r) => r.kind === 'collision').map((r) => ({ path: r.path, text: `collision — slipway ships this path now, and your file was not touched. ${upperFirst(collisionAdvice(r.path, ctx.targetRules, from))}` })),
     ...todo.kept.gone.map((p) => ({ path: p, text: 'keep (edited) — slipway removed it; your file stays and is yours now' })),
     ...todo.kept.shipped.map((p) => ({ path: p, text: `keep (edited) — slipway changed it, but your copy is missing, not a file, or was your own file until now, so slipway's change was not applied. Copy slipway's from ${from}, or list yours in ${OVERRIDES} with a reason` })),
     ...todo.stale.map((s) => ({ path: staleLine(s), file: OVERRIDES, text: `stale override — delete this entry: ${STALE_WHY}` })),
@@ -902,8 +911,8 @@ function nextManifest({ manifest, target, targetRules, targetSha }, rows, after)
       files[p] = own && !(Buffer.isBuffer(now) && now.equals(target.get(p))) ? { ...t, sha256: m.sha256 } : t;
     } else if (m) {
       files[p] = { ...m, class: t.class };
-    } else if (kind.get(p) === 'add') {
-      files[p] = t;
+    } else if (kind.get(p) === 'add' || kind.get(p) === 'collision') {
+      files[p] = t; // a template the project already had is recorded as seeded, so the next plan finds no collision (#266)
     }
   }
   return { ...next, files };
