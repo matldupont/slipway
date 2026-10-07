@@ -21,11 +21,11 @@ jobs:
     name: meta
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # slipway is told apart by its root commit; a shallow clone cannot show it (#123)
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
       # Before pnpm runs anything: `pnpm run` and the install's lifecycle scripts put the repository's
@@ -42,15 +42,15 @@ jobs:
     if: ${{ !github.event.repository.is_template }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0 # slipway is told apart by its root commit; a shallow clone cannot show it (#123)
       # Before any install: with no app there is nothing to verify, and this says so (BROKEN, pointing at
       # BOOTSTRAP §1) instead of failing later on a missing lockfile. Needs no dependencies.
       - name: Require an app
         run: node ci/verify.mjs --plan
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: pnpm
