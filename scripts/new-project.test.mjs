@@ -511,6 +511,6 @@ test('the harness note says what the Stop hook does: it blocks the first stop, a
   const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), dest, '--no-github'], { encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const note = r.stdout.replace(/\s+/g, ' ');
-  assert.match(note, /blocks the first stop of a turn while `pnpm verify:fast` is red \(a second stop ends it red\)/);
+  assert.match(note, /blocks the first stop of a turn while `pnpm verify:fast` is red \(a second stop ends it red, with the agent asked to say what is failing\)/);
   assert.doesNotMatch(note, /blocks a turn from ending/);
 });

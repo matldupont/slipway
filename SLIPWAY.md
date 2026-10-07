@@ -82,7 +82,7 @@ skeleton is cheap to change now and expensive in month three.
 ### 5 · Build loop — the rest of the milestone
 
 One milestone active at a time (MS1). Take the next slice from its Contents, pick its lane, build it in a
-fresh agent session, prove it, merge it. The Stop hook will not let an agent end a turn while
+fresh agent session, prove it, merge it. The Stop hook blocks the first stop of an agent turn while
 `pnpm verify:fast` is red. Anything that is not in the milestone goes to its no-gos or a later one, not into
 the diff.
 

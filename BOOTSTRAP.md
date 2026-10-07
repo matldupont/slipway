@@ -43,7 +43,8 @@ to exempt. The cheapest moment to install the spine is before there is anything 
 
 2. The harness is already installed: the script copied `process/harness/settings.json` to
    `.claude/settings.json` and said so. It makes destructive git operations and edits to gate configuration
-   ask-level, injects `pnpm status` at session start, blocks the first stop of a turn while `verify:fast` is red (a second stop ends it red),
+   ask-level, injects `pnpm status` at session start, blocks the first stop of a turn while `verify:fast` is red (a second stop ends
+   it red, with the agent asked to say what is failing),
    and adds three advisory hooks (`process/harness/README.md`). You installed it by running the script; an
    agent never installs its own hooks or permissions. Skipped with `--no-harness`? Copy it by hand.
 
@@ -114,7 +115,7 @@ paste the output into the bootstrap PR:
 12. Two milestone files with `status: active` turn MS1 red (`wip/exceeded`).
 13. Setting M1 to `active` while `docs/product/FRAME.md` is `status: draft` turns K1 red.
 14. A new Claude Code session opens with the `pnpm status` state in context (ask it "what's next?").
-15. A failing test makes the Stop hook refuse to end the turn, and asking the agent to edit `biome.json` or a
+15. A failing test makes the Stop hook block the first stop of the turn, and asking the agent to edit `biome.json` or a
     workflow prompts for approval.
 
 Revert each probe. The kit is installed when all fifteen have been seen to fire.
