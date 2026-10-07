@@ -30,15 +30,16 @@
 // review that retires another quotes a whole line of the document, not a word found somewhere in it.
 //
 // The three lines count only in the review's header: the first run of non-blank lines under its title, the
-// file's first non-blank line, a `# ` heading. A line lower down, or a quoted one (`>`) in the header, is text
-// the review carries, not what the review says of itself: a passage quoted from another review must not retire
-// one, and a quoted `Reviewed:` is no provenance. A review with no title has no header. What a finding prints
-// of a review's own text (the path, the version line, a Supersedes: value) is cut to BOUND characters;
-// matching always uses the whole value.
+// file's first non-blank line, a `# ` heading. A line lower down, or one in the header that starts with a quote
+// mark (`>`), is text the review carries, not what the review says of itself: a block quoted lower in a review
+// retires nothing, and a quoted `Reviewed:` is no provenance. A review with no title has no header. A line of
+// characters nobody sees is blank, and a byte-order mark before the title is not part of it. What a finding
+// prints of a review's own text (the path, the version line, a Supersedes: value) is cut to BOUND characters,
+// and says so when it left hidden characters out; matching always uses the whole value.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { excerpt, report } from '../lib/report.mjs';
+import { excerpt, report, UNSAFE } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
 const prdPath = join(root, 'docs', 'PRD.md');
@@ -52,18 +53,20 @@ const findings = [];
 const reviews = [];
 
 const BOUND = 120;
-const shown = (s) => excerpt(s, BOUND);
+const shown = (s) => `${excerpt(s, BOUND)}${UNSAFE.test(s) ? ' [hidden characters left out]' : ''}`;
+const hidden = new RegExp(UNSAFE.source, 'gv');
 const clean = (l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim();
-// A header line keeps its emphasis and list marks out of the way, as `clean` does, but never a quote mark.
+// A header line keeps its emphasis and list marks out of the way, as `clean` does, but never a quote mark: a
+// line left starting with `>` matches none of the three names.
 const mark = (l) => l.replace(/\*\*/g, '').replace(/^[\s*_-]+/, '').trim();
 const header = (text) => {
-  const all = text.split(/\r?\n/);
+  const all = text.replace(/^\ufeff/, '').split(/\r?\n/).map((l) => (l.replace(hidden, '').trim() ? l : ''));
   const title = all.findIndex((l) => l.trim());
   if (title < 0 || !/^# /.test(all[title])) return [];
   const start = all.findIndex((l, i) => i > title && l.trim());
   if (start < 0) return [];
   const end = all.findIndex((l, i) => i > start && !l.trim());
-  return all.slice(start, end < 0 ? all.length : end).filter((l) => !l.trimStart().startsWith('>')).map(mark);
+  return all.slice(start, end < 0 ? all.length : end).map(mark);
 };
 const unquote = (s) => s.trim().replace(/^[`'"]+|[`'"]+$/g, '');
 

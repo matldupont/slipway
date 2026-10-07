@@ -1,5 +1,5 @@
 {
-  "_note": "#278. Provenance lines count only in a review's header: the first run of non-blank lines under its title, quoted lines left out. l-new and m-new are current and carry a Supersedes: line below the header (l-new's inside a quoted block): l-old and m-old stay stale. quoted-only has Reviewed: and Version line: only in a quoted block lower down. quoted-header and listed-quote quote the Reviewed: line inside the header. no-title has no title line and late-title has text above it: neither has a header. after-blank puts a blank line before Version line:. marked writes its header with list marks and bold: no finding. A finding prints at most 120 characters of a value copied from a review, and matches on the whole value: long-ok quotes a 292-character line of its document in full and has no finding; long-version differs from that line only in its last two characters and is stale; long-path and long-supersedes name a path about 290 characters long. control's version line carries an escape, a bidi override and a zero-width space: none is printed. `details` pins each cut.",
+  "_note": "#278. Provenance lines count only in a review's header: the first run of non-blank lines under its title, quoted lines left out. l-new and m-new are current and carry a Supersedes: line below the header (l-new's inside a quoted block): l-old and m-old stay stale. quoted-only has Reviewed: and Version line: only in a quoted block lower down. quoted-header and listed-quote quote the Reviewed: line inside the header. no-title has no title line and late-title has text above it: neither has a header. after-blank puts a blank line before Version line:. marked writes its header with list marks and bold: no finding. A finding prints at most 120 characters of a value copied from a review, and matches on the whole value: long-ok quotes a 292-character line of its document in full and has no finding; long-version differs from that line only in its last two characters and is stale; long-path and long-supersedes name a path about 290 characters long. control's version line carries an escape, a bidi override and a zero-width space: none is printed. `details` pins each cut. long-stale-path and long-other name a document that exists by a path 133 characters long: the stale finding and the wrong-document finding cut it too. control's finding says hidden characters were left out. bom starts with a byte-order mark and has no finding. n-new has a line of zero-width spaces where the blank line would be, then a Supersedes: line: the header ends there, and n-old stays stale.",
   "exit": 1,
   "findings": [
     "docs/reviews/after-blank.md#provenance/no-version-line",
@@ -8,10 +8,13 @@
     "docs/reviews/late-title.md#provenance/missing",
     "docs/reviews/late-title.md#provenance/no-version-line",
     "docs/reviews/listed-quote.md#provenance/missing",
+    "docs/reviews/long-other.md#provenance/supersedes-invalid",
     "docs/reviews/long-path.md#provenance/target-missing",
+    "docs/reviews/long-stale-path.md#provenance/stale",
     "docs/reviews/long-supersedes.md#provenance/supersedes-invalid",
     "docs/reviews/long-version.md#provenance/stale",
     "docs/reviews/m-old.md#provenance/stale",
+    "docs/reviews/n-old.md#provenance/stale",
     "docs/reviews/no-title.md#provenance/missing",
     "docs/reviews/no-title.md#provenance/no-version-line",
     "docs/reviews/quoted-header.md#provenance/missing",
@@ -22,6 +25,8 @@
     "docs/reviews/long-path.md#provenance/target-missing": "reviewed path docs/specs/part00-part01-part02-part03-part04-part05-part06-part07-part08-part09-part10-part11-part12-part13-part14-par… does not exist",
     "docs/reviews/long-supersedes.md#provenance/supersedes-invalid": "Supersedes: docs/reviews/name00-name01-name02-name03-name04-name05-name06-name07-name08-name09-name10-name11-name12-name13-name14-n… is not another review",
     "docs/reviews/long-version.md#provenance/stale": "\"Version: 0.2 word00 word01 word02 word03 word04 word05 word06 word07 word08 word09 word10 word11 word12 word13 word14…\" is not in docs/specs/q.md",
-    "docs/reviews/control.md#provenance/stale": "\"Version: 9.9 [31mred[0m desrever zerowidth\" is not in docs/specs/p.md"
+    "docs/reviews/control.md#provenance/stale": "\"Version: 9.9 [31mred[0m desrever zerowidth [hidden characters left out]\" is not in docs/specs/p.md",
+    "docs/reviews/long-stale-path.md#provenance/stale": "\"Version: 0.1\" is not in docs/specs/././././././././././././././././././././././././././././././././././././././././././././././././././././././…",
+    "docs/reviews/long-other.md#provenance/supersedes-invalid": "Supersedes: docs/reviews/l-old.md is a review of docs/specs/l.md, not of docs/specs/././././././././././././././././././././././././././././././././././././././././././././././././././././././…"
   }
 }
