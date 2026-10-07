@@ -195,6 +195,11 @@ resolutions on the sync branch, then open one PR (`Lane: bounded`) whose body ha
   rules and this branch holds the target's, so a path can still be named there that was not here: the finding
   names it, and you add its line.
 
+Once the PR is open, tell the owner that the checkout where the apply ran is still on `slipway/sync-<target>`, also
+after the PR merges, and give them the one command that returns it to the branch the apply started from (the
+`from` in its header): `git switch <that branch>`. The owner runs it in their own terminal; you do not run it, since
+that checkout may not be your session's own.
+
 When the sync brings `.gitattributes` for the first time, the PR says so: a working tree checked out
 before it keeps CRLF files until `git add --renormalize .`.
 
