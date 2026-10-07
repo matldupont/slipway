@@ -406,12 +406,17 @@ test('work-ticket says once that nothing is committed after the round that ends 
   const wt = read(skillPath('work-ticket'));
   const rounds = flat(section(wt, 'Rounds 2 and 3', 3));
   assert.match(rounds, /\*\*After the round that ends the review, nothing is committed: the pull request's head is the last reviewed head\.\*\*/, 'work-ticket must state the rule where it describes the last round');
-  assert.match(rounds, /A finding still open then goes in the PR body as a known limitation, or into one follow-up that holds them all \(Follow-ups\), never into a commit; editing the PR's description is not a commit/, 'the rule must say where a leftover finding goes, and that a description edit is not a commit');
-  assert.match(rounds, /The one exception is a merge of `\{base\}`: the PR names the merge commit and each file whose conflict was resolved by hand, with what was kept, and the gate runs again on the merge; a conflict resolved by hand in a file the run is judged by \(Configuration\) gets one verify of that merge/, 'the rule must name its one exception');
+  assert.match(rounds, /Every fix is committed before its verify \(step 2\), `breaks: none` fixes too; the review ends with a verify that finds no broken guarantee, or with a round 1 that needed no fix\./, 'the rule must say when the review ends, so "the round that ends it" has one reading');
+  assert.match(rounds, /What that verify or review found goes in the PR body as a known limitation, or into one follow-up, filed once, that holds them all: never into a commit\. Editing the PR's description is not a commit\./, 'the rule must say where a leftover finding goes, and that a description edit is not a commit');
+  assert.match(rounds, /The one exception is a merge of `origin\/\{base\}`, fetched first: the PR names each merge commit and each file whose conflict was resolved by hand \(what `git show \{merge sha\}` prints; nothing for a clean merge\), with what was kept, and the gate runs again on the merge\./, 'the rule must name its one exception, and how a hand resolution is found');
+  assert.match(rounds, /A conflict resolved by hand in a file the run is judged by is shown to the owner for their yes before the gate runs \(Configuration\), then gets one verify, of that resolution only\./, 'a hand-resolved rule file is the owner\'s to approve before the gate runs on it');
+  assert.match(rounds, /A guarantee the merge breaks, or a red gate, stops the run: the PR stays draft\./, 'a merge that breaks a guarantee must not reach ready');
   const copy = /nothing is committed after the last reviewed head|nothing committed since the last verified head/i;
-  assert.doesNotMatch(flat(wt), copy, 'work-ticket states the rule once, in Rounds 2 and 3');
+  assert.doesNotMatch(flat(wt), copy, 'work-ticket keeps neither earlier wording of the rule');
   assert.match(flat(section(wt, 'Phase 6 — Ready', 2)), /Only after CLEAN, with nothing committed since \(Rounds 2 and 3, step 4\)/, 'Phase 6 must point at the rule');
-  assert.equal(flat(section(wt, 'Which findings count', 3)).match(/Rounds 2 and 3, step 4/g)?.length, 2, 'both findings-table cells that say to make a fix must stop at the end of the review');
+  const table = flat(section(wt, 'Which findings count', 3));
+  assert.match(table, /a fix, this round: cheap, local, in scope; found by the verify that ends the review: Rounds 2 and 3, step 4 \|/, 'a cheap fix found by the last verify is not committed');
+  assert.match(table, /not a fix\. Found by the verify that ends the review: Rounds 2 and 3, step 4\. Before that, a one-line in-scope change: make it; otherwise add it to the feature doc's Known limitations in this PR, or file it/, 'a `breaks: none` finding of the last verify goes nowhere that is a commit');
   const deferred = flat(section(intake, 'Deferred check', 2));
   assert.match(deferred, /both are reviewed with the rest\. What may follow the last review: `\/work-ticket` → Phase 5, Rounds 2 and 3\./, 'Deferred check must point at work-ticket');
   assert.doesNotMatch(deferred, copy, 'Deferred check must not carry its own copy of the rule');
@@ -426,7 +431,7 @@ test('work-ticket\'s `## Cold review` names the last reviewed head and the pull 
   const bullet = (section(wt, 'Phase 6 — Ready', 2) ?? '').match(/^- `## Cold review`[\s\S]*?(?=\n- `## )/m)?.[0].replace(/\s+/g, ' ') ?? '';
   assert.match(bullet, /Its last line names the last reviewed head and the PR's head: /, 'the section must name both heads');
   assert.ok(bullet.includes('`Last reviewed head {sha} is the pull request\'s head: nothing lies between.`'), 'the section must have a line for a head that was reviewed');
-  assert.ok(bullet.includes('`Last reviewed head {sha}; head {sha}. Between them: {merge sha}, a merge of {base}; resolved by hand: {file, and what was kept | nothing}.`'), 'the section must have a line for a merge of the base after the last review');
+  assert.ok(bullet.includes('`Last reviewed head {sha}; head {sha}. Between them: {each merge sha}, a merge of {base}; resolved by hand: {file, what was kept, and for a rule file the owner\'s yes and its verify | nothing}.`'), 'the section must have a line for a merge of the base after the last review');
   assert.match((section(wt, 'Phase 5 — Draft PR and cold review', 2) ?? ''), /^Rounds: +\{n\} · heads reviewed: \{sha per round\}, the last is HEAD \| HEAD is \{sha\}, a merge of \{base\} after it$/m, 'Phase 5\'s report must say when HEAD is a merge of the base');
 });
 

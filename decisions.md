@@ -369,12 +369,18 @@ and does not owe says less plainly what happened than a removal a reviewer sees 
 After the round that ends the review, nothing is committed: the pull request's head is the last reviewed head.
 This holds in every lane, not only for a pull request that defers a check.
 
-- **What is left over is written down, not committed.** A finding still open when the review ends goes in the
-  pull request's body as a known limitation, or into one follow-up that holds them all: never a commit, and
-  never an issue each. Editing the pull request's description is not a commit.
-- **A merge of the base branch is the one exception.** The pull request names the merge commit and each file
-  whose conflict was resolved by hand, with what was kept, and the gate runs again on the merge. A conflict
-  resolved by hand in an owner-only file gets one verify of that merge.
+- **Every fix is seen by a verify.** A fix is committed before the verify of its round, whether or not the
+  finding broke a guarantee. The review ends with a verify that finds no broken guarantee, or with a first
+  round that needed no fix.
+- **What is left over is written down, not committed.** What that last verify or review found goes in the pull
+  request's body as a known limitation, or into one follow-up that holds them all: never a commit, and never an
+  issue each. Editing the pull request's description is not a commit.
+- **A merge of the base branch is the one exception.** It is a merge of the fetched remote branch. The pull
+  request names each merge commit and each file whose conflict was resolved by hand, with what was kept, and the
+  gate runs again on the merge. A conflict resolved by hand in an owner-only file is shown to the owner for
+  their yes before the gate runs, as any change to such a file is, then gets one verify, of that resolution
+  only. A guarantee the merge breaks, or a red gate, stops the run and the pull request stays a draft (found in
+  review of #283's pull request).
 - **The pull request says which it is.** Its `## Cold review` ends by naming the last reviewed head and the pull
   request's head, and what lies between them, or that nothing does.
 
