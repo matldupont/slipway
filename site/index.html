@@ -160,7 +160,7 @@
       <li><span class="path">decisions.md</span><span class="what"><strong>Why the stack, the data model and the money types</strong> are what they are, dated when decided rather than reconstructed later.</span></li>
       <li><span class="path">docs/milestones/</span><span class="what"><strong>One active bet,</strong> with a time budget and kill criteria written before it started. Each closed one has a retro.</span></li>
       <li><span class="path">docs/product/metrics.md</span><span class="what"><strong>The weekly numbers</strong> and what users said, which is where the next milestone comes from.</span></li>
-      <li><span class="path">process/lessons/</span><span class="what"><strong>Every rule the project has learned,</strong> each saying where it’s enforced: a check where one fires, otherwise the page that holds it, on a review clock.</span></li>
+      <li><span class="path">process/lessons/</span><span class="what"><strong>Every rule the project has learned,</strong> each saying where it’s enforced or, if it isn’t built yet, the event that reopens it. The judgment ones carry a review date.</span></li>
     </ul>
     <div class="outside prose">
       <h3>And outside the repo</h3>
@@ -201,7 +201,7 @@
     <div class="prose">
       <p><strong>Updates are built in.</strong> A project started from slipway takes newer versions with <code>/sync-slipway</code>. It prints a plan before it touches anything, works on its own branch, merges instead of overwriting a file you changed, and never edits the documents that are yours: the PRD, the frame, your decisions.</p>
       <p><strong>Adopting an existing repo is a later bet, not under way.</strong> Adopting a project that didn’t start from slipway is filed, with its acceptance written, and not built. Help triaging an old backlog, which issues still hold against the code and which can go, is another later bet, ahead of it.</p>
-      <p><strong>Until then, pieces travel on their own.</strong> The checks are zero-dependency Node scripts. The lessons are plain Markdown files. The working rules for agents fit on one page. A check brings the helpers in <code>ci/lib/</code> it imports, and none has been tried outside a slipway project yet.</p>
+      <p><strong>Until then, pieces travel on their own.</strong> The checks are zero-dependency Node scripts. The lessons are plain Markdown files. The working rules for agents fit on one page. A check brings the helpers in <code>ci/lib/</code> it imports, and slipway records none used outside a project that started from it.</p>
       <p><strong>What you’re running.</strong> Each release is staged by CI from a version tag, and goes public only when I approve that exact package at npm with a second factor.</p>
       <h3>What it expects</h3>
       <ul class="hang">
@@ -231,7 +231,7 @@
       <h3>Not proven yet</h3>
       <p>Each line is dated 2026-10-07, in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#not-verified-here--read-as-unknown">SLIPWAY.md</a>, under “Not verified here — read as unknown”.</p>
       <ul class="hang">
-        <li><strong>The agent hooks and approval prompts in a live session.</strong> The Stop hook has only been seen blocking on a missing install, not refusing on a failing test; the approval prompts, the other hooks and the session-start status have been seen only on sample input.</li>
+        <li><strong>The agent hooks and approval prompts in a live session.</strong> The Stop hook has only been seen blocking on a missing install, not refusing on a failing test. The approval prompts haven’t been seen in a live session, and the other hooks and the session-start status have been seen only on sample input.</li>
         <li><strong>A close that isn’t the first one’s path.</strong> A milestone ended as killed, extended or cut; a project with a GitHub milestone; a close that changes the PRD.</li>
         <li><strong>The skills’ settings on a real project.</strong> This repository holds no record of the intake and ticket skills’ runs there.</li>
         <li><strong>A limit of the issue check.</strong> It catches adjectives, not criteria that can’t fail: “returns HTTP 200” passes.</li>
