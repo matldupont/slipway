@@ -16,16 +16,21 @@ import { strictSection } from './markdown.mjs';
 // explain it. '' when there is no row. `row` is matched as written, whole and case-insensitive, in the raw text:
 // the first such row wins, a commented or fenced one included, so no published text reads through this
 // (ci/roadmap.mjs reads its switch and the project name itself; only the page's date comes from Timezone here). `within` names the `##` section the row must sit in; without it, any row
-// counts. `file` names another file under `root` with the same table (slipway's own dev/skill-configuration.md).
-export function agentRow(root, row, within, file = 'AGENT.md') {
-  const p = join(root, file);
-  const text = existsSync(p) ? readFileSync(p, 'utf8') : '';
+// counts. `rowValue` reads the table from text (gate-files.mjs reads AGENT.md as the base commit has it).
+export function rowValue(text, row, within) {
   const agent = within ? strictSection(text, within, 2) ?? '' : text;
   const name = row.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   // The cell is one greedy run up to the next `|` (a line break included, as before), trimmed after: with no `\s*`
   // on either side to trade characters with, a long cell with no closing `|` cannot backtrack.
   const cell = (agent.match(new RegExp(`^\\|[ \\t]*${name}[ \\t]*\\|([^|]*)\\|`, 'im'))?.[1] ?? '').trim();
   return (cell.match(/`([^`]+)`/)?.[1] ?? cell.split(/\s/)[0]).trim();
+}
+
+// The same, from a file under `root`: AGENT.md, or another file with the same table (slipway's own
+// dev/skill-configuration.md).
+export function agentRow(root, row, within, file = 'AGENT.md') {
+  const p = join(root, file);
+  return rowValue(existsSync(p) ? readFileSync(p, 'utf8') : '', row, within);
 }
 
 export function zone(root) {

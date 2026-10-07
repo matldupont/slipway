@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canonical, changes, gateGlobs, gateMatcher, GUARD_GLOBS, missingWriteTwins, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
+import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateMatcher, GUARD_GLOBS, missingWriteTwins, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const settings = readFileSync(SETTINGS, 'utf8');
@@ -105,7 +105,7 @@ test('changes lists every changed path, deletions included, and a package.json o
   const c = changes(base, head, repo);
   assert.deepEqual(c.files.sort(), ['apps/web/package.json', 'old/tsconfig.json', 'package.json', 'packages/api/package.json', 'packages/api/tsconfig.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/empty/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/module-type/package.json', 'tools/pm/package.json', 'tools/registry-dep/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/tool-config/package.json', 'tools/workspace-dep/package.json']);
   assert.deepEqual(c.scripts.sort(), ['apps/web/package.json', 'packages/api/package.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/module-type/package.json', 'tools/pm/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/tool-config/package.json', 'tools/workspace-dep/package.json']);
-  assert.deepEqual(c.globs, ['**/x.cfg']); // the base commit's harness, not the PR's
+  assert.deepEqual(c.globs, ['**/x.cfg', COLD_REVIEW_DEFAULT]); // the base commit's harness, not the PR's; it has no AGENT.md, so the cold-review default (#259)
   assert.deepEqual(c.links, []);
   const gate = gateMatcher(settings);
   assert.deepEqual(c.files.filter(gate).sort(), ['old/tsconfig.json', 'packages/api/tsconfig.json']);
