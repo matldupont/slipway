@@ -77,12 +77,53 @@ test('a missing Cold review row names the default the skills use, and the defaul
   assert.equal(intake?.split('|')[3].match(/`([^`]+)`/)?.[1], COLD_REVIEW_DEFAULT, 'process/intake.md → Configuration gives another default for Cold review');
 });
 
-test('filled rows name their paths, and a value that is not a path in the repository fails rather than name nothing', () => {
+test('filled rows name their paths, and a value that is not a path the check can compare fails rather than name nothing', () => {
   assert.deepEqual(namedDocs(table({ 'Domain invariants doc': '`docs/domain-invariants.md` — the money rules', 'Cold review': '`./process/review.md`' })), ['docs/domain-invariants.md', 'process/review.md']);
-  for (const bad of ['`docs/*.md`', '`../rules.md`', '`docs/../../rules.md`', '`/etc/rules.md`', '`docs/my rules.md`', '`docs\\rules.md`', '`.`', 'wiki:rules']) {
-    assert.throws(() => namedDocs(table({ 'Domain invariants doc': bad, 'Cold review': 'none' })), /Domain invariants doc .* is not a path in the repository/, bad);
+  // Only compared, never passed to a command: a scope, a space and other ASCII punctuation are a path like any other.
+  for (const ok of ['packages/@app/rules.md', 'docs/money rules.md', 'docs/a+b,c=d;e&f!g~h%i:j\'k"l{m}.md']) {
+    assert.deepEqual(namedDocs(table({ 'Domain invariants doc': `\`${ok}\``, 'Cold review': 'none' })), [ok]);
+    assert.ok(gateMatcher(settings, [ok])(ok), `${ok} should be a gate file once named`);
   }
-  assert.throws(() => namedDocs(table({ 'Domain invariants doc': 'none', 'Cold review': '`**`' })), /Cold review/);
+  for (const bad of ['`docs/*.md`', '`../rules.md`', '`docs/../../rules.md`', '`/etc/rules.md`', '`docs\\rules.md`', '`.`', '`docs/rules/`', '`docs//rules.md`', '`docs/rules.md#money`', '[docs/rules.md](docs/rules.md)', '`docs/règles.md`', '`docs/規則.md`', '—']) {
+    assert.throws(() => namedDocs(table({ 'Domain invariants doc': bad, 'Cold review': 'none' }), ' on the base branch'), /^Error: AGENT\.md on the base branch, row "Domain invariants doc": .* is not a file path the check for pull requests can read\. Write the file's path in backticks/, bad);
+  }
+  assert.throws(() => namedDocs(table({ 'Domain invariants doc': 'none', 'Cold review': '`**`' })), /row "Cold review"/);
+});
+
+test('a row is read under any heading, an example row in a code fence is counted beside the real one, and a row line the reader cannot take fails', () => {
+  const rows = '| Key | Value |\n|---|---|\n| Domain invariants doc | `docs/rules.md` |\n| Cold review | `docs/rules.md` |\n';
+  for (const head of ['### Skill Configuration\n\n', '## Configuration\n\n', '## Skill Configuration\n\n---\n\n', '']) assert.deepEqual(namedDocs(`# x\n\n${head}${rows}`), ['docs/rules.md'], JSON.stringify(head));
+  // Every line that is the row counts: an example above the real row adds its path and hides nothing.
+  assert.deepEqual(namedDocs(`# x\n\n\`\`\`\n| Domain invariants doc | \`docs/example.md\` |\n\`\`\`\n\n<!--\n| Cold review | none |\n-->\n\n## Skill Configuration\n\n${rows}`), ['docs/example.md', 'docs/rules.md']);
+  for (const line of ['| **Domain invariants doc** | `docs/rules.md` | x |', '| Domain invariants doc | | x |', '  | Domain invariants doc | `docs/rules.md` | x |', '| `Domain invariants doc` | `docs/rules.md` | x |', '| Domain invariants doc | `docs/rules.md`']) {
+    assert.throws(() => namedDocs(`## Skill Configuration\n\n| Key | Value | What |\n|---|---|---|\n${line}\n| Cold review | none | x |\n`), /row "Domain invariants doc": the check for pull requests cannot read this row/, line);
+  }
+  // Another row's explanation, or a longer key, may say the name: only a first cell that is the name makes the row.
+  assert.deepEqual(namedDocs(table({ 'Quality gate': '`pnpm verify` — run before the Cold review', 'Cold review model': '`*`', 'Domain invariants doc': 'none' })), [COLD_REVIEW_DEFAULT]);
+  for (const none of ['none.', 'none;', 'none:', 'NONE,']) assert.deepEqual(namedDocs(table({ 'Domain invariants doc': none, 'Cold review': 'none' })), [], none);
+});
+
+test('a branch cut before the base named the document is held to the path the base names now', () => {
+  git('switch', '-q', '-c', 'trunk', head);
+  put('AGENT.md', table({ 'Domain invariants doc': 'none', 'Cold review': 'none' }));
+  put('docs/domain-invariants.md', '# Rules\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'no document named yet');
+  const cut = git('rev-parse', 'HEAD');
+  git('switch', '-q', '-c', 'stale');
+  put('docs/domain-invariants.md', '# Rules\n\nNone.\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'edit the rules');
+  const tip = git('rev-parse', 'HEAD');
+  assert.deepEqual(changes(cut, tip, repo).globs, [], 'while the base names nothing, neither does the list');
+  git('switch', '-q', 'trunk');
+  put('AGENT.md', table({ 'Domain invariants doc': '`docs/domain-invariants.md`', 'Cold review': 'none' }));
+  git('add', '-A');
+  git('commit', '-q', '-m', 'the base names its rules');
+  const base = git('rev-parse', 'HEAD');
+  assert.deepEqual(changes(base, tip, repo).files, ['docs/domain-invariants.md'], 'the PR is still only its own change');
+  assert.deepEqual(changes(base, tip, repo).globs, ['docs/domain-invariants.md']);
+  missing(p1(base, tip), 'docs/domain-invariants.md');
 });
 
 test('a named document is a gate file at its own path only, and its case-folded spelling is a lookalike', () => {
@@ -123,19 +164,54 @@ test('a PR that edits the named document and renames its row is held to the path
   missing(p1(from, git('rev-parse', 'HEAD')), 'process/cold-review.md');
 });
 
-test('a base AGENT.md whose row is not a path fails the script, so the workflow step is red', () => {
-  git('switch', '-q', '-c', 'named-bad', head);
-  put('AGENT.md', table({ 'Domain invariants doc': '`docs/*.md`' }));
+// The script on from...tip: { status, stdout, stderr }.
+const script = (from, tip) => spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), from, tip], { cwd: repo, encoding: 'utf8' });
+const commit = (msg, files) => {
+  for (const [p, body] of Object.entries(files)) put(p, body);
   git('add', '-A');
-  git('commit', '-q', '-m', 'a row that is not a path');
-  const from = git('rev-parse', 'HEAD');
-  put('docs/a.md', 'x\n');
-  git('add', '-A');
-  git('commit', '-q', '-m', 'a doc');
-  const r = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), from, git('rev-parse', 'HEAD')], { cwd: repo, encoding: 'utf8' });
-  assert.notEqual(r.status, 0);
-  assert.equal(r.stdout, '');
-  assert.match(r.stderr, /Domain invariants doc .* is not a path in the repository/);
+  git('commit', '-q', '-m', msg);
+  return git('rev-parse', 'HEAD');
+};
+
+test('a row the base cannot be read by fails every PR but the one that repairs it, which is held to its own rows and the default', () => {
+  git('switch', '-q', '-c', 'unreadable', head);
+  const from = commit('a row that is not a path', { 'AGENT.md': table({ 'Domain invariants doc': '`docs/*.md`' }), 'docs/rules.md': '# Rules\n', 'process/cold-review.md': '# Review\n' });
+  // Any other PR: red, with a message the owner can act on, and no list written.
+  const other = script(from, commit('a doc', { 'docs/a.md': 'x\n' }));
+  assert.notEqual(other.status, 0);
+  assert.equal(other.stdout, '');
+  assert.match(other.stderr, /AGENT\.md in this pull request, row "Domain invariants doc": "docs\/\*\.md" is not a file path the check for pull requests can read\. Write the file's path in backticks/);
+  // The repair: the row now reads, so the script passes, says which rule applied, and counts the head's path and the default.
+  git('switch', '-q', '-c', 'repair', from);
+  const tip = commit('repair the row, and edit both documents', { 'AGENT.md': table({ 'Domain invariants doc': '`docs/rules.md`', 'Cold review': '`docs/review.md`' }), 'docs/rules.md': '# Rules\n\nNone.\n', 'process/cold-review.md': '# Review\n\nPass.\n' });
+  const fixed = script(from, tip);
+  assert.equal(fixed.status, 0, fixed.stderr);
+  assert.deepEqual(JSON.parse(fixed.stdout).globs, ['docs/rules.md', 'docs/review.md', COLD_REVIEW_DEFAULT]);
+  assert.match(fixed.stderr, /^gate-files: AGENT\.md on the base branch, row "Domain invariants doc": "docs\/\*\.md" is not a file path the check for pull requests can read\. This pull request repairs it, so its own rows were used: docs\/rules\.md, docs\/review\.md, process\/cold-review\.md\n$/);
+  const r = p1(from, tip);
+  missing(r, 'docs/rules.md');
+  missing(r, 'process/cold-review.md');
+});
+
+test('a PR that writes a row the check cannot read is red, whatever the base says', () => {
+  git('switch', '-q', '-c', 'writes-bad', head);
+  const from = commit('a readable row', { 'AGENT.md': table({ 'Domain invariants doc': '`docs/rules.md`', 'Cold review': 'none' }) });
+  for (const bad of ['`docs/règles.md`', '[docs/rules.md](docs/rules.md)', '']) {
+    const r = script(from, commit(`row ${bad}`, { 'AGENT.md': table({ 'Domain invariants doc': bad, 'Cold review': 'none' }) }));
+    assert.notEqual(r.status, 0, bad);
+    assert.equal(r.stdout, '');
+    assert.match(r.stderr, /AGENT\.md in this pull request, row "Domain invariants doc"/, bad);
+    git('reset', '-q', '--hard', from);
+  }
+});
+
+test('a named document with a scope or a space in its path is counted when a PR edits it', () => {
+  git('switch', '-q', '-c', 'odd-names', head);
+  const from = commit('names', { 'AGENT.md': table({ 'Domain invariants doc': '`packages/@app/money rules.md`', 'Cold review': '`docs/"cold" review.md`' }), 'packages/@app/money rules.md': '# Rules\n', 'docs/"cold" review.md': '# Review\n' });
+  const tip = commit('edit both', { 'packages/@app/money rules.md': '# Rules\n\nNone.\n', 'docs/"cold" review.md': '# Review\n\nPass.\n' });
+  const r = p1(from, tip);
+  missing(r, 'packages/@app/money rules');
+  missing(r, 'docs/"cold" review');
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));

@@ -3,7 +3,8 @@
 // owner-only), the paths the base guard adds to them (GUARD_GLOBS), plus a `package.json` whose run keys changed
 // (RUN_KEYS, and a dependency on local code or a runtime): what a gate command runs, the pnpm and node that run
 // it, and pnpm's settings. Read by P1. One list: a gate path added to the harness is a gate path here.
-// Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and the base commit's rows add them.
+// Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and its rows at the base branch's
+// tip add them. A row the check cannot read fails it; a project fixes the row in a PR, which is then held to its own.
 //
 // As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…]}` for
 // the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
@@ -90,27 +91,43 @@ export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more 
   return isGate;
 }
 
-// The owner-only documents a project names in AGENT.md §Skill Configuration (process/slipway-rules.md → Gates, #259),
-// and the path a missing row stands for: `Cold review` has a default the skills use (process/intake.md →
-// Configuration; scripts/gate-files.test.mjs holds the two equal), `Domain invariants doc` has none.
+// The owner-only documents a project names in AGENT.md's settings table (process/slipway-rules.md → Gates, #259), and
+// the path a missing row stands for: `Cold review` has a default the skills use (process/intake.md → Configuration;
+// scripts/gate-files-named.test.mjs holds the two equal), `Domain invariants doc` has none.
 export const COLD_REVIEW_DEFAULT = 'process/cold-review.md';
 export const NAMED_ROWS = [['Domain invariants doc', null], ['Cold review', COLD_REVIEW_DEFAULT]];
-const CLEAN_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+// A path the check can compare: printable ASCII, no leading `/`, no empty or dot-only segment, and none of the marks
+// that mean the cell holds something else (a glob, a markdown link, an anchor, a `<…>`). The value is only ever
+// compared with the changed paths, never passed to a command, so `@`, `+` and a space are fine. Not accepted: a name
+// outside ASCII. AGENT.md and git may store one in different Unicode forms, and the check would then never match it.
+const PATH_CHARS = /^[\x20-\x7e]+$/;
+const NOT_A_PATH = /[*\\`#[\]()<>]/;
+const isPath = (p) => PATH_CHARS.test(p) && !NOT_A_PATH.test(p) && !p.startsWith('/') && p.split('/').every((seg) => seg.trim() && !/^\.+$/.test(seg));
+const HOW = 'Write the file\'s path in backticks (`docs/rules.md`), or none. Letters, digits, spaces and most punctuation are fine; * \\ # [ ] ( ) < >, a leading / and letters outside ASCII are not';
 
-// The paths those rows name in `agentText` (the root AGENT.md), each a gate path matched exactly. `none` and an
-// unfilled `<…>` name nothing; a missing row names its default, when it has one. Any other value is a path in the
-// repository or the check cannot tell which file is meant, and it throws: never 0 paths for a row that says something.
-export function namedDocs(agentText) {
-  return NAMED_ROWS.flatMap(([row, whenMissing]) => {
-    const raw = rowValue(agentText, row, 'Skill Configuration');
-    if (!raw) return whenMissing ? [whenMissing] : [];
-    if (/^none[,.;:]?$/i.test(raw) || raw.startsWith('<')) return [];
-    const path = raw.replace(/^(?:\.\/)+/, '');
-    if (!CLEAN_PATH.test(path) || path.split('/').some((seg) => /^\.+$/.test(seg))) {
-      throw new Error(`AGENT.md ${row} ${JSON.stringify(raw.slice(0, 80))} is not a path in the repository: write the file's path, or none`);
-    }
-    return [path];
+// The paths those rows name in `agentText` (the root AGENT.md), each a gate path matched exactly. A row is a table
+// line whose first cell is the row's name, wherever it sits: under any heading, and inside a code fence or a comment
+// too, so an example row is counted beside the real one. `none` and an unfilled `<…>` name nothing; a row on no line
+// names its default, when it has one. A value written as a path is taken as one, whether or not a file is there: a
+// bare word (`TBD`) names a file nobody has. A row whose value is not such a path, or that the reader cannot take
+// (an empty cell, a bold or indented key, a cell that runs past its line), throws, in the owner's terms: the check
+// cannot tell which file is meant, so it fails rather than count none. `where` says whose AGENT.md, for that message.
+export function namedDocs(agentText, where = '') {
+  const paths = NAMED_ROWS.flatMap(([row, whenMissing]) => {
+    const key = (line) => (line.match(/^[ \t]*\|([^|]*)\|/)?.[1] ?? '').replace(/[*_`]/g, '').trim().toLowerCase();
+    const lines = agentText.split(/\r\n|\r|\n/).filter((l) => key(l) === row.toLowerCase());
+    if (!lines.length) return whenMissing ? [whenMissing] : [];
+    return lines.flatMap((line) => {
+      const raw = rowValue(line, row);
+      const fail = (what) => new Error(`AGENT.md${where}, row "${row}": ${what}. ${HOW}`);
+      if (!raw) throw fail(`the check for pull requests cannot read this row (${JSON.stringify(line.trim().slice(0, 80))})`);
+      if (/^none[,.;:]?$/i.test(raw) || raw.startsWith('<')) return [];
+      const path = raw.replace(/^(?:\.\/)+/, '');
+      if (!isPath(path)) throw fail(`${JSON.stringify(raw.slice(0, 80))} is not a file path the check for pull requests can read`);
+      return [path];
+    });
   });
+  return [...new Set(paths)];
 }
 
 const SHA = /^[0-9a-f]{7,64}$/;
@@ -182,11 +199,28 @@ export function changes(base, head, cwd = process.cwd()) {
   try {
     globs = gateGlobs(git('show', `${from}:process/harness/settings.json`)); // absent before the harness existed
   } catch {}
-  let agent = '';
+  // AGENT.md as the base branch's tip has it: a PR that rewrites a row is held to the path the base names, and so is
+  // a branch cut before the base named it. Absent at a commit: no row there, so the cold-review default still counts.
+  // The head's rows are read too, only to refuse one that cannot be read: a PR that writes such a row is red, and is
+  // fixed in that PR. When the base's own rows cannot be read (a project whose row was written before this check),
+  // every PR is red but the one that repairs them: it is held to the head's paths and the defaults, and says so.
+  // That PR changes AGENT.md, a gate file with its own line to write. None of this is inside a try that passes.
+  const agentAt = (rev) => {
+    try {
+      return git('show', `${rev}:AGENT.md`);
+    } catch {
+      return '';
+    }
+  };
+  const atHead = namedDocs(agentAt(head), ' in this pull request');
+  let named;
   try {
-    agent = git('show', `${from}:AGENT.md`); // absent at the base: no row, so the cold-review default still counts
-  } catch {}
-  globs = [...globs, ...namedDocs(agent)]; // outside the try: an unreadable row fails the check
+    named = namedDocs(agentAt(base), ' on the base branch');
+  } catch (e) {
+    named = [...atHead, ...NAMED_ROWS.flatMap(([, whenMissing]) => (whenMissing ? [whenMissing] : []))];
+    process.stderr.write(`gate-files: ${e.message.split('. ')[0]}. This pull request repairs it, so its own rows were used: ${named.join(', ')}\n`);
+  }
+  globs = [...new Set([...globs, ...named])];
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
   return { files, scripts, globs, links };
 }
