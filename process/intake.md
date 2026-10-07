@@ -255,7 +255,7 @@ verified" line included.
   item names the issue: the `## Owed after merge` section is the record, the issue the PR is `Part of` stays
   open, and the run is recorded as a comment on it.
 - **The draft carries the section and the `Owed:` line from the start,** as it does `## Gate changes`: both are
-  reviewed with the rest, and nothing is committed after the last reviewed head.
+  reviewed with the rest. What may follow the last review: `/work-ticket` → Phase 5, Rounds 2 and 3.
 - **While an item owes, no PR closes the item's issue,** the last sub-issue's PR included. An item owes while
   it has an `Owed:` line, a check line that cannot be read, or a failed run with no later pass and no open
   bug named. The owner closes the item's issue, never a PR or an agent unasked, once a `Ran: … pass` line has
