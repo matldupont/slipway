@@ -21,10 +21,13 @@
 //                            saying why (#241). The check cannot tell which issue the PR worked, only that the
 //                            body says nothing about one staying open. A `Part of` counts wherever it is written,
 //                            a code block included; what answers it counts only in the prose
-//   links/closes-and-leaves-open:<n>  the prose holds a closing word before `#n` and also says it `leaves #n open` (#296):
-//                            GitHub closes #n on merge from the closing word in any sentence, whoever the sentence is
-//                            about, so the body says both things and the issue closes. One finding per issue, with
-//                            both lines quoted; code spans, fences and comments do not count, as for open-unsaid
+//   links/closes-and-leaves-open:<n>  the prose holds a closing word before an issue and also says it `leaves` that issue `open` (#296, #323):
+//                            GitHub closes the issue on merge from the closing word in any sentence, whoever the sentence is
+//                            about, so the body says both things and the issue closes. Both sentences are read in the forms the
+//                            closing word takes (`#n`, `owner/repo#n`, a full issues link) and compared by repository as well
+//                            as number; a sentence with no repository may name the pull request's own, so it matches any. One
+//                            finding per closing sentence, named `<n>` or `<owner/repo>#<n>`, with both lines quoted; code
+//                            spans, fences and comments do not count, as for open-unsaid
 //   followups/none-contradicted  `## Follow-ups` says none, and another section calls something a follow-up (#242):
 //                            work deferred in a sentence that no issue holds. Code spans and fences do not count, so
 //                            a quoted issue title cannot set it off; the check cannot tell a follow-up from the
@@ -75,8 +78,17 @@ const globsOn = (line) => (line.match(/[\w.*/-]*\*[\w.*/-]*/g) ?? []).filter((g)
 const REPO = '(?:[\\w.-]{1,100}\\/[\\w.-]{1,100})?';
 const PART_OF = new RegExp(`\\bpart\\s{1,5}of[\\s:*_\\[]{1,8}${REPO}#(\\d{1,20})`, 'gi');
 const CLOSES = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s{1,5}(?:https://github\\.com/[\\w.-]{1,100}/[\\w.-]{1,100}/issues/|${REPO}#)0{0,9}[1-9]`, 'i');
-const CLOSES_N = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s{1,5}(?:https://github\\.com/[\\w.-]{1,100}/[\\w.-]{1,100}/issues/|${REPO}#)0{0,9}([1-9]\\d{0,19})`, 'gi');
+// An issue as the closing word reads it: `#n`, `owner/repo#n` or a full issues link. Groups: link owner, link repo,
+// prefix owner, prefix repo, number.
+const ISSUE_REF = '(?:https://github\\.com/([\\w.-]{1,100})/([\\w.-]{1,100})/issues/|(?:([\\w.-]{1,100})/([\\w.-]{1,100}))?#)0{0,9}([1-9]\\d{0,19})';
+const CLOSES_N = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s{1,5}${ISSUE_REF}`, 'gi');
 const LEAVES = new RegExp(`\\bleaves\\s{1,5}${REPO}#(\\d{1,20})\\s{1,5}open\\b`, 'gi');
+const LEAVES_REF = new RegExp(`\\bleaves\\s{1,5}${ISSUE_REF}\\s{1,5}open\\b`, 'gi');
+// The issue a match names: its repository (lower case, GitHub reads names without case; '' when the sentence leaves it
+// to the pull request's own) and its number.
+const issueOf = (m) => ({ repo: ((m[1] ? `${m[1]}/${m[2]}` : m[3] ? `${m[3]}/${m[4]}` : '')).toLowerCase(), n: m[5] });
+// One issue, or one that may be: a sentence with no repository names the pull request's own, which the check does not know.
+const sameIssue = (a, b) => a.n === b.n && (!a.repo || !b.repo || a.repo === b.repo);
 // The two readings of a body the open-unsaid rule takes (#241). What sets the rule off is read from everything but
 // closed comments, so no mark written as text (a `<!--` in inline code, a one-line fence, a leading `---` block) hides
 // a `Part of` that GitHub shows. What answers it is read from the prose alone, with fenced and indented code, inline
@@ -217,12 +229,14 @@ for (const f of bodies) {
   const quote = (m) => shown(said.split('\n')[lineOf(m)].slice(0, m.index - said.lastIndexOf('\n', m.index - 1) - 1 + m[0].length).trim().slice(-80));
   const closing = [...said.matchAll(CLOSES_N)];
   const reported = new Set();
-  for (const stay of said.matchAll(LEAVES)) {
-    const n = stay[1].replace(/^0+/, '');
-    const closes = closing.find((m) => m[1] === n);
-    if (!closes || reported.has(n)) continue;
-    reported.add(n);
-    findings.push({ where: `${f}#links/closes-and-leaves-open:${n}`, detail: `the body closes #${n} ("${quote(closes)}") and also says it leaves #${n} open ("${quote(stay)}"): GitHub closes #${n} when this merges, whoever the first sentence is about. Write the number before the verb, or name the pull request that finishes it with no closing word` });
+  for (const stay of said.matchAll(LEAVES_REF)) {
+    const left = issueOf(stay);
+    const closes = closing.find((m) => sameIssue(issueOf(m), left));
+    if (!closes || reported.has(closes)) continue;
+    reported.add(closes);
+    const named = issueOf(closes).repo || left.repo;
+    const id = named ? `${named}#${left.n}` : left.n;
+    findings.push({ where: `${f}#links/closes-and-leaves-open:${id}`, detail: `the body closes #${left.n} ("${quote(closes)}") and also says it leaves #${left.n} open ("${quote(stay)}"): GitHub closes #${left.n} when this merges, whoever the first sentence is about. Write the number before the verb, or name the pull request that finishes it with no closing word` });
   }
   const fu = followUps(md);
   if (fu) {
