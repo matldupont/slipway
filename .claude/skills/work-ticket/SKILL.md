@@ -219,9 +219,9 @@ data integrity, or data deletion: then the strongest tier at the highest effort,
 | The finding… | Becomes |
 |---|---|
 | breaks a baseline guarantee, an invariant, an acceptance line or the threat model | a fix, this round |
-| is a comment, test or description the diff contradicts; a second copy of something that exists; a break of a written convention; an acceptance line with no test | a fix, this round: cheap, local, in scope |
+| is a comment, test or description the diff contradicts; a second copy of something that exists; a break of a written convention; an acceptance line with no test | a fix, this round: cheap, local, in scope; once the review has ended, Rounds 2 and 3, step 4 |
 | is about a listed known limitation | dropped, with one line saying so |
-| is `breaks: none`: "when the environment has…" a credential helper, a fork, a platform setting | not a fix. A one-line in-scope change: make it. Otherwise add it to the feature doc's Known limitations in this PR, or file it (Follow-ups) |
+| is `breaks: none`: "when the environment has…" a credential helper, a fork, a platform setting | not a fix. A one-line in-scope change: make it, unless the review has ended (Rounds 2 and 3, step 4). Otherwise add it to the feature doc's Known limitations in this PR, or file it (Follow-ups) |
 
 Check each `breaks:` claim yourself (one that does not hold is `breaks: none`); answer a question from the
 code. Never downgrade a leak, injection, auth bypass, data loss or broken invariant the threat model forgot.
@@ -233,8 +233,7 @@ the owner the options in the project's terms.
 
 ### Rounds 2 and 3
 
-1. Apply the fixes, run the gate again, commit and push as the draft was. When what ran changed, update it:
-   `gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"`.
+1. Apply the fixes, run the gate again, commit and push as the draft was. When what ran changed, update it: `gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"`.
 2. **Verify the fix, not the PR.** One fresh subagent that saw no earlier round gets round 1's brief, the
    GUARANTEES block, the last round's fixes and `git diff {last reviewed sha}..HEAD`. It answers: is each fix
    done, and does the fix break a guarantee? The security review runs on the fix diff too when it touches
@@ -243,6 +242,8 @@ the owner the options in the project's terms.
    line of the GUARANTEES block**, threat model or none; `breaks: none` findings end the review. Three
    rounds at most: a guarantee still broken after round 3 stops the run, the PR stays draft, the owner is
    shown why. `process/cold-review.md` points here.
+4. **After the round that ends the review, nothing is committed: the pull request's head is the last reviewed head.** A finding still open then goes in the PR body as a known limitation, or into one follow-up that holds them all (Follow-ups), never into a commit; editing the PR's description is not a commit.
+   The one exception is a merge of `{base}`: the PR names the merge commit and each file whose conflict was resolved by hand, with what was kept, and the gate runs again on the merge; a conflict resolved by hand in a file the run is judged by (Configuration) gets one verify of that merge.
 
 **Cluster signal.** Two rounds in a row finding problems in one mechanism (a cache, a retry, a heuristic, a
 parser of hostile input): stop patching, and ask the owner whether to remove it, narrow it, or, when the
@@ -251,7 +252,7 @@ acceptance needs it, move the surface: one place handles the hostile input once,
 ```
 PHASE 5: REVIEWED
 PR:            #{pr} (draft)
-Rounds:        {n} · heads reviewed: {sha per round}, the last is HEAD
+Rounds:        {n} · heads reviewed: {sha per round}, the last is HEAD | HEAD is {sha}, a merge of {base} after it
 Security:      {n findings @ sha} | STOPPED — {why it could not be verified}
 Pushed:        {sha per push} — read for secrets ({gitleaks | by eye}): none found
 Fixed:         {count} — {one line each}
@@ -263,8 +264,7 @@ STATUS: CLEAN | STOPPED   (CLEAN: no open finding breaks a guarantee, not zero f
 
 ## Phase 6 — Ready
 
-Only after CLEAN, with nothing committed since the last verified head. Rewrite `{prdir}/pr.md` in full, per
-`process/intake.md` → Pull request:
+Only after CLEAN, with nothing committed since (Rounds 2 and 3, step 4). Rewrite `{prdir}/pr.md` in full, per `process/intake.md` → Pull request:
 
 - `## What`: the lane, and what changed.
 - `## Verification`: the final gate and the issue's Verify block (`none` in a bounded lane), in a code block;
@@ -273,7 +273,7 @@ Only after CLEAN, with nothing committed since the last verified head. Rewrite `
   Pull request): compare each new config with the one it was copied from; the draft carries it from the start.
 - `## Reuse`, `## Tests`, `## Manual testing`: Phase 2's list; the layers added; the journey, or N/A and why.
 - `## Cold review`: who reviewed, the head each round saw, each finding with `file:line` and what became of it (a
-  security finding not fixed here: its count and tracker only), and the verdict (`process/cold-review.md` → How).
+  security finding not fixed here: its count and tracker only), and the verdict (`process/cold-review.md` → How). Its last line names the last reviewed head and the PR's head: `Last reviewed head {sha} is the pull request's head: nothing lies between.`, or `Last reviewed head {sha}; head {sha}. Between them: {merge sha}, a merge of {base}; resolved by hand: {file, and what was kept | nothing}.`
 - `## Follow-ups`: `#n — title` for each, or none. Anything the body calls a follow-up, in any section, is listed here as `#n — title` or `not filed: {why}`; P1 reports "none" beside a follow-up said elsewhere, and an entry with neither.
 - `## Links`: `Closes #n` or `Part of #n`, and the parent; a check left for after merge: `process/intake.md` → Deferred check. `Part of` with nothing closed: the body says what it leaves open, and why.
 

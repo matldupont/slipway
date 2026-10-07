@@ -203,7 +203,7 @@ Cited by one line in `/work-ticket` (Phase 6, at `## Links`), which stays at or 
 - A result counts only as the comment §1 describes. A claim that a result was posted, with no such comment,
   does not.
 - The draft carries the section and the `Owed:` line from the start, as it does `## Gate changes`, so both are
-  reviewed and nothing is committed after the last reviewed head. `process/intake.md` → Pull request points
+  reviewed; what may follow the last review is `/work-ticket`'s to say (Phase 5 → Rounds 2 and 3, D-031). `process/intake.md` → Pull request points
   here from its closing-line rule, which is what the draft is written by.
 - A check the PR says will run after merge is owed wherever the body says it, a "not verified" line included.
 - The body says the PR "leaves #n open". A closing word straight before the number closes the issue on merge,

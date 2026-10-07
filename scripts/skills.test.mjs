@@ -399,6 +399,37 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
 });
 
+// #283 (D-031): what may be committed after the last review is said once, in /work-ticket → Rounds 2 and 3, for
+// every lane. The Deferred check rule and its feature doc point there, and Phase 6 does not say it a second way.
+test('work-ticket says once that nothing is committed after the round that ends the review; intake and the feature doc point at it', () => {
+  const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
+  const wt = read(skillPath('work-ticket'));
+  const rounds = flat(section(wt, 'Rounds 2 and 3', 3));
+  assert.match(rounds, /\*\*After the round that ends the review, nothing is committed: the pull request's head is the last reviewed head\.\*\*/, 'work-ticket must state the rule where it describes the last round');
+  assert.match(rounds, /A finding still open then goes in the PR body as a known limitation, or into one follow-up that holds them all \(Follow-ups\), never into a commit; editing the PR's description is not a commit/, 'the rule must say where a leftover finding goes, and that a description edit is not a commit');
+  assert.match(rounds, /The one exception is a merge of `\{base\}`: the PR names the merge commit and each file whose conflict was resolved by hand, with what was kept, and the gate runs again on the merge; a conflict resolved by hand in a file the run is judged by \(Configuration\) gets one verify of that merge/, 'the rule must name its one exception');
+  const copy = /nothing is committed after the last reviewed head|nothing committed since the last verified head/i;
+  assert.doesNotMatch(flat(wt), copy, 'work-ticket states the rule once, in Rounds 2 and 3');
+  assert.match(flat(section(wt, 'Phase 6 — Ready', 2)), /Only after CLEAN, with nothing committed since \(Rounds 2 and 3, step 4\)/, 'Phase 6 must point at the rule');
+  assert.equal(flat(section(wt, 'Which findings count', 3)).match(/Rounds 2 and 3, step 4/g)?.length, 2, 'both findings-table cells that say to make a fix must stop at the end of the review');
+  const deferred = flat(section(intake, 'Deferred check', 2));
+  assert.match(deferred, /both are reviewed with the rest\. What may follow the last review: `\/work-ticket` → Phase 5, Rounds 2 and 3\./, 'Deferred check must point at work-ticket');
+  assert.doesNotMatch(deferred, copy, 'Deferred check must not carry its own copy of the rule');
+  const doc = flat(read('dev/features/deferred-checks.md'));
+  assert.match(doc, /what may follow the last review is `\/work-ticket`'s to say \(Phase 5 → Rounds 2 and 3, D-031\)/, 'the feature doc must point at work-ticket');
+  assert.doesNotMatch(doc, copy, 'the feature doc must not carry its own copy of the rule');
+  assert.match(flat(read('decisions.md')), /## D-031 — After the round that ends the review, nothing is committed; a merge of the base is the one exception \*\(decided 2026-10-07\)\*/, 'the rule is a recorded decision');
+});
+
+test('work-ticket\'s `## Cold review` names the last reviewed head and the pull request\'s head, and what lies between them', () => {
+  const wt = read(skillPath('work-ticket'));
+  const bullet = (section(wt, 'Phase 6 — Ready', 2) ?? '').match(/^- `## Cold review`[\s\S]*?(?=\n- `## )/m)?.[0].replace(/\s+/g, ' ') ?? '';
+  assert.match(bullet, /Its last line names the last reviewed head and the PR's head: /, 'the section must name both heads');
+  assert.ok(bullet.includes('`Last reviewed head {sha} is the pull request\'s head: nothing lies between.`'), 'the section must have a line for a head that was reviewed');
+  assert.ok(bullet.includes('`Last reviewed head {sha}; head {sha}. Between them: {merge sha}, a merge of {base}; resolved by hand: {file, and what was kept | nothing}.`'), 'the section must have a line for a merge of the base after the last review');
+  assert.match((section(wt, 'Phase 5 — Draft PR and cold review', 2) ?? ''), /^Rounds: +\{n\} · heads reviewed: \{sha per round\}, the last is HEAD \| HEAD is \{sha\}, a merge of \{base\} after it$/m, 'Phase 5\'s report must say when HEAD is a merge of the base');
+});
+
 // F-06 (#118, D-020): /log-feature reads the decisions record in every run and asks about a conflict before it
 // writes anything; `/log-feature M1#2` shapes a milestone's Contents item. The steps live in process/intake.md,
 // since the skill is at its cap; these pin the lines that make the two fire.
