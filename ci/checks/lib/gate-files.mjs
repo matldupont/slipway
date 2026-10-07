@@ -201,18 +201,18 @@ export function changes(base, head, cwd = process.cwd()) {
   try {
     globs = gateGlobs(git('show', `${from}:process/harness/settings.json`)); // absent before the harness existed
   } catch {}
-  // The two documents AGENT.md names are read from two places, as P1 reads the harness's rules from two: AGENT.md at
+  // The two documents AGENT.md names are read from three places (the third is below, beside its code): AGENT.md at
   // the base commit given, so a PR that rewrites a row is held to the path the base names; and AGENT.md in the
   // checked-out tree, which in CI is the PR merged into the base branch's tip as it is now (pr-body.yml checks out the
   // pull request's merge ref), so a PR opened before the base named a document is held to it too. The base commit a
-  // pull request event gives is the tip when the PR was opened or last took the base, not the tip now. Both sources
-  // count: the list is their union. A PR that rewrites a row the base named after it was opened conflicts in
+  // pull request event gives is the tip when the PR was opened or last took the base, not the tip now. Every source
+  // counts: the list is their union. A PR that rewrites a row the base named after it was opened conflicts in
   // AGENT.md, so it has no merge to check until it takes the base, and then the base given names the path.
   // Run by hand, the tree is the branch itself, so the second source adds only the branch's own rows.
   // Absent at a commit or in the tree: no row there, so the cold-review default still counts.
   // The head's rows are read too, only to refuse one that cannot be read: a PR that writes such a row is red, and is
   // fixed in that PR. When the base's own rows cannot be read (a project whose row was written before this check),
-  // every PR is red but one that changes AGENT.md so that its rows read: it is held to the head's paths and the
+  // every PR is red but one that changes AGENT.md, and keeps it at the root, so that its rows read: it is held to the head's paths and the
   // defaults, and says so. AGENT.md is a gate file with its own line to write. None of this is inside a try that passes.
   const agentAt = (rev) => {
     try {
@@ -227,7 +227,8 @@ export function changes(base, head, cwd = process.cwd()) {
     try {
       return namedDocs(agentAt(rev), where);
     } catch (e) {
-      if (!files.includes('AGENT.md')) throw e; // not the repair: a PR that leaves the row as it is stays red
+      // Not the repair: a PR that leaves the row as it is, or leaves no root AGENT.md with rows to hold it to, stays red.
+      if (!files.includes('AGENT.md') || !agentAt(head)) throw e;
       const own = [...new Set([...atHead, ...defaults])];
       process.stderr.write(`gate-files: ${e.message.split('. ')[0]}. This pull request repairs it, so its own rows were used: ${own.join(', ')}\n`);
       return own;
@@ -243,7 +244,8 @@ export function changes(base, head, cwd = process.cwd()) {
   // A third source, for a PR that removes or renames the root AGENT.md: the merge then has no file to read. When the
   // commit checked out is that merge (its second parent is the head given), its first parent is the base branch's tip
   // as GitHub merged into it, and AGENT.md there names the documents. Read whenever HEAD is that merge: for a PR that
-  // leaves AGENT.md in place the merged tree holds those rows already. By hand, HEAD is the branch, and nothing is added.
+  // does not change AGENT.md the merged tree holds those rows already, and one that rewrites a row is held to the path
+  // the tip names as well. By hand, or checked out as anything but that merge, nothing is added.
   let atTip = [];
   const parents = git('rev-list', '--parents', '-n', '1', 'HEAD').trim().split(' ').slice(1);
   if (parents.length === 2 && parents[1] === git('rev-parse', head).trim()) {

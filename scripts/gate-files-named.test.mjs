@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The two owner-only documents a project names in AGENT.md (#259): the `Domain invariants doc` and `Cold review` rows,
-// read from the base commit by ci/checks/lib/gate-files.mjs and counted by P1 as gate files. Beside
+// read from the base commit, the checked-out tree and the base branch's tip by ci/checks/lib/gate-files.mjs and counted by P1 as gate files. Beside
 // scripts/gate-files.test.mjs, which covers the harness's paths. Internal: `pnpm meta` runs it in slipway, never in a
 // project.
 
@@ -279,16 +279,21 @@ test('a PR that moves the root AGENT.md away is held to the documents the base b
   assert.deepEqual(changes(opened, now, repo).globs, [COLD_REVIEW_DEFAULT]);
 });
 
-test('a row the base branch\'s tip cannot be read by fails a PR that leaves AGENT.md alone', () => {
+test('a PR that moves the root AGENT.md away is not the repair of a row the base branch\'s tip cannot be read by', () => {
   git('switch', '-q', '-c', 'tip-bad', head);
-  const opened = commit('a readable row', { 'AGENT.md': table({ 'Domain invariants doc': 'none', 'Cold review': 'none' }) });
+  const opened = commit('readable rows', { 'AGENT.md': table({ 'Domain invariants doc': 'none', 'Cold review': 'none' }), 'docs/review.md': '# Review\n' });
   git('switch', '-q', '-c', 'tip-bad-pr');
-  const tip = commit('a doc', { 'docs/a.md': 'x\n' });
+  git('mv', 'AGENT.md', 'docs/AGENT.md');
+  const tip = commit('move the settings, edit the review file', { 'docs/review.md': '# Review\n\nPass.\n' });
   git('switch', '-q', 'tip-bad');
-  const now = commit('the row stops reading', { 'AGENT.md': table({ 'Domain invariants doc': '`docs/*.md`', 'Cold review': 'none' }) });
+  const now = commit('one row stops reading', { 'AGENT.md': table({ 'Domain invariants doc': '`docs/*.md`', 'Cold review': '`docs/review.md`' }) });
   git('switch', '-q', '--detach', now);
   git('merge', '-q', '--no-ff', '-m', 'merge ref', tip);
-  assert.throws(() => changes(opened, tip, repo), /AGENT\.md on the base branch as it is now, row "Domain invariants doc"/);
+  const r = script(opened, tip);
+  assert.notEqual(r.status, 0, r.stdout);
+  assert.equal(r.stdout, '');
+  assert.match(r.stderr, /AGENT\.md on the base branch as it is now, row "Domain invariants doc"/);
+  assert.doesNotMatch(r.stderr, /repairs it/);
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));
