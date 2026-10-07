@@ -25,8 +25,7 @@ The spec's table was a draft. The claims check ran twice by one reviewer who wro
 3. Every carried row against the page: all on it; all ten cut rows (69–77, 84) gone.
 
 A second pass, on the sentences the first pass changed, found three of the rewordings still stronger than their
-source (rows 40, 62, 86); they were reworded again. **87 rows: 77 carry** (rows 1–68, 78–83, 85–87; five are
-blocks), 10 are cut. Rows are as the page reads them; wording that differs from the spec's table is the point.
+source (rows 40, 62, 86); they were reworded again. **90 rows: 80 carry** (rows 1–68, 78–83, 85–90; five are blocks), 10 are cut. Rows 88–90 were added after the owner ran the page's path and found the first-open prompts unmentioned. Rows are as the page reads them; wording that differs from the spec's table is the point.
 
 ## The required facts, as tested
 
@@ -159,6 +158,9 @@ Q8 why was it built
 | 85 | §05 | adopting a project that did not start from slipway is filed, with its acceptance written, and not built | #54 (open, Acceptance); no feature doc in `dev/features/` |
 | 86 | §05 | a check brings the helpers in `ci/lib/` it imports, and slipway records none used outside a project that started from it | the imports in `ci/checks/meta/*.mjs`; `SLIPWAY.md` "Exercised on a real project" |
 | 87 | README | every step up to closing a milestone ends in something that goes red | `SLIPWAY.md` path table, steps 0–6, "Done when" (step 7 names nothing) |
+| 88 | §05 | Claude Code asks whether you trust the new folder when you open it the first time | the owner's run of the page's path, 2026-10-07, on Claude Code 2.1.287 (the owner's account) |
+| 89 | §05 | the project pre-approves two permissions: `git stash list` and `git stash apply` | `process/harness/settings.json`, `permissions.allow` |
+| 90 | §05 | `/bootstrap` asks which GitHub project board new issues go to; "none" skips the board | `.claude/skills/bootstrap/SKILL.md` line 48; `AGENT.md` GitHub project setting |
 
 ## Sentences that are not factual claims
 
