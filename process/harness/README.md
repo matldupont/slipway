@@ -38,10 +38,9 @@ the words anywhere in the command, so one behind an environment variable or afte
 read do not ask; a command that only names the words (a commit message, a pull request title) does. These rules are a
 prompt, not a boundary: what holds is a token that lacks the permission to delete. They do not cover a session under
 `bypassPermissions` (below); a command worded another way, the method in mixed case (`Delete`) among them; the CLI's
-other deleting commands, which #303 left for an issue of their own (an alias, a cache, a
-codespace, an extension, a gist, a GPG or SSH key, a label, a project or its fields and items, an autolink, a deploy
-key, a variable); narrowing a token once it was widened; or anything
-set on GitHub's side (repository rules, a fine-grained token).
+other deleting commands, which #303 left out (an alias, a cache, a codespace, an extension, a gist, a GPG or SSH key, a
+label, a project or its fields and items, an autolink, a deploy key, a variable); narrowing a token once it was
+widened; or anything set on GitHub's side (repository rules, a fine-grained token).
 
 **Gate configuration is ask-level too.** An agent that cannot make a check pass will weaken the check:
 edit the lint config, loosen `tsconfig`, add `continue-on-error`, touch a fixture. Edits to lint, format,
