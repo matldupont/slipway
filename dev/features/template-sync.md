@@ -49,7 +49,8 @@ Rules that hold for every class:
 - A path in the project that is not in the manifest is the project's. Sync never touches it, so adding a
   file always works: a project skill, a project check, a `PL-` lesson.
 - A new template file at a path the project already has is a **collision**. It is reported, never
-  written.
+  written. On a seeded path the first `--apply` records it, so it is listed once; its step offers no override
+  (D1 would call it stale).
 - A slipway release with an unclassified shipped path is refused by `new-project` and by sync, and O1
   fails in slipway's CI.
 
@@ -239,7 +240,9 @@ Zero dependencies (D-004): Node stdlib, `git`, and `gh` only for the PR.
      file still differs is never touched. An override that names no managed file is still stale: D1's own
      rule on the new manifest. The plan and `--apply` list those by line, and the owner deletes each on
      the sync branch. Sync never asks for a hand-edit of the manifest.
-   - seeded and merged entries stay; one the target adds is recorded as written.
+   - seeded and merged entries stay; one the target adds is recorded as written, and so is a seeded `collision`
+     (the project's file stays as it is, and is its own now: no override names it, and no later plan lists
+     it, #266).
 6. **Exit** 1 when any row needs the owner: a merge left markers, a `collision`, a `merged: key reported`,
    a `keep (edited)`, a stale override, or an edited harness copy. 0 otherwise: an override `--apply`
    removed needs nothing.

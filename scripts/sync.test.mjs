@@ -2395,3 +2395,42 @@ test('nothingToTake is not asked for a target the source lacks: with no commit r
   assert.equal(nothingToTake(ctx, todo({ writes: new Map([['process/same.md', { bytes: readFileSync(join(dir, 'process/same.md')), exec: true }]]) })), false, 'the same bytes, another mode');
   assert.equal(nothingToTake(ctx, todo({ manifest: Buffer.from('x') })), false);
 });
+
+// A collision on a template (a seeded path) is the project's own file: --apply records it, so the next plan lists
+// none, and the first plan's step never names an override D1 would call stale (#266).
+test('a collision on a seeded path: the step names no override, --apply records it, the next plan has no collision, and D1 is green', () => {
+  const tslip = join(root, 'slipway-template-collision');
+  mkdirSync(tslip);
+  git(tslip, 'init', '-q', '-b', 'main');
+  copyCode(tslip);
+  put(tslip, { 'dev/ownership.yaml': MAP_YAML, '.gitignore': 'node_modules/\n', 'README.md': '# slipway\n', 'package.json': pkg({ a: 'echo a' }), 'process/one.md': 'one\n', 'docs/PRD.md': '# PRD\n' });
+  const T0 = commit(tslip, 'T0');
+  const tproj = join(root, 'template-collision-project');
+  const made = spawnSync(process.execPath, [join(tslip, 'scripts', 'new-project.mjs'), tproj, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: tslip } });
+  assert.equal(made.status, 0, made.stdout + made.stderr);
+  put(tslip, { 'docs/extra.md': 'slipway template\n' });
+  const T1 = commit(tslip, 'T1: a template slipway now ships');
+  put(tproj, { 'docs/extra.md': 'our own file\n' });
+  commit(tproj, 'owner has its own docs/extra.md');
+  const run = (...args) => spawnSync(process.execPath, [join(tslip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: tproj, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: tslip } });
+  const first = run();
+  assert.equal(first.status, 0, first.stderr);
+  const step = first.stdout.match(/^│ {2}collision +docs\/extra\.md\n│ {4}next: (.*)$/m)?.[1];
+  assert.ok(step, first.stdout);
+  assert.doesNotMatch(step, /overrides/);
+  // Following the step's advice leaves D1 green: nothing was added to the overrides.
+  const applied = run('--apply');
+  assert.equal(applied.status, 1, applied.stdout + applied.stderr);
+  assert.doesNotMatch(applied.stdout, /overrides/);
+  assert.equal(readFileSync(join(tproj, 'docs/extra.md'), 'utf8'), 'our own file\n');
+  assert.equal(manifestOf(tproj).files['docs/extra.md'].class, 'seeded');
+  const d1run = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/d1-drift.mjs'), tproj], { encoding: 'utf8' });
+  assert.equal(d1run.status, 0, d1run.stdout);
+  // Merge the sync branch, as the owner does, and plan again: slipway at the same target has nothing to take.
+  git(tproj, 'switch', '-q', 'main');
+  git(tproj, 'merge', '-q', '--ff-only', `slipway/sync-${short(T1)}`);
+  const second = run();
+  assert.equal(second.status, 0, second.stdout + second.stderr);
+  assert.doesNotMatch(second.stdout, /collision/);
+  assert.notEqual(T0, T1);
+});
