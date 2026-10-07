@@ -15,17 +15,32 @@
 import test from "node:test";
 import { strict as assert } from "node:assert";
 import { execSync, execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, lstatSync, statSync, realpathSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync, readFileSync, readdirSync, rmdirSync, lstatSync, statSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 // Use a workspace-local tmpdir for fixture repos. macOS' default tmpdir
 // (under /var/folders) has extended-attribute restrictions that prevent
 // `git init` from chmod'ing the .git/hooks directory.
-const FIXTURE_ROOT = path.join(import.meta.dirname, ".test-tmp");
-try { mkdirSync(FIXTURE_ROOT, { recursive: true }); } catch {}
+// `.test-tmp/` is git-ignored. Each run makes a folder of its own inside it and
+// removes only that one, so two runs in one tree never delete each other's
+// fixtures; the shared parent goes only when it is empty.
+const FIXTURE_PARENT = path.join(import.meta.dirname, ".test-tmp");
+function makeRunFolder(): string {
+  // Another run's exit may remove the empty parent between our mkdir and mkdtemp.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      mkdirSync(FIXTURE_PARENT, { recursive: true });
+      return mkdtempSync(path.join(FIXTURE_PARENT, "run-"));
+    } catch (err) {
+      if (attempt >= 20 || (err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    }
+  }
+}
+const FIXTURE_ROOT = makeRunFolder();
 process.on("exit", () => {
   try { rmSync(FIXTURE_ROOT, { recursive: true, force: true }); } catch {}
+  try { rmdirSync(FIXTURE_PARENT); } catch {} // not empty: another run is still going
 });
 function workspaceMkdtemp(prefix: string): string {
   return mkdtempSync(path.join(FIXTURE_ROOT, prefix));
