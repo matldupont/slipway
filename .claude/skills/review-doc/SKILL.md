@@ -73,7 +73,7 @@ Copy `docs/reviews/TEMPLATE.md` to `docs/reviews/<YYYY-MM-DD>-<target>-<version>
 - `Version line: <copied verbatim from the file>` — open the file and copy it. Do not retype it
   from memory; that is the failure R1 exists for, and a paraphrase turns it red.
 - `Supersedes: docs/reviews/<file>` — one line for each earlier review in `docs/reviews/` whose `Reviewed:` line
-  names the same path, every one of them, not only the latest; with none, delete the line.
+  names the same path, every one of them, not only the latest; with none, write no such line.
 - The register, then one section per finding: where (by ID, never by heading), what is wrong with
   the passage quoted, and a proposed resolution to argue with.
 

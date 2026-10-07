@@ -66,8 +66,9 @@ for (const f of files) {
 
   const targetRel = unquote(reviewed[1]);
   const target = join(root, targetRel);
-  if (posix.normalize(targetRel).startsWith('..') || !existsSync(target)) {
-    findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${targetRel} does not exist: fix the Reviewed: line, or delete the review` });
+  const outside = posix.normalize(targetRel).startsWith('..');
+  if (outside || !existsSync(target)) {
+    findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${targetRel} ${outside ? 'leaves the repository' : 'does not exist'}: fix the Reviewed: line, or delete the review` });
     continue;
   }
   const want = unquote(version[1]);
@@ -75,7 +76,7 @@ for (const f of files) {
   const text = readFileSync(target, 'utf8');
   // To retire another review, the version line has to be a whole line of the document: a word that is
   // merely somewhere in it ("#", "Spec") keeps this review from being stale, as it always has, and no more.
-  const wholeLine = text.split(/\r?\n/).some((l) => l.trim() === want || clean(l) === want);
+  const wholeLine = text.split(/\r?\n/).some((l) => [l.trim(), clean(l), unquote(l)].includes(want));
   const supersedes = lines.filter((l) => l.startsWith('Supersedes:')).map((l) => unquote(l.slice('Supersedes:'.length)).replace(/^\.\//, ''));
   reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: !text.includes(want), wholeLine, supersedes });
 }
