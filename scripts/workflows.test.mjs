@@ -40,8 +40,16 @@ test('a pull request, or a push to a branch, counts', () => {
   counts('on:\n  push:\n    branches: [main]\n  workflow_dispatch: {}     # manual run');
   counts('on:\n    schedule:\n        - cron: "0 3 * * *"\n    push:\n');
   counts('on:\r\n  pull_request:\r');
-  // YAML reads a text on the line after its key as the same value: this is `branches: main`.
+  // Spellings a reader of text refused, which YAML reads as the same value: a text or a bracketed list on the
+  // line after its key, a list at its key's indentation, a bracketed list over lines, `null` in any case.
   counts('on:\n  push:\n    branches:\n      main');
+  counts('on:\n  push');
+  counts('on:\n  push:\n    branches:\n    - main');
+  counts('on:\n- workflow_dispatch\n- pull_request');
+  counts('on: [push,\n  pull_request]');
+  counts('on:\n  pull_request:\n    types:\n      [opened]');
+  counts('on:\n  pull_request: ~');
+  counts('on:\n  pull_request: NULL');
 });
 
 test('a path filter is not read: the event decides', () => {
@@ -94,6 +102,10 @@ test('a shape that is not read counts for nothing, and the reason holds none of 
   unread('on: Pull_Request', /not an event/);
   unread('on:\n  pull_request: { types: [opened] }', /inline value/);
   unread('on:\n  push: [main]', /inline value/);
+  unread('on:\n  push: main', /inline value/);
+  unread('on:\n  pull_request: ""', /inline value/);
+  unread('on:\n  push:\n    Branches: [main]', /not a filter/);
+  unread("on:\n  push:\n    tags: [v1]\n    branches: [' ']", /holds an empty entry/);
   unread('on:\n  push:\n    - main', /not a filter/);
   unread('on:\n  secret-name:', /not an event/);
   unread('on:\n  <<: *events', /merge key/);
@@ -193,6 +205,7 @@ test('an on: line that is text inside a quoted scalar, a bracket or another docu
   raw('on:\n  pull_request: # note\r    types: [closed]\njobs: {}\n', /line break W1 does not read/);
   raw('on:\n  push: # note\u2028    tags: [v1]\n', /line break W1 does not read/);
   raw('on:\n  push: # note\u0085    tags: [v1]\n', /line break W1 does not read/);
+  raw('on:\n  push: # note\u2029    tags: [v1]\n', /line break W1 does not read/);
   raw('{ name: "a\non: push\nz", "on": workflow_dispatch, jobs: {} }\n', /top level is not a block of keys/);
   raw('name: "a\non: push\nz"\n"\\x6fn": workflow_dispatch\njobs: {}\n', /not YAML the parser can read/);
   raw("name: 'it''s\non: push\nz'\njobs: {}\n", /not YAML the parser can read/);
@@ -209,7 +222,7 @@ test('an on: line that is text inside a quoted scalar, a bracket or another docu
   const reads = (text) => assert.deepEqual([workflowTrigger(text).counts, workflowTrigger(text).unread], [true, null], text);
   reads("name: Don't panic # it's fine\non: push\njobs:\n  a:\n    steps:\n      - run: |\n          echo \"[\n      - run: echo it's");
   reads('name: a\nenv:\n  M: [\n    a,\n    ]\non: [pull_request]\n');
-  // The parser holds to the specification where some readers are lenient: a closing bracket at its key's
+  // The parser is stricter than some readers here: a closing bracket at its key's
   // indentation is not YAML to it, so the file is unread, and the reason gives the line.
   raw('name: a\nenv:\n  M: [\n    a,\n  ]\non: [pull_request]\n', /not YAML the parser can read, at line 5$/);
   counts('env:\n  NOTE: >-\n    "on: nothing\n\n    more\non: pull_request');

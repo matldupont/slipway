@@ -25,6 +25,13 @@
 - **Not checked:** the built file against its source, byte for byte. Upstream does not keep the built file in its
   repository, and the release has no npm provenance attestation.
 
+## What the parser is not
+
+It is stricter than common YAML readers about a closing bracket, or a later line of a quoted text, at its
+key's indentation, and it reads nothing nested deeper than 100. It is not strict everywhere: it reads some
+texts a stricter reader rejects. `ci/checks/lib/workflow-yaml.mjs` refuses the ones found so far and says
+which; D-033 states the rest as a limit.
+
 ## Moving the pin
 
 Only by the rule in D-033: to a published release at least 14 days old, with the checks above run again, in a

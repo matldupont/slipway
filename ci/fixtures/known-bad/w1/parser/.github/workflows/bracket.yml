@@ -1,7 +1,6 @@
 name: bracket
 # A list over several lines whose closing bracket sits at its key's indentation. GitHub's reader is believed to
-# accept it; the parser holds to the YAML specification and does not, so the file is unread, with its line and
-# how to write it.
+# accept it; the parser does not, so the file is unread, with its line and how to write it.
 on: pull_request
 jobs:
   check:

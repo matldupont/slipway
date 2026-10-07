@@ -5,7 +5,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripShellComment } from './commands.mjs';
-import { isNull, readWorkflow } from './workflow-yaml.mjs';
+import { NULL_TEXT, isNull, readWorkflow } from './workflow-yaml.mjs';
 
 // What starts a workflow, read from its top-level `on:`. `counts` is true when it runs on a pull request or on a
 // push to a branch: the two events that run a change before, or as, it lands. A gate that only a tag, a schedule,
@@ -81,6 +81,7 @@ function triggerOf(w) {
       if (!isBlock(value)) return unread(notFilter);
       for (const [k, filter] of value.entries) {
         if (!/^[a-z-]+$/.test(k) || isBlock(filter)) return unread(notFilter);
+        // A key with nothing after it is a list of nothing; `null` written out is one entry, and an empty one.
         const items = filter.kind === 'list' ? filter.items : filter.plain && filter.value === '' ? [] : [filter];
         if (items.some((i) => !isText(i))) return unread(`a filter under ${name} is not a list W1 can read`);
         if (items.some((i) => i.value.includes('${{'))) return unread(notFilter);
@@ -96,7 +97,7 @@ function triggerOf(w) {
       if (!keys.has(k)) continue;
       const list = keys.get(k);
       if (list.length === 0) return unread(`${k} under ${event} is empty`);
-      if (list.some((e) => /^(|null|~)$/i.test(e.trim()))) return unread(`${k} under ${event} holds an empty entry`);
+      if (list.some((e) => NULL_TEXT.test(e.trim()))) return unread(`${k} under ${event} holds an empty entry`);
     }
     // A branch filter that can match no branch: every pattern refuses, or every branch is ignored. What a
     // pattern matches is otherwise not read (`branches: [no-such-branch]` counts), as a job's `if:` is not.

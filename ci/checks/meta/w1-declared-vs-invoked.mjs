@@ -53,8 +53,10 @@
 // A workflow file is read through a YAML parser (lib/workflow-yaml.mjs, D-033), never by matching its text. What
 // that reader refuses (an anchor, an alias, a tag, a merge key, a key written twice, more than one document) and
 // what the parser cannot read is unread, with the reason and, where there is one, how to write it so it is read.
-// The parser holds to the YAML specification, so a file GitHub's more lenient reader accepts can be unread here:
-// that fails closed. What stays a limit: GitHub's reader and this parser may still differ on a file both read.
+// The parser is stricter than common readers about a closing bracket, or a quoted text's later line, at its
+// key's indentation, so a file GitHub's reader accepts can be unread here: that fails closed. It is not strict
+// everywhere: where it was found to read what a stricter reader rejects, the reader in front refuses the shape.
+// What stays a limit: any other text this parser reads and GitHub's reader rejects, or reads differently.
 
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

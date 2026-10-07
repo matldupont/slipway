@@ -418,13 +418,17 @@ pinned parser is part of `ci/checks/`, and a workflow file is no longer read as 
 - **Agreeing with YAML is not agreeing with GitHub's reader.** The reader refuses what the two are most likely
   to read differently: an anchor, an alias, a tag, a merge key, a key written twice, a key that is a list or a
   mapping, a directive, more than one document, and a top level that is not a block of keys. Any other
-  difference between GitHub's reader and this parser on a file both read is a stated limit.
-- **The parser is stricter than GitHub's reader, and that is a cost.** It holds to the YAML specification where
-  common readers are lenient: a closing bracket at its key's indentation, or a later line of a quoted text
-  there, is not YAML to it. A workflow written that way is believed to run on GitHub (not tested for this
+  difference between GitHub's reader and this parser is a stated limit, on a file both read and on a text only
+  this parser reads.
+- **The parser is stricter than GitHub's reader in one place real workflows meet, and that is a cost.** A
+  closing bracket at its key's indentation, or a later line of a quoted text there, is not YAML to it. A workflow written that way is believed to run on GitHub (not tested for this
   decision) and is unread by the checks, which then report every gate it runs as not run. The report names the file and the line and says how to write it: the
-  list on one line, or the closing bracket indented past its key. A lenient parser was the other choice, and it
-  errs the other way: it would count a file a stricter reader rejects.
+  list on one line, or the closing bracket indented past its key. Nesting deeper than 100 is not read either.
+- **It is not strict everywhere.** Review of #306's pull request found it reading what a stricter reader
+  rejects: a document marker that is indented, a `...` marker, an empty key, a key over 1024 characters, a
+  plain text that starts with a bracket or a comma, and a directive it does not know, which it passes over.
+  The reader in front refuses each. Others may exist: they are the limit above, and each one found is a refusal
+  added to that one file, with a test.
 - **What a project sees.** The parser and its licence notice arrive on the project's next sync, as files slipway
   maintains. Nothing is installed and no lockfile changes. A project with a workflow the parser does not read
   gets that report on the sync, and one edit to the workflow clears it.
