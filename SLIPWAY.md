@@ -175,7 +175,8 @@ ci/fixtures/status/                 fixture roots S1 runs `ci/status.mjs` agains
 ci/exceptions.yaml                  expiring, structurally keyed exceptions
 ```
 
-All checks are zero-dependency (D-004): they run on bare Node with no install step.
+All checks are zero-dependency (D-004): they run on bare Node with no install step. One YAML parser is kept in
+`ci/checks/` as a pinned copy, to read workflow files (D-033).
 
 ### Taking slipway updates
 
