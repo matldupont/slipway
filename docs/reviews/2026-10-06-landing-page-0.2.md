@@ -51,18 +51,18 @@ are the blocks of Acceptance, **B1–B3** are the Build map steps. Verify lines 
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | The first command is below the fold today at both widths, the Contract says it "stays" above, and the fold has no height | S1 | owner | B2 (#271) | |
-| AR-2 | The control round will most likely pass today's stale page: no required fact names anything the page gets wrong | S1 | owner | B2 (#271) | |
-| AR-3 | Nothing accepts or verifies the claims table against the built page, in either direction | S1 | owner | B2 (#271) | |
-| AR-4 | Rows still state more than their sources, the sync count among them | S1 | owner | B1 (#270), B2 (#271) | |
-| AR-5 | Step 1 writes a private project's record into a public, shipped file from a session's list, with no name check | S2 | owner | B1 (#270) | |
-| AR-6 | The issues the build runs from still hold 0.1, and the change log says they were re-copied | S2 | owner | B1, B2 | |
-| AR-7 | Owner decisions cited as sources are recorded only in this doc, and reached it by relay | S2 | owner | B2 | |
-| AR-8 | Two Verify lines cannot fail: the scroll-width check inside a clipped section, and the second command's grep | S2 | owner | B2 | |
-| AR-9 | Publishing waits on step 3, and nothing fires step 3 | S2 | owner | B3, #55 | |
-| AR-10 | The threat model leaves out the build's own destructive step | S2 | owner | B2 | |
-| AR-11 | The strongest thing a real project has done is dropped, and step 1 can re-date a false line | S2 | owner | B1 (#270) | |
-| AR-12 | Hygiene: an untested question, a Verify line that fights A13, an unnamed judge, small wording | S3 | owner | — | |
+| AR-1 | The first command is below the fold today at both widths, the Contract says it "stays" above, and the fold has no height | S1 | owner | B2 (#271) | resolved in 0.3 (the owner: above the fold at both sizes) |
+| AR-2 | The control round will most likely pass today's stale page: no required fact names anything the page gets wrong | S1 | owner | B2 (#271) | resolved in 0.3 |
+| AR-3 | Nothing accepts or verifies the claims table against the built page, in either direction | S1 | owner | B2 (#271) | resolved in 0.3 (the claims check in the page step) |
+| AR-4 | Rows still state more than their sources, the sync count among them | S1 | owner | B1 (#270), B2 (#271) | resolved in 0.3; the rest is the claims check |
+| AR-5 | Step 1 writes a private project's record into a public, shipped file from a session's list, with no name check | S2 | owner | B1 (#270) | resolved in 0.3 |
+| AR-6 | The issues the build runs from still hold 0.1, and the change log says they were re-copied | S2 | owner | B1, B2 | resolved in 0.3; the copy follows the review of 0.3 |
+| AR-7 | Owner decisions cited as sources are recorded only in this doc, and reached it by relay | S2 | owner | B2 | #275 |
+| AR-8 | Two Verify lines cannot fail: the scroll-width check inside a clipped section, and the second command's grep | S2 | owner | B2 | resolved in 0.3 |
+| AR-9 | Publishing waits on step 3, and nothing fires step 3 | S2 | owner | B3, #55 | resolved in 0.3; the third sub-issue of #252, filed with the copy |
+| AR-10 | The threat model leaves out the build's own destructive step | S2 | owner | B2 | #279; resolved in 0.3 |
+| AR-11 | The strongest thing a real project has done is dropped, and step 1 can re-date a false line | S2 | owner | B1 (#270) | resolved in 0.3 |
+| AR-12 | Hygiene: an untested question, a Verify line that fights A13, an unnamed judge, small wording | S3 | owner | — | resolved in 0.3 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
