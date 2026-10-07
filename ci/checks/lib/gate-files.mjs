@@ -182,11 +182,11 @@ export function changes(base, head, cwd = process.cwd()) {
   try {
     globs = gateGlobs(git('show', `${from}:process/harness/settings.json`)); // absent before the harness existed
   } catch {}
-  let agent = null;
+  let agent = '';
   try {
-    agent = git('show', `${from}:AGENT.md`); // absent at the base: it named nothing
+    agent = git('show', `${from}:AGENT.md`); // absent at the base: no row, so the cold-review default still counts
   } catch {}
-  if (agent !== null) globs = [...globs, ...namedDocs(agent)]; // outside the try: an unreadable row fails the check
+  globs = [...globs, ...namedDocs(agent)]; // outside the try: an unreadable row fails the check
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
   return { files, scripts, globs, links };
 }

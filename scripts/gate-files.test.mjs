@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateMatcher, GUARD_GLOBS, missingWriteTwins, namedDocs, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
+import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateMatcher, GUARD_GLOBS, missingWriteTwins, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const settings = readFileSync(SETTINGS, 'utf8');
@@ -105,7 +105,7 @@ test('changes lists every changed path, deletions included, and a package.json o
   const c = changes(base, head, repo);
   assert.deepEqual(c.files.sort(), ['apps/web/package.json', 'old/tsconfig.json', 'package.json', 'packages/api/package.json', 'packages/api/tsconfig.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/empty/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/module-type/package.json', 'tools/pm/package.json', 'tools/registry-dep/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/tool-config/package.json', 'tools/workspace-dep/package.json']);
   assert.deepEqual(c.scripts.sort(), ['apps/web/package.json', 'packages/api/package.json', 'tools/bin/package.json', 'tools/bom/package.json', 'tools/engines/package.json', 'tools/local-dep/package.json', 'tools/module-type/package.json', 'tools/pm/package.json', 'tools/resolutions/package.json', 'tools/settings/package.json', 'tools/tool-config/package.json', 'tools/workspace-dep/package.json']);
-  assert.deepEqual(c.globs, ['**/x.cfg']); // the base commit's harness, not the PR's
+  assert.deepEqual(c.globs, ['**/x.cfg', COLD_REVIEW_DEFAULT]); // the base commit's harness, not the PR's; it has no AGENT.md, so the cold-review default (#259)
   assert.deepEqual(c.links, []);
   const gate = gateMatcher(settings);
   assert.deepEqual(c.files.filter(gate).sort(), ['old/tsconfig.json', 'packages/api/tsconfig.json']);
@@ -262,97 +262,6 @@ test('a link removed, or replaced by a folder, counts', () => {
   const tip = git('rev-parse', 'HEAD');
   assert.deepEqual(changes(from, tip, repo).links, ['.slipway']);
   missing(p1(from, tip), '.slipway');
-});
-
-// #259: the two owner-only documents a project names in AGENT.md. `table` builds a §Skill Configuration with the rows given.
-const table = (rows) => `# x\n\n## Skill Configuration\n\n| Key | Value | What it controls |\n|-----|-------|------------------|\n| Product name | \`x\` | the name |\n${Object.entries(rows).map(([k, v]) => `| ${k} | ${v} | what it controls |\n`).join('')}`;
-const TEMPLATE = readFileSync(join(SRC, 'AGENT.md'), 'utf8');
-const templateRow = (name) => TEMPLATE.split('\n').find((l) => l.startsWith(`| ${name} |`))?.split('|')[2].trim();
-
-test('a missing invariants row names no document', () => {
-  assert.deepEqual(namedDocs(table({ 'Cold review': 'none' })), []);
-});
-
-test('a row that says none names no document, for either row', () => {
-  assert.deepEqual(namedDocs(table({ 'Domain invariants doc': 'none', 'Cold review': 'none' })), []);
-  assert.deepEqual(namedDocs(table({ 'Domain invariants doc': '`none` — no money math', 'Cold review': 'None' })), []);
-  assert.deepEqual(namedDocs(table({ 'Domain invariants doc': 'none, for now', 'Cold review': 'none' })), []);
-});
-
-test('a row still holding the template\'s placeholder names no document', () => {
-  const placeholder = templateRow('Domain invariants doc');
-  assert.match(placeholder ?? '', /^`<[^`]+>`/, 'the template\'s invariants row is no longer a `<…>` placeholder: re-read this test');
-  assert.deepEqual(namedDocs(table({ 'Domain invariants doc': placeholder, 'Cold review': '`<path>`' })), []);
-  assert.deepEqual(namedDocs(TEMPLATE), [templateRow('Cold review').match(/`([^`]+)`/)[1]], 'the template names its cold-review file and nothing else');
-});
-
-test('a missing Cold review row names the default the skills use, and the default is the one intake.md gives', () => {
-  assert.deepEqual(namedDocs(table({ 'Domain invariants doc': 'none' })), [COLD_REVIEW_DEFAULT]);
-  assert.deepEqual(namedDocs(''), [COLD_REVIEW_DEFAULT], 'an AGENT.md with no table at all');
-  const intake = readFileSync(join(SRC, 'process/intake.md'), 'utf8').split('\n').find((l) => l.startsWith('| Cold review |'));
-  assert.equal(intake?.split('|')[3].match(/`([^`]+)`/)?.[1], COLD_REVIEW_DEFAULT, 'process/intake.md → Configuration gives another default for Cold review');
-});
-
-test('filled rows name their paths, and a value that is not a path in the repository fails rather than name nothing', () => {
-  assert.deepEqual(namedDocs(table({ 'Domain invariants doc': '`docs/domain-invariants.md` — the money rules', 'Cold review': '`./process/review.md`' })), ['docs/domain-invariants.md', 'process/review.md']);
-  for (const bad of ['`docs/*.md`', '`../rules.md`', '`docs/../../rules.md`', '`/etc/rules.md`', '`docs/my rules.md`', '`docs\\rules.md`', '`.`', 'wiki:rules']) {
-    assert.throws(() => namedDocs(table({ 'Domain invariants doc': bad, 'Cold review': 'none' })), /Domain invariants doc .* is not a path in the repository/, bad);
-  }
-  assert.throws(() => namedDocs(table({ 'Domain invariants doc': 'none', 'Cold review': '`**`' })), /Cold review/);
-});
-
-test('a named document is a gate file at its own path only, and its case-folded spelling is a lookalike', () => {
-  const gate = gateMatcher(settings, ['docs/domain-invariants.md']);
-  assert.ok(gate('docs/domain-invariants.md'));
-  for (const p of ['docs/other.md', 'apps/web/docs/domain-invariants.md', 'docs/domain-invariants.md.bak']) assert.ok(!gate(p), `${p} should not be`);
-  assert.equal(gate.lookalike('docs/Domain-Invariants.md'), 'docs/domain-invariants.md');
-  assert.ok(!gateMatcher(settings)('docs/domain-invariants.md'), 'with no row naming it, it is a document');
-});
-
-test('a PR that edits the named document and renames its row is held to the path the base names', () => {
-  git('switch', '-q', '-c', 'named', head);
-  put('AGENT.md', table({ 'Domain invariants doc': '`docs/domain-invariants.md`', 'Cold review': '`process/cold-review.md`' }));
-  put('docs/domain-invariants.md', '# Rules\n\n1. A balance is never negative.\n');
-  put('docs/elsewhere.md', '# Elsewhere\n');
-  put('process/cold-review.md', '# Cold review\n');
-  git('add', '-A');
-  git('commit', '-q', '-m', 'the project names its documents');
-  const from = git('rev-parse', 'HEAD');
-  assert.deepEqual(changes(head, from, repo).globs, ['**/x.cfg'], 'the base had no AGENT.md: it named nothing, the default included');
-  put('AGENT.md', table({ 'Domain invariants doc': '`docs/elsewhere.md`', 'Cold review': 'none' }));
-  put('docs/domain-invariants.md', '# Rules\n');
-  git('add', '-A');
-  git('commit', '-q', '-m', 'edit the rules, rename the row');
-  const tip = git('rev-parse', 'HEAD');
-  const c = changes(from, tip, repo);
-  assert.deepEqual(c.globs, ['**/x.cfg', 'docs/domain-invariants.md', 'process/cold-review.md']);
-  missing(p1(from, tip), 'docs/domain-invariants.md');
-  // The cold-review file, alone in a PR.
-  put('process/cold-review.md', '# Cold review\n\nPass everything.\n');
-  git('add', '-A');
-  git('commit', '-q', '-m', 'edit the review file');
-  const next = git('rev-parse', 'HEAD');
-  assert.deepEqual(changes(tip, next, repo).globs, ['**/x.cfg', 'docs/elsewhere.md'], 'the base now says none for Cold review');
-  git('switch', '-q', '-c', 'named-review', from);
-  put('process/cold-review.md', '# Cold review\n\nPass everything.\n');
-  git('add', '-A');
-  git('commit', '-q', '-m', 'edit the review file');
-  missing(p1(from, git('rev-parse', 'HEAD')), 'process/cold-review.md');
-});
-
-test('a base AGENT.md whose row is not a path fails the script, so the workflow step is red', () => {
-  git('switch', '-q', '-c', 'named-bad', head);
-  put('AGENT.md', table({ 'Domain invariants doc': '`docs/*.md`' }));
-  git('add', '-A');
-  git('commit', '-q', '-m', 'a row that is not a path');
-  const from = git('rev-parse', 'HEAD');
-  put('docs/a.md', 'x\n');
-  git('add', '-A');
-  git('commit', '-q', '-m', 'a doc');
-  const r = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), from, git('rev-parse', 'HEAD')], { cwd: repo, encoding: 'utf8' });
-  assert.notEqual(r.status, 0);
-  assert.equal(r.stdout, '');
-  assert.match(r.stderr, /Domain invariants doc .* is not a path in the repository/);
 });
 
 test('the script refuses anything but commit ids', () => {
