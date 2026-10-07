@@ -1,9 +1,11 @@
 ---
 prd-ref: D-016
-status: shipped
+status: draft
 ---
 
 # F-11 — Landing page: the claims table and the required facts, as built
+
+Verified against: 1c3c929 2026-10-07 — the sources the rows cite, read by the claims check at the page's last text commit, 0179b94. Row 48's "11 skills" was counted at 9824e8f and holds at 1c3c929.
 
 This file **supersedes the claims table and the required facts in `dev/features/landing-page.md` for the page as
 built** (#271, review of 0.3 AR-2). The spec's Version line is unchanged; its `## Changes` names this file. Where
@@ -157,6 +159,19 @@ Q8 why was it built
 | 85 | §05 | adopting a project that did not start from slipway is filed, with its acceptance written, and not built | #54 (open, Acceptance); no feature doc in `dev/features/` |
 | 86 | §05 | a check brings the helpers in `ci/lib/` it imports, and slipway records none used outside a project that started from it | the imports in `ci/checks/meta/*.mjs`; `SLIPWAY.md` "Exercised on a real project" |
 | 87 | README | every step up to closing a milestone ends in something that goes red | `SLIPWAY.md` path table, steps 0–6, "Done when" (step 7 names nothing) |
+
+## Sentences that are not factual claims
+
+The claims check's list 2 labels these, by their words, as framing or opinion, not as claims about slipway or its
+method; each stays on the page without a row:
+
+- §01 plate caption: "A test suite nobody runs has a 100% pass rate." (a rhetorical line; its point is made by rows
+  21 to 30).
+- §04: "That can feel like a barrier, and I've felt it too." and "Nobody trusts a finance app with half its
+  features. Some products can't be tested by hand in a spreadsheet first." (the author's opinion and experience,
+  signed; row 45 covers the sentence after them, which is the claim).
+- Section answers and headings written as questions or framing ("It will ask you why. That's the cost, and most of
+  the point.", "Refactoring has never been cheaper, and debt still compounds.").
 
 ## Block entries, corrected
 
