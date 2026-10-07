@@ -105,6 +105,8 @@ test('a shape that is not read counts for nothing, and the reason holds none of 
   unread("on:\n  push:\n    tags: [v1]\n    branches: ['']", /holds an empty entry/);
   unread('on:\n  push:\n    tags: [v1]\n    branches: null', /holds an empty entry/);
   unread('on:\n  push:\n    tags: [v1]\n    branches: ~', /holds an empty entry/);
+  unread('on:\n  push:\n    tags: [v1]\n    branches: Null', /holds an empty entry/);
+  unread('on:\n  push:\n    tags: [v1]\n    branches: [NULL]', /holds an empty entry/);
   unread("on:\n  push:\n    tags: [v1]\n    branches: ['!**']", /only refuses/);
   unread("on:\n  push:\n    tags: ['v*']\n    branches-ignore: ['**']", /ignores every branch/);
   unread('on:\n  pull_request:\n    types: ["closed,opened,x"]', /not a list/);
@@ -198,6 +200,13 @@ test('an on: line that is text inside a quoted scalar, a bracket or another docu
   counts("name: Don't panic # it's fine\non: push\njobs:\n  a:\n    steps:\n      - run: |\n          echo \"[\n      - run: echo it's");
   counts('name: a\nenv:\n  M: [\n    a,\n  ]\non: [pull_request]');
   counts('env:\n  NOTE: >-\n    "on: nothing\n\n    more\non: pull_request');
+  for (const head of ['A: |', 'A: !!str >-', 'A: &a |2+  # kept', '- |', '- - B: |-']) {
+    counts(`env:\n  ${head}\n          "on: nothing\non: pull_request`);
+  }
+  // A long line is read in time proportional to its length.
+  const started = Date.now();
+  counts(`on: push\nx:\n  ${'- '.repeat(200_000)}x`);
+  assert.ok(Date.now() - started < 2000, `${Date.now() - started} ms`);
 });
 
 test('only a job\'s own uses: calls a workflow: not a step, a with: value, a run block or a quoted text', () => {

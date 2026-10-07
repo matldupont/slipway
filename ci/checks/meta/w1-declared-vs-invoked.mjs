@@ -49,6 +49,10 @@
 // `test:<sub>` script, which verify does not run. Commands inside shell files are
 // invisible by design: call gates from the workflow or a root script, where the wiring
 // stays legible.
+//
+// KNOWN LIMITATION: W1 reads workflow files as text, with no YAML parser (D-004). It reads workflows written
+// to be read. A workflow file written to mislead a text reader is not defended against here: workflow files
+// are owner-only, so such a file needs the owner's yes and shows in the pull request's diff.
 
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

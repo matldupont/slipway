@@ -36,7 +36,18 @@ const flowList = (v) => {
 // on a line that starts inside a quoted text or a bracketed list or mapping that began on an earlier line. Such a
 // line can hold `on: push` or `uses: …` as plain text, at any column, and none of it is a key (#239 review).
 // A quote opens only where YAML starts a scalar: after white space, `[`, `{` or `,`.
-const BLOCK_SCALAR = /^(\s*)((?:-\s+)*)(?:\S.*:\s+)?(?:[!&]\S*\s+)*[|>][+-]?[0-9]?[+-]?$/;
+// A line that opens a block scalar: `key: |`, `- |`, `- key: >-`, with tags or anchors before the indicator.
+// Returns the indent its text must exceed, or -1. Read from the end of the line, a token at a time: one pattern
+// for the whole line takes time proportional to the square of a long run of `- ` (#239 review).
+function blockScalarIndent(line) {
+  const toks = line.trim().split(/\s+/);
+  if (!/^[|>][+-]?[0-9]?[+-]?$/.test(toks.pop() ?? '')) return -1;
+  while (toks.length && /^[!&]/.test(toks.at(-1))) toks.pop();
+  const lead = line.match(/^(\s*)((?:-\s+)*)/);
+  const dashes = lead[2].trim() ? lead[2].trim().split(/\s+/).length : 0;
+  if (toks.length === dashes ? dashes === 0 : !toks.at(-1).endsWith(':')) return -1;
+  return lead[1].length + lead[2].length;
+}
 function structure(text) {
   const out = [];
   let quote = null;
@@ -61,8 +72,7 @@ function structure(text) {
       else if ((c === ']' || c === '}') && depth > 0) depth--;
     }
     if (clean && quote === null && depth === 0) {
-      const m = line.slice(0, end).trimEnd().match(BLOCK_SCALAR);
-      if (m && (m[2] || /:\s/.test(line))) block = m[1].length + m[2].length;
+      block = blockScalarIndent(line.slice(0, end));
     }
   }
   return out;
@@ -151,7 +161,7 @@ export function workflowTrigger(text) {
       if (!keys.has(k)) continue;
       const list = keys.get(k);
       if (list.length === 0) return unread(`${k} under ${event} is empty`);
-      if (list.some((e) => /^(|null|~)$/.test(e.trim()))) return unread(`${k} under ${event} holds an empty entry`);
+      if (list.some((e) => /^(|null|~)$/i.test(e.trim()))) return unread(`${k} under ${event} holds an empty entry`);
     }
     // A branch filter that can match no branch: every pattern refuses, or every branch is ignored. What a
     // pattern matches is otherwise not read (`branches: [no-such-branch]` counts), as a job's `if:` is not.
