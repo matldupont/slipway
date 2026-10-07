@@ -65,3 +65,11 @@ test('headings in a fence, a comment, an indented block, or at ### do not count'
 test('a leading --- block is shown by GitHub, so a heading in it counts', () => {
   assert.equal(repeatedHeadings(body('---', '## One', '---', '## One')).length, 1);
 });
+
+test('a comment opener with no closer hides no heading, and a long run of spaces is read in linear time', () => {
+  assert.equal(repeatedHeadings(body('## One', 'x <!-- y', '## One', 'z')).length, 1);
+  assert.equal(repeatedHeadings(body('## One', '<!-- closed -->', '## Two')).length, 0);
+  const start = Date.now();
+  repeatedHeadings(body('## a' + ' '.repeat(100000) + 'b', '## a' + '\t '.repeat(50000) + 'b', '## a' + '#'.repeat(100000) + 'b', '## a ' + '#'.repeat(100000) + 'b'));
+  assert.ok(Date.now() - start < 1000);
+});
