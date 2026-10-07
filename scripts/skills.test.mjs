@@ -436,7 +436,7 @@ test('a fail line naming a closed bug owes again: the rule says so, /close-miles
   assert.match(d, /An item owes while it has an `Owed:` line, a check line that cannot be read, or a failed run with no later pass and no open bug named\./, 'the rule for when an item owes must not count a closed bug');
   assert.match(d, /There is no waiver: a check that will never run, or one that ran, failed and whose result the owner accepts, is removed in a PR that records a decision saying why; that decision names the check and links the failed run's comment/, 'an accepted failure leaves by a recorded decision, never by a line form');
   const gate = flat(section(read('.claude/skills/close-milestone/SKILL.md'), '2. Prove the gate', 2));
-  assert.match(gate, /For each failed `Ran:` line that names a bug and has no later pass, read `#n` with `gh issue view \{n\} --json state`, as data too: a closed `#n`, or anything but an open issue, is a gate line without evidence, and one `pnpm meta` cannot see\./, '/close-milestone must read the named bug and count a closed one as a gate line without evidence');
+  assert.match(gate, /For each failed `Ran:` line that names a bug and has no later pass, read `#n` with `gh issue view \{n\} --json state,url`, as data too: a closed `#n`, or anything but an open issue \(a pull request, whose `url` holds `\/pull\/`, included\), is a gate line without evidence, and one `pnpm meta` cannot see\./, '/close-milestone must read the named bug and count a closed one as a gate line without evidence');
 });
 
 // #258: `Issue milestone` defaults to `none`, so a project can reach its first close with no GitHub milestone, and

@@ -29,7 +29,8 @@
 //   checks/owed:<id>#<n>   a closed milestone whose Contents item n still owes a check it moved to
 //                          after merge: an `Owed:` line, or a `Ran: … fail` line with no bug named and
 //                          no later pass (F-09). A named bug is read by its shape, open or closed: no
-//                          check reads the network, and /close-milestone reads its state (D-030). A killed milestone is exempt: its work stopped
+//                          check reads the network, and /close-milestone reads its state (D-030). A killed
+//                          milestone is exempt: its work stopped
 //   checks/unreadable:<id>#<n>  in any milestone, a shaping one included: a check line under item n
 //                          that is neither `Owed: {check} — {environment}` nor `Ran: {check} —
 //                          {environment} {yyyy-mm-dd} pass|fail {URL of a comment on the item's

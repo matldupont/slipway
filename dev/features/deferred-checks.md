@@ -78,8 +78,8 @@ A Contents item in a milestone doc may carry child lines, indented like any cont
   `Owed:` line with the `Ran:` line. On `pass` for every check the item owes, the item's issue is closed, once
   its sub-issues are.
 - A `fail` stays owed: the item needs attention until a `Ran:` line further down for the same check says
-  `pass`, or the fail line names the bug filed for it (` · bug #n`). A fail line settled either way stays as history. A
-  fail line that names a closed bug owes again until a later pass (D-030, #257).
+  `pass`, or the fail line names the bug filed for it (` · bug #n`). A fail line settled either way stays as
+  history. A fail line that names a closed bug owes again until a later pass (D-030, #257).
 - **A line that is nearly one is unreadable, and unreadable is owed.** An indented line that starts `owed:` or
   `ran:` in any letter case, with or without a `-` or `*` bullet before it, is a check line. Written any other
   way than the two above (the wrong case, a bullet, no ` — {environment}`, a date that is no calendar day, a
@@ -231,9 +231,10 @@ Since #241:
 line, so the marker still ends it. `/close-milestone` → "Prove the gate" gains one sentence: every `Owed:`,
 unreadable or unresolved failed `Ran:` line under Contents is a gate line without evidence, and `pnpm meta`
 fails a closed milestone that still has one. Since #257 it gains one more: for each failed `Ran:` line that
-names a bug and has no later pass, it reads `#n` with `gh issue view {n} --json state`, as data, and a closed `#n`, or
-anything but an open issue, is a gate line without evidence, one `pnpm meta` cannot see. MS1's `checks/owed`
-message names the removal exit too.
+names a bug and has no later pass, it reads `#n` with `gh issue view {n} --json state,url`, as data, and a closed `#n`,
+or anything but an open issue (a pull request included: `gh issue view` answers for one, and only its `url`
+tells them apart), is a gate line without evidence, one `pnpm meta` cannot see. MS1's `checks/owed` message
+names the removal exit too.
 
 ### What is reused
 
@@ -424,8 +425,8 @@ none
   `/close-milestone` with `gh issue view`; an accepted failure has no line form, its check line is removed in a
   PR that records a decision naming the check and linking the failed run's comment; status's failed-check hint
   and MS1's message name that exit (§1, §3, §6, Known limitations). The reader is unchanged. After review: the
-  hint says the acceptance is the owner's; the close asks for the state only and counts anything but an open
-  issue; the rule for when an item owes says "no open bug named"
+  hint says the acceptance is the owner's; the close asks for the state and the address only and counts anything but an
+  open issue, a pull request included; the rule for when an item owes says "no open bug named"
 - 2026-10-06 · CHANGED · built (#241): the split writes the item's `Owed:` line; `/work-ticket` on a sub-issue
   stops when the item's deferred check has no line; an acceptance line is run or deferred, never only "not
   verified"; P1 reports a `Part of` body that closes nothing and says nothing stays open (§6, Known limitations)
