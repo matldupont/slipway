@@ -2,12 +2,13 @@
 // commentCrossesHeading() (ci/checks/lib/markdown.mjs): section() removes every span from a `<!--` to the next
 // `-->`, headings included, so a `<!--` in inline code and a `-->` further down run one section on into the next
 // (#189). The predicate says when a span holds a heading-shaped line; P1 then reads nothing else in that body.
+// repeatedHeadings() (#265) names the `## ` headings written twice; P1's heading-repeated-* fixtures hold the shapes as bodies.
 // The P1 fixtures gate-comment-mark.md, gate-swallowed-heading.md and gate-hidden-section.md hold the same
 // shapes as pull request bodies. Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { commentCrossesHeading, section } from '../ci/checks/lib/markdown.mjs';
+import { commentCrossesHeading, repeatedHeadings, section } from '../ci/checks/lib/markdown.mjs';
 
 const body = (...lines) => lines.join('\n');
 
@@ -47,4 +48,20 @@ test('a line that only looks like a heading is not one', () => {
   }
   // The tail of the opener's line is not a line of its own.
   assert.equal(commentCrossesHeading(body('x <!-- ## not a heading', 'y -->')), false);
+});
+
+test('a repeated ## heading is found once, by text, ignoring case, spaces and closing hashes', () => {
+  const md = body('## Cold review', 'a', '## cold  REVIEW  ', 'b', '  ## Cold review ##', 'c', '## Links', '## Verification', '## Verification');
+  assert.deepEqual(repeatedHeadings(md).map((h) => [h.key, h.title, h.count]), [['cold review', 'Cold review', 3], ['verification', 'Verification', 2]]);
+  assert.deepEqual(repeatedHeadings(md.replace(/\n/g, '\r\n')).map((h) => h.count), [3, 2]);
+});
+
+test('headings in a fence, a comment, an indented block, or at ### do not count', () => {
+  const md = body('## One', '```', '## One', '```', '<!-- ## One -->', '    ## One', '\t## One', '### One', '### One', '##', '##', '##One', '##One');
+  assert.deepEqual(repeatedHeadings(md), []);
+  assert.deepEqual(repeatedHeadings(body('## One', '### Notes', 'a', '## Two', '### Notes')), []);
+});
+
+test('a leading --- block is shown by GitHub, so a heading in it counts', () => {
+  assert.equal(repeatedHeadings(body('---', '## One', '---', '## One')).length, 1);
 });

@@ -34,8 +34,8 @@ export const commentCrossesHeading = (md) =>
 // unclosed comment or fence runs to the end). Two simple passes, comments then fences, so it misreads a `<!--` in
 // inline code, a ` ``` x ``` ` line and a tab-indented fence (dev/features/roadmap-page.md → Known limitations).
 // For owner-only views; nothing that publishes reads through it.
-export function prose(md) {
-  const text = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '').replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+export function prose(md, { frontmatter = true } = {}) {
+  const text = (frontmatter ? md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '') : md).replace(/<!--[\s\S]*?(?:-->|$)/g, '');
   const out = [];
   let fence = null;
   for (const line of text.split(/\r?\n/)) {
@@ -46,6 +46,23 @@ export function prose(md) {
     else out.push(line);
   }
   return out.join('\n');
+}
+
+// The `## ` headings a reader sees written more than once, each as the first spelling it was given. A heading counts
+// by its text with case, closing `#`s and runs of spaces ignored. Comments, fenced code, four-space and tab
+// indented lines, `###` headings and an empty `##` do not count. A leading `---` block is not frontmatter here:
+// GitHub shows it, so a heading in it counts. Same two-pass limits as prose().
+export function repeatedHeadings(md) {
+  const seen = new Map();
+  for (const line of prose(md, { frontmatter: false }).split(/\r?\n/)) {
+    const m = line.match(/^ {0,3}##(?!#)[ \t]+(\S.*?)(?:[ \t]+#+)?[ \t]*$/);
+    if (!m) continue;
+    const key = m[1].replace(/\s+/g, ' ').toLowerCase();
+    const was = seen.get(key);
+    if (was) was.count++;
+    else seen.set(key, { title: m[1].replace(/\s+/g, ' '), count: 1 });
+  }
+  return [...seen].filter(([, h]) => h.count > 1).map(([key, h]) => ({ key, title: h.title, count: h.count }));
 }
 
 // Like section(), stricter: the heading must start its line (an indented one may be an example in a code block),

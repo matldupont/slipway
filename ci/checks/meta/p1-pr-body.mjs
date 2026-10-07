@@ -7,6 +7,10 @@
 //   body/comment-mark-crosses-heading  a `<!--` is closed by a `-->` beyond a heading: the check cannot tell
 //                            a comment from two marks written as text, nor where a section ends, so it reads
 //                            nothing else in that body
+//   headings/repeated:<title>  a `## ` heading is written more than once (#265): the check reads the first copy of a
+//                            section and a reader sees all of them, so a stale `## Cold review` or a second
+//                            `## Verification` with no command passed. One finding per heading; fences, comments,
+//                            indented code and `###` headings do not count
 //   verification/missing     no `## Verification` section
 //   verification/empty       empty, or only the template's comments
 //   verification/prose-only  names no command, code block, check id or CI run —
@@ -44,7 +48,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gateGlobs, gateMatcher, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
-import { commentCrossesHeading, prose, section, strictSection } from '../lib/markdown.mjs';
+import { commentCrossesHeading, prose, repeatedHeadings, section, strictSection } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 
 const EVIDENCE = /`[^`]+`|```|\b[MPIR]\d+\b|https:\/\/github\.com\/\S+\/actions\/runs\/\d+/;
@@ -141,6 +145,9 @@ for (const f of bodies) {
   if (commentCrossesHeading(md)) {
     findings.push({ where: `${f}#body/comment-mark-crosses-heading`, detail: 'a comment opener in this body is closed beyond a heading, so the check cannot tell hidden text from shown, nor where a section ends; close it in the same section, or write the mark in words' });
     continue;
+  }
+  for (const h of repeatedHeadings(md)) {
+    findings.push({ where: `${f}#headings/repeated:${shown(h.key)}`, detail: `\`## ${shown(h.title)}\` is written ${h.count} times; the check reads one copy and a reader sees all of them. Keep one \`## ${shown(h.title)}\` section: rewrite it for the final state of the PR and delete the others` });
   }
   const v = section(md, 'Verification', 2);
   if (v === null) findings.push({ where: `${f}#verification/missing`, detail: 'no `## Verification` section' });
