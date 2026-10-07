@@ -71,7 +71,7 @@ Q8 why was it built
 
 | # | section | claim (as it will read) | source |
 |---|---|---|---|
-| 1 | head, hero | a project framework for Claude Code: a path from a rough idea to a release that holds up, with Claude Code doing the building and checks that fail when a step gets skipped | the owner's approved wording, 2026-09-24 (`site/design-direction.md` Revisions); `SLIPWAY.md` "Start here" |
+| 1 | head, hero | a project framework for Claude Code: a path from a rough idea to a release that holds up, with Claude Code doing the building and checks that fail when a step gets skipped | the owner's approved wording, 2026-09-24 (`dev/site/design-direction.md` Revisions); `SLIPWAY.md` "Start here" |
 | 2 | hero | By an engineer, for engineers | the owner, 2026-09-24 and 2026-10-06 (The reader) |
 | 3 | hero | a slipway is the ramp a ship is built on | `README.md` line 5 |
 | 4 | hero | `npx use-slipway acme --dry-run` prints every step it would take and changes nothing | `README.md` options table; run (Verify) |
