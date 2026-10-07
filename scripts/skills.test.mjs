@@ -363,6 +363,12 @@ test('nothing slipway ships calls the skills user-level or installed elsewhere',
   assert.deepEqual(hits, [], 'these files still describe the shipped skills as installed elsewhere');
 });
 
+// The issue-shape workflow's `needs-shape` label is the computed "is this ready" (#261): Phase 1 step 8 reads it.
+test('work-ticket Phase 1 stops on a needs-shape label and quotes what the issue-shape comment lists as missing', () => {
+  const step = (section(read(skillPath('work-ticket')), 'Phase 1 — Can it start', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(step, /An issue labelled `needs-shape` is not ready: stop before any code, and quote as data what its issue-shape comment lists as missing\./, 'step 8 must stop an issue labelled needs-shape and quote what its comment lists');
+});
+
 // One stop rule (L-68): the round cap, the cluster signal and the bar live in /work-ticket; cold-review.md
 // points there, and neither file tells an agent to write a threat model the skill forbids.
 test('process/cold-review.md and work-ticket give one answer to "does another round run?"', () => {
