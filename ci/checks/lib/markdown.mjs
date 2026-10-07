@@ -34,8 +34,8 @@ export const commentCrossesHeading = (md) =>
 // unclosed comment or fence runs to the end). Two simple passes, comments then fences, so it misreads a `<!--` in
 // inline code, a ` ``` x ``` ` line and a tab-indented fence (dev/features/roadmap-page.md → Known limitations).
 // For owner-only views; nothing that publishes reads through it.
-export function prose(md) {
-  const text = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '').replace(/<!--[\s\S]*?(?:-->|$)/g, '');
+export function prose(md, { frontmatter = true, unclosed = true } = {}) {
+  const text = (frontmatter ? md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '') : md).replace(unclosed ? /<!--[\s\S]*?(?:-->|$)/g : /<!--[\s\S]*?-->/g, '');
   const out = [];
   let fence = null;
   for (const line of text.split(/\r?\n/)) {
@@ -46,6 +46,29 @@ export function prose(md) {
     else out.push(line);
   }
   return out.join('\n');
+}
+
+// The `## ` headings a reader sees written more than once, each as the first spelling it was given. A heading counts
+// by its text with case, closing `#`s and runs of spaces ignored. Comments, fenced code, four-space and tab
+// indented lines, `###` headings and an empty `##` do not count. A leading `---` block is not frontmatter here:
+// GitHub shows it, so a heading in it counts. A `<!--` with no `-->` hides nothing: GitHub shows it as text when it
+// is mid-line, and a repeat hidden after one would pass, so the headings after it count (a false alarm costs one
+// look). Same two-pass limits as prose(); `<!-->` and a backtick fence with a backtick in its info string are two more.
+export function repeatedHeadings(md) {
+  const seen = new Map();
+  for (const line of prose(md, { frontmatter: false, unclosed: false }).split(/\r?\n/)) {
+    // Trimmed first, and the closing `#`s cut apart from the title by a scan from the end: a pattern that spans a run of spaces backtracks quadratically on one.
+    const m = line.trimEnd().match(/^ {0,3}##(?!#)[ \t]+(\S.*)$/);
+    if (!m) continue;
+    let end = m[1].length;
+    while (end > 0 && m[1][end - 1] === '#') end--;
+    const title = end < m[1].length && /[ \t]/.test(m[1][end - 1] ?? '') ? m[1].slice(0, end).trimEnd() : m[1];
+    const key = title.replace(/\s+/g, ' ').toLowerCase();
+    const was = seen.get(key);
+    if (was) was.count++;
+    else seen.set(key, { title: title.replace(/\s+/g, ' '), count: 1 });
+  }
+  return [...seen].filter(([, h]) => h.count > 1).map(([key, h]) => ({ key, title: h.title, count: h.count }));
 }
 
 // Like section(), stricter: the heading must start its line (an indented one may be an example in a code block),
