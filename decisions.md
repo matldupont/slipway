@@ -343,6 +343,27 @@ written from memory would pass beside an honest review, which is the failure R1 
 `Review date:` (a from-memory review dated the same day as an honest one would retire, and reviews and revisions
 do land on one day).
 
+## D-030 — A recorded decision settles a failed run only by removing its line; a closed bug settles nothing *(decided 2026-10-07)*
+
+A failed run stops owing in two ways, as before: a later `Ran:` line says `pass` for the same check, or the fail
+line names the bug filed for it. Two things are added to D-024.
+
+- **A closed bug owes again.** A fail line that names a bug stops owing only while that bug is open. Once it is
+  closed with no later pass, the check owes again. `/close-milestone` reads the bug's state when it proves the
+  gate; `pnpm status` and `pnpm meta` read no network (D-022), so they keep reading a named bug as settled.
+- **An accepted failure has no line form.** When a check ran, failed, and the owner accepts the result, the
+  check line is removed in a pull request that records a decision saying why. That decision names the check and
+  links the failed run's comment, so the history lives in the decisions record. "No waiver" stands: it now
+  covers a check that will never run and one that ran, failed and was accepted.
+
+Why: on a real project's first milestone a fail line merged naming a bug that was already closed, with every
+check green, and an accepted failure had to name a bug to stop owing because the rule had no other shape for
+it. #257.
+
+Declined: a fail line that names the decision (` · decision PD-n`) and stops owing. It is a waiver with a
+citation: a check can prove the decision exists, not that it is about this check, and a line that reads `fail`
+and does not owe says less plainly what happened than a removal a reviewer sees in the diff.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,

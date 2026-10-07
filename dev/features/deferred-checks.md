@@ -78,7 +78,8 @@ A Contents item in a milestone doc may carry child lines, indented like any cont
   `Owed:` line with the `Ran:` line. On `pass` for every check the item owes, the item's issue is closed, once
   its sub-issues are.
 - A `fail` stays owed: the item needs attention until a `Ran:` line further down for the same check says
-  `pass`, or the fail line names the bug filed for it (` · bug #n`). The fail line stays as history.
+  `pass`, or the fail line names the bug filed for it (` · bug #n`). The fail line stays as history. A fail
+  line that names a closed bug owes again until a later pass (D-030, #257).
 - **A line that is nearly one is unreadable, and unreadable is owed.** An indented line that starts `owed:` or
   `ran:` in any letter case, with or without a `-` or `*` bullet before it, is a check line. Written any other
   way than the two above (the wrong case, a bullet, no ` — {environment}`, a date that is no calendar day, a
@@ -92,7 +93,9 @@ A Contents item in a milestone doc may carry child lines, indented like any cont
   or without a bullet), straight after an item, its continuation lines or its check lines, is a check line of
   that item and is unreadable: it is not accepted as written, and the finding says to indent it. After a blank
   line or any other column-0 line it is ignored, as every unindented line under Contents was before.
-- There is no waiver. A check that will never run is removed in a PR that records a decision saying why.
+- There is no waiver. A check that will never run, or one that ran, failed and whose result the owner accepts,
+  is removed in a PR that records a decision saying why; that decision names the check and links the failed
+  run's comment (D-030).
 
 ### 2. One reading — `ci/checks/lib/milestones.mjs`
 
@@ -124,7 +127,8 @@ kind, with a count.
   change the Owed line to Ran with that comment's link; #{issue} stays open until then (reopen it if it was
   closed)`
 - `Failed check: {id} item {n} (#{issue}) — {count} run(s) failed on {dates} (the Ran: lines under it in
-  docs/milestones/{file}): fix and run it again, or file the bug and name it on the line`
+  docs/milestones/{file}): fix and run it again, file the bug and name it on the line, or remove the line in a
+  pull request that records a decision accepting the result`
 - `Unreadable check line: {id} item {n} — {count} line(s) under it start owed: or ran: and cannot be read, so
   each counts as owed: write it as Owed: or Ran: (docs/milestones/{file})`
 
@@ -226,7 +230,9 @@ Since #241:
 `process/intake.md` → Milestone item gains one clause: a check line under an item is not part of the item's
 line, so the marker still ends it. `/close-milestone` → "Prove the gate" gains one sentence: every `Owed:`,
 unreadable or unresolved failed `Ran:` line under Contents is a gate line without evidence, and `pnpm meta`
-fails a closed milestone that still has one.
+fails a closed milestone that still has one. Since #257 it gains one more: for each failed `Ran:` line that
+names a bug and has no later pass, it reads `#n` with `gh issue view`, its state as data, and a closed `#n` is a
+gate line without evidence.
 
 ### What is reused
 
@@ -262,6 +268,9 @@ their own escapes; neither is read by every session.
   the comment exists or says what the line says; `pnpm status` and `pnpm meta` read no network (D-022).
   `/close-milestone` reads the linked comments when it proves the gate.
 - Under a bare ` · #13` marker, MS1 compares the URL's issue number, not its repository.
+- A bug named on a fail line is read by its shape. `pnpm status` and `pnpm meta` read no network (D-022), and
+  the work-order page does not look the bug up, so each reads a named bug as settled whether it is open or
+  closed; only `/close-milestone` reads its state. A fail line naming a closed bug can sit unreported until the close (D-030).
 - A PR that defers a check and forgets the `Owed:` line is caught only by review against this rule: whether
   Verification defers something is prose. The same holds for a PR that closes the item's issue while it owes:
   status keeps listing the check and the page keeps reading `owes …`, but nothing stops the close.
@@ -409,6 +418,10 @@ none
 
 ## Changes
 
+- 2026-10-07 · CHANGED · built (#257, D-030): a fail line naming a closed bug owes again, read by
+  `/close-milestone` with `gh issue view`; an accepted failure has no line form, its check line is removed in a
+  PR that records a decision naming the check and linking the failed run's comment; status's failed-check hint
+  names that exit (§1, §3, §6, Known limitations). The reader is unchanged
 - 2026-10-06 · CHANGED · built (#241): the split writes the item's `Owed:` line; `/work-ticket` on a sub-issue
   stops when the item's deferred check has no line; an acceptance line is run or deferred, never only "not
   verified"; P1 reports a `Part of` body that closes nothing and says nothing stays open (§6, Known limitations)

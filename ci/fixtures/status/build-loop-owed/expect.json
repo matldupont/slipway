@@ -5,6 +5,6 @@
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
     "Owed check: M2 item 1 (#12) — 1 check(s) moved to after merge with no run recorded (the Owed: lines under it in docs/milestones/M2-booking.md): run each, post the result as a comment on #12, then change the Owed line to Ran with that comment's link; #12 stays open until then (reopen it if it was closed)",
-    "Failed check: M2 item 3 (#14) — 1 run(s) failed on 2026-03-09 (the Ran: lines under it in docs/milestones/M2-booking.md): fix and run it again, or file the bug and name it on the line"
+    "Failed check: M2 item 3 (#14) — 1 run(s) failed on 2026-03-09 (the Ran: lines under it in docs/milestones/M2-booking.md): fix and run it again, file the bug and name it on the line, or remove the line in a pull request that records a decision accepting the result"
   ]
 }

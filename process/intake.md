@@ -289,8 +289,10 @@ verified" line included.
   `Ran: {check} — {environment} {yyyy-mm-dd} pass|fail {comment URL}`, the URL being that comment's
   (`https://github.com/{owner}/{repo}/issues/{n}#issuecomment-{digits}`, `{n}` the issue in the item's marker).
   A `fail` stays owed until a `Ran:` line further down says `pass` for the same check, or the fail line names
-  the bug filed for it (` · bug #{n}`). There is no waiver: a check that will never run is removed in a PR
-  that records a decision saying why.
+  the bug filed for it (` · bug #{n}`). A fail line that names a closed bug owes again until a `Ran:` line
+  further down says `pass` for the same check. There is no waiver: a check that will never run, or one that
+  ran, failed and whose result the owner accepts, is removed in a PR that records a decision saying why; that
+  decision names the check and links the failed run's comment (D-030).
 - **The `Owed:` line names the whole check.** When the issue's Acceptance names a QA plan, the `Owed:` line names
   the whole plan (the file), never a selection from it, so a run that covers the line covers the plan.
 - **The comment has one row per journey of the check,** each `pass`, `fail` or `not run`. For a QA plan, the rows
