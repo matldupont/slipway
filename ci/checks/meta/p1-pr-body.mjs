@@ -69,8 +69,9 @@ const CLOSES = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s{1,5
 const LEAVES = new RegExp(`\\bleaves\\s{1,5}${REPO}#(\\d{1,20})\\s{1,5}open\\b`, 'gi');
 // The two readings of a body the open-unsaid rule takes (#241). What sets the rule off is read from everything but
 // closed comments, so no mark written as text (a `<!--` in inline code, a one-line fence, a leading `---` block) hides
-// a `Part of` that GitHub shows. What answers it is read from the prose alone, with indented code and inline code
-// taken out, so an example of a closing link, of the section or of the sentence answers nothing.
+// a `Part of` that GitHub shows. What answers it is read from the prose alone, with fenced and indented code, inline
+// code and comments taken out, so a plain example of a closing link, of the section or of the sentence answers
+// nothing. A body written to quote an answer in some other form can still pass.
 const stated = (md) => md.replace(/<!--[\s\S]*?-->/g, '');
 const written = (md) => prose(md).split(/\r?\n/).filter((l) => !/^(?: {4}|\t)/.test(l)).join('\n').replace(/`[^`\n]*`/g, ' ');
 
