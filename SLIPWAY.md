@@ -209,7 +209,7 @@ merged by judgment file by file:
 | FO1 | every `continue-on-error` is excused by an unexpired, structurally keyed exception | a fail-open step reports success while proving nothing; line-keyed exceptions break on ordinary edits |
 | P1 | the PR body names verification evidence and links its issue | PRs merge with no record of what was run, and same-day follow-ups repair them |
 | I1 | issue acceptance criteria are not bare adjectives; the seams question is answered | adjective criteria that any change satisfies; a conditional question silently skipped |
-| R1 | each review names the file it read and a version line still verbatim in it, and the PRD has one once it leaves draft | a review written from memory cites a version that no longer exists; a plan nobody argued with |
+| R1 | each review names the file it read and a version line still verbatim in it, or is named by the review that replaced it, and the PRD has one once it leaves draft | a review written from memory cites a version that no longer exists; a plan nobody argued with |
 | L1 | every lesson points at a home that exists, and none is past its review date | lessons enforced by nothing get re-learned |
 | MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro; each `summary:` matches its PRD milestones row; warns when a PRD estimate is more than the appetite holds | milestones left open after their work ends, new surfaces started before launch, and the same fact drifting between the PRD and a milestone |
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |

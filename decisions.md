@@ -321,6 +321,28 @@ than six they have to argue about. Which of a project's own surfaces count as da
 Declined: requiring a cold review on concurrency and data integrity as well (more second reviews, on a trigger
 nobody can test), and narrowing the reviewing-tier list to the four (a stronger reviewer there is cheap).
 
+## D-029 — A review of an older version retires when the review that replaces it names it *(decided 2026-10-06)*
+
+When a reviewed document is revised and reviewed again, the new review names each earlier review it replaces, one
+`Supersedes: docs/reviews/<file>` line each. R1 stops reporting `provenance/stale` for a review once a current
+review of the same document names it that way. Retirement is stated, never inferred: the earlier file stays as
+it was written, and a stale review nobody names is reported as before. A line in a review that is itself stale
+retires nothing. A line naming a file that is not a review, or a review of another document, retires nothing and
+is reported. There is no chain: with three versions, the newest review lists both earlier files. The review
+that retires another quotes a whole line of the document as its version line; a word found somewhere in it
+retires nothing (found in review of #274's pull request).
+
+Why: R1 read each review alone, so the review of an earlier version stayed red for as long as its file existed,
+and the only ways out were deleting it (its findings and their trackers leave the tree), keeping the old version
+line in the document, or a red default branch. Naming is the one signal a review written from memory cannot get
+by accident: nobody edits an existing review to add the line, and an honest review does not name a file it does
+not replace. #274.
+
+Declined: retiring every stale review whenever any current review of the document exists (a version line
+written from memory would pass beside an honest review, which is the failure R1 exists for), and retiring by
+`Review date:` (a from-memory review dated the same day as an honest one would retire, and reviews and revisions
+do land on one day).
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,

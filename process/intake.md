@@ -318,6 +318,8 @@ draft, `review/missing` until a review names the new version. That is expected, 
 - **Tell the owner,** in the skill's output, when R1 reports either finding for the PRD: "The PRD moved to
   Version {new}; the review of {old} no longer matches. Run `/review-doc docs/PRD.md` from a fresh session
   before this PRD is relied on." With no review of the PRD on file, R1 says nothing and neither does the skill.
+- **How it ends.** The earlier review stays in `docs/reviews/` as it was written, and R1 stops reporting it once
+  the fresh review of the new version names it in a `Supersedes:` line.
 
 ## Decisions
 
