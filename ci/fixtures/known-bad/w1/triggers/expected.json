@@ -1,5 +1,5 @@
 {
-  "_note": "Only a workflow that runs on a pull request or a push to a branch counts (#239). Covered: test:pr (ci.yml, pull_request and push to main); test:deploy (deploy.yml, a push to main with a paths-ignore filter: the event decides, path filters are not read, and a later tightening has to remove this case on purpose). Traps, each run by one workflow that does not count: test:release (a push to tags only), test:nightly (schedule), test:manual (workflow_dispatch), test:reusable (workflow_call), test:target (pull_request_target), test:closed (pull_request with types: [closed], none of opened, synchronize, reopened), test:odd (odd.yml's on: is a flow mapping W1 does not read, so it counts for nothing, and the finding names the file). A reusable workflow counts through a caller that counts, by local path, one level. Covered: test:called (called.yml, which ci.yml calls). Traps: test:reusable (nobody calls reusable.yml); test:tagged (only release.yml, on tags, calls tagged.yml); test:nested (nested.yml is called by called.yml, a second level); test:dynamic (ci.yml's call to it holds an expression, so it is not followed, and the finding names ci.yml). deploy.yml also holds `workflow_dispatch: {}`, an event with an empty mapping, which is read as the bare event.",
+  "_note": "Only a workflow that runs on a pull request or a push to a branch counts (#239). Covered: test:pr (ci.yml, pull_request and push to main); test:deploy (deploy.yml, a push to main with a paths-ignore filter: the event decides, path filters are not read, and a later tightening has to remove this case on purpose). Traps, each run by one workflow that does not count: test:release (a push to tags only), test:nightly (schedule), test:manual (workflow_dispatch), test:reusable (workflow_call), test:target (pull_request_target), test:closed (pull_request with types: [closed], none of opened, synchronize, reopened), test:odd (odd.yml's on: is a flow mapping W1 does not read, so it counts for nothing, and the finding names the file). A reusable workflow counts through a caller that counts, by local path, one level. Covered: test:called (called.yml, which ci.yml calls). Traps: test:reusable (nobody calls reusable.yml); test:tagged (only release.yml, on tags, calls tagged.yml); test:nested (nested.yml is called by called.yml, a second level); test:dynamic (ci.yml's call to it holds an expression, so it is not followed, and the finding names ci.yml). deploy.yml also holds `workflow_dispatch: {}`, an event with an empty mapping, which is read as the bare event. Each workflow W1 could not read, and each call it did not follow, is also a warning naming the file, whether or not a gate is left uncovered.",
   "exit": 1,
   "findings": [
     "fixture-triggers:test:release",
@@ -17,5 +17,10 @@
     "fixture-triggers:test:odd": "W1 could not read what starts .github/workflows/odd.yml",
     "fixture-triggers:test:dynamic": "W1 did not follow a call in .github/workflows/ci.yml (a uses: holds an expression)"
   },
-  "exempted": []
+  "exempted": [],
+  "warnings": [
+    "unread:.github/workflows/odd.yml",
+    "unfollowed:.github/workflows/ci.yml",
+    "unfollowed:.github/workflows/called.yml"
+  ]
 }

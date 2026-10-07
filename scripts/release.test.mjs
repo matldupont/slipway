@@ -129,9 +129,9 @@ function ciProblems(text) {
   const lines = meta.split('\n').filter((l) => !/^\s*#/.test(l));
   const at = (re) => lines.findIndex((l) => re.test(l));
   // No `pnpm meta` step at all is W1's finding, not one of these.
-  const gate = at(/^ {6}- run: pnpm meta(\s|$)/);
+  const gate = at(/^ {6,8}(?:- )?run: pnpm meta(\s|$)/);
   const n1 = at(/^ {8}run: node ci\/checks\/meta\/n1-node-modules\.mjs \.\s*$/);
-  if (gate >= 0 && !/^ {6}- run: pnpm meta\s*$/.test(lines[gate])) problems.push('ci.yml\'s meta job runs pnpm meta with something after it');
+  if (gate >= 0 && !/run: pnpm meta\s*$/.test(lines[gate])) problems.push('ci.yml\'s meta job runs pnpm meta with something after it');
   if (n1 < 0 || (gate >= 0 && n1 > gate)) problems.push('ci.yml\'s meta job does not run N1 before pnpm meta');
   if (/^ {4}(if|continue-on-error)\s*:/m.test(meta)) problems.push('ci.yml\'s meta job is conditional');
   return problems;
@@ -146,6 +146,7 @@ test('ci.yml keeps what W1 does not read: both triggers, main, N1 before pnpm me
     assert.ok(found.some((p) => expected.test(p)), `${JSON.stringify(to)} went unnoticed: ${JSON.stringify(found)}`);
   };
   broken('      - run: pnpm meta\n', '      - run: pnpm meta || true\n', /with something after it/);
+  broken('      - run: pnpm meta\n', '      - name: gate\n        run: pnpm meta || true\n', /with something after it/);
   broken('        run: node ci/checks/meta/n1-node-modules.mjs .\n      - run: pnpm meta\n', '        run: echo skipped\n      - run: pnpm meta\n', /does not run N1 before/);
   broken('        run: node ci/checks/meta/n1-node-modules.mjs .\n      - run: pnpm meta\n', '        run: echo skipped\n', /does not run N1 before/);
   broken('  pull_request:\n', '', /does not run on pull requests/);

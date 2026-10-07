@@ -28,13 +28,59 @@ const flowList = (v) => {
   if (!/^\[.*\]$/.test(v)) return null;
   const items = v.slice(1, -1).split(',').map((e) => e.trim());
   if (items.length === 1 && items[0] === '') return [];
-  return items.some((e) => e === '' || opaque(e) || /[[\]{}]/.test(e)) ? null : items.map(unquote);
+  // A quote left after unquoting is a comma inside a quoted item, split in two: not read.
+  return items.some((e) => e === '' || opaque(e) || /[[\]{}]/.test(e) || /["']/.test(unquote(e))) ? null : items.map(unquote);
 };
+
+// Each line of a workflow with whether it is structure: `clean` is false inside a block scalar (`run: |`), and
+// on a line that starts inside a quoted text or a bracketed list or mapping that began on an earlier line. Such a
+// line can hold `on: push` or `uses: …` as plain text, at any column, and none of it is a key (#239 review).
+// A quote opens only where YAML starts a scalar: after white space, `[`, `{` or `,`.
+const BLOCK_SCALAR = /^(\s*)((?:-\s+)*)(?:\S.*:\s+)?(?:[!&]\S*\s+)*[|>][+-]?[0-9]?[+-]?$/;
+function structure(text) {
+  const out = [];
+  let quote = null;
+  let depth = 0;
+  let block = -1;
+  for (const line of String(text).split(/\r?\n/)) {
+    if (block >= 0) {
+      if (!line.trim() || indentOf(line) > block) { out.push({ line, clean: false }); continue; }
+      block = -1;
+    }
+    const clean = quote === null && depth === 0;
+    out.push({ line, clean });
+    let end = line.length;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (quote === '"') { if (c === '\\') i++; else if (c === '"') quote = null; continue; }
+      if (quote === "'") { if (c !== "'") continue; if (line[i + 1] === "'") i++; else quote = null; continue; }
+      const prev = i === 0 ? ' ' : line[i - 1];
+      if (c === '#' && /\s/.test(prev)) { end = i; break; }
+      if ((c === '"' || c === "'") && /[\s[{,]/.test(prev)) quote = c;
+      else if (c === '[' || c === '{') depth++;
+      else if ((c === ']' || c === '}') && depth > 0) depth--;
+    }
+    if (clean && quote === null && depth === 0) {
+      const m = line.slice(0, end).trimEnd().match(BLOCK_SCALAR);
+      if (m && (m[2] || /:\s/.test(line))) block = m[1].length + m[2].length;
+    }
+  }
+  return out;
+}
+const TOP_KEY = /^(?:[A-Za-z_][\w-]*|"[\w-]+"|'[\w-]+')\s*:(?:\s|$)/;
 
 export function workflowTrigger(text) {
   const unread = (reason) => ({ counts: false, issues: false, called: false, unread: reason });
-  const lines = String(text).split(/\r?\n/);
-  const tops = lines.flatMap((l, i) => (/^(?:on|"on"|'on')\s*:(?:\s|$)/.test(l) ? [i] : []));
+  // YAML also ends a line at a bare carriage return, and some readers at these separators: a reader that
+  // splits on \n alone would take the next line for the end of a comment.
+  if (/\r(?!\n)|[\u0085\u2028\u2029]/.test(String(text))) return unread('it holds a line break W1 does not read');
+  const rows = structure(text);
+  const lines = rows.map((r) => r.line);
+  const isOn = (l) => /^(?:on|"on"|'on')\s*:(?:\s|$)/.test(l);
+  if (rows.some((r) => !r.clean && isOn(r.line))) return unread('an on: line sits inside a quoted or bracketed text');
+  // One document, a block mapping of plain keys: a key written any other way could be a second `on`.
+  if (rows.some((r) => r.clean && /^[^\s#]/.test(r.line) && !TOP_KEY.test(r.line))) return unread('a top-level line is not a plain key');
+  const tops = lines.flatMap((l, i) => (rows[i].clean && isOn(l) ? [i] : []));
   if (tops.length === 0) return unread('it has no top-level on:');
   if (tops.length > 1) return unread('it has more than one top-level on:');
   const inline = stripShellComment(lines[tops[0]].replace(/^[^:]*:/, '')).trim();
@@ -50,13 +96,15 @@ export function workflowTrigger(text) {
     for (let i = tops[0] + 1; i < lines.length; i++) {
       const l = stripShellComment(lines[i]);
       if (!l.trim()) continue;
-      if (indentOf(l) === 0) break;
+      if (rows[i].clean && indentOf(l) === 0) break;
+      if (!rows[i].clean) return unread('its on: block holds a text that runs over a line');
       if (/^\s*\t/.test(l)) return unread('its on: block is indented with a tab');
       block.push(l);
     }
     if (!block.length) return unread('its on: is empty');
     const eventIndent = indentOf(block[0]);
     let keys = null; // the current event's keys, when W1 reads them
+    let event = null;
     let keyIndent = -1;
     let list = null;
     for (const l of block) {
@@ -71,6 +119,7 @@ export function workflowTrigger(text) {
         if (!name || !EVENT.test(name) || events.has(name) || (item && events.size && keys) || (key && events.size && !keys)) return unread('its on: block holds a line that is not an event');
         if (value && !/^(null|~|\{\s*\})$/.test(value)) return unread('an event of its on: block has an inline value');
         events.set(name, new Map());
+        event = name;
         keys = key ? events.get(name) : null;
         keyIndent = -1;
         list = null;
@@ -78,7 +127,6 @@ export function workflowTrigger(text) {
       }
       if (!keys) return unread('its on: block is not indented evenly');
       // Only these three decide anything, so only their keys are read: a cron line is never parsed.
-      const event = [...events.keys()].at(-1);
       if (!READ.has(event)) continue;
       if (keyIndent < 0) keyIndent = indent;
       if (indent === keyIndent) {
@@ -100,8 +148,15 @@ export function workflowTrigger(text) {
   for (const [event, keys] of events) {
     if (!READ.has(event)) continue;
     for (const k of ['branches', 'branches-ignore', 'tags', 'tags-ignore', 'types']) {
-      if (keys.has(k) && keys.get(k).length === 0) return unread(`${k} under ${event} is empty`);
+      if (!keys.has(k)) continue;
+      const list = keys.get(k);
+      if (list.length === 0) return unread(`${k} under ${event} is empty`);
+      if (list.some((e) => /^(|null|~)$/.test(e.trim()))) return unread(`${k} under ${event} holds an empty entry`);
     }
+    // A branch filter that can match no branch: every pattern refuses, or every branch is ignored. What a
+    // pattern matches is otherwise not read (`branches: [no-such-branch]` counts), as a job's `if:` is not.
+    if (keys.get('branches')?.every((e) => e.startsWith('!'))) return unread(`branches under ${event} only refuses`);
+    if (keys.get('branches-ignore')?.includes('**')) return unread(`branches-ignore under ${event} ignores every branch`);
   }
   const pr = events.get('pull_request');
   const push = events.get('push');
@@ -132,27 +187,40 @@ function runLines(rel, text) {
       }
       i = j - 1;
     } else if (value) {
-      out.push({ where: `${rel}:${i + 1}`, cmd: value.replace(/^(['"])(.*)\1$/, '$2') });
+      out.push({ where: `${rel}:${i + 1}`, cmd: unquote(value) });
     }
   }
   return out;
 }
 
-// The workflows one workflow calls: `uses: ./.github/workflows/<file>` lines, a job's way to run a reusable
-// workflow of the same repository. `local` holds those file names. `unfollowed` holds a fixed reason for each
-// `uses:` that names a workflow any other way (another repository's, an expression): W1 cannot see what it runs.
+// The workflows one workflow calls: a job's own `uses: ./.github/workflows/<file>`, the way to run a reusable
+// workflow of the same repository. Only a key of a job counts: a step's `uses:` names an action, and the same
+// words under `with:`, in a `run:` block or in a quoted text call nothing. `local` holds the file names.
+// `unfollowed` holds a fixed reason for each job that names a workflow any other way (another repository's, an
+// expression): W1 cannot see what it runs.
 const LOCAL_WORKFLOW = /^\.\/\.github\/workflows\/([\w.-]+\.ya?ml)$/;
 function calledWorkflows(text) {
   const local = new Set();
   const unfollowed = new Set();
-  for (const l of text.split(/\r?\n/)) {
-    const m = l.match(/^\s*(?:-\s+)?uses\s*:\s*(.*)$/);
+  let inJobs = false;
+  let jobIndent = -1;
+  let keyIndent = -1;
+  for (const row of structure(text)) {
+    const l = row.clean ? stripShellComment(row.line) : '';
+    if (!l.trim()) continue;
+    const indent = indentOf(l);
+    if (indent === 0) { inJobs = /^jobs\s*:$/.test(l); jobIndent = -1; continue; }
+    if (!inJobs) continue;
+    if (jobIndent < 0) jobIndent = indent;
+    if (indent <= jobIndent) { keyIndent = -1; continue; }
+    if (keyIndent < 0) keyIndent = indent;
+    const m = indent === keyIndent ? l.match(/^\s+uses\s*:\s*(.*)$/) : null;
     if (!m) continue;
-    const value = stripShellComment(m[1]).trim().replace(/^(['"])(.*)\1$/, '$2');
+    const value = unquote(m[1].trim());
     const file = value.match(LOCAL_WORKFLOW);
     if (file) local.add(file[1]);
     else if (/\$\{\{/.test(value)) unfollowed.add('a uses: holds an expression');
-    else if (/\.github\/workflows\//.test(value)) unfollowed.add('a uses: names a workflow outside this repository, or one W1 cannot read');
+    else unfollowed.add('a uses: names a workflow outside this repository, or one W1 cannot read');
   }
   return { local, unfollowed: [...unfollowed] };
 }
@@ -179,7 +247,10 @@ export function workflowCommands(root) {
     const calls = calledWorkflows(w.text);
     for (const reason of calls.unfollowed) out.unfollowed.push({ file: w.rel, reason });
     for (const f of calls.local) {
-      if (read.get(f)?.trigger.called) called.add(f);
+      if (read.get(f)?.trigger.called) {
+        called.add(f);
+        if (!read.get(f).trigger.counts && calledWorkflows(read.get(f).text).local.size) out.unfollowed.push({ file: read.get(f).rel, reason: 'it is called itself, and what it calls in turn is not followed' });
+      }
       else out.unfollowed.push({ file: w.rel, reason: 'a uses: names a workflow file that is missing, or that is not a reusable workflow W1 can read' });
     }
   }

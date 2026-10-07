@@ -17,8 +17,9 @@
 // Only a workflow that runs on a pull request, or on a push to a branch, counts (lib/workflows.mjs
 // workflowTrigger). A gate that only a tag, a schedule, a manual dispatch or a reusable workflow runs never ran
 // on the change being merged: a release workflow that runs every check on a version tag would otherwise cover
-// for a pull-request workflow that runs none (#239). Path filters are not read. A workflow whose `on:` W1
-// cannot read counts for nothing, and each finding names it.
+// for a pull-request workflow that runs none (#239). Path filters are not read, and neither is what a branch
+// pattern matches, beyond one that can match no branch. A workflow whose `on:` W1 cannot read counts for
+// nothing: a warning names it, and so does each finding.
 //
 // A reusable workflow (`workflow_call`) counts when a workflow that counts calls it with
 // `uses: ./.github/workflows/<file>`: its steps run when its caller does. Not followed, and named in each
@@ -169,5 +170,10 @@ process.exit(
     scanned: gated + checkFiles.length + tests.length,
     unit: `${UNIT} (${commands.length} workflow commands read from ${workflows.counted} of ${workflows.files} workflows${workflows.issueOnly ? `, ${workflows.issueOnly} more read for check files only` : ''}${workflows.unread.length ? `, ${workflows.unread.length} unread` : ''}${workflows.unfollowed.length ? `, ${workflows.unfollowed.length} calls not followed` : ''})`,
     findings,
+    // Named whether or not a gate is left uncovered: a workflow W1 could not read, or a call it did not follow.
+    warnings: [
+      ...workflows.unread.map((u) => ({ where: `unread:${u.file}`, detail: `W1 could not read what starts it (${u.reason}), so nothing it runs counts` })),
+      ...workflows.unfollowed.map((u) => ({ where: `unfollowed:${u.file}`, detail: `W1 did not follow a call (${u.reason}), so what that runs does not count` })),
+    ],
   })
 );

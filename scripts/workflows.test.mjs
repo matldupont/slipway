@@ -31,6 +31,7 @@ test('a pull request, or a push to a branch, counts', () => {
   counts('on:\n  pull_request:\n  push:\n    branches: [main]');
   counts('on:\n  push:\n    branches:\n      - main\n      - "release/**"\n    tags: [v1]');
   counts('on:\n  push:\n    branches-ignore: [wip]');
+  counts('on:\n  push:\n    tags: [v1]\n    branches-ignore: [wip]');
   counts('on:\n  workflow_dispatch:\n    inputs:\n      why: { type: string }\n  pull_request: null');
   counts('on:\n  pull_request:\n    types: [opened, edited, synchronize, reopened]');
   counts('on:\n  pull_request:\n    types:\n      - labeled\n      - reopened');
@@ -101,6 +102,12 @@ test('a shape that is not read counts for nothing, and the reason holds none of 
   unread('on:\n  push:\n    branches: []', /branches under push is empty/);
   unread('on:\n  push:\n    branches:\n    tags: [v1]', /branches under push is empty/);
   unread('on:\n  pull_request:\n    types: []', /types under pull_request is empty/);
+  unread("on:\n  push:\n    tags: [v1]\n    branches: ['']", /holds an empty entry/);
+  unread('on:\n  push:\n    tags: [v1]\n    branches: null', /holds an empty entry/);
+  unread('on:\n  push:\n    tags: [v1]\n    branches: ~', /holds an empty entry/);
+  unread("on:\n  push:\n    tags: [v1]\n    branches: ['!**']", /only refuses/);
+  unread("on:\n  push:\n    tags: ['v*']\n    branches-ignore: ['**']", /ignores every branch/);
+  unread('on:\n  pull_request:\n    types: ["closed,opened,x"]', /not a list/);
   for (const on of ['on: { secret-name: {} }', 'on:\n  push:\n    branches: *secret']) {
     assert.doesNotMatch(trigger(on).unread, /secret/);
   }
@@ -157,9 +164,65 @@ test('a reusable workflow counts when a workflow that counts calls it by local p
     const read = workflowCommands(root);
     assert.deepEqual(read.commands.map((c) => c.cmd), ['pnpm test']);
     assert.deepEqual([read.files, read.counted], [8, 2]);
-    assert.deepEqual(read.unfollowed.map((u) => u.file), Array(4).fill('.github/workflows/ci.yml'));
-    assert.deepEqual(read.unfollowed.map((u) => u.reason.split(/[,:] /)[1]), ['holds an expression', 'names a workflow outside this repository', 'names a workflow file that is missing', 'names a workflow file that is missing']);
+    assert.deepEqual(read.unfollowed.map((u) => u.file.split('/').at(-1)), ['ci.yml', 'ci.yml', 'called.yml', 'ci.yml', 'ci.yml']);
+    assert.deepEqual(read.unfollowed.map((u) => u.reason.split(/[,:] /)[1]), ['holds an expression', 'names a workflow outside this repository', 'and what it calls in turn is not followed', 'names a workflow file that is missing', 'names a workflow file that is missing']);
     for (const u of read.unfollowed) assert.doesNotMatch(u.reason, /octo|vars|missing\.yml|manual\.yml/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// Review round 1 of #239's pull request: text that only looks like a trigger or a call.
+test('an on: line that is text inside a quoted scalar, a bracket or another document is not the trigger', () => {
+  const raw = (text, reason) => {
+    const t = workflowTrigger(text);
+    assert.deepEqual([t.counts, t.issues, t.called], [false, false, false], text);
+    assert.match(t.unread ?? '', reason, text);
+  };
+  raw('on:\n  pull_request: # note\r    types: [closed]\njobs: {}\n', /line break W1 does not read/);
+  raw('on:\n  push: # note\u2028    tags: [v1]\n', /line break W1 does not read/);
+  raw('on:\n  push: # note\u0085    tags: [v1]\n', /line break W1 does not read/);
+  raw('{ name: "a\non: push\nz", "on": workflow_dispatch, jobs: {} }\n', /inside a quoted or bracketed text/);
+  raw('name: "a\non: push\nz"\n"\\x6fn": workflow_dispatch\njobs: {}\n', /inside a quoted or bracketed text/);
+  raw("name: 'it''s\non: push\nz'\njobs: {}\n", /inside a quoted or bracketed text/);
+  raw('env:\n  A: "x\non: push\n  z"\njobs: {}\n', /inside a quoted or bracketed text/);
+  raw('env:\n  A: |\n    "\n  B: "x\non: push\n  z"\n', /inside a quoted or bracketed text/);
+  raw('env:\n  A: [a,\non: push\n  ]\n', /inside a quoted or bracketed text/);
+  raw('on:\n  push:\n    tags: "v*\n    branches: x"\n', /runs over a line/);
+  raw('on:\n  workflow_dispatch:\n    inputs:\n      a:\n        default: "x\n  pull_request:\n  zzz:\n        "\n', /runs over a line/);
+  raw('name: x\n---\non: push\n', /not a plain key/);
+  raw('on: push\n"\\x6fn": workflow_dispatch\n', /not a plain key/);
+  raw('on: push\n? on\n: workflow_dispatch\n', /not a plain key/);
+  // What a real workflow holds, and none of it hides anything: an apostrophe in plain text, a quote or a bracket
+  // inside a run block, a list over several lines.
+  counts("name: Don't panic # it's fine\non: push\njobs:\n  a:\n    steps:\n      - run: |\n          echo \"[\n      - run: echo it's");
+  counts('name: a\nenv:\n  M: [\n    a,\n  ]\non: [pull_request]');
+  counts('env:\n  NOTE: >-\n    "on: nothing\n\n    more\non: pull_request');
+});
+
+test('only a job\'s own uses: calls a workflow: not a step, a with: value, a run block or a quoted text', () => {
+  const root = mkdtempSync(join(tmpdir(), 'slipway-commands-'));
+  try {
+    const dir = join(root, '.github', 'workflows');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'called.yml'), 'on:\n  workflow_call:\njobs:\n  a:\n    steps:\n      - run: pnpm verify\n');
+    const USES = 'uses: ./.github/workflows/called.yml';
+    const ci = (body) => writeFileSync(join(dir, 'ci.yml'), `on: pull_request\n${body}`);
+    const followed = () => workflowCommands(root).commands.map((c) => c.cmd);
+    for (const body of [
+      `jobs:\n  a:\n    env:\n      NOTE: |\n        ${USES}\n    steps:\n      - run: pnpm test\n`,
+      `jobs:\n  a:\n    steps:\n      - ${USES}\n      - run: pnpm test\n`,
+      `jobs:\n  a:\n    steps:\n      - uses: some/action@v1\n        with:\n          ${USES}\n      - run: pnpm test\n`,
+      `jobs:\n  a:\n    env:\n      ${USES}\n    steps:\n      - run: pnpm test\n`,
+      `jobs:\n  a:\n    name: "x\n    ${USES}\n      y"\n    steps:\n      - run: pnpm test\n`,
+      `env:\n  ${USES}\njobs:\n  a:\n    steps:\n      - run: pnpm test\n`,
+      `${USES}\njobs:\n  a:\n    steps:\n      - run: pnpm test\n`,
+    ]) {
+      ci(body);
+      assert.deepEqual(followed(), ['pnpm test'], body);
+    }
+    ci(`jobs:\n  a:\n    steps:\n      - run: pnpm test\n  b:\n    name: b\n    ${USES}   # the call\n`);
+    assert.deepEqual(followed(), ['pnpm verify', 'pnpm test']);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

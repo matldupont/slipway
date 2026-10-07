@@ -1,8 +1,7 @@
 // What a command line invokes. Which workflows' lines are read is lib/workflows.mjs.
 
-// Every shell command line a workflow runs: inline `run:` values and the lines of
-// `run: |` / `run: >` block scalars. A shell comment — a whole line or a trailing unquoted
-// ` #` onward — is dropped: a gate that only appears in a comment is not an invocation.
+// A line without its shell comment — a whole line or a trailing unquoted ` #` onward: a gate that only
+// appears in a comment is not an invocation.
 export function stripShellComment(line) {
   let quote = null;
   for (let i = 0; i < line.length; i++) {
