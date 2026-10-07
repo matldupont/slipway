@@ -102,7 +102,7 @@ paste the output into the bootstrap PR:
 2. A direct push to `main` is rejected (or, under the D-001 fallback, turns CI red).
 3. A PR whose test fails cannot be merged; a PR behind `main` cannot merge until updated.
 4. A PR with no evidence under `## Verification` turns `pr-body` red.
-5. Adding `"test:e2e": "…"` to a package, with no workflow running it, turns W1 red.
+5. Adding `"test:e2e": "…"` to a package that has no `test:e2e` script yet, with no workflow running it, turns W1 red. A package that already has one, run by a workflow, shows W1 nothing new.
 6. `continue-on-error: true` on any step turns FO1 red.
 7. An issue opened with `gh issue create` and free prose gets the `needs-shape` label and a comment listing what is
    missing; editing it until it passes removes both.
