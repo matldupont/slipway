@@ -328,7 +328,9 @@ When a reviewed document is revised and reviewed again, the new review names eac
 review of the same document names it that way. Retirement is stated, never inferred: the earlier file stays as
 it was written, and a stale review nobody names is reported as before. A line in a review that is itself stale
 retires nothing. A line naming a file that is not a review, or a review of another document, retires nothing and
-is reported. There is no chain: with three versions, the newest review lists both earlier files.
+is reported. There is no chain: with three versions, the newest review lists both earlier files. The review
+that retires another quotes a whole line of the document as its version line; a word found somewhere in it
+retires nothing (found in review of #274's pull request).
 
 Why: R1 read each review alone, so the review of an earlier version stayed red for as long as its file existed,
 and the only ways out were deleting it (its findings and their trackers leave the tree), keeping the old version
