@@ -368,7 +368,7 @@ and 4 were not fully scored.
   needed, the rework and its cause, the code-health numbers, and one lesson for the project. The feature docs
   the milestone shipped were marked shipped, each with a `Verified against:` line.
 - What `/close-milestone` found in slipway: with no GitHub milestone, the close listed the project's open issues and asked
-  which belonged, instead of reporting nothing left (#258, fixed in #264, found when the close first ran on a real project). No check was left
+  which belonged, instead of reporting nothing left (#258, found and fixed in #264 on 2026-10-06, before the close ran; the close was its first real use). No check was left
   owed at the close, because every deferred run had been recorded or named first (the owner's account,
   2026-10-06; the mechanism is #176, #217, #241, #254). A
   feature doc is marked shipped whole even when one section still owes a check (#284, open).
