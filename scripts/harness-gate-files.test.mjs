@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
+import { bashAsks } from './ask-rules.mjs';
 import { SETTINGS, HOOKS, TRUST, REFUSE, LOAD, commands, origin, work, git, put, stub, marks, reset, run, clean, commitAll } from './harness-fixture.mjs';
 
 test('every hook in settings.json loads the guard from the session\'s pin; only SessionStart may read origin/HEAD, and none runs a working-tree script', () => {
@@ -254,4 +255,40 @@ test('an untracked symlink at a gate folder stops the hooks: .gitignore\'s node_
   commitAll('untracked-link', 'ignore node_modules');
   symlinkSync('vendor', join(work, 'node_modules'));
   blocked('node_modules');
+});
+
+// #279: two things the GitHub CLI does beyond the repository ask first: deleting a repository, and changing what the
+// CLI's token may do. Every command below is inert text matched against the shipped rules; none is run.
+const ASKS = bashAsks(SETTINGS);
+const GH = ASKS.filter((a) => a.rule.includes('gh '));
+const asked = (cmds) => { for (const c of cmds) assert.ok(ASKS.some((a) => a.test(c)), `no ask rule matches: ${c}`); };
+
+test('the matcher reads a Bash rule as Claude Code does: * is anything, a trailing :* a prefix, every other character itself', () => {
+  const [star, prefix, dot] = bashAsks({ permissions: { ask: ['Bash(*a.b*)', 'Bash(git push:*)', 'Bash(x.y)', 'Edit(**/a.b)'] } });
+  assert.deepEqual([star.test('1 a.b 2'), star.test('a.b'), star.test('a\nb a.b'), star.test('axb')], [true, true, true, false]);
+  assert.deepEqual([prefix.test('git push'), prefix.test('git push origin main'), prefix.test('cd x && git push')], [true, true, false]);
+  assert.deepEqual([dot.test('x.y'), dot.test('xzy'), dot.test('x.y z')], [true, false, false]);
+  assert.deepEqual(bashAsks({}), []);
+});
+
+test('the harness asks before gh repo delete, with any arguments, behind a variable or after another command', () => {
+  asked(['gh repo delete', 'gh repo delete owner/name', 'gh repo delete owner/name --yes', 'GH_TOKEN=x gh repo delete owner/name', 'cd /tmp && gh repo delete owner/name --yes']);
+});
+
+test('the harness asks before gh api with a DELETE method, in each spelling of the flag', () => {
+  asked(['gh api -X DELETE repos/owner/name', 'gh api repos/owner/name -X DELETE', 'gh api -XDELETE repos/owner/name', 'gh api --method DELETE repos/owner/name',
+    'gh api repos/owner/name --method=DELETE', 'gh api -X delete repos/owner/name', 'gh api -Xdelete repos/owner/name', 'gh api --method delete repos/owner/name',
+    'gh api repos/owner/name --method=delete', 'cd /tmp && gh api -X DELETE repos/owner/name/git/refs/heads/x']);
+});
+
+test('the harness asks before gh auth refresh and gh auth login, with any arguments', () => {
+  asked(['gh auth refresh', 'gh auth refresh -s delete_repo', 'gh auth refresh -h github.com -s admin:org', 'gh auth login', 'gh auth login --scopes delete_repo', 'gh auth login --with-token < /dev/null']);
+});
+
+test('none of the gh rules matches ordinary work: a view, a list, a pull request, an API read or write, the auth status', () => {
+  assert.equal(GH.length, 11, 'the gh rules this test reads');
+  for (const c of ['gh repo view', 'gh repo view owner/name --json name', 'gh issue list', 'gh issue list --state open --search delete', 'gh pr create --title "x" --body-file pr.md',
+    'gh api repos/owner/name', 'gh api -X POST repos/owner/name/issues/1/sub_issues -F sub_issue_id=1', 'gh api repos/owner/name/issues --jq .[].title', 'gh auth status', 'gh repo list']) {
+    assert.deepEqual(GH.filter((a) => a.test(c)).map((a) => a.rule), [], `a gh rule asks before: ${c}`);
+  }
 });
