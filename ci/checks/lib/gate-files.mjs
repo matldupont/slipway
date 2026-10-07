@@ -27,14 +27,12 @@ const rules = (text, tool) =>
     return m ? [m[1]] : [];
   });
 
-// The globs the harness asks before editing a file at.
+// The globs the harness asks before editing a file at, or creating one: an `Edit(...)` rule covers every
+// file-writing tool (process/harness/README.md → Permissions, #307).
 export const gateGlobs = (settingsText) => rules(settingsText, 'Edit');
 
-// Globs with an `Edit(...)` ask and no `Write(...)` ask: creating that file would not prompt.
-export const missingWriteTwins = (settingsText) => {
-  const writes = new Set(rules(settingsText, 'Write'));
-  return gateGlobs(settingsText).filter((g) => !writes.has(g));
-};
+// `Write(...)` ask rules: Claude Code matches none of them and warns about each, so the harness carries none.
+export const writeRules = (settingsText) => rules(settingsText, 'Write');
 
 // `**` for any number of segments, `*` within one segment: all the harness globs use.
 export function globToRegExp(glob) {

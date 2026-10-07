@@ -658,12 +658,12 @@ test('process/slipway-rules.md → Gates names the owner-only files work-ticket 
   assert.match(read(DEFAULTS).replace(/\s+/g, ' '), /\(`process\/slipway-rules\.md` → Gates, Owner-only files\)/, 'decision-defaults must cite the Gates list');
 });
 
-test('the harness asks before an edit or a write to every path on the owner-only list', () => {
+test('the harness asks before an edit to every path on the owner-only list, which covers a write (#307)', () => {
   const { gates } = ownerOnly();
   const ask = JSON.parse(read('process/harness/settings.json')).permissions?.ask ?? [];
   const paths = [...gates].filter((t) => !/\s/.test(t));
   assert.ok(paths.includes('.claude/**') && paths.includes('process/slipway-rules.md'), 'the list must name .claude/** and process/slipway-rules.md');
-  for (const p of paths) for (const tool of ['Edit', 'Write']) assert.ok(ask.includes(`${tool}(**/${p})`), `process/harness/settings.json has no ${tool}(**/${p}) ask rule`);
+  for (const p of paths) assert.ok(ask.includes(`Edit(**/${p})`), `process/harness/settings.json has no Edit(**/${p}) ask rule`);
 });
 
 // #157 (F-07, dev/features/work-order.md): an issue's Links line may say which files its PR changes, so the work-order

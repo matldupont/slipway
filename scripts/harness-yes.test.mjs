@@ -215,9 +215,9 @@ test('the yes is exact over names, kinds and content: moved content, a deletion,
   }
 });
 
-test('the harness asks before an agent reaches the pin or the record: by edit, by a write, or by a command that names them', () => {
+test('the harness asks before an agent reaches the pin or the record: by an edit or a write (one Edit rule, #307), or by a command that names them', () => {
   const ask = SETTINGS.permissions.ask;
-  for (const r of ['Edit(~/.claude/slipway/**)', 'Write(~/.claude/slipway/**)', 'Bash(*.claude/slipway*)', 'Bash(*base-guard*)', 'Bash(*trust gates*)']) assert.ok(ask.includes(r), `no ask rule ${r}`);
+  for (const r of ['Edit(~/.claude/slipway/**)', 'Bash(*.claude/slipway*)', 'Bash(*base-guard*)', 'Bash(*trust gates*)']) assert.ok(ask.includes(r), `no ask rule ${r}`);
 });
 
 // #222 — a prompt the session arranges reaches UserPromptSubmit as a typed one does (#213), so the tool call that

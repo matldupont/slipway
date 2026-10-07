@@ -11,15 +11,31 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateMatcher, GUARD_GLOBS, missingWriteTwins, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
+import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateMatcher, GUARD_GLOBS, SETTINGS, writeRules } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const settings = readFileSync(SETTINGS, 'utf8');
 
-test('every gate path the harness asks before editing asks before creating', () => {
-  assert.ok(gateGlobs(settings).length > 10, 'no Edit rules read');
-  assert.deepEqual(missingWriteTwins(settings), []);
-  assert.deepEqual(missingWriteTwins(JSON.stringify({ permissions: { ask: ['Edit(**/a.json)', 'Edit(**/b.json)', 'Write(**/a.json)'] } })), ['**/b.json']);
+// #307: an `Edit(...)` rule asks before a file is edited or created; a `Write(...)` rule is matched by nothing
+// and prints a warning when the project opens. The list is pinned, so a rule taken out fails here.
+const ASK_PATHS = [
+  '**/biome.json', '**/biome.jsonc', '**/tsconfig*.json', '**/eslint.config.*', '**/.eslintrc*', '**/.prettierrc*',
+  '**/prettier.config.*', '**/vitest.config.*', '**/vite.config.*', '**/.oxlintrc*', '**/oxlint.config.*',
+  '**/.github/workflows/**', '**/ci/**', '**/process/harness/**', '**/.claude/settings*.json', '**/.slipway/**',
+  '**/.claude/**', '**/AGENT.md', '**/CLAUDE.md', '**/CLAUDE.local.md', '**/process/slipway-rules.md',
+  '**/process/intake.md', '**/dev/skill-configuration.md', '**/dev/ownership.yaml', '**/scripts/new-project.mjs',
+  '**/.npmrc', '**/.pnpmfile.cjs', '**/pnpm-workspace.yaml', '**/node_modules/**', '**/.envrc', '**/mise.toml',
+  '**/.mise.toml', '**/package.yaml', '**/package.json5', '**/mise.*.toml', '**/.mise.*.toml',
+  '**/.config/mise.toml', '**/.config/mise.*.toml', '**/.config/mise/**', '**/mise/*.toml', '**/.mise/*.toml',
+  '~/.claude/slipway/**',
+];
+
+test('every path the harness asks about has an Edit rule, and no Write rule is left to warn about', () => {
+  const globs = gateGlobs(settings);
+  for (const p of ASK_PATHS) assert.ok(globs.includes(p), `process/harness/settings.json has no Edit(${p}) ask rule`);
+  assert.deepEqual(globs.filter((g) => !ASK_PATHS.includes(g)), [], 'an Edit rule this list does not pin: add it to ASK_PATHS');
+  assert.deepEqual(writeRules(settings), [], 'a Write(...) ask rule is matched by nothing: the Edit(...) rule covers creating the file');
+  assert.deepEqual(writeRules(JSON.stringify({ permissions: { ask: ['Edit(**/a.json)', 'Write(**/a.json)'] } })), ['**/a.json']);
 });
 
 test('the matcher covers the harness paths, at any depth, and nothing else', () => {
