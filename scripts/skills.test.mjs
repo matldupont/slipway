@@ -344,6 +344,15 @@ test('/sync-slipway step 5 writes `## Gate changes` from the commands pr-body.ym
   assert.match(five, /base branch's rules/, 'the base-versus-target rules mismatch is stated');
 });
 
+// #285: `sync --apply` leaves the checkout it ran in on slipway/sync-<target>, and that is usually the owner's main
+// checkout, not the session's. Step 5 says so once the PR is open and hands the owner the command back; it never runs it.
+test('/sync-slipway step 5 tells the owner the apply\'s checkout is still on the sync branch and gives the command back, which the owner runs', () => {
+  const five = (section(read(skillPath('sync-slipway')), '5 — Verify and open the PR', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(five, /Once the PR is open, tell the owner that the checkout where the apply ran is still on `slipway\/sync-<target>`/, 'step 5 does not say where the checkout is left');
+  assert.ok(five.includes('`git switch <that branch>`'), 'step 5 does not give the command that returns the checkout');
+  assert.match(five, /The owner runs it in their own terminal; you do not run it/, 'the owner runs it, the session does not');
+});
+
 // Shipped text still speaking of the skills as someone's own install, or of a review skill slipway does not ship.
 // Matched across line breaks, since the docs are hard-wrapped. History (decisions, feature docs, lessons, filled
 // reviews) keeps its wording.
