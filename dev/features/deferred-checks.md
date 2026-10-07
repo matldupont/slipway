@@ -270,7 +270,8 @@ their own escapes; neither is read by every session.
 - Under a bare ` · #13` marker, MS1 compares the URL's issue number, not its repository.
 - A bug named on a fail line is read by its shape. `pnpm status` and `pnpm meta` read no network (D-022), and
   the work-order page does not look the bug up, so each reads a named bug as settled whether it is open or
-  closed; only `/close-milestone` reads its state. A fail line naming a closed bug can sit unreported until the close (D-030).
+  closed; only `/close-milestone` reads its state. A fail line naming a closed bug can sit unreported until
+  the close (D-030).
 - A PR that defers a check and forgets the `Owed:` line is caught only by review against this rule: whether
   Verification defers something is prose. The same holds for a PR that closes the item's issue while it owes:
   status keeps listing the check and the page keeps reading `owes …`, but nothing stops the close.
