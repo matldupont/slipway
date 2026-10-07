@@ -257,8 +257,8 @@ verified" line included.
 - **The draft carries the section and the `Owed:` line from the start,** as it does `## Gate changes`: both are
   reviewed with the rest, and nothing is committed after the last reviewed head.
 - **While an item owes, no PR closes the item's issue,** the last sub-issue's PR included. An item owes while
-  it has an `Owed:` line, a check line that cannot be read, or a failed run with no later pass and no bug
-  named. The owner closes the item's issue, never a PR or an agent unasked, once a `Ran: … pass` line has
+  it has an `Owed:` line, a check line that cannot be read, or a failed run with no later pass and no open
+  bug named. The owner closes the item's issue, never a PR or an agent unasked, once a `Ran: … pass` line has
   landed for every check it owes and its sub-issues are closed.
 - **Splitting an item.** When `/log-feature` or `/log-followup` splits an item into sub-issues, a check that
   needs the deployed default branch goes in the item's issue Acceptance, never a sub-issue's.
@@ -289,8 +289,10 @@ verified" line included.
   `Ran: {check} — {environment} {yyyy-mm-dd} pass|fail {comment URL}`, the URL being that comment's
   (`https://github.com/{owner}/{repo}/issues/{n}#issuecomment-{digits}`, `{n}` the issue in the item's marker).
   A `fail` stays owed until a `Ran:` line further down says `pass` for the same check, or the fail line names
-  the bug filed for it (` · bug #{n}`). There is no waiver: a check that will never run is removed in a PR
-  that records a decision saying why.
+  the bug filed for it (` · bug #{n}`). A fail line that names a closed bug owes again until a `Ran:` line
+  further down says `pass` for the same check. There is no waiver: a check that will never run, or one that
+  ran, failed and whose result the owner accepts, is removed in a PR that records a decision saying why; that
+  decision names the check and links the failed run's comment (D-030).
 - **The `Owed:` line names the whole check.** When the issue's Acceptance names a QA plan, the `Owed:` line names
   the whole plan (the file), never a selection from it, so a run that covers the line covers the plan.
 - **The comment has one row per journey of the check,** each `pass`, `fail` or `not run`. For a QA plan, the rows
