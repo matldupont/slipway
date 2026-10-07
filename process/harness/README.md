@@ -27,10 +27,11 @@ in the command, so one behind an environment variable or after `&&` asks too:
 | rule | the failure it prevents |
 |---|---|
 | `gh repo delete` | a session cleaning up after itself deletes a repository; nothing on `main` backstops that |
-| `gh api` with `-X` or `--method` and `DELETE` or `delete`, with a space, `=` or nothing between (`-XDELETE`) | the same through the API, and any other delete it offers (a branch, a release, a secret) |
+| `gh api` with `-X` or `--method` and `DELETE` or `delete`, with a space, `=` or nothing between (`-XDELETE`) | the same through the API, and any other delete sent with that method (a branch, a release, a secret) |
 | `gh auth refresh`, `gh auth login` | either can add permissions to the CLI's token; every session on the machine then uses the wider token, and nothing narrows it afterwards |
 
-`gh repo view`, `gh issue list`, `gh pr create`, `gh auth status` and a `gh api` read do not ask. These rules are a
+`gh repo view`, `gh issue list`, `gh pr create`, `gh auth status` and a `gh api` read do not ask; a command that only
+names the words (a commit message, a pull request title) does. These rules are a
 prompt, not a boundary: what holds is a token that lacks the permission to delete. They do not cover a session under
 `bypassPermissions` (below); a command worded another way, the method in mixed case (`Delete`) among them; the CLI's
 other deleting commands (`gh release delete`, `gh secret delete`); narrowing a token once it was widened; or anything

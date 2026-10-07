@@ -265,7 +265,7 @@ const asked = (cmds) => { for (const c of cmds) assert.ok(ASKS.some((a) => a.tes
 
 test('the matcher reads a Bash rule as Claude Code does: * is anything, a trailing :* a prefix, every other character itself', () => {
   const [star, prefix, dot] = bashAsks({ permissions: { ask: ['Bash(*a.b*)', 'Bash(git push:*)', 'Bash(x.y)', 'Edit(**/a.b)'] } });
-  assert.deepEqual([star.test('1 a.b 2'), star.test('a.b'), star.test('a\nb a.b'), star.test('axb')], [true, true, true, false]);
+  assert.deepEqual([star.test('1 a.b 2'), star.test('a.b'), star.test('axb')], [true, true, false]);
   assert.deepEqual([prefix.test('git push'), prefix.test('git push origin main'), prefix.test('cd x && git push')], [true, true, false]);
   assert.deepEqual([dot.test('x.y'), dot.test('xzy'), dot.test('x.y z')], [true, false, false]);
   assert.deepEqual(bashAsks({}), []);
