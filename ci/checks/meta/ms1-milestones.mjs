@@ -28,7 +28,8 @@
 //                          Milestone and One line columns to compare it with
 //   checks/owed:<id>#<n>   a closed milestone whose Contents item n still owes a check it moved to
 //                          after merge: an `Owed:` line, or a `Ran: … fail` line with no bug named and
-//                          no later pass (F-09). A killed milestone is exempt: its work stopped
+//                          no later pass (F-09). A named bug is read by its shape, open or closed: no
+//                          check reads the network, and /close-milestone reads its state (D-030). A killed milestone is exempt: its work stopped
 //   checks/unreadable:<id>#<n>  in any milestone, a shaping one included: a check line under item n
 //                          that is neither `Owed: {check} — {environment}` nor `Ran: {check} —
 //                          {environment} {yyyy-mm-dd} pass|fail {URL of a comment on the item's
@@ -110,7 +111,7 @@ for (const { file: f, md, fm } of milestones) {
     }
     const owes = owing(item).filter((c) => c.kind !== 'unreadable');
     if (fm.status === 'closed' && owes.length) {
-      add(`checks/owed:${fm.id}#${item.n}`, `a closed milestone still owes ${owes.length} check(s) on item ${item.n}, the first "${excerpt(owes[0].check)}": run it and record the result as a Ran: line${owes[0].kind === 'ran' ? ', or name the bug filed for the failure on its line' : ''}, or reopen the milestone`);
+      add(`checks/owed:${fm.id}#${item.n}`, `a closed milestone still owes ${owes.length} check(s) on item ${item.n}, the first "${excerpt(owes[0].check)}": run it and record the result as a Ran: line${owes[0].kind === 'ran' ? ', or name the bug filed for the failure on its line, or, when the owner accepts the result, remove its line in a pull request that records that decision' : ''}, or reopen the milestone`);
     }
   }
   if (fm.status === 'shaping') continue;

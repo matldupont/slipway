@@ -257,8 +257,8 @@ verified" line included.
 - **The draft carries the section and the `Owed:` line from the start,** as it does `## Gate changes`: both are
   reviewed with the rest, and nothing is committed after the last reviewed head.
 - **While an item owes, no PR closes the item's issue,** the last sub-issue's PR included. An item owes while
-  it has an `Owed:` line, a check line that cannot be read, or a failed run with no later pass and no bug
-  named. The owner closes the item's issue, never a PR or an agent unasked, once a `Ran: … pass` line has
+  it has an `Owed:` line, a check line that cannot be read, or a failed run with no later pass and no open
+  bug named. The owner closes the item's issue, never a PR or an agent unasked, once a `Ran: … pass` line has
   landed for every check it owes and its sub-issues are closed.
 - **Splitting an item.** When `/log-feature` or `/log-followup` splits an item into sub-issues, a check that
   needs the deployed default branch goes in the item's issue Acceptance, never a sub-issue's.
