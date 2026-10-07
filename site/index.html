@@ -201,7 +201,7 @@
     <div class="prose">
       <p><strong>Updates are built in.</strong> A project started from slipway takes newer versions with <code>/sync-slipway</code>. It prints a plan before it touches anything, works on its own branch, merges instead of overwriting a file you changed, and never edits the documents that are yours: the PRD, the frame, your decisions.</p>
       <p><strong>Adopting an existing repo is a later bet, not under way.</strong> Adopting a project that didn’t start from slipway is filed, with its acceptance written, and not built. Help triaging an old backlog, which issues still hold against the code and which can go, is another later bet, ahead of it.</p>
-      <p><strong>Until then, pieces travel on their own.</strong> The checks are zero-dependency Node scripts. The lessons are plain Markdown files. The working rules for agents fit on one page. A check brings the helpers in <code>ci/lib/</code> it imports, and slipway records none used outside a project that started from it.</p>
+      <p><strong>Until then, pieces travel on their own.</strong> The checks are Node scripts that run with no install step. The lessons are plain Markdown files. The working rules for agents fit on one page. A check brings the helpers in <code>ci/checks/lib/</code> it imports, and slipway records none used outside a project that started from it.</p>
       <p><strong>What you’re running.</strong> Each release is staged by CI from a version tag, and goes public only when I approve that exact package at npm with a second factor.</p>
       <h3>What it expects</h3>
       <ul class="hang">

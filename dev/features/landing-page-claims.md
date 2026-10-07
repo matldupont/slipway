@@ -123,7 +123,7 @@ Q8 why was it built
 | 50 | §05 | `/sync-slipway` prints a plan before it touches anything, works on its own branch, merges instead of overwriting a file you changed, never edits the documents that are yours | `SLIPWAY.md` "Taking slipway updates"; D-015; `scripts/sync.mjs` |
 | 51 | §05 | each release is staged by CI from a version tag, and goes public only when the owner approves that exact package at npm with a second factor | D-027 |
 | 52 | §05 | adopting a repository that did not start from slipway is a later bet, not under way; help triaging an old backlog is another later bet, ahead of it | #54, #50 (both open); #43 Order |
-| 53 | §05 | the checks are zero-dependency Node scripts, the lessons plain Markdown, the rules one page | D-004; `process/lessons/`; `process/slipway-rules.md` |
+| 53 | §05 | "The checks are Node scripts that run with no install step." The lessons plain Markdown, the rules one page | D-004 ("no install step"); `process/lessons/`; `process/slipway-rules.md` |
 | 54 | §05 | what it expects: Node 24, pnpm 10, git, the GitHub CLI logged in, a GitHub account, Claude Code | `README.md` "You need"; `SLIPWAY.md` Requires |
 | 55 | §05 | GitHub for issue forms, required checks and Actions; moving elsewhere means rewiring | D-002 |
 | 56 | §05 | a default stack you can change in week one: TypeScript, React with Vite, Cloudflare | `SLIPWAY.md` Defaults; D-005–D-008 |
@@ -156,7 +156,7 @@ Q8 why was it built
 | 83 | §06 | the Stop hook caught a problem in a live session that became a fix in slipway | `SLIPWAY.md` "Exercised on a real project"; PR #58 |
 | 84 | §02 (today) | "**The agent can't stop on red.**" | *cut*: the claim row 70 cuts from the plate; row 37 carries the true version |
 | 85 | §05 | adopting a project that did not start from slipway is filed, with its acceptance written, and not built | #54 (open, Acceptance); no feature doc in `dev/features/` |
-| 86 | §05 | a check brings the helpers in `ci/lib/` it imports, and slipway records none used outside a project that started from it | the imports in `ci/checks/meta/*.mjs`; `SLIPWAY.md` "Exercised on a real project" |
+| 86 | §05 | a check brings the helpers in `ci/checks/lib/` it imports, and slipway records none used outside a project that started from it | the imports in `ci/checks/meta/*.mjs`; `SLIPWAY.md` "Exercised on a real project" |
 | 87 | README | every step up to closing a milestone ends in something that goes red | `SLIPWAY.md` path table, steps 0–6, "Done when" (step 7 names nothing) |
 | 88 | §05 | Claude Code asks whether you trust the new folder, and lists the permissions it pre-approves, when you open it the first time | the owner's run of the page's path, 2026-10-07, on Claude Code 2.1.287 (the owner's account) |
 | 89 | §05 | the project pre-approves two permissions: `git stash list` and `git stash apply` | `process/harness/settings.json`, `permissions.allow` |
