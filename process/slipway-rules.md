@@ -50,7 +50,7 @@ Size the process to the change, and state the lane in the PR's `## What`. When u
 | feature | several sessions, or a new concept, surface or data shape | a feature doc with Contract and `Verify`, then issues that embed it (`/log-feature`, `/work-ticket`) |
 
 Never call work done without fresh output from the commands that prove it. The Stop hook runs
-`pnpm verify:fast` and will not let a red turn end.
+`pnpm verify:fast` and blocks the first stop of a turn while it is red; a second stop ends the turn red, with the agent asked to say what is failing.
 
 ## Working rules
 

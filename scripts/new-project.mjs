@@ -189,8 +189,8 @@ if (opts.harness) {
   note('process/harness/settings.json → .claude/settings.json (committed with the project). In Claude Code');
   note('sessions opened in this project it: asks before any git push, stash pop/drop, checkout --, reset --hard,');
   note('and before edits to lint/type/test configs, workflows, ci/ and the harness itself; injects `pnpm status`');
-  note('at session start; blocks a turn from ending while `pnpm verify:fast` is red. Your personal');
-  note('~/.claude settings are untouched and still apply. See process/harness/README.md.');
+  note('at session start; blocks the first stop of a turn while `pnpm verify:fast` is red (a second stop ends it red). Your');
+  note('personal ~/.claude settings are untouched and still apply. See process/harness/README.md.');
 } else {
   note('install later with: mkdir -p .claude && cp process/harness/settings.json .claude/settings.json');
 }

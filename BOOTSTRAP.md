@@ -43,7 +43,7 @@ to exempt. The cheapest moment to install the spine is before there is anything 
 
 2. The harness is already installed: the script copied `process/harness/settings.json` to
    `.claude/settings.json` and said so. It makes destructive git operations and edits to gate configuration
-   ask-level, injects `pnpm status` at session start, blocks a turn from ending while `verify:fast` is red,
+   ask-level, injects `pnpm status` at session start, blocks the first stop of a turn while `verify:fast` is red (a second stop ends it red),
    and adds three advisory hooks (`process/harness/README.md`). You installed it by running the script; an
    agent never installs its own hooks or permissions. Skipped with `--no-harness`? Copy it by hand.
 

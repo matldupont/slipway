@@ -505,3 +505,12 @@ test('.gitattributes ships as managed, under a checkout and a packed install; a 
   assert.equal(r.status, 1);
   assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
 });
+
+test('the harness note says what the Stop hook does: it blocks the first stop, and a second stop ends the turn red (#299)', () => {
+  const dest = join(tmp(), 'project');
+  const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), dest, '--no-github'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const note = r.stdout.replace(/\s+/g, ' ');
+  assert.match(note, /blocks the first stop of a turn while `pnpm verify:fast` is red \(a second stop ends it red\)/);
+  assert.doesNotMatch(note, /blocks a turn from ending/);
+});
