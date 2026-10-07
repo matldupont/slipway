@@ -330,41 +330,80 @@ blocks on a failing test, lets the second stop through, and skips a tree it alre
 
 ### Exercised on a real project
 
-A private project started from slipway and ran it in live sessions (2026-09-22 to 2026-09-24). Its commits and
-PRs are the evidence; slipway holds nothing else from it.
+A private product with one engineer, a web app, started from slipway and ran it in live sessions from 2026-09-22.
+A line cites a public slipway pull request or issue; a line with none is marked as the owner's account, with its
+date. Slipway holds nothing else from the project.
 
-- `verify` on a real React + Vite + Vitest app: green on the bootstrap PR, and red on a probe PR with a failing
-  test (BOOTSTRAP §3 probe 3). Scaffold `46fa186`.
+**Real syncs.** #43's Acceptance records seven (read on 2026-10-07; #43 wins where this differs). The yardstick
+is 1 command, no more than 3 questions, and the owner can say what changed; a sync is met only when #43 says all
+three held, and a part #43 says nothing about makes it not fully scored. Of the seven, 1 met it, 2 missed it
+and 4 were not fully scored.
+
+- 2026-09-24, `sync --adopt` then `sync --apply`: 2 commands, about 7 questions, the owner needed help to say
+  what changed. **Missed.** Fixed in #59, #60, #61, #62 (#43).
+- 2026-09-25, 27 slipway commits: 1 command, 0 questions, changes explained by what they touch. **Met**, the
+  only sync #43 says met (#43).
+- 2026-09-26, 22 slipway commits: 1 command, 0 questions; nothing on whether the owner could say what changed.
+  **Not fully scored.** Re-pointing after a history rewrite cost 2 more commands and 3 questions that day,
+  because #84 hid the recovery message (#43).
+- 2026-09-29, 82 slipway commits, taken in two steps: 2 commands, 1 question. **Missed.** The first `--apply`
+  left three overrides that slipway had absorbed stuck behind a red D1; fixed in #132, and the remaining hand
+  step in #135 (#43).
+- 2026-09-30, 51 slipway commits: 1 command, 1 question (a product one); nothing on whether the owner could say
+  what changed. **Not fully scored.** After `--apply` the output did not end with the next step (#166).
+- 2026-10-01, to `836afe7`: 0 questions; command count not recorded. **Not fully scored.** #43's "One miss:" is
+  about the PR-body check on the sync PR's Gate changes section, not a yardstick miss (#196).
+- 2026-10-01, to `d5434e2`: 0 questions; command count not recorded. **Not fully scored.** A first attempt at
+  `093e52b` was held because nine fixture files did not arrive (#207); the Gate changes section failed the
+  PR-body check once more, because the session ran the project's old copy of the sync skill (#216).
+
+**The first milestone close.** The first real run of `/close-milestone`, 2026-10-06, on `use-slipway@0.1.2`.
+
+- What `/close-milestone` took (the owner's account, 2026-10-06): about seven minutes from the start of the session to an open
+  pull request, and about half an hour to merge, on the strongest tier at high effort. One run; nothing else
+  has been timed. It asked the owner one question: which of the open issues belonged to the milestone.
+- What `/close-milestone`'s retro produced (the owner's account, 2026-10-06): the milestone closed before its appetite ended,
+  with every planned item shipped and every gate line shown by a CI run or a recorded result. The retro was
+  written from issues, pull requests and `git log`: it named the work that crept in and whether each piece was
+  needed, the rework and its cause, the code-health numbers, and one lesson for the project. The feature docs
+  the milestone shipped were marked shipped, each with a `Verified against:` line.
+- What `/close-milestone` found in slipway: with no GitHub milestone, the close listed the project's open issues and asked
+  which belonged, instead of reporting nothing left (#258, fixed in #264, its first real use). No check was left
+  owed at the close, because every deferred run had been recorded or named first (#176, #217, #241, #254). A
+  feature doc is marked shipped whole even when one section still owes a check (#284, open).
+
+**Other first uses.**
+
+- `verify` on a real web app: green on the bootstrap PR, and red on a probe PR with a failing test (BOOTSTRAP §3
+  probe 3) (the owner's account, 2026-09-24).
 - `pr-body` on real PRs, red on a missing `## Verification` and green once it names evidence (probe 4), and
-  `issue-shape` labelling a free-prose issue `needs-shape` (probe 7).
-- The Stop hook in a live session: it blocked on a raw `tsc: command not found` tail, which produced the
-  missing-install fix (the project's `4cb5c44`, ported here as PR #58).
-- The GitHub half of `scripts/new-project.mjs`: repository, label, and `main` protection with required
-  `meta`, `verify` and `pr-body`, recorded as D-001 "decided by attempting it".
-- `/kickoff` on a real product: frame, PRD, week-1 decisions and milestones (`e32234d`, then `9613a9e` set the frame).
+  `issue-shape` labelling a free-prose issue `needs-shape` (probe 7) (the owner's account, 2026-09-24).
+- The Stop hook in a live session blocked on a raw `tsc: command not found` tail, which produced the
+  missing-install fix (#58).
+- The GitHub half of `scripts/new-project.mjs`: repository, label, and `main` protection with required `meta`,
+  `verify` and `pr-body`, recorded as D-001 "decided by attempting it" (the owner's account, 2026-09-24).
+- `/kickoff` on a real product: frame, PRD, week-1 decisions and milestones (the owner's account, 2026-09-24).
 - `sync --adopt`, then `sync --apply`, on a project that predated the manifest: adopted at a known base and
-  brought current, in one PR. See the yardstick below.
+  brought current, in one PR (the first sync above).
 
 ### Not verified here — read as unknown
 
-Each kept line carries `Verified against: <sha> <date>` (slipway `main`) and the BOOTSTRAP §3 probe that will
-first exercise it.
+Each kept line about a slipway code path carries `Verified against: <sha> <date>` (slipway `main`) and the
+BOOTSTRAP §3 probe that will first exercise it. A line about a private repository is the owner's account, dated.
 
 - The ask-level `Edit(...)` rules prompting in a live session; the Stop hook refusing on a failing test (it
   has only been seen blocking on a missing install); the other hooks and the `pnpm status` injection at session
   start, seen only on sample input. Probes 10, 14 and 15.
-  Verified against: 4783d70 2026-09-24
-- `/close-milestone` on a real project: the first project's M1 is still `shaping`, so no milestone has closed.
-  No §3 probe covers it; closing that M1 is its first test.
-  Verified against: 4783d70 2026-09-24
+  Verified against: 21929fe 2026-10-07
+- A milestone close that is not the first one's path: a milestone ended as killed, or extended or cut when the
+  appetite is over and the gate is not green; a project with a GitHub milestone, where the close lists its open
+  issues, moves them and closes it; a close that changes the PRD. The one real close took none of these. No §3
+  probe covers it; the next real close that takes one is its first test.
+  Verified against: 21929fe 2026-10-07
 - `AGENT.md` against the shipped intake and ticket skills on a real project: slipway's own `AGENT.md` is the
-  template, so they have run only in scratch projects. Probe 11.
-  Verified against: c40c26b 2026-09-25
+  template. The third real sync filled the project's new skill settings in from the repo without asking (#43),
+  but this repository holds no record of the skills' runs there. Probe 11.
+  Verified against: 21929fe 2026-10-07
 - I1's stated residual: it catches adjectives, not criteria that cannot fail. "Returns HTTP 200" passes.
   No probe applies; it is a limit of the check, not an unexercised path.
-  Verified against: 4783d70 2026-09-24
-- Sync yardstick (#43 Acceptance): one terminal command and at most 3 questions, each answerable without
-  knowing slipway, and the owner can say what changed. **Missed** on the first real sync (2026-09-24,
-  `sync --adopt` then `sync --apply`): 2 commands, about 7 questions, and the owner needed help to say what
-  changed (#59, #60, #61, #62). Stays until a sync meets it; each later sync is scored here with its command
-  and question counts.
+  Verified against: 21929fe 2026-10-07
