@@ -397,6 +397,44 @@ has left once rule files and tests are out is small. And anything at all, if lis
 change could merge unseen. A merge of the base that needs a round of its own in every case was declined too: a
 pull request that conflicts with the default branch would cost a round per conflict.
 
+## D-033 — Workflow files are read by one pinned parser, kept in `ci/checks/` *(decided 2026-10-07)*
+
+The checks read a workflow file through a YAML parser, not by matching its text. The parser is one file of
+js-yaml (5.4.3, MIT), copied unedited from its published release into `ci/checks/lib/vendor/`, with its licence
+beside it and its hash pinned by a test. In front of it sits a reader of slipway's own, which refuses what it
+will not vouch for. A workflow file it refuses, or one the parser cannot read, is unread: it counts for nothing,
+and the check names it.
+
+**How D-004 reads now:** nothing is installed, and `ci/checks/` still runs on bare Node with no install step; one
+pinned parser is part of `ci/checks/`, and a workflow file is no longer read as a declared subset of text.
+
+- **Each reader of workflow text.**
+  - W1's reader (`ci/checks/lib/workflows.mjs`: what starts a workflow, its `run:` lines, the workflows it
+    calls) moves to the parser, in #306's pull request.
+  - FO1 (`ci/checks/meta/fo1-fail-open.mjs`) moves to the parser in a follow-up. Until then it stays as it is:
+    it already exits BROKEN outside its subset, and none of the open findings is in it.
+  - D1 (`ci/checks/meta/d1-drift.mjs`) stays: it compares a workflow file's hash and never reads it as YAML.
+  - The command reader (`ci/checks/lib/commands.mjs`) stays: it reads one shell command line, which is not YAML.
+- **Agreeing with YAML is not agreeing with GitHub's reader.** The reader refuses what the two are most likely
+  to read differently: an anchor, an alias, a tag, a merge key, a key written twice, a key that is not plain
+  text, and more than one document. Any other difference between GitHub's reader and this parser is a stated
+  limit.
+- **What a project sees.** The parser and its licence notice arrive on the project's next sync, as files slipway
+  maintains. Nothing is installed and no lockfile changes.
+- **A new parser version is a replacement, never an edit.** A pull request replaces the file whole with another
+  published release and moves the pinned hash; the file is never changed by hand.
+
+Why: hand-written reading of workflow files drew the same class of review finding in two pull requests. #237's
+release test read by line and passed spellings it did not understand (#240). #301's W1 reader reached the review
+cap with 3 findings open, each a file written to mislead a text reader into counting a gate that does not run,
+in the check that proves the other gates run. Workflow files being owner-only was the one defence left, and it
+rests on the owner's eye catching a file written to be misread. One parser ends the class for W1, FO1 and #240
+together. #306.
+
+Declined: a parser as an installed dependency (the checks would need an install step before they run, which is
+what D-004 exists to prevent, and a dependency could then break the harness that proves the other gates), and
+keeping the limit on record (3 findings stay open, and #240 is left to write a third reader by hand).
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
