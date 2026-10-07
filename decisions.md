@@ -29,9 +29,6 @@ CI time is a measured problem.
 `ci/checks/` runs on bare Node with no install step, so the harness that proves the other gates cannot be
 broken by a dependency. Cost: YAML is read as a declared subset, and anything outside it exits BROKEN.
 
-Amended by D-033 (2026-10-07): still nothing installed; one pinned parser is part of `ci/checks/`, and workflow
-files are read through it.
-
 ## D-015 — Projects take slipway updates by a locked, declared sync *(decided 2026-09-23)*
 
 A project must be able to take a newer slipway without losing anything, and without a merge that needs
