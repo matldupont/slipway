@@ -286,7 +286,7 @@ test('the harness asks before gh auth refresh and gh auth login, with any argume
 });
 
 test('none of the gh rules matches ordinary work: a view, a list, a pull request, an API read or write, the auth status', () => {
-  assert.equal(GH.length, 11, 'the gh rules this test reads');
+  assert.equal(GH.length, 16, 'the gh rules this test reads');
   for (const c of ['gh repo view', 'gh repo view owner/name --json name', 'gh issue list', 'gh issue list --state open --search delete', 'gh pr create --title "x" --body-file pr.md',
     'gh api repos/owner/name', 'gh api -X POST repos/owner/name/issues/1/sub_issues -F sub_issue_id=1', 'gh api repos/owner/name/issues --jq .[].title', 'gh auth status', 'gh repo list']) {
     assert.deepEqual(GH.filter((a) => a.test(c)).map((a) => a.rule), [], `a gh rule asks before: ${c}`);
