@@ -364,6 +364,32 @@ Declined: a fail line that names the decision (` · decision PD-n`) and stops ow
 citation: a check can prove the decision exists, not that it is about this check, and a line that reads `fail`
 and does not owe says less plainly what happened than a removal a reviewer sees in the diff.
 
+## D-031 — After the round that ends the review, nothing is committed; a merge of the base is the one exception *(decided 2026-10-07)*
+
+After the round that ends the review, nothing is committed: the pull request's head is the last reviewed head.
+This holds in every lane, not only for a pull request that defers a check.
+
+- **What is left over is written down, not committed.** A finding still open when the review ends goes in the
+  pull request's body as a known limitation, or into one follow-up that holds them all: never a commit, and
+  never an issue each. Editing the pull request's description is not a commit.
+- **A merge of the base branch is the one exception.** The pull request names the merge commit and each file
+  whose conflict was resolved by hand, with what was kept, and the gate runs again on the merge. A conflict
+  resolved by hand in an owner-only file gets one verify of that merge.
+- **The pull request says which it is.** Its `## Cold review` ends by naming the last reviewed head and the pull
+  request's head, and what lies between them, or that nothing does.
+
+Why: the sentence was written once, in the rule for a check left for after merge, and `/work-ticket`'s review
+rounds never said it. In one day three pull requests in one project applied it three ways: one held back a fix
+that broke nothing, one committed four wording fixes after its last reviewed head and said nothing, one
+committed a sentence and said so. All three merged, and a reader could not tell which commits a reviewer saw.
+The owner merges on "what was reviewed is what merges"; this keeps it literally true. #283.
+
+Declined: a named class of change after the last round (comments and documents outside rule files, each listed
+as not reviewed): the session whose work is under review would judge what is in the class, and what the class
+has left once rule files and tests are out is small. And anything at all, if listed as not reviewed: a code
+change could merge unseen. A merge of the base that needs a round of its own in every case was declined too: a
+pull request that conflicts with the default branch would cost a round per conflict.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
