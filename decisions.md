@@ -395,6 +395,22 @@ timestamp-with-zone for instants. Property-test the math (`docs/domain-invariant
 
 The owner key on every row — user, household, organisation — even if sharing ships much later.
 
+## D-032 — The harness asks before a file write through its edit rules alone *(decided 2026-10-07)*
+
+The harness carried a `Write(...)` ask rule beside every `Edit(...)` ask rule, so that creating a gate file asked
+like editing one (50f038d). On Claude Code 2.1.293 the `Edit(...)` rule asks before any file-writing tool edits
+or creates a file at its path, and a `Write(...)` rule is matched by nothing: alone it asks for nothing, and
+each one prints a warning when a project opens (#307, observed in a scratch project with a control). The owner
+decided to remove the 42 write rules and the check that required them.
+
+- **Cost, accepted.** On an older Claude Code where only the write rule asked before a file was created, creating
+  a gate file no longer prompts. The PR check still counts a created gate file by its path and wants its
+  `## Gate changes` line.
+- **What holds it.** `scripts/gate-files.test.mjs` pins the list of paths, fails when an edit rule is removed and
+  fails when a write rule comes back.
+
+(D-031 is the number an open pull request holds.)
+
 ## D-011 — Internationalisation *(open — week 1)*
 
 Plumbing (message keys, `Intl` formatting, locale-aware routes) is cheap on day one and costly

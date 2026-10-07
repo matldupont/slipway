@@ -40,11 +40,11 @@ set on GitHub's side (repository rules, a fine-grained token).
 **Gate configuration is ask-level too.** An agent that cannot make a check pass will weaken the check:
 edit the lint config, loosen `tsconfig`, add `continue-on-error`, touch a fixture. Edits to lint, format,
 type and test-runner configs, workflows, `ci/**`, this directory and `.claude/settings*.json` ask first,
-so changing a gate is always a human decision, and so is creating one: each edit rule has a matching write rule. A PR that touches a gate file also says, in a `## Gate changes` section, whether each file got stricter, stayed the same or loosens. Adding a check is legitimate work — approve it knowingly.
+so changing a gate is always a human decision, and so is creating one: an `Edit(...)` rule asks before any file-writing tool edits or creates a file at its path, observed on Claude Code 2.1.293 (#307), so the harness has no `Write(...)` rules, which that version matches against nothing and warns about. On an older Claude Code where only a `Write(...)` rule asked before a file was created, creating a gate file does not prompt; the PR check still counts the created file by its path and wants its `## Gate changes` line. A PR that touches a gate file also says, in a `## Gate changes` section, whether each file got stricter, stayed the same or loosens. Adding a check is legitimate work — approve it knowingly.
 Under `bypassPermissions` nothing asks; required checks on `main` remain the backstop.
 
 **So are the owner-only files** (`process/slipway-rules.md` → Gates, #163): each path that list names has an edit
-and a write rule here, the slipway-only ones included, since a rule for a file a project lacks never fires.
+rule here, which covers a write too, the slipway-only ones included, since a rule for a file a project lacks never fires.
 `scripts/skills.test.mjs` fails when a path on the list has no rule. The two files a setting names (the
 `Domain invariants doc`, the cold-review file) have no fixed path, so nothing here asks before an edit to one.
 The PR check counts both, at the paths the base commit's root `AGENT.md` names (#259), and at the paths it names at the
@@ -78,7 +78,7 @@ Known limitations:
 | `.tool-versions` | the node or pnpm version asdf or mise pick locally; CI pins both |
 | a file a gate setting points at | a pnpmfile path, a script shell, or node options that load a file: once the owner approves the setting, later edits to that file are not asked about. Nothing sets one today |
 | `pnpm-lock.yaml` | not a gate file, since every dependency bump changes it; #138 checks that each entry resolves from the registry with an integrity hash |
-| a shell write to an owner-only file | `Edit(...)` and `Write(...)` rules cover those tools only: `sed -i`, a redirect or `tee` onto `CLAUDE.md` or `.claude/**` does not ask. The rule in `process/slipway-rules.md` → Gates still holds, and `/work-ticket`'s rule-file check still reads the diff |
+| a shell write to an owner-only file | `Edit(...)` rules cover the file-writing tools only: `sed -i`, a redirect or `tee` onto `CLAUDE.md` or `.claude/**` does not ask. The rule in `process/slipway-rules.md` → Gates still holds, and `/work-ticket`'s rule-file check still reads the diff |
 | the ask prompt's case | the harness's own rules match case as Claude Code does; on a case-insensitive disk, `NODE_MODULES/` or `Claude.md` may not ask where `node_modules/` or `CLAUDE.md` does. N1 and the PR check still refuse it |
 | the canonical form | NFKC and lower case approximate how macOS folds names; a folding it misses matters only on a Mac that runs a branch's code, which #114 and #126 exist to prevent |
 
@@ -171,7 +171,7 @@ The harness asks before the agent reaches the pin or the record:
 
 | rule | what it asks before |
 |---|---|
-| `Edit(~/.claude/slipway/**)`, `Write(~/.claude/slipway/**)` | an edit or a write to a session's pin or yes |
+| `Edit(~/.claude/slipway/**)` | an edit or a write to a session's pin or yes |
 | `Bash(*.claude/slipway*)` | a command that names that folder |
 | `Bash(*base-guard*)` | a command that runs the guard by hand, with input of the agent's making |
 | `Bash(*trust gates*)` | a command that carries the phrase, such as a headless session started with it as its prompt |
