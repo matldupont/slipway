@@ -70,13 +70,13 @@ are the blocks of Acceptance, **B1–B3** are the Build map steps. Verify lines 
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | Step 3 writes a private project's close into a public, shipped file and onto the page with none of the guards steps 1 and 2 have | S1 | owner | B3 (the third sub-issue) | |
-| AR-2 | After step 2 the claims table and the required facts in this document are known to be wrong, and nothing says where the corrected ones live | S2 | owner | B2 (#271), B3 | |
-| AR-3 | The reader and judge sessions are not clean: user-level settings load in an empty folder, and today they ask for short answers | S2 | owner | B2 (#271) | |
-| AR-4 | Step 2's checks change the page under each other, and only one of them names a sha | S2 | owner | B2 (#271) | |
-| AR-5 | Two browser checks measure something other than what the Contract says, and one depends on an animation | S2 | owner | B2 (#271) | |
-| AR-6 | Lines marked "the owner's account" are written by a build session, and nothing has the owner give or confirm them | S2 | owner | B1 (#270), B3 | |
-| AR-7 | Hygiene: an unscoped "never says most", rows citing README lines the build edits, a sha count that cannot tell slipway's shas from a private project's, small wording | S3 | owner | — | |
+| AR-1 | Step 3 writes a private project's close into a public, shipped file and onto the page with none of the guards steps 1 and 2 have | S1 | owner | B3 (the third sub-issue) | #270, #271: no third step, its lines folded into both (the owner, 2026-10-06) |
+| AR-2 | After step 2 the claims table and the required facts in this document are known to be wrong, and nothing says where the corrected ones live | S2 | owner | B2 (#271), B3 | #271 |
+| AR-3 | The reader and judge sessions are not clean: user-level settings load in an empty folder, and today they ask for short answers | S2 | owner | B2 (#271) | #271 |
+| AR-4 | Step 2's checks change the page under each other, and only one of them names a sha | S2 | owner | B2 (#271) | #271 |
+| AR-5 | Two browser checks measure something other than what the Contract says, and one depends on an animation | S2 | owner | B2 (#271) | #271 |
+| AR-6 | Lines marked "the owner's account" are written by a build session, and nothing has the owner give or confirm them | S2 | owner | B1 (#270), B3 | #270 |
+| AR-7 | Hygiene: an unscoped "never says most", rows citing README lines the build edits, a sha count that cannot tell slipway's shas from a private project's, small wording | S3 | owner | — | #270, #271, #287 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.

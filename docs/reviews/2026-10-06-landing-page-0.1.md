@@ -38,21 +38,21 @@ Build map steps.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | The three-reader test cannot fail in any way the doc defines, and has never been seen failing | S1 | owner | B2 (#271) | |
-| AR-2 | The sync claims go beyond their source: two clean meets of seven, two syncs with no command count, "releases" that are commit ranges | S1 | owner | B1 (#270) | |
-| AR-3 | The testimony exemption lets product claims through with no row; one is contradicted by the repository | S1 | owner | B2 (#271) | |
-| AR-4 | Five rows state more than the source they cite | S1 | owner | B2 (#271) | |
-| AR-5 | Everything waits on one outside event, including what can be fixed and tested today | S2 | owner | B1, B2 | |
-| AR-6 | The eight questions do not map onto the page's sections, and drop a section #55 requires | S2 | owner | B2 | |
-| AR-7 | The real-project rule contradicts itself and the rows that depend on it | S2 | owner | B1, B2 | |
-| AR-8 | "A person following only the page" is the author | S2 | owner | B2 | |
-| AR-9 | "Every command on the page" is not a defined set, and the run may not be `@latest` | S2 | owner | B2 | |
-| AR-10 | The cost answer leaves out costs the README states; five minutes has no budget | S2 | owner | B2 | |
-| AR-11 | The threat model says "none" for a page whose first command runs a package and creates a repository | S2 | owner | B2 | |
-| AR-12 | The word grep fails on copy the claims table keeps | S2 | owner | B2 | |
-| AR-13 | V9's scroll-width check is false wherever a scrollbar takes width, which the gutter guarantees | S3 | owner | — | |
-| AR-14 | Hygiene: review count, three embedded copies, a Problem list the Contract never answers | S3 | owner | — | |
-| AR-15 | A2 and A10 cannot both hold: a review in `docs/reviews/` turns slipway's own `pnpm meta` red | S1 | owner | this review's PR | |
+| AR-1 | The three-reader test cannot fail in any way the doc defines, and has never been seen failing | S1 | owner | B2 (#271) | #275 |
+| AR-2 | The sync claims go beyond their source: two clean meets of seven, two syncs with no command count, "releases" that are commit ranges | S1 | owner | B1 (#270) | #275 |
+| AR-3 | The testimony exemption lets product claims through with no row; one is contradicted by the repository | S1 | owner | B2 (#271) | #275 |
+| AR-4 | Five rows state more than the source they cite | S1 | owner | B2 (#271) | #275 |
+| AR-5 | Everything waits on one outside event, including what can be fixed and tested today | S2 | owner | B1, B2 | #275; #270, #271 |
+| AR-6 | The eight questions do not map onto the page's sections, and drop a section #55 requires | S2 | owner | B2 | #275 |
+| AR-7 | The real-project rule contradicts itself and the rows that depend on it | S2 | owner | B1, B2 | #275 |
+| AR-8 | "A person following only the page" is the author | S2 | owner | B2 | #275; #287 |
+| AR-9 | "Every command on the page" is not a defined set, and the run may not be `@latest` | S2 | owner | B2 | #275 |
+| AR-10 | The cost answer leaves out costs the README states; five minutes has no budget | S2 | owner | B2 | #275 |
+| AR-11 | The threat model says "none" for a page whose first command runs a package and creates a repository | S2 | owner | B2 | #275 |
+| AR-12 | The word grep fails on copy the claims table keeps | S2 | owner | B2 | #275 |
+| AR-13 | V9's scroll-width check is false wherever a scrollbar takes width, which the gutter guarantees | S3 | owner | — | #275 |
+| AR-14 | Hygiene: review count, three embedded copies, a Problem list the Contract never answers | S3 | owner | — | #275; #274 (its first point) |
+| AR-15 | A2 and A10 cannot both hold: a review in `docs/reviews/` turns slipway's own `pnpm meta` red | S1 | owner | this review's PR | #273 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
