@@ -30,7 +30,8 @@ Under `bypassPermissions` nothing asks; required checks on `main` remain the bac
 **So are the owner-only files** (`process/slipway-rules.md` → Gates, #163): each path that list names has an edit
 and a write rule here, the slipway-only ones included, since a rule for a file a project lacks never fires.
 `scripts/skills.test.mjs` fails when a path on the list has no rule. The two files a setting names (the
-`Domain invariants doc`, the cold-review file) have no fixed path, so they rest on the rule alone.
+`Domain invariants doc`, the cold-review file) have no fixed path, so nothing here asks before an edit to one.
+The PR check counts both, at the paths the base commit's root `AGENT.md` names (#259).
 
 **So are the files that change which program a gate command runs, or how pnpm and node start it** (#133).
 Each is a gate file here and in the PR check:

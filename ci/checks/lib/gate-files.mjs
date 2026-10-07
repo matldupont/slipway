@@ -3,10 +3,11 @@
 // owner-only), the paths the base guard adds to them (GUARD_GLOBS), plus a `package.json` whose run keys changed
 // (RUN_KEYS, and a dependency on local code or a runtime): what a gate command runs, the pnpm and node that run
 // it, and pnpm's settings. Read by P1. One list: a gate path added to the harness is a gate path here.
+// Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and the base commit's rows add them.
 //
 // As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…]}` for
 // the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
-// gate paths the base branch's harness asked about, and each symlink or submodule link added, removed or changed.
+// gate paths the base branch's harness asked about and the documents its AGENT.md named, and each symlink or submodule link added, removed or changed.
 // pr-body.yml writes it beside the PR body.
 //
 // Not shared with ownership.mjs: that file is slipway's own and never ships to a project.
@@ -15,6 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rowValue } from './clock.mjs';
 
 export const SETTINGS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'process', 'harness', 'settings.json');
 
@@ -59,7 +61,7 @@ export const canonical = (s) => s.normalize('NFKC').toLowerCase();
 export const GUARD_GLOBS = ['**/.gitmodules', '**/.gitattributes'];
 
 // The paths in `settings` (the harness's rules), the guard's own (GUARD_GLOBS) and `more` globs: P1 adds the base
-// branch's rules, so a PR that removes a rule from the harness is still held to it. Matching is exact. `lookalike(path)` names the
+// branch's rules and the documents its AGENT.md named, so a PR that removes a rule or renames a row is still held to it. Matching is exact. `lookalike(path)` names the
 // gate path a path is not, but reads as in canonical form (`.NPMRC`, `PACKAGE.JSON`): P1 refuses those
 // outright rather than count them as gate files.
 export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more = []) {
@@ -86,6 +88,29 @@ export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more 
     return base !== 'package.json' && canonical(base) === 'package.json' ? 'package.json' : null;
   };
   return isGate;
+}
+
+// The owner-only documents a project names in AGENT.md §Skill Configuration (process/slipway-rules.md → Gates, #259),
+// and the path a missing row stands for: `Cold review` has a default the skills use (process/intake.md →
+// Configuration; scripts/gate-files.test.mjs holds the two equal), `Domain invariants doc` has none.
+export const COLD_REVIEW_DEFAULT = 'process/cold-review.md';
+export const NAMED_ROWS = [['Domain invariants doc', null], ['Cold review', COLD_REVIEW_DEFAULT]];
+const CLEAN_PATH = /^[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/;
+
+// The paths those rows name in `agentText` (the root AGENT.md), each a gate path matched exactly. `none` and an
+// unfilled `<…>` name nothing; a missing row names its default, when it has one. Any other value is a path in the
+// repository or the check cannot tell which file is meant, and it throws: never 0 paths for a row that says something.
+export function namedDocs(agentText) {
+  return NAMED_ROWS.flatMap(([row, whenMissing]) => {
+    const raw = rowValue(agentText, row, 'Skill Configuration');
+    if (!raw) return whenMissing ? [whenMissing] : [];
+    if (/^none[,.;:]?$/i.test(raw) || raw.startsWith('<')) return [];
+    const path = raw.replace(/^(?:\.\/)+/, '');
+    if (!CLEAN_PATH.test(path) || path.split('/').some((seg) => /^\.+$/.test(seg))) {
+      throw new Error(`AGENT.md ${row} ${JSON.stringify(raw.slice(0, 80))} is not a path in the repository: write the file's path, or none`);
+    }
+    return [path];
+  });
 }
 
 const SHA = /^[0-9a-f]{7,64}$/;
@@ -157,6 +182,11 @@ export function changes(base, head, cwd = process.cwd()) {
   try {
     globs = gateGlobs(git('show', `${from}:process/harness/settings.json`)); // absent before the harness existed
   } catch {}
+  let agent = null;
+  try {
+    agent = git('show', `${from}:AGENT.md`); // absent at the base: it named nothing
+  } catch {}
+  if (agent !== null) globs = [...globs, ...namedDocs(agent)]; // outside the try: an unreadable row fails the check
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
   return { files, scripts, globs, links };
 }
