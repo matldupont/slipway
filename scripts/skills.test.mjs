@@ -699,3 +699,20 @@ test('the README, BOOTSTRAP.md and the landing page show `npx use-slipway` first
   assert.match(bullet, /`alreadyPast`.*`next` is never run.*not asked to run `--apply`/);
   assert.match(bullet, /When `needsYou` is not empty, say what each item asks of the owner first/);
 });
+
+// D-029 (#274): a stale review has one way out, and the three places that tell a person about it say the same
+// thing. R1's side is pinned by ci/fixtures/known-bad/r1/retired.
+test('the earlier review of a revised document: intake, /review-doc and the review template each say it stays and how it retires', () => {
+  const flat = (s) => s.replace(/\s+/g, ' ');
+  const entry = flat(section(intake, 'PRD entry', 2) ?? '');
+  assert.ok(entry.includes('The earlier review stays in `docs/reviews/` as it was written, and R1 stops reporting it once the fresh review of the new version names it in a `Supersedes:` line.'), 'process/intake.md → PRD entry does not say how the red ends');
+  assert.ok(entry.includes('**Never touch `docs/reviews/`,**'), 'the way out must not replace the rule against editing a review');
+  const skill = read('.claude/skills/review-doc/SKILL.md');
+  assert.ok(flat(section(skill, '4 — Hand back', 2) ?? '').includes('The earlier review stays in `docs/reviews/` as it was written, and stops being reported as stale once the fresh review names it in `Supersedes:`.'), '/review-doc step 4 does not say what happens to the earlier review');
+  assert.match(flat(section(skill, '3 — Write the file', 2) ?? ''), /- `Supersedes: docs\/reviews\/<file>` — one line for each earlier review .*? names the same path, every one of them/, '/review-doc step 3 does not tell the reviewer to write the line');
+  const template = read('docs/reviews/TEMPLATE.md');
+  // Not a line of its own: /kickoff copies the template as a stub, and an unfilled Supersedes: line is a finding.
+  assert.doesNotMatch(template, /^[>\s*_-]*Supersedes:/m, 'docs/reviews/TEMPLATE.md must describe the line, not carry one');
+  assert.ok(flat(template).includes('for each earlier review of that document, written > as `Supersedes: docs/reviews/<file>`'), 'the template does not say how the line is written');
+  assert.ok(flat(template).includes('until a current review of the same document names it in `Supersedes:`'), 'the template still says a stale review is red for good');
+});
