@@ -55,8 +55,9 @@
 // what the parser cannot read is unread, with the reason and, where there is one, how to write it so it is read.
 // The parser is stricter than common readers about a closing bracket, or a quoted text's later line, at its
 // key's indentation, so a file GitHub's reader accepts can be unread here: that fails closed. It is not strict
-// everywhere: where it was found to read what a stricter reader rejects, the reader in front refuses the shape.
-// What stays a limit: any other text this parser reads and GitHub's reader rejects, or reads differently.
+// everywhere: the reader in front refuses the forms listed and tested of what it reads and a stricter reader
+// rejects, and is not a complete defence (5 known gaps: #339). What stays a limit: any other text this parser
+// reads and GitHub's reader rejects, or reads differently.
 
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';

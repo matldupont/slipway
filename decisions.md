@@ -427,8 +427,9 @@ pinned parser is part of `ci/checks/`, and a workflow file is no longer read as 
 - **It is not strict everywhere.** Review of #306's pull request found it reading what a stricter reader
   rejects: a document marker that is indented, a `...` marker, an empty key, a key over 1024 characters, a
   plain text that starts with a bracket or a comma, and a directive it does not know, which it passes over.
-  The reader in front refuses each. Others may exist: they are the limit above, and each one found is a refusal
-  added to that one file, with a test.
+  The reader in front refuses the forms of each that are listed and tested. It is not a complete defence
+  against every text this parser reads more leniently than a stricter reader: 5 known gaps are #339, and
+  others may exist. All of them are the limit above.
 - **What a project sees.** The parser and its licence notice arrive on the project's next sync, as files slipway
   maintains. Nothing is installed and no lockfile changes. A project with a workflow the parser does not read
   gets that report on the sync, and one edit to the workflow clears it.

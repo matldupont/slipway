@@ -41,7 +41,7 @@ test('a pull request, or a push to a branch, counts', () => {
   counts('on:\n    schedule:\n        - cron: "0 3 * * *"\n    push:\n');
   counts('on:\r\n  pull_request:\r');
   // Spellings a reader of text refused, which YAML reads as the same value: a text or a bracketed list on the
-  // line after its key, a list at its key's indentation, a bracketed list over lines, `null` in any case.
+  // line after its key, a list at its key's indentation, a bracketed list over lines, each spelling of null.
   counts('on:\n  push:\n    branches:\n      main');
   counts('on:\n  push');
   counts('on:\n  push:\n    branches:\n    - main');
@@ -49,6 +49,7 @@ test('a pull request, or a push to a branch, counts', () => {
   counts('on: [push,\n  pull_request]');
   counts('on:\n  pull_request:\n    types:\n      [opened]');
   counts('on:\n  pull_request: ~');
+  counts('on:\n  pull_request: Null');
   counts('on:\n  pull_request: NULL');
 });
 
@@ -104,6 +105,9 @@ test('a shape that is not read counts for nothing, and the reason holds none of 
   unread('on:\n  push: [main]', /inline value/);
   unread('on:\n  push: main', /inline value/);
   unread('on:\n  pull_request: ""', /inline value/);
+  // Any other case of the word is a text to YAML, so the event has a value: unread.
+  for (const text of ['nUlL', 'NULl', 'nULL']) unread(`on:\n  pull_request: ${text}`, /inline value/);
+  unread('on:\n  push:\n    tags: [v1]\n    branches: [nUlL]', /holds an empty entry/);
   unread('on:\n  push:\n    Branches: [main]', /not a filter/);
   unread("on:\n  push:\n    tags: [v1]\n    branches: [' ']", /holds an empty entry/);
   unread('on:\n  push:\n    - main', /not a filter/);

@@ -5,7 +5,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripShellComment } from './commands.mjs';
-import { NULL_TEXT, isNull, readWorkflow } from './workflow-yaml.mjs';
+import { isNull, readWorkflow } from './workflow-yaml.mjs';
 
 // What starts a workflow, read from its top-level `on:`. `counts` is true when it runs on a pull request or on a
 // push to a branch: the two events that run a change before, or as, it lands. A gate that only a tag, a schedule,
@@ -97,7 +97,8 @@ function triggerOf(w) {
       if (!keys.has(k)) continue;
       const list = keys.get(k);
       if (list.length === 0) return unread(`${k} under ${event} is empty`);
-      if (list.some((e) => NULL_TEXT.test(e.trim()))) return unread(`${k} under ${event} holds an empty entry`);
+      // Stricter than YAML on purpose: an entry that reads as nothing in any case, or in quotes, is refused.
+      if (list.some((e) => /^(|null|~)$/i.test(e.trim()))) return unread(`${k} under ${event} holds an empty entry`);
     }
     // A branch filter that can match no branch: every pattern refuses, or every branch is ignored. What a
     // pattern matches is otherwise not read (`branches: [no-such-branch]` counts), as a job's `if:` is not.

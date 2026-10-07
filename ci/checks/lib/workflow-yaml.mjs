@@ -3,17 +3,17 @@
 // The parser says what the text is as YAML. Agreeing with YAML is not agreeing with GitHub's reader, so what the
 // two are most likely to read differently is refused here, and never guessed at: an anchor, an alias, a tag, a
 // merge key, a key written more than once, a key that is a list or a mapping, a directive, more than one
-// document, a top level that is not a block of keys, and a line break only some readers split on. So is what
-// this parser reads and a stricter reader rejects, where review found it (#306): a document marker that is
+// document, a top level that is not a block of keys, and a line break only some readers split on. So are the
+// forms review found of what this parser reads and a stricter reader rejects (#306): a document marker that is
 // indented, a `...` marker, an empty key, a key over 1024 characters, a plain text that starts with a bracket or
-// a comma, and a directive the parser passes over. A file that is
+// a comma, and a directive the parser passes over. Those refusals cover the forms listed and tested. They are
+// not a complete defence against every text this parser reads more leniently: 5 known gaps are #339. A file that is
 // refused, or that the parser cannot read, is `unread`: a fixed reason holding none of the file's text. Whoever
 // reads it counts nothing in it: fail closed.
 //
 // The parser is stricter than common readers in one place that real workflows meet: a closing bracket at its
 // key's indentation, or a later line of a quoted text there, is not YAML to it. Such a file is unread too, and
-// `hint` says how to write it so it is read. That is the cost of failing closed, taken on purpose (D-033). It
-// is not strict everywhere: the list above grew from where it was found lenient, and what is left is a limit.
+// `hint` says how to write it so it is read. That is the cost of failing closed, taken on purpose (D-033).
 // Nesting deeper than 100 is not read (the parser's own bound).
 //
 // No schema is applied: every scalar is its text, so `on`, `yes`, `null` and `012` are what was written. What a
@@ -27,8 +27,8 @@ import { COLLECTION_STYLE, EVENT_ID, SCALAR_STYLE, getScalarValue, parseEvents }
 
 const NONE = -1;
 
-// The texts YAML reads as nothing, in any case. One spelling, used wherever a value is tested for being nothing.
-export const NULL_TEXT = /^(|null|~)$/i;
+// Exactly the texts YAML reads as nothing. Any other case of the word is a text, and is read as one.
+export const NULL_TEXT = /^(|null|Null|NULL|~)$/;
 // A plain scalar that is nothing: `key:`, `key: null`, `key: ~`. In quotes it is a text.
 export const isNull = (node) => node.kind === 'scalar' && node.plain && NULL_TEXT.test(node.value);
 
@@ -41,8 +41,8 @@ export function readWorkflow(text) {
   // split lines differently disagree on where a comment ends.
   if (/\r(?!\n)|[\u0085\u2028\u2029]/.test(src)) return refuse('it holds a line break W1 does not read');
   // Read from the text, since the parser passes over each without a trace: a directive it does not know, a `...`
-  // marker before anything, and a `---` that is indented. None can sit at the start of a line inside a text: a
-  // text under a top-level key is indented.
+  // marker before anything, and a `---` that is indented. In a file the parser reads, none of them starts a line
+  // inside a text: a text under a top-level key is indented.
   if (/^%/m.test(src)) return refuse('it holds a directive');
   if (/^\.\.\.(?:\s|$)/m.test(src)) return refuse('it holds a document end marker');
   const first = src.replace(/^\ufeff/, '').split(/\r?\n/).find((l) => l.trim() && !/^\s*#/.test(l)) ?? '';

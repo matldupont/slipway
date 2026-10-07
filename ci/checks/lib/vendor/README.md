@@ -29,8 +29,8 @@
 
 It is stricter than common YAML readers about a closing bracket, or a later line of a quoted text, at its
 key's indentation, and it reads nothing nested deeper than 100. It is not strict everywhere: it reads some
-texts a stricter reader rejects. `ci/checks/lib/workflow-yaml.mjs` refuses the ones found so far and says
-which; D-033 states the rest as a limit.
+texts a stricter reader rejects. `ci/checks/lib/workflow-yaml.mjs` refuses the forms listed and tested, and is
+not a complete defence; D-033 states the rest as a limit.
 
 ## Moving the pin
 
