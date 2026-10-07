@@ -242,6 +242,14 @@ test(`process/intake.md → Configuration states that rule: ${SETTINGS} first, o
   assert.match(first, /Read one file, never a mix of the two/, 'intake must forbid mixing the two files');
 });
 
+// #296: a closing word before a number closed #252 from a sentence about another PR; Links says so in one sentence.
+test('work-ticket\'s Links line says a closing word before an issue number closes it wherever it appears', () => {
+  const md = read(skillPath('work-ticket'));
+  const links = md.split('\n').find((l) => l.startsWith('- `## Links`')) ?? '';
+  assert.match(links, /A closing word before an issue number closes that issue wherever it appears, in any sentence, so never write one before a number the PR leaves open\./, 'Links must say a closing word closes the issue wherever it appears');
+  assert.ok(md.trimEnd().split('\n').length <= 300, 'work-ticket must fit in 300 lines');
+});
+
 test('work-ticket\'s rule files name the settings file, the manifest and slipway\'s markers', () => {
   const rules = read(skillPath('work-ticket')).match(/\*\*The rules the run is judged by:\*\*([\s\S]*?)\n\n/)?.[1] ?? '';
   for (const p of [SETTINGS, '.slipway/**', 'dev/ownership.yaml', 'scripts/new-project.mjs']) assert.ok(rules.includes(`\`${p}\``), `work-ticket's rule files do not name ${p}`);
