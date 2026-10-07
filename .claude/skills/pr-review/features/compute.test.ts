@@ -26,8 +26,18 @@ import path from "node:path";
 // removes only that one, so two runs in one tree never delete each other's
 // fixtures; the shared parent goes only when it is empty.
 const FIXTURE_PARENT = path.join(import.meta.dirname, ".test-tmp");
-try { mkdirSync(FIXTURE_PARENT, { recursive: true }); } catch {}
-const FIXTURE_ROOT = mkdtempSync(path.join(FIXTURE_PARENT, "run-"));
+function makeRunFolder(): string {
+  // Another run's exit may remove the empty parent between our mkdir and mkdtemp.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      mkdirSync(FIXTURE_PARENT, { recursive: true });
+      return mkdtempSync(path.join(FIXTURE_PARENT, "run-"));
+    } catch (err) {
+      if (attempt >= 20 || (err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    }
+  }
+}
+const FIXTURE_ROOT = makeRunFolder();
 process.on("exit", () => {
   try { rmSync(FIXTURE_ROOT, { recursive: true, force: true }); } catch {}
   try { rmdirSync(FIXTURE_PARENT); } catch {} // not empty: another run is still going
