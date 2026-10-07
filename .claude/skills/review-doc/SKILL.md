@@ -72,6 +72,8 @@ Copy `docs/reviews/TEMPLATE.md` to `docs/reviews/<YYYY-MM-DD>-<target>-<version>
 - `Reviewed: <path> @ <sha>` — the path you read and the sha from step 1.
 - `Version line: <copied verbatim from the file>` — open the file and copy it. Do not retype it
   from memory; that is the failure R1 exists for, and a paraphrase turns it red.
+- `Supersedes: docs/reviews/<file>` — one line for each earlier review in `docs/reviews/` whose `Reviewed:` line
+  names the same path, every one of them, not only the latest; with none, delete the line.
 - The register, then one section per finding: where (by ID, never by heading), what is wrong with
   the passage quoted, and a proposed resolution to argue with.
 
@@ -84,5 +86,6 @@ List the S0 and S1 findings in the chat, each in one line, and say plainly that 
 decided. When the owner files a finding as an issue, or records it as an `OD-` or `PD-` entry, write that
 id into the register's Tracker column in the same change — a finding whose issue is not named in the
 review loses its link back. The owner resolves each one in the document, bumps its `Version:` and change log, and —
-because the version line moves — **a substantive revision needs a fresh review**. The build goes red
-when the PRD leaves draft with no review naming its current version.
+because the version line moves — **a substantive revision needs a fresh review**. The earlier review stays in
+`docs/reviews/` as it was written, and stops being reported as stale once the fresh review names it in
+`Supersedes:`. The build goes red when the PRD leaves draft with no review naming its current version.

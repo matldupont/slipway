@@ -1,0 +1,12 @@
+{
+  "_note": "D-029. a-old is stale and a-new, current for the same document, names it in Supersedes: the pair has no finding. b-old is stale with no other review. c-1 and c-2 are both stale: c-2's Supersedes line retires nothing. d-old is stale and e-new, current for another document, names it: d-old stays stale and the line is reported. f-new names a file that is not there.",
+  "exit": 1,
+  "findings": [
+    "docs/reviews/b-old.md#provenance/stale",
+    "docs/reviews/c-1.md#provenance/stale",
+    "docs/reviews/c-2.md#provenance/stale",
+    "docs/reviews/d-old.md#provenance/stale",
+    "docs/reviews/e-new.md#provenance/supersedes-invalid",
+    "docs/reviews/f-new.md#provenance/supersedes-invalid"
+  ]
+}

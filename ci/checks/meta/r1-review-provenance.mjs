@@ -9,6 +9,8 @@
 //   provenance/target-missing   the reviewed path does not exist
 //   provenance/stale            the version line is not in the current file — the document
 //                               moved on, or the line was written from memory
+//   provenance/supersedes-invalid  a `Supersedes:` line names something other than a review of the
+//                               same document
 //   template/provenance-lines   TEMPLATE.md lost either line (so the template cannot drift)
 //   review/missing              the PRD has left draft with no review of its current version — the
 //                               review was skipped, or written somewhere other than docs/reviews/
@@ -20,9 +22,14 @@
 // The missing-review rule fires at the same moment F1's does: while the PRD is a draft it is still
 // being written, and once it is not, the shape of the plan has been argued with — or it has not, and
 // nothing else would say so. A review of an older version does not count: bump the PRD, review again.
+//
+// A stale review retires when the review that replaces it says so (D-029): a review whose own version
+// line is still in the document names it, `Supersedes: docs/reviews/<file>`, one line per file. Nothing
+// is inferred from a second review being there, so a line written from memory is still reported beside
+// an honest review. A stale review's own Supersedes: lines retire nothing, and there is no chain.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
@@ -34,6 +41,7 @@ const reviewedPrd = [];
 const dir = join(root, 'docs', 'reviews');
 const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
 const findings = [];
+const reviews = [];
 
 const clean = (l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim();
 const unquote = (s) => s.trim().replace(/^[`'"]+|[`'"]+$/g, '');
@@ -62,12 +70,29 @@ for (const f of files) {
   }
   const want = unquote(version[1]);
   if (targetRel.endsWith('docs/PRD.md') && prdVersion && want.includes(prdVersion)) reviewedPrd.push(rel);
-  if (!readFileSync(target, 'utf8').includes(want)) {
-    findings.push({
-      where: `${rel}#provenance/stale`,
-      detail: `"${want}" is not in ${targetRel} — the document moved on, or the line was written from memory: review the current version (/review-doc), or copy the line from the file`,
-    });
+  const supersedes = lines.map((l) => l.match(/^Supersedes:\s*(.+)$/)).filter(Boolean).map((m) => unquote(m[1]).replace(/^\.\//, ''));
+  reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: !readFileSync(target, 'utf8').includes(want), supersedes });
+}
+
+// Two spellings of one path that do not normalise alike read as two documents: nothing retires.
+const byRel = new Map(reviews.map((r) => [r.rel, r]));
+const retired = new Set();
+for (const r of reviews) {
+  for (const name of r.supersedes) {
+    const named = byRel.get(name);
+    const why = !named || named === r
+      ? 'is not another review in docs/reviews/ that carries both provenance lines'
+      : named.doc !== r.doc ? `is a review of ${named.targetRel}, not of ${r.targetRel}` : null;
+    if (why) findings.push({ where: `${r.rel}#provenance/supersedes-invalid`, detail: `Supersedes: ${name} ${why}, so it retires nothing: name an earlier review of the same document by its path, or remove the line` });
+    else if (!r.stale) retired.add(named.rel);
   }
+}
+for (const r of reviews) {
+  if (!r.stale || retired.has(r.rel)) continue;
+  findings.push({
+    where: `${r.rel}#provenance/stale`,
+    detail: `"${r.want}" is not in ${r.targetRel} — the document moved on, or the line was written from memory: review the current version (/review-doc) and name this file in that review's Supersedes: line, or copy the line from the file`,
+  });
 }
 
 if (prd && prdStatus !== 'draft' && reviewedPrd.length === 0) {
@@ -80,7 +105,7 @@ if (prd && prdStatus !== 'draft' && reviewedPrd.length === 0) {
 process.exit(
   report({
     id: 'R1',
-    claim: `every review names the file it read and a version line that is still verbatim in that file${prd && prdStatus !== 'draft' ? `, and the PRD at ${prdVersion} has one` : ''}`,
+    claim: `every review names the file it read and a version line that is still verbatim in that file, or is named by the review that replaced it${prd && prdStatus !== 'draft' ? `, and the PRD at ${prdVersion} has one` : ''}`,
     scanned: files.length + (prd ? 1 : 0),
     unit: `review files${prd ? ` and the PRD (${prdStatus})` : ''}`,
     findings,
