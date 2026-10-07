@@ -59,7 +59,7 @@
     <dl>
       <div><dt>8</dt><dd>steps from a rough idea to a product people use</dd></div>
       <div><dt>1</dt><dd>command tells you what to do next</dd></div>
-      <div><dt>1</dt><dd>milestone open at a time</dd></div>
+      <div><dt>1</dt><dd>milestone active at a time</dd></div>
       <div><dt>0</dt><dd>packages to install for the checks to run</dd></div>
     </dl>
   </section>
@@ -98,15 +98,15 @@
     <table>
       <thead><tr><th scope="col">What goes wrong</th><th scope="col">What fails instead</th></tr></thead>
       <tbody>
-        <tr><td>The agent finishes its turn with tests failing</td><td>A hook runs <code>pnpm verify:fast</code> when the agent tries to stop. It’s sent back once with the failure, and if it still stops red it has to say what is failing.</td></tr>
+        <tr><td>The agent finishes its turn with tests failing</td><td>A hook runs <code>pnpm verify:fast</code> when the agent tries to stop. It’s sent back once with the failure, and told to say what is failing if it stops red anyway.</td></tr>
         <tr><td>A check that can’t fail</td><td>Every check has a known-bad example it must go red on, for exactly the expected reasons.<span class="id">PC1</span></td></tr>
         <tr><td>Tests or scripts that CI never runs</td><td>Every gated script has to be invoked by a CI workflow.<span class="id">W1</span></td></tr>
-        <tr><td>A pull request with no record of what was run</td><td>The PR description has to say what was verified, and link its issue.<span class="id">P1</span></td></tr>
-        <tr><td>“Make it faster” as the acceptance criterion</td><td>Issues can’t use a bare adjective as a criterion.<span class="id">I1</span></td></tr>
+        <tr><td>A pull request with no record of what was run</td><td>The PR description has to say what was verified, and link its issue or say why there is none.<span class="id">P1</span></td></tr>
+        <tr><td>“Make it faster” as the acceptance criterion</td><td>An issue that uses a bare adjective as a criterion is labelled <code>needs-shape</code>, and <code>/work-ticket</code> won’t start it.<span class="id">I1</span></td></tr>
         <tr><td>A plan nobody argued with</td><td>The PRD needs a written review that names the exact version it read.<span class="id">R1</span></td></tr>
         <tr><td>Building before anyone tested demand</td><td>No milestone past the first skeleton starts until each value risk has a result against a bar written first, or is settled by experience with what would prove it wrong written down.<span class="id">K1</span></td></tr>
         <tr><td>A milestone that runs over</td><td>One milestone is active at a time. Past its time budget, it needs a written decision.<span class="id">MS1</span></td></tr>
-        <tr><td>A lesson nothing enforces</td><td>Every lesson names where it’s enforced. The judgment ones get a review date, and fail when it passes.<span class="id">L1</span></td></tr>
+        <tr><td>A lesson nothing enforces</td><td>Every lesson names where it’s enforced or, if it isn’t built yet, the event that reopens it. The judgment ones get a review date, and fail when it passes.<span class="id">L1</span></td></tr>
       </tbody>
     </table>
   </section>
@@ -121,13 +121,13 @@
 
     <div class="ramp-wrap">
       <ol class="ramp">
-        <li style="--i:0"><span class="step">0</span><span class="name">Bootstrap</span><span class="who">you + agent · 1–2 h</span><p>One command makes the repo. <code>/bootstrap</code> adds the app and proves each gate can go red.</p></li>
+        <li style="--i:0"><span class="step">0</span><span class="name">Bootstrap</span><span class="who">you + agent · 1–2 h</span><p>One command makes the repo. <code>/bootstrap</code> adds the app and runs the probes that show each gate can go red, listing the ones you run yourself.</p></li>
         <li style="--i:1"><span class="step">1</span><span class="name">Frame</span><span class="who">you · an afternoon</span><p><code>/kickoff</code> asks one question at a time: who reaches for this, when, and what it answers for them.</p></li>
         <li style="--i:2"><span class="step">2</span><span class="name">Test the risk</span><span class="who">you · days to weeks</span><p>The cheapest test that could fail. Talk to people, do the job by hand. Write the bar first.</p></li>
         <li style="--i:3"><span class="step">3</span><span class="name">Shape</span><span class="who">you · 1–2 days</span><p>A PRD, the decisions that are costly to change later, 3–5 milestones. Then a fresh session argues with it.</p></li>
         <li style="--i:4"><span class="step">4</span><span class="name">Skeleton</span><span class="who">agent · days</span><p>The thinnest real path, deployed through CI with analytics and errors wired. Runs alongside step 2.</p></li>
         <li style="--i:5"><span class="step">5</span><span class="name">Build</span><span class="who">agent · the rest of the milestone</span><p>One milestone at a time. Small PRs, each carrying its evidence.</p></li>
-        <li style="--i:6"><span class="step">6</span><span class="name">Close</span><span class="who">you · about 7 minutes to a pull request</span><p>A retro written from the record, on the one run so far. Out of time? Cut scope and close.</p></li>
+        <li style="--i:6"><span class="step">6</span><span class="name">Close</span><span class="who">you · about 7 minutes to a pull request, once, on the strongest model</span><p>A retro written from the record, on the one run so far. Out of time? Cut scope and close.</p></li>
         <li style="--i:7" class="launch"><span class="line" aria-hidden="true"></span><span class="step">7</span><span class="name">Learn</span><span class="who">you · weekly</span><p>Usage numbers and real conversations pick the next milestone.</p><span class="loop">→ back to 5</span></li>
       </ol>
     </div>
@@ -137,8 +137,8 @@
       <ol class="seq">
         <li><strong>Take the next slice from the active milestone.</strong> Anything that isn’t in it goes to its “not doing” list or a later milestone, not into today’s change.</li>
         <li><strong>Size it.</strong> One sentence and no new behaviour is a plain PR. One session’s work gets an issue with checkable acceptance. Bigger, or a new concept, gets a short feature doc with a contract first.</li>
-        <li><strong>Hand it to a fresh agent session.</strong> It looks for an existing helper before writing a new one. Once a project wires a duplication check, a ratchet only lets its number go down.</li>
-        <li><strong>The agent keeps going until <code>pnpm verify:fast</code> passes,</strong> or tells me why it can’t.</li>
+        <li><strong>Hand it to a fresh agent session.</strong> It looks for an existing helper before writing a new one. Once a project wires a duplication check, a ratchet never lets its number go up.</li>
+        <li><strong>When <code>pnpm verify:fast</code> is red, the agent is sent back once to fix it,</strong> and told to say what’s failing if it stops anyway.</li>
         <li><strong>Review a PR that says what was verified.</strong> CI runs the same <code>pnpm verify</code> I do. There’s no second definition of green.</li>
       </ol>
     </div>
@@ -160,7 +160,7 @@
       <li><span class="path">decisions.md</span><span class="what"><strong>Why the stack, the data model and the money types</strong> are what they are, dated when decided rather than reconstructed later.</span></li>
       <li><span class="path">docs/milestones/</span><span class="what"><strong>One active bet,</strong> with a time budget and kill criteria written before it started. Each closed one has a retro.</span></li>
       <li><span class="path">docs/product/metrics.md</span><span class="what"><strong>The weekly numbers</strong> and what users said, which is where the next milestone comes from.</span></li>
-      <li><span class="path">process/lessons/</span><span class="what"><strong>Every rule the project has learned,</strong> each pointing at the check that enforces it.</span></li>
+      <li><span class="path">process/lessons/</span><span class="what"><strong>Every rule the project has learned,</strong> each saying where it’s enforced: a check where one fires, otherwise the page that holds it, on a review clock.</span></li>
     </ul>
     <div class="outside prose">
       <h3>And outside the repo</h3>
@@ -178,7 +178,7 @@
     <p class="answer">It will ask you why. That’s the cost, and most of the point.</p>
     <div class="prose">
       <p>Before it builds anything, slipway asks what question the product answers and who’s asking. Before a feature, it asks which part of that question the feature serves. <code>/kickoff</code> asks one question at a time, so the reasoning ends up on paper instead of in your head.</p>
-      <p>That can feel like a barrier, and I’ve felt it too. Plenty of good features start as experience or gut: you’re the user, or it’s table stakes in the domain. Nobody trusts a finance app with half its features. Some products can’t be tested by hand in a spreadsheet first. Slipway lets you settle a value risk by experience, when you write down what would prove you wrong.</p>
+      <p>That can feel like a barrier, and I’ve felt it too. Plenty of good features start as experience: you’re the user, or it’s table stakes in the domain. Nobody trusts a finance app with half its features. Some products can’t be tested by hand in a spreadsheet first. Slipway lets you settle a value risk by experience (it’s table stakes, you’re the user, or you know the domain), when you write down what would prove you wrong.</p>
       <p>The time it takes: an afternoon to frame, days to weeks to test the riskiest assumption, a day or two to shape.</p>
       <h3>Who it’s for</h3>
       <ul class="hang">
@@ -200,8 +200,8 @@
     <p class="answer">Honest answer: not in one command yet. Today slipway starts new projects, and keeps them up to date.</p>
     <div class="prose">
       <p><strong>Updates are built in.</strong> A project started from slipway takes newer versions with <code>/sync-slipway</code>. It prints a plan before it touches anything, works on its own branch, merges instead of overwriting a file you changed, and never edits the documents that are yours: the PRD, the frame, your decisions.</p>
-      <p><strong>Adopting an existing repo is a later bet, not under way.</strong> An <code>--adopt</code> mode for projects that didn’t start from slipway is designed, not built. Help triaging an old backlog, which issues still hold against the code and which can go, is another bet after it.</p>
-      <p><strong>Until then, pieces travel on their own.</strong> The checks are zero-dependency Node scripts. The lessons are plain Markdown files. The working rules for agents fit on one page. You can lift any of them into a repo you already have.</p>
+      <p><strong>Adopting an existing repo is a later bet, not under way.</strong> Adopting a project that didn’t start from slipway is filed, with its acceptance written, and not built. Help triaging an old backlog, which issues still hold against the code and which can go, is another later bet, ahead of it.</p>
+      <p><strong>Until then, pieces travel on their own.</strong> The checks are zero-dependency Node scripts. The lessons are plain Markdown files. The working rules for agents fit on one page. A check brings the helpers in <code>ci/lib/</code> it imports, and none has been tried outside a slipway project yet.</p>
       <p><strong>What you’re running.</strong> Each release is staged by CI from a version tag, and goes public only when I approve that exact package at npm with a second factor.</p>
       <h3>What it expects</h3>
       <ul class="hang">
@@ -224,14 +224,14 @@
         <li><strong>Slipway’s own work goes through its lanes.</strong> Its feature docs, decisions, lessons and reviews are in the repo.</li>
         <li><strong>A private product with one engineer, a web app, has used it.</strong> It ran the gates on real pull requests and issues, and its repository was protected by the setup script. <code>/kickoff</code> shaped its product, and the Stop hook caught a problem in a live session that became a fix in slipway (<a href="https://github.com/matldupont/slipway/pull/58">#58</a>).</li>
         <li><strong>Seven real syncs, scored together.</strong> The bar is one command, three questions at most, and the owner able to say what changed. One sync met it. Two missed it. Four were not fully scored: for two, the record says nothing on whether the owner could say what changed, and for the other two it has no command count. Each is dated in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#exercised-on-a-real-project">SLIPWAY.md</a>.</li>
-        <li><strong>The first milestone close has run.</strong> On 2026-10-06, <code>/close-milestone</code> took about seven minutes from the start of the session to an open pull request, and about half an hour to merge. It asked one question: which of the open issues belonged to the milestone. One run; nothing else has been timed.</li>
+        <li><strong>The first milestone close has run.</strong> On 2026-10-06, <code>/close-milestone</code> took about seven minutes from the start of the session to an open pull request, and about half an hour to merge, on the strongest model at high effort. It asked one question: which of the open issues belonged to the milestone. One run; nothing else has been timed.</li>
         <li><strong>That project had built every item of its first milestone.</strong> The close ended it before its appetite ran out. Every gate line was shown by a CI run or a recorded result, and the retro was written from issues, pull requests and <code>git log</code>: the work that crept in, the rework and its cause, the code-health numbers, one lesson for the project.</li>
-        <li><strong>The first real close used a fix made that day.</strong> With no GitHub milestone, slipway’s close now lists the project’s open issues and asks which belong, instead of reporting nothing left (<a href="https://github.com/matldupont/slipway/issues/258">#258</a>, fixed in <a href="https://github.com/matldupont/slipway/pull/264">#264</a> on 2026-10-06, before the close ran). It also marks a feature doc shipped whole even when one section still owes a check (<a href="https://github.com/matldupont/slipway/issues/284">#284</a>, open).</li>
+        <li><strong>The first real close used a fix made that day.</strong> With no GitHub milestone, slipway’s close now lists the project’s open issues and asks which belong, instead of reporting nothing left (<a href="https://github.com/matldupont/slipway/issues/258">#258</a>, fixed in <a href="https://github.com/matldupont/slipway/pull/264">#264</a> on 2026-10-06, before the close ran). It also found a bug: it marks a feature doc shipped whole even when one section still owes a check (<a href="https://github.com/matldupont/slipway/issues/284">#284</a>, open).</li>
       </ul>
       <h3>Not proven yet</h3>
       <p>Each line is dated 2026-10-07, in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#not-verified-here--read-as-unknown">SLIPWAY.md</a>, under “Not verified here — read as unknown”.</p>
       <ul class="hang">
-        <li><strong>The agent hooks in a live session.</strong> The Stop hook has only been seen blocking on a missing install, not refusing on a failing test; the other hooks have been seen only on sample input.</li>
+        <li><strong>The agent hooks and approval prompts in a live session.</strong> The Stop hook has only been seen blocking on a missing install, not refusing on a failing test; the approval prompts, the other hooks and the session-start status have been seen only on sample input.</li>
         <li><strong>A close that isn’t the first one’s path.</strong> A milestone ended as killed, extended or cut; a project with a GitHub milestone; a close that changes the PRD.</li>
         <li><strong>The skills’ settings on a real project.</strong> This repository holds no record of the intake and ticket skills’ runs there.</li>
         <li><strong>A limit of the issue check.</strong> It catches adjectives, not criteria that can’t fail: “returns HTTP 200” passes.</li>
