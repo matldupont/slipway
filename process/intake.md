@@ -118,8 +118,9 @@ The body reads as the repository's issue form would render it, so the checks tha
   `` `@name` ``, so nobody is notified by a copy.
 - **Last,** a designation block, per `Effort decision-tree` (default `process/designation.md`). It asks one
   question first: is there something to check the answer against? The reason cites the case number that file
-  gives the work, and any override beside it. Only discovery work has no case number: its reason says
-  `discovery work, with an oracle` or `discovery work, no oracle` instead (`no oracle` on a **Shape:** line).
+  gives the work, and any override beside it. Only discovery work and the security exception have no case number: a reason says
+  `discovery work, with an oracle` or `discovery work, no oracle` instead (`no oracle` on a **Shape:** line), and
+  the exception's says `security or trust design, no oracle`.
 
   ```markdown
   ## Recommended Mode / Model / Effort
@@ -130,7 +131,7 @@ The body reads as the repository's issue form would render it, so the checks tha
   A feature-lane issue carries two lines, **Shape:** and **Build:**, since the two phases differ. With no
   oracle (a schema others build on, a definition of "correct"), the shaping goes to the discovery tier at high
   effort, and the build is scored on its own case once the shaped Contract is there to check it against. A
-  question of security or trust with no oracle goes to the strongest tier instead, never the discovery tier.
+  security or trust design with no oracle goes to the strongest tier instead, never the discovery tier.
 
   With `Effort decision-tree` none, answer that question by judgment and cite nothing.
 

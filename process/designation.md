@@ -7,11 +7,11 @@ Read at intake (every issue's designation line) and by whoever launches the work
 
 | | examples | allocate |
 |---|---|---|
-| **An oracle exists** | most implementation work with tests; an inventory, audit, validation sweep, options memo or parity check | Discovery work: the strongest tier, told to compute, not to analyse. All other work: the case below picks the tier. Both: fan-out where breadth matters, mechanical verification, and one fresh-context reviewer |
+| **An oracle exists** | most implementation work with tests; an inventory, audit, validation sweep, options memo or parity check | Discovery work: the strongest tier · `high`, told to compute, not to analyse. All other work: the case below picks the tier. Both: fan-out where breadth matters, mechanical verification, and one fresh-context reviewer |
 | **No oracle** | a schema other work is built on, a set of principles, a definition of "correct" | the discovery tier at `high`, no fan-out. A reviewer can critique the design you wrote; it cannot supply the one you never considered |
 
 Whether the deliverable is a document or a diff does not answer that question. Ask next whether it is
-**discovery work**: work whose findings become issues (an inventory, an audit, a sweep, a parity check), or the
+**discovery work**: work whose findings become issues (an inventory, an audit, a sweep, an options memo, a parity check), or the
 shaping of something with no oracle that other work is built on. The table is its only rule, and the cases never
 score it. A triage, a classification or a short summary is used as it is and nothing is built on it: that is
 case 1. All other work has an oracle, design inside a system whose tests and invariants check it included.

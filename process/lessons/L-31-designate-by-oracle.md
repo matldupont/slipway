@@ -9,4 +9,4 @@ enforcement:
   review-by: +90d
 ---
 
-With an oracle, fan-out plus verification beats model tier. Without one, only a better thinker helps.
+With an oracle, verification does the work and the cases pick the tier, except discovery work, which takes the strongest tier. Without one, only a better thinker helps.
