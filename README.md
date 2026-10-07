@@ -2,12 +2,12 @@
 
 <img src="dev/assets/logo-lockup.png" alt="slipway" width="420">
 
-A slipway is where a ship is built and then launched down the ramp. This is a starting point for a product
-built with coding agents: a path from a loose idea to a shipped, measured product, and the checks that keep
-that path honest.
+A slipway is where a ship is built and then launched down the ramp. Slipway is
+a project framework for Claude Code: a path from a rough idea to a release that holds up, with Claude Code
+doing the building and checks that fail when a step gets skipped. By an engineer, for engineers.
 
-One thesis runs through it: **a rule exists only where something fires.** Every step ends in something that
-goes red — a check, a hook, a clock — not in a promise.
+One thesis runs through it: **a rule exists only where something fires.** Every step up to closing a
+milestone ends in something that goes red — a check, a hook, a clock — not in a promise.
 
 **Requires:** Node 24 + pnpm, GitHub, Claude Code. **Defaults**, decided in week 1 (D-005–D-008): TypeScript,
 React + Vite, Cloudflare.
@@ -16,7 +16,8 @@ React + Vite, Cloudflare.
 
 **You need:** Node 24+, pnpm 10, git, and the GitHub CLI logged in (`gh auth login`).
 
-From the folder you keep projects in, pass the new project's folder name:
+From the folder you keep projects in, pass the new project's folder name. The package is `use-slipway`; `slipway`
+on npm is unrelated.
 
 ```bash
 npx use-slipway acme --dry-run    # print the plan, change nothing
