@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // What starts a workflow, as W1 reads it (ci/checks/lib/workflows.mjs workflowTrigger, #239): which `on:` shapes
 // count as running on a pull request or a push to a branch, which do not, and which are not read at all.
+// The reader under it (the pinned parser, and what is refused in front of it) is scripts/workflow-yaml.test.mjs.
+// Every workflow text here is inert: none is run.
 // Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
@@ -38,6 +40,8 @@ test('a pull request, or a push to a branch, counts', () => {
   counts('on:\n  push:\n    branches: [main]\n  workflow_dispatch: {}     # manual run');
   counts('on:\n    schedule:\n        - cron: "0 3 * * *"\n    push:\n');
   counts('on:\r\n  pull_request:\r');
+  // YAML reads a text on the line after its key as the same value: this is `branches: main`.
+  counts('on:\n  push:\n    branches:\n      main');
 });
 
 test('a path filter is not read: the event decides', () => {
@@ -76,29 +80,33 @@ test('an issue being opened is told apart, and never counts as a change', () => 
 
 test('a shape that is not read counts for nothing, and the reason holds none of the file\'s text', () => {
   unread('', /no top-level on:/);
-  unread('  on: pull_request', /no top-level on:/);
+  unread('  on: pull_request', /not YAML the parser can read/);
   unread('# on: pull_request', /no top-level on:/);
-  unread('on: pull_request\non: push', /more than one/);
+  unread('on: pull_request\non: push', /written more than once/);
   unread('on:', /is empty/);
   unread('on: { pull_request: {} }', /not an event/);
   unread('on: ${{ vars.EVENTS }}', /not an event/);
-  unread('on: *events', /not an event/);
-  unread('on: &events [pull_request]', /not an event/);
+  unread('on: *events', /holds an alias/);
+  unread('on: &events [pull_request]', /holds an anchor/);
+  unread('on: [push, push]', /not an event/);
   unread('on: [pull_request, [push]]', /not an event/);
   unread('on: []', /not an event/);
   unread('on: Pull_Request', /not an event/);
   unread('on:\n  pull_request: { types: [opened] }', /inline value/);
-  unread('on:\n  <<: *events', /not an event/);
-  unread('on:\n  pull_request:\n  pull_request:', /not an event/);
-  unread('on:\n  - push\n  pull_request:', /not an event/);
-  unread('on:\n\tpull_request:', /tab/);
-  unread('on:\n    push:\n  pull_request:', /not indented evenly/);
-  unread('on:\n  push:\n    branches: *main', /not a filter/);
+  unread('on:\n  push: [main]', /inline value/);
+  unread('on:\n  push:\n    - main', /not a filter/);
+  unread('on:\n  secret-name:', /not an event/);
+  unread('on:\n  <<: *events', /merge key/);
+  unread('on:\n  pull_request:\n  pull_request:', /written more than once/);
+  unread('on:\n  - push\n  pull_request:', /not YAML the parser can read/);
+  unread('on:\n\tpull_request:', /not YAML the parser can read/);
+  unread('on:\n    push:\n  pull_request:', /not YAML the parser can read/);
+  unread('on:\n  push:\n    branches: *main', /holds an alias/);
+  unread('on:\n  pull_request:\n    types: !!seq [opened]', /holds a tag/);
   unread('on:\n  push:\n    branches: ${{ vars.B }}', /not a filter/);
   unread('on:\n  push:\n    branches: { a: b }', /not a filter/);
   unread('on:\n  push:\n    branches: [a, [b]]', /not a list/);
-  unread('on:\n  push:\n    branches:\n      - main\n    branches: [x]', /not a filter/);
-  unread('on:\n  push:\n    branches:\n      main', /not a filter/);
+  unread('on:\n  push:\n    branches:\n      - main\n    branches: [x]', /written more than once/);
   unread('on:\n  push:\n    branches: []', /branches under push is empty/);
   unread('on:\n  push:\n    branches:\n    tags: [v1]', /branches under push is empty/);
   unread('on:\n  pull_request:\n    types: []', /types under pull_request is empty/);
@@ -109,8 +117,9 @@ test('a shape that is not read counts for nothing, and the reason holds none of 
   unread('on:\n  push:\n    tags: [v1]\n    branches: [NULL]', /holds an empty entry/);
   unread("on:\n  push:\n    tags: [v1]\n    branches: ['!**']", /only refuses/);
   unread("on:\n  push:\n    tags: ['v*']\n    branches-ignore: ['**']", /ignores every branch/);
-  unread('on:\n  pull_request:\n    types: ["closed,opened,x"]', /not a list/);
-  for (const on of ['on: { secret-name: {} }', 'on:\n  push:\n    branches: *secret']) {
+  // One quoted entry with commas in it is one type, and none of the three that run on a change.
+  doesNot('on:\n  pull_request:\n    types: ["closed,opened,x"]');
+  for (const on of ['on: { secret-name: {} }', 'on:\n  secret-name:', 'on:\n  push:\n    branches: *secret', 'on:\n  push:\n    secret: { a: b }']) {
     assert.doesNotMatch(trigger(on).unread, /secret/);
   }
 });
@@ -184,28 +193,34 @@ test('an on: line that is text inside a quoted scalar, a bracket or another docu
   raw('on:\n  pull_request: # note\r    types: [closed]\njobs: {}\n', /line break W1 does not read/);
   raw('on:\n  push: # note\u2028    tags: [v1]\n', /line break W1 does not read/);
   raw('on:\n  push: # note\u0085    tags: [v1]\n', /line break W1 does not read/);
-  raw('{ name: "a\non: push\nz", "on": workflow_dispatch, jobs: {} }\n', /inside a quoted or bracketed text/);
-  raw('name: "a\non: push\nz"\n"\\x6fn": workflow_dispatch\njobs: {}\n', /inside a quoted or bracketed text/);
-  raw("name: 'it''s\non: push\nz'\njobs: {}\n", /inside a quoted or bracketed text/);
-  raw('env:\n  A: "x\non: push\n  z"\njobs: {}\n', /inside a quoted or bracketed text/);
-  raw('env:\n  A: |\n    "\n  B: "x\non: push\n  z"\n', /inside a quoted or bracketed text/);
-  raw('env:\n  A: [a,\non: push\n  ]\n', /inside a quoted or bracketed text/);
-  raw('on:\n  push:\n    tags: "v*\n    branches: x"\n', /runs over a line/);
-  raw('on:\n  workflow_dispatch:\n    inputs:\n      a:\n        default: "x\n  pull_request:\n  zzz:\n        "\n', /runs over a line/);
-  raw('name: x\n---\non: push\n', /not a plain key/);
-  raw('on: push\n"\\x6fn": workflow_dispatch\n', /not a plain key/);
-  raw('on: push\n? on\n: workflow_dispatch\n', /not a plain key/);
+  raw('{ name: "a\non: push\nz", "on": workflow_dispatch, jobs: {} }\n', /top level is not a block of keys/);
+  raw('name: "a\non: push\nz"\n"\\x6fn": workflow_dispatch\njobs: {}\n', /not YAML the parser can read/);
+  raw("name: 'it''s\non: push\nz'\njobs: {}\n", /not YAML the parser can read/);
+  raw('env:\n  A: "x\non: push\n  z"\njobs: {}\n', /not YAML the parser can read/);
+  raw('env:\n  A: |\n    "\n  B: "x\non: push\n  z"\n', /not YAML the parser can read/);
+  raw('env:\n  A: [a,\non: push\n  ]\n', /not YAML the parser can read/);
+  raw('on:\n  push:\n    tags: "v*\n    branches: x"\n', /not YAML the parser can read/);
+  raw('on:\n  workflow_dispatch:\n    inputs:\n      a:\n        default: "x\n  pull_request:\n  zzz:\n        "\n', /not YAML the parser can read/);
+  raw('name: x\n---\non: push\n', /more than one document/);
+  raw('on: push\n"\\x6fn": workflow_dispatch\n', /written more than once/);
+  raw('on: push\n? on\n: workflow_dispatch\n', /written more than once/);
   // What a real workflow holds, and none of it hides anything: an apostrophe in plain text, a quote or a bracket
   // inside a run block, a list over several lines.
-  counts("name: Don't panic # it's fine\non: push\njobs:\n  a:\n    steps:\n      - run: |\n          echo \"[\n      - run: echo it's");
-  counts('name: a\nenv:\n  M: [\n    a,\n  ]\non: [pull_request]');
+  const reads = (text) => assert.deepEqual([workflowTrigger(text).counts, workflowTrigger(text).unread], [true, null], text);
+  reads("name: Don't panic # it's fine\non: push\njobs:\n  a:\n    steps:\n      - run: |\n          echo \"[\n      - run: echo it's");
+  reads('name: a\nenv:\n  M: [\n    a,\n    ]\non: [pull_request]\n');
+  // The parser holds to the specification where some readers are lenient: a closing bracket at its key's
+  // indentation is not YAML to it, so the file is unread, and the reason gives the line.
+  raw('name: a\nenv:\n  M: [\n    a,\n  ]\non: [pull_request]\n', /not YAML the parser can read, at line 5$/);
   counts('env:\n  NOTE: >-\n    "on: nothing\n\n    more\non: pull_request');
-  for (const head of ['A: |', 'A: !!str >-', 'A: &a |2+  # kept', '- |', '- - B: |-']) {
+  for (const head of ['A: |', 'A: |2+  # kept', '- |', '- - B: |-']) {
     counts(`env:\n  ${head}\n          "on: nothing\non: pull_request`);
   }
-  // A long line is read in time proportional to its length.
+  unread('env:\n  A: !!str >-\n          "on: nothing\non: pull_request', /holds a tag/);
+  unread('env:\n  A: &a |2+  # kept\n          "on: nothing\non: pull_request', /holds an anchor/);
+  // A long line is refused in time proportional to its length: nesting that deep is not read.
   const started = Date.now();
-  counts(`on: push\nx:\n  ${'- '.repeat(200_000)}x`);
+  unread(`on: push\nx:\n  ${'- '.repeat(200_000)}x`, /not YAML the parser can read/);
   assert.ok(Date.now() - started < 2000, `${Date.now() - started} ms`);
 });
 
@@ -223,7 +238,7 @@ test('only a job\'s own uses: calls a workflow: not a step, a with: value, a run
       `jobs:\n  a:\n    steps:\n      - ${USES}\n      - run: pnpm test\n`,
       `jobs:\n  a:\n    steps:\n      - uses: some/action@v1\n        with:\n          ${USES}\n      - run: pnpm test\n`,
       `jobs:\n  a:\n    env:\n      ${USES}\n    steps:\n      - run: pnpm test\n`,
-      `jobs:\n  a:\n    name: "x\n    ${USES}\n      y"\n    steps:\n      - run: pnpm test\n`,
+      `jobs:\n  a:\n    name: "x\n      ${USES}\n      y"\n    steps:\n      - run: pnpm test\n`,
       `env:\n  ${USES}\njobs:\n  a:\n    steps:\n      - run: pnpm test\n`,
       `${USES}\njobs:\n  a:\n    steps:\n      - run: pnpm test\n`,
     ]) {

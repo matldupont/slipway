@@ -1,0 +1,12 @@
+name: an 'apostrophe
+# Inert text. The apostrophe above is plain text; the quoted text opened two lines down runs over the on: line
+# after it. A reader that matches text took that line for the trigger, and missed the escaped key that is one.
+"\x6fn": workflow_dispatch
+x: 'c
+on: pull_request
+k: '
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:apostrophe

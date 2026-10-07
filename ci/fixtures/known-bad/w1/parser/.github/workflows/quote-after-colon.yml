@@ -1,0 +1,11 @@
+name: quote-after-colon
+# Inert text. A quote straight after a colon, inside braces, starts a quoted text that runs over the next lines:
+# the on: line below is inside it. A reader that matches text took that line for the trigger.
+env: {"k":"}
+on: pull_request
+  ", "on": workflow_dispatch }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:quote

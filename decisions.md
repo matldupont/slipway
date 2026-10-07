@@ -400,7 +400,7 @@ pull request that conflicts with the default branch would cost a round per confl
 ## D-033 — Workflow files are read by one pinned parser, kept in `ci/checks/` *(decided 2026-10-07)*
 
 The checks read a workflow file through a YAML parser, not by matching its text. The parser is one file of
-js-yaml (5.4.3, MIT), copied unedited from its published release into `ci/checks/lib/vendor/`, with its licence
+js-yaml (5.4.2, MIT), copied unedited from its published release into `ci/checks/lib/vendor/`, with its licence
 beside it and its hash pinned by a test. In front of it sits a reader of slipway's own, which refuses what it
 will not vouch for. A workflow file it refuses, or one the parser cannot read, is unread: it counts for nothing,
 and the check names it.
@@ -416,13 +416,25 @@ pinned parser is part of `ci/checks/`, and a workflow file is no longer read as 
   - D1 (`ci/checks/meta/d1-drift.mjs`) stays: it compares a workflow file's hash and never reads it as YAML.
   - The command reader (`ci/checks/lib/commands.mjs`) stays: it reads one shell command line, which is not YAML.
 - **Agreeing with YAML is not agreeing with GitHub's reader.** The reader refuses what the two are most likely
-  to read differently: an anchor, an alias, a tag, a merge key, a key written twice, a key that is not plain
-  text, and more than one document. Any other difference between GitHub's reader and this parser is a stated
-  limit.
+  to read differently: an anchor, an alias, a tag, a merge key, a key written twice, a key that is a list or a
+  mapping, a directive, more than one document, and a top level that is not a block of keys. Any other
+  difference between GitHub's reader and this parser on a file both read is a stated limit.
+- **The parser is stricter than GitHub's reader, and that is a cost.** It holds to the YAML specification where
+  common readers are lenient: a closing bracket at its key's indentation, or a later line of a quoted text
+  there, is not YAML to it. A workflow written that way is believed to run on GitHub (not tested for this
+  decision) and is unread by the checks, which then report every gate it runs as not run. The report names the file and the line and says how to write it: the
+  list on one line, or the closing bracket indented past its key. A lenient parser was the other choice, and it
+  errs the other way: it would count a file a stricter reader rejects.
 - **What a project sees.** The parser and its licence notice arrive on the project's next sync, as files slipway
-  maintains. Nothing is installed and no lockfile changes.
-- **A new parser version is a replacement, never an edit.** A pull request replaces the file whole with another
-  published release and moves the pinned hash; the file is never changed by hand.
+  maintains. Nothing is installed and no lockfile changes. A project with a workflow the parser does not read
+  gets that report on the sync, and one edit to the workflow clears it.
+- **A new parser version is a replacement, never an edit.** The pin moves only to a published release at least
+  14 days old, in a pull request that replaces the file whole, moves the pinned hash and changes nothing else.
+  The same checks run each time and are written beside the file: the download equals the registry's hash, the
+  version's tag exists upstream at the commit the registry names, the built file's change since the pinned
+  version is read against the upstream change, and the file is read for anything that loads code or reaches
+  outside itself. 5.4.3 was the newest release on the day of this decision and was two days old, so 5.4.2 was
+  taken (the owner's choice, 2026-10-07).
 
 Why: hand-written reading of workflow files drew the same class of review finding in two pull requests. #237's
 release test read by line and passed spellings it did not understand (#240). #301's W1 reader reached the review

@@ -1,0 +1,9 @@
+name: ci
+# Read, and it counts: test:pr is covered.
+on:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:pr

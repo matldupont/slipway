@@ -1,0 +1,12 @@
+name: run-in-text
+# Read, and it counts, but the run: line is text under env:, not a step. A reader that matches text took it
+# for a command.
+on: pull_request
+env:
+  NOTE: |
+    run: pnpm test:text
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7

@@ -14,7 +14,7 @@
     "fixture-triggers:test:dynamic"
   ],
   "details": {
-    "fixture-triggers:test:odd": "W1 could not read what starts .github/workflows/odd.yml",
+    "fixture-triggers:test:odd": "W1 could not read .github/workflows/odd.yml",
     "fixture-triggers:test:dynamic": "W1 did not follow a call in .github/workflows/ci.yml (a uses: holds an expression)"
   },
   "exempted": [],
