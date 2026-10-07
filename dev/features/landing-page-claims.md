@@ -158,9 +158,9 @@ Q8 why was it built
 | 85 | §05 | adopting a project that did not start from slipway is filed, with its acceptance written, and not built | #54 (open, Acceptance); no feature doc in `dev/features/` |
 | 86 | §05 | a check brings the helpers in `ci/lib/` it imports, and slipway records none used outside a project that started from it | the imports in `ci/checks/meta/*.mjs`; `SLIPWAY.md` "Exercised on a real project" |
 | 87 | README | every step up to closing a milestone ends in something that goes red | `SLIPWAY.md` path table, steps 0–6, "Done when" (step 7 names nothing) |
-| 88 | §05 | Claude Code asks whether you trust the new folder when you open it the first time | the owner's run of the page's path, 2026-10-07, on Claude Code 2.1.287 (the owner's account) |
+| 88 | §05 | Claude Code asks whether you trust the new folder, and lists the permissions it pre-approves, when you open it the first time | the owner's run of the page's path, 2026-10-07, on Claude Code 2.1.287 (the owner's account) |
 | 89 | §05 | the project pre-approves two permissions: `git stash list` and `git stash apply` | `process/harness/settings.json`, `permissions.allow` |
-| 90 | §05 | `/bootstrap` asks which GitHub project board new issues go to; "none" skips the board | `.claude/skills/bootstrap/SKILL.md` line 48; `AGENT.md` GitHub project setting |
+| 90 | §05 | `/bootstrap` then asks three things about the product, one at a time: which GitHub project board new issues go to ("none" skips the board), the timezone deadlines are read in, and whether the product has money or other math that must be exact | `.claude/skills/bootstrap/SKILL.md` lines 46-50; `AGENT.md` lines 15 and 22 |
 
 ## Sentences that are not factual claims
 
