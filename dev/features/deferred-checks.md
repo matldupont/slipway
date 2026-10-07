@@ -226,6 +226,9 @@ Since #241:
 - P1 (`ci/checks/meta/p1-pr-body.mjs`) reports `links/open-unsaid` for a body that says `Part of #n`, closes
   nothing, has no `## Owed after merge` and does not say it "leaves #n open". Its message leads with closing the
   issue the PR finished, then the section, then the sentence.
+- P1 reports `links/closes-and-leaves-open:<n>` for a body whose prose holds a closing word before `#n` and also
+  says it "leaves #n open" (#296): GitHub closes `#n` from the closing word in any sentence, as #288 closed #252.
+  The message quotes both lines and says to put the number before the verb or name the closing pull request.
 
 `process/intake.md` → Milestone item gains one clause: a check line under an item is not part of the item's
 line, so the marker still ends it. `/close-milestone` → "Prove the gate" gains one sentence: every `Owed:`,

@@ -275,7 +275,7 @@ Only after CLEAN, with nothing committed since (Rounds 2 and 3, step 4). Rewrite
 - `## Cold review`: who reviewed, the head each round saw, each finding with `file:line` and what became of it (a
   security finding not fixed here: its count and tracker only), and the verdict (`process/cold-review.md` → How). Its last line names the last reviewed head and the PR's head: `Last reviewed head {sha} is the pull request's head: nothing lies between.`, or `Last reviewed head {sha}; head {sha}. Between them: {each merge sha}, a merge of {base}; in conflict: {file, what was kept, and for a rule file the owner's yes and its verify | nothing}.`
 - `## Follow-ups`: `#n — title` for each, or none. Anything the body calls a follow-up, in any section, is listed here as `#n — title` or `not filed: {why}`; P1 reports "none" beside a follow-up said elsewhere, and an entry with neither.
-- `## Links`: `Closes #n` or `Part of #n`, and the parent; a check left for after merge: `process/intake.md` → Deferred check. `Part of` with nothing closed: the body says what it leaves open, and why.
+- `## Links`: `Closes #n` or `Part of #n`, and the parent; a check left for after merge: `process/intake.md` → Deferred check. `Part of` with nothing closed: the body says what it leaves open, and why. A closing word before an issue number closes that issue wherever it appears, in any sentence, so never write one before a number the PR leaves open.
 
 ```bash
 git status --porcelain            # prints nothing

@@ -21,6 +21,10 @@
 //                            saying why (#241). The check cannot tell which issue the PR worked, only that the
 //                            body says nothing about one staying open. A `Part of` counts wherever it is written,
 //                            a code block included; what answers it counts only in the prose
+//   links/closes-and-leaves-open:<n>  the prose holds a closing word before `#n` and also says it `leaves #n open` (#296):
+//                            GitHub closes #n on merge from the closing word in any sentence, whoever the sentence is
+//                            about, so the body says both things and the issue closes. One finding per issue, with
+//                            both lines quoted; code spans, fences and comments do not count, as for open-unsaid
 //   followups/none-contradicted  `## Follow-ups` says none, and another section calls something a follow-up (#242):
 //                            work deferred in a sentence that no issue holds. Code spans and fences do not count, so
 //                            a quoted issue title cannot set it off; the check cannot tell a follow-up from the
@@ -71,6 +75,7 @@ const globsOn = (line) => (line.match(/[\w.*/-]*\*[\w.*/-]*/g) ?? []).filter((g)
 const REPO = '(?:[\\w.-]{1,100}\\/[\\w.-]{1,100})?';
 const PART_OF = new RegExp(`\\bpart\\s{1,5}of[\\s:*_\\[]{1,8}${REPO}#(\\d{1,20})`, 'gi');
 const CLOSES = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s{1,5}(?:https://github\\.com/[\\w.-]{1,100}/[\\w.-]{1,100}/issues/|${REPO}#)0{0,9}[1-9]`, 'i');
+const CLOSES_N = new RegExp(`\\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\\s{1,5}(?:https://github\\.com/[\\w.-]{1,100}/[\\w.-]{1,100}/issues/|${REPO}#)0{0,9}([1-9]\\d{0,19})`, 'gi');
 const LEAVES = new RegExp(`\\bleaves\\s{1,5}${REPO}#(\\d{1,20})\\s{1,5}open\\b`, 'gi');
 // The two readings of a body the open-unsaid rule takes (#241). What sets the rule off is read from everything but
 // closed comments, so no mark written as text (a `<!--` in inline code, a one-line fence, a leading `---` block) hides
@@ -206,6 +211,18 @@ for (const f of bodies) {
   if (partOf.length && !CLOSES.test(said) && !strictSection(said, 'Owed after merge', 2)?.trim() && !left) {
     const n = partOf[0];
     findings.push({ where: `${f}#links/open-unsaid`, detail: `the body says \`Part of #${n}\` and closes nothing. If this PR finishes an issue, close it: \`Closes #n\`. If it leaves a check for after merge, add \`## Owed after merge\` and say which issue it leaves open. Only if it finishes nothing, say it \`leaves #${n} open\`, and why` });
+  }
+  // The sentence that closes an issue and the sentence that says it stays open (#296): GitHub reads the first.
+  const lineOf = (m) => said.slice(0, m.index).split('\n').length - 1;
+  const quote = (m) => shown(said.split('\n')[lineOf(m)].slice(0, m.index - said.lastIndexOf('\n', m.index - 1) - 1 + m[0].length).trim().slice(-80));
+  const closing = [...said.matchAll(CLOSES_N)];
+  const reported = new Set();
+  for (const stay of said.matchAll(LEAVES)) {
+    const n = stay[1].replace(/^0+/, '');
+    const closes = closing.find((m) => m[1] === n);
+    if (!closes || reported.has(n)) continue;
+    reported.add(n);
+    findings.push({ where: `${f}#links/closes-and-leaves-open:${n}`, detail: `the body closes #${n} ("${quote(closes)}") and also says it leaves #${n} open ("${quote(stay)}"): GitHub closes #${n} when this merges, whoever the first sentence is about. Write the number before the verb, or name the pull request that finishes it with no closing word` });
   }
   const fu = followUps(md);
   if (fu) {
