@@ -23,7 +23,8 @@
 //                            word, and a body that says it in some other way passes
 //   followups/entry-unreferenced  a `## Follow-ups` entry has neither an issue reference (#n) nor `not filed:` and a reason
 //   gate-changes/missing     the PR touches a gate file (a path the harness asks before editing, markdown only
-//                            when owner-only, `.gitmodules` or `.gitattributes`, a package.json run key, or a symlink
+//                            when owner-only, the invariants document or the cold-review file the base commit's
+//                            AGENT.md names, `.gitmodules` or `.gitattributes`, a package.json run key, or a symlink
 //                            or submodule link at any path: the folder it stands for may hold gate files) and has no
 //                            `## Gate changes` section
 //   gate-changes/unmentioned:<path>  a gate file the section has no line for
@@ -33,7 +34,7 @@
 //                            spelled as one: refused, whatever the section says
 //
 // A body's changed files come from a sidecar, `<name>.changes.json` ({files, scripts, globs, links}, written by
-// ci/checks/lib/gate-files.mjs). Without one, the gate-changes rules do not run. The check cannot tell
+// ci/checks/lib/gate-files.mjs; `globs` holds the base commit's gate paths, the two named documents among them). Without one, the gate-changes rules do not run. The check cannot tell
 // whether the sentence is true, only that one exists and that loosening is justified.
 //
 // WHY: when nothing at the merge boundary asks what was actually run, defects surface as
