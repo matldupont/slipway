@@ -1,0 +1,10 @@
+{
+  "_note": "A workflow that runs when an issue is opened counts for a check file it names directly, and for nothing else (#239): a check whose subject is an issue can run on no change. Covered: test (ci.yml, pull_request); y1-issue.mjs (issue.yml, issues with types opened and edited, named in a run line). Traps: test:issue, a package's gated script only issue.yml runs; y3-script.mjs, reached only through the root meta script issue.yml calls, which is not followed there; y2-closed.mjs, run only when an issue is closed.",
+  "exit": 1,
+  "findings": [
+    "fixture-issues:test:issue",
+    "check:y2-closed.mjs",
+    "check:y3-script.mjs"
+  ],
+  "exempted": []
+}

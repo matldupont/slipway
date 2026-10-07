@@ -1,11 +1,7 @@
-// Reads what CI actually runs, and what those commands invoke.
+// What a command line invokes. Which workflows' lines are read is lib/workflows.mjs.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-// Every shell command line a workflow runs: inline `run:` values and the lines of
-// `run: |` / `run: >` block scalars. A shell comment — a whole line or a trailing unquoted
-// ` #` onward — is dropped: a gate that only appears in a comment is not an invocation.
+// A line without its shell comment — a whole line or a trailing unquoted ` #` onward: a gate that only
+// appears in a comment is not an invocation.
 export function stripShellComment(line) {
   let quote = null;
   for (let i = 0; i < line.length; i++) {
@@ -15,36 +11,6 @@ export function stripShellComment(line) {
     else if (c === '#' && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i).trimEnd();
   }
   return line.trimEnd();
-}
-
-export function workflowCommands(root) {
-  const dir = join(root, '.github', 'workflows');
-  if (!existsSync(dir)) return [];
-  const out = [];
-  for (const f of readdirSync(dir).filter((e) => /\.ya?ml$/.test(e)).sort()) {
-    const rel = `.github/workflows/${f}`;
-    const lines = readFileSync(join(dir, f), 'utf8').split(/\r?\n/);
-    for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(/^(\s*)(-\s+)?run\s*:\s*(.*)$/);
-      if (!m) continue;
-      const keyIndent = m[1].length + (m[2] ? m[2].length : 0);
-      const value = stripShellComment(m[3]).trim();
-      if (/^[|>][+-]?[0-9]?[+-]?$/.test(value)) {
-        let j = i + 1;
-        for (; j < lines.length; j++) {
-          const l = lines[j];
-          if (/^\s*$/.test(l)) continue;
-          if (l.length - l.trimStart().length <= keyIndent) break;
-          const cmd = stripShellComment(l.trim());
-          if (cmd) out.push({ where: `${rel}:${j + 1}`, cmd });
-        }
-        i = j - 1;
-      } else if (value) {
-        out.push({ where: `${rel}:${i + 1}`, cmd: value.replace(/^(['"])(.*)\1$/, '$2') });
-      }
-    }
-  }
-  return out;
 }
 
 const SEPARATORS = new Set(['&&', '||', ';', '|']);

@@ -1,0 +1,15 @@
+name: deploy
+# Skips documentation-only pushes. The event decides, not the path filter: this workflow counts.
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  workflow_dispatch: {}
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:deploy

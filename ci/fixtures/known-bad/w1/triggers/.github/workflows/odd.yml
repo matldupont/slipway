@@ -1,0 +1,8 @@
+name: odd
+# A flow mapping: a shape W1 does not read, so nothing here counts, pull_request or not.
+on: { pull_request: {} }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:odd

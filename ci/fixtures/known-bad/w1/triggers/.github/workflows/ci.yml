@@ -1,0 +1,14 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:pr
+  called:
+    uses: ./.github/workflows/called.yml
+  dynamic:
+    uses: ./.github/workflows/${{ vars.WHICH }}.yml

@@ -1,0 +1,7 @@
+name: reusable
+on: [workflow_call]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:reusable

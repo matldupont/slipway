@@ -1,0 +1,19 @@
+{
+  "name": "fixture-triggers",
+  "private": true,
+  "scripts": {
+    "test:pr": "node -e 0",
+    "test:deploy": "node -e 0",
+    "test:release": "node -e 0",
+    "test:nightly": "node -e 0",
+    "test:manual": "node -e 0",
+    "test:reusable": "node -e 0",
+    "test:target": "node -e 0",
+    "test:closed": "node -e 0",
+    "test:odd": "node -e 0",
+    "test:called": "node -e 0",
+    "test:nested": "node -e 0",
+    "test:tagged": "node -e 0",
+    "test:dynamic": "node -e 0"
+  }
+}

@@ -114,10 +114,12 @@ test('release.mjs imports nothing but node: built-ins, so the identity job runs 
   assert.ok(!/\bimport\s*\(\s*[^'")\s]/.test(src), 'an import() of a computed name');
 });
 
-// ci.yml must itself run `pnpm meta`, after N1, on every pull request and push to main: [] when it does.
-// WHY HERE: W1 reads every workflow file whatever starts it, and release.yml runs `pnpm meta` too, on tags only.
-// So W1 alone would pass with that step gone from ci.yml. This holds the same case red until W1 counts only
-// workflows that run on a pull request or a push to a branch; it goes when W1 does that.
+// What ci.yml's meta job must keep that W1 does not read: [] when it does. W1 holds the rule this test once held
+// for it: a gate counts only when a workflow that runs on a pull request or a push to a branch runs it, so
+// release.yml's own `pnpm meta`, on tags, no longer covers for that step gone from ci.yml (#239). WHY THESE STAY:
+// W1 counts either event, any branch, and the left side of `||`, and reads no step order and no `if:`. So this
+// still requires both triggers with the push on main, N1 before `pnpm meta`, `pnpm meta` alone on its line, and
+// a meta job nothing switches off.
 function ciProblems(text) {
   const problems = [];
   const on = /^on:\n((?:(?: .*)?\n)+)/m.exec(text)?.[1] ?? '';
@@ -126,15 +128,16 @@ function ciProblems(text) {
   const meta = /^ {2}meta:\n((?:(?: {3}.*)?\n)+)/m.exec(text)?.[1] ?? '';
   const lines = meta.split('\n').filter((l) => !/^\s*#/.test(l));
   const at = (re) => lines.findIndex((l) => re.test(l));
-  const gate = at(/^ {6}- run: pnpm meta\s*$/);
+  // No `pnpm meta` step at all is W1's finding, not one of these.
+  const gate = at(/^ {6,8}(?:- )?run: pnpm meta(\s|$)/);
   const n1 = at(/^ {8}run: node ci\/checks\/meta\/n1-node-modules\.mjs \.\s*$/);
-  if (gate < 0) problems.push('ci.yml\'s meta job does not run pnpm meta');
-  if (n1 < 0 || n1 > gate) problems.push('ci.yml\'s meta job does not run N1 before pnpm meta');
+  if (gate >= 0 && !/run: pnpm meta\s*$/.test(lines[gate])) problems.push('ci.yml\'s meta job runs pnpm meta with something after it');
+  if (n1 < 0 || (gate >= 0 && n1 > gate)) problems.push('ci.yml\'s meta job does not run N1 before pnpm meta');
   if (/^ {4}(if|continue-on-error)\s*:/m.test(meta)) problems.push('ci.yml\'s meta job is conditional');
   return problems;
 }
 
-test('ci.yml itself runs pnpm meta after N1, on pull requests and on main, whatever release.yml runs', () => {
+test('ci.yml keeps what W1 does not read: both triggers, main, N1 before pnpm meta, nothing after it, no condition', () => {
   const yml = readFileSync(join(SRC, '.github', 'workflows', 'ci.yml'), 'utf8');
   assert.deepEqual(ciProblems(yml), []);
   const broken = (from, to, expected) => {
@@ -142,13 +145,33 @@ test('ci.yml itself runs pnpm meta after N1, on pull requests and on main, whate
     const found = ciProblems(yml.replace(from, to));
     assert.ok(found.some((p) => expected.test(p)), `${JSON.stringify(to)} went unnoticed: ${JSON.stringify(found)}`);
   };
-  broken('      - run: pnpm meta\n', '', /does not run pnpm meta/);
-  broken('      - run: pnpm meta\n', '      # - run: pnpm meta\n', /does not run pnpm meta/);
-  broken('      - run: pnpm meta\n', '      - run: pnpm meta || true\n', /does not run pnpm meta/);
+  broken('      - run: pnpm meta\n', '      - run: pnpm meta || true\n', /with something after it/);
+  broken('      - run: pnpm meta\n', '      - name: gate\n        run: pnpm meta || true\n', /with something after it/);
   broken('        run: node ci/checks/meta/n1-node-modules.mjs .\n      - run: pnpm meta\n', '        run: echo skipped\n      - run: pnpm meta\n', /does not run N1 before/);
+  broken('        run: node ci/checks/meta/n1-node-modules.mjs .\n      - run: pnpm meta\n', '        run: echo skipped\n', /does not run N1 before/);
   broken('  pull_request:\n', '', /does not run on pull requests/);
   broken('    branches: [main]', '    branches: [release]', /does not run on a push to main/);
   broken('    name: meta\n', '    name: meta\n    if: false\n', /meta job is conditional/);
+});
+
+// The case that moved to W1, on a copy of slipway's own workflows: with `pnpm meta` gone from ci.yml and
+// release.yml still running it on tags, nothing that runs on a pull request or a push to a branch runs a check.
+test('W1 fails a copy of the workflows whose ci.yml no longer runs pnpm meta, whatever release.yml runs', () => {
+  const dir = join(work, 'w1-copy');
+  for (const p of ['package.json', 'dev/ownership.yaml', 'scripts/new-project.mjs', '.github/workflows', 'ci/checks/meta']) {
+    cpSync(join(SRC, p), join(dir, p), { recursive: true });
+  }
+  const w1 = () => spawnSync(process.execPath, [join(SRC, 'ci', 'checks', 'meta', 'w1-declared-vs-invoked.mjs'), dir], { encoding: 'utf8' });
+  const ci = join(dir, '.github', 'workflows', 'ci.yml');
+  const yml = readFileSync(ci, 'utf8');
+  assert.match(readFileSync(join(dir, WORKFLOW), 'utf8'), /^ +- run: pnpm meta$/m);
+  const whole = w1();
+  assert.doesNotMatch(whole.stdout, /check:w1-declared-vs-invoked\.mjs/, whole.stdout);
+  assert.ok(yml.includes('      - run: pnpm meta\n'));
+  writeFileSync(ci, yml.replace('      - run: pnpm meta\n', ''));
+  const cut = w1();
+  assert.equal(cut.status, 1, cut.stdout + cut.stderr);
+  assert.match(cut.stdout, /check:w1-declared-vs-invoked\.mjs: the check exists, but no CI workflow runs it on a pull request or a push to a branch/);
 });
 
 // What release.yml must never hold, read from its text: [] when it keeps the rules. `run:` lines are read whole,
