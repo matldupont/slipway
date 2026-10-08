@@ -1,0 +1,10 @@
+name: anchor
+# An anchor and an alias: YAML the parser reads, refused in front of it, because two readers need not agree on
+# what an alias stands for.
+on: pull_request
+jobs:
+  check: &job
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:anchor
+  again: *job

@@ -1,0 +1,9 @@
+name: called
+# A reusable workflow nobody calls: job-as-text.yml only holds the words.
+on:
+  workflow_call:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:called
