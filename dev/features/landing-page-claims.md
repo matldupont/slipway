@@ -5,7 +5,8 @@ status: draft
 
 # F-11 — Landing page: the claims table and the required facts, as built
 
-Verified against: 1c3c929 2026-10-07 — the sources the rows cite, read by the claims check at the page's last text commit, 0179b94. Row 48's "11 skills" was counted at 9824e8f and holds at 1c3c929.
+Verified against: 03cfb6a 2026-10-08 — the rewrite of #355; see "The copy rewrite of 2026-10-08" below. Before it:
+1c3c929 2026-10-07 — the sources the rows cite, read by the claims check at the page's last text commit, 0179b94. Row 48's "11 skills" was counted at 9824e8f and holds at 1c3c929.
 
 This file **supersedes the claims table and the required facts in `dev/features/landing-page.md` for the page as
 built** (#271, review of 0.3 AR-2). The spec's Version line is unchanged; its `## Changes` names this file. Where
@@ -27,8 +28,15 @@ catch-phrases, and the other half as an audit log. The rows below are as the rew
 - **Added (5):** rows 91 to 95, the list of what the command creates, which replaced the row of numbers.
 - **Row 64** names epic #312, which replaced #43 on 2026-10-07.
 
-**95 rows: 77 carry** (five are blocks), 18 are cut. The required facts below are unchanged, and the claims check
-of this rewrite found each of them on the page.
+**95 rows: 77 carry** (five are blocks), 18 are cut. The required facts below are unchanged: 22 lines, F1.1 to
+F8.2.
+
+Verified against: 03cfb6a 2026-10-08 — the claims check of the rewrite, by a reviewer who wrote neither the page
+nor this table (a fresh session on the strongest tier), read each carried row's source at the rewrite's first
+commit, 2b3f094. It found 11 rows stronger than or different from their source (rows 19, 20, 21, 24, 28 with 45,
+31, 32, 46, 58, 63 with 64, 78 with 79) and three sentences with no row; each was reworded to its source in the
+next commit, and the rows here are as reworded. All 18 cut rows were gone from the page, no carried row was
+missing from it, and all 22 required facts were found.
 
 ## How this table was corrected
 
@@ -105,22 +113,22 @@ Q8 why was it built
 | 14 | numbers | 0 packages to install for the checks to run | *cut* (#355): the row of numbers is gone; rows 21 and 53 carry "nothing to install" |
 | 15 | band | a rule only counts if something fails when it's broken | `SLIPWAY.md` thesis |
 | 16 | §01, stage 4 | I put what worked into one template. Most of what I learned the hard way is now either a check that fails or a written rule with a review date. A new project starts here instead of at stage one. (the owner's wording, 2026-10-08) | `SLIPWAY.md` "Lessons, and where each one lives" (the status table: a check, a dated rule, or not built yet) |
-| 17 | §01 | Slipway is built to get you to a release that holds up sooner. (the owner's wording, 2026-10-06: what it is for, not a measured result) | *cut* (#355): "sooner" is unmeasured; "That's where slipway puts its effort" replaces it and claims nothing |
+| 17 | §01 | Slipway is built to get you to a release that holds up sooner. (the owner's wording, 2026-10-06: what it is for, not a measured result) | *cut* (#355): "sooner" is unmeasured; "Slipway is my attempt at those three" replaces it, as the owner's account |
 | 18 | §01 | it won't get you an MVP from one prompt | #43 Problem ("not a one-shot tool for a weekend idea") |
-| 19 | §01 | does it work: CI runs the same checks on every pull request; if they fail when the agent tries to finish, a hook sends it back once | `process/harness/README.md` hooks table (`stop-verify.sh`); `.github/workflows/ci.yml` |
-| 20 | §01 | "does it fit" is not checked yet; it is next | #48 (open) |
-| 21 | table caption | each row is a script in CI or a hook in the Claude Code session; they run on plain Node with nothing to install, so a broken dependency can't silently turn one off | D-004; `SLIPWAY.md` gates table |
+| 19 | §01 | does it work: CI runs the checks on every pull request; a hook runs `pnpm verify:fast` when the agent tries to finish, and sends it back once if that fails | `process/harness/README.md` hooks table (`stop-verify.sh`); `.github/workflows/ci.yml` |
+| 20 | §01 | "does it fit" is not checked yet; it is planned | #48 (open; #312 lists it as not expected before that epic's goal) |
+| 21 | table caption | each row is a script in CI or a hook in the Claude Code session; the CI scripts run on plain Node with nothing to install, so a broken dependency can't silently turn one off (the hook runs `pnpm verify:fast`, which needs the project's install, so the sentence is about the scripts only) | D-004; `SLIPWAY.md` gates table |
 | 22 | table | when the agent tries to end its turn, a hook runs `pnpm verify:fast`; if it fails, the agent gets the output and is sent back once; if it stops again, it is told to say what is still failing | `process/harness/README.md` hooks table; `process/harness/hooks/stop-verify.mjs` (the second stop passes unchecked; the code asks, it does not verify) |
 | 23 | table | each check ships with deliberately broken examples; if it doesn't fail on them, for exactly the expected reasons, the build fails | `ci/checks/meta/pc1-positive-control.mjs`; `ci/fixtures/known-bad/` |
-| 24 | table | every test, lint and build script has to be called by a CI workflow, or the build fails | `ci/checks/meta/w1-declared-vs-invoked.mjs` |
+| 24 | table | every script named `test`, `lint`, `check`, `build` or `typecheck` has to be called by a CI workflow, or the build fails | `ci/checks/meta/w1-declared-vs-invoked.mjs`; `ci/checks/lib/tasks.mjs` (`GATED`: those five names and their `:sub` forms) |
 | 25 | table | the PR description has to say what was run, and link its issue or say why there isn't one | `ci/checks/meta/p1-pr-body.mjs` (accepts `none: <reason>`) |
 | 26 | table | an issue whose acceptance is a bare adjective gets labelled `needs-shape`, and `/work-ticket` won't start on it | `ci/checks/meta/i1-issue-shape.mjs`; `.github/workflows/issue-shape.yml`; `.claude/skills/work-ticket/SKILL.md` Phase 1 |
 | 27 | table | the PRD needs a written review that names the exact version it read | `ci/checks/meta/r1-review-provenance.mjs` |
-| 28 | table | nothing past the first thin version starts until each assumption the product depends on has a test result, against a pass mark written down first, or a note that you're relying on experience, with what would prove you wrong ("assumption the product depends on" is the page's plain form of a value risk, "pass mark" of the bar, "first thin version" of the skeleton) | `ci/checks/meta/k1-frame.mjs` |
+| 28 | table | nothing past the first thin version starts until each "will anyone want this?" risk has a test result, against a pass mark written down first, or a note that you're relying on experience, with what would prove you wrong; building ahead anyway takes a written decision (the page's plain form of a risk tagged value, the bar, the skeleton, and a decision id in the Result) | `ci/checks/meta/k1-frame.mjs` |
 | 29 | plate | one milestone active at a time; past its time budget it needs a written decision | *cut* (#355): the table row is gone; rows 33 (step 5) and 40 (`docs/milestones/`) carry one milestone at a time and its time budget. The page no longer says an overrun needs a written decision |
 | 30 | plate | every lesson names where it's enforced or, if it isn't built yet, the event that reopens it; the judgment ones get a review date and fail when it passes | *cut* (#355): the table row is gone; row 40's `process/lessons/` entry carries it |
-| 31 | §02 | eight steps in a fixed order; the early ones are mostly you deciding what to build; after that the agent writes most of the code and you review it | `SLIPWAY.md` path table, the "who" of each step |
-| 32 | §02 | `pnpm status` reads the repo and prints the step you're on and what to do next; agent sessions get the same line when they start; before `/bootstrap` has run it starts "**Next:** Step 0 (you + agent) — Bootstrap: run /bootstrap" | `ci/status.mjs`; `process/harness/hooks/session-state.sh`; `pnpm status` run in slipway at 03cfb6a, which is the state every new project starts in (line 3 of its output, cut at the bracket) |
+| 31 | §02 | eight steps, the same ones on every project; the early ones are mostly you deciding what to build; after that the agent writes most of the code and you review it | `SLIPWAY.md` path table, the "who" of each step |
+| 32 | §02 | `pnpm status` reads the repo and prints the step you're on and what to do next; agent sessions get the same line when they start; before `/bootstrap` has run the line reads "**Next:** Step 0 (you + agent) — Bootstrap: run /bootstrap" | `ci/status.mjs`; `process/harness/hooks/session-state.sh`; `node ci/status.mjs` in slipway at 03cfb6a, which is the state every new project starts in (the third line it prints, cut at the bracket; no fixture pins this line) |
 | 33 | §02 | **block: the ramp** (8 entries) | `SLIPWAY.md` path table and step sections |
 | 34 | §02 | anything not in the active milestone goes to its "not doing" list or a later one | `process/slipway-rules.md` "One active milestone" |
 | 35 | §02 | one sentence and no new behaviour is a plain PR; one session's work gets an issue; bigger gets a feature doc | `SLIPWAY.md` "Every change: pick a lane" |
@@ -133,26 +141,26 @@ Q8 why was it built
 | 42 | §03 | pull requests that say what was tested; the template also asks what wasn't | P1 (fails a PR with no verification); `.github/pull_request_template.md` (asks what was not verified; nothing fails on it) |
 | 43 | §03 | the skeleton ships in days, and each milestone is a bet you're allowed to lose | *cut* (#355): the closing line is gone; row 33 (step 4, "days") and row 40 (`docs/milestones/`) carry what it said |
 | 44 | §04 | `/kickoff` asks one question at a time | `.claude/skills/kickoff/SKILL.md` lines 9, 23 |
-| 45 | §04 | you can mark an assumption as settled by experience (you're the user, every product in the category has the feature, or you know the domain), as long as you write down what would prove you wrong | `ci/checks/meta/k1-frame.mjs`; F-05; D-019 |
-| 46 | §04 | an afternoon to frame the product, days to weeks to test the riskiest assumption, a day or two to plan; the answer line's "an afternoon to a few weeks" is the same range | `SLIPWAY.md` path table, steps 1–3 |
+| 45 | §04 | you can mark that risk (a doubt about demand) as settled by experience (you're the user, every product in the category has the feature, or you know the domain), as long as you write down what would prove you wrong | `ci/checks/meta/k1-frame.mjs`; F-05; D-019 |
+| 46 | §04 | an afternoon to frame the product, days to weeks to test the riskiest assumption, a day or two to plan; the answer line says "days, sometimes weeks" | `SLIPWAY.md` path table, steps 1–3 |
 | 47 | §04 | **block: who it's for, and who it isn't** (5 entries) | per entry, under Blocks |
 | 48 | §04 | Slipway is eleven skills, one path and a set of checks | `.claude/skills/` (11 folders at 03cfb6a); `SLIPWAY.md` path table |
 | 49 | §05 | not yet: slipway starts new projects and keeps them updated; it can't be added to an existing repo in one command | #54 (open) |
 | 50 | §05 | `/sync-slipway` shows a plan first, works on its own branch, merges rather than overwrites files you changed, never edits your own documents | `SLIPWAY.md` "Taking slipway updates"; D-015; `scripts/sync.mjs` |
 | 51 | §05 | CI stages each release from a version tag; it goes public only after the owner approves that exact package at npm with a second factor | D-027 |
-| 52 | §05 | adopting a repo that didn't start from slipway is planned and not started; help sorting an old backlog is also planned, and comes before it | #54, #50 (both open); #43 Order |
+| 52 | §05 | adopting a repo that didn't start from slipway is planned and not started; help sorting an old backlog is also planned, and comes before it | #54, #50 (both open); #54 Links ("after the triage child") |
 | 53 | §05 | "The checks are Node scripts that run with no install step." The lessons plain Markdown, the rules one page | D-004 ("no install step"); `process/lessons/`; `process/slipway-rules.md` |
 | 54 | §05 | what it expects: Node 24, pnpm 10, git, the GitHub CLI logged in, a GitHub account, Claude Code | `README.md` "You need"; `SLIPWAY.md` Requires |
 | 55 | §05 | GitHub for issue forms, required checks and Actions; moving elsewhere means rewiring | D-002 |
 | 56 | §05 | a default stack you can change in week one: TypeScript, React with Vite, Cloudflare | `SLIPWAY.md` Defaults; D-005–D-008 |
 | 57 | §06 | every check has been seen failing; each has deliberately broken examples it must fail on, for exactly the expected reasons | PC1; `SLIPWAY.md` Validation |
-| 58 | §06 | slipway is built with its own process: its feature docs, decisions, lessons and reviews are in the repo | `dev/features/`, `decisions.md`, `process/lessons/`, `docs/reviews/` (slipway has no frame, PRD or milestone of its own, so the row claims no more) |
+| 58 | §06 | slipway's own changes go through the same three sizes of change it gives a project; its feature docs, decisions, lessons and reviews are in the repo; it has no product frame, PRD or milestone of its own | `dev/features/`, `decisions.md`, `process/lessons/`, `docs/reviews/` (slipway has no frame, PRD or milestone of its own, so the row claims no more) |
 | 59 | §06 | one real product has used it: a private web app with one engineer; the checks ran on its real pull requests and issues | `SLIPWAY.md` "Exercised on a real project" (step 1; the owner's dated account where no public PR is cited) |
 | 60 | §06 | **block: the syncs** (the count, then met, missed and not fully scored, together) | `SLIPWAY.md` sync lines (step 1, from #43 Acceptance) |
 | 61 | §06 | one milestone closed: on 2026-10-06 `/close-milestone` took about seven minutes to open a pull request and about half an hour to merge, and asked one question; every item planned for the milestone had been built, and the retro was written from issues, pull requests and `git log`; timed once, on the strongest model at high effort; a feature doc is marked shipped whole even when one section still owes a check (#284, open). The fix made that day (#258, #264) is no longer on the page | `SLIPWAY.md` "Exercised on a real project", "The first milestone close" (the owner's account, 2026-10-06); #258, #264, #284 |
 | 62 | §06 | **block: not proven yet** (four lines, each dated 2026-10-07, and the link to them); the hook that runs when the agent stops has only been seen blocking for a missing install, not for a failing test; the approval prompts have not been seen in a live session; the other hooks and the session-start status only on sample input | `SLIPWAY.md` "Not verified here" (each with `Verified against:`) |
-| 63 | §06 | next: a check that a feature fits the product, and a pause at each milestone to pull shared code together | #48, #49 (both open) |
-| 64 | §06 | the whole plan, in order, is epic #312 | #312, which replaced #43 on 2026-10-07 |
+| 63 | §06 | planned, not started: a check that every feature doc says how it fits the product, and a pause at each milestone to list what should be shared and decide | #48 Acceptance (a check fails on a feature doc whose `## Fit` is missing or unfilled), #49 (it lists and decides; it does not refactor); both open, and #312 lists them as not expected before its goal |
+| 64 | §06 | the work under way, in order, is epic #312 | #312 Problem ("It orders the work that stands between today and that goal") and Order |
 | 65 | §07 | checks that can fail (quality) | PC1 |
 | 66 | §07 | pull requests that say what was tested, a page that says what isn't proven (transparency) | P1; §06 |
 | 67 | §07 | never weakening a check to get past it (integrity) | `process/slipway-rules.md` Gates ("Never weaken a gate to pass it") |
@@ -166,8 +174,8 @@ Q8 why was it built
 | 75 | §05 (today) | adoption is "in progress" | *cut*: row 52 replaces it |
 | 76 | §06 (today) | one sync scored on its own ("two commands and about seven questions … a miss") | *cut* as a lone figure: it stays as one of the misses in row 60's counts |
 | 77 | §06 (today) | "that project's first milestone hasn't started" | *cut*: row 61 replaces it |
-| 78 | §04 | before any code, `/kickoff` asks what question the product answers and who is asking it; before each feature, `/log-feature` asks which part of that question the feature serves | `.claude/skills/kickoff/SKILL.md`; `.claude/skills/log-feature/SKILL.md` (Phase 2, challenge 1) |
-| 79 | §01 | is it useful: every feature has to name which part of the product's main question it answers; `/kickoff` and `/log-feature` ask | `SLIPWAY.md` step 1 ("Every MVP feature must serve that question"); `.claude/skills/log-feature/SKILL.md` (Phase 2, challenge 1) |
+| 78 | §04 | before any code, `/kickoff` asks what question the product answers and who is asking it; before a new feature, `/log-feature` asks whether it serves that question | `.claude/skills/kickoff/SKILL.md`; `.claude/skills/log-feature/SKILL.md` (Phase 2, challenge 1) |
+| 79 | §01 | is it useful: `/kickoff` writes down the one question the product answers; `/log-feature` asks whether a new feature serves it; one that doesn't waits | `SLIPWAY.md` step 1; `.claude/skills/log-feature/SKILL.md` Phase 2, challenge 1 ("Does it serve the question in the `Product frame`? A feature that does not is a later bet."; a milestone item skips the phase, so the page says "a new feature") |
 | 80 | §06 answer line | one engineer builds it in the open and uses it on real work | the public repository; `SLIPWAY.md` "Exercised on a real project"; "by one engineer" is biography. Today's "proven on real work" is stronger than §06's own list |
 | 81 | §06 | the setup script protected its repository | `SLIPWAY.md` "Exercised on a real project" (the GitHub half of `new-project`) |
 | 82 | §06 | `/kickoff` shaped its product | `SLIPWAY.md` "Exercised on a real project" |
@@ -178,9 +186,9 @@ Q8 why was it built
 | 87 | README | every step up to closing a milestone ends in something that goes red | `SLIPWAY.md` path table, steps 0–6, "Done when" (step 7 names nothing) |
 | 88 | §05 | Claude Code asks whether you trust the new folder, and lists the permissions it pre-approves, when you open it the first time | the owner's run of the page's path, 2026-10-07, on Claude Code 2.1.287 (the owner's account) |
 | 89 | §05 | the project pre-approves two permissions: `git stash list` and `git stash apply` | `process/harness/settings.json`, `permissions.allow` |
-| 90 | §05 | `/bootstrap` then asks three things about the product, one at a time: which GitHub project board new issues go to ("none" skips the board), the timezone deadlines are read in, and whether the product has money or other math that must be exact | `.claude/skills/bootstrap/SKILL.md` lines 46-50; `AGENT.md` lines 15 and 22 |
+| 90 | §05 | `/bootstrap` then asks three things about the product, one at a time: which GitHub project board new issues go to ("none" skips the board), the timezone deadlines are read in, and whether the product has money or other math that must be exact | `.claude/skills/bootstrap/SKILL.md` lines 47-52; `AGENT.md` (the GitHub project, Timezone and Domain invariants doc rows) |
 | 91 | creates | `docs/`: templates for the product frame, the PRD and the milestones, with the questions to answer already written in | `docs/product/FRAME.md`, `docs/PRD.md`, `docs/milestones/TEMPLATE.md` |
-| 92 | creates | `.claude/skills/`: eleven skills, run as slash commands: `/kickoff`, `/log-feature`, `/work-ticket`, `/close-milestone` and seven more | `.claude/skills/` (11 folders at 03cfb6a) |
+| 92 | creates | `.claude/skills/`: eleven skills, run as slash commands: `/kickoff`, `/log-feature`, `/work-ticket`, `/close-milestone` and seven more; each is a written procedure the agent follows | `.claude/skills/` (11 folders at 03cfb6a, each with a `SKILL.md`) |
 | 93 | creates | `ci/checks/`: plain Node scripts that GitHub Actions runs on every pull request | `ci/checks/meta/`; `.github/workflows/ci.yml` (`on: pull_request`); D-004 |
 | 94 | creates | `.claude/settings.json`: hooks for Claude Code sessions; one runs `pnpm verify:fast` when the agent tries to finish, and sends it back once if that fails | row 22's sources; `process/harness/settings.json` |
 | 95 | creates | `pnpm status`: one command that reads the repo and prints which step you're on and what to do next | row 32's sources |
@@ -198,15 +206,17 @@ without a row. Those marked (2026-10-08) are new with #355 and were approved by 
   It's how teams already work."; stage 3's "Every PR passed review on its own. Nothing checked that they added up
   to one product."; stage 4's "A rule that nothing checks gets skipped, by me as much as by the agent."; and
   "Writing the code was never the slow part. Deciding what to build, proving it works and keeping features
-  consistent with each other were. That's where slipway puts its effort." (2026-10-08).
-- The creates list: "Each does one step of the work the same way every time." (2026-10-08; what a skill is for).
-- §04: "This can feel like paperwork, and sometimes I've felt that too. Not every assumption needs a test.
+  consistent with each other were. Slipway is my attempt at those three. The third is the least finished."
+  (2026-10-08; the last sentence is row 20's fact).
+- §01's heading "Three questions I ask before shipping": the owner's questions, not three checks; row 20 says the
+  third is not checked.
+- §04: "This can feel like paperwork, and sometimes I've felt that too. Not every doubt about demand needs a test.
   Sometimes you're the user, or every product in the category has the feature, or you know the domain."
   (2026-10-08; opinion and experience, followed by row 45, which is the claim).
 - §07: the owner's biography, "Agents made code cheap to write. They didn't make it correct, and the people using
   what I build still expect what they always did…", and "Agents make rewriting cheap, which makes it tempting to
   skip the thinking. Slipway is how I keep doing the thinking. I start every project from it now." (2026-10-08).
-- Section headings written as questions, and §04's answer line "It makes you answer “why” before it builds."
+- Section headings written as questions.
 - The share-card tags in `<head>` (#350): `og:title` and `og:description` repeat the page's `<title>` and
   `description` word for word, and the description says what row 1 says, so row 1's sources cover them;
   `og:image` (`site/assets/og-card.png`) is the logo lockup with no added words, so it makes no claim.

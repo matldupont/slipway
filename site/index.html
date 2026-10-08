@@ -64,7 +64,7 @@
     <p class="creates-lede">One command sets up a repo with planning docs, eleven Claude Code skills and CI checks. The skills take you through the work one step at a time.</p>
     <ul class="tree">
       <li><span class="path">docs/</span><span class="what"><strong>Templates for the product frame, the PRD and the milestones,</strong> with the questions to answer already written in.</span></li>
-      <li><span class="path">.claude/skills/</span><span class="what"><strong>Eleven skills, run as slash commands:</strong> <code>/kickoff</code>, <code>/log-feature</code>, <code>/work-ticket</code>, <code>/close-milestone</code> and seven more. Each does one step of the work the same way every time.</span></li>
+      <li><span class="path">.claude/skills/</span><span class="what"><strong>Eleven skills, run as slash commands:</strong> <code>/kickoff</code>, <code>/log-feature</code>, <code>/work-ticket</code>, <code>/close-milestone</code> and seven more. Each is a written procedure the agent follows.</span></li>
       <li><span class="path">ci/checks/</span><span class="what"><strong>Plain Node scripts</strong> that GitHub Actions runs on every pull request.</span></li>
       <li><span class="path">.claude/settings.json</span><span class="what"><strong>Hooks for Claude Code sessions.</strong> One runs <code>pnpm verify:fast</code> when the agent tries to finish, and sends it back once if that fails.</span></li>
       <li><span class="path">pnpm status</span><span class="what"><strong>One command</strong> that reads the repo and prints which step you’re on and what to do next.</span></li>
@@ -87,29 +87,29 @@
         <li><strong>Skills.</strong> I wrote skills for the repeated work (logging a bug, shaping a feature, working a ticket) and the results got consistent enough to run several tickets at once. Then the product stopped agreeing with itself: the same number calculated a different way in each feature, a drawer on one screen and a full page on the next. Every PR passed review on its own. Nothing checked that they added up to one product.</li>
         <li><strong>Slipway.</strong> I put what worked into one template. Most of what I learned the hard way is now either a check that fails or a written rule with a review date. A rule that nothing checks gets skipped, by me as much as by the agent. A new project starts here instead of at stage one.</li>
       </ol>
-      <p>Writing the code was never the slow part. Deciding what to build, proving it works and keeping features consistent with each other were. That’s where slipway puts its effort. It won’t get you an MVP from one prompt.</p>
-      <h3>Three questions before anything ships</h3>
+      <p>Writing the code was never the slow part. Deciding what to build, proving it works and keeping features consistent with each other were. Slipway is my attempt at those three. The third is the least finished. It won’t get you an MVP from one prompt.</p>
+      <h3>Three questions I ask before shipping</h3>
       <ul class="hang">
-        <li><strong>Does it work?</strong> CI runs the same checks on every pull request. If they fail when the agent tries to finish, a hook sends it back once.</li>
-        <li><strong>Is it useful?</strong> Every feature has to name which part of the product’s main question it answers. <code>/kickoff</code> and <code>/log-feature</code> ask.</li>
-        <li><strong>Does it fit?</strong> It reuses the patterns the product already has, and gets its numbers from the same place. Slipway doesn’t check this yet. It’s next.</li>
+        <li><strong>Does it work?</strong> CI runs the checks on every pull request. A hook runs <code>pnpm verify:fast</code> when the agent tries to finish, and sends it back once if that fails.</li>
+        <li><strong>Is it useful?</strong> <code>/kickoff</code> writes down the one question the product answers. <code>/log-feature</code> asks whether a new feature serves it. One that doesn’t waits.</li>
+        <li><strong>Does it fit?</strong> It reuses the patterns the product already has, and gets its numbers from the same place. Slipway doesn’t check this yet. It’s planned.</li>
       </ul>
     </div>
   </section>
 
   <section class="plate row" aria-labelledby="h-plate">
     <h2 id="h-plate">What goes wrong, and what catches it</h2>
-    <p class="caption">Each row is a script in CI or a hook in the Claude Code session. They run on plain Node with nothing to install, so a broken dependency can’t silently turn one off.</p>
+    <p class="caption">Each row is a script in CI or a hook in the Claude Code session. The CI scripts run on plain Node with nothing to install, so a broken dependency can’t silently turn one off.</p>
     <table>
       <thead><tr><th scope="col">What goes wrong</th><th scope="col">What happens instead</th></tr></thead>
       <tbody>
         <tr><td>The agent says it’s finished while tests fail</td><td>When the agent tries to end its turn, a hook runs <code>pnpm verify:fast</code>. If it fails, the agent gets the output and is sent back once. If it stops again, it’s told to say what is still failing.</td></tr>
-        <tr><td>Tests exist but CI never runs them</td><td>Every test, lint and build script has to be called by a CI workflow, or the build fails.</td></tr>
+        <tr><td>Tests exist but CI never runs them</td><td>Every script named <code>test</code>, <code>lint</code>, <code>check</code>, <code>build</code> or <code>typecheck</code> has to be called by a CI workflow, or the build fails.</td></tr>
         <tr><td>A check that can’t fail</td><td>Each check ships with deliberately broken examples. If it doesn’t fail on them, for exactly the expected reasons, the build fails.</td></tr>
         <tr><td>A PR that doesn’t say how it was tested</td><td>The PR description has to say what was run, and link its issue or say why there isn’t one.</td></tr>
         <tr><td>“Make it faster” as an acceptance criterion</td><td>An issue whose acceptance is a bare adjective gets labelled <code>needs-shape</code>, and <code>/work-ticket</code> won’t start on it.</td></tr>
         <tr><td>A plan nobody pushed back on</td><td>The PRD needs a written review that names the exact version it read.</td></tr>
-        <tr><td>Building before checking anyone wants it</td><td>Nothing past the first thin version starts until each assumption the product depends on has a test result, against a pass mark written down first. Or a note that you’re relying on experience, with what would prove you wrong.</td></tr>
+        <tr><td>Building before checking anyone wants it</td><td>Nothing past the first thin version starts until each “will anyone want this?” risk has a test result, against a pass mark written down first. Or a note that you’re relying on experience, with what would prove you wrong. Building ahead anyway takes a written decision.</td></tr>
       </tbody>
     </table>
   </section>
@@ -117,11 +117,10 @@
   <section class="section section--tall row" id="workflow" aria-labelledby="h-workflow">
     <span class="num" aria-hidden="true">02</span>
     <h2 id="h-workflow">What will my workflow look like?</h2>
-    <p class="answer">Eight steps in a fixed order. The early ones are mostly you deciding what to build. After that the agent writes most of the code and you review it.</p>
+    <p class="answer">Eight steps, the same ones on every project. The early ones are mostly you deciding what to build. After that the agent writes most of the code and you review it.</p>
     <div class="prose">
-      <p>You don’t have to remember where you are. <code>pnpm status</code> reads the repo and prints the step you’re on and what to do next. Agent sessions get the same line when they start. Before <code>/bootstrap</code> has run, it starts like this:</p>
-      <p class="cmd">$ pnpm status
-**Next:** Step 0 (you + agent) — Bootstrap: run /bootstrap …</p>
+      <p>You don’t have to remember where you are. <code>pnpm status</code> reads the repo and prints the step you’re on and what to do next. Agent sessions get the same line when they start. Before <code>/bootstrap</code> has run, the line reads:</p>
+      <p class="cmd">**Next:** Step 0 (you + agent) — Bootstrap: run /bootstrap …</p>
     </div>
 
     <div class="ramp-wrap">
@@ -179,10 +178,10 @@
   <section class="section row" aria-labelledby="h-cost">
     <span class="num" aria-hidden="true">04</span>
     <h2 id="h-cost">What does it ask of me?</h2>
-    <p class="answer">It makes you answer “why” before it builds. Expect an afternoon to a few weeks of that before real feature work starts.</p>
+    <p class="answer">It makes you answer “why” before it builds, and that takes days, sometimes weeks.</p>
     <div class="prose">
-      <p>Before any code, <code>/kickoff</code> asks what question the product answers and who is asking it, one question at a time, and writes your answers into the repo. Before each feature, <code>/log-feature</code> asks which part of that question the feature serves.</p>
-      <p>This can feel like paperwork, and sometimes I’ve felt that too. Not every assumption needs a test. Sometimes you’re the user, or every product in the category has the feature, or you know the domain. Slipway accepts that: you can mark an assumption as settled by experience, as long as you write down what would prove you wrong.</p>
+      <p>Before any code, <code>/kickoff</code> asks what question the product answers and who is asking it, one question at a time, and writes your answers into the repo. Before a new feature, <code>/log-feature</code> asks whether it serves that question.</p>
+      <p>This can feel like paperwork, and sometimes I’ve felt that too. Not every doubt about demand needs a test. Sometimes you’re the user, or every product in the category has the feature, or you know the domain. Slipway accepts that: you can mark that risk as settled by experience, as long as you write down what would prove you wrong.</p>
       <p>The time it takes: an afternoon to frame the product, days to weeks to test the riskiest assumption, a day or two to plan.</p>
       <h3>Who it’s for</h3>
       <ul class="hang">
@@ -232,7 +231,7 @@
       <h3>Shown working</h3>
       <ul class="hang">
         <li><strong>Every check has been seen failing.</strong> Each has deliberately broken examples it must fail on, for exactly the expected reasons.</li>
-        <li><strong>Slipway is built with its own process.</strong> Its feature docs, decisions, lessons and reviews are in the repo.</li>
+        <li><strong>Slipway’s own changes go through the same three sizes of change</strong> it gives a project. Its feature docs, decisions, lessons and reviews are in the repo. It has no product frame, PRD or milestone of its own.</li>
         <li><strong>One real product has used it:</strong> a private web app with one engineer. <code>/kickoff</code> shaped the product, the checks ran on its real pull requests and issues, and the setup script protected its repository. The hook that runs when the agent stops caught a problem in a live session that became a fix in slipway (<a href="https://github.com/matldupont/slipway/pull/58">#58</a>).</li>
         <li><strong>Seven updates, one that met the target.</strong> The target is one command, three questions at most, and the owner able to say what changed. One sync met it, two missed, and four weren’t recorded fully enough to score. Each is dated in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#exercised-on-a-real-project">SLIPWAY.md</a>.</li>
         <li><strong>One milestone closed.</strong> On 2026-10-06, <code>/close-milestone</code> took about seven minutes to open a pull request and about half an hour to merge, and asked one question. Every item planned for the milestone had been built, and the retro was written from issues, pull requests and <code>git log</code>. Timed once, on the strongest model at high effort. It also turned up a bug: a feature doc is marked shipped whole even when one section still owes a check (<a href="https://github.com/matldupont/slipway/issues/284">#284</a>, open).</li>
@@ -245,10 +244,10 @@
         <li><strong>The intake and ticket skills on a real project.</strong> This repository has no record of how those runs went.</li>
         <li><strong>The issue check has a limit.</strong> It catches adjectives. It doesn’t catch a criterion that can’t fail: “returns HTTP 200” passes.</li>
       </ul>
-      <h3>Next</h3>
+      <h3>Planned, not started</h3>
       <ul class="hang">
-        <li><strong>A check that a feature fits the product</strong> (the patterns it reuses, where its numbers come from), and a pause at each milestone to pull shared code together.</li>
-        <li>The whole plan, in order, is <a href="https://github.com/matldupont/slipway/issues/312">epic #312</a>.</li>
+        <li><strong>A check that every feature doc says how it fits the product</strong> (the patterns it reuses, where its numbers come from), and a pause at each milestone to list what should be shared and decide.</li>
+        <li>The work under way, in order, is <a href="https://github.com/matldupont/slipway/issues/312">epic #312</a>.</li>
       </ul>
     </div>
   </section>
