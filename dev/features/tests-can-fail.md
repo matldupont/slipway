@@ -48,7 +48,7 @@ verdict is read from a record of the commit under review and refuses any other; 
 always named with a reason the step can state. Its first advice, that a new test with nothing to be judged
 against fails, was changed after the measurement and put to the owner. Taken by this session under
 decision-defaults §1, §4 and §10 and D-004: the run writes a record and a script with no dependencies gives
-the verdict; the step is its own pull-request job, outside `pnpm verify`; a test that cannot be judged for
+the verdict; the code is changed in a copy outside the project, never in the working tree; the step is its own pull-request job, outside `pnpm verify`; a test that cannot be judged for
 good is excused in `ci/exceptions.yaml`, the registry that already holds dated exceptions.
 
 ## Contract
@@ -87,10 +87,12 @@ proves them in slipway (D-004, D-037); only the call to a real test runner is pr
 - **Not in `pnpm verify`.** `VERIFY_TASKS` does not change, so `pnpm verify:fast` and the Stop hook cost what
   they cost today.
 - Slipway itself has no app: the job is skipped there, as `verify` is.
-- Locally, `pnpm check:mutation` does the same against the merge base with the default branch. It edits
-  source files in place, one at a time, and puts each back. So it judges commits only, and refuses to start
-  (exit 2) while a tracked file has uncommitted changes: "Commit first: this step changes files and restores
-  them, and would lose work that is not committed" (L-04).
+- Locally, `pnpm check:mutation` does the same against the merge base with the default branch.
+- **No file of the project is ever changed.** The code is changed in a copy of the commit, in a new folder
+  under the system's temporary directory (§3.2), in CI and locally alike. So the step judges the last
+  commit: uncommitted changes are not judged, and it says how many files that leaves out. An interrupted
+  run leaves that one folder in the temporary directory, and nothing in the project: no changed file, no
+  registered worktree, no folder a later `pnpm meta` could trip on (the #347 class).
 
 ### 2. The parser and the changes — `ci/checks/lib/vendor/`, `ci/checks/lib/mutants.mjs` (new)
 
@@ -119,20 +121,27 @@ Zero dependencies of its own; it starts the project's test runner.
 
 1. **The change.** `BASE_SHA` and `HEAD_SHA`, or the merge base of `HEAD` with the default branch and `HEAD`.
    Added and changed lines per file come from `git diff -U0 -M base...head` through `trustedGit`.
-2. **Which packages.** A workspace package (`discoverWorkspace`) is judged when `vitest` is among its
+2. **The copy.** The tree of `HEAD` is written out by git into `<tmp>/tests-can-fail-<random>/`
+   (`git read-tree HEAD` into an index file of its own there, then `git checkout-index -a --prefix`), so
+   nothing is registered in the project's `.git` and its index is not touched. Dependencies are installed
+   there with `pnpm install --frozen-lockfile --offline`; a failed install is exit 2 with its last lines.
+   Every run of the test runner below happens in the copy, and the folder is removed on every exit path the
+   step controls. Measured 2026-10-08: 0.2 s to write the tree and 1.4 s to install on the scratch project
+   of D-037.
+3. **Which packages.** A workspace package (`discoverWorkspace`) is judged when `vitest` is among its
    dependencies. No such package: exit 2, "Nothing here can be checked: this step needs Vitest, and no
    package uses it." A project is never green because the step had nothing to look at (decision-defaults §4).
    The runner is started in the package's folder as `pnpm exec vitest`, with the arguments
    `ci/tests-can-fail.yaml` gives for that package when the file exists (`- package: <name>`,
    `args: --project unit`): how a project keeps tests that need a server or a browser out of the judged set.
    An argument holding anything but letters, digits and `. _ / = : -` is exit 2.
-3. **Which tests are judged.** `vitest list --json --includeTaskLocation` under those arguments is the
+4. **Which tests are judged.** `vitest list --json --includeTaskLocation` under those arguments is the
    judged set, with each test's file, name and first line. A changed file that looks like a test
    (`*.test.*`, `*.spec.*`, under `__tests__/`) and is not on that list is **not judged**: `not-listed`. A
    listed test with no line is exit 2 ("the test runner did not say where each test is").
    A test is *new* when a line the pull request added or changed falls between its first line and the next
    test's first line in that file. A test the pull request did not touch is never judged.
-4. **Its subjects**, the source files that may be changed for a test file:
+5. **Its subjects**, the source files that may be changed for a test file:
    - each file it imports by relative path, and the file beside it with the same name (`cart.test.ts` →
      `cart.ts`), when that file is tracked, inside the repository and not itself a test;
    - for an import of a workspace package by its name, that package's source files this pull request
@@ -141,33 +150,34 @@ Zero dependencies of its own; it starts the project's test runner.
    A subject `mutants()` cannot read is dropped and named. A test file left with no subject has its new
    tests **not judged**, with the reason: `no-subject` (it imports no source the step follows),
    `could-not-be-parsed`, or `other-language`.
-5. **Excused.** An unexpired entry in `ci/exceptions.yaml` with the id `tests-can-fail#<test file>` leaves
+6. **Excused.** An unexpired entry in `ci/exceptions.yaml` with the id `tests-can-fail#<test file>` leaves
    that file's tests not judged, `excused`, with the entry's reason and date. This is for a test that checks
    something other than what code does (it reads source text, a list of migrations). An expired or undated
    entry excuses nothing and is reported. FO1 leaves ids with this prefix to this step, as it leaves
    `pnpm-lock.yaml#` to LK1.
-6. **The baseline.** Each test file with new tests is run once, untouched. A new test that is red is exit 2
-   ("the tests are red before anything is changed: `pnpm verify` first"). One that is skipped or `todo` is
+7. **The baseline.** Each test file with new tests is run once in the copy, untouched. A new test that is
+   red is exit 2: "`{file}` › "{test}" is red in a clean copy of this commit, before anything is changed. If
+   it passes in your checkout, it needs a file git does not track." One that is skipped or `todo` is
    not judged: `skipped`.
-7. **Judging, one test file at a time.** The changes its subjects can get are put in order: the pull
+8. **Judging, one test file at a time.** The changes its subjects can get are put in order: the pull
    request's own lines first, then by kind as in §2, taking turns across the subjects. Every `body` change
-   is tried, then up to 30 more. For each: write the changed file, run that one test file
-   (`vitest run <file> --reporter=json`), put the file back.
+   is tried, then up to 30 more. For each: write the changed file in the copy, run that one test file
+   there (`vitest run <file> --reporter=json`), put the file back.
    - A new test that fails has failed once: the change (`file`, `line`, `kind`) is recorded for it.
    - The test file no longer loads, or the run hangs past its limit: the change broke the file or hung it,
      and says nothing about a test. It is dropped and not counted.
    - The runner writes no result: exit 2 with its last lines.
    The file stops as soon as every new test in it has failed once. A test that cannot fail costs the whole
    list.
-8. **Listing.** With the time left before the budget (§7), each change on the pull request's own source
+9. **Listing.** With the time left before the budget (§7), each change on the pull request's own source
    lines is tried against the tests related to that file (`vitest related <file> --run --bail 1`). One no
    test notices is a survivor, kept as `file`, `line`, `kind`. Changes not tried for lack of time are counted.
-9. **The record**, `node_modules/.cache/tests-can-fail/run.json` at the repository root (ignored by git
-   already): `head`, `base`, `seconds`, `budget`, `limit`, `outOfTime`, `changedTestFiles`,
+10. **The record**, `node_modules/.cache/tests-can-fail/run.json` at the project's root: the one file the step
+   writes in the project, in a folder git already ignores, replaced on every run: `head`, `base`, `seconds`, `budget`, `limit`, `outOfTime`, `changedTestFiles`,
    `tests` (`{ package, file, name, line, subjects, tried, failedOn, state }`, `failedOn` null or the
    change, `state` `judged` or `out-of-time`), `notJudged` (`{ file, name, why, detail }`),
    `unreadable` (`{ file, reason }`), `survivors`, `survivorsNotTried`. It is written on every exit path
-   that got as far as step 3, the time limit included.
+   that got as far as step 4, the time limit included.
 
 ### 4. The verdict — `ci/checks/meta/mt1-tests-can-fail.mjs` (new)
 
@@ -217,7 +227,7 @@ names and paths are a pull request's text and are printed through the report's e
 
 ### 6. What a project holds
 
-Nothing new is installed. A project may hold `ci/tests-can-fail.yaml` (§3.2), its own file: slipway ships
+Nothing new is installed. A project may hold `ci/tests-can-fail.yaml` (§3.3), its own file: slipway ships
 none, and `dev/ownership.yaml` gives the path the class `ci/before-verify.sh` has. It and `ci/exceptions.yaml`
 are under `ci/`, so the harness asks before an agent edits either and a pull request that changes one says
 so under `## Gate changes`. Taking a test out of the judged set is then a change the owner sees.
@@ -225,7 +235,7 @@ so under `## Gate changes`. Taking a test out of the judged set is then a change
 ### 7. The budget (D-037)
 
 5 minutes of wall time on a pull request touching 10 source files, on the project's CI runner. Judging runs
-first. Listing (§3.8) uses only what is left of the 5 minutes. Past 5 minutes the verdict warns with both
+first. Listing (§3.9) uses only what is left of the 5 minutes. Past 5 minutes the verdict warns with both
 numbers. At 10 minutes the run stops, marks every new test it has not finished `out-of-time`, writes the
 record, and the verdict fails naming each: it is never a pass. Changing either number is an edit to D-037.
 
@@ -264,7 +274,7 @@ cannot make the step pass by what it commits, short of a change the owner is sho
 - The vendored parser is never edited, its hash is pinned by a test, and it only reads text handed to it.
 
 Not defended: a pull request whose tests, while they run, interfere with the run itself (rewrite the record,
-or a source file being changed), which holds for anything `pnpm verify` runs too; the owner's own machine
+or a file in the copy), which holds for anything `pnpm verify` runs too; the owner's own machine
 (decision-defaults §3); and a test written to pass this step and nothing else.
 
 ## Known limitations
@@ -291,8 +301,10 @@ or a source file being changed), which holds for anything `pnpm verify` runs too
 - **The runtime was measured on a laptop, with a prototype** that used the TypeScript compiler API and tried
   at most 30 changes per test file. The first project to run the job records its runner's time; the budget in
   D-037 is revisited with that number.
-- **Local runs edit files in place.** A run killed hard can leave one source file changed: `git checkout --
-  <file>` restores it, which is why the step needs a clean tree.
+- **A test that needs a file git does not track** (a local `.env`, generated code) is red in the copy. The
+  step stops and names it; the project keeps such tests out with `ci/tests-can-fail.yaml`.
+- **The copy costs an install.** Offline and from the store the job's own install just filled, but on a large
+  workspace it is tens of seconds of the budget.
 
 ## Acceptance
 
@@ -338,7 +350,8 @@ And   in a temporary git repository, a record whose head is that repository's HE
 ```
 Given a temporary project with a stand-in test runner that fails a named test only when a given line of its subject is changed
 When  node scripts/mutation.test.mjs runs ci/mutation.mjs on a commit that adds that test and one that never fails
-Then  the record holds the first as judged with failedOn at that line, the second as judged with failedOn null and tried at least 1, and every source file is byte-identical to the commit afterwards
+Then  the record holds the first as judged with failedOn at that line, and the second as judged with failedOn null and tried at least 1
+And   the stand-in runner, which records the project's `git status` and `git worktree list` on every call, saw no change and one worktree each time
 ```
 
 ```
@@ -362,7 +375,13 @@ Then  it stops within the limit, the record has outOfTime true and each unfinish
 ```
 Given a tracked file with an uncommitted change; then a workspace where no package depends on vitest
 When  ci/mutation.mjs runs on each
-Then  each exits 2 with the message of §1 and §3.2, and no file is changed
+Then  the first judges the last commit and says one file's changes were not judged; the second exits 2 with the message of §3.3
+```
+
+```
+Given a run killed (SIGKILL) while a changed file is in the copy
+When  the project is looked at afterwards
+Then  `git status` shows nothing the run made, `git worktree list` shows one worktree, and `pnpm meta` gives the result it gave before the run
 ```
 
 ```
@@ -410,7 +429,8 @@ node ci/checks/meta/w1-declared-vs-invoked.mjs .
 
 And in a scratch project made by `node scripts/new-project.mjs <dir> --no-github --no-harness` with the
 default app: `pnpm check:mutation` on a branch with a test that cannot fail (exit 1, the test named), on the
-same branch fixed (exit 0), and with an uncommitted change (exit 2). Paste each result line and the wall time.
+same branch fixed (exit 0), and with an uncommitted change (it says so, and `git status` is the same before
+and after). Paste each result line and the wall time.
 
 ## Build map
 

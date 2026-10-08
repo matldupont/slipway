@@ -568,6 +568,7 @@ runner was not measured: slipway has no app to run the step on.
 | the same with **Vitest 5.0.3**, the newest | 63 s, exit 0, **wrong** | 372, of which 212 read "survived" with no test run against them | no |
 | **a small mutator in slipway**, every change tried (prototype: TypeScript compiler API, 5 kinds of change, one at a time through the test runner's command line) | 158 s (1 run) | 174 | yes |
 | the same, **stopping at each new test's first failure**, at most 30 changes per test file | 186 s (1 run) | 99 | yes |
+| the same on **Vitest 5.0.3** | 192 s (1 run) | 99 | yes: the same verdicts |
 | **run the new tests against the base version of the source** | 2 s | none | no: the tests of the 5 new files cannot load, so 19 tests, both planted ones among them, are never judged |
 | **do nothing** (prose, and the cold review's question) | 0 | none | no |
 
@@ -595,8 +596,9 @@ that needs the owner's yes); failing a pull request on a surviving change (a com
 change nothing can notice: deferred in F-13 with what brings it back); the project's own TypeScript as the
 parser (slipway would ship code its gate never runs).
 
-What this leaves open: the prototype that was timed used the TypeScript compiler API and tried changes one
-at a time; the build uses the pinned parser, and its time on a hosted runner is not known until a project
+What this leaves open: the prototype that was timed used the TypeScript compiler API, tried changes one at a
+time and edited the scratch project in place; the build uses the pinned parser and works in a copy of the
+commit outside the project (F-13), and its time on a hosted runner is not known until a project
 runs it. The mutator makes fewer kinds of change than StrykerJS. A weak test passes with either.
 
 ## Week 1 — decide before M1 closes
