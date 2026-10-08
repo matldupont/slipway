@@ -21,6 +21,7 @@ import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
+import { reviewProvenance } from './checks/lib/review-header.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -69,14 +70,12 @@ const ods = [...prd.matchAll(/^###\s+(OD-\d+)\s+—\s+(.+)$/gm)]
   .map((m) => ({ id: m[1], title: m[2].trim(), blocking: /BLOCKING/.test(section(prd, `${m[1]} — ${m[2].trim()}`, 3) ?? '') }))
   .filter((o) => !o.title.startsWith('<'));
 const prdVersion = (prd.match(/^Version:\s*(.+)$/m) ?? [])[1]?.trim() ?? null;
-// A review of the PRD's current version, the way R1 counts one.
+// A review of the PRD's current version, the way R1 counts one: both read the review's header through lib/review-header.mjs.
 const reviewsDir = join(root, 'docs', 'reviews');
 const prdReviews = existsSync(reviewsDir)
   ? readdirSync(reviewsDir).filter((f) => f.endsWith('.md') && f !== 'TEMPLATE.md').filter((f) => {
-      const lines = readFileSync(join(reviewsDir, f), 'utf8').split(/\r?\n/).map((l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim());
-      const target = lines.find((l) => /^Reviewed:\s*\S+\s+@\s+\S+/.test(l));
-      const version = lines.find((l) => /^Version line:/.test(l));
-      return !!target && target.includes('docs/PRD.md') && !!prdVersion && !!version && version.includes(prdVersion);
+      const { reviewed, version } = reviewProvenance(readFileSync(join(reviewsDir, f), 'utf8'));
+      return !!reviewed && reviewed.path.endsWith('docs/PRD.md') && !!prdVersion && !!version && version.includes(prdVersion);
     })
   : [];
 const decisions = read('decisions.md') ?? '';

@@ -21,21 +21,26 @@ Destructive git operations are **ask-level**, never allowed silently (L-20):
 `git stash list` and `git stash apply <sha>` — the safe halves — stay allowed. A prompt can still be approved
 reflexively; protection on `main` backstops the worst case.
 
-**So are two things the GitHub CLI can do beyond this repository** (#279). Each rule matches the words anywhere
-in the command, so one behind an environment variable or after `&&` asks too:
+**So is what the GitHub CLI can delete for good, or widen, beyond this repository** (#279, #303). Each rule matches
+the words anywhere in the command, so one behind an environment variable or after `&&` asks too:
 
 | rule | the failure it prevents |
 |---|---|
 | `gh repo delete` | a session cleaning up after itself deletes a repository; nothing on `main` backstops that |
 | `gh api` with `-X` or `--method` and `DELETE` or `delete`, with a space, `=` or nothing between (`-XDELETE`) | the same through the API, and any other delete sent with that method (a branch, a release, a secret) |
+| `gh release delete`, `gh release delete-asset` | a deleted release takes its uploaded files with it, and a deleted file is gone from the release; no `git` command brings either back |
+| `gh secret delete`, and `gh secret remove`, the manual's other name for it | a secret cannot be read back, so a deleted one is restored only by whoever still holds its value |
+| `gh issue delete` | an issue is deleted for good, with its comments; closing one is not |
+| `gh run delete` | a workflow run goes with its log, the record a failed check links to |
 | `gh auth refresh`, `gh auth login` | either can add permissions to the CLI's token; every session on the machine then uses the wider token, and nothing narrows it afterwards |
 
-`gh repo view`, `gh issue list`, `gh pr create`, `gh auth status` and a `gh api` read do not ask; a command that only
-names the words (a commit message, a pull request title) does. These rules are a
+`gh repo view`, `gh issue list`, `gh release view`, `gh secret set`, `gh pr create`, `gh auth status` and a `gh api`
+read do not ask; a command that only names the words (a commit message, a pull request title) does. These rules are a
 prompt, not a boundary: what holds is a token that lacks the permission to delete. They do not cover a session under
 `bypassPermissions` (below); a command worded another way, the method in mixed case (`Delete`) among them; the CLI's
-other deleting commands (`gh release delete`, `gh secret delete`); narrowing a token once it was widened; or anything
-set on GitHub's side (repository rules, a fine-grained token).
+other deleting commands, which #303 left out (an alias, a cache, a codespace, an extension, a gist, a GPG or SSH key, a
+label, a project or its fields and items, an autolink, a deploy key, a variable); narrowing a token once it was
+widened; or anything set on GitHub's side (repository rules, a fine-grained token).
 
 **Gate configuration is ask-level too.** An agent that cannot make a check pass will weaken the check:
 edit the lint config, loosen `tsconfig`, add `continue-on-error`, touch a fixture. Edits to lint, format,
@@ -223,10 +228,10 @@ prompt; the guard and the PR check still count it.
 | hook | event | does |
 |---|---|---|
 | `hooks/session-state.sh` | SessionStart | injects `node ci/status.mjs` — where the project is on the slipway path and the next step — before the agent reads anything else |
-| `hooks/stop-verify.sh` | Stop | runs `pnpm verify:fast`; while red, the agent may not end its turn. Once per stop: a second red lets it stop, and it must say what is failing. Quiet before an app exists; skips a tree it already verified green. A package with dependencies and no `node_modules` (a fresh worktree) blocks with `pnpm install --frozen-lockfile` as the reason, before any cache check, and never counts as green |
+| `hooks/stop-verify.sh` | Stop | runs `pnpm verify:fast`; while red, it blocks the first stop of a turn. A second stop ends the turn red, with the agent asked to say what is failing. Quiet before an app exists; skips a tree it already verified green. A package with dependencies and no `node_modules` (a fresh worktree) blocks with `pnpm install --frozen-lockfile` as the reason, before any cache check, and never counts as green |
 
 The Stop hook is the only blocking hook. It answers the most documented agent failure — declaring work
-done that was never run — with the one thing that cannot be talked past. `verify:fast` is `verify`
+done that was never run — with the one thing that blocks a stop. `verify:fast` is `verify`
 without `build`; CI always runs the full set. Both need node, found by `hooks/find-node.sh`, which adds
 the usual install locations because `/bin/sh` has no PATH of yours; when node is still missing each hook
 says so rather than exiting silently (L-34).

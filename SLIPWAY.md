@@ -6,8 +6,8 @@ the checks that keep that path honest. Self-contained — nothing here refers to
 **Requires:** Node 24 + pnpm, GitHub, Claude Code. **Defaults**, decided in week 1 (D-005–D-008): TypeScript,
 React + Vite, Cloudflare.
 
-One thesis runs through all of it: **a rule exists only where something fires.** Every step below ends in
-something that goes red — a check, a hook, a clock — not in a promise.
+One thesis runs through all of it: **a rule exists only where something fires.** Every step up to closing a
+milestone ends in something that goes red — a check, a hook, a clock — not in a promise.
 
 **Lost? Run `pnpm status`.** It reads the repo and prints which step you are on and what to do next. Agent
 sessions get the same output automatically when they start.
@@ -25,7 +25,7 @@ sessions get the same output automatically when they start.
 | **4 · Walking skeleton** · agent, days — **runs in parallel with step 2** | activate [M1](docs/milestones/M1-walking-skeleton.md): thinnest core path, deployed by CI | a live URL, analytics and errors wired | its gate: an end-to-end test against production |
 | **5 · Build loop** · agent | one active milestone; every change through its lane | small PRs with evidence | `verify` · `meta` · `pr-body` per PR; the Stop hook per agent turn; **MS1** |
 | **6 · Close the milestone** · you with `/close-milestone` | run `/close-milestone` | a retro from the record, closed GitHub milestone, next bet chosen | **MS1**: closed means retro written; overrun means a decision |
-| **7 · Learn** · you, weekly | weekly metrics and user conversations; bets chosen from evidence | [`docs/product/metrics.md`](docs/product/metrics.md) | then back to 5 with the next milestone |
+| **7 · Learn** · you, weekly | weekly metrics and user conversations; bets chosen from evidence | [`docs/product/metrics.md`](docs/product/metrics.md) | nothing fires here; then back to 5 with the next milestone |
 
 ### 0 · Bootstrap — about an hour
 
@@ -82,7 +82,7 @@ skeleton is cheap to change now and expensive in month three.
 ### 5 · Build loop — the rest of the milestone
 
 One milestone active at a time (MS1). Take the next slice from its Contents, pick its lane, build it in a
-fresh agent session, prove it, merge it. The Stop hook will not let an agent end a turn while
+fresh agent session, prove it, merge it. The Stop hook blocks the first stop of an agent turn while
 `pnpm verify:fast` is red. Anything that is not in the milestone goes to its no-gos or a later one, not into
 the diff.
 
@@ -160,7 +160,7 @@ docs/testing-strategy.md            test layers, and what makes a test able to f
 docs/qa/ · docs/reviews/            QA plans · adversarial reviews with provenance lines
 process/lessons/                    61 lessons, each stating where it lives (L1 checks it)
 process/cold-review.md              the cold-review checklist, one line per lesson
-process/designation.md              which model and effort, by whether an oracle exists
+process/designation.md              which mode, model and effort, by whether an oracle exists
 process/decision-defaults.md        the ten defaults a session applies before asking the owner
 process/harness/                    permissions and hooks — installed into .claude/ by new-project
 .claude/skills/                     /bootstrap, /kickoff, /clarify, /review-doc, /close-milestone and /sync-slipway
@@ -216,7 +216,7 @@ merged by judgment file by file:
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
 | K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); every untested value risk names a tracker once a milestone is underway; nothing past the skeleton before each value risk is tested against a bar set first, or settled by experience with what would prove it wrong written down | building before anyone names the question the product answers or tests whether people want it |
 | S1 | `ci/status.mjs` prints the expected Next and Frame lines — each risk tested, settled by experience, scheduled, overran, window unreadable or untested — for its fixture roots | status telling the owner a risk is on schedule while its evidence is no longer read |
-| Stop hook | an agent turn does not end while `verify:fast` is red | agents declaring done work that was never run |
+| Stop hook | blocks the first stop of a turn while `verify:fast` is red; a second stop ends the turn red, with the agent asked to say what is failing | agents declaring done work that was never run |
 
 `verify` exits BROKEN on an empty workspace and fails, before running anything, when no package declares
 `check` or `test` — a gate that could not have proven anything never reports green.

@@ -37,7 +37,8 @@ records something else — then scaffold that and adapt the steps below.
 4. From the repo root: `pnpm install`, then `node ci/verify.mjs --plan` — it must list `apps/web`
    under `check` and `test`. Then `pnpm verify` and `pnpm meta`, both green. Commit the lockfile.
 
-The Stop hook starts enforcing `verify:fast` the moment the app exists: a red turn cannot end.
+The Stop hook starts enforcing `verify:fast` the moment the app exists: it blocks the first stop of a turn while
+`pnpm verify:fast` is red, and a second stop ends the turn red, with the agent asked to say what is failing.
 That is the harness working; fix the cause, never the gate. An approval prompt on a config edit
 means you reached for a gate — stop and explain why before the owner approves anything.
 

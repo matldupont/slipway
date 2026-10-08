@@ -59,7 +59,7 @@ round), and leave only the lines about the first milestone close for after it.
 ## Contract
 
 Verified against: 9824e8f 2026-10-06 — read in full on `main`: `site/index.html`, `site/css/base.css`,
-`site/css/manual.css`, `site/design-direction.md`, `SLIPWAY.md`, `README.md`, `BOOTSTRAP.md` (requirements),
+`site/css/manual.css`, `dev/site/design-direction.md`, `SLIPWAY.md`, `README.md`, `BOOTSTRAP.md` (requirements),
 `dev/ownership.yaml` (`site/**` and `docs/reviews/**` internal), `decisions.md` (D-002, D-004, D-016, D-027),
 `ci/checks/meta/k1-frame.mjs`, `ci/checks/meta/r1-review-provenance.mjs`, `.claude/skills/` (11 skills),
 `process/harness/README.md` (the hooks table and what gets past), `scripts/new-project.mjs` (its first output
@@ -75,7 +75,7 @@ One primary reader, confirmed by the owner on 2026-10-06: **the solo builder shi
 Claude Code**, including the one engineer working beside co-founders who are not engineers. They arrive from
 npm, GitHub or a link, have never heard of slipway, and have watched a coding agent report "done" on work that
 was never run. The page is written to them in the owner's voice (the candid builder, first person, real
-incidents: `site/design-direction.md`), and nobody else is written for.
+incidents: `dev/site/design-direction.md`), and nobody else is written for.
 
 **"Decides in about five minutes" means the page from the hero through §01's answer line.** That stretch
 carries what slipway is, that it is for engineers, why it exists, and the first command. It is about two and a
@@ -89,7 +89,7 @@ it. One sentence of why slipway was built sits in the first screen (the headline
 
 | # | the reader asks | carried by | the intended answer | backed by |
 |---|---|---|---|---|
-| Q1 | What is it, and is it for me? | hero (kicker, lede); the fuller "who" is §04 | A project framework for Claude Code: a path from a rough idea to a release that holds up, with checks that fail when a step is skipped. By an engineer, for engineers. | the owner's approved wording, 2026-09-24 (`site/design-direction.md` Revisions); `SLIPWAY.md` "Start here" |
+| Q1 | What is it, and is it for me? | hero (kicker, lede); the fuller "who" is §04 | A project framework for Claude Code: a path from a rough idea to a release that holds up, with checks that fail when a step is skipped. By an engineer, for engineers. | the owner's approved wording, 2026-09-24 (`dev/site/design-direction.md` Revisions); `SLIPWAY.md` "Start here" |
 | Q2 | What problem does it solve, and why bother? | headline; §01; the thesis line; Plate 1 | Agents made writing code cheap; they did not make it right, useful or coherent, and that part is still engineering. AI changed how we build software; it did not change what users expect from it. Slipway turns most of what the author learned into checks that fail where one can catch it and dated rules where it can't. | `SLIPWAY.md` thesis and "Lessons, and where each one lives"; #43 Problem |
 | Q3 | What do I run first? | hero (the two commands and their notes) | `npx use-slipway acme --dry-run` prints every step and changes nothing; `npx use-slipway acme` creates `./acme` and a private GitHub repository. Then open Claude Code in it and run `/bootstrap`. The package is `use-slipway`; `slipway` on npm is unrelated. | `README.md` "Start a project"; the runs (Verify); `npm view slipway` |
 | Q4 | What happens after that? | §02 | Eight steps from a rough idea to something people use: bootstrap, frame, test the risk, shape, skeleton, build, close, learn, then back to build. `pnpm status` reads the repository and prints which step you are on and what to do next; agent sessions get the same line when they start. One milestone is open at a time. | `SLIPWAY.md` path table and "Lost?"; `process/harness/hooks/session-state.sh`; MS1 |
@@ -179,7 +179,7 @@ that the build does not edit.
 
 | # | section | claim (as it will read) | source |
 |---|---|---|---|
-| 1 | head, hero | a project framework for Claude Code: a path from a rough idea to a release that holds up, with Claude Code doing the building and checks that fail when a step gets skipped | the owner's approved wording, 2026-09-24 (`site/design-direction.md` Revisions); `SLIPWAY.md` "Start here" |
+| 1 | head, hero | a project framework for Claude Code: a path from a rough idea to a release that holds up, with Claude Code doing the building and checks that fail when a step gets skipped | the owner's approved wording, 2026-09-24 (`dev/site/design-direction.md` Revisions); `SLIPWAY.md` "Start here" |
 | 2 | hero | By an engineer, for engineers | the owner, 2026-09-24 and 2026-10-06 (The reader) |
 | 3 | hero | a slipway is the ramp a ship is built on | `README.md` line 5 |
 | 4 | hero | `npx use-slipway acme --dry-run` prints every step it would take and changes nothing | `README.md` options table; run (Verify) |
@@ -304,7 +304,7 @@ each of these, case-insensitive, and expects 0 lines from each file: `supercharg
 `no engineer`, `Cursor`, `Codex`, `Copilot`, `Gemini`, `Windsurf`, `works with any agent`. The bare word
 `faster` is not on the list: the plate's "Make it faster", its example of a criterion that cannot fail, stays.
 At 9824e8f the grep prints 0 for both files. The design direction's own forbidden list
-(`site/design-direction.md`) stays in force.
+(`dev/site/design-direction.md`) stays in force.
 
 Private project names are not written in this repository, so no grep here can look for them. The owner greps
 the page from their own list before the page PR is marked ready, and the PR says only that it was run.
@@ -336,7 +336,7 @@ check.
 
 ### Design and layout
 
-The Manual direction and the steel ground stay (`site/design-direction.md`). `html { scrollbar-gutter: stable; }`
+The Manual direction and the steel ground stay (`dev/site/design-direction.md`). `html { scrollbar-gutter: stable; }`
 in `site/css/base.css`, and the same on any element the build gives `overflow: auto` or `overflow: scroll` (none
 exists at 9824e8f), so nothing shifts when a scrollbar appears. With the viewport emulated at 390×844,
 `document.documentElement.scrollWidth <= document.documentElement.clientWidth`, and no element inside `main`
@@ -666,7 +666,7 @@ Before #55 publishes, and #55's to check: step 3 has merged, and a patch release
 
 none open. Settled by the owner, with where each is recorded:
 
-- The first line and the candid voice (2026-09-24): `site/design-direction.md`.
+- The first line and the candid voice (2026-09-24): `dev/site/design-direction.md`.
 - The reader; "a private product with one engineer, a web app"; the resolutions of the review of 0.1; the three
   hero notes; that the person who runs the path may be the author; that §01's stage 2 and 3 sentences stay as
   biography; that the after-close step gets its own sub-issue (2026-10-06): the body of PR #275, which lists
@@ -688,3 +688,4 @@ models named for the reader test.
 - 2026-10-06 · MODIFIED · Version 0.2 → 0.3, the last spec round, resolving the review of 0.2 (`docs/reviews/2026-10-06-landing-page-0.2.md`, AR-1 to AR-12): the fold has two heights and the first command clears both, a stated change to the hero; three control facts that today's page gets wrong, fixed here and re-tuned at most once by the owner; the claims table is checked in the page step by a reviewer who wrote neither it nor the page, in both directions, and the rows the review named are reworded (rows 78 to 84 added); the syncs are recounted by a written rule from #43 alone; a private-name check on `SLIPWAY.md`; the close line is rewritten, not re-dated; step 3 writes whatever the close's outcome is; the test repository is deleted from its Settings page (#279 holds the harness gap); two checks that could not fail are replaced. **Correction to the entry above:** nothing was re-copied at 0.2. The copy happens once, after the review of 0.3: the Contract, Verify and Acceptance of #252, #270 and #271, and #55's scroll line. #270 and #271 do not start before it
 - 2026-10-06 · MODIFIED · the build's shape, not the Contract; the Version line does not move. The first real run of `/close-milestone` happened on 2026-10-06, after 0.3 was written, so the third step has nothing to wait for: its lines are folded into #270 (`SLIPWAY.md`) and #271 (the page), by the owner's decision of that day. No third sub-issue; #271 closes #252. The Contract, Verify and Acceptance of 0.3 were copied into #252, #270 and #271 that day, each saying where it differs; the seven findings of the review of 0.3 are acceptance lines in #270 and #271, and that review's register names them. The run by an engineer who has not used slipway is #287, under #55. #271 will add `dev/features/landing-page-claims.md`, the claims table as corrected and the facts as tested, which supersedes the table above for the page as built
 - 2026-10-07 · MODIFIED · built by #271; the page differs from the Contract in these places, and `dev/features/landing-page-claims.md` supersedes the claims table and the required facts for the page as built (the Version line does not move). The third step is folded in: Q8's last sentence, row 61 and the third control fact say what happened at the first real close, and step 6 on the ramp gives its time. The ramp's step 5 reads "the rest of the milestone", from its heading in `SLIPWAY.md`, and step 2 "days to weeks". The hero order is the kicker, headline, lede, the two commands, then the three notes, the `use-slipway` line and the name note, then the image (on the phone the commands come before the image). Rows 13, 22, 25, 26, 30, 33, 36, 37, 40, 45, 52, 61 and 62 are reworded to their sources, and rows 85 to 87 are added, by the claims check. The release sentence (row 51) sits in §05 under "What it expects". The README's first sentence and its step sentence are aligned with the page's.
+- 2026-10-07 · MODIFIED · #334: row 53 reworded from "zero-dependency" to "no install step" (D-004 protects the missing install step, which #333's pinned parser leaves true), and row 86 names `ci/checks/lib/`, the folder that exists; the table above is not edited
