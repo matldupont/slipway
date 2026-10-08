@@ -67,9 +67,9 @@ const unreadNote = (unread) => (unread.length
   ? ` (line ${unread.slice(0, 3).join(', ')}${unread.length > 3 ? ` and ${unread.length - 3} more` : ''} of this file is in the header and over ${MAX_LINE} characters: a header line that long is not read, so shorten it)`
   : '');
 
-// git's own folder under any spelling a filesystem takes for it: letter case, characters nobody sees, trailing
-// dots and spaces, the short name.
-const hiddenAll = new RegExp(UNSAFE.source, 'gv');
+// git's own folder under the spellings a filesystem is known to take for it: letter case, characters nobody sees
+// (the three UNSAFE leaves for emoji too), trailing dots and spaces, the short name. Not every spelling there is.
+const hiddenAll = new RegExp(`${UNSAFE.source}|[\u200d\ufe0e\ufe0f]`, 'gv');
 const gitFolder = (seg) => {
   const s = seg.replace(hiddenAll, '');
   let end = s.length;
@@ -97,7 +97,7 @@ const unreadable = (rel) => {
 
 for (const f of files) {
   const rel = `docs/reviews/${f}`;
-  const { reviewed, version, supersedes, unread } = reviewProvenance(readFileSync(join(dir, f), 'utf8'));
+  const { reviewed, version, supersedes, unread, unreadSupersedes } = reviewProvenance(readFileSync(join(dir, f), 'utf8'));
 
   if (f === 'TEMPLATE.md') {
     if (!reviewed || !version) {
@@ -107,6 +107,8 @@ for (const f of files) {
   }
   if (!reviewed) findings.push({ where: `${rel}#provenance/missing`, detail: `no \`Reviewed: <path> @ <ref>\` line: add one in the header (the lines under the title, before the first blank line, not quoted), naming the file read and the commit it was read at${unreadNote(unread)}` });
   if (!version) findings.push({ where: `${rel}#provenance/no-version-line`, detail: `no \`Version line: <verbatim text>\` line: add one in the header, copying the reviewed document's Version line as it is${unreadNote(unread)}` });
+  // A Supersedes: line too long to be read retires nothing, and says so as an unreadable name always has.
+  for (const n of unreadSupersedes.slice(0, 3)) findings.push({ where: `${rel}#provenance/supersedes-invalid`, detail: `the Supersedes: line at line ${n} of this file is over ${MAX_LINE} characters and is not read, so it retires nothing: name an earlier review of the same document by its path, or remove the line` });
   if (!reviewed || !version) continue;
 
   const targetRel = reviewed.path;

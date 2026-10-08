@@ -1,5 +1,5 @@
 {
-  "_note": "#322, #336. R1 reads no header line over 1000 characters, and opens the reviewed path only when it is a regular file of the repository. good and at-limit (a Reviewed: line of exactly 1000 characters) have no finding. long-reviewed's Reviewed: line is 1001 characters and long-version's Version line: is: neither is read, and the finding names the line. folder and folder-slash name a folder, and root names the repository itself with an empty quoted path: each is a finding, where R1 used to stop as broken. git-folder and git-folder-spelled name a path inside git's own folder; this fixture has no such folder, and the path alone is refused. A link, a path through a linked folder and the time one long line takes cannot be shipped as files: scripts/r1.test.mjs (slipway only) builds them.",
+  "_note": "#322, #336. R1 reads no header line over 1000 characters, and opens the reviewed path only when it is a regular file of the repository. good and at-limit (a Reviewed: line of exactly 1000 characters) have no finding. long-reviewed's Reviewed: line is 1001 characters and long-version's Version line: is: neither is read, and the finding names the line. long-supersedes's Supersedes: line is 1001 characters: it is reported, as a name R1 cannot read always was, and retires nothing. folder and folder-slash name a folder, and root names the repository itself with an empty quoted path: each is a finding, where R1 used to stop as broken. git-folder and git-folder-spelled name a path inside git's own folder; this fixture has no such folder, and the path alone is refused. A link, a path through a linked folder and the time one long line takes cannot be shipped as files: scripts/r1.test.mjs (slipway only) builds them.",
   "exit": 1,
   "findings": [
     "docs/reviews/folder-slash.md#provenance/target-missing",
@@ -7,6 +7,7 @@
     "docs/reviews/git-folder-spelled.md#provenance/target-missing",
     "docs/reviews/git-folder.md#provenance/target-missing",
     "docs/reviews/long-reviewed.md#provenance/missing",
+    "docs/reviews/long-supersedes.md#provenance/supersedes-invalid",
     "docs/reviews/long-version.md#provenance/no-version-line",
     "docs/reviews/root.md#provenance/target-missing"
   ],
@@ -17,6 +18,7 @@
     "docs/reviews/folder-slash.md#provenance/target-missing": "reviewed path docs/specs/ is not a regular file",
     "docs/reviews/root.md#provenance/target-missing": "is not a regular file",
     "docs/reviews/git-folder.md#provenance/target-missing": "reviewed path .git/config is inside .git/",
-    "docs/reviews/git-folder-spelled.md#provenance/target-missing": "is inside .git/"
+    "docs/reviews/git-folder-spelled.md#provenance/target-missing": "is inside .git/",
+    "docs/reviews/long-supersedes.md#provenance/supersedes-invalid": "the Supersedes: line at line 5 of this file is over 1000 characters and is not read, so it retires nothing"
   }
 }

@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -45,12 +45,16 @@ const timed = (fn) => {
 
 // --- the reviewed path ---
 
-test('a plain file in a temporary project passes: a root that sits behind a link is not itself reported', () => {
-  const dir = project({ 'docs/specs/a.md': SPEC, 'docs/reviews/a.md': review('docs/specs/a.md') });
+// The root is given through a link the test makes itself: a temporary folder is behind one on macOS only.
+test('a plain file passes when the repository root is itself reached through a link', () => {
+  const dir = project({ 'repo/docs/specs/a.md': SPEC, 'repo/docs/reviews/a.md': review('docs/specs/a.md') }, { linked: 'repo' });
   try {
-    const r = r1(dir);
-    assert.equal(r.status, 0, r.out);
-    assert.match(r.out, /R1: PASS/);
+    assert.notEqual(realpathSync(join(dir, 'linked')), join(dir, 'linked'));
+    for (const root of [join(dir, 'repo'), join(dir, 'linked')]) {
+      const r = r1(root);
+      assert.equal(r.status, 0, r.out);
+      assert.match(r.out, /R1: PASS/);
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -95,6 +99,24 @@ test("a file inside git's own folder is target-missing under either spelling, th
   }
 });
 
+test("git's own folder is refused under each spelling a filesystem is known to take for it, and a name that only starts like it is not", () => {
+  const refused = ['.git', '.GIT', '.git.', '.git ', '.git. .', 'GIT~1', 'git~1', '.g\u200cit', '.g\u200dit', '.gi\ufe0ft', '\ufeff.git'];
+  const files = { 'docs/specs/a.md': SPEC, '.github/a.md': SPEC, '.gitx/a.md': SPEC, 'docs/reviews/ok-1.md': review('.github/a.md'), 'docs/reviews/ok-2.md': review('.gitx/a.md') };
+  refused.forEach((seg, i) => {
+    files[`docs/reviews/r${String(i).padStart(2, '0')}.md`] = review(`"${seg}/a.md"`);
+    files[`docs/reviews/s${String(i).padStart(2, '0')}.md`] = review(`"docs/${seg}/a.md"`);
+  });
+  const dir = project(files);
+  try {
+    const r = r1(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.equal(r.findings.length, refused.length * 2, r.out);
+    for (const f of r.findings) assert.match(f.detail, /is inside \.git\//, f.where);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // --- the time one line takes ---
 
 // The shapes that took seconds before: a run of quote marks inside a line, a run of spaces after `Reviewed:` with
@@ -132,7 +154,7 @@ test('reviewProvenance reads a header with 100,000-character lines in under 100 
   const text = `# Review\n\n${noAt}\n${loneCr}\nSupersedes: ${quotes}\nReviewed: docs/specs/a.md @ 1a2b3c4\n`;
   reviewProvenance('# warm\n\nReviewed: a @ b\n');
   const { value, ms } = timed(() => reviewProvenance(text));
-  assert.deepEqual(value, { reviewed: { path: 'docs/specs/a.md', ref: '1a2b3c4' }, version: null, supersedes: [], unread: [3, 4, 5] });
+  assert.deepEqual(value, { reviewed: { path: 'docs/specs/a.md', ref: '1a2b3c4' }, version: null, supersedes: [], unread: [3, 4, 5], unreadSupersedes: [5] });
   assert.ok(ms < 100, `took ${Math.round(ms)} ms`);
 });
 

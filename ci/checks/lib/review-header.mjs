@@ -61,20 +61,24 @@ const headerLines = (text) => {
   return all.slice(start, end < 0 ? all.length : end).map((l, i) => ({ n: start + i + 1, l }));
 };
 
-// The header's lines that are read, with emphasis and list marks removed.
-export const reviewHeader = (text) => headerLines(text).filter(({ l }) => l.length <= MAX_LINE).map(({ l }) => mark(l));
+// The lines of a header that are read, with emphasis and list marks removed.
+const read = (header) => header.filter(({ l }) => l.length <= MAX_LINE).map(({ l }) => mark(l));
+export const reviewHeader = (text) => read(headerLines(text));
 
 // The three provenance lines of a review's header. `reviewed` is `{ path, ref }` as written (path unquoted);
 // `version` is the Version line's value, unquoted, null when absent or empty; `supersedes` is every path named;
-// `unread` is the file's line number of each header line over MAX_LINE characters, which none of the three reads.
+// `unread` is the file's line number of each header line over MAX_LINE characters, which none of the three reads;
+// `unreadSupersedes` is those of them that start as a Supersedes: line, so a caller can say the line retires nothing.
 export const reviewProvenance = (text) => {
   const header = headerLines(text);
-  const lines = header.filter(({ l }) => l.length <= MAX_LINE).map(({ l }) => mark(l));
+  const lines = read(header);
+  const long = header.filter(({ l }) => l.length > MAX_LINE);
   const v = lines.map(versionOf).find((x) => x !== null);
   return {
     reviewed: lines.map(reviewedOf).find(Boolean) ?? null,
     version: (v ? unquote(v) : '') || null,
     supersedes: lines.filter((l) => l.startsWith('Supersedes:')).map((l) => unquote(l.slice('Supersedes:'.length)).replace(/^\.\//, '')),
-    unread: header.filter(({ l }) => l.length > MAX_LINE).map(({ n }) => n),
+    unread: long.map(({ n }) => n),
+    unreadSupersedes: long.filter(({ l }) => mark(l.slice(0, 64)).startsWith('Supersedes:')).map(({ n }) => n),
   };
 };
