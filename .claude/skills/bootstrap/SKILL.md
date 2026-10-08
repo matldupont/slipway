@@ -76,7 +76,7 @@ as not run, never as passed.
 | 6 | add `continue-on-error: true` to a step in `ci.yml` (the harness asks — say it is a probe) | FO1 red |
 | 8 | a review in `docs/reviews/` whose `Version line:` is not in the PRD | R1 red |
 | 9 | a lesson with `review-by` in the past | L1 red |
-| 10 | the sample commands in `process/harness/README.md` § Test | each hook prints; non-matches print nothing |
+| 10 | the sample commands in `process/harness/TESTING.md` | each hook prints; non-matches print nothing |
 | 12 | two milestone files with `status: active` | MS1 `wip/exceeded` |
 | 13 | M1 `status: active` while FRAME is `status: draft` | K1 `status/draft` |
 
