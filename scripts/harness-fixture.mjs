@@ -1,4 +1,4 @@
-// Shared by the harness tests (harness-gate-files, harness-base, harness-yes .test.mjs): every hook command in
+// Shared by the harness tests (harness-gate-files, harness-base, harness-no-pin, harness-yes .test.mjs): every hook command in
 // process/harness/settings.json, and the throwaway origin and clone whose stub hooks write a marker. Each test file
 // is its own process and so has its own copy of the temp folder, removed when that file's tests end. Not a test.
 
@@ -134,6 +134,16 @@ export const clean = () => {
   assert.equal(readFileSync(pinOf(), 'utf8'), `${BASE}\n`, 'a new session did not pin origin/HEAD');
   reset();
 };
+// #262, D-034: the Stop hook printed nothing, ran nothing and wrote no pin.
+export const quiet = (why, sid = SID) => {
+  const r = run('stop-verify.sh', '{}', sid);
+  assert.equal(`${r.status} ${r.out}`, '0 ', why);
+  assert.deepEqual(marks(), [], `${why}: a hook ran`);
+  assert.ok(!existsSync(join(T, '.claude')), `${why}: a pin was written`);
+};
+// What the Stop hook printed, as JSON: `out` holds stderr too, so the line that starts the object is the one read.
+export const stopJson = (sid = SID, env = {}) => JSON.parse(run('stop-verify.sh', '{}', sid, env).out.split('\n').find((l) => l.startsWith('{')) ?? '{}');
+export const change = () => put('src/app.ts', 'export const changed = 1;\n');
 
 export const commit = (msg) => git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', msg);
 export const say = (prompt, extra = {}) => JSON.stringify({ session_id: SID, transcript_path: '/x.jsonl', cwd: work, permission_mode: 'default', hook_event_name: 'UserPromptSubmit', prompt, ...extra });
