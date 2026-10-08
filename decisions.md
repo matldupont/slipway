@@ -473,7 +473,9 @@ blocks as before, and so does any state git cannot answer for.
 - **What it reads is the checkout's own git.** The remote head is read from the ref, with no network call. Four
   settings are named in the command, not inherited: untracked files are listed, submodules are compared, and no
   file monitor or replace ref is followed. Any other local git setting that empties a status still hides a
-  change, as an index flag or an ignore rule does: the limits `process/harness/README.md` lists for the guard.
+  change, as an index flag or an ignore rule does, and a submodule's own settings still apply inside that submodule
+  (the four named apply to the top repository only), so they can hide a change in it or in one inside it: the limits
+  `process/harness/README.md` lists for the guard.
 - **One limit is wider than it was.** The comparison is with the live `origin/HEAD`, since a session with no pin
   has nothing else to compare with. For such a session an `origin/HEAD` the agent moved counts at its next
   stop, where for a pinned one it counts only for a later session. The harness asks before the direct ways of
