@@ -82,7 +82,7 @@ Tiered by what the diff touches, not by how hard it was to write. Two questions,
 - **Is a cold review required?** `process/cold-review.md` → When says; independent review pays best where the
   author was most confident (L-38). The list below is wider on purpose (D-028): it only picks a tier, and requiring
   a review for concurrency or data integrity would require one on most changes that store anything.
-- **Which tier reviews?** A routine review, on every PR: the standard tier at `medium`; a skill that runs it on the session's model goes below neither. A diff that touches money or checked math, auth or secrets, concurrency, a
+- **Which tier reviews?** A routine review, on every PR: the standard tier at `medium`; a skill that runs it on the session's model goes below neither, and since it can set neither (`/pr-review`), whoever starts that session sees to it. A diff that touches money or checked math, auth or secrets, concurrency, a
   schema, data integrity, or data deletion: the strongest tier at `xhigh`; `/work-ticket` reviews a change to a
   gate file there too, which is no surface (D-035). Which of a project's own surfaces count is
   written in that project's `Domain invariants doc`, not here. A planning document (`/review-doc`): the strongest

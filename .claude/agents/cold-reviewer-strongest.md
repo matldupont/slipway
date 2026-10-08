@@ -1,6 +1,6 @@
 ---
 name: cold-reviewer-strongest
-description: Cold review of a pull request for /work-ticket when round 1 named a risky surface or the diff changes a gate file. Fresh context, refutes by default, reports findings and edits nothing.
+description: Cold review of a pull request for /work-ticket when a review named a risky surface (round 1 or a verify) or the diff changes a file the run is judged by, a gate file among them. Fresh context, refutes by default, reports findings and edits nothing.
 model: opus
 effort: xhigh
 tools: Read, Grep, Glob, Bash

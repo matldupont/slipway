@@ -8,7 +8,7 @@ mentions a capability, use whatever your host provides.
 
 | Capability | Per-host guidance |
 |------------|-------------------|
-| **Subagent dispatch** | Use your host's task primitive for parallel subagents (Cursor: `Task` with `subagent_type: code-analyzer`, falling back to `generalPurpose`; Claude Code: `Task` with no `subagent_type`; Codex: equivalent). Foreground, ≤2 in flight — see "Why the dispatch cap is load-bearing" below for how much that matters on your host. |
+| **Subagent dispatch** | Use your host's task primitive for parallel subagents (Cursor: `Task` with `subagent_type: code-analyzer`, falling back to `generalPurpose`; Claude Code: `Task` with no `subagent_type`, so the subagents take the session's model and effort — SKILL.md → Step 3, Tier and effort; Codex: equivalent). Foreground, ≤2 in flight — see "Why the dispatch cap is load-bearing" below for how much that matters on your host. |
 | **Linked-issue fetch** | `compute.ts` shells out to `gh issue view` directly — no API key. When it fails, the review does not fetch the issue another way (no MCP tool): it says the issue was not loaded and that its acceptance criteria went unchecked (SKILL.md → "When the linked-issue lookup didn't load the issue body"). |
 | **Reading the PR** | Nothing to check out and no root to move: compute.ts writes a review folder, read with the host's file-read tool (see below). |
 | **Asking the user which comments to post** | Structured multi-select if the host has one (Cursor: `AskQuestion` with `allow_multiple: true`); otherwise a numbered list the user replies to. See `references/posting.md`. |
