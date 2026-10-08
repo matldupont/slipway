@@ -103,8 +103,9 @@ const quotes = `x${'"'.repeat(LONG)}y`;
 const noAt = `Reviewed: a${' '.repeat(LONG)}b`;
 const loneCr = `Version line:${' '.repeat(LONG)}a\rb`;
 
+// The long lines come before the version line: R1 stops comparing at the first line that matches.
 test('R1 finishes in under 2 seconds on a reviewed document with a 100,000-character line', () => {
-  const dir = project({ 'docs/specs/a.md': `${SPEC}\n${quotes}\n${noAt}\n${loneCr}\n`, 'docs/reviews/a.md': review('docs/specs/a.md') });
+  const dir = project({ 'docs/specs/a.md': `# Spec\n\n${quotes}\n${noAt}\n${loneCr}\n\nVersion: 0.2\n`, 'docs/reviews/a.md': review('docs/specs/a.md') });
   try {
     const r = r1(dir);
     assert.equal(r.status, 0, r.out);
