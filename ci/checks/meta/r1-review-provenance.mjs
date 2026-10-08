@@ -6,7 +6,8 @@
 //
 //   provenance/missing          no `Reviewed: <path> @ <ref>` line
 //   provenance/no-version-line  no `Version line: <verbatim text>` line
-//   provenance/target-missing   the reviewed path does not exist, or leaves the repository
+//   provenance/target-missing   the reviewed path does not exist, leaves the repository, or is not a
+//                               regular file of it: a folder, a link or a path through one, .git/
 //   provenance/stale            the version line is not in the current file — the document
 //                               moved on, or the line was written from memory
 //   provenance/supersedes-invalid  a `Supersedes:` line names something other than a review of the
@@ -36,11 +37,16 @@
 // characters nobody sees is blank, and a byte-order mark before the title is not part of it. What a finding
 // prints of a review's own text (the path, the version line, a Supersedes: value) is cut to BOUND characters,
 // and says so when it left hidden characters out; matching always uses the whole value.
+//
+// A header line over MAX_LINE characters is not read, and each pattern applied to a line of a review or of the
+// reviewed document takes time linear in its length (lib/review-header.mjs), so one long line costs one pass. The
+// reviewed path is opened only when it is a regular file inside the repository, reached through no link, and no
+// part of it is git's own folder: a review cannot point R1 at a folder, a device or a file outside the tree.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { excerpt, report, UNSAFE } from '../lib/report.mjs';
-import { reviewProvenance, unquote } from '../lib/review-header.mjs';
+import { MAX_LINE, reviewProvenance, unquote } from '../lib/review-header.mjs';
 
 const root = process.argv[2] ?? '.';
 const prdPath = join(root, 'docs', 'PRD.md');
@@ -56,26 +62,60 @@ const reviews = [];
 const BOUND = 120;
 const shown = (s) => `${excerpt(s, BOUND)}${UNSAFE.test(s) ? ' [hidden characters left out]' : ''}`;
 const clean = (l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim();
+// Said beside a missing line: the line may be there, and too long to be read.
+const unreadNote = (unread) => (unread.length
+  ? ` (line ${unread.slice(0, 3).join(', ')}${unread.length > 3 ? ` and ${unread.length - 3} more` : ''} of this file is in the header and over ${MAX_LINE} characters: a header line that long is not read, so shorten it)`
+  : '');
+
+// git's own folder under the spellings a filesystem is known to take for it: letter case, characters nobody sees
+// (the three UNSAFE leaves for emoji too), trailing dots and spaces, the short name. Not every spelling there is.
+const hiddenAll = new RegExp(`${UNSAFE.source}|[\u200d\ufe0e\ufe0f]`, 'gv');
+const gitFolder = (seg) => {
+  const s = seg.replace(hiddenAll, '');
+  let end = s.length;
+  while (end > 0 && (s[end - 1] === '.' || s[end - 1] === ' ')) end--;
+  return ['.git', 'git~1'].includes(s.slice(0, end).toLowerCase());
+};
+// Why R1 will not open the reviewed path, or null when it is a regular file of the repository reached through no link.
+const unreadable = (rel) => {
+  const norm = posix.normalize(rel);
+  if (norm.startsWith('..')) return 'leaves the repository';
+  if (norm.split('/').some(gitFolder)) return 'is inside .git/, which holds no document';
+  const target = join(root, norm);
+  let st;
+  try {
+    st = lstatSync(target);
+  } catch {
+    return 'does not exist';
+  }
+  if (st.isSymbolicLink()) return 'is a link, not a file';
+  if (!st.isFile()) return 'is not a regular file';
+  // The root is resolved the same way, so a repository that itself sits behind a link is not reported.
+  if (realpathSync(target) !== join(realpathSync(root), norm)) return 'is reached through a link';
+  return null;
+};
 
 for (const f of files) {
   const rel = `docs/reviews/${f}`;
-  const { reviewed, version, supersedes } = reviewProvenance(readFileSync(join(dir, f), 'utf8'));
+  const { reviewed, version, supersedes, unread, unreadSupersedes } = reviewProvenance(readFileSync(join(dir, f), 'utf8'));
 
   if (f === 'TEMPLATE.md') {
     if (!reviewed || !version) {
-      findings.push({ where: `${rel}#template/provenance-lines`, detail: 'the review template must carry `Reviewed:` and `Version line:` in its header, the lines under its title' });
+      findings.push({ where: `${rel}#template/provenance-lines`, detail: `the review template must carry \`Reviewed:\` and \`Version line:\` in its header, the lines under its title${unreadNote(unread)}` });
     }
     continue;
   }
-  if (!reviewed) findings.push({ where: `${rel}#provenance/missing`, detail: 'no `Reviewed: <path> @ <ref>` line: add one in the header (the lines under the title, before the first blank line, not quoted), naming the file read and the commit it was read at' });
-  if (!version) findings.push({ where: `${rel}#provenance/no-version-line`, detail: 'no `Version line: <verbatim text>` line: add one in the header, copying the reviewed document\'s Version line as it is' });
+  if (!reviewed) findings.push({ where: `${rel}#provenance/missing`, detail: `no \`Reviewed: <path> @ <ref>\` line: add one in the header (the lines under the title, before the first blank line, not quoted), naming the file read and the commit it was read at${unreadNote(unread)}` });
+  if (!version) findings.push({ where: `${rel}#provenance/no-version-line`, detail: `no \`Version line: <verbatim text>\` line: add one in the header, copying the reviewed document's Version line as it is${unreadNote(unread)}` });
+  // A Supersedes: line too long to be read retires nothing, and says so as an unreadable name always has.
+  for (const n of unreadSupersedes.slice(0, 3)) findings.push({ where: `${rel}#provenance/supersedes-invalid`, detail: `the Supersedes: line at line ${n} of this file is over ${MAX_LINE} characters and is not read, so it retires nothing: name an earlier review of the same document by its path, or remove the line` });
   if (!reviewed || !version) continue;
 
   const targetRel = reviewed.path;
   const target = join(root, targetRel);
-  const outside = posix.normalize(targetRel).startsWith('..');
-  if (outside || !existsSync(target)) {
-    findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${shown(targetRel)} ${outside ? 'leaves the repository' : 'does not exist'}: fix the Reviewed: line, or delete the review` });
+  const why = unreadable(targetRel);
+  if (why) {
+    findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${shown(targetRel) || '(empty)'} ${why}: fix the Reviewed: line, or delete the review` });
     continue;
   }
   const want = version;
