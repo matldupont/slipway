@@ -13,7 +13,8 @@ confident. Independent review pays best on exactly the claims the author was sur
   `file:line`, a verdict. Each finding's outcome is written there: fixed, waived, a known limitation or a
   follow-up. What is committed for a finding, and when, is `/work-ticket`'s to say
   (`.claude/skills/work-ticket/SKILL.md` → Rounds 2 and 3, step 4; D-031).
-- `/work-ticket` runs this on the pull requests it opens. Any other pull request, by hand or by a
+- `/work-ticket` runs this on the pull requests it opens, with the reviewers defined in `.claude/agents/`, at the
+  tier and effort `process/designation.md` → Review gives. Any other pull request, by hand or by a
   teammate, is reviewed with `/pr-review`, whose `output_mode: cold-review` writes that section.
 - The line that closes the section, naming the last reviewed head and the pull request's head, is
   `/work-ticket`'s only (Phase 6). A `/pr-review` cold review names the one head it read and never writes that

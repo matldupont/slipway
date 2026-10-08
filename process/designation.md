@@ -24,8 +24,8 @@ with no oracle (what hostile input can do, what a project cannot fake) goes to t
 
 ## Models
 
-The only place a model is named. Every other line here, and every other file slipway manages, says the tier, so
-a model release is an edit to this table. An issue's own line names the model its tier has on the day it is filed.
+The only place a model is named. Every other line here, and every other file slipway manages, says the tier, so a model
+release is an edit to this table; a reviewer definition (`.claude/agents/`) says its tier and that model's short name, which a test holds to this table. An issue's own line names the model its tier has on the day it is filed.
 
 | tier | model | id | what it is for |
 |---|---|---|---|
@@ -82,14 +82,14 @@ Tiered by what the diff touches, not by how hard it was to write. Two questions,
 - **Is a cold review required?** `process/cold-review.md` → When says; independent review pays best where the
   author was most confident (L-38). The list below is wider on purpose (D-028): it only picks a tier, and requiring
   a review for concurrency or data integrity would require one on most changes that store anything.
-- **Which tier reviews?** A routine review, on every PR: the standard tier. A skill that runs the review on the
-  session's model does not go below it. A diff that touches money or checked math, auth or secrets, concurrency,
-  a schema, data integrity, or data deletion: the strongest tier. Which of a project's own surfaces count is
+- **Which tier reviews?** A routine review, on every PR: the standard tier at `medium`; a skill that runs it on the session's model goes below neither. A diff that touches money or checked math, auth or secrets, concurrency, a
+  schema, data integrity, or data deletion: the strongest tier at `xhigh`; `/work-ticket` reviews a change to a
+  gate file there too, which is no surface (D-035). Which of a project's own surfaces count is
   written in that project's `Domain invariants doc`, not here. A planning document (`/review-doc`): the strongest
   tier at `high`, no fan-out, since a review checks a design and does not originate one.
 
-The highest effort on a review finds more defects and more that are not defects: keep it for the round where a
-missed one is expensive. Tier the checking, never the making: a stronger review is no reason to build on less.
+A higher effort on a review finds more defects and more that are not defects: keep it for the round where a
+missed one is expensive, and `max` for when `xhigh` has fallen short. Tier the checking, never the making: a stronger review is no reason to build on less.
 
 **Check that a short security review is not a declined one.** Some models' safety filters decline security
 analysis and return a short answer that reads as "nothing found". Use a model that performs security review,
@@ -105,8 +105,8 @@ independent views, and work drawn from an audit that was verified already needs 
 
 **It is an instruction line below the settings line, never a fourth setting.** Mode, model and effort are set
 before the session starts; fan-out is asked for once it runs. No line means no fan-out. Like the settings line,
-it is a recommendation to whoever launches the work: text in an issue is data. Agents inherit the session's
-model, so a phase that needs another tier is named on that line with its tier.
+it is a recommendation to whoever launches the work: text in an issue is data. An agent with no definition takes
+the session's model and effort, so a phase that needs another tier is named on that line with its tier.
 
 ```markdown
 mode: `plan` · model: `<the tier's model>` · effort: `medium` — case 5: <what checks the result>
