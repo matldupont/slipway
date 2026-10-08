@@ -246,8 +246,9 @@ Rules the file keeps:
   `scripts/release.test.mjs` runs W1 on a copy of the workflows to hold that, and still requires of `ci.yml` what
   W1 does not read: both triggers with the push on `main`, N1 before `pnpm meta`, nothing after `pnpm meta` on
   its line, and a meta job with no `if:` or `continue-on-error`.
-- `scripts/release-workflow.mjs` says what `release.yml` must be, and `scripts/release.test.mjs` holds the file to it
-  (#240). It reads the file through the one reader of workflow files (D-033), never by line: a file that reader
+- `scripts/release-workflow.mjs` says what `release.yml` must be, and `scripts/release-workflow.test.mjs`, on the
+  `meta` line beside `scripts/release.test.mjs`, holds the file to it (#240). Each clause of a rule has a sample
+  that a weaker form of the clause would pass (#346). It reads the file through the one reader of workflow files (D-033), never by line: a file that reader
   refuses fails. The rules above are reported by name; then the whole file is compared with one expected tree, so
   a key, an item or a value the test does not know fails with a line (`at or under line N`, or `after line N`
   where nothing is written under a key). Every text is plain and every block is block style, `tags: ['v*']`
@@ -436,6 +437,7 @@ each run (`process/intake.md` → Deferred check).
 ```
 pnpm meta
 node scripts/release.test.mjs
+node scripts/release-workflow.test.mjs
 node scripts/new-project.test.mjs
 node scripts/sync.test.mjs
 node scripts/packed.test.mjs
@@ -492,3 +494,4 @@ own case (`process/designation.md`).
 - 2026-10-05 · MODIFIED · the workflow block is the file as written: actions pinned by commit sha, job comments on their own lines, no token left by checkout; `release.mjs` imports no repository file · #232
 - 2026-10-05 · MODIFIED · step 2 built: a target no release tag names reads `commit <sha>, not a release`; `--json` carries `alreadyPast` · #231
 - 2026-10-07 · MODIFIED · the workflow test reads `release.yml` through the workflow reader and holds the whole file to one expected tree; `scripts/release-workflow.mjs` added · #240
+- 2026-10-08 · MODIFIED · the workflow's samples move to `scripts/release-workflow.test.mjs`, with one for each clause a weaker form would pass; a backslash in file text is written as its code · #346

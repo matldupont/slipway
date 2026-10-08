@@ -4,7 +4,7 @@
 // The named rules come first, so a broken rule is reported by its name; then every key and value is compared with
 // EXPECTED, so anything this does not know fails with a line. Comments are not read: only a `run:` text keeps
 // its own. Which commit a sha names is not held here: review of the diff holds that.
-// Imported by scripts/release.test.mjs only. Internal: no project receives it.
+// Imported by scripts/release-workflow.test.mjs only. Internal: no project receives it.
 
 import { readWorkflow } from '../ci/checks/lib/workflow-yaml.mjs';
 
@@ -21,7 +21,8 @@ export const PUBLISH_RUNS = [
 
 // In EXPECTED a string is that text, written plainly (not quoted, not a block text); an object is a block of exactly those keys, in
 // that order; an array is a block list of exactly those items. A function is one of the two forms below.
-const pinned = (action) => (n) => (n.kind === 'scalar' && n.plain && n.value.startsWith(`${action}@`) && SHA.test(n.value.slice(action.length + 1)) ? null : `is not ${action} at a 40-character commit sha`);
+// Only a text has `plain`: a list or a block of keys is never one.
+const pinned = (action) => (n) => (n.plain && n.value.startsWith(`${action}@`) && SHA.test(n.value.slice(action.length + 1)) ? null : `is not ${action} at a 40-character commit sha`);
 const tags = (n) => (n.kind === 'list' && n.flow && n.items.length === 1 && !n.items[0].plain && n.items[0].value === 'v*' ? null : "is not ['v*']");
 const checkout = (extra) => ({ uses: pinned('actions/checkout'), with: { ref: TAKEN, ...extra, 'persist-credentials': 'false' } });
 
@@ -63,8 +64,9 @@ const EXPECTED = {
 // `at or under line N` names the first text of what differs (its key is on that line, or above it when the key
 // holds a block), and `after line N` the last text read before a key with nothing under it; something missing
 // is reported after the last text of the block it is missing from.
-// A key or a value of the file is shown with anything but printable ASCII written as its code.
-export const shown = (s) => s.replace(/[^\x20-\x7e]/gu, (c) => `\\u{${c.codePointAt(0).toString(16)}}`);
+// A key or a value of the file is shown with anything but printable ASCII written as its code, and a backslash
+// too: a code typed out in the file never reads the same as the character.
+export const shown = (s) => s.replace(/[^\x20-\x5b\x5d-\x7e]/gu, (c) => `\\u{${c.codePointAt(0).toString(16)}}`);
 function differences(root, expected) {
   const out = [];
   let last = 0;
@@ -82,7 +84,7 @@ function differences(root, expected) {
       const wrong = want(n);
       return wrong ? say(n, path, wrong) : pass(n);
     }
-    if (typeof want === 'string') return n.kind === 'scalar' && n.plain && n.value === want ? pass(n) : say(n, path, `is not the plain text ${JSON.stringify(want)}`);
+    if (typeof want === 'string') return n.plain && n.value === want ? pass(n) : say(n, path, `is not the plain text ${JSON.stringify(want)}`);
     if (Array.isArray(want)) {
       if (n.kind !== 'list' || n.flow) return say(n, path, 'is not a block list');
       n.items.forEach((item, i) => (i < want.length ? walk(item, want[i], `${path}[${i}]`) : say(item, `${path}[${i}]`, 'is an item this test does not know')));
