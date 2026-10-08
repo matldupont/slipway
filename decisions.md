@@ -498,7 +498,7 @@ cost in front of them:
 
 - **Classify and rerun, not the strongest tier on every review.** Round 1 runs on the standard tier at `medium`.
   Both reviewers name the surfaces the diff touches (`process/designation.md` → Review). A named surface, or a
-  gate file in the diff, runs round 1 again on the strongest tier, and both runs' findings count.
+  gate file in the diff (the skill reads its own list of the files a run is judged by, which holds them), runs round 1 again on the strongest tier, and both runs' findings count.
 - **"The highest effort" is `xhigh`.** `max` stays for when `xhigh` has been shown to fall short, as it does for
   a build.
 - **Rounds 2 and 3 use the definitions round 1 ended on** (the orchestrator session's advice, taken): one tier and
@@ -507,8 +507,8 @@ cost in front of them:
 Why: a ticket built at `low` was reviewed at `low` (PR #352's run: both reviewers on the standard tier at `low`,
 the security review two requests long), and a thin review reads as "nothing found". Measured on that pull
 request, a 9-line diff, both round-1 reviews together, one run each, on Claude Code 2.1.293: the standard tier at
-`medium` $0.50 and 35 s; the strongest tier at `xhigh` $2.15 and about 13 minutes; at `max` $4.45 and about 16
-minutes. A definition's effort is honoured: a session at `low` started subagents that ran at `high`, `xhigh` and
+`medium` $0.50 and 19 s; the strongest tier at `xhigh` $2.15 and about 13 minutes; at `max` $4.45 and about 16
+minutes (the time is the longer of the two reviews, since they run side by side). A definition's effort is honoured: a session at `low` started subagents that ran at `high`, `xhigh` and
 `max` as their definitions said. #327.
 
 Declined: the strongest tier on every bounded or feature review (four to nine times the cost and a quarter of an

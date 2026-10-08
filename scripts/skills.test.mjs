@@ -436,6 +436,8 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
 // names its tier in a `Tier:` line and that tier's model by its short name; process/designation.md → Models is
 // still the one place a model id is written, and → Review the one place a review's effort is.
 const AGENTS = '.claude/agents';
+// What a reviewer may use: nothing that writes a file. A definition with no `tools:` line would get every tool.
+const TOOLS = 'Read, Grep, Glob, Bash';
 const REVIEWERS = ['cold-reviewer', 'cold-reviewer-strongest', 'security-reviewer', 'security-reviewer-strongest'];
 // Why a definition does not pass: an empty list when it has a model, an effort and a tier, and each is the one
 // process/designation.md gives. Fails closed: no `Tier:` line, an unknown tier and an unreadable table are findings.
@@ -444,6 +446,8 @@ function reviewerFindings(md, designation) {
   const front = md.match(/^---\n([\s\S]*?)\n---\n/)?.[1] ?? '';
   const key = (k) => front.match(new RegExp(`^${k}:[ \\t]*(\\S.*?)[ \\t]*$`, 'm'))?.[1] ?? null;
   const [model, effort] = [key('model'), key('effort')];
+  for (const k of ['model', 'effort']) if ((front.match(new RegExp(`^${k}:`, 'gm')) ?? []).length > 1) found.push(`${k} is written twice`);
+  if (key('tools') !== TOOLS) found.push(`tools must be \`${TOOLS}\`: a reviewer edits nothing`);
   const tier = md.slice(front.length).match(/^Tier: (\S+)$/m)?.[1] ?? null;
   if (!model) found.push('no model');
   if (!effort) found.push('no effort');
@@ -466,8 +470,7 @@ test('each reviewer definition states a model and an effort, and both are the on
   for (const f of files) {
     const md = read(f);
     assert.deepEqual(reviewerFindings(md, designation), [], f);
-    assert.match(md, new RegExp(`^---\\nname: ${f.slice(AGENTS.length + 1, -3)}\\n`), `${f} must be named for its file`);
-    assert.equal(/-strongest\.md$/.test(f), /^Tier: strongest$/m.test(md), `${f}: only a -strongest definition is on the strongest tier`);
+    assert.match(md, new RegExp(`^---\\nname: ${f.slice(AGENTS.length + 1, -3)}\\n`), `${f} must be named for its file`);    assert.equal(/-strongest\.md$/.test(f), /^Tier: strongest$/m.test(md), `${f}: only a -strongest definition is on the strongest tier`);
   }
   // The check can fail: a definition without each part, with another tier's model or effort, or with no tier.
   const good = read(`${AGENTS}/cold-reviewer.md`);
@@ -478,6 +481,10 @@ test('each reviewer definition states a model and an effort, and both are the on
   assert.match(bad('model: sonnet', 'model: opus').join(), /model `opus` is not the standard tier's/);
   assert.match(bad('effort: medium', 'effort: low').join(), /effort `low` is not the standard tier's review effort \(medium\)/);
   assert.match(bad('Tier: standard', 'Tier: fastest').join(), /tier `fastest` is not a row/);
+  assert.deepEqual(bad('effort: medium', 'effort: medium\neffort: low'), ['effort is written twice']);
+  assert.match(bad(/^tools: .*\n/m, '').join(), /tools must be/);
+  assert.match(bad('Bash', 'Bash, Edit').join(), /tools must be/);
+  assert.deepEqual(reviewerFindings(good, designation.replace('the standard tier at `medium`', 'the standard tier')), ['designation → Review states no effort for the standard tier']);
   assert.match(reviewerFindings(good, designation.replace(/## Models[\s\S]*?(?=\n## )/, '## Models\n')).join(), /is not a row of designation → Models/);
 });
 
@@ -489,12 +496,14 @@ test('work-ticket Phase 5 starts its reviewers by name and states a tier and an 
   assert.ok(para, 'Phase 5 has no **Tier and effort.** paragraph');
   for (const r of REVIEWERS) assert.ok(para.includes(`\`${r}\``), `Phase 5 does not start \`${r}\` by name`);
   assert.match(para, /Round 1: `cold-reviewer` and `security-reviewer`, the standard tier at `medium`/, 'round 1 states its tier and effort');
-  assert.match(para, /A surface either names, or a gate file in the diff .*?, runs round 1 again, on `cold-reviewer-strongest` and `security-reviewer-strongest`, the strongest tier at `xhigh`, and both runs' findings count/, 'the rerun states its trigger, tier and effort');
-  assert.match(para, /Rounds 2 and 3: the definitions round 1 ended on, at their tier and effort/, 'rounds 2 and 3 state their tier and effort');
+  assert.match(para, /A surface either names, or a file the run is judged by in the diff \(Configuration's check, gate files among them\), runs round 1 again, on `cold-reviewer-strongest` and `security-reviewer-strongest`, the strongest tier at `xhigh`, and both runs' findings count/, 'the rerun states its trigger, tier and effort');
+  assert.match(para, /Rounds 2 and 3: the definitions round 1 ended on, at their tier and effort, or the strongest pair from the round in which a verify names a surface/, 'rounds 2 and 3 state their tier and effort');
   assert.match(para, /asks for the line `Surfaces: /, 'each brief asks which surfaces the diff touches');
+  assert.match(skill, /may be a declined one: run it again on `security-reviewer-strongest`; thin again/, 'a short security review is run again on a named definition, never "another model"');
+  assert.match(skill, /The reviewers get `\{base\}`'s copies, and are the definitions the session loaded when it started \(`\.claude\/agents\/`\), not a branch's later edit of one/, 'Configuration says which definitions review a branch that changes one');
   const review = flat(section(read('process/designation.md'), 'Review', 2));
-  assert.match(review, /A routine review, on every PR: the standard tier at `medium`, whatever the session runs at/, 'designation → Review states a routine review\'s effort');
-  assert.match(review, /or changes a gate file: the strongest tier at `xhigh`/, 'designation → Review states the strongest tier\'s effort and the gate-file trigger');
+  assert.match(review, /A routine review, on every PR: the standard tier at `medium`; a skill that runs it on the session's model goes below neither/, 'designation → Review states a routine review\'s effort');
+  assert.match(review, /data deletion: the strongest tier at `xhigh`; `\/work-ticket` reviews a change to a gate file there too, which is no surface/, 'designation → Review states the strongest tier\'s effort and the gate-file trigger');
   const lines = read('process/designation.md').split('\n').length - 1;
   assert.ok(lines <= 120, `process/designation.md is ${lines} lines; 120 at most`);
   assert.match(flat(section(read('process/cold-review.md'), 'How', 2)), /with the reviewers defined in `\.claude\/agents\/`/, 'cold-review → How says who reviews');
