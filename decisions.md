@@ -518,6 +518,28 @@ hour on a change to a static page), and `max` as the stated effort (twice `xhigh
 brief asked). What this leaves open: a reviewer can misname a surface, and nothing checks the name it gives; a
 script over the diff's paths is deferred until a real run shows a listed surface reviewed on the standard tier.
 
+## D-036 — A section added to the feature-doc template never turns a shipped doc red on sync; the count is recorded by sync and may only go down *(decided 2026-10-08)*
+
+`docs/features/TEMPLATE.md` gains a `## Fit` section (F-12, `dev/features/feature-fit.md`, #48) and a check, F2,
+that a doc past `draft` has it filled. Projects that take that release have docs shipped before the section
+existed. The owner chose what they meet:
+
+- **The count ratchets.** F2 counts the docs past draft with no filled Fit and compares it with `feature-fit` in
+  `ci/baselines.json`, the file the other ratchets use. Above fails, equal passes, below passes and may be locked
+  in; a new or newly shipped doc without Fit raises the count, so it fails.
+- **Sync records the starting count.** `sync --plan` shows the number in the project's words, and `--apply`
+  writes it into `ci/baselines.json` (a seeded file; a project's other keys stay its own). The owner never edits
+  the baseline by hand. If sync cannot show and write it cleanly, the build stops there and the question comes
+  back before anything further is built.
+
+Why: the alternative that forces a backfill before the gate is green again turns a sync into a writing job across
+every shipped doc, and the release after this one is the first a real project takes with feature docs already
+shipped; a written-reason exemption line would show nothing of how many docs took it. The orchestrator session
+proposed the ratchet; the owner set the condition on sync.
+
+Declined: backfill before green (a); an exemption line with a reason (b); a grace rule keyed on when a doc's
+status changed (c, nothing records that). #48.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
