@@ -18,10 +18,11 @@
 //     Positional and duplicate ids are never accepted as exceptions — that would
 //     be defect 2 again.
 //
-// ZERO DEPENDENCIES, SO THE PARSER IS A DECLARED SUBSET: block mappings, `- `
-// step lists, block scalars (`|`, `>`), comments. YAML anchors, aliases, merge
-// keys, flow-style jobs or steps, tab indentation and multi-document files exit
-// BROKEN (2) instead of guessing. Wrong-and-silent is the outcome it must not have.
+// A WORKFLOW FILE IS READ THROUGH lib/workflow-yaml.mjs, the one reader W1 uses too (D-033, #332): a pinned YAML
+// parser, and what is refused in front of it. A key of a job or a step is a key of a mapping there, so the flag's
+// text inside a `run: |` block, under `env:` or in a quoted text is never one. A file that reader refuses, or the
+// parser cannot read, is unread: FO1 exits BROKEN (2) naming the file and the reader's fixed reason, since a
+// file it cannot read may hold a flag it would never see. Wrong-and-silent is the outcome it must not have.
 //
 // `expires` is the first day an exception no longer applies, and must be a real yyyy-mm-dd day
 // (lib/exceptions.mjs, the rule LK1 shares): `never` would sort after every year and excuse forever.
@@ -35,113 +36,41 @@ import { today as localToday } from '../lib/clock.mjs';
 import { expiryProblem, loadRegistry } from '../lib/exceptions.mjs';
 import { ID_PREFIX } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
-import { scalar, skippable } from '../lib/yaml-list.mjs';
+import { readWorkflow } from '../lib/workflow-yaml.mjs';
 
-const KEY = /^([A-Za-z0-9_.-]+|"[^"]*"|'[^']*')\s*:(?:\s+(.*))?$/;
-const indentOf = (s) => s.length - s.trimStart().length;
-const opensBlockScalar = (v = '') => /^[|>][+-]?[0-9]?[+-]?\s*(#.*)?$/.test(v.trim());
-const unsupported = (t) =>
-  /(^|:\s|-\s)[&*][A-Za-z0-9_-]+(\s|$)/.test(t) || /^<<\s*:/.test(t) || /^-\s*[{[]/.test(t) || /^steps\s*:\s*\[/.test(t);
+// A flag is closed only when it is written as plain `false` (any letter case) or left empty. A quoted `"false"`
+// or a block scalar holding `false` is not a plain value, and the reader does not tell a folded block from a
+// quoted text, so every spelling but the plain one is reported, with the fix in the finding (#345).
+const failsClosed = (node) => node.kind === 'scalar' && node.plain && /^(|false)$/i.test(node.value);
+// A `false` written some other way than plain: the finding says to write it plain.
+const writtenFalse = (node) => node.kind === 'scalar' && !node.plain && node.value.trim().toLowerCase() === 'false';
+// The id, or the name, of a step, when it is one line of text. A `|` block, or a text over several lines, is no
+// name, so the step is keyed by its position, as it always was; a `>-` or `>` block of one line is its text.
+const textOf = (node) => (node?.kind === 'scalar' && !node.literal && !node.value.trim().includes('\n') ? node.value.trim() : '');
 
-function scanWorkflow(src, rel) {
-  const lines = src.split(/\r?\n/);
+// Every `continue-on-error` that is a key of a job or of a step in one read workflow, as
+// { job, step: { index, id, name } | null, line }. A shape of `jobs:` this does not read throws: the reader accepts
+// YAML that is not a workflow GitHub runs, and a job it cannot see into may hold the flag.
+function sitesOf(root, rel) {
   const sites = [];
-  let inJobs = false;
-  let jobIndent = -1, job = null, jobChildIndent = -1;
-  let inSteps = false, dashIndent = -1, step = null, stepKeyIndent = -1, stepIndex = -1;
-  let blockUntil = -1;
-
-  const fail = (why, i) => { throw new Error(`${rel}:${i + 1}: unsupported — ${why}`); };
-  const watch = (value, ind) => { if (opensBlockScalar(value)) blockUntil = ind; };
-  const push = (s) => {
-    const v = scalar(s.value).toLowerCase();
-    if (v !== '' && v !== 'false') sites.push(s);
+  const jobs = root.entries.get('jobs');
+  if (jobs === undefined) return sites;
+  if (jobs.kind !== 'map' || jobs.flow) throw new Error(`${rel}: its jobs: is not a block of jobs FO1 can read`);
+  const push = (job, step, flag) => {
+    if (!flag || failsClosed(flag)) return;
+    sites.push({ job, step, line: flag.kind === 'scalar' ? flag.line : null, writtenFalse: writtenFalse(flag) });
   };
-  const flush = () => {
-    if (step) for (const c of step.coe) push({ job: job.id, step, line: c.line, value: c.value });
-    step = null;
-  };
-  const stepKey = (t, i, ind) => {
-    const kv = t.match(KEY);
-    if (!kv) return;
-    const key = scalar(kv[1]);
-    if (key === 'id') step.id = scalar(kv[2]);
-    else if (key === 'name' && !opensBlockScalar(kv[2])) step.name = scalar(kv[2]);
-    else if (key === 'continue-on-error') step.coe.push({ line: i + 1, value: kv[2] });
-    watch(kv[2], ind);
-  };
-
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i];
-    if (blockUntil >= 0) {
-      if (skippable(raw) || indentOf(raw) > blockUntil) continue;
-      blockUntil = -1;
-    }
-    if (skippable(raw)) continue;
-    if (/^ *\t/.test(raw)) fail('tab indentation', i);
-    const ind = indentOf(raw);
-    const text = raw.slice(ind);
-
-    if (ind === 0) {
-      flush(); job = null; inSteps = false;
-      if (/^---/.test(text)) {
-        if (lines.slice(0, i).some((l) => !skippable(l))) fail('multi-document YAML', i);
-        continue;
-      }
-      const kv = text.match(KEY);
-      inJobs = !!kv && scalar(kv[1]) === 'jobs';
-      if (inJobs && scalar(kv[2]) !== '') fail('flow-style jobs', i);
-      if (kv) watch(kv[2], 0);
-      continue;
-    }
-    if (!inJobs) {
-      const kv = text.replace(/^-\s+/, '').match(KEY);
-      if (kv) watch(kv[2], ind);
-      continue;
-    }
-    if (unsupported(text)) fail('YAML anchor, alias, merge key or flow collection', i);
-
-    if (jobIndent < 0) jobIndent = ind;
-    if (ind < jobIndent) fail('dedent inside jobs', i);
-    if (ind === jobIndent) {
-      flush(); inSteps = false;
-      const kv = text.match(KEY);
-      if (!kv || scalar(kv[2]) !== '') fail('a job must be a block mapping', i);
-      job = { id: scalar(kv[1]) };
-      jobChildIndent = -1;
-      continue;
-    }
-    if (jobChildIndent < 0) jobChildIndent = ind;
-    if (ind === jobChildIndent) {
-      flush(); inSteps = false;
-      const kv = text.match(KEY);
-      if (!kv) continue;
-      const key = scalar(kv[1]);
-      if (key === 'continue-on-error') push({ job: job.id, step: null, line: i + 1, value: kv[2] });
-      if (key === 'steps') { inSteps = true; dashIndent = -1; stepIndex = -1; }
-      watch(kv[2], ind);
-      continue;
-    }
-    if (!inSteps) {
-      const kv = text.replace(/^-\s+/, '').match(KEY);
-      if (kv) watch(kv[2], ind);
-      continue;
-    }
-    const isDash = /^-(\s|$)/.test(text);
-    if (dashIndent < 0 && isDash) dashIndent = ind;
-    if (isDash && ind === dashIndent) {
-      flush(); stepIndex++;
-      step = { index: stepIndex, id: null, name: null, coe: [] };
-      const rest = text.replace(/^-\s*/, '');
-      stepKeyIndent = ind + (text.length - rest.length);
-      if (rest) stepKey(rest, i, stepKeyIndent);
-      continue;
-    }
-    if (step && ind === stepKeyIndent) { stepKey(text, i, ind); continue; }
-    const kv = text.replace(/^-\s+/, '').match(KEY);
-    if (kv) watch(kv[2], ind);
+  for (const [id, job] of jobs.entries) {
+    if (job.kind !== 'map') throw new Error(`${rel}: job ${JSON.stringify(id)} is not a block of keys FO1 can read`);
+    push(id, null, job.entries.get('continue-on-error'));
+    const steps = job.entries.get('steps');
+    if (steps === undefined) continue;
+    if (steps.kind !== 'list') throw new Error(`${rel}: steps of job ${JSON.stringify(id)} is not a list FO1 can read`);
+    steps.items.forEach((step, index) => {
+      if (step.kind !== 'map') throw new Error(`${rel}: step ${index} of job ${JSON.stringify(id)} is not a block of keys FO1 can read`);
+      push(id, { index, id: textOf(step.entries.get('id')) || null, name: textOf(step.entries.get('name')) || null }, step.entries.get('continue-on-error'));
+    });
   }
-  flush();
   return sites;
 }
 
@@ -169,8 +98,13 @@ const sites = [];
 let broken = null;
 for (const f of files) {
   const rel = relative(root, f);
+  const w = readWorkflow(readFileSync(f, 'utf8'));
+  if (w.unread) {
+    broken = `${rel}: unread — ${w.unread}${w.hint ? `. ${w.hint}` : ''}`;
+    break;
+  }
   try {
-    for (const s of scanWorkflow(readFileSync(f, 'utf8'), rel)) sites.push({ ...siteId(rel, s), line: s.line });
+    for (const s of sitesOf(w.root, rel)) sites.push({ ...siteId(rel, s), line: s.line, writtenFalse: s.writtenFalse });
   } catch (e) {
     broken = e.message;
     break;
@@ -216,11 +150,12 @@ for (const e of registry) {
 
 for (const s of sites) {
   if (live.has(s.id)) { exempted.push(s.id); continue; }
-  const why = s.duplicate ? 'step name is not unique in its job — give it an id: before it can be excused'
+  const why = s.writtenFalse ? 'a false written as quoted text or as a block is not plain false'
+    : s.duplicate ? 'step name is not unique in its job — give it an id: before it can be excused'
     : s.positional ? 'step has no id or name — give it an id: before it can be excused'
     : 'a failure here would not fail CI';
   const next = s.duplicate || s.positional ? 'give the step an id: and add a dated entry for it' : `add a dated entry with id: ${s.id}`;
-  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}; currently line ${s.line}) — remove it, or ${next}` });
+  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}${s.line === null ? '' : `; currently line ${s.line}`}) — ${s.writtenFalse ? 'write it as plain false, or ' : ''}remove it, or ${next}` });
 }
 
 process.exit(

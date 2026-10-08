@@ -143,8 +143,8 @@ names what it took: the branch `slipway/sync-<target sha>` (`apply` in `scripts/
 
 `.github/workflows/release.yml`, shown to the owner before it is written. It is slipway's own: `internal` in
 `dev/ownership.yaml`, above the `.github/**` managed row (first match wins), so no project receives it. It is
-written in block style, as `ci.yml` is, so FO1 and W1 read it: a comment sits on the line above its job, never
-after the job's name, which FO1 cannot read. The file as written (#232):
+written in block style, as `ci.yml` is, so FO1 and W1 read it: a comment sits on the line above its job. The file
+as written (#232):
 
 ```yaml
 name: release

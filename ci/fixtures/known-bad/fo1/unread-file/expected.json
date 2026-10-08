@@ -1,0 +1,8 @@
+{
+  "_note": "PC1 asserts FO1 goes BROKEN on this fixture, for this reason: the workflow file holds an anchor, which the shared reader refuses, so FO1 cannot say whether it holds a continue-on-error and a check that cannot read a file never passes. Inert text.",
+  "exit": 2,
+  "env": {
+    "CHECK_TODAY": "2026-09-10"
+  },
+  "broken": ".github/workflows/bad.yml: unread — it holds an anchor"
+}
