@@ -518,6 +518,49 @@ hour on a change to a static page), and `max` as the stated effort (twice `xhigh
 brief asked). What this leaves open: a reviewer can misname a surface, and nothing checks the name it gives; a
 script over the diff's paths is deferred until a real run shows a listed surface reviewed on the standard tier.
 
+## D-037 — A pull request's new tests must each fail on a change to the code: the tool, and how long it may take *(open — the owner picks, #51)*
+
+#51 asks that a product's tests be able to fail, checked on every pull request. The owner settled the rule on
+2026-10-08 (F-13, `dev/features/tests-can-fail.md`): no stored score; only what a pull request changes is
+mutated; it fails when a test it adds notices none of those changes, and the changes no test noticed are
+listed. What is open is the tool, and the time the step may take.
+
+**Measured** 2026-10-08 on a scratch project made by `scripts/new-project.mjs` with the default app (Vite,
+React, TypeScript, Vitest with jsdom) and a change to 10 source files (5 edited, 5 new, 185 added lines) with
+38 new or edited tests. Two tests were planted so they cannot fail: one never calls the code, one calls it and
+swallows what it does. Apple M4, 10 cores, Node 24.12, wall time, median of 3 runs unless marked. A hosted CI
+runner was not measured: slipway has no app to run the step on.
+
+| option | time on the 10-file change | changes tried | names both planted tests |
+|---|---|---|---|
+| **StrykerJS 10.0.0** with Vitest 4.1.11, the ten files whole, 9 workers | 60 s (116 s with 2 workers, 1 run) | 372 | yes |
+| the same, only the changed lines | 36 s (68 s with 2 workers, 1 run) | 246 | yes; a new test for code the change did not touch has nothing to be judged against |
+| the same with **Vitest 5.0.3**, the newest | 63 s, exit 0, **wrong** | 372, of which 212 read "survived" with no test run against them | no |
+| **a small mutator in slipway**, every change tried (prototype: TypeScript compiler API, 5 kinds of change, one at a time through the test runner's command line) | 158 s (1 run) | 174 | yes |
+| the same, **stopping at each new test's first failure**, at most 30 changes per test file | 186 s (1 run) | 99 | yes |
+| **run the new tests against the base version of the source** | 2 s | none | no: the tests of the 5 new files cannot load, so 19 tests, both planted ones among them, are never judged |
+| **do nothing** (prose, and the cold review's question) | 0 | none | no |
+
+The same measurement was run on a private product with one engineer, a web app; its figures were shown to the
+owner and are not recorded.
+
+What the runs found, each of which the step has to hold whatever is picked:
+
+- **StrykerJS 10.0.0 gives a wrong answer with the newest Vitest and exits 0.** Every change covered by a test
+  inside a `describe` reads "survived" with no test run against it (stryker-mutator/stryker-js#6210, open since
+  2026-09-04; the fix is not released). A step that reads its report must refuse one whose tests did not run.
+- Its report does not say where a test is in its file, so "a test this pull request added" has to come from
+  the test runner's own listing (`vitest list --json --includeTaskLocation`) and the diff.
+- It stops at a mutant's first failing test unless told not to (50 s instead of 60 s), and then cannot say
+  which tests noticed a change.
+- pnpm does not let it find its Vitest plugin: the config must name it. It does not run browser-mode tests.
+- With every approach, a weak test passes: the planted test that asserts only on its own input was credited
+  with a change that made the code throw. The step catches the test that cannot fail at all.
+
+**Proposed budget:** 5 minutes of wall time on a pull request touching 10 source files, on the project's CI
+runner. Over it, the step warns with both numbers; the job is stopped at 10 minutes. The first project to run
+the job records the runner's time, and the number is revisited with it.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
