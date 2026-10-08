@@ -65,7 +65,7 @@ test('a file the shared reader refuses is BROKEN, naming the file and the reader
 });
 
 test('a jobs: block FO1 cannot see into is BROKEN, not clean', () => {
-  for (const workflow of ['name: x\non: push\njobs: [a, b]\n', 'name: x\non: push\njobs:\n  a: echo\n', 'name: x\non: push\njobs:\n  a:\n    steps: echo\n', 'name: x\non: push\njobs:\n  a:\n    steps:\n      - echo\n']) {
+  for (const workflow of ['name: x\non: push\njobs:\n', 'name: x\non: push\njobs:\n  a:\n    steps:\n','name: x\non: push\njobs: [a, b]\n', 'name: x\non: push\njobs:\n  a: echo\n', 'name: x\non: push\njobs:\n  a:\n    steps: echo\n', 'name: x\non: push\njobs:\n  a:\n    steps:\n      - echo\n']) {
     const r = fo1(workflow);
     assert.equal(r.status, 2, `${workflow}: ${r.out}`);
     assert.match(r.json.broken, /^\.github\/workflows\/ci\.yml: /);
@@ -80,4 +80,32 @@ test('the id of a job or a step is the same as before: id, then name, then posit
     r.json.findings.map((f) => f.where),
     ['.github/workflows/ci.yml#a/one', '.github/workflows/ci.yml#a/name=Two words', '.github/workflows/ci.yml#a/step[2]', '.github/workflows/ci.yml#a/step[3]']
   );
+});
+
+test('only an empty flag and a plain false fail closed: every other spelling is reported', () => {
+  const flag = (value) => fo1(wrap(`      - id: s\n        run: echo\n        continue-on-error: ${value}\n`));
+  for (const closed of ['false', 'False', 'FALSE', '"false"', "'false'", '']) {
+    const r = flag(closed);
+    assert.equal(r.status, 0, `${JSON.stringify(closed)}: ${r.out}`);
+  }
+  for (const open of ['true', '"false "', '|\n          false', '>\n          false', '[false]', '{a: false}', 'no', '0']) {
+    const r = flag(open);
+    assert.equal(r.status, 1, `${JSON.stringify(open)}: ${r.out}`);
+    assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/ci.yml#a/s'], open);
+  }
+});
+
+test('a flag that is not a line of text is reported without a line number', () => {
+  const r = fo1(wrap('      - id: s\n        run: echo\n        continue-on-error: [false]\n'));
+  assert.equal(r.status, 1, r.out);
+  assert.doesNotMatch(r.json.findings[0].detail, /currently line/);
+  const text = fo1(wrap('      - id: s\n        run: echo\n        continue-on-error: true\n'));
+  assert.match(text.json.findings[0].detail, /currently line 9\)/);
+});
+
+test('a name over several lines is no name; a folded block that folds to one line is its text', () => {
+  const r = fo1(
+    wrap('      - name: >-\n          folded\n        run: echo\n        continue-on-error: true\n      - name: >\n          one\n\n          two\n        run: echo\n        continue-on-error: true\n')
+  );
+  assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/ci.yml#a/name=folded', '.github/workflows/ci.yml#a/step[1]']);
 });

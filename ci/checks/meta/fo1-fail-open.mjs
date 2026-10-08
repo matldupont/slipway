@@ -38,11 +38,12 @@ import { ID_PREFIX } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
 import { readWorkflow } from '../lib/workflow-yaml.mjs';
 
-// A flag that is empty or `false` fails the job when the step does; anything else may not.
-const failsClosed = (node) => node.kind === 'scalar' && /^(|false)$/i.test(node.value.trim());
-// The id, or the name, of a step, when it is a line of text. A name written as a block scalar is no name, so the
-// step is keyed by its position, as it always was.
-const textOf = (node) => (node?.kind === 'scalar' && !node.literal ? node.value.trim() : '');
+// A flag that is empty or `false` fails the job when the step does; anything else may not. The text is compared
+// as written: a quoted `"false "`, or a block scalar holding `false`, is not YAML's boolean, so it is reported.
+const failsClosed = (node) => node.kind === 'scalar' && !node.literal && /^(|false)$/i.test(node.value);
+// The id, or the name, of a step, when it is one line of text. A `|` block, or a text over several lines, is no
+// name, so the step is keyed by its position, as it always was; a `>-` or `>` block of one line is its text.
+const textOf = (node) => (node?.kind === 'scalar' && !node.literal && !node.value.trim().includes('\n') ? node.value.trim() : '');
 
 // Every `continue-on-error` that is a key of a job or of a step in one read workflow, as
 // { job, step: { index, id, name } | null, line }. A shape of `jobs:` this does not read throws: the reader accepts
