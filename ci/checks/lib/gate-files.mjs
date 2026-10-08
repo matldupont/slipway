@@ -10,7 +10,8 @@
 // the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
 // gate paths the base branch's harness asked about and the documents AGENT.md names (at the base, as checked out and at the base branch's tip), and each symlink or submodule link added, removed or changed.
 // pr-body.yml writes it beside the PR body. `gate` is the gate files among them (gateTouched), the list P1 wants a
-// `## Gate changes` line for and `/work-ticket` reviews on the strongest tier; `null` when the harness's rules cannot be read.
+// `## Gate changes` line for, with each path P1 refuses as a lookalike of one (gateListed): what `/work-ticket` reviews on
+// the strongest tier. `null` when the harness's rules cannot be read.
 //
 // Not shared with ownership.mjs: that file is slipway's own and never ships to a project.
 
@@ -96,6 +97,20 @@ export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more 
 export function gateTouched(c, settingsText) {
   const isGate = gateMatcher(settingsText, Array.isArray(c.globs) ? c.globs : []);
   return [...new Set([...c.files.filter(isGate), ...c.links, ...c.scripts.map((p) => `${p} scripts`)])];
+}
+
+// What the script prints under `gate`, for `settingsText` the harness's rules as read, or `null` when they could not be:
+// gateTouched, and each changed path that only reads as a gate path (`.NPMRC`), which a case-insensitive disk opens as
+// the gate file and P1 refuses. `null`, never an empty list that reads as "none", when the rules are missing, unparsable
+// or list no gate path: no gate file can then be recognised (P1 reports the same as broken).
+export function gateListed(c, settingsText) {
+  try {
+    if (typeof settingsText !== 'string' || !gateGlobs(settingsText).length) return null;
+    const isGate = gateMatcher(settingsText, Array.isArray(c.globs) ? c.globs : []);
+    return [...new Set([...gateTouched(c, settingsText), ...c.files.filter((p) => isGate.lookalike(p))])];
+  } catch {
+    return null;
+  }
 }
 
 // The owner-only documents a project names in AGENT.md's settings table (process/slipway-rules.md → Gates, #259), and
@@ -267,12 +282,11 @@ export function changes(base, head, cwd = process.cwd()) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const c = changes(process.argv[2], process.argv[3]);
-  // No rules read means no gate file can be recognised: `null`, never an empty list that reads as "none" (P1 reports it broken).
-  let gate = null;
+  let settings = null;
   try {
-    const settings = readFileSync(SETTINGS, 'utf8');
-    if (gateGlobs(settings).length) gate = gateTouched(c, settings);
+    settings = readFileSync(SETTINGS, 'utf8');
   } catch {}
+  const gate = gateListed(c, settings);
   if (!gate) process.stderr.write('gate-files: process/harness/settings.json is missing or lists no Edit(...) gate paths, so `gate` is null: no gate file can be recognised\n');
   process.stdout.write(JSON.stringify({ ...c, gate }) + '\n');
 }

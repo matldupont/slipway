@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateMatcher, gateTouched, GUARD_GLOBS, SETTINGS, writeRules } from '../ci/checks/lib/gate-files.mjs';
+import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateListed, gateMatcher, gateTouched, GUARD_GLOBS, SETTINGS, writeRules } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const settings = readFileSync(SETTINGS, 'utf8');
@@ -286,11 +286,25 @@ test('the script refuses anything but commit ids', () => {
   assert.match(r.stderr, /commit ids/);
   const ok = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), base, head], { cwd: repo, encoding: 'utf8' });
   assert.equal(ok.status, 0, ok.stderr);
+  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts', 'globs', 'links', 'gate']);
+});
+
+// #362: `/work-ticket` reviews a diff on the strongest tier when the script's `gate` names a file.
+test('the script prints the gate files of the diff under `gate`: the list P1 asks a line for, a lookalike too, and null when the rules cannot be read', () => {
+  const ok = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), base, head], { cwd: repo, encoding: 'utf8' });
   const out = JSON.parse(ok.stdout);
-  assert.deepEqual(Object.keys(out), ['files', 'scripts', 'globs', 'links', 'gate']);
-  // #362: `gate` is the list P1 asks a line for, computed by the one function both call.
-  assert.deepEqual(out.gate, gateTouched(changes(base, head, repo)));
+  const c = changes(base, head, repo);
+  assert.deepEqual(out.gate, gateListed(c, settings));
+  assert.deepEqual(out.gate, gateTouched(c), 'with no lookalike in the diff, it is the list P1 computes');
   assert.ok(out.gate.length > 0 && out.gate.length < out.files.length + out.links.length + out.scripts.length, `the fixture changes gate files and others: ${ok.stdout}`);
+  // A path a case-insensitive disk opens as a gate file: P1 refuses it, and it starts the second review all the same.
+  const odd = { files: ['.NPMRC', 'CI/checks/x.mjs', '.Claude/agents/a.md', 'Agent.md', 'src/app.ts'], scripts: [], links: [], globs: [] };
+  assert.deepEqual(gateTouched(odd, settings), [], 'P1\'s list holds exact spellings only');
+  assert.deepEqual(gateListed(odd, settings), ['.NPMRC', 'CI/checks/x.mjs', '.Claude/agents/a.md', 'Agent.md']);
+  // No rules, no list: never an empty one that reads as "no gate file".
+  const one = { files: ['ci/verify.mjs'], scripts: [], links: [], globs: [] };
+  assert.deepEqual(gateListed(one, settings), ['ci/verify.mjs']);
+  for (const [why, text] of [['missing', null], ['unparsable', 'not json'], ['no ask rules', '{}'], ['no Edit rule', JSON.stringify({ permissions: { ask: ['Bash(git push:*)'] } })]]) assert.equal(gateListed(one, text), null, `rules ${why}`);
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));

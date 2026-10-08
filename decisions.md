@@ -504,7 +504,7 @@ cost in front of them:
 - **"The highest effort" is `xhigh`.** `max` stays for when `xhigh` has been shown to fall short, as it does for
   a build.
 - **Rounds 2 and 3 use the definitions round 1 ended on** (the orchestrator session's advice, taken): one tier and
-  effort per pull request, since a verify reads a fix against the same guarantees. Amended 2026-10-08 (#362, the owner's yes): unless a verify names a surface. That verify is run again on the strongest pair before the review can end, in the same round, both runs' findings count, and the rounds after it stay on that pair.
+  effort per pull request, since a verify reads a fix against the same guarantees. Amended 2026-10-08 (#362, the owner's yes): unless a verify on the standard pair names a surface. That verify is run again on the strongest pair before the review can end, in the same round, both runs' findings count, and the rounds after it stay on that pair.
 
 Why: a ticket built at `low` was reviewed at `low` (PR #352's run: both reviewers on the standard tier at `low`,
 the security review two requests long), and a thin review reads as "nothing found". Measured on that pull

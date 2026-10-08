@@ -45,7 +45,7 @@
 //                            spelled as one: refused, whatever the section says
 //
 // A body's changed files come from a sidecar, `<name>.changes.json` ({files, scripts, globs, links}, written by
-// ci/checks/lib/gate-files.mjs; `globs` holds the base commit's gate paths, the two named documents among them). Without one, the gate-changes rules do not run. The check cannot tell
+// ci/checks/lib/gate-files.mjs; `globs` holds the base commit's gate paths, the two named documents among them; its `gate` key is never read here: the list is computed again, by the same function). Without one, the gate-changes rules do not run. The check cannot tell
 // whether the sentence is true, only that one exists and that loosening is justified.
 //
 // WHY: when nothing at the merge boundary asks what was actually run, defects surface as
