@@ -19,8 +19,8 @@ The owner read the live page and approved a rewrite of its copy, section by sect
 2026-10-08: the page did not say what slipway is in words a first reader can picture, half of it read as
 catch-phrases, and the other half as an audit log. The rows below are as the rewritten page reads them.
 
-- **Reworded, same source:** most carried rows. The page's plain words for slipway's own: "assumption the product
-  depends on" for a value risk, "pass mark" for the bar, "time budget" for the appetite, "the first thin version"
+- **Reworded, same source:** most carried rows. The page's plain words for slipway's own: "a “will anyone want this?” risk"
+  for a value risk, "pass mark" for the bar, "time budget" for the appetite, "the first thin version"
   and "step 4" for the walking skeleton, "check" for a gate.
 - **Cut (8):** rows 11 to 14 (the row of four numbers), 17, 29, 30 and 43. Each says where its fact is still
   carried, or that it is gone.
@@ -31,12 +31,24 @@ catch-phrases, and the other half as an audit log. The rows below are as the rew
 **95 rows: 77 carry** (five are blocks), 18 are cut. The required facts below are unchanged: 22 lines, F1.1 to
 F8.2.
 
-Verified against: 03cfb6a 2026-10-08 — the claims check of the rewrite, by a reviewer who wrote neither the page
-nor this table (a fresh session on the strongest tier), read each carried row's source at the rewrite's first
-commit, 2b3f094. It found 11 rows stronger than or different from their source (rows 19, 20, 21, 24, 28 with 45,
-31, 32, 46, 58, 63 with 64, 78 with 79) and three sentences with no row; each was reworded to its source in the
-next commit, and the rows here are as reworded. All 18 cut rows were gone from the page, no carried row was
-missing from it, and all 22 required facts were found.
+Verified against: 03cfb6a 2026-10-08 — the sources the rows cite, read twice by reviewers who wrote neither the
+page nor this table (fresh sessions on the strongest tier):
+
+1. **At the rewrite's first commit, 2b3f094,** every carried row against its source, every sentence against the
+   table, and every row against the page. Eleven findings over 14 rows (19, 20, 21, 24, 28 and 45, 31, 32, 46, 58,
+   63 and 64, 78 and 79), and three sentences with no row (the creates list's "the same way every time", §01's
+   "That's where slipway puts its effort", and the heading "Three questions before anything ships"). All 18 cut
+   rows were gone from the page, no carried row was missing, and all 22 required facts were found.
+2. **At 9a7f494,** which reworded those and also changed rows 17, 52, 90 and 92: only that commit's changes. 19 of
+   22 changed sentences held. Two were still stronger than their source: row 28's "Building ahead anyway takes a
+   written decision" (the check reads only that a result is filled; the decision is a written rule) and row 63's
+   "every feature doc" (#48 exempts drafts). One clause had no entry (§04's answer line), row 58 cited no source
+   for the sizes of change, and a note here quoted wording the page no longer had. The commit after 9a7f494
+   rewords both sentences and fixes the three notes; rows 28, 58 and 63 are as it leaves them.
+
+The required facts were counted at 2b3f094. Of their carriers, 9a7f494 changed two: F3.3 is still stated in §04's
+third paragraph, and F5.1 ("a fixed path of steps") rests on "Eight steps, the same ones on every project" and the
+ramp.
 
 ## How this table was corrected
 
@@ -124,7 +136,7 @@ Q8 why was it built
 | 25 | table | the PR description has to say what was run, and link its issue or say why there isn't one | `ci/checks/meta/p1-pr-body.mjs` (accepts `none: <reason>`) |
 | 26 | table | an issue whose acceptance is a bare adjective gets labelled `needs-shape`, and `/work-ticket` won't start on it | `ci/checks/meta/i1-issue-shape.mjs`; `.github/workflows/issue-shape.yml`; `.claude/skills/work-ticket/SKILL.md` Phase 1 |
 | 27 | table | the PRD needs a written review that names the exact version it read | `ci/checks/meta/r1-review-provenance.mjs` |
-| 28 | table | nothing past the first thin version starts until each "will anyone want this?" risk has a test result, against a pass mark written down first, or a note that you're relying on experience, with what would prove you wrong; building ahead anyway takes a written decision (the page's plain form of a risk tagged value, the bar, the skeleton, and a decision id in the Result) | `ci/checks/meta/k1-frame.mjs` |
+| 28 | table | nothing past the first thin version starts until each "will anyone want this?" risk has a result written down: a test result against a pass mark set first, a note that you're relying on experience with what would prove you wrong, or a decision to build ahead (the page's plain form of a risk tagged value, the bar and the skeleton) | `ci/checks/meta/k1-frame.mjs` and `ci/checks/lib/risks.mjs` (a value risk needs a filled Result; experience needs its "wrong if" line); `docs/product/FRAME.md` and `SLIPWAY.md` step 2 for the decision to build ahead, which is a written rule: the check reads only that the Result is filled |
 | 29 | plate | one milestone active at a time; past its time budget it needs a written decision | *cut* (#355): the table row is gone; rows 33 (step 5) and 40 (`docs/milestones/`) carry one milestone at a time and its time budget. The page no longer says an overrun needs a written decision |
 | 30 | plate | every lesson names where it's enforced or, if it isn't built yet, the event that reopens it; the judgment ones get a review date and fail when it passes | *cut* (#355): the table row is gone; row 40's `process/lessons/` entry carries it |
 | 31 | §02 | eight steps, the same ones on every project; the early ones are mostly you deciding what to build; after that the agent writes most of the code and you review it | `SLIPWAY.md` path table, the "who" of each step |
@@ -154,12 +166,12 @@ Q8 why was it built
 | 55 | §05 | GitHub for issue forms, required checks and Actions; moving elsewhere means rewiring | D-002 |
 | 56 | §05 | a default stack you can change in week one: TypeScript, React with Vite, Cloudflare | `SLIPWAY.md` Defaults; D-005–D-008 |
 | 57 | §06 | every check has been seen failing; each has deliberately broken examples it must fail on, for exactly the expected reasons | PC1; `SLIPWAY.md` Validation |
-| 58 | §06 | slipway's own changes go through the same three sizes of change it gives a project; its feature docs, decisions, lessons and reviews are in the repo; it has no product frame, PRD or milestone of its own | `dev/features/`, `decisions.md`, `process/lessons/`, `docs/reviews/` (slipway has no frame, PRD or milestone of its own, so the row claims no more) |
+| 58 | §06 | slipway's own changes go through the same three sizes of change it gives a project; its feature docs, decisions, lessons and reviews are in the repo; it has no product frame, PRD or milestone of its own | `dev/skill-configuration.md` (Change lanes: trivial, bounded, feature; PRD path: none; Milestone roadmap: none; its Product frame row points at `SLIPWAY.md`'s thesis, and `docs/product/FRAME.md` is the unfilled template); `dev/features/`, `decisions.md`, `process/lessons/`, `docs/reviews/` |
 | 59 | §06 | one real product has used it: a private web app with one engineer; the checks ran on its real pull requests and issues | `SLIPWAY.md` "Exercised on a real project" (step 1; the owner's dated account where no public PR is cited) |
 | 60 | §06 | **block: the syncs** (the count, then met, missed and not fully scored, together) | `SLIPWAY.md` sync lines (step 1, from #43 Acceptance) |
 | 61 | §06 | one milestone closed: on 2026-10-06 `/close-milestone` took about seven minutes to open a pull request and about half an hour to merge, and asked one question; every item planned for the milestone had been built, and the retro was written from issues, pull requests and `git log`; timed once, on the strongest model at high effort; a feature doc is marked shipped whole even when one section still owes a check (#284, open). The fix made that day (#258, #264) is no longer on the page | `SLIPWAY.md` "Exercised on a real project", "The first milestone close" (the owner's account, 2026-10-06); #258, #264, #284 |
 | 62 | §06 | **block: not proven yet** (four lines, each dated 2026-10-07, and the link to them); the hook that runs when the agent stops has only been seen blocking for a missing install, not for a failing test; the approval prompts have not been seen in a live session; the other hooks and the session-start status only on sample input | `SLIPWAY.md` "Not verified here" (each with `Verified against:`) |
-| 63 | §06 | planned, not started: a check that every feature doc says how it fits the product, and a pause at each milestone to list what should be shared and decide | #48 Acceptance (a check fails on a feature doc whose `## Fit` is missing or unfilled), #49 (it lists and decides; it does not refactor); both open, and #312 lists them as not expected before its goal |
+| 63 | §06 | planned, not started: a check that a feature doc past draft says how it fits the product, and a pause at each milestone to list what should be shared and decide | #48 Acceptance (a check fails on a feature doc with `status` past `draft` whose `## Fit` is missing or unfilled), #49 (it lists and decides; it does not refactor); both open, and #312 lists them as not expected before its goal |
 | 64 | §06 | the work under way, in order, is epic #312 | #312 Problem ("It orders the work that stands between today and that goal") and Order |
 | 65 | §07 | checks that can fail (quality) | PC1 |
 | 66 | §07 | pull requests that say what was tested, a page that says what isn't proven (transparency) | P1; §06 |
@@ -216,7 +228,8 @@ without a row. Those marked (2026-10-08) are new with #355 and were approved by 
 - §07: the owner's biography, "Agents made code cheap to write. They didn't make it correct, and the people using
   what I build still expect what they always did…", and "Agents make rewriting cheap, which makes it tempting to
   skip the thinking. Slipway is how I keep doing the thinking. I start every project from it now." (2026-10-08).
-- Section headings written as questions.
+- Section headings written as questions, and the first clause of §04's answer line, "It makes you answer “why”
+  before it builds" (row 78 is the claim it stands on).
 - The share-card tags in `<head>` (#350): `og:title` and `og:description` repeat the page's `<title>` and
   `description` word for word, and the description says what row 1 says, so row 1's sources cover them;
   `og:image` (`site/assets/og-card.png`) is the logo lockup with no added words, so it makes no claim.
