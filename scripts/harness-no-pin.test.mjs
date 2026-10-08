@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { SETTINGS, HOOKS, TRUST, T, SID, work, git, put, marks, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change } from './harness-fixture.mjs';
+import { SETTINGS, HOOKS, TRUST, T, SID, work, git, put, marks, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change, stopJson } from './harness-fixture.mjs';
 
 // Nothing runs, so a gate that is red for a reason outside the session blocks nothing.
 test('no pin at all, nothing changed, HEAD at origin/HEAD: the turn ends with no hand run, and nothing runs or pins', () => {
@@ -34,7 +34,7 @@ test('no pin at all, nothing changed, HEAD at origin/HEAD: the turn ends with no
 
 test('no pin, and a change, a HEAD that is not origin/HEAD, a pin that cannot be used or git not answering: still blocked', () => {
   const blocked = (why, env) => {
-    const out = JSON.parse(run('stop-verify.sh', '{}', SID, env).out.split('\n').find((l) => l.startsWith('{')) ?? '{}'); // stderr is in `out` too
+    const out = stopJson(SID, env);
     assert.equal(out.decision, 'block', why);
     assert.match(out.reason, /Run pnpm verify:fast yourself and report its result.*fast-forwarded \(git pull --ff-only\)/, why);
     assert.deepEqual(marks(), [], `${why}: a hook ran`);
@@ -125,7 +125,7 @@ test('a session with no pin cannot give itself one: no hook of its own writes it
   quiet('the turn that ends');
   for (const source of ['resume', 'compact']) start(SID, source);
   change();
-  assert.equal(JSON.parse(run('stop-verify.sh').out).decision, 'block', 'the turn that ended left the session a pass or a pin');
+  assert.equal(stopJson().decision, 'block', 'the turn that ended left the session a pass or a pin');
   for (const h of [...HOOKS, TRUST]) run(h, say('trust gates'));
   assert.ok(!existsSync(join(T, '.claude')), 'a hook of a session with no pin wrote one');
   for (const r of ['Edit(~/.claude/slipway/**)', 'Bash(*.claude/slipway*)', 'Bash(*base-guard*)']) assert.ok(SETTINGS.permissions.ask.includes(r), `no ask rule ${r}`);

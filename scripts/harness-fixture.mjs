@@ -141,6 +141,8 @@ export const quiet = (why, sid = SID) => {
   assert.deepEqual(marks(), [], `${why}: a hook ran`);
   assert.ok(!existsSync(join(T, '.claude')), `${why}: a pin was written`);
 };
+// What the Stop hook printed, as JSON: `out` holds stderr too, so the line that starts the object is the one read.
+export const stopJson = (sid = SID, env = {}) => JSON.parse(run('stop-verify.sh', '{}', sid, env).out.split('\n').find((l) => l.startsWith('{')) ?? '{}');
 export const change = () => put('src/app.ts', 'export const changed = 1;\n');
 
 export const commit = (msg) => git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', msg);

@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change } from './harness-fixture.mjs';
+import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change, stopJson } from './harness-fixture.mjs';
 
 // #154: with no guard to load, the Stop hook cannot run stop-verify, so it blocks once and has the agent run the gate.
 // The fallback text once sat inside `$( … || echo '…')`, and /bin/sh is bash 3.2 on a Mac: a `, ` in it, inside braces,
@@ -69,7 +69,7 @@ test('the harness asks before an agent moves the base the guard trusts', () => {
 // #145 — the pin. The guard and the base every hook compares against are the commit the session's first SessionStart
 // found at origin/HEAD, read from a file outside the repository, never the live ref.
 const stopBlocksOnce = (sid = SID) => {
-  const out = JSON.parse(run('stop-verify.sh', '{}', sid).out);
+  const out = stopJson(sid);
   assert.equal(out.decision, 'block');
   assert.match(out.reason, /no base is pinned for this session.*Run pnpm verify:fast yourself and report its result/);
   assert.equal(run('stop-verify.sh', '{"stop_hook_active":true}', sid).out, '');
@@ -120,7 +120,7 @@ test('a compaction or a resume never pins: with no pin no hook runs, the moved b
     moveBase(() => {
       assert.match(JSON.parse(start(SID, source).out).systemMessage, /no base is pinned for this session.*no hook ran/, `source ${source}`);
       assert.ok(!existsSync(join(T, '.claude')), `source ${source} pinned`);
-      change(); // with nothing changed at the moved origin/HEAD the turn ends (D-034): README, a base moved before the pin
+      change(); // with nothing changed at the moved origin/HEAD the turn ends: D-034, "one limit is wider than it was"
       stopBlocksOnce();
     });
   }
