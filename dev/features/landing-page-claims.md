@@ -179,6 +179,9 @@ method; each stays on the page without a row:
   followed by row 45).
 - Section answers and headings written as questions or framing ("It will ask you why. That's the cost, and most of
   the point.", "Refactoring has never been cheaper, and debt still compounds.").
+- The share-card tags in `<head>` (#350): `og:title` and `og:description` repeat the page's `<title>` and
+  `description` word for word, so rows 1 and 2's sources cover them; `og:image` (`site/assets/og-card.png`) is the
+  logo lockup with no added words, so it makes no claim.
 
 ## Block entries, corrected
 
