@@ -731,10 +731,12 @@ The button has no accessible name; screen readers will announce
 ### Human output: `output_mode: cold-review`
 
 Same findings, `process/cold-review.md`'s shape instead of the numbered
-list: `## Cold review`, then **Reviewer**, **Head SHA reviewed**
-(`headReviewed.sha`), each finding as
+list: `## Cold review`, then **Reviewer**, **Head reviewed**
+(`headReviewed.sha`, the one head this review read), each finding as
 `` `label` `file:line` — concern — breaks: <guarantee | none> ``, and a
-one-line **Verdict**.
+one-line **Verdict**. The closing line that names the last reviewed head
+and the pull request's head is not written here: whoever puts the
+section in the pull request owes it (`process/cold-review.md` → How).
 
 ### Output rules (all modes)
 

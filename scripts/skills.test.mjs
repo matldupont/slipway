@@ -415,8 +415,24 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
 });
 
-// #283 (D-031): what may be committed after the last review is said once, in /work-ticket → Rounds 2 and 3, for
-// every lane. The Deferred check rule and its feature doc point there, and Phase 6 does not say it a second way.
+// #314 (D-031): cold-review.md says nothing of its own about what is committed for a finding; How and When to
+// stop point at /work-ticket → Rounds 2 and 3, step 4, and How says who owes the section's closing line.
+test('process/cold-review.md points at work-ticket → Rounds 2 and 3, step 4 for what is committed and when', () => {
+  const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
+  const cold = read('process/cold-review.md');
+  const how = flat(section(cold, 'How', 2));
+  const stop = flat(section(cold, 'When to stop', 2));
+  const fixAfter = /fixed in the diff or explicitly waived|fixed in the same diff/i;
+  assert.match(how, /What is committed for a finding, and when, is `\/work-ticket`'s to say \(`\.claude\/skills\/work-ticket\/SKILL\.md` → Rounds 2 and 3, step 4; D-031\)/, 'How must point at the rule');
+  assert.doesNotMatch(how, fixAfter, 'How must not say to fix a finding without saying when');
+  assert.match(stop, /is Rounds 2 and 3, step 4 of the same skill \(L-68, D-031\)/, 'When to stop must point at the rule');
+  assert.doesNotMatch(stop, fixAfter, 'When to stop must not say to fix a finding without saying when');
+  assert.match(how, /is owed by whoever puts the section in the pull request: `\/work-ticket` writes it \(Phase 6\)\. A `\/pr-review` cold review names the one head it read and never writes that line/, 'How must say who owes the closing line, and that /pr-review does not write it');
+});
+
+// #283 (D-031): /work-ticket → Rounds 2 and 3 states the rule, its end of review and its one exception; neither
+// earlier wording is left in work-ticket, the Deferred check rule or its feature doc; Phase 6, the findings
+// table, the Deferred check rule and the feature doc point at it; decisions.md records it.
 test('work-ticket says in Rounds 2 and 3 that nothing is committed after the round that ends the review; intake and the feature doc point at it', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const wt = read(skillPath('work-ticket'));
