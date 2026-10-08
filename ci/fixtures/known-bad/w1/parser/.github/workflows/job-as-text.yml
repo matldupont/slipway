@@ -1,0 +1,12 @@
+name: job-as-text
+# Inert text. The job `note` is a block of text, not a job: its uses: line calls nothing, and GitHub runs none of
+# a file with such a job. A reader that matches text took the line for a call to called.yml.
+on: pull_request
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm test:job
+  note:
+    |
+    uses: ./.github/workflows/called.yml

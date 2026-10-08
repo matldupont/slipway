@@ -1,0 +1,14 @@
+{
+  "name": "fixture-parser",
+  "private": true,
+  "scripts": {
+    "test:pr": "node -e 0",
+    "test:quote": "node -e 0",
+    "test:apostrophe": "node -e 0",
+    "test:job": "node -e 0",
+    "test:called": "node -e 0",
+    "test:text": "node -e 0",
+    "test:bracket": "node -e 0",
+    "test:anchor": "node -e 0"
+  }
+}

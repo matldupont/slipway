@@ -1,0 +1,29 @@
+{
+  "_note": "Workflow files are read through a YAML parser (D-033, #306), never by matching text. Every file here is inert text; none is run. Covered: test:pr (ci.yml). Three files a reader that matched text was misled by, each one of the findings #301's review left open: quote-after-colon.yml (a quote straight after a colon inside braces opens a quoted text, and the on: line after it is inside that text), apostrophe.yml (an apostrophe in plain text, then a quoted text that runs over the on: line, while the key that is the trigger is written with an escape), job-as-text.yml (a job that is a block of text holding a uses: line; nothing is called, so test:called stays uncovered too). The first two are not YAML to the parser and the third has a job that is not a block of keys: each is unread and counts for nothing. run-in-text.yml is read and counts, but its run: line is text under env:, not a step, so test:text is uncovered. bracket.yml closes a list at its key's indentation: the parser does not read that, so it is unread, and the finding gives the line and how to write it. anchor.yml is YAML the parser reads, refused in front of it. Each unread file is also a warning naming it.",
+  "exit": 1,
+  "findings": [
+    "fixture-parser:test:quote",
+    "fixture-parser:test:apostrophe",
+    "fixture-parser:test:job",
+    "fixture-parser:test:called",
+    "fixture-parser:test:text",
+    "fixture-parser:test:bracket",
+    "fixture-parser:test:anchor"
+  ],
+  "details": {
+    "fixture-parser:test:quote": ".github/workflows/quote-after-colon.yml (it is not YAML the parser can read, at line 5)",
+    "fixture-parser:test:apostrophe": ".github/workflows/apostrophe.yml (it is not YAML the parser can read, at line 6)",
+    "fixture-parser:test:job": ".github/workflows/job-as-text.yml (its jobs: is not a block of jobs W1 can read)",
+    "fixture-parser:test:bracket": ".github/workflows/bracket.yml (it is not YAML the parser can read, at line 13)",
+    "fixture-parser:test:text": "write a list or a mapping in brackets on one line, or indent its closing bracket past its key",
+    "fixture-parser:test:anchor": ".github/workflows/anchor.yml (it holds an anchor)"
+  },
+  "exempted": [],
+  "warnings": [
+    "unread:.github/workflows/anchor.yml",
+    "unread:.github/workflows/apostrophe.yml",
+    "unread:.github/workflows/bracket.yml",
+    "unread:.github/workflows/job-as-text.yml",
+    "unread:.github/workflows/quote-after-colon.yml"
+  ]
+}

@@ -18,8 +18,8 @@
 // workflowTrigger). A gate that only a tag, a schedule, a manual dispatch or a reusable workflow runs never ran
 // on the change being merged: a release workflow that runs every check on a version tag would otherwise cover
 // for a pull-request workflow that runs none (#239). Path filters are not read, and neither is what a branch
-// pattern matches, beyond one that can match no branch. A workflow whose `on:` W1 cannot read counts for
-// nothing: a warning names it, and so does each finding.
+// pattern matches, beyond one that can match no branch. A workflow W1 cannot read counts for nothing: a
+// warning names it, and so does each finding.
 //
 // A reusable workflow (`workflow_call`) counts when a workflow that counts calls it with
 // `uses: ./.github/workflows/<file>`: its steps run when its caller does. Not followed, and named in each
@@ -32,8 +32,8 @@
 // script or a slipway test. Known limit: W1 does not know a check's subject, so a check that reads a change,
 // moved to such a workflow, would still count.
 //
-// Invocations are read from those workflows' `run:` lines, and from root package scripts those
-// lines call (followed up to 3 levels):
+// Invocations are read from the `run:` of each step of each job of those workflows, and from root package
+// scripts those lines call (followed up to 3 levels):
 //   pnpm --filter <exact name> [run] <script>   that package
 //   pnpm -r [run] <script>                      every package declaring it
 //   turbo run <tasks>, unfiltered               every package declaring them
@@ -50,9 +50,14 @@
 // invisible by design: call gates from the workflow or a root script, where the wiring
 // stays legible.
 //
-// KNOWN LIMITATION: W1 reads workflow files as text, with no YAML parser (D-004). It reads workflows written
-// to be read. A workflow file written to mislead a text reader is not defended against here: workflow files
-// are owner-only, so such a file needs the owner's yes and shows in the pull request's diff.
+// A workflow file is read through a YAML parser (lib/workflow-yaml.mjs, D-033), never by matching its text. What
+// that reader refuses (an anchor, an alias, a tag, a merge key, a key written twice, more than one document) and
+// what the parser cannot read is unread, with the reason and, where there is one, how to write it so it is read.
+// The parser is stricter than common readers about a closing bracket, or a quoted text's later line, at its
+// key's indentation, so a file GitHub's reader accepts can be unread here: that fails closed. It is not strict
+// everywhere: the reader in front refuses the forms listed and tested of what it reads and a stricter reader
+// rejects, and is not a complete defence (5 known gaps: #339). What stays a limit: any other text this parser
+// reads and GitHub's reader rejects, or reads differently.
 
 import { existsSync, lstatSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -125,7 +130,7 @@ for (const c of workflows.issueCommands) {
 }
 // Said in every finding: the gate may be run by the very workflow W1 could not read.
 const unreadNote = workflows.unread.length
-  ? `; W1 could not read what starts ${workflows.unread.map((u) => `${u.file} (${u.reason})`).join(', ')}, so nothing ${workflows.unread.length === 1 ? 'it runs' : 'they run'} counts`
+  ? `; W1 could not read ${workflows.unread.map((u) => `${u.file} (${u.reason})`).join(', ')}, so nothing ${workflows.unread.length === 1 ? 'it runs' : 'they run'} counts${[...new Set(workflows.unread.flatMap((u) => (u.hint ? [`. ${u.hint}`] : [])))].join('')}`
   : '';
 const unfollowedNote = workflows.unfollowed.length
   ? `; W1 did not follow a call in ${workflows.unfollowed.map((u) => `${u.file} (${u.reason})`).join(', ')}, so what it runs does not count`
@@ -176,7 +181,7 @@ process.exit(
     findings,
     // Named whether or not a gate is left uncovered: a workflow W1 could not read, or a call it did not follow.
     warnings: [
-      ...workflows.unread.map((u) => ({ where: `unread:${u.file}`, detail: `W1 could not read what starts it (${u.reason}), so nothing it runs counts` })),
+      ...workflows.unread.map((u) => ({ where: `unread:${u.file}`, detail: `W1 could not read it (${u.reason}), so nothing it runs counts${u.hint ? `. ${u.hint}` : ''}` })),
       ...workflows.unfollowed.map((u) => ({ where: `unfollowed:${u.file}`, detail: `W1 did not follow a call (${u.reason}), so what that runs does not count` })),
     ],
   })
