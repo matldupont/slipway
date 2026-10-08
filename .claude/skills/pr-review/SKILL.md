@@ -732,9 +732,11 @@ The button has no accessible name; screen readers will announce
 
 Same findings, `process/cold-review.md`'s shape instead of the numbered
 list: `## Cold review`, then **Reviewer**, **Head SHA reviewed**
-(`headReviewed.sha`), each finding as
+(`headReviewed.sha`, the one head this review read), each finding as
 `` `label` `file:line` — concern — breaks: <guarantee | none> ``, and a
-one-line **Verdict**.
+one-line **Verdict**. The closing line that names the last reviewed head
+and the pull request's head is not written here: it is `/work-ticket`'s
+only (`process/cold-review.md` → How).
 
 ### Output rules (all modes)
 

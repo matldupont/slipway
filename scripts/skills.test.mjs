@@ -415,8 +415,25 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
 });
 
-// #283 (D-031): what may be committed after the last review is said once, in /work-ticket → Rounds 2 and 3, for
-// every lane. The Deferred check rule and its feature doc point there, and Phase 6 does not say it a second way.
+// #314 (D-031): cold-review.md → How and → When to stop point at /work-ticket → Rounds 2 and 3, step 4 for what
+// is committed and when, neither keeps its earlier fix-it sentence, and How says whose the closing line is.
+test('process/cold-review.md points at work-ticket → Rounds 2 and 3, step 4 for what is committed and when', () => {
+  const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
+  const cold = read('process/cold-review.md');
+  const how = flat(section(cold, 'How', 2));
+  const stop = flat(section(cold, 'When to stop', 2));
+  const fixAfter = /fixed in the diff or explicitly waived|fixed in the same diff/i;
+  assert.match(how, /What is committed for a finding, and when, is `\/work-ticket`'s to say \(`\.claude\/skills\/work-ticket\/SKILL\.md` → Rounds 2 and 3, step 4; D-031\)/, 'How must point at the rule');
+  assert.doesNotMatch(how, fixAfter, 'How must not say to fix a finding without saying when');
+  assert.match(how, /Each finding's outcome is written there: fixed, waived, a known limitation or a follow-up\./, 'How must keep a written outcome for every finding');
+  assert.match(stop, /What becomes of anything else is that skill's Which findings count; what is committed for it, and when, is its Rounds 2 and 3, step 4 \(L-68, D-031\)/, 'When to stop must point at the rule');
+  assert.doesNotMatch(stop, fixAfter, 'When to stop must not say to fix a finding without saying when');
+  assert.match(how, /The line that closes the section, naming the last reviewed head and the pull request's head, is `\/work-ticket`'s only \(Phase 6\)\. A `\/pr-review` cold review names the one head it read and never writes that line; a pull request that carries one has no such line\./, 'How must say the closing line is /work-ticket\'s only, and that a /pr-review cold review has none');
+});
+
+// #283 (D-031): /work-ticket → Rounds 2 and 3 states the rule, its end of review and its one exception; neither
+// earlier wording is left in work-ticket, the Deferred check rule or its feature doc; Phase 6, the findings
+// table, the Deferred check rule and the feature doc point at it; decisions.md records it.
 test('work-ticket says in Rounds 2 and 3 that nothing is committed after the round that ends the review; intake and the feature doc point at it', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const wt = read(skillPath('work-ticket'));
