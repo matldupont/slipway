@@ -539,6 +539,7 @@ proposed the ratchet; the owner set the condition on sync.
 
 Declined: backfill before green (a); an exemption line with a reason (b); a grace rule keyed on when a doc's
 status changed (c, nothing records that). #48.
+
 ## D-037 — A pull request's new tests must each fail on a change to the code; slipway's own mutator checks it, within 5 minutes *(decided 2026-10-08)*
 
 #51 asks that a product's tests be able to fail, checked on every pull request (F-13,

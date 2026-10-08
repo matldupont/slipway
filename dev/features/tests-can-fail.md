@@ -53,7 +53,7 @@ good is excused in `ci/exceptions.yaml`, the registry that already holds dated e
 
 ## Contract
 
-Verified against: d52995b 2026-10-08 — `ci/ratchet.mjs` (fails a number above its baseline; one named number
+Verified against: 51b9c5e 2026-10-08 — `ci/ratchet.mjs` (fails a number above its baseline; one named number
 per baseline; `ci/baselines.json` does not exist), `ci/verify.mjs` and `ci/checks/lib/tasks.mjs` (verify runs
 `check`, `lint`, `test`, `build` in every package and nothing else), `.github/workflows/ci.yml` (two jobs,
 `meta` and `verify`; `verify` is skipped on a repository marked as a template), `ci/checks/meta/` (`i1` and
