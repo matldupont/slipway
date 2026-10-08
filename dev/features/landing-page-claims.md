@@ -19,8 +19,8 @@ The owner read the live page and approved a rewrite of its copy, section by sect
 2026-10-08: the page did not say what slipway is in words a first reader can picture, half of it read as
 catch-phrases, and the other half as an audit log. The rows below are as the rewritten page reads them.
 
-- **Reworded, same source:** most carried rows. The page's plain words for slipway's own: "a “will anyone want this?” risk"
-  for a value risk, "pass mark" for the bar, "time budget" for the appetite, "the first thin version"
+- **Reworded, same source:** most carried rows. The page's plain words for slipway's own: "“will anyone want this?” risk" for
+  a value risk, "pass mark" for the bar, "time budget" for the appetite, "the first thin version"
   and "step 4" for the walking skeleton, "check" for a gate.
 - **Cut (8):** rows 11 to 14 (the row of four numbers), 17, 29, 30 and 43. Each says where its fact is still
   carried, or that it is gone.
@@ -39,12 +39,15 @@ page nor this table (fresh sessions on the strongest tier):
    63 and 64, 78 and 79), and three sentences with no row (the creates list's "the same way every time", §01's
    "That's where slipway puts its effort", and the heading "Three questions before anything ships"). All 18 cut
    rows were gone from the page, no carried row was missing, and all 22 required facts were found.
-2. **At 9a7f494,** which reworded those and also changed rows 17, 52, 90 and 92: only that commit's changes. 19 of
-   22 changed sentences held. Two were still stronger than their source: row 28's "Building ahead anyway takes a
+2. **At 9a7f494,** which reworded those and also changed rows 17, 52, 90 and 92: only that commit's changes. No carried
+   row was missing and no cut sentence was back. Two changed sentences were still stronger than their source: row 28's "Building ahead anyway takes a
    written decision" (the check reads only that a result is filled; the decision is a written rule) and row 63's
    "every feature doc" (#48 exempts drafts). One clause had no entry (§04's answer line), row 58 cited no source
-   for the sizes of change, and a note here quoted wording the page no longer had. The commit after 9a7f494
-   rewords both sentences and fixes the three notes; rows 28, 58 and 63 are as it leaves them.
+   for the sizes of change, and a note here quoted wording the page no longer had. Commit f53080d, on the
+   follow-up branch, rewords both sentences and fixes the three notes; rows 28, 58 and 63 are as it leaves them.
+3. **At f53080d,** only that commit's changes: no page sentence stronger than its source. Three notes in this
+   file were corrected after it (a quote that was not word for word, a count with no stated unit, and which
+   commit the fix was in), and the line naming epic #312 got a heading of its own, "In progress".
 
 The required facts were counted at 2b3f094. Of their carriers, 9a7f494 changed two: F3.3 is still stated in §04's
 third paragraph, and F5.1 ("a fixed path of steps") rests on "Eight steps, the same ones on every project" and the
@@ -136,7 +139,7 @@ Q8 why was it built
 | 25 | table | the PR description has to say what was run, and link its issue or say why there isn't one | `ci/checks/meta/p1-pr-body.mjs` (accepts `none: <reason>`) |
 | 26 | table | an issue whose acceptance is a bare adjective gets labelled `needs-shape`, and `/work-ticket` won't start on it | `ci/checks/meta/i1-issue-shape.mjs`; `.github/workflows/issue-shape.yml`; `.claude/skills/work-ticket/SKILL.md` Phase 1 |
 | 27 | table | the PRD needs a written review that names the exact version it read | `ci/checks/meta/r1-review-provenance.mjs` |
-| 28 | table | nothing past the first thin version starts until each "will anyone want this?" risk has a result written down: a test result against a pass mark set first, a note that you're relying on experience with what would prove you wrong, or a decision to build ahead (the page's plain form of a risk tagged value, the bar and the skeleton) | `ci/checks/meta/k1-frame.mjs` and `ci/checks/lib/risks.mjs` (a value risk needs a filled Result; experience needs its "wrong if" line); `docs/product/FRAME.md` and `SLIPWAY.md` step 2 for the decision to build ahead, which is a written rule: the check reads only that the Result is filled |
+| 28 | table | nothing past the first thin version starts until each "will anyone want this?" risk has a result written down: a test result against a pass mark set first, a note that you're relying on experience with what would prove you wrong, or a decision to build ahead (the page's plain form of a risk tagged value, the bar and the skeleton) | `ci/checks/meta/k1-frame.mjs` and `ci/checks/lib/risks.mjs` (a value risk needs a filled Result; a Result needs a Threshold; experience needs its "wrong if" line); `docs/product/FRAME.md` ("Write the Threshold **before** the test", and "To build ahead of the evidence, record a decision…"): that the pass mark comes first, and the decision to build ahead, are written rules, and the check reads only that the cells are filled |
 | 29 | plate | one milestone active at a time; past its time budget it needs a written decision | *cut* (#355): the table row is gone; rows 33 (step 5) and 40 (`docs/milestones/`) carry one milestone at a time and its time budget. The page no longer says an overrun needs a written decision |
 | 30 | plate | every lesson names where it's enforced or, if it isn't built yet, the event that reopens it; the judgment ones get a review date and fail when it passes | *cut* (#355): the table row is gone; row 40's `process/lessons/` entry carries it |
 | 31 | §02 | eight steps, the same ones on every project; the early ones are mostly you deciding what to build; after that the agent writes most of the code and you review it | `SLIPWAY.md` path table, the "who" of each step |
