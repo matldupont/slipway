@@ -21,7 +21,7 @@ import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
-import { reviewProvenance } from './checks/lib/review-header.mjs';
+import { isPrdPath, readPlain, reviewProvenance } from './checks/lib/review-header.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -64,7 +64,7 @@ const riskState = (r) => {
   return `${r.id} scheduled (${r.tracker}${w || ''})`;
 };
 
-const prd = read('docs/PRD.md') ?? '';
+const prd = readPlain(root, 'docs/PRD.md') ?? '';
 const prdStatus = (prd.match(/^Status:\s*(.+)$/m) ?? [])[1]?.trim() ?? 'missing';
 const ods = [...prd.matchAll(/^###\s+(OD-\d+)\s+—\s+(.+)$/gm)]
   .map((m) => ({ id: m[1], title: m[2].trim(), blocking: /BLOCKING/.test(section(prd, `${m[1]} — ${m[2].trim()}`, 3) ?? '') }))
@@ -74,8 +74,10 @@ const prdVersion = (prd.match(/^Version:\s*(.+)$/m) ?? [])[1]?.trim() ?? null;
 const reviewsDir = join(root, 'docs', 'reviews');
 const prdReviews = existsSync(reviewsDir)
   ? readdirSync(reviewsDir).filter((f) => f.endsWith('.md') && f !== 'TEMPLATE.md').filter((f) => {
-      const { reviewed, version } = reviewProvenance(readFileSync(join(reviewsDir, f), 'utf8'));
-      return !!reviewed && reviewed.path.endsWith('docs/PRD.md') && !!prdVersion && !!version && version.includes(prdVersion);
+      const text = readPlain(root, `docs/reviews/${f}`);
+      if (text === null) return false;
+      const { reviewed, version } = reviewProvenance(text);
+      return !!reviewed && isPrdPath(reviewed.path) && !!prdVersion && !!version && version.includes(prdVersion);
     })
   : [];
 const decisions = read('decisions.md') ?? '';
