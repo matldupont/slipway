@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// The release rule and the workflow that runs it (F-10, #232): scripts/release.mjs through its command line, with
-// a package.json and an npm of the test's own, and .github/workflows/release.yml held to what
-// scripts/release-workflow.mjs says it must be. Internal: `pnpm meta` runs it in slipway, never in a project.
+// The release rule (F-10, #232): scripts/release.mjs through its command line, with a package.json and an npm of
+// the test's own, and what ci.yml must keep for it. .github/workflows/release.yml itself is held by
+// scripts/release-workflow.test.mjs. Internal: `pnpm meta` runs it in slipway, never in a project.
 // Nothing here reaches npm or the network: the `npm` it starts is a two-line script that prints a version.
 
 import assert from 'node:assert/strict';
@@ -11,9 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { classify, loadOwnership } from '../ci/checks/lib/ownership.mjs';
 import { label, NPM_MIN, summary } from './release.mjs';
-import { PUBLISH_RUNS, workflowProblems } from './release-workflow.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WORKFLOW = '.github/workflows/release.yml';
@@ -173,128 +171,4 @@ test('W1 fails a copy of the workflows whose ci.yml no longer runs pnpm meta, wh
   const cut = w1();
   assert.equal(cut.status, 1, cut.stdout + cut.stderr);
   assert.match(cut.stdout, /check:w1-declared-vs-invoked\.mjs: the check exists, but no CI workflow runs it on a pull request or a push to a branch/);
-});
-
-// release.yml, read by scripts/release-workflow.mjs (#240). Every text below is a copy of the file with one thing
-// changed, and inert: none is run. `broken`: the change is reported, by its rule's name before any line.
-const yml = readFileSync(join(SRC, WORKFLOW), 'utf8');
-const LINED = /^(at or under|after) line \d+: /;
-const broken = (from, to, expected) => {
-  assert.ok(typeof from === 'string' && yml.includes(from), `release.yml no longer holds ${JSON.stringify(from)}`);
-  const found = workflowProblems(yml.replace(from, to));
-  const at = found.findIndex((p) => expected.test(p));
-  assert.ok(at >= 0, `${JSON.stringify(to)} went unnoticed: ${JSON.stringify(found)}`);
-  const lined = found.findIndex((p) => LINED.test(p));
-  assert.ok(LINED.test(found[at]) || lined < 0 || at < lined, `a line came before the rule's name: ${JSON.stringify(found)}`);
-};
-const only = (from, to, ...problems) => {
-  assert.ok(yml.includes(from), `release.yml no longer holds ${JSON.stringify(from)}`);
-  assert.deepEqual(workflowProblems(yml.replace(from, to)), problems);
-};
-const CHECK_JOB = '    runs-on: ubuntu-latest\n';
-
-test('release.yml: only publish holds the identity, every action is pinned by sha, no run: line takes event text, and publish uses GitHub\'s own actions', () => {
-  assert.deepEqual(workflowProblems(yml), []);
-  assert.ok(/^ {6}id-token: write$/m.test(yml) && (yml.match(/uses:/g) ?? []).length >= 5 && (yml.match(/run:/g) ?? []).length >= 6, 'the reader has something to read');
-
-  const sha = 'a'.repeat(40);
-  broken(CHECK_JOB, `${CHECK_JOB}    permissions:\n      id-token: write\n`, /held by check, publish/);
-  broken('permissions:\n  contents: read\n', 'permissions:\n  contents: read\n  id-token: write\n', /held by the top level, publish/);
-  broken('      id-token: write\n', '', /held by nothing/);
-  broken(/actions\/checkout@[0-9a-f]{40}/.exec(yml)[0], 'actions/checkout@v7', /check: actions\/checkout@v7 is not pinned/);
-  broken(/actions\/setup-node@[0-9a-f]{40}/.exec(yml)[0], `actions/setup-node@${sha.slice(1)}`, /is not pinned/);
-  broken(/actions\/setup-node@[0-9a-f]{40}/.exec(yml)[0], `actions/setup-node@${sha.toUpperCase()}`, /is not pinned/);
-  broken(/pnpm\/action-setup@[0-9a-f]{40}/.exec(yml)[0], sha, /check: a{40} is not pinned/);
-  broken('run: pnpm meta', 'run: echo ${{ github.ref_name }}', /check: a run: line holds/);
-  broken('run: pnpm meta', 'run: |\n          pnpm meta\n          # ${{ github.event.head_commit.message }}', /check: a run: line holds/);
-  broken('run: node scripts/release.mjs "$TAG"', 'run: node scripts/release.mjs "${{ github.ref_name }}"', /publish: a run: line holds/);
-  broken("    permissions:\n      contents: read\n      id-token: write\n", '    permissions: write-all\n', /publish: permissions is not a block mapping/);
-  broken(CHECK_JOB, `${CHECK_JOB}    permissions: { id-token: write }\n`, /check: permissions is not a block mapping/);
-  broken('permissions:\n  contents: read\n', 'permissions: write-all\n', /the top level: permissions is not a block mapping/);
-  broken('      - run: pnpm meta\n', '      - run: pnpm meta\n      - { uses: someone/else@v1 }\n', /check: flow style/);
-  broken('        run: npm stage publish', '        shell: bash -c "${{ github.ref_name }}" {0}\n        run: npm stage publish', /publish: a shell: line holds/);
-  broken("    if: github.repository == 'matldupont/slipway'\n", '', /check does not name the repository/);
-  broken('    needs: check\n', '', /publish has no needs: check/);
-  broken('    environment: npm\n', '', /publish has no environment: npm/);
-  broken('    environment: npm\n', '    environment: npm\n    if: always()\n', /publish has an if: of its own/);
-  broken('      - name: Stage the release\n', '      - run: pnpm meta\n      - name: Stage the release\n', /publish runs pnpm/);
-  broken('npm stage publish --ignore-scripts', 'npm publish --ignore-scripts', /publish does not stage/);
-  broken('      - name: Stage the release\n', '      - run: npm publish --ignore-scripts\n      - name: Stage the release\n', /publish does not stage/);
-  broken('npm stage publish --ignore-scripts', 'npm stage --ignore-scripts', /publish does not stage/);
-  broken('npm stage publish --ignore-scripts', 'npm stage publish', /publish runs npm without --ignore-scripts/);
-  broken(`        run: ${PUBLISH_RUNS[2]}\n`, `        run: |\n          ${PUBLISH_RUNS[2]}\n          npm pack\n`, /publish runs npm without --ignore-scripts/);
-  broken('npm pack --dry-run --json --ignore-scripts', 'npm pack --dry-run --json', /publish runs npm without --ignore-scripts/);
-  broken('          ref: ${{ github.sha }}\n          fetch-depth: 0\n', '          fetch-depth: 0\n', /check: a checkout does not take github.sha/);
-  broken('          ref: ${{ github.sha }}\n          persist-credentials', '          ref: ${{ github.ref }}\n          persist-credentials', /publish: a checkout does not take github.sha/);
-  broken('          fetch-depth: 0\n          persist-credentials: false\n', '          fetch-depth: 0\n', /check: a checkout leaves GitHub's token/);
-  broken('          persist-credentials: false\n      - uses: actions/setup-node', '          persist-credentials: true\n      - uses: actions/setup-node', /publish: a checkout leaves GitHub's token/);
-  broken('          registry-url:', `          registry-url: x\n      - uses: pnpm/action-setup@${sha}\n        with:\n          registry-url:`, /publish: pnpm\/action-setup@a+ is not one of GitHub's own/);
-});
-
-test('release.yml: the publishing job runs exactly its 3 commands', () => {
-  assert.equal(PUBLISH_RUNS.length, 3);
-  for (const run of PUBLISH_RUNS) assert.ok(yml.includes(`        run: ${run}\n`), run);
-  const exactly = /publish does not run exactly its 3 commands/;
-  broken('      - name: Stage the release\n', '      - run: echo done\n      - name: Stage the release\n', exactly);
-  broken('--ignore-scripts --tag "$LABEL"', '--ignore-scripts --tag "$LABEL" --access public', exactly);
-  broken('--dry-run --json --ignore-scripts', '--json --dry-run --ignore-scripts', exactly);
-  broken(`      - name: What is about to be staged\n        run: ${PUBLISH_RUNS[1]}\n`, '', exactly);
-  broken(`        run: ${PUBLISH_RUNS[2]}\n`, `        run: ${PUBLISH_RUNS[1]}\n`, exactly);
-});
-
-test('release.yml is an allow-list: a key, an item or a value this does not know fails with its line', () => {
-  // A line is the key's own, the first text under a key holding a block, or the last read before an empty key.
-  only('    environment: npm\n', '    environment: npm\n    timeout-minutes: 5\n', 'at or under line 42: jobs.publish.timeout-minutes is a key this test does not know');
-  only('    environment: npm\n', '    environment: npm\n    env:\n      A: b\n', 'at or under line 43: jobs.publish.env is a key this test does not know');
-  only('    environment: npm\n', '    environment: npm\n    defaults:\n', 'after line 41: jobs.publish.defaults is a key this test does not know');
-  only('          node-version: 24\n', '          node-version: 22\n', 'at or under line 32: jobs.check.steps[3].with.node-version is not the plain text "24"');
-  only('      - run: pnpm meta\n', '      - run: pnpm meta\n      - run: echo done\n', 'at or under line 36: jobs.check.steps[6] is an item this test does not know');
-  // after what was reported, after a block that was read, and after a form that passed
-  only('    environment: npm\n', '    environment: npm\n    env:\n      A: b\n      C: d\n    defaults:\n', 'at or under line 43: jobs.publish.env is a key this test does not know', 'after line 44: jobs.publish.defaults is a key this test does not know');
-  only('      id-token: write\n', '      id-token: write\n    defaults:\n', 'after line 44: jobs.publish.defaults is a key this test does not know');
-  only('      - uses: actions/setup-node', '        with:\n      - uses: actions/setup-node', 'after line 29: jobs.check.steps[2].with is a key this test does not know');
-  for (const [to, line] of [["['v*', 'w*']", 7], ["['w*']", 7], ['[v*]', 7], ["\n      - 'v*'", 8], ['{ v: x }', 7]]) only("tags: ['v*']", `tags: ${to}`, `at or under line ${line}: on.push.tags is not ['v*']`);
-  const setup = /pnpm\/action-setup@[0-9a-f]{40}/.exec(yml)[0];
-  for (const to of [setup.replace('pnpm/', 'someone/'), setup.replace('setup@', 'setuq@'), `"${setup}"`, setup.replace('@', '@v6@')]) only(setup, to, 'at or under line 29: jobs.check.steps[2].uses is not pnpm/action-setup at a 40-character commit sha');
-  const steps = yml.slice(yml.lastIndexOf('    steps:\n'));
-  broken(steps, '    steps: none\n', /^at or under line 45: jobs\.publish\.steps is not a block list$/);
-  broken(steps, '    steps: [{ run: x }]\n', /^at or under line 45: jobs\.publish\.steps is not a block list$/);
-  only('    environment: npm\n', '    environment: npm\n    "a\\u202Eb": c\n', 'at or under line 42: jobs.publish.a\\u{202e}b is a key this test does not know');
-  only('  cancel-in-progress: false\n', '  cancel-in-progress: true\n', 'at or under line 14: concurrency.cancel-in-progress is not the plain text "false"');
-  only('          package-manager-cache: false\n', '', 'after line 53: jobs.publish.steps[1].with.package-manager-cache is missing');
-  only('name: release\n', 'name: release\nenv:\n  A: b\n', 'at or under line 3: env is a key this test does not know');
-  only('    needs: check\n    runs-on: ubuntu-latest\n', '    runs-on: ubuntu-latest\n    needs: check\n', 'at or under line 39: jobs.publish has its keys in another order');
-  broken('      - name: Nothing under node_modules/ is tracked\n        run: node ci/checks/meta/n1-node-modules.mjs .\n', '', /^after line \d+: jobs\.check\.steps has 5 of its 6 items$/);
-  broken('  publish:\n', '  publish:\n    continue-on-error: true\n', /^at or under line 39: jobs\.publish\.continue-on-error is a key this test does not know$/);
-  // A comment is not read, and cannot run.
-  assert.deepEqual(workflowProblems(yml.replace('jobs:\n', 'jobs:\n  # a comment\n')), []);
-});
-
-// The spellings a reader of lines passed (#237's review; the list is rebuilt, round 2 recorded none). Two kinds.
-test('release.yml: a spelling the reader marks or refuses is refused where it stands', () => {
-  only('concurrency:\n  group: release\n  cancel-in-progress: false\n', 'concurrency: { group: release, cancel-in-progress: false }\n', 'at or under line 12: concurrency is not a block of keys');
-  broken('    needs: check\n', '    needs: [check]\n', /publish: flow style/);
-  only('    environment: npm\n', '    environment: "npm"\n', 'at or under line 41: jobs.publish.environment is not the plain text "npm"');
-  only('      - run: pnpm meta\n', '      - run: |\n          pnpm meta\n', 'at or under line 36: jobs.check.steps[5].run is not the plain text "pnpm meta"');
-  broken('        run: npm stage publish', '        run: >\n          npm stage publish', /^at or under line 66: jobs\.publish\.steps\[4\]\.run is not the plain text/);
-  only('permissions:\n  contents: read\n', 'permissions: &all\n  contents: read\n', 'release.yml is unread: it holds an anchor');
-  only('    needs: check\n', '    needs: *all\n', 'release.yml is unread: it holds an alias');
-  only('      id-token: write\n', '      id-token: write\n      <<: { contents: read }\n', 'release.yml is unread: it holds a merge key');
-  only('    needs: check\n', '    needs: check\n    needs: check\n', 'release.yml is unread: a key is written more than once');
-});
-
-test('release.yml: a spelling the reader reads to its meaning breaks the same rule as the plain one', () => {
-  const held = /^id-token is held by check, publish, not by publish alone$/;
-  broken(CHECK_JOB, `${CHECK_JOB}    permissions:\n      id-token:\n        write\n`, held);
-  broken(CHECK_JOB, `${CHECK_JOB}    "permissions":\n      'id-token': write\n`, held);
-  broken(CHECK_JOB, `${CHECK_JOB}    ? permissions\n    : ? id-token\n      : write\n`, held);
-  broken(CHECK_JOB, `${CHECK_JOB}    permissions:\n      "id\\x2dtoken": write\n`, held);
-  broken('    needs: check\n', '    "needs":\n      check\n    "if": always()\n', /publish has an if: of its own/);
-  broken('        run: npm stage publish', '        "run": npm publish', /publish does not stage/);
-});
-
-test('release.yml is slipway\'s own, and this file is on the meta line', () => {
-  assert.equal(classify(loadOwnership(SRC), WORKFLOW), 'internal');
-  const meta = JSON.parse(readFileSync(join(SRC, 'package.json'), 'utf8')).scripts.meta.split(/\s*&&\s*/);
-  assert.ok(meta.includes('node scripts/release.test.mjs'), 'scripts/release.test.mjs is not in the meta script');
 });
