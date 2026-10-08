@@ -518,12 +518,42 @@ hour on a change to a static page), and `max` as the stated effort (twice `xhigh
 brief asked). What this leaves open: a reviewer can misname a surface, and nothing checks the name it gives; a
 script over the diff's paths is deferred until a real run shows a listed surface reviewed on the standard tier.
 
-## D-037 — A pull request's new tests must each fail on a change to the code: the tool, and how long it may take *(open — the owner picks, #51)*
+## D-037 — A pull request's new tests must each fail on a change to the code; slipway's own mutator checks it, within 5 minutes *(decided 2026-10-08)*
 
-#51 asks that a product's tests be able to fail, checked on every pull request. The owner settled the rule on
-2026-10-08 (F-13, `dev/features/tests-can-fail.md`): no stored score; only what a pull request changes is
-mutated; it fails when a test it adds notices none of those changes, and the changes no test noticed are
-listed. What is open is the tool, and the time the step may take.
+#51 asks that a product's tests be able to fail, checked on every pull request (F-13,
+`dev/features/tests-can-fail.md`). The owner picked each of these on 2026-10-08, with the measurements below in
+front of them:
+
+- **The rule.** No stored score and no baseline: `ci/ratchet.mjs` fails a number that rises, a mutation score
+  is better when higher, and "the files this pull request changed" is a different set each time. A pull
+  request fails when a test it adds or edits never fails, whatever is changed in the code its test file
+  imports. Changes to the pull request's own lines that no test noticed are listed and do not fail it.
+- **A test the step can find no code for is named, not failed** (the orchestrator session's advice, changed
+  after the measurement, then the owner's pick). Its subject is in a place the step does not follow, or it
+  reads files and not code. Each is listed by name with the reason, and the summary gives the count. Failing
+  them was measured to fail ordinary pull requests for tests that were fine.
+- **The tool is a small mutator in slipway that stops at each new test's first failure.** The rule needs one
+  failure per new test, not a full analysis, so the cost has a cap; it reads the test runner through its
+  command line only, so it is tied to no runner version; and it can change a file in another workspace
+  package. Slipway owns that code and its bugs.
+- **Its parser is a pinned copy, on D-033's terms.** One file of `@babel/parser`, byte-identical to the
+  published file, in `ci/checks/lib/vendor/` with its licence beside it and its hash pinned by a test. The pin
+  moves only to a published release at least 14 days old, in a pull request that replaces the file whole,
+  moves the hash and changes nothing else. Checked on 2026-10-08: 8.0.7 is one self-contained ES module of
+  481,458 bytes, MIT, with no import, and reads TypeScript and TSX on bare Node 24; it was one day old, so the
+  build takes the newest release that is 14 days old.
+- **So the mutator's own tests run in slipway's gate, with nothing installed:** what it would change in a
+  source text, and the verdict on a recorded run, under `pnpm meta`. Only the call to a real test runner is
+  proven in a project, once on a real one before it ships (decision-defaults §9).
+- **A source file the parser cannot read is named "not judged: could not be parsed", never passed silently.**
+  JavaScript, JSX, TypeScript and TSX are read alike. Any other source (a Svelte or Vue file, another
+  language) is not changed, and a test whose only subject is such a file is named as not judged. The step
+  needs Vitest: a package without it has its changed tests named as not judged, and a project with no such
+  package fails the step with that message. It never passes for having nothing to look at.
+- **The budget is 5 minutes** of wall time on a pull request touching 10 source files, on the project's CI
+  runner. Over it, the step warns with both numbers. At 10 minutes it stops and **fails**, saying it ran out
+  of time and naming each test it did not judge; it is never a pass. The first project to run the job records
+  the runner's time, and the number is revisited with it.
 
 **Measured** 2026-10-08 on a scratch project made by `scripts/new-project.mjs` with the default app (Vite,
 React, TypeScript, Vitest with jsdom) and a change to 10 source files (5 edited, 5 new, 185 added lines) with
@@ -557,9 +587,17 @@ What the runs found, each of which the step has to hold whatever is picked:
 - With every approach, a weak test passes: the planted test that asserts only on its own input was credited
   with a change that made the code throw. The step catches the test that cannot fail at all.
 
-**Proposed budget:** 5 minutes of wall time on a pull request touching 10 source files, on the project's CI
-runner. Over it, the step warns with both numbers; the job is stopped at 10 minutes. The first project to run
-the job records the runner's time, and the number is revisited with it.
+Declined: StrykerJS (wrong and green on the newest Vitest today, with the fix unreleased for five weeks; two
+new dev dependencies in every project; a full analysis where the rule needs one failure per test); running the
+new tests against the base version (blind to new files, where most new tests are); a per-file count of
+survivors under the ratchet (every pull request that adds a source file would edit `ci/baselines.json`, a file
+that needs the owner's yes); failing a pull request on a surviving change (a comment in the code for every
+change nothing can notice: deferred in F-13 with what brings it back); the project's own TypeScript as the
+parser (slipway would ship code its gate never runs).
+
+What this leaves open: the prototype that was timed used the TypeScript compiler API and tried changes one
+at a time; the build uses the pinned parser, and its time on a hosted runner is not known until a project
+runs it. The mutator makes fewer kinds of change than StrykerJS. A weak test passes with either.
 
 ## Week 1 — decide before M1 closes
 
