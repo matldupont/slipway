@@ -211,8 +211,8 @@ A `Head reviewed` other than `git rev-parse HEAD` saw a stale push: push, and ru
 that comes back empty-handed or short may be a declined one: run it again on another model; thin again,
 the run is STOPPED and the owner is shown why.
 
-**Model.** Both inherit the session's model, never below the standard tier, unless the diff touches money or checked math, auth or secrets, concurrency, a schema,
-data integrity, or data deletion: then the strongest tier at the highest effort, for round 1 (`process/designation.md` → Review).
+**Tier and effort.** Each reviewer is started by name (`subagent_type`) from its definition in `.claude/agents/`, which states its model and effort: the session's settings do not reach it. Round 1: `cold-reviewer` and `security-reviewer`, the standard tier at `medium`; each brief also asks for the line `Surfaces: <those of money or checked math, auth or secrets, concurrency, a schema, data integrity, data deletion the diff touches> | none`.
+A surface either names, or a gate file in the diff (those `## Gate changes` lists), runs round 1 again, on `cold-reviewer-strongest` and `security-reviewer-strongest`, the strongest tier at `xhigh`, and both runs' findings count (`process/designation.md` → Review). Rounds 2 and 3: the definitions round 1 ended on, at their tier and effort. A definition the harness does not offer: stop and say so, never a general agent in its place.
 
 ### Which findings count
 

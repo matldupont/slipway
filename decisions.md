@@ -490,6 +490,32 @@ Declined: keeping the block and explaining it (the measured cost stays), and a c
 base for a running session (a second writer of the pin, which today only a session's first start writes, and a
 new seam).
 
+## D-035 — `/work-ticket`'s reviewers run at a stated tier and effort; a risky surface or a gate file reruns round 1 on the strongest tier at `xhigh` *(decided 2026-10-08)*
+
+The cold and security reviewers are agent definitions in `.claude/agents/`, each stating its model and effort, so
+a review no longer takes the settings of the session that built the change. The owner picked, with the measured
+cost in front of them:
+
+- **Classify and rerun, not the strongest tier on every review.** Round 1 runs on the standard tier at `medium`.
+  Both reviewers name the surfaces the diff touches (`process/designation.md` → Review). A named surface, or a
+  gate file in the diff, runs round 1 again on the strongest tier, and both runs' findings count.
+- **"The highest effort" is `xhigh`.** `max` stays for when `xhigh` has been shown to fall short, as it does for
+  a build.
+- **Rounds 2 and 3 use the definitions round 1 ended on** (the orchestrator session's advice, taken): one tier and
+  effort per pull request, since a verify reads a fix against the same guarantees.
+
+Why: a ticket built at `low` was reviewed at `low` (PR #352's run: both reviewers on the standard tier at `low`,
+the security review two requests long), and a thin review reads as "nothing found". Measured on that pull
+request, a 9-line diff, both round-1 reviews together, one run each, on Claude Code 2.1.293: the standard tier at
+`medium` $0.50 and 35 s; the strongest tier at `xhigh` $2.15 and about 13 minutes; at `max` $4.45 and about 16
+minutes. A definition's effort is honoured: a session at `low` started subagents that ran at `high`, `xhigh` and
+`max` as their definitions said. #327.
+
+Declined: the strongest tier on every bounded or feature review (four to nine times the cost and a quarter of an
+hour on a change to a static page), and `max` as the stated effort (twice `xhigh`, and it went past what the
+brief asked). What this leaves open: a reviewer can misname a surface, and nothing checks the name it gives; a
+script over the diff's paths is deferred until a real run shows a listed surface reviewed on the standard tier.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,

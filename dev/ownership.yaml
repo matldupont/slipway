@@ -85,6 +85,9 @@ paths:
     class: managed
   - glob: .claude/skills/**
     class: managed
+  # the reviewers /work-ticket starts by name: each states its model and effort (#327)
+  - glob: .claude/agents/**
+    class: managed
   - glob: process/**
     class: managed
   - glob: SLIPWAY.md

@@ -432,6 +432,75 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
 });
 
+// #327 (D-035): the reviewers /work-ticket starts are definitions that state a model and an effort. A definition
+// names its tier in a `Tier:` line and that tier's model by its short name; process/designation.md → Models is
+// still the one place a model id is written, and → Review the one place a review's effort is.
+const AGENTS = '.claude/agents';
+const REVIEWERS = ['cold-reviewer', 'cold-reviewer-strongest', 'security-reviewer', 'security-reviewer-strongest'];
+// Why a definition does not pass: an empty list when it has a model, an effort and a tier, and each is the one
+// process/designation.md gives. Fails closed: no `Tier:` line, an unknown tier and an unreadable table are findings.
+function reviewerFindings(md, designation) {
+  const found = [];
+  const front = md.match(/^---\n([\s\S]*?)\n---\n/)?.[1] ?? '';
+  const key = (k) => front.match(new RegExp(`^${k}:[ \\t]*(\\S.*?)[ \\t]*$`, 'm'))?.[1] ?? null;
+  const [model, effort] = [key('model'), key('effort')];
+  const tier = md.slice(front.length).match(/^Tier: (\S+)$/m)?.[1] ?? null;
+  if (!model) found.push('no model');
+  if (!effort) found.push('no effort');
+  if (!tier) found.push('no `Tier:` line');
+  const row = (table(section(designation, 'Models', 2) ?? '')?.rows ?? []).find((r) => plain(r[0]) === tier);
+  if (tier && !row) found.push(`tier \`${tier}\` is not a row of designation → Models`);
+  if (model && row && !plain(row[2]).startsWith(`claude-${model}-`)) found.push(`model \`${model}\` is not the ${tier} tier's (${plain(row[2])})`);
+  const review = (section(designation, 'Review', 2) ?? '').replace(/\s+/g, ' ');
+  const stated = review.match(new RegExp(`the ${tier} tier at \`([a-z]+)\``))?.[1] ?? null;
+  if (tier && row && !stated) found.push(`designation → Review states no effort for the ${tier} tier`);
+  if (effort && stated && effort !== stated) found.push(`effort \`${effort}\` is not the ${tier} tier's review effort (${stated})`);
+  return found;
+}
+
+test('each reviewer definition states a model and an effort, and both are the ones process/designation.md gives its tier', () => {
+  const designation = read('process/designation.md');
+  const files = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', AGENTS], { cwd: SRC, encoding: 'utf8' })
+    .split('\0').filter((f) => f && existsSync(join(SRC, f)));
+  assert.deepEqual(files.map((f) => f.slice(AGENTS.length + 1)).sort(), REVIEWERS.map((r) => `${r}.md`).sort(), `${AGENTS} holds the four reviewers and nothing else`);
+  for (const f of files) {
+    const md = read(f);
+    assert.deepEqual(reviewerFindings(md, designation), [], f);
+    assert.match(md, new RegExp(`^---\\nname: ${f.slice(AGENTS.length + 1, -3)}\\n`), `${f} must be named for its file`);
+    assert.equal(/-strongest\.md$/.test(f), /^Tier: strongest$/m.test(md), `${f}: only a -strongest definition is on the strongest tier`);
+  }
+  // The check can fail: a definition without each part, with another tier's model or effort, or with no tier.
+  const good = read(`${AGENTS}/cold-reviewer.md`);
+  const bad = (from, to) => reviewerFindings(good.replace(from, to), designation);
+  assert.deepEqual(bad(/^model: .*\n/m, ''), ['no model']);
+  assert.deepEqual(bad(/^effort: .*\n/m, ''), ['no effort']);
+  assert.deepEqual(bad(/^Tier: .*\n/m, ''), ['no `Tier:` line']);
+  assert.match(bad('model: sonnet', 'model: opus').join(), /model `opus` is not the standard tier's/);
+  assert.match(bad('effort: medium', 'effort: low').join(), /effort `low` is not the standard tier's review effort \(medium\)/);
+  assert.match(bad('Tier: standard', 'Tier: fastest').join(), /tier `fastest` is not a row/);
+  assert.match(reviewerFindings(good, designation.replace(/## Models[\s\S]*?(?=\n## )/, '## Models\n')).join(), /is not a row of designation → Models/);
+});
+
+test('work-ticket Phase 5 starts its reviewers by name and states a tier and an effort for rounds 1, 2 and 3', () => {
+  const flat = (t) => t.replace(/\s+/g, ' ');
+  const skill = flat(read(skillPath('work-ticket')));
+  assert.doesNotMatch(skill, /inherit the session/, 'no reviewer takes the session\'s model or effort');
+  const para = skill.match(/\*\*Tier and effort\.\*\* .*?never a general agent in its place\./)?.[0] ?? '';
+  assert.ok(para, 'Phase 5 has no **Tier and effort.** paragraph');
+  for (const r of REVIEWERS) assert.ok(para.includes(`\`${r}\``), `Phase 5 does not start \`${r}\` by name`);
+  assert.match(para, /Round 1: `cold-reviewer` and `security-reviewer`, the standard tier at `medium`/, 'round 1 states its tier and effort');
+  assert.match(para, /A surface either names, or a gate file in the diff .*?, runs round 1 again, on `cold-reviewer-strongest` and `security-reviewer-strongest`, the strongest tier at `xhigh`, and both runs' findings count/, 'the rerun states its trigger, tier and effort');
+  assert.match(para, /Rounds 2 and 3: the definitions round 1 ended on, at their tier and effort/, 'rounds 2 and 3 state their tier and effort');
+  assert.match(para, /asks for the line `Surfaces: /, 'each brief asks which surfaces the diff touches');
+  const review = flat(section(read('process/designation.md'), 'Review', 2));
+  assert.match(review, /A routine review, on every PR: the standard tier at `medium`, whatever the session runs at/, 'designation → Review states a routine review\'s effort');
+  assert.match(review, /or changes a gate file: the strongest tier at `xhigh`/, 'designation → Review states the strongest tier\'s effort and the gate-file trigger');
+  const lines = read('process/designation.md').split('\n').length - 1;
+  assert.ok(lines <= 120, `process/designation.md is ${lines} lines; 120 at most`);
+  assert.match(flat(section(read('process/cold-review.md'), 'How', 2)), /with the reviewers defined in `\.claude\/agents\/`/, 'cold-review → How says who reviews');
+  assert.match(read('dev/ownership.yaml'), /- glob: \.claude\/agents\/\*\*\n    class: managed\n/, 'a project receives the reviewer definitions');
+});
+
 // #314 (D-031): cold-review.md → How and → When to stop point at /work-ticket → Rounds 2 and 3, step 4 for what
 // is committed and when, neither keeps its earlier fix-it sentence, and How says whose the closing line is.
 test('process/cold-review.md points at work-ticket → Rounds 2 and 3, step 4 for what is committed and when', () => {
