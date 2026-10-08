@@ -28,7 +28,7 @@ catch-phrases, and the other half as an audit log. The rows below are as the rew
 - **Added (5):** rows 91 to 95, the list of what the command creates, which replaced the row of numbers.
 - **Row 64** names epic #312, which replaced #43 on 2026-10-07.
 
-**95 rows: 77 carry** (five are blocks), 18 are cut. The required facts below are unchanged: 22 lines, F1.1 to
+**96 rows: 78 carry** (five are blocks), 18 are cut. The required facts below are unchanged: 22 lines, F1.1 to
 F8.2.
 
 Verified against: 03cfb6a 2026-10-08 — the claims check of the rewrite, by a reviewer who wrote neither the page
@@ -192,6 +192,7 @@ Q8 why was it built
 | 93 | creates | `ci/checks/`: plain Node scripts that GitHub Actions runs on every pull request | `ci/checks/meta/`; `.github/workflows/ci.yml` (`on: pull_request`); D-004 |
 | 94 | creates | `.claude/settings.json`: hooks for Claude Code sessions; one runs `pnpm verify:fast` when the agent tries to finish, and sends it back once if that fails | row 22's sources; `process/harness/settings.json` |
 | 95 | creates | `pnpm status`: one command that reads the repo and prints which step you're on and what to do next | row 32's sources |
+| 96 | footer | © 2026 matldupont · MIT licensed, with "MIT licensed" linking to the licence | `LICENSE` line 3 ("Copyright (c) 2026 matldupont"); the owner's choice of line, #351 |
 
 ## Sentences that are not factual claims
 
