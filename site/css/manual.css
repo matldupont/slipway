@@ -124,7 +124,6 @@
     background: var(--signal); color: var(--ground-deep);
     align-items: baseline;
   }
-  .thesis .margin { font-family: var(--mono); font-size: var(--step--1); font-stretch: 87.5%; color: var(--ground-deep); }
   .thesis p { grid-column: text-start / wide-end; margin: 0; font-family: var(--display); font-size: var(--step-2); font-weight: 500; line-height: 1.2; max-width: 44ch; }
   .thesis em { font-style: normal; text-decoration: underline 3px var(--ground-deep); text-underline-offset: 0.18em; }
 
@@ -193,7 +192,6 @@
   .plate td { vertical-align: top; padding: 1rem 1.5rem 1rem 0; border-bottom: 1px solid var(--paper-rule); }
   .plate td:first-child { width: 42%; font-weight: 600; }
   .plate td code { color: var(--paper-ink); }
-  .plate .id { display: block; font-family: var(--mono); font-stretch: 87.5%; font-size: 0.75rem; font-weight: 600; color: var(--signal-deep); margin-top: 0.3rem; }
 
   /* ── The launch ramp (signature) ── */
   .ramp-wrap { grid-column: margin-start / wide-end; margin-top: 3.5rem; }
@@ -283,21 +281,14 @@
   .tree .what strong { color: var(--ink); font-weight: 600; }
   .outside { grid-column: text; }
 
-  .num--plate {
-    font-family: var(--mono); font-stretch: 87.5%; font-weight: 400;
-    font-size: var(--step--1); line-height: 1.4; padding-bottom: 0.9rem;
+  /* ── What the command creates: the new repo's top level, drawn as the tree in section 03 is ── */
+  .creates { padding-block: 0 3rem; }
+  .creates h2 {
+    grid-column: margin-start / wide-end;
+    font-size: var(--step-1); padding-top: 1.25rem; border-top: 1px solid var(--rule);
   }
-
-  /* ── In numbers: a thin band of figures between hanging rules ── */
-  .specs { padding-block: 0 2.5rem; }
-  .specs dl {
-    grid-column: margin-start / wide-end; margin: 0;
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-    border-top: 1px solid var(--rule);
-  }
-  .specs div { padding: 1.1rem 1.5rem 0 0; display: flex; gap: 0.9rem; align-items: baseline; }
-  .specs dt { font-family: var(--display); font-weight: 200; font-stretch: 50%; font-size: 3rem; line-height: 0.9; color: var(--signal); }
-  .specs dd { margin: 0; font-size: var(--step--1); color: var(--ink-2); max-width: 18ch; }
+  .creates-lede { grid-column: margin-start / wide-end; max-width: 62ch; color: var(--ink-2); margin: 0.75rem 0 0; }
+  .creates .tree { grid-column: margin-start / wide-end; margin-top: 1rem; }
 
   /* ── Colophon ── */
   .colophon {
@@ -320,7 +311,7 @@
     .start, .hero-notes { grid-column: text; }
     .hero-mark { grid-column: text-start / full-end; grid-row: 4; margin: 2.5rem 0 0; }
     .num { grid-row: auto; font-size: 3.5rem; margin-bottom: 1.5rem; max-width: 8rem; }
-    .thesis .margin, .unknown .margin { margin-bottom: 0.75rem; }
+    .unknown .margin { margin-bottom: 0.75rem; }
     .thesis p { grid-column: text; }
     .plate table, .plate thead, .plate tbody, .plate tr, .plate td { display: block; width: 100%; }
     .plate thead { position: absolute; left: -999px; }

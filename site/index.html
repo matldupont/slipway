@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>slipway</title>
-<meta name="description" content="AI changed how we build software. It didn’t change what users expect from it. Slipway is a project framework for Claude Code, by an engineer, for engineers: a path from a rough idea to a release that holds up, with checks that fail when a step gets skipped.">
+<meta name="description" content="Slipway is a project framework for Claude Code. One command sets up a repo with planning docs, eleven Claude Code skills and CI checks. The skills take you from a rough idea to a release, and the checks fail when a step gets skipped.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://useslipway.dev/">
 <meta property="og:title" content="slipway">
-<meta property="og:description" content="AI changed how we build software. It didn’t change what users expect from it. Slipway is a project framework for Claude Code, by an engineer, for engineers: a path from a rough idea to a release that holds up, with checks that fail when a step gets skipped.">
+<meta property="og:description" content="Slipway is a project framework for Claude Code. One command sets up a repo with planning docs, eleven Claude Code skills and CI checks. The skills take you from a rough idea to a release, and the checks fail when a step gets skipped.">
 <meta property="og:image" content="https://useslipway.dev/assets/og-card.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="color-scheme" content="dark">
@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..700&family=Martian+Mono:wdth,wght@75..112.5,100..800&family=Saira:wdth,wght@50..125,100..900&display=swap">
 <link rel="stylesheet" href="css/base.css?v=bf1a1fec">
-<link rel="stylesheet" href="css/manual.css?v=a4ae7fba">
+<link rel="stylesheet" href="css/manual.css?v=181e5050">
 </head>
 <body>
 <a class="skip" href="#problem">Skip to content</a>
@@ -37,8 +37,8 @@
   <section class="hero row" aria-labelledby="title">
     <div class="hero-copy">
       <p class="kicker">slipway · a project framework for Claude Code</p>
-      <h1 id="title">AI changed how we build software. <span>It didn’t change what users expect from it.</span></h1>
-      <p class="lede">Slipway is the framework I start every project from: a path from a rough idea to a release that holds up, with Claude Code doing the building and checks that fail when a step gets skipped. By an engineer, for engineers.</p>
+      <h1 id="title">The agent said “done.” <span>The tests were failing.</span></h1>
+      <p class="lede">Slipway is the project template I built after too many days like that. It takes you from a rough idea to a release, with checks that fail when you or the agent skip a step. It assumes an engineer is reading the diffs.</p>
     </div>
 
     <div class="start">
@@ -48,8 +48,6 @@
 
     <div class="hero-notes">
       <ul class="notes">
-        <li>Branch protection on a private repository needs a paid GitHub plan.</li>
-        <li>The first CI run on <code>main</code> is red on purpose.</li>
         <li>The command installs session hooks into the new project’s <code>.claude/settings.json</code>; <code>--no-harness</code> skips it.</li>
       </ul>
       <p class="trust">The package is <code>use-slipway</code>; <code>slipway</code> on npm is unrelated.</p>
@@ -61,58 +59,57 @@
     </figure>
   </section>
 
-  <section class="specs row" aria-label="In numbers">
-    <dl>
-      <div><dt>8</dt><dd>steps from a rough idea to a product people use</dd></div>
-      <div><dt>1</dt><dd>command tells you what to do next</dd></div>
-      <div><dt>1</dt><dd>milestone active at a time</dd></div>
-      <div><dt>0</dt><dd>packages to install for the checks to run</dd></div>
-    </dl>
+  <section class="creates row" aria-labelledby="h-creates">
+    <h2 id="h-creates">What the command creates</h2>
+    <p class="creates-lede">One command sets up a repo with planning docs, eleven Claude Code skills and CI checks. The skills take you through the work one step at a time.</p>
+    <ul class="tree">
+      <li><span class="path">docs/</span><span class="what"><strong>Templates for the product frame, the PRD and the milestones,</strong> with the questions to answer already written in.</span></li>
+      <li><span class="path">.claude/skills/</span><span class="what"><strong>Eleven skills, run as slash commands:</strong> <code>/kickoff</code>, <code>/log-feature</code>, <code>/work-ticket</code>, <code>/close-milestone</code> and seven more. Each does one step of the work the same way every time.</span></li>
+      <li><span class="path">ci/checks/</span><span class="what"><strong>Plain Node scripts</strong> that GitHub Actions runs on every pull request.</span></li>
+      <li><span class="path">.claude/settings.json</span><span class="what"><strong>Hooks for Claude Code sessions.</strong> One runs <code>pnpm verify:fast</code> when the agent tries to finish, and sends it back once if that fails.</span></li>
+      <li><span class="path">pnpm status</span><span class="what"><strong>One command</strong> that reads the repo and prints which step you’re on and what to do next.</span></li>
+    </ul>
   </section>
 
-  <section class="thesis row" aria-label="The one idea">
-    <span class="margin">The one idea</span>
+  <section class="thesis row" aria-label="The rule behind the checks">
     <p>A rule only counts if something <em>fails</em> when it’s broken.</p>
   </section>
 
   <section class="section section--major row" id="problem" aria-labelledby="h-problem">
     <span class="num" aria-hidden="true">01</span>
     <h2 id="h-problem">What problem does it solve?</h2>
-    <p class="answer">Agents made writing code cheap. They didn’t make it right, useful or coherent. That part is still engineering.</p>
+    <p class="answer">Coding agents write code quickly. They also tell you it works when it doesn’t, and build each feature as if the others didn’t exist.</p>
     <div class="prose">
       <p>I’ve been building products with coding agents since mid-2024. It went in four stages.</p>
       <ol class="seq">
-        <li><strong>No structure.</strong> One session at a time, no plan, no docs. The agent said “Done and pushed.” I found the bug; it said “You’re absolutely right.” Whole days went to circling the same bug. I couldn’t trust anything I saw on the screen.</li>
-        <li><strong>Tickets and CI.</strong> I started planning in issues: a defined scope, PRs small enough to review, and CI doing the checking. The quality I could expect changed overnight. None of it was new. It was ordinary engineering discipline, applied to agents.</li>
-        <li><strong>Skills.</strong> I wrote skills for the repeated work, like logging a bug, shaping a feature and working a ticket, and the results became consistent. I could run several tickets at once. Then I had a director’s problems: the same number calculated a different way in each feature, a drawer in one screen and a full page in the next. It felt fast. It wasn’t.</li>
-        <li><strong>Slipway.</strong> Everything that worked, with most of what I learned the hard way turned into a check that fails where one can catch it, and a dated rule where it can’t, so the next project starts at stage four.</li>
+        <li><strong>No structure.</strong> One session at a time, no plan, no docs. The agent said “Done and pushed.” I found the bug; it said “You’re absolutely right.” Whole days went to circling the same bug. I couldn’t trust anything on the screen.</li>
+        <li><strong>Tickets and CI.</strong> I started planning in issues, with a defined scope and PRs small enough to review, and let CI do the checking. Quality improved right away. None of this was new. It’s how teams already work.</li>
+        <li><strong>Skills.</strong> I wrote skills for the repeated work (logging a bug, shaping a feature, working a ticket) and the results got consistent enough to run several tickets at once. Then the product stopped agreeing with itself: the same number calculated a different way in each feature, a drawer on one screen and a full page on the next. Every PR passed review on its own. Nothing checked that they added up to one product.</li>
+        <li><strong>Slipway.</strong> I put what worked into one template. Most of what I learned the hard way is now either a check that fails or a written rule with a review date. A rule that nothing checks gets skipped, by me as much as by the agent. A new project starts here instead of at stage one.</li>
       </ol>
-      <p>The agent’s coding was never the bottleneck. Everything around it was: knowing what to build, proving it works, and keeping it coherent as it grows. Slipway is built to get you to a release that holds up sooner. It won’t get you to a one-shot MVP.</p>
+      <p>Writing the code was never the slow part. Deciding what to build, proving it works and keeping features consistent with each other were. That’s where slipway puts its effort. It won’t get you an MVP from one prompt.</p>
       <h3>Three questions before anything ships</h3>
       <ul class="hang">
-        <li><strong>Does it work?</strong> Tests the agent is sent back to when they fail, and CI that runs the same checks on every pull request.</li>
-        <li><strong>Is it useful?</strong> It answers the question the product exists to answer, for the person asking it.</li>
-        <li><strong>Does it feel right?</strong> It fits the product: the patterns it reuses, and where its numbers come from. Slipway doesn’t check this one yet; it’s next on the list below.</li>
+        <li><strong>Does it work?</strong> CI runs the same checks on every pull request. If they fail when the agent tries to finish, a hook sends it back once.</li>
+        <li><strong>Is it useful?</strong> Every feature has to name which part of the product’s main question it answers. <code>/kickoff</code> and <code>/log-feature</code> ask.</li>
+        <li><strong>Does it fit?</strong> It reuses the patterns the product already has, and gets its numbers from the same place. Slipway doesn’t check this yet. It’s next.</li>
       </ul>
     </div>
   </section>
 
   <section class="plate row" aria-labelledby="h-plate">
-    <span class="num num--plate" aria-hidden="true">Plate 1</span>
     <h2 id="h-plate">What goes wrong, and what catches it</h2>
-    <p class="caption">A test suite nobody runs has a 100% pass rate. Each row below is a check in CI or a hook in the agent’s session. The checks run on plain Node with nothing to install, so a broken dependency can’t quietly switch one off.</p>
+    <p class="caption">Each row is a script in CI or a hook in the Claude Code session. They run on plain Node with nothing to install, so a broken dependency can’t silently turn one off.</p>
     <table>
-      <thead><tr><th scope="col">What goes wrong</th><th scope="col">What fails instead</th></tr></thead>
+      <thead><tr><th scope="col">What goes wrong</th><th scope="col">What happens instead</th></tr></thead>
       <tbody>
-        <tr><td>The agent finishes its turn with tests failing</td><td>A hook runs <code>pnpm verify:fast</code> when the agent tries to stop. It’s sent back once with the failure, and told to say what is failing if it stops red anyway.</td></tr>
-        <tr><td>A check that can’t fail</td><td>Every check has a known-bad example it must go red on, for exactly the expected reasons.<span class="id">PC1</span></td></tr>
-        <tr><td>Tests or scripts that CI never runs</td><td>Every gated script has to be invoked by a CI workflow.<span class="id">W1</span></td></tr>
-        <tr><td>A pull request with no record of what was run</td><td>The PR description has to say what was verified, and link its issue or say why there is none.<span class="id">P1</span></td></tr>
-        <tr><td>“Make it faster” as the acceptance criterion</td><td>An issue that uses a bare adjective as a criterion is labelled <code>needs-shape</code>, and <code>/work-ticket</code> won’t start it.<span class="id">I1</span></td></tr>
-        <tr><td>A plan nobody argued with</td><td>The PRD needs a written review that names the exact version it read.<span class="id">R1</span></td></tr>
-        <tr><td>Building before anyone tested demand</td><td>No milestone past the first skeleton starts until each value risk has a result against a bar written first, or is settled by experience with what would prove it wrong written down.<span class="id">K1</span></td></tr>
-        <tr><td>A milestone that runs over</td><td>One milestone is active at a time. Past its time budget, it needs a written decision.<span class="id">MS1</span></td></tr>
-        <tr><td>A lesson nothing enforces</td><td>Every lesson names where it’s enforced or, if it isn’t built yet, the event that reopens it. The judgment ones get a review date, and fail when it passes.<span class="id">L1</span></td></tr>
+        <tr><td>The agent says it’s finished while tests fail</td><td>When the agent tries to end its turn, a hook runs <code>pnpm verify:fast</code>. If it fails, the agent gets the output and is sent back once. If it stops again, it’s told to say what is still failing.</td></tr>
+        <tr><td>Tests exist but CI never runs them</td><td>Every test, lint and build script has to be called by a CI workflow, or the build fails.</td></tr>
+        <tr><td>A check that can’t fail</td><td>Each check ships with deliberately broken examples. If it doesn’t fail on them, for exactly the expected reasons, the build fails.</td></tr>
+        <tr><td>A PR that doesn’t say how it was tested</td><td>The PR description has to say what was run, and link its issue or say why there isn’t one.</td></tr>
+        <tr><td>“Make it faster” as an acceptance criterion</td><td>An issue whose acceptance is a bare adjective gets labelled <code>needs-shape</code>, and <code>/work-ticket</code> won’t start on it.</td></tr>
+        <tr><td>A plan nobody pushed back on</td><td>The PRD needs a written review that names the exact version it read.</td></tr>
+        <tr><td>Building before checking anyone wants it</td><td>Nothing past the first thin version starts until each assumption the product depends on has a test result, against a pass mark written down first. Or a note that you’re relying on experience, with what would prove you wrong.</td></tr>
       </tbody>
     </table>
   </section>
@@ -120,32 +117,34 @@
   <section class="section section--tall row" id="workflow" aria-labelledby="h-workflow">
     <span class="num" aria-hidden="true">02</span>
     <h2 id="h-workflow">What will my workflow look like?</h2>
-    <p class="answer">Eight steps from a rough idea to something people use. You do the thinking; the agent does the building.</p>
+    <p class="answer">Eight steps in a fixed order. The early ones are mostly you deciding what to build. After that the agent writes most of the code and you review it.</p>
     <div class="prose">
-      <p>You never have to remember where you are. <code>pnpm status</code> reads the repo and prints which step you’re on and what to do next. Agent sessions get the same line when they start.</p>
+      <p>You don’t have to remember where you are. <code>pnpm status</code> reads the repo and prints the step you’re on and what to do next. Agent sessions get the same line when they start. Before <code>/bootstrap</code> has run, it starts like this:</p>
+      <p class="cmd">$ pnpm status
+**Next:** Step 0 (you + agent) — Bootstrap: run /bootstrap …</p>
     </div>
 
     <div class="ramp-wrap">
       <ol class="ramp">
-        <li style="--i:0"><span class="step">0</span><span class="name">Bootstrap</span><span class="who">you + agent · 1–2 h</span><p>One command makes the repo. <code>/bootstrap</code> adds the app and runs the probes that show each gate can go red, listing the ones you run yourself.</p></li>
-        <li style="--i:1"><span class="step">1</span><span class="name">Frame</span><span class="who">you · an afternoon</span><p><code>/kickoff</code> asks one question at a time: who reaches for this, when, and what it answers for them.</p></li>
-        <li style="--i:2"><span class="step">2</span><span class="name">Test the risk</span><span class="who">you · days to weeks</span><p>The cheapest test that could fail. Talk to people, do the job by hand. Write the bar first.</p></li>
-        <li style="--i:3"><span class="step">3</span><span class="name">Shape</span><span class="who">you · 1–2 days</span><p>A PRD, the decisions that are costly to change later, 3–5 milestones. Then a fresh session argues with it.</p></li>
-        <li style="--i:4"><span class="step">4</span><span class="name">Skeleton</span><span class="who">agent · days</span><p>The thinnest real path, deployed through CI with analytics and errors wired. Runs alongside step 2.</p></li>
-        <li style="--i:5"><span class="step">5</span><span class="name">Build</span><span class="who">agent · the rest of the milestone</span><p>One milestone at a time. Small PRs, each carrying its evidence.</p></li>
-        <li style="--i:6"><span class="step">6</span><span class="name">Close</span><span class="who">you · about 7 minutes to a pull request, once, on the strongest model</span><p>A retro written from the record, on the one run so far. Out of time? Cut scope and close.</p></li>
-        <li style="--i:7" class="launch"><span class="line" aria-hidden="true"></span><span class="step">7</span><span class="name">Learn</span><span class="who">you · weekly</span><p>Usage numbers and real conversations pick the next milestone.</p><span class="loop">→ back to 5</span></li>
+        <li style="--i:0"><span class="step">0</span><span class="name">Bootstrap</span><span class="who">you + agent · 1–2 h</span><p>One command creates the repo. <code>/bootstrap</code> adds the app, then runs each check against something broken to show it fails. It lists the ones you have to try yourself.</p></li>
+        <li style="--i:1"><span class="step">1</span><span class="name">Frame</span><span class="who">you · an afternoon</span><p><code>/kickoff</code> asks one question at a time: who uses this, when, and what question it answers for them.</p></li>
+        <li style="--i:2"><span class="step">2</span><span class="name">Test the risk</span><span class="who">you · days to weeks</span><p>Pick the assumption that sinks the product if it’s wrong. Write down what result counts as a pass. Then run the cheapest test: talk to people, or do the job by hand for a few of them.</p></li>
+        <li style="--i:3"><span class="step">3</span><span class="name">Shape</span><span class="who">you · 1–2 days</span><p>A PRD, the decisions that are expensive to change later, and 3–5 milestones. Then a fresh session reviews the plan and looks for holes.</p></li>
+        <li style="--i:4"><span class="step">4</span><span class="name">Skeleton</span><span class="who">agent · days</span><p>The thinnest version that works end to end, deployed through CI, with analytics and error tracking on. It can run alongside step 2.</p></li>
+        <li style="--i:5"><span class="step">5</span><span class="name">Build</span><span class="who">agent · the rest of the milestone</span><p>One milestone at a time, in small PRs. Each PR says what was run to test it.</p></li>
+        <li style="--i:6"><span class="step">6</span><span class="name">Close</span><span class="who">you · about 7 minutes to a pull request, timed once, on the strongest model</span><p><code>/close-milestone</code> writes a retro from the issues, PRs and git log. Out of time? Cut scope and close anyway.</p></li>
+        <li style="--i:7" class="launch"><span class="line" aria-hidden="true"></span><span class="step">7</span><span class="name">Learn</span><span class="who">you · weekly</span><p>Usage numbers and conversations with users decide the next milestone.</p><span class="loop">→ back to 5</span></li>
       </ol>
     </div>
 
     <div class="status-line prose">
       <h3>What most of my days look like</h3>
       <ol class="seq">
-        <li><strong>Take the next slice from the active milestone.</strong> Anything that isn’t in it goes to its “not doing” list or a later milestone, not into today’s change.</li>
-        <li><strong>Size it.</strong> One sentence and no new behaviour is a plain PR. One session’s work gets an issue with checkable acceptance. Bigger, or a new concept, gets a short feature doc with a contract first.</li>
-        <li><strong>Hand it to a fresh agent session.</strong> It looks for an existing helper before writing a new one. Once a project wires a duplication check, a ratchet never lets its number go up.</li>
-        <li><strong>When <code>pnpm verify:fast</code> is red, the agent is sent back once to fix it,</strong> and told to say what’s failing if it stops anyway.</li>
-        <li><strong>Review a PR that says what was verified.</strong> CI runs the same <code>pnpm verify</code> I do. There’s no second definition of green.</li>
+        <li><strong>Pick the next piece of the active milestone.</strong> Anything outside it goes on the milestone’s “not doing” list or into a later one, not into today’s change.</li>
+        <li><strong>Size it.</strong> A change you can describe in one sentence, with no new behaviour, is just a PR. One session of work gets an issue with acceptance criteria you can check. Anything bigger, or anything that adds a new concept, gets a short feature doc first.</li>
+        <li><strong>Give it to a fresh agent session.</strong> The agent looks for an existing helper before writing a new one.</li>
+        <li><strong>If <code>pnpm verify:fast</code> fails when the agent tries to finish, it’s sent back once</strong> with the output. If it stops anyway, it’s told to say what is failing.</li>
+        <li><strong>Review the PR.</strong> It says what was run. CI runs the same <code>pnpm verify</code> you run locally, so passing on your machine and passing in CI mean the same thing.</li>
       </ol>
     </div>
   </section>
@@ -159,43 +158,42 @@
     </div>
     <p class="tree-root" aria-hidden="true">acme/</p>
     <ul class="tree">
-      <li><span class="path">docs/product/FRAME.md</span><span class="what"><strong>The one question the product answers.</strong> Every feature serves it, or is listed as out.</span></li>
-      <li><span class="path">docs/product/evidence/</span><span class="what"><strong>Interview logs and risk-test results,</strong> each against a bar written before the test.</span></li>
-      <li><span class="path">docs/PRD.md</span><span class="what"><strong>The plan,</strong> every requirement with an ID that issues and milestones cite.</span></li>
-      <li><span class="path">docs/reviews/</span><span class="what"><strong>The review that argued with the plan,</strong> naming the exact version it read.</span></li>
-      <li><span class="path">decisions.md</span><span class="what"><strong>Why the stack, the data model and the money types</strong> are what they are, dated when decided rather than reconstructed later.</span></li>
-      <li><span class="path">docs/milestones/</span><span class="what"><strong>One active bet,</strong> with a time budget and kill criteria written before it started. Each closed one has a retro.</span></li>
-      <li><span class="path">docs/product/metrics.md</span><span class="what"><strong>The weekly numbers</strong> and what users said, which is where the next milestone comes from.</span></li>
-      <li><span class="path">process/lessons/</span><span class="what"><strong>Every rule the project has learned,</strong> each saying where it’s enforced or, if it isn’t built yet, the event that reopens it. The judgment ones carry a review date.</span></li>
+      <li><span class="path">docs/product/FRAME.md</span><span class="what"><strong>The one question the product answers.</strong> Every feature either helps answer it or is listed as out of scope.</span></li>
+      <li><span class="path">docs/product/evidence/</span><span class="what"><strong>Notes from interviews and tests,</strong> each with the pass mark written before the test ran.</span></li>
+      <li><span class="path">docs/PRD.md</span><span class="what"><strong>The plan.</strong> Every requirement has an ID that issues and milestones refer to.</span></li>
+      <li><span class="path">docs/reviews/</span><span class="what"><strong>The review that challenged the plan,</strong> and which version it read.</span></li>
+      <li><span class="path">decisions.md</span><span class="what"><strong>Why the stack, the data model and the money types</strong> are what they are, written on the day they were decided.</span></li>
+      <li><span class="path">docs/milestones/</span><span class="what"><strong>One active milestone,</strong> with a time budget and the conditions for abandoning it, both written before it started. Each finished one has a retro.</span></li>
+      <li><span class="path">docs/product/metrics.md</span><span class="what"><strong>Weekly numbers and what users said.</strong> The next milestone comes from here.</span></li>
+      <li><span class="path">process/lessons/</span><span class="what"><strong>Every rule the project has learned,</strong> each saying where it’s enforced or, if that isn’t built yet, what would reopen it. Rules that need judgment carry a review date.</span></li>
     </ul>
     <div class="outside prose">
       <h3>And outside the repo</h3>
       <ul class="hang">
-        <li><strong>A live URL from the walking skeleton on,</strong> with analytics checked to fire.</li>
-        <li><strong>Pull requests that say what was verified.</strong> The template also asks what wasn’t.</li>
+        <li><strong>A live URL from step 4 on,</strong> with analytics checked to fire.</li>
+        <li><strong>Pull requests that say what was tested.</strong> The template also asks what wasn’t.</li>
       </ul>
-      <p>The skeleton ships in days, and each milestone is a bet you’re allowed to lose.</p>
     </div>
   </section>
 
   <section class="section row" aria-labelledby="h-cost">
     <span class="num" aria-hidden="true">04</span>
     <h2 id="h-cost">What does it ask of me?</h2>
-    <p class="answer">It will ask you why. That’s the cost, and most of the point.</p>
+    <p class="answer">It makes you answer “why” before it builds. Expect an afternoon to a few weeks of that before real feature work starts.</p>
     <div class="prose">
-      <p>Before it builds anything, slipway asks what question the product answers and who’s asking. Before a feature, it asks which part of that question the feature serves. <code>/kickoff</code> asks one question at a time, so the reasoning ends up on paper instead of in your head.</p>
-      <p>That can feel like a barrier, and I’ve felt it too. Plenty of good features start as experience: you’re the user, or it’s table stakes in the domain. Nobody trusts a finance app with half its features. Some products can’t be tested by hand in a spreadsheet first. Slipway lets you settle a value risk by experience (it’s table stakes, you’re the user, or you know the domain), when you write down what would prove you wrong.</p>
-      <p>The time it takes: an afternoon to frame, days to weeks to test the riskiest assumption, a day or two to shape.</p>
+      <p>Before any code, <code>/kickoff</code> asks what question the product answers and who is asking it, one question at a time, and writes your answers into the repo. Before each feature, <code>/log-feature</code> asks which part of that question the feature serves.</p>
+      <p>This can feel like paperwork, and sometimes I’ve felt that too. Not every assumption needs a test. Sometimes you’re the user, or every product in the category has the feature, or you know the domain. Slipway accepts that: you can mark an assumption as settled by experience, as long as you write down what would prove you wrong.</p>
+      <p>The time it takes: an afternoon to frame the product, days to weeks to test the riskiest assumption, a day or two to plan.</p>
       <h3>Who it’s for</h3>
       <ul class="hang">
-        <li><strong>Engineers who own the build,</strong> alone or as the only engineer beside people who own the problem.</li>
-        <li><strong>Heads-down engineers who want a product mind next to them.</strong> It doesn’t replace technical judgement. It asks the questions a good product partner would.</li>
+        <li><strong>Engineers who own the build,</strong> alone or as the only engineer working with people who own the problem.</li>
+        <li><strong>Engineers who’d rather be in the code</strong> and want something beside them asking the product questions. It doesn’t replace your technical judgment.</li>
       </ul>
       <h3>Who it isn’t for</h3>
       <ul class="hang">
-        <li><strong>A weekend one-shot.</strong> If the goal is a demo by Sunday, this is the wrong tool.</li>
+        <li><strong>A weekend project.</strong> If the goal is a demo by Sunday, this is the wrong tool.</li>
         <li><strong>Building without an engineer.</strong> It assumes someone who can read the diff and argue with the plan.</li>
-        <li><strong>Collectors of skills.</strong> It isn’t a pack of hundreds of agents or a cast of role-play personas. It’s a short path, a dozen or so skills, and checks that fail.</li>
+        <li><strong>Anyone after a big library of agents or personas.</strong> Slipway is eleven skills, one path and a set of checks.</li>
       </ul>
     </div>
   </section>
@@ -203,19 +201,25 @@
   <section class="section section--short row" aria-labelledby="h-existing">
     <span class="num" aria-hidden="true">05</span>
     <h2 id="h-existing">Can I use it on a project I already have?</h2>
-    <p class="answer">Honest answer: not in one command yet. Today slipway starts new projects, and keeps them up to date.</p>
+    <p class="answer">Not yet. Today slipway starts new projects and keeps them updated. It can’t be added to an existing repo in one command.</p>
     <div class="prose">
-      <p><strong>Updates are built in.</strong> A project started from slipway takes newer versions with <code>/sync-slipway</code>. It prints a plan before it touches anything, works on its own branch, merges instead of overwriting a file you changed, and never edits the documents that are yours: the PRD, the frame, your decisions.</p>
-      <p><strong>Adopting an existing repo is a later bet, not under way.</strong> Adopting a project that didn’t start from slipway is filed, with its acceptance written, and not built. Help triaging an old backlog, which issues still hold against the code and which can go, is another later bet, ahead of it.</p>
-      <p><strong>Until then, pieces travel on their own.</strong> The checks are Node scripts that run with no install step. The lessons are plain Markdown files. The working rules for agents fit on one page. A check brings the helpers in <code>ci/checks/lib/</code> it imports, and slipway records none used outside a project that started from it.</p>
-      <p><strong>What you’re running.</strong> Each release is staged by CI from a version tag, and goes public only when I approve that exact package at npm with a second factor.</p>
-      <h3>What it expects</h3>
+      <p><strong>Updates.</strong> A project started from slipway takes new versions with <code>/sync-slipway</code>. It shows a plan first, works on its own branch, merges rather than overwrites files you changed, and never edits your own documents: the PRD, the frame, your decisions.</p>
+      <p><strong>Existing repos.</strong> Adopting a repo that didn’t start from slipway is planned and not started. The issue is written, with its acceptance criteria, and nothing is built. Help sorting an old backlog is also planned, and comes before it.</p>
+      <p><strong>Until then, you can copy pieces.</strong> The checks are Node scripts that run with no install step; take one along with the helpers it imports from <code>ci/checks/lib/</code>. The lessons are Markdown files. The agent rules fit on one page. I have no record of anyone doing this outside a project that started from slipway.</p>
+      <p><strong>How releases are published.</strong> CI stages each release from a version tag. It goes public only after I approve that exact package at npm with a second factor.</p>
+      <h3>What you need</h3>
       <ul class="hang">
         <li><strong>Node 24, pnpm 10, git and the GitHub CLI,</strong> logged in to a GitHub account.</li>
-        <li><strong>Claude Code</strong> for the agent side: the hooks, the skills, the session status.</li>
-        <li><strong>Questions the first time.</strong> Claude Code asks whether you trust the new folder, and lists the two permissions the project pre-approves: <code>git stash list</code> and <code>git stash apply</code>. <code>/bootstrap</code> then asks three things about your product, one at a time: which GitHub project board new issues go to (“none” skips the board), the timezone your deadlines are read in, and whether the product has money or other math that must be exact.</li>
-        <li><strong>GitHub</strong> for issue forms, required checks and Actions. Moving elsewhere means rewiring the checks tied to it.</li>
+        <li><strong>Claude Code,</strong> for the skills, the hooks and the session status.</li>
+        <li><strong>GitHub,</strong> for issue forms, required checks and Actions. On another host you’d rewire the checks that depend on it.</li>
+        <li><strong>A paid GitHub plan,</strong> if you want branch protection on a private repository.</li>
         <li><strong>A default stack you can change:</strong> TypeScript, React with Vite, Cloudflare. You confirm or replace it in week one, and write down why.</li>
+      </ul>
+      <h3>What the first run asks</h3>
+      <ul class="hang">
+        <li><strong>Claude Code asks whether you trust the new folder,</strong> and lists the two permissions the project pre-approves: <code>git stash list</code> and <code>git stash apply</code>.</li>
+        <li><strong><code>/bootstrap</code> asks three things about your product,</strong> one at a time: which GitHub project board new issues go to (“none” skips the board), the timezone your deadlines are read in, and whether the product has money or other math that must be exact.</li>
+        <li><strong>The first CI run on <code>main</code> is red on purpose.</strong></li>
       </ul>
     </div>
   </section>
@@ -223,30 +227,28 @@
   <section class="section section--short row" id="proven" aria-labelledby="h-proven">
     <span class="num" aria-hidden="true">06</span>
     <h2 id="h-proven">What’s proven so far?</h2>
-    <p class="answer">Slipway is being built in the open, by one engineer, and used on real work. Here’s where it stands.</p>
+    <p class="answer">One engineer builds it in the open and uses it on real work. Here’s what that has shown, and what it hasn’t.</p>
     <div class="prose">
       <h3>Shown working</h3>
       <ul class="hang">
-        <li><strong>Every check is seen failing before it’s trusted.</strong> Each has known-bad examples it must go red on, for exactly the expected reasons.</li>
-        <li><strong>Slipway’s own work goes through its lanes.</strong> Its feature docs, decisions, lessons and reviews are in the repo.</li>
-        <li><strong>A private product with one engineer, a web app, has used it.</strong> It ran the gates on real pull requests and issues, and its repository was protected by the setup script. <code>/kickoff</code> shaped its product, and the Stop hook caught a problem in a live session that became a fix in slipway (<a href="https://github.com/matldupont/slipway/pull/58">#58</a>).</li>
-        <li><strong>Seven real syncs, scored together.</strong> The bar is one command, three questions at most, and the owner able to say what changed. One sync met it. Two missed it. Four were not fully scored: for two, the record says nothing on whether the owner could say what changed, and for the other two it has no command count. Each is dated in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#exercised-on-a-real-project">SLIPWAY.md</a>.</li>
-        <li><strong>The first milestone close has run.</strong> On 2026-10-06, <code>/close-milestone</code> took about seven minutes from the start of the session to an open pull request, and about half an hour to merge, on the strongest model at high effort. It asked one question: which of the open issues belonged to the milestone. One run; nothing else has been timed.</li>
-        <li><strong>That project had built every item of its first milestone.</strong> The close ended it before its appetite ran out. Every gate line was shown by a CI run or a recorded result, and the retro was written from issues, pull requests and <code>git log</code>: the work that crept in, the rework and its cause, the code-health numbers, one lesson for the project.</li>
-        <li><strong>The first real close used a fix made that day.</strong> With no GitHub milestone, slipway’s close now lists the project’s open issues and asks which belong, instead of reporting nothing left (<a href="https://github.com/matldupont/slipway/issues/258">#258</a>, fixed in <a href="https://github.com/matldupont/slipway/pull/264">#264</a> on 2026-10-06, before the close ran). It also found a bug: it marks a feature doc shipped whole even when one section still owes a check (<a href="https://github.com/matldupont/slipway/issues/284">#284</a>, open).</li>
+        <li><strong>Every check has been seen failing.</strong> Each has deliberately broken examples it must fail on, for exactly the expected reasons.</li>
+        <li><strong>Slipway is built with its own process.</strong> Its feature docs, decisions, lessons and reviews are in the repo.</li>
+        <li><strong>One real product has used it:</strong> a private web app with one engineer. <code>/kickoff</code> shaped the product, the checks ran on its real pull requests and issues, and the setup script protected its repository. The hook that runs when the agent stops caught a problem in a live session that became a fix in slipway (<a href="https://github.com/matldupont/slipway/pull/58">#58</a>).</li>
+        <li><strong>Seven updates, one that met the target.</strong> The target is one command, three questions at most, and the owner able to say what changed. One sync met it, two missed, and four weren’t recorded fully enough to score. Each is dated in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#exercised-on-a-real-project">SLIPWAY.md</a>.</li>
+        <li><strong>One milestone closed.</strong> On 2026-10-06, <code>/close-milestone</code> took about seven minutes to open a pull request and about half an hour to merge, and asked one question. Every item planned for the milestone had been built, and the retro was written from issues, pull requests and <code>git log</code>. Timed once, on the strongest model at high effort. It also turned up a bug: a feature doc is marked shipped whole even when one section still owes a check (<a href="https://github.com/matldupont/slipway/issues/284">#284</a>, open).</li>
       </ul>
       <h3>Not proven yet</h3>
       <p>Each line is dated 2026-10-07, in <a href="https://github.com/matldupont/slipway/blob/main/SLIPWAY.md#not-verified-here--read-as-unknown">SLIPWAY.md</a>, under “Not verified here — read as unknown”.</p>
       <ul class="hang">
-        <li><strong>The agent hooks and approval prompts in a live session.</strong> The Stop hook has only been seen blocking on a missing install, not refusing on a failing test. The approval prompts haven’t been seen in a live session, and the other hooks and the session-start status have been seen only on sample input.</li>
-        <li><strong>A close that isn’t the first one’s path.</strong> A milestone ended as killed, extended or cut; a project with a GitHub milestone; a close that changes the PRD.</li>
-        <li><strong>The skills’ settings on a real project.</strong> This repository holds no record of the intake and ticket skills’ runs there.</li>
-        <li><strong>A limit of the issue check.</strong> It catches adjectives, not criteria that can’t fail: “returns HTTP 200” passes.</li>
+        <li><strong>Hooks in a live session.</strong> The hook that runs when the agent stops has only been seen blocking for a missing install, not for a failing test. The approval prompts haven’t been seen in a live session. The other hooks and the session-start status have only been seen on sample input.</li>
+        <li><strong>Any other kind of close.</strong> A milestone that was abandoned, extended or cut short; a project that uses GitHub milestones; a close that changes the PRD.</li>
+        <li><strong>The intake and ticket skills on a real project.</strong> This repository has no record of how those runs went.</li>
+        <li><strong>The issue check has a limit.</strong> It catches adjectives. It doesn’t catch a criterion that can’t fail: “returns HTTP 200” passes.</li>
       </ul>
       <h3>Next</h3>
       <ul class="hang">
-        <li><strong>A “fit” check for features</strong> (the patterns a feature reuses, where its numbers come from), and a pause at each milestone to reorganise what should be shared.</li>
-        <li>The whole plan, in order, is <a href="https://github.com/matldupont/slipway/issues/43">epic #43</a>.</li>
+        <li><strong>A check that a feature fits the product</strong> (the patterns it reuses, where its numbers come from), and a pause at each milestone to pull shared code together.</li>
+        <li>The whole plan, in order, is <a href="https://github.com/matldupont/slipway/issues/312">epic #312</a>.</li>
       </ul>
     </div>
   </section>
@@ -255,9 +257,9 @@
     <span class="num" aria-hidden="true">07</span>
     <h2 id="h-why">Why I built this</h2>
     <p>I’ve been building software for twenty years: mining, web hosting, e-commerce, beauty, identity and fine-grained authorization, restaurants, and now healthcare. I’m a staff engineer, and most of what I know I learned the hard way.</p>
-    <p>Agents have changed how I work. They didn’t change what the people using my software expect: that it works, that it’s useful, and that it feels right.</p>
-    <p>Three values run through how I lead engineering, and through slipway. Quality: gates that can actually fail. Transparency: every PR says what was verified, and this page says what isn’t proven. Integrity: you never weaken a gate to get past it.</p>
-    <p>Refactoring has never been cheaper, and debt still compounds. Slipway is how I stay deliberate at agent speed. It’s what I start every project from now.</p>
+    <p>Agents made code cheap to write. They didn’t make it correct, and the people using what I build still expect what they always did: that it works, that it’s useful, and that it fits together.</p>
+    <p>Quality, transparency and integrity are the values I lead engineering by. In slipway they mean checks that can fail, pull requests that say what was tested, a page that says what isn’t proven, and never weakening a check to get past it.</p>
+    <p>Agents make rewriting cheap, which makes it tempting to skip the thinking. Slipway is how I keep doing the thinking. I start every project from it now.</p>
     <p class="sig">— Mat Dupont</p>
   </section>
 </main>
