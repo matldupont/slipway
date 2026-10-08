@@ -246,6 +246,13 @@ Rules the file keeps:
   `scripts/release.test.mjs` runs W1 on a copy of the workflows to hold that, and still requires of `ci.yml` what
   W1 does not read: both triggers with the push on `main`, N1 before `pnpm meta`, nothing after `pnpm meta` on
   its line, and a meta job with no `if:` or `continue-on-error`.
+- `scripts/release-workflow.mjs` says what `release.yml` must be, and `scripts/release.test.mjs` holds the file to it
+  (#240). It reads the file through the one reader of workflow files (D-033), never by line: a file that reader
+  refuses fails. The rules above are reported by name; then the whole file is compared with one expected tree, so
+  a key, an item or a value the test does not know fails with a line (`at or under line N`, or `after line N`
+  where nothing is written under a key). Every text is plain and every block is block style, `tags: ['v*']`
+  excepted; an action is its exact name at 40 lowercase hex; `publish` runs exactly its 3 commands. So an edit
+  to `release.yml` comes with the matching edit to the expected tree, and the owner reads both.
 
 ### Owner steps (outside the repository; a session never does these)
 
@@ -305,6 +312,11 @@ What the release defends, and against whom (a review stops here, per `process/co
 - Also for the `0.1.0-rc.1` run: `actions/setup-node` with `registry-url` writes an `.npmrc` that names
   `NODE_AUTH_TOKEN`, which this workflow never sets. If npm reads the unset variable before trying its OIDC
   identity, the stage fails and nothing is staged; no secret is involved either way.
+- The workflow test (#240) holds the file as the reader gives it, not as GitHub reads it: where the two differ on
+  a text both read, D-033's stated limit applies (its known gaps are #339). It does not read comments, and it
+  holds that an action is pinned by a sha, not which commit the sha names: the owner's reading of the diff does.
+  A quoted, explicit or escaped key is read to its meaning and not refused: the rule it breaks is what fails.
+  The list of spellings the test covers was rebuilt for #240; #237's second review round recorded none.
 - The summary step is a pipe, and the shell reports only its last command: a failed `npm pack` fails the step
   because `release.mjs --summary` refuses input that is not npm's list.
 - The settings in the owner steps live on npmjs.com and GitHub; no file in the repository can enforce or check
@@ -479,3 +491,4 @@ own case (`process/designation.md`).
 - 2026-10-05 · ADDED · the feature doc and D-027 · #91
 - 2026-10-05 · MODIFIED · the workflow block is the file as written: actions pinned by commit sha, job comments on their own lines, no token left by checkout; `release.mjs` imports no repository file · #232
 - 2026-10-05 · MODIFIED · step 2 built: a target no release tag names reads `commit <sha>, not a release`; `--json` carries `alreadyPast` · #231
+- 2026-10-07 · MODIFIED · the workflow test reads `release.yml` through the workflow reader and holds the whole file to one expected tree; `scripts/release-workflow.mjs` added · #240
