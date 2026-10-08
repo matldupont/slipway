@@ -19,10 +19,10 @@ export const PUBLISH_RUNS = [
   'npm stage publish --ignore-scripts --tag "$LABEL"',
 ];
 
-// In EXPECTED a string is that text, written plainly on one line; an object is a block of exactly those keys, in
+// In EXPECTED a string is that text, written plainly (not quoted, not a block text); an object is a block of exactly those keys, in
 // that order; an array is a block list of exactly those items. A function is one of the two forms below.
 const pinned = (action) => (n) => (n.kind === 'scalar' && n.plain && n.value.startsWith(`${action}@`) && SHA.test(n.value.slice(action.length + 1)) ? null : `is not ${action} at a 40-character commit sha`);
-const tags = (n) => (n.kind === 'list' && n.flow && n.items.length === 1 && n.items[0].kind === 'scalar' && !n.items[0].plain && !n.items[0].literal && n.items[0].value === 'v*' ? null : "is not ['v*']");
+const tags = (n) => (n.kind === 'list' && n.flow && n.items.length === 1 && !n.items[0].plain && n.items[0].value === 'v*' ? null : "is not ['v*']");
 const checkout = (extra) => ({ uses: pinned('actions/checkout'), with: { ref: TAKEN, ...extra, 'persist-credentials': 'false' } });
 
 const EXPECTED = {
@@ -60,8 +60,11 @@ const EXPECTED = {
 };
 
 // Every way `root` is not `expected`, each with a line. The reader gives a line for a text, none for a key: so
-// `at or under line N` is the first text of what differs (a key holding a block starts one line above it), and
-// `after line N` is the last text read before a key with nothing under it, or before something missing.
+// `at or under line N` names the first text of what differs (its key is on that line, or above it when the key
+// holds a block), and `after line N` the last text read before a key with nothing under it; something missing
+// is reported after the last text of the block it is missing from.
+// A key or a value of the file is shown with anything but printable ASCII written as its code.
+export const shown = (s) => s.replace(/[^\x20-\x7e]/gu, (c) => `\\u{${c.codePointAt(0).toString(16)}}`);
 function differences(root, expected) {
   const out = [];
   let last = 0;
@@ -88,7 +91,7 @@ function differences(root, expected) {
     }
     if (n.kind !== 'map' || n.flow) return say(n, path, 'is not a block of keys');
     const known = Object.keys(want);
-    const under = (k) => (path ? `${path}.${k}` : k);
+    const under = (k) => (path ? `${path}.${shown(k)}` : shown(k));
     for (const [k, v] of n.entries) {
       if (known.includes(k)) walk(v, want[k], under(k));
       else say(v, under(k), 'is a key this test does not know');
@@ -110,6 +113,9 @@ export function workflowProblems(text) {
   const holders = [];
   const get = (node, ...keys) => keys.reduce((n, k) => (n?.kind === 'map' ? n.entries.get(k) : undefined), node);
   const textOf = (n) => (n?.kind === 'scalar' ? n.value : undefined);
+  // Each job is read under its own name; what is not a block of jobs is left to the comparison below.
+  const jobsNode = get(root, 'jobs');
+  const jobs = jobsNode?.kind === 'map' ? jobsNode.entries : new Map();
   const visit = (n, where) => {
     if (n.kind === 'scalar') return;
     if (where !== 'the top level' && n.flow) problems.push(`${where}: flow style, which this test does not allow`);
@@ -117,21 +123,20 @@ export function workflowProblems(text) {
     for (const [k, v] of n.entries) {
       // `permissions: write-all` and `{ id-token: write }` grant the identity without the key this looks for.
       if (k === 'permissions' && (v.kind !== 'map' || v.flow)) problems.push(`${where}: permissions is not a block mapping`);
-      if (k === 'id-token' && textOf(v) !== 'none') holders.push(where);
+      if (k === 'id-token') holders.push(where);
       if (k === 'shell' && textOf(v)?.includes('${{')) problems.push(`${where}: a shell: line holds \${{`);
       if (k === 'run' && textOf(v)?.includes('${{')) problems.push(`${where}: a run: line holds \${{`);
       if (k === 'uses') {
-        const action = textOf(v) ?? '';
+        const action = shown(textOf(v) ?? '');
         if (!SHA.test(action.slice(action.lastIndexOf('@') + 1)) || !action.includes('@')) problems.push(`${where}: ${action} is not pinned by a 40-character commit sha`);
         if (where === 'publish' && !action.startsWith('actions/')) problems.push(`publish: ${action} is not one of GitHub's own actions`);
       }
-      if (n === root && k === 'jobs' && v.kind === 'map') for (const [name, job] of v.entries) visit(job, name);
-      else visit(v, where);
+      if (v !== jobsNode) visit(v, where);
     }
   };
   visit(root, 'the top level');
+  for (const [name, job] of jobs) visit(job, shown(name));
   // The rest of what holds a run back (dev/features/release.md, "Rules the file keeps").
-  const jobs = get(root, 'jobs')?.kind === 'map' ? get(root, 'jobs').entries : new Map();
   const steps = (job) => (get(job, 'steps')?.kind === 'list' ? get(job, 'steps').items : []);
   const check = jobs.get('check');
   const publish = jobs.get('publish');
@@ -141,15 +146,15 @@ export function workflowProblems(text) {
   const runs = steps(publish).map((s) => textOf(get(s, 'run'))).filter((r) => r !== undefined);
   const lines = runs.flatMap((r) => r.split('\n'));
   if (lines.some((l) => /\bpnpm\b/.test(l))) problems.push('publish runs pnpm: code under test would hold the identity');
-  const npm = lines.filter((l) => /\bnpm\s+(?!--)/.test(l));
+  const npm = lines.filter((l) => /\bnpm\s/.test(l));
   if (npm.some((l) => /\bnpm\s+publish\b/.test(l)) || !npm.some((l) => /\bnpm stage publish\b/.test(l))) problems.push('publish does not stage: it runs npm publish, or no npm stage publish');
   if (npm.some((l) => !l.includes('--ignore-scripts'))) problems.push('publish runs npm without --ignore-scripts');
   if (JSON.stringify(runs) !== JSON.stringify(PUBLISH_RUNS)) problems.push('publish does not run exactly its 3 commands');
   for (const [name, job] of jobs) {
     for (const step of steps(job)) {
       if (!textOf(get(step, 'uses'))?.startsWith('actions/checkout@')) continue;
-      if (textOf(get(step, 'with', 'ref')) !== TAKEN) problems.push(`${name}: a checkout does not take github.sha`);
-      if (textOf(get(step, 'with', 'persist-credentials')) !== 'false') problems.push(`${name}: a checkout leaves GitHub's token in .git/config`);
+      if (textOf(get(step, 'with', 'ref')) !== TAKEN) problems.push(`${shown(name)}: a checkout does not take github.sha`);
+      if (textOf(get(step, 'with', 'persist-credentials')) !== 'false') problems.push(`${shown(name)}: a checkout leaves GitHub's token in .git/config`);
     }
   }
   if (holders.join() !== 'publish') problems.push(`id-token is held by ${holders.join(', ') || 'nothing'}, not by publish alone`);

@@ -175,9 +175,8 @@ test('W1 fails a copy of the workflows whose ci.yml no longer runs pnpm meta, wh
   assert.match(cut.stdout, /check:w1-declared-vs-invoked\.mjs: the check exists, but no CI workflow runs it on a pull request or a push to a branch/);
 });
 
-// release.yml, read by scripts/release-workflow.mjs (#240). Every workflow text below is a copy of the file with
-// one thing changed, and inert: none is run. `broken` holds that the change is reported, by its rule's name
-// before any line the allow-list reports.
+// release.yml, read by scripts/release-workflow.mjs (#240). Every text below is a copy of the file with one thing
+// changed, and inert: none is run. `broken`: the change is reported, by its rule's name before any line.
 const yml = readFileSync(join(SRC, WORKFLOW), 'utf8');
 const LINED = /^(at or under|after) line \d+: /;
 const broken = (from, to, expected) => {
@@ -188,9 +187,9 @@ const broken = (from, to, expected) => {
   const lined = found.findIndex((p) => LINED.test(p));
   assert.ok(LINED.test(found[at]) || lined < 0 || at < lined, `a line came before the rule's name: ${JSON.stringify(found)}`);
 };
-const only = (from, to, problem) => {
+const only = (from, to, ...problems) => {
   assert.ok(yml.includes(from), `release.yml no longer holds ${JSON.stringify(from)}`);
-  assert.deepEqual(workflowProblems(yml.replace(from, to)), [problem]);
+  assert.deepEqual(workflowProblems(yml.replace(from, to)), problems);
 };
 const CHECK_JOB = '    runs-on: ubuntu-latest\n';
 
@@ -198,7 +197,6 @@ test('release.yml: only publish holds the identity, every action is pinned by sh
   assert.deepEqual(workflowProblems(yml), []);
   assert.ok(/^ {6}id-token: write$/m.test(yml) && (yml.match(/uses:/g) ?? []).length >= 5 && (yml.match(/run:/g) ?? []).length >= 6, 'the reader has something to read');
 
-  // Each rule, broken on a copy: the reader must say so.
   const sha = 'a'.repeat(40);
   broken(CHECK_JOB, `${CHECK_JOB}    permissions:\n      id-token: write\n`, /held by check, publish/);
   broken('permissions:\n  contents: read\n', 'permissions:\n  contents: read\n  id-token: write\n', /held by the top level, publish/);
@@ -206,6 +204,7 @@ test('release.yml: only publish holds the identity, every action is pinned by sh
   broken(/actions\/checkout@[0-9a-f]{40}/.exec(yml)[0], 'actions/checkout@v7', /check: actions\/checkout@v7 is not pinned/);
   broken(/actions\/setup-node@[0-9a-f]{40}/.exec(yml)[0], `actions/setup-node@${sha.slice(1)}`, /is not pinned/);
   broken(/actions\/setup-node@[0-9a-f]{40}/.exec(yml)[0], `actions/setup-node@${sha.toUpperCase()}`, /is not pinned/);
+  broken(/pnpm\/action-setup@[0-9a-f]{40}/.exec(yml)[0], sha, /check: a{40} is not pinned/);
   broken('run: pnpm meta', 'run: echo ${{ github.ref_name }}', /check: a run: line holds/);
   broken('run: pnpm meta', 'run: |\n          pnpm meta\n          # ${{ github.event.head_commit.message }}', /check: a run: line holds/);
   broken('run: node scripts/release.mjs "$TAG"', 'run: node scripts/release.mjs "${{ github.ref_name }}"', /publish: a run: line holds/);
@@ -220,7 +219,10 @@ test('release.yml: only publish holds the identity, every action is pinned by sh
   broken('    environment: npm\n', '    environment: npm\n    if: always()\n', /publish has an if: of its own/);
   broken('      - name: Stage the release\n', '      - run: pnpm meta\n      - name: Stage the release\n', /publish runs pnpm/);
   broken('npm stage publish --ignore-scripts', 'npm publish --ignore-scripts', /publish does not stage/);
+  broken('      - name: Stage the release\n', '      - run: npm publish --ignore-scripts\n      - name: Stage the release\n', /publish does not stage/);
+  broken('npm stage publish --ignore-scripts', 'npm stage --ignore-scripts', /publish does not stage/);
   broken('npm stage publish --ignore-scripts', 'npm stage publish', /publish runs npm without --ignore-scripts/);
+  broken(`        run: ${PUBLISH_RUNS[2]}\n`, `        run: |\n          ${PUBLISH_RUNS[2]}\n          npm pack\n`, /publish runs npm without --ignore-scripts/);
   broken('npm pack --dry-run --json --ignore-scripts', 'npm pack --dry-run --json', /publish runs npm without --ignore-scripts/);
   broken('          ref: ${{ github.sha }}\n          fetch-depth: 0\n', '          fetch-depth: 0\n', /check: a checkout does not take github.sha/);
   broken('          ref: ${{ github.sha }}\n          persist-credentials', '          ref: ${{ github.ref }}\n          persist-credentials', /publish: a checkout does not take github.sha/);
@@ -233,7 +235,6 @@ test('release.yml: the publishing job runs exactly its 3 commands', () => {
   assert.equal(PUBLISH_RUNS.length, 3);
   for (const run of PUBLISH_RUNS) assert.ok(yml.includes(`        run: ${run}\n`), run);
   const exactly = /publish does not run exactly its 3 commands/;
-  // one more, a changed flag, one fewer, another order
   broken('      - name: Stage the release\n', '      - run: echo done\n      - name: Stage the release\n', exactly);
   broken('--ignore-scripts --tag "$LABEL"', '--ignore-scripts --tag "$LABEL" --access public', exactly);
   broken('--dry-run --json --ignore-scripts', '--json --dry-run --ignore-scripts', exactly);
@@ -242,14 +243,23 @@ test('release.yml: the publishing job runs exactly its 3 commands', () => {
 });
 
 test('release.yml is an allow-list: a key, an item or a value this does not know fails with its line', () => {
-  // The three forms a line takes: the key's own line, the first line under a key holding a block, and the last
-  // line read before a key with nothing under it.
+  // A line is the key's own, the first text under a key holding a block, or the last read before an empty key.
   only('    environment: npm\n', '    environment: npm\n    timeout-minutes: 5\n', 'at or under line 42: jobs.publish.timeout-minutes is a key this test does not know');
   only('    environment: npm\n', '    environment: npm\n    env:\n      A: b\n', 'at or under line 43: jobs.publish.env is a key this test does not know');
   only('    environment: npm\n', '    environment: npm\n    defaults:\n', 'after line 41: jobs.publish.defaults is a key this test does not know');
   only('          node-version: 24\n', '          node-version: 22\n', 'at or under line 32: jobs.check.steps[3].with.node-version is not the plain text "24"');
   only('      - run: pnpm meta\n', '      - run: pnpm meta\n      - run: echo done\n', 'at or under line 36: jobs.check.steps[6] is an item this test does not know');
-  only("tags: ['v*']", "tags: ['v*', 'w*']", "at or under line 7: on.push.tags is not ['v*']");
+  // after what was reported, after a block that was read, and after a form that passed
+  only('    environment: npm\n', '    environment: npm\n    env:\n      A: b\n    defaults:\n', 'at or under line 43: jobs.publish.env is a key this test does not know', 'after line 43: jobs.publish.defaults is a key this test does not know');
+  only('      id-token: write\n', '      id-token: write\n    defaults:\n', 'after line 44: jobs.publish.defaults is a key this test does not know');
+  only('      - uses: actions/setup-node', '        with:\n      - uses: actions/setup-node', 'after line 29: jobs.check.steps[2].with is a key this test does not know');
+  for (const [to, line] of [["['v*', 'w*']", 7], ["['w*']", 7], ['[v*]', 7], ["\n      - 'v*'", 8], ['{ v: x }', 7]]) only("tags: ['v*']", `tags: ${to}`, `at or under line ${line}: on.push.tags is not ['v*']`);
+  const setup = /pnpm\/action-setup@[0-9a-f]{40}/.exec(yml)[0];
+  for (const to of [setup.replace('pnpm/', 'someone/'), `"${setup}"`, setup.replace('@', '@v6@')]) only(setup, to, 'at or under line 29: jobs.check.steps[2].uses is not pnpm/action-setup at a 40-character commit sha');
+  const steps = yml.slice(yml.lastIndexOf('    steps:\n'));
+  broken(steps, '    steps: none\n', /^at or under line 45: jobs\.publish\.steps is not a block list$/);
+  broken(steps, '    steps: [{ run: x }]\n', /^at or under line 45: jobs\.publish\.steps is not a block list$/);
+  only('    environment: npm\n', '    environment: npm\n    "a\\u202Eb": c\n', 'at or under line 42: jobs.publish.a\\u{202e}b is a key this test does not know');
   only('  cancel-in-progress: false\n', '  cancel-in-progress: true\n', 'at or under line 14: concurrency.cancel-in-progress is not the plain text "false"');
   only('          package-manager-cache: false\n', '', 'after line 53: jobs.publish.steps[1].with.package-manager-cache is missing');
   only('name: release\n', 'name: release\nenv:\n  A: b\n', 'at or under line 3: env is a key this test does not know');
@@ -275,7 +285,6 @@ test('release.yml: a spelling the reader marks or refuses is refused where it st
 
 test('release.yml: a spelling the reader reads to its meaning breaks the same rule as the plain one', () => {
   const held = /^id-token is held by check, publish, not by publish alone$/;
-  // a value on the next line, a quoted key, an explicit key, a key written with an escape
   broken(CHECK_JOB, `${CHECK_JOB}    permissions:\n      id-token:\n        write\n`, held);
   broken(CHECK_JOB, `${CHECK_JOB}    "permissions":\n      'id-token': write\n`, held);
   broken(CHECK_JOB, `${CHECK_JOB}    ? permissions\n    : ? id-token\n      : write\n`, held);
