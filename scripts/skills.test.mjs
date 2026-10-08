@@ -415,8 +415,8 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
 });
 
-// #314 (D-031): cold-review.md says nothing of its own about what is committed for a finding; How and When to
-// stop point at /work-ticket → Rounds 2 and 3, step 4, and How says who owes the section's closing line.
+// #314 (D-031): cold-review.md → How and → When to stop point at /work-ticket → Rounds 2 and 3, step 4 for what
+// is committed and when, neither keeps its earlier fix-it sentence, and How says whose the closing line is.
 test('process/cold-review.md points at work-ticket → Rounds 2 and 3, step 4 for what is committed and when', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const cold = read('process/cold-review.md');
@@ -425,9 +425,10 @@ test('process/cold-review.md points at work-ticket → Rounds 2 and 3, step 4 fo
   const fixAfter = /fixed in the diff or explicitly waived|fixed in the same diff/i;
   assert.match(how, /What is committed for a finding, and when, is `\/work-ticket`'s to say \(`\.claude\/skills\/work-ticket\/SKILL\.md` → Rounds 2 and 3, step 4; D-031\)/, 'How must point at the rule');
   assert.doesNotMatch(how, fixAfter, 'How must not say to fix a finding without saying when');
-  assert.match(stop, /is Rounds 2 and 3, step 4 of the same skill \(L-68, D-031\)/, 'When to stop must point at the rule');
+  assert.match(how, /Each finding's outcome is written there: fixed, waived, a known limitation or a follow-up\./, 'How must keep a written outcome for every finding');
+  assert.match(stop, /What becomes of anything else is that skill's Which findings count; what is committed for it, and when, is its Rounds 2 and 3, step 4 \(L-68, D-031\)/, 'When to stop must point at the rule');
   assert.doesNotMatch(stop, fixAfter, 'When to stop must not say to fix a finding without saying when');
-  assert.match(how, /is owed by whoever puts the section in the pull request: `\/work-ticket` writes it \(Phase 6\)\. A `\/pr-review` cold review names the one head it read and never writes that line/, 'How must say who owes the closing line, and that /pr-review does not write it');
+  assert.match(how, /The line that closes the section, naming the last reviewed head and the pull request's head, is `\/work-ticket`'s only \(Phase 6\)\. A `\/pr-review` cold review names the one head it read and never writes that line; a pull request that carries one has no such line\./, 'How must say the closing line is /work-ticket\'s only, and that a /pr-review cold review has none');
 });
 
 // #283 (D-031): /work-ticket → Rounds 2 and 3 states the rule, its end of review and its one exception; neither
