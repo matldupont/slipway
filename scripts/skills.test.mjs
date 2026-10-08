@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -129,19 +129,36 @@ for (const s of present) {
   }
 }
 
-// Every markdown file /pr-review ships, not only its SKILL.md: its references carry commands too.
-const reviewFiles = (exts) => {
-  const out = [];
-  const walk = (rel) => {
-    for (const e of readdirSync(join(SRC, rel), { withFileTypes: true })) {
-      const p = `${rel}/${e.name}`;
-      if (e.isDirectory()) walk(p);
-      else if (exts.some((x) => e.name.endsWith(x))) out.push(p);
-    }
-  };
-  if (existsSync(join(SRC, `.claude/skills/${REVIEW}`))) walk(`.claude/skills/${REVIEW}`);
-  return out;
-};
+// Every markdown file /pr-review ships, not only its SKILL.md: its references carry commands too. Git lists them,
+// tracked or new, so what it ignores never counts; a file removed and not yet committed is not there to read.
+const reviewFiles = (exts, root = SRC) =>
+  execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', `.claude/skills/${REVIEW}`], { cwd: root, encoding: 'utf8' })
+    .split('\0')
+    .filter((f) => f && exts.some((x) => f.endsWith(x)) && existsSync(join(root, f)));
+
+// The skill's own test builds fixture repositories in an ignored folder beside it, with links that point at nothing,
+// and an interrupted run leaves them behind (#347).
+test('/pr-review ships what git lists: nothing in an ignored folder, and a file not yet committed', () => {
+  const root = mkdtempSync(join(tmpdir(), 'review-files-'));
+  try {
+    const skill = `.claude/skills/${REVIEW}`;
+    const left = `${skill}/features/.test-tmp/run-x/repo-a/docs`;
+    const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
+    mkdirSync(join(root, left), { recursive: true });
+    writeFileSync(join(root, '.gitignore'), `${skill}/features/.test-tmp\n`);
+    writeFileSync(join(root, skill, 'SKILL.md'), '# shipped\n');
+    writeFileSync(join(root, skill, 'removed.md'), '# removed\n');
+    writeFileSync(join(root, left, 'notes.md'), '# a fixture\n');
+    symlinkSync('../outside-a/secret.md', join(root, left, 'domain-invariants.md'));
+    git('init', '-q');
+    git('add', '.gitignore', `${skill}/SKILL.md`, `${skill}/removed.md`);
+    rmSync(join(root, skill, 'removed.md'));
+    writeFileSync(join(root, skill, 'features/new-reference.md'), '# not yet committed\n');
+    assert.deepEqual(reviewFiles(['.md'], root).sort(), [`${skill}/SKILL.md`, `${skill}/features/new-reference.md`]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('no command in a skill or process/intake.md names a repository, label, milestone or board', () => {
   for (const p of [...new Set([...present.map(skillPath), ...reviewFiles(['.md']), 'process/intake.md'])]) {
