@@ -21,7 +21,7 @@ Destructive git operations are **ask-level**, never allowed silently (L-20):
 `git stash list` and `git stash apply <sha>` — the safe halves — stay allowed. A prompt can still be approved
 reflexively; protection on `main` backstops the worst case.
 
-**So is what the GitHub CLI can delete for good, or widen, beyond this repository** (#279, #303). Each rule matches
+**So is what the GitHub CLI can delete for good, or do with its token, beyond this repository** (#279, #303, #302). Each rule matches
 the words anywhere in the command, so one behind an environment variable or after `&&` asks too:
 
 | rule | the failure it prevents |
@@ -33,9 +33,13 @@ the words anywhere in the command, so one behind an environment variable or afte
 | `gh issue delete` | an issue is deleted for good, with its comments; closing one is not |
 | `gh run delete` | a workflow run goes with its log, the record a failed check links to |
 | `gh auth refresh`, `gh auth login` | either can add permissions to the CLI's token; every session on the machine then uses the wider token, and nothing narrows it afterwards |
+| `gh auth token`, and `gh auth status` with `--show-token`, `-t` or `-at` | the token is written to the command's output, which stays in the session's transcript |
+| `gh auth setup-git` | the CLI becomes git's credential helper for every repository on the machine, so any `git` command there can use the token |
+| `gh auth switch` | the active account changes for every session on the machine, which then act as another account |
+| `gh auth logout` | the machine is signed out; every session loses access until the owner signs in again |
 
-`gh repo view`, `gh issue list`, `gh release view`, `gh secret set`, `gh pr create`, `gh auth status` and a `gh api`
-read do not ask; a command that only names the words (a commit message, a pull request title) does. These rules are a
+`gh repo view`, `gh issue list`, `gh release view`, `gh secret set`, `gh pr create`, `gh auth status` with no token flag and a
+`gh api` read do not ask; a command that only names the words (a commit message, a pull request title) does. These rules are a
 prompt, not a boundary: what holds is a token that lacks the permission to delete. They do not cover a session under
 `bypassPermissions` (below); a command worded another way, the method in mixed case (`Delete`) among them; the CLI's
 other deleting commands, which #303 left out (an alias, a cache, a codespace, an extension, a gist, a GPG or SSH key, a
