@@ -1,0 +1,6 @@
+{
+  "_note": "#341. docs/PRD.md is a folder: R1 reports it and does not read it, where it used to stop as broken. A link cannot be shipped as a file; scripts/r1.test.mjs builds it.",
+  "exit": 1,
+  "findings": ["docs/PRD.md#prd/not-a-file"],
+  "details": { "docs/PRD.md#prd/not-a-file": "is not a regular file" }
+}

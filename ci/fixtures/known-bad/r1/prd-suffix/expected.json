@@ -1,0 +1,5 @@
+{
+  "_note": "#341. The only review reads other/docs/PRD.md, which merely ends in docs/PRD.md and holds the same version line. It is a review of another file, so the approved PRD still has none.",
+  "exit": 1,
+  "findings": ["docs/PRD.md#review/missing"]
+}

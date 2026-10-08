@@ -1,0 +1,6 @@
+{
+  "_note": "#341. many.md has 12 Supersedes: lines, none naming a review. R1 lists 10 and then one finding that counts the other 2, so a review file cannot make R1 print without limit. scripts/r1.test.mjs counts them.",
+  "exit": 1,
+  "findings": ["docs/reviews/many.md#provenance/supersedes-invalid"],
+  "details": { "docs/reviews/many.md#provenance/supersedes-invalid": "2 more Supersedes: lines are not listed" }
+}

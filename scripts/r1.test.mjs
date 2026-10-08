@@ -117,6 +117,85 @@ test("git's own folder is refused under each spelling a filesystem is known to t
   }
 });
 
+// --- the files R1 and `pnpm status` open (#341) ---
+
+const STATUS = join(dirname(R1), '..', '..', 'status.mjs');
+const statusOf = (dir) => {
+  const r = spawnSync(process.execPath, [STATUS, dir], { encoding: 'utf8' });
+  return r.stdout + r.stderr;
+};
+const PRD = '# Acme\n\nVersion: 0.3.0\nStatus: approved\n\nBody.\n';
+const prdReview = (path = 'docs/PRD.md') => review(path, 'Version: 0.3.0');
+
+test('a review that is a link, or that sits behind a linked folder, is a finding and is not read', () => {
+  const dir = project(
+    { 'docs/specs/a.md': SPEC, 'real/r.md': review('docs/specs/a.md') },
+    { 'docs/reviews/link.md': '../../real/r.md', 'docs/reviews-real/x': 'y' },
+  );
+  try {
+    const r = r1(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.deepEqual(r.findings.map((f) => f.where), ['docs/reviews/link.md#provenance/review-unreadable']);
+    assert.match(r.findings[0].detail, /is a link, not a file/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('docs/PRD.md that is a link, or a folder, is a finding in R1', () => {
+  const asLink = project({ 'real.md': PRD }, { 'docs/PRD.md': '../real.md' });
+  const asFolder = project({ 'docs/PRD.md/keep.md': 'x' });
+  try {
+    for (const [dir, why] of [[asLink, /is a link, not a file/], [asFolder, /is not a regular file/]]) {
+      const r = r1(dir);
+      assert.equal(r.status, 1, r.out);
+      assert.deepEqual(r.findings.map((f) => f.where), ['docs/PRD.md#prd/not-a-file']);
+      assert.match(r.findings[0].detail, why);
+    }
+  } finally {
+    rmSync(asLink, { recursive: true, force: true });
+    rmSync(asFolder, { recursive: true, force: true });
+  }
+});
+
+test('`pnpm status` does not read a PRD or a review that R1 refuses', () => {
+  const real = project({ 'docs/PRD.md': PRD, 'docs/reviews/r.md': prdReview() });
+  const linked = project({ 'real/PRD.md': PRD, 'real/r.md': prdReview() }, { 'docs/PRD.md': '../real/PRD.md', 'docs/reviews/r.md': '../../real/r.md' });
+  const linkedReview = project({ 'docs/PRD.md': PRD, 'real/r.md': prdReview() }, { 'docs/reviews/r.md': '../../real/r.md' });
+  try {
+    assert.match(statusOf(real), /review: r\.md/);
+    assert.doesNotMatch(statusOf(linked), /PRD: approved|0\.3\.0/);
+    assert.match(statusOf(linkedReview), /review: none for this version/);
+  } finally {
+    for (const d of [real, linked, linkedReview]) rmSync(d, { recursive: true, force: true });
+  }
+});
+
+test('R1 lists at most 10 Supersedes: findings for one review, then one that counts the rest', () => {
+  const lines = Array.from({ length: 25 }, (_, i) => `Supersedes: docs/reviews/gone-${i}.md`).join('\n');
+  const dir = project({ 'docs/specs/a.md': SPEC, 'docs/reviews/a.md': `${review('docs/specs/a.md')}${lines}\n` });
+  try {
+    const r = r1(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.equal(r.findings.length, 11, r.out);
+    assert.match(r.findings[10].detail, /15 more Supersedes: lines are not listed/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a reviewed path counts as the PRD only when it normalises to docs/PRD.md', () => {
+  const dir = project({ 'docs/PRD.md': PRD, 'other/docs/PRD.md': PRD, 'docs/reviews/a.md': prdReview('other/docs/PRD.md') });
+  const same = project({ 'docs/PRD.md': PRD, 'docs/reviews/a.md': prdReview('./docs/../docs/PRD.md') });
+  try {
+    assert.deepEqual(r1(dir).findings.map((f) => f.where), ['docs/PRD.md#review/missing']);
+    assert.equal(r1(same).status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(same, { recursive: true, force: true });
+  }
+});
+
 // --- the time one line takes ---
 
 // The shapes that took seconds before: a run of quote marks inside a line, a run of spaces after `Reviewed:` with

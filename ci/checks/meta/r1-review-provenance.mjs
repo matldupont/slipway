@@ -12,6 +12,8 @@
 //                               moved on, or the line was written from memory
 //   provenance/supersedes-invalid  a `Supersedes:` line names something other than a review of the
 //                               same document, or sits in a review that quotes no whole line of it
+//   provenance/review-unreadable  a file in docs/reviews/ that is a link, a folder or reached through a link: not read
+//   prd/not-a-file              docs/PRD.md is a link, a folder or reached through a link: not read
 //   template/provenance-lines   TEMPLATE.md lost either line (so the template cannot drift)
 //   review/missing              the PRD has left draft with no review of its current version — the
 //                               review was skipped, or written somewhere other than docs/reviews/
@@ -38,19 +40,25 @@
 // prints of a review's own text (the path, the version line, a Supersedes: value) is cut to BOUND characters,
 // and says so when it left hidden characters out; matching always uses the whole value.
 //
+// A review in docs/reviews/ and docs/PRD.md are opened only when they are regular files reached through no link
+// (lib/review-header.mjs), by R1 and by `pnpm status` alike. A review file gets at most MAX_SUPERSEDES findings for
+// its Supersedes: lines, then one that counts the rest. A reviewed path is the PRD only when it normalises to
+// docs/PRD.md.
+//
 // A header line over MAX_LINE characters is not read, and each pattern applied to a line of a review or of the
 // reviewed document takes time linear in its length (lib/review-header.mjs), so one long line costs one pass. The
 // reviewed path is opened only when it is a regular file inside the repository, reached through no link, and no
 // part of it is git's own folder: a review cannot point R1 at a folder, a device or a file outside the tree.
 
-import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { excerpt, report, UNSAFE } from '../lib/report.mjs';
-import { MAX_LINE, reviewProvenance, unquote } from '../lib/review-header.mjs';
+import { isPrdPath, MAX_LINE, MISSING, notPlainFile, reviewProvenance, unquote } from '../lib/review-header.mjs';
 
 const root = process.argv[2] ?? '.';
 const prdPath = join(root, 'docs', 'PRD.md');
-const prd = existsSync(prdPath) ? readFileSync(prdPath, 'utf8') : null;
+const prdWhy = notPlainFile(root, 'docs/PRD.md');
+const prd = prdWhy === null ? readFileSync(prdPath, 'utf8') : null;
 const prdStatus = prd ? ((prd.match(/^Status:\s*(.+)$/m) ?? [])[1]?.trim().toLowerCase() ?? 'draft') : 'draft';
 const prdVersion = prd ? (prd.match(/^Version:\s*(.+)$/m) ?? [])[1]?.trim() : null;
 const reviewedPrd = [];
@@ -60,6 +68,8 @@ const findings = [];
 const reviews = [];
 
 const BOUND = 120;
+// One review file gets at most this many Supersedes: findings; the rest are counted in one more.
+const MAX_SUPERSEDES = 10;
 const shown = (s) => `${excerpt(s, BOUND)}${UNSAFE.test(s) ? ' [hidden characters left out]' : ''}`;
 const clean = (l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim();
 // Said beside a missing line: the line may be there, and too long to be read.
@@ -81,22 +91,16 @@ const unreadable = (rel) => {
   const norm = posix.normalize(rel);
   if (norm.startsWith('..')) return 'leaves the repository';
   if (norm.split('/').some(gitFolder)) return 'is inside .git/, which holds no document';
-  const target = join(root, norm);
-  let st;
-  try {
-    st = lstatSync(target);
-  } catch {
-    return 'does not exist';
-  }
-  if (st.isSymbolicLink()) return 'is a link, not a file';
-  if (!st.isFile()) return 'is not a regular file';
-  // The root is resolved the same way, so a repository that itself sits behind a link is not reported.
-  if (realpathSync(target) !== join(realpathSync(root), norm)) return 'is reached through a link';
-  return null;
+  return notPlainFile(root, norm);
 };
 
 for (const f of files) {
   const rel = `docs/reviews/${f}`;
+  const unplain = notPlainFile(root, rel);
+  if (unplain !== null) {
+    findings.push({ where: `${rel}#provenance/review-unreadable`, detail: `this review ${unplain}: R1 and \`pnpm status\` read only a regular file reached through no link, so it is not read; replace it with the review's text, or delete it` });
+    continue;
+  }
   const { reviewed, version, supersedes, unread, unreadSupersedes } = reviewProvenance(readFileSync(join(dir, f), 'utf8'));
 
   if (f === 'TEMPLATE.md') {
@@ -112,34 +116,36 @@ for (const f of files) {
   if (!reviewed || !version) continue;
 
   const targetRel = reviewed.path;
-  const target = join(root, targetRel);
   const why = unreadable(targetRel);
   if (why) {
     findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${shown(targetRel) || '(empty)'} ${why}: fix the Reviewed: line, or delete the review` });
     continue;
   }
   const want = version;
-  if (targetRel.endsWith('docs/PRD.md') && prdVersion && want.includes(prdVersion)) reviewedPrd.push(rel);
-  const text = readFileSync(target, 'utf8');
+  if (isPrdPath(targetRel) && prdVersion && want.includes(prdVersion)) reviewedPrd.push(rel);
+  const doc = readFileSync(join(root, targetRel), 'utf8');
   // To retire another review, the version line has to be a whole line of the document: a word that is
   // merely somewhere in it ("#", "Spec") keeps this review from being stale, as it always has, and no more.
-  const wholeLine = text.split(/\r?\n/).some((l) => [l.trim(), clean(l), unquote(l)].includes(want));
-  reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: !text.includes(want), wholeLine, supersedes });
+  const wholeLine = doc.split(/\r?\n/).some((l) => [l.trim(), clean(l), unquote(l)].includes(want));
+  reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: !doc.includes(want), wholeLine, supersedes });
 }
 
 // Two spellings of one path that do not normalise alike read as two documents: nothing retires.
 const byRel = new Map(reviews.map((r) => [r.rel, r]));
 const retired = new Set();
 for (const r of reviews) {
+  let reported = 0;
   for (const name of r.supersedes) {
     const named = byRel.get(name);
     const why = !named || named === r
       ? 'is not another review in docs/reviews/ with both provenance lines and a reviewed path that exists'
       : named.doc !== r.doc ? `is a review of ${shown(named.targetRel)}, not of ${shown(r.targetRel)}`
         : !r.stale && !r.wholeLine ? `is named by a review whose own version line is not a whole line of ${shown(r.targetRel)}` : null;
+    if (why && ++reported > MAX_SUPERSEDES) continue;
     if (why) findings.push({ where: `${r.rel}#provenance/supersedes-invalid`, detail: `Supersedes: ${shown(name)} ${why}, so it retires nothing: name an earlier review of the same document by its path, or remove the line` });
     else if (!r.stale) retired.add(named.rel);
   }
+  if (reported > MAX_SUPERSEDES) findings.push({ where: `${r.rel}#provenance/supersedes-invalid`, detail: `${reported - MAX_SUPERSEDES} more Supersedes: lines are not listed (at most ${MAX_SUPERSEDES} are): each retires nothing, so remove the ones that are not valid` });
 }
 for (const r of reviews) {
   if (!r.stale || retired.has(r.rel)) continue;
@@ -149,6 +155,9 @@ for (const r of reviews) {
   });
 }
 
+if (prdWhy !== null && prdWhy !== MISSING) {
+  findings.push({ where: 'docs/PRD.md#prd/not-a-file', detail: `docs/PRD.md ${prdWhy}: R1 and \`pnpm status\` read only a regular file reached through no link, so the PRD is not read; replace it with the PRD's text` });
+}
 if (prd && prdStatus !== 'draft' && reviewedPrd.length === 0) {
   findings.push({
     where: 'docs/PRD.md#review/missing',
@@ -160,7 +169,7 @@ process.exit(
   report({
     id: 'R1',
     claim: `every review names the file it read and a version line that is still verbatim in that file, or is named by the review that replaced it${prd && prdStatus !== 'draft' ? `, and the PRD at ${prdVersion} has one` : ''}`,
-    scanned: files.length + (prd ? 1 : 0),
+    scanned: files.length + (prd || prdWhy !== MISSING ? 1 : 0),
     unit: `review files${prd ? ` and the PRD (${prdStatus})` : ''}`,
     findings,
   })

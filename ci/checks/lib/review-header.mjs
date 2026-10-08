@@ -6,7 +6,37 @@
 // (`>`), is text the review carries, not what the review says of itself. A review with no title has no header. A
 // line of characters nobody sees is blank, and a byte-order mark before the title is not part of it.
 
+import { lstatSync, readFileSync, realpathSync } from 'node:fs';
+import { join, posix } from 'node:path';
 import { UNSAFE } from './report.mjs';
+
+// Why `rel` under `root` is not a regular file reached through no link, or null when it is one. Every reader of a
+// review or of the PRD opens a file only after this says null, so a link or a folder is reported or skipped, never
+// read and never a crash. `rel` is already normalised and stays inside `root`.
+export const MISSING = 'does not exist';
+export const notPlainFile = (root, rel) => {
+  const target = join(root, rel);
+  let st;
+  try {
+    st = lstatSync(target);
+  } catch {
+    return MISSING;
+  }
+  if (st.isSymbolicLink()) return 'is a link, not a file';
+  if (!st.isFile()) return 'is not a regular file';
+  // The root is resolved the same way, so a repository that itself sits behind a link is not reported.
+  try {
+    if (realpathSync(target) !== join(realpathSync(root), rel)) return 'is reached through a link';
+  } catch {
+    return MISSING;
+  }
+  return null;
+};
+// The text of a plain file of the repository, or null.
+export const readPlain = (root, rel) => (notPlainFile(root, rel) === null ? readFileSync(join(root, rel), 'utf8') : null);
+
+// A reviewed path is the PRD only when it normalises to docs/PRD.md: another folder's docs/PRD.md is another file.
+export const isPrdPath = (path) => posix.normalize(path) === 'docs/PRD.md';
 
 const hidden = new RegExp(UNSAFE.source, 'gv');
 // A header line keeps its emphasis and list marks out of the way but never a quote mark: a line left starting
