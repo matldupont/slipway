@@ -282,7 +282,7 @@
   .outside { grid-column: text; }
 
   /* ── What the command creates: the new repo's top level, drawn as the tree in section 03 is ── */
-  .creates { padding-block: 0 3rem; }
+  .creates { padding-block: 0 clamp(4rem, 8vw, 6.5rem); }
   .creates h2 {
     grid-column: margin-start / wide-end;
     font-size: var(--step-1); padding-top: 1.25rem; border-top: 1px solid var(--rule);
