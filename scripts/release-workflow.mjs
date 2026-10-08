@@ -71,7 +71,7 @@ function differences(root, expected) {
   const texts = (n) => (n.kind === 'scalar' ? [n] : n.kind === 'list' ? n.items.flatMap(texts) : [...n.entries.values()].flatMap(texts));
   // An empty value has no place of its own in what the reader gives.
   const placed = (n) => !(n.plain && n.value === '');
-  const pass = (n) => { for (const t of texts(n)) if (placed(t)) last = Math.max(last, t.line); };
+  const pass = (n) => { for (const t of texts(n)) if (placed(t)) last = t.line; };
   const say = (n, path, what) => {
     const first = n && texts(n).find(placed);
     out.push(`${first ? `at or under line ${first.line}` : `after line ${last}`}: ${path} ${what}`);
