@@ -14,8 +14,8 @@ import { bashAsks } from './ask-rules.mjs';
 const ASKS = bashAsks(JSON.parse(readFileSync(new URL('../process/harness/settings.json', import.meta.url), 'utf8')));
 const RULES = ['Bash(*gh release delete*)', 'Bash(*gh secret delete*)', 'Bash(*gh secret remove*)', 'Bash(*gh issue delete*)', 'Bash(*gh run delete*)'];
 const OURS = ASKS.filter((a) => RULES.includes(a.rule));
-const TOKEN_RULES = ['Bash(*gh auth token*)', 'Bash(*gh auth status*--show-token*)', 'Bash(*gh auth status* -t*)', 'Bash(*gh auth status* -at*)', 'Bash(*gh auth setup-git*)',
-  'Bash(*gh auth switch*)', 'Bash(*gh auth logout*)'];
+const TOKEN_RULES = ['Bash(*gh auth token*)', 'Bash(*gh auth git-credential*)', 'Bash(*gh auth status*--show-token*)', 'Bash(*gh auth status* -t*)', 'Bash(*gh auth status* -at*)',
+  'Bash(*gh auth setup-git*)', 'Bash(*gh auth switch*)', 'Bash(*gh auth logout*)'];
 const TOKEN = ASKS.filter((a) => TOKEN_RULES.includes(a.rule));
 const asked = (cmds, among = OURS) => { for (const c of cmds) assert.ok(among.some((a) => a.test(c)), `none of these ask rules matches: ${c}`); };
 
@@ -44,11 +44,12 @@ test('none of these rules matches ordinary work: a list, a view, a new release, 
   }
 });
 
-test('the harness asks before gh auth token, with any arguments, behind a variable or after another command', () => {
-  asked(['gh auth token', 'gh auth token --hostname github.com', 'gh auth token -u name', 'GH_HOST=github.com gh auth token', 'cd /tmp && gh auth token'], TOKEN);
+test('the harness asks before gh auth token and the credential helper gh auth git-credential, with any arguments, behind a variable or after another command', () => {
+  asked(['gh auth token', 'gh auth token --hostname github.com', 'gh auth token -u name', 'GH_HOST=github.com gh auth token', 'cd /tmp && gh auth token',
+    'gh auth git-credential', 'gh auth git-credential get', 'GH_HOST=github.com gh auth git-credential get', 'cd /tmp && gh auth git-credential get'], TOKEN);
 });
 
-test('the harness asks before gh auth status with the token flag, in each spelling the command takes', () => {
+test('the harness asks before gh auth status with the token flag: long, with =, short, the short cluster both ways round, after another flag', () => {
   asked(['gh auth status --show-token', 'gh auth status --show-token=true', 'gh auth status -t', 'gh auth status -ta', 'gh auth status -at', 'gh auth status --hostname github.com -t',
     'gh auth status -h github.com --show-token', 'gh auth status --active -t', 'GH_HOST=github.com gh auth status -t', 'cd /tmp && gh auth status --show-token'], TOKEN);
 });
@@ -60,7 +61,7 @@ test('the harness asks before gh auth setup-git, gh auth switch and gh auth logo
 
 test('none of the token rules matches ordinary work: the auth status with no token flag, a view, a list, a pull request', () => {
   assert.equal(TOKEN.length, TOKEN_RULES.length, 'every rule this test reads is in the shipped settings');
-  for (const c of ['gh auth status', 'gh auth status --hostname github.com', 'gh auth status -h github.com', 'gh auth status --active', 'gh auth status -a',
+  for (const c of ['gh auth status', 'gh auth --help', 'gh auth status --help', 'git credential-cache exit', 'gh auth status --hostname github.com', 'gh auth status -h github.com', 'gh auth status --active', 'gh auth status -a',
     'gh auth status && gh pr create --title "x" --body-file pr.md', 'gh auth status --json hosts --template x', 'gh repo view', 'gh issue list', 'gh pr create', 'gh pr create --title "x" --body-file pr.md']) {
     assert.deepEqual(TOKEN.filter((a) => a.test(c)).map((a) => a.rule), [], `a rule asks before: ${c}`);
   }
