@@ -25,7 +25,7 @@ The spec's table was a draft. The claims check ran twice by one reviewer who wro
 3. Every carried row against the page: all on it; all ten cut rows (69–77, 84) gone.
 
 A second pass, on the sentences the first pass changed, found three of the rewordings still stronger than their
-source (rows 40, 62, 86); they were reworded again. **90 rows: 80 carry** (rows 1–68, 78–83, 85–90; five are blocks), 10 are cut. Rows 88–90 were added after the owner ran the page's path and found the first-open prompts unmentioned. Rows are as the page reads them; wording that differs from the spec's table is the point.
+source (rows 40, 62, 86); they were reworded again. **91 rows: 81 carry** (rows 1–68, 78–83, 85–91; five are blocks), 10 are cut. Rows 88–90 were added after the owner ran the page's path and found the first-open prompts unmentioned. Rows are as the page reads them; wording that differs from the spec's table is the point.
 
 ## The required facts, as tested
 
@@ -161,6 +161,7 @@ Q8 why was it built
 | 88 | §05 | Claude Code asks whether you trust the new folder, and lists the permissions it pre-approves, when you open it the first time | the owner's run of the page's path, 2026-10-07, on Claude Code 2.1.287 (the owner's account) |
 | 89 | §05 | the project pre-approves two permissions: `git stash list` and `git stash apply` | `process/harness/settings.json`, `permissions.allow` |
 | 90 | §05 | `/bootstrap` then asks three things about the product, one at a time: which GitHub project board new issues go to ("none" skips the board), the timezone deadlines are read in, and whether the product has money or other math that must be exact | `.claude/skills/bootstrap/SKILL.md` lines 46-50; `AGENT.md` lines 15 and 22 |
+| 91 | footer | © 2026 matldupont · MIT licensed, with "MIT licensed" linking to the licence | `LICENSE` line 3 ("Copyright (c) 2026 matldupont"); the owner's choice of line, #351 |
 
 ## Sentences that are not factual claims
 
