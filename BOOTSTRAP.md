@@ -109,7 +109,7 @@ paste the output into the bootstrap PR:
    missing; editing it until it passes removes both.
 8. A review whose `Version line:` no longer matches the PRD turns R1 red.
 9. A lesson whose `review-by` is set to a past date turns L1 red.
-10. Each harness hook prints its reminder on the sample input in `process/harness/README.md`, and running
+10. Each harness hook prints its reminder on the sample input in `process/harness/TESTING.md`, and running
     `git stash pop` asks before it acts.
 11. One intake skill run (`/log-followup` is cheapest) files its issue in **this** repository.
 12. Two milestone files with `status: active` turn MS1 red (`wip/exceeded`).
