@@ -1,6 +1,6 @@
 ---
 name: security-reviewer-strongest
-description: Security review of a pull request's diff for /work-ticket when round 1 named a risky surface or the diff changes a gate file. Fresh context, reports findings and edits nothing.
+description: Security review of a pull request's diff for /work-ticket when a review named a risky surface (round 1 or a verify), the diff changes a file the run is judged by, a gate file among them, or a security review came back short. Fresh context, reports findings and edits nothing.
 model: opus
 effort: xhigh
 tools: Read, Grep, Glob, Bash

@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { gateGlobs, gateTouched, GUARD_GLOBS, SETTINGS as HARNESS_SETTINGS } from '../ci/checks/lib/gate-files.mjs';
 import { plain, section, table } from '../ci/checks/lib/markdown.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -436,7 +437,8 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
 // names its tier in a `Tier:` line and that tier's model by its short name; process/designation.md → Models is
 // still the one place a model id is written, and → Review the one place a review's effort is.
 const AGENTS = '.claude/agents';
-// What a reviewer may use: nothing that writes a file. A definition with no `tools:` line would get every tool.
+// What a reviewer may use: no file-editing tool. `Bash` can still write a file: the definition's text forbids it, and
+// nothing here holds it to that. A definition with no `tools:` line would get every tool.
 const TOOLS = 'Read, Grep, Glob, Bash';
 const REVIEWERS = ['cold-reviewer', 'cold-reviewer-strongest', 'security-reviewer', 'security-reviewer-strongest'];
 // Why a definition does not pass: an empty list when it has a model, an effort and a tier, and each is the one
@@ -446,8 +448,8 @@ function reviewerFindings(md, designation) {
   const front = md.match(/^---\n([\s\S]*?)\n---\n/)?.[1] ?? '';
   const key = (k) => front.match(new RegExp(`^${k}:[ \\t]*(\\S.*?)[ \\t]*$`, 'm'))?.[1] ?? null;
   const [model, effort] = [key('model'), key('effort')];
-  for (const k of ['model', 'effort']) if ((front.match(new RegExp(`^${k}:`, 'gm')) ?? []).length > 1) found.push(`${k} is written twice`);
-  if (key('tools') !== TOOLS) found.push(`tools must be \`${TOOLS}\`: a reviewer edits nothing`);
+  for (const k of ['model', 'effort', 'tools']) if ((front.match(new RegExp(`^${k}:`, 'gm')) ?? []).length > 1) found.push(`${k} is written twice`);
+  if (key('tools') !== TOOLS) found.push(`tools must be \`${TOOLS}\`: a reviewer gets no file-editing tool`);
   const tier = md.slice(front.length).match(/^Tier: (\S+)$/m)?.[1] ?? null;
   if (!model) found.push('no model');
   if (!effort) found.push('no effort');
@@ -470,7 +472,8 @@ test('each reviewer definition states a model and an effort, and both are the on
   for (const f of files) {
     const md = read(f);
     assert.deepEqual(reviewerFindings(md, designation), [], f);
-    assert.match(md, new RegExp(`^---\\nname: ${f.slice(AGENTS.length + 1, -3)}\\n`), `${f} must be named for its file`);    assert.equal(/-strongest\.md$/.test(f), /^Tier: strongest$/m.test(md), `${f}: only a -strongest definition is on the strongest tier`);
+    assert.match(md, new RegExp(`^---\\nname: ${f.slice(AGENTS.length + 1, -3)}\\n`), `${f} must be named for its file`);
+    assert.equal(/-strongest\.md$/.test(f), /^Tier: strongest$/m.test(md), `${f}: only a -strongest definition is on the strongest tier`);
   }
   // The check can fail: a definition without each part, with another tier's model or effort, or with no tier.
   const good = read(`${AGENTS}/cold-reviewer.md`);
@@ -482,6 +485,9 @@ test('each reviewer definition states a model and an effort, and both are the on
   assert.match(bad('effort: medium', 'effort: low').join(), /effort `low` is not the standard tier's review effort \(medium\)/);
   assert.match(bad('Tier: standard', 'Tier: fastest').join(), /tier `fastest` is not a row/);
   assert.deepEqual(bad('effort: medium', 'effort: medium\neffort: low'), ['effort is written twice']);
+  // #362: a doubled key is a finding of its own, whichever line a reader would take. The first `tools:` line is the allowed one here.
+  assert.deepEqual(bad('model: sonnet', 'model: sonnet\nmodel: opus'), ['model is written twice']);
+  assert.deepEqual(bad(/^(tools: .*\n)/m, '$1tools: Read, Grep, Glob, Bash, Edit\n'), ['tools is written twice']);
   assert.match(bad(/^tools: .*\n/m, '').join(), /tools must be/);
   assert.match(bad('Bash', 'Bash, Edit').join(), /tools must be/);
   assert.deepEqual(reviewerFindings(good, designation.replace('the standard tier at `medium`', 'the standard tier')), ['designation → Review states no effort for the standard tier']);
@@ -496,11 +502,11 @@ test('work-ticket Phase 5 starts its reviewers by name and states a tier and an 
   assert.ok(para, 'Phase 5 has no **Tier and effort.** paragraph');
   for (const r of REVIEWERS) assert.ok(para.includes(`\`${r}\``), `Phase 5 does not start \`${r}\` by name`);
   assert.match(para, /Round 1: `cold-reviewer` and `security-reviewer`, the standard tier at `medium`/, 'round 1 states its tier and effort');
-  assert.match(para, /A surface either names, or a file the run is judged by in the diff \(Configuration's check, gate files among them\), runs round 1 again, on `cold-reviewer-strongest` and `security-reviewer-strongest`, the strongest tier at `xhigh`, and both runs' findings count/, 'the rerun states its trigger, tier and effort');
-  assert.match(para, /Rounds 2 and 3: the definitions round 1 ended on, at their tier and effort, or the strongest pair from the round in which a verify names a surface/, 'rounds 2 and 3 state their tier and effort');
+  assert.match(para, /A surface either names, or a file the run is judged by in the diff, runs round 1 again: .*? The second run is on `cold-reviewer-strongest` and `security-reviewer-strongest`, the strongest tier at `xhigh`, and both runs' findings count/, 'the rerun states its trigger, tier and effort');
+  assert.match(para, /Rounds 2 and 3: the definitions round 1 ended on, at their tier and effort\./, 'rounds 2 and 3 state their tier and effort');
   assert.match(para, /asks for the line `Surfaces: /, 'each brief asks which surfaces the diff touches');
   assert.match(skill, /may be a declined one: run it again on `security-reviewer-strongest`; thin again/, 'a short security review is run again on a named definition, never "another model"');
-  assert.match(skill, /The reviewers get `\{base\}`'s copies, and are the definitions the session loaded when it started \(`\.claude\/agents\/`\), not a branch's later edit of one/, 'Configuration says which definitions review a branch that changes one');
+  assert.match(skill, /The reviewers get `\{base\}`'s copies, and are the definitions in the checkout the session started in \(`\.claude\/agents\/`\), not a later edit of one/, 'Configuration says which definitions review');
   const review = flat(section(read('process/designation.md'), 'Review', 2));
   assert.match(review, /A routine review, on every PR: the standard tier at `medium`; a skill that runs it on the session's model goes below neither/, 'designation → Review states a routine review\'s effort');
   assert.match(review, /data deletion: the strongest tier at `xhigh`; `\/work-ticket` reviews a change to a gate file there too, which is no surface/, 'designation → Review states the strongest tier\'s effort and the gate-file trigger');
@@ -508,6 +514,59 @@ test('work-ticket Phase 5 starts its reviewers by name and states a tier and an 
   assert.ok(lines <= 120, `process/designation.md is ${lines} lines; 120 at most`);
   assert.match(flat(section(read('process/cold-review.md'), 'How', 2)), /with the reviewers defined in `\.claude\/agents\/`/, 'cold-review → How says who reviews');
   assert.match(read('dev/ownership.yaml'), /- glob: \.claude\/agents\/\*\*\n    class: managed\n/, 'a project receives the reviewer definitions');
+});
+
+// #362: what the last review round of #327 left. A branch that changes the reviewers is reviewed only from the base's
+// definitions; a verify that names a surface runs again on the strongest pair; the rerun's trigger is the list
+// ci/checks/lib/gate-files.mjs computes, never a second list in the skill; /pr-review says what it cannot set.
+test('work-ticket stops a session that did not start on the base when the branch changes a reviewer definition', () => {
+  const skill = read(skillPath('work-ticket')).replace(/\s+/g, ' ');
+  assert.match(skill, /A branch whose diff to `origin\/\{base\}` changes `\.claude\/agents\/\*\*` is reviewed only by a session that started on a commit of `\{base\}` \(its opening git status names the commit; `git merge-base --is-ancestor`\): any other session, and one that cannot tell which commit it started on, says so and stops before a reviewer starts\./);
+});
+
+test('a verify that names a surface runs again on the strongest pair before the review can end: the skill and D-035 say the same', () => {
+  const flat = (t) => t.replace(/\s+/g, ' ');
+  const same = /[Tt]hat verify is run again on the strongest pair before the review can end|A verify that names a surface is run again on the strongest pair before the review can end/;
+  const para = flat(read(skillPath('work-ticket'))).match(/\*\*Tier and effort\.\*\* .*?never a general agent in its place\./)?.[0] ?? '';
+  assert.match(para, /A verify that names a surface is run again on the strongest pair before the review can end: the same round, both runs' findings count, and the rounds after it stay on that pair\./);
+  const d035 = flat(section(read('decisions.md'), 'D-035 — `/work-ticket`\'s reviewers run at a stated tier and effort; a risky surface or a gate file reruns round 1 on the strongest tier at `xhigh` *(decided 2026-10-08)*', 2) ?? '');
+  assert.ok(d035, 'decisions.md has no D-035 section under its title');
+  const rounds = d035.match(/- \*\*Rounds 2 and 3 use the definitions round 1 ended on\*\*.*?(?= Why: )/)?.[0] ?? '';
+  assert.match(rounds, /Amended 2026-10-08 \(#362, the owner's yes\): unless a verify names a surface\. That verify is run again on the strongest pair before the review can end, in the same round, both runs' findings count, and the rounds after it stay on that pair\./, 'D-035\'s rounds bullet');
+  for (const [name, text] of [['the skill', para], ['D-035', rounds]]) assert.match(text, same, `${name} does not say it`);
+  assert.doesNotMatch(para, /from the round in which a verify names a surface/, 'the sentence that let a standard-tier verify end the review is gone');
+  for (const r of REVIEWERS.filter((x) => x.endsWith('-strongest'))) assert.match(read(`${AGENTS}/${r}.md`), /^description: .*\(round 1 or a verify\).*a file the run is judged by/m, `${r}'s description names when the skill starts it`);
+  assert.match(read(`${AGENTS}/security-reviewer-strongest.md`), /^description: .*a security review came back short/m);
+});
+
+// A path a gate glob names: `**/` at any depth, `**` as a folder's contents, `*` within a name.
+const sample = (glob) => glob.replace(/^\*\*\//, 'pkg/').replace(/\/\*\*$/, '/a/b.txt').replace(/\*/g, 'x');
+test('the second round-1 run starts on every gate file the harness counts: the skill runs the list, and the list holds each path', () => {
+  const para = read(skillPath('work-ticket')).replace(/\s+/g, ' ').match(/\*\*Tier and effort\.\*\* .*?never a general agent in its place\./)?.[0] ?? '';
+  assert.match(para, /runs round 1 again: a file Configuration's check lists, or a path `node ci\/checks\/lib\/gate-files\.mjs "\$\(git rev-parse origin\/\{base\}\)" "\$\(git rev-parse HEAD\)"` prints under `gate`, the gate files the harness counts \(a `gate` that is no list is a check that cannot run\)\./, 'the trigger is the computed list, not a list of the skill\'s own');
+  assert.doesNotMatch(para, /gate files among them/, 'the skill\'s own list is no longer the trigger for a gate file');
+  const settings = readFileSync(HARNESS_SETTINGS, 'utf8');
+  // `~/…` is the owner's home, never a path of a pull request.
+  const globs = [...gateGlobs(settings), ...GUARD_GLOBS].filter((g) => !g.startsWith('~'));
+  assert.ok(globs.length > 40, 'the harness lists its gate paths');
+  const gate = gateTouched({ files: [...globs.map(sample), 'src/app.ts', 'docs/notes.md'], scripts: ['package.json'], links: ['vendor'], globs: ['docs/rules.md'] }, settings);
+  for (const g of globs) assert.ok(gate.includes(sample(g)), `${sample(g)} (${g}) would not start the second run`);
+  assert.ok(gate.includes('package.json scripts') && gate.includes('vendor'), 'a package.json whose run keys changed and a link start it too');
+  assert.deepEqual(gate.filter((p) => ['src/app.ts', 'docs/notes.md'].includes(p)), [], 'code and a document are not gate files');
+  // The check can fail: a path whose rule is gone is not listed.
+  const without = JSON.stringify({ permissions: { ask: gateGlobs(settings).filter((g) => g !== '**/.npmrc').map((g) => `Edit(${g})`) } });
+  assert.ok(!gateTouched({ files: ['pkg/.npmrc'], scripts: [], links: [], globs: [] }, without).includes('pkg/.npmrc'));
+  assert.ok(gateTouched({ files: ['docs/rules.md'], scripts: [], links: [], globs: ['docs/rules.md'] }, settings).includes('docs/rules.md'), 'a document the base names counts');
+});
+
+test('/pr-review says its reviewers take the session\'s model and effort, and designation → Review says whose the floor then is', () => {
+  const flat = (t) => t.replace(/\s+/g, ' ');
+  const designation = read('process/designation.md');
+  assert.equal(designation.match(/goes below neither/g)?.length, 1, 'designation states the floor once');
+  assert.match(flat(section(designation, 'Review', 2)), /a skill that runs it on the session's model goes below neither, and since it can set neither \(`\/pr-review`\), whoever starts that session sees to it\./);
+  const three = flat(section(read(skillPath(REVIEW)), 'Step 3: Dispatch parallel review subagents', 2) ?? '');
+  assert.match(three, /\*\*Tier and effort\.\*\* The subagents run on the session's model and effort: this skill sets neither, and a session cannot read its own effort, so the review never says which it ran at\. `process\/designation\.md` → Review gives a routine review the standard tier at `medium` and goes below neither: start the review from a session at or above both\./);
+  assert.match(read(`.claude/skills/${REVIEW}/references/host-portability.md`), /Claude Code: `Task` with no `subagent_type`, so the subagents take the session's model and effort — SKILL\.md → Step 3, Tier and effort/);
 });
 
 // #314 (D-031): cold-review.md → How and → When to stop point at /work-ticket → Rounds 2 and 3, step 4 for what

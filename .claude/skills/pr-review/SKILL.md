@@ -387,6 +387,12 @@ outlive the turn that started it?**
 `references/subagent-prompts.md`.** Read it before dispatching. Use
 your host's task primitive (see `references/host-portability.md`).
 
+**Tier and effort.** The subagents run on the session's model and effort: this
+skill sets neither, and a session cannot read its own effort, so the review
+never says which it ran at. `process/designation.md` → Review gives a routine
+review the standard tier at `medium` and goes below neither: start the review
+from a session at or above both.
+
 There is no checkout of the PR to hand them. Each subagent gets
 `REVIEW_DIR` (`reviewDir.path`), `HEAD_SHA` (`headReviewed.sha`) and its
 layer as the numbers of its files in `reviewDir.files`, and reads the PR

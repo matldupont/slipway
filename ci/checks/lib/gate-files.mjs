@@ -6,10 +6,11 @@
 // Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and its rows at the base commit, in
 // the checked-out tree and at the base branch's tip (the first parent of the merge checked out) add them. A row the check cannot read fails it; a project fixes the row in a PR, which is then held to its own.
 //
-// As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…]}` for
+// As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…],"gate":[…]}` for
 // the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
 // gate paths the base branch's harness asked about and the documents AGENT.md names (at the base, as checked out and at the base branch's tip), and each symlink or submodule link added, removed or changed.
-// pr-body.yml writes it beside the PR body.
+// pr-body.yml writes it beside the PR body. `gate` is the gate files among them (gateTouched), the list P1 wants a
+// `## Gate changes` line for and `/work-ticket` reviews on the strongest tier; `null` when the harness's rules cannot be read.
 //
 // Not shared with ownership.mjs: that file is slipway's own and never ships to a project.
 
@@ -87,6 +88,14 @@ export function gateMatcher(settingsText = readFileSync(SETTINGS, 'utf8'), more 
     return base !== 'package.json' && canonical(base) === 'package.json' ? 'package.json' : null;
   };
   return isGate;
+}
+
+// The gate files of a pull request's changes (`c`, as changes() returns or the sidecar holds): each changed path that
+// is a gate path, each link, and each package.json whose run keys differ, as `<path> scripts`. One list: P1 calls
+// this, and so does the script's `gate` key.
+export function gateTouched(c, settingsText) {
+  const isGate = gateMatcher(settingsText, Array.isArray(c.globs) ? c.globs : []);
+  return [...new Set([...c.files.filter(isGate), ...c.links, ...c.scripts.map((p) => `${p} scripts`)])];
 }
 
 // The owner-only documents a project names in AGENT.md's settings table (process/slipway-rules.md → Gates, #259), and
@@ -257,5 +266,13 @@ export function changes(base, head, cwd = process.cwd()) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  process.stdout.write(JSON.stringify(changes(process.argv[2], process.argv[3])) + '\n');
+  const c = changes(process.argv[2], process.argv[3]);
+  // No rules read means no gate file can be recognised: `null`, never an empty list that reads as "none" (P1 reports it broken).
+  let gate = null;
+  try {
+    const settings = readFileSync(SETTINGS, 'utf8');
+    if (gateGlobs(settings).length) gate = gateTouched(c, settings);
+  } catch {}
+  if (!gate) process.stderr.write('gate-files: process/harness/settings.json is missing or lists no Edit(...) gate paths, so `gate` is null: no gate file can be recognised\n');
+  process.stdout.write(JSON.stringify({ ...c, gate }) + '\n');
 }

@@ -54,7 +54,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { gateGlobs, gateMatcher, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
+import { gateGlobs, gateMatcher, gateTouched, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
 import { commentCrossesHeading, prose, repeatedHeadings, section, strictSection } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 
@@ -191,7 +191,7 @@ for (const f of bodies) {
       const like = isGate.lookalike(path);
       if (like) findings.push({ where: `${f}#gate-changes/lookalike:${shown(path)}`, detail: `${shown(path)} looks like ${like} but isn't spelled that way; a case-insensitive disk reads it as the gate file. Rename or remove it: it cannot be declared` });
     }
-    const touched = [...new Set([...c.files.filter(isGate), ...c.links, ...c.scripts.map((p) => `${p} scripts`)])];
+    const touched = gateTouched(c);
     if (touched.length) {
       const gc = section(md, 'Gate changes', 2);
       const next = 'add `## Gate changes` with one line per file, or per directory glob (`ci/fixtures/x/**`): `path — stricter | the same | loosens (cite a decision or ci/exceptions.yaml): why`';
