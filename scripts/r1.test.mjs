@@ -159,7 +159,7 @@ const WAS = {
 };
 
 test('the readers agree with the patterns they replace on every ordinary line', () => {
-  const values = ['docs/a.md', '`docs/a.md`', '"docs/a b.md"', "'x'", '``', '"', 'a @ b', 'a@b', 'a  @  b  c', 'a @ b @ c', 'a @', 'a\t@\tb', 'a \r b @ c', 'a\rb @ c', 'a @ b\rc', 'Version: 0.2', '"Version: 0.2', "it's", 'x y @ z', ''];
+  const values = ['docs/a.md', '`docs/a.md`', '"docs/a b.md"', "'x'", '``', '"', 'a @ b', 'a@b', 'a  @  b  c', 'a @ b @ c', 'a @', 'a\t@\tb', 'a \r b @ c', 'a\rb @ c', 'a @ b\rc', 'Version: 0.2', '"Version: 0.2', "it's", 'x\u2028y @ z', ''];
   for (const v of values) {
     assert.equal(unquote(v), WAS.unquote(v), JSON.stringify(v));
     for (const gap of ['', ' ', '   ', '\t']) {
