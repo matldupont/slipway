@@ -473,4 +473,4 @@ None.
 
 ## Changes
 
-- 2026-10-08 · ADDED · the spec, from #51 · this PR
+- 2026-10-08 · ADDED · the spec, from #51 · #370
