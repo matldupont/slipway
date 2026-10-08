@@ -250,12 +250,12 @@ test('release.yml is an allow-list: a key, an item or a value this does not know
   only('          node-version: 24\n', '          node-version: 22\n', 'at or under line 32: jobs.check.steps[3].with.node-version is not the plain text "24"');
   only('      - run: pnpm meta\n', '      - run: pnpm meta\n      - run: echo done\n', 'at or under line 36: jobs.check.steps[6] is an item this test does not know');
   // after what was reported, after a block that was read, and after a form that passed
-  only('    environment: npm\n', '    environment: npm\n    env:\n      A: b\n    defaults:\n', 'at or under line 43: jobs.publish.env is a key this test does not know', 'after line 43: jobs.publish.defaults is a key this test does not know');
+  only('    environment: npm\n', '    environment: npm\n    env:\n      A: b\n      C: d\n    defaults:\n', 'at or under line 43: jobs.publish.env is a key this test does not know', 'after line 44: jobs.publish.defaults is a key this test does not know');
   only('      id-token: write\n', '      id-token: write\n    defaults:\n', 'after line 44: jobs.publish.defaults is a key this test does not know');
   only('      - uses: actions/setup-node', '        with:\n      - uses: actions/setup-node', 'after line 29: jobs.check.steps[2].with is a key this test does not know');
   for (const [to, line] of [["['v*', 'w*']", 7], ["['w*']", 7], ['[v*]', 7], ["\n      - 'v*'", 8], ['{ v: x }', 7]]) only("tags: ['v*']", `tags: ${to}`, `at or under line ${line}: on.push.tags is not ['v*']`);
   const setup = /pnpm\/action-setup@[0-9a-f]{40}/.exec(yml)[0];
-  for (const to of [setup.replace('pnpm/', 'someone/'), `"${setup}"`, setup.replace('@', '@v6@')]) only(setup, to, 'at or under line 29: jobs.check.steps[2].uses is not pnpm/action-setup at a 40-character commit sha');
+  for (const to of [setup.replace('pnpm/', 'someone/'), setup.replace('setup@', 'setuq@'), `"${setup}"`, setup.replace('@', '@v6@')]) only(setup, to, 'at or under line 29: jobs.check.steps[2].uses is not pnpm/action-setup at a 40-character commit sha');
   const steps = yml.slice(yml.lastIndexOf('    steps:\n'));
   broken(steps, '    steps: none\n', /^at or under line 45: jobs\.publish\.steps is not a block list$/);
   broken(steps, '    steps: [{ run: x }]\n', /^at or under line 45: jobs\.publish\.steps is not a block list$/);
