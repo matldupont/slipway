@@ -452,6 +452,37 @@ Declined: a parser as an installed dependency (the checks would need an install 
 what D-004 exists to prevent, and a dependency could then break the harness that proves the other gates), and
 keeping the limit on record (3 findings stay open, and #240 is left to write a third reader by hand).
 
+## D-034 — A session with no pin at all, nothing changed and exactly at `origin/HEAD` ends its turn unblocked *(decided 2026-10-07)*
+
+With no pin the Stop hook cannot load the guard, so it blocks once a turn and has the agent run
+`pnpm verify:fast` by hand (#154). The owner decided that one state is let through, in silence: the session id is
+usable, no pin exists for it at all, the checkout has no change (no tracked change, staged or not, no untracked
+file, no change in a submodule) and its `HEAD` is the commit `origin/HEAD` names. Everything else blocks as
+before, and so does any state git cannot answer for.
+
+- **This loosens a gate, inside that bound.** A state that blocked now passes. A pin that exists and cannot be
+  used (empty, a link, not a commit id, a commit with no guard) still blocks, and so does a session id that is
+  unset or malformed: those look like something went wrong, so they stay loud.
+- **Exactly at the head, not behind it.** A clean checkout that is behind `origin/HEAD` is blocked, though every
+  commit it holds is on the default branch: the test is one comparison with no walk through history, and the
+  block names the remedy, a fast-forward. The owner chose this over passing any earlier commit.
+- **It reaches more than the session the issue describes.** The fallback cannot tell why there is no pin: a
+  session that began before the guard was installed, a compaction or a resume with none, and a base that holds no
+  guard yet (#154) all pass in that state.
+- **What it reads is the checkout's own git.** The remote head is read from the ref, with no network call. The
+  flags that a local setting could switch off are named in the command, not inherited: untracked files are
+  listed and submodules are compared. What a local index flag or ignore rule hides, and a moved `origin/HEAD`,
+  stay the limits `process/harness/README.md` already lists for the guard.
+
+Why: a session that only read the repository ran the gate by hand on every turn for four days, and 9 of those
+runs were red from machine load alone (#262). In that state there is nothing of the session's to verify: the
+code is the default branch's, which CI ran the gate on. The block was advisory already, since a second stop ends
+the turn; and anything that reaches a pull request is run by CI.
+
+Declined: keeping the block and explaining it (the measured cost stays), and a command the owner runs to pin a
+base for a running session (a second writer of the pin, which today only a session's first start writes, and a
+new seam).
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,

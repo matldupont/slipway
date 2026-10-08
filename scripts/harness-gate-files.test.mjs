@@ -12,7 +12,7 @@ import test from 'node:test';
 import { bashAsks } from './ask-rules.mjs';
 import { SETTINGS, HOOKS, TRUST, REFUSE, LOAD, commands, origin, work, git, put, stub, marks, reset, run, clean, commitAll } from './harness-fixture.mjs';
 
-test('every hook in settings.json loads the guard from the session\'s pin; only SessionStart may read origin/HEAD, and none runs a working-tree script', () => {
+test('every hook in settings.json loads the guard from the session\'s pin; only SessionStart may load from origin/HEAD, the Stop hook only compares HEAD with it (D-034), and none runs a working-tree script', () => {
   assert.deepEqual([...commands.keys()].sort(), [...HOOKS, TRUST, REFUSE].sort());
   assert.deepEqual(Object.keys(SETTINGS.hooks).sort(), ['PreToolUse', 'SessionStart', 'Stop', 'UserPromptSubmit']);
   assert.ok(SETTINGS.hooks.UserPromptSubmit[0].hooks[0].command.endsWith(` base-guard ${TRUST}`));
@@ -23,7 +23,9 @@ test('every hook in settings.json loads the guard from the session\'s pin; only 
     const loads = [...cmd.matchAll(LOAD)].map((m) => m[1]);
     assert.equal(cmd.match(/cat-file/g)?.length, 1, `${hook} must load the guard once: ${cmd}`);
     assert.deepEqual(loads, [hook === 'session-state.sh' ? 'r' : 'b'], `${hook} does not load base-guard.sh from the pin: ${cmd}`);
-    assert.equal(cmd.includes('refs/remotes/origin/HEAD'), hook === 'session-state.sh', `${hook} and the live ref`);
+    assert.equal(cmd.match(/refs\/remotes\/origin\/HEAD/g)?.length ?? 0, ['session-state.sh', 'stop-verify.sh'].includes(hook) ? 1 : 0, `${hook} and the live ref`);
+    // #262: with no pin there is no guard to load, so the Stop hook reads the live ref once, as a commit id to compare.
+    if (hook === 'stop-verify.sh') assert.ok(cmd.includes(`o=$(git -C "$d" --no-replace-objects rev-parse -q --verify 'refs/remotes/origin/HEAD^{commit}' 2>/dev/null) && [ "$h" = "$o" ] &&`), 'the Stop hook reads the live ref for more than the comparison');
     assert.match(cmd, /\$HOME\/\.claude\/slipway\/sessions\/\$i\/base/, `${hook} does not read the session's pin`);
     assert.doesNotMatch(cmd, /"\$CLAUDE_PROJECT_DIR"\/process/, `${hook} runs a working-tree script directly`);
   }

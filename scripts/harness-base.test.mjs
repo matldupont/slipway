@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // The harness's base (#145, #154): the commit the session's first SessionStart found at origin/HEAD is pinned outside
 // the repository, and the guard and the base every hook compares against are that commit's, never the live ref; with
-// no pin, no origin/HEAD or no guard to load, no hook runs and the Stop hook blocks once. Fixture: harness-fixture.mjs.
+// no pin, no origin/HEAD or no guard to load, no hook runs and the Stop hook blocks once, but for the one state D-034
+// lets through (#262, harness-no-pin.test.mjs): no pin at all, nothing changed, HEAD at origin/HEAD. Fixture:
+// harness-fixture.mjs.
 // Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
@@ -9,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit } from './harness-fixture.mjs';
+import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change } from './harness-fixture.mjs';
 
 // #154: with no guard to load, the Stop hook cannot run stop-verify, so it blocks once and has the agent run the gate.
 // The fallback text once sat inside `$( … || echo '…')`, and /bin/sh is bash 3.2 on a Mac: a `, ` in it, inside braces,
@@ -50,6 +52,8 @@ test('a base with no guard at session start: nothing is pinned; the Stop hook bl
   git('-C', work, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/noguard');
   try {
     start();
+    quiet('nothing changed at a base with no guard: the fallback cannot tell why there is no pin (D-034)');
+    change(); // #154 as it happens: the checkout differs from a base that holds no guard yet
     stopFallback(run('stop-verify.sh'));
   } finally {
     git('-C', work, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
@@ -116,6 +120,7 @@ test('a compaction or a resume never pins: with no pin no hook runs, the moved b
     moveBase(() => {
       assert.match(JSON.parse(start(SID, source).out).systemMessage, /no base is pinned for this session.*no hook ran/, `source ${source}`);
       assert.ok(!existsSync(join(T, '.claude')), `source ${source} pinned`);
+      change(); // with nothing changed at the moved origin/HEAD the turn ends (D-034): README, a base moved before the pin
       stopBlocksOnce();
     });
   }
