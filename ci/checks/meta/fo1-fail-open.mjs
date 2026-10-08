@@ -38,9 +38,12 @@ import { ID_PREFIX } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
 import { readWorkflow } from '../lib/workflow-yaml.mjs';
 
-// A flag that is empty or `false` fails the job when the step does; anything else may not. The text is compared
-// as written: a quoted `"false "`, or a block scalar holding `false`, is not YAML's boolean, so it is reported.
-const failsClosed = (node) => node.kind === 'scalar' && !node.literal && /^(|false)$/i.test(node.value);
+// A flag is closed only when it is written as plain `false` (any letter case) or left empty. A quoted `"false"`
+// or a block scalar holding `false` is not a plain value, and the reader does not tell a folded block from a
+// quoted text, so every spelling but the plain one is reported, with the fix in the finding (#345).
+const failsClosed = (node) => node.kind === 'scalar' && node.plain && /^(|false)$/i.test(node.value);
+// A `false` written some other way than plain: the finding says to write it plain.
+const writtenFalse = (node) => node.kind === 'scalar' && !node.plain && node.value.trim().toLowerCase() === 'false';
 // The id, or the name, of a step, when it is one line of text. A `|` block, or a text over several lines, is no
 // name, so the step is keyed by its position, as it always was; a `>-` or `>` block of one line is its text.
 const textOf = (node) => (node?.kind === 'scalar' && !node.literal && !node.value.trim().includes('\n') ? node.value.trim() : '');
@@ -55,7 +58,7 @@ function sitesOf(root, rel) {
   if (jobs.kind !== 'map' || jobs.flow) throw new Error(`${rel}: its jobs: is not a block of jobs FO1 can read`);
   const push = (job, step, flag) => {
     if (!flag || failsClosed(flag)) return;
-    sites.push({ job, step, line: flag.kind === 'scalar' ? flag.line : null });
+    sites.push({ job, step, line: flag.kind === 'scalar' ? flag.line : null, writtenFalse: writtenFalse(flag) });
   };
   for (const [id, job] of jobs.entries) {
     if (job.kind !== 'map') throw new Error(`${rel}: job ${JSON.stringify(id)} is not a block of keys FO1 can read`);
@@ -101,7 +104,7 @@ for (const f of files) {
     break;
   }
   try {
-    for (const s of sitesOf(w.root, rel)) sites.push({ ...siteId(rel, s), line: s.line });
+    for (const s of sitesOf(w.root, rel)) sites.push({ ...siteId(rel, s), line: s.line, writtenFalse: s.writtenFalse });
   } catch (e) {
     broken = e.message;
     break;
@@ -147,11 +150,12 @@ for (const e of registry) {
 
 for (const s of sites) {
   if (live.has(s.id)) { exempted.push(s.id); continue; }
-  const why = s.duplicate ? 'step name is not unique in its job — give it an id: before it can be excused'
+  const why = s.writtenFalse ? 'a false written as quoted text or as a block is not plain false'
+    : s.duplicate ? 'step name is not unique in its job — give it an id: before it can be excused'
     : s.positional ? 'step has no id or name — give it an id: before it can be excused'
     : 'a failure here would not fail CI';
   const next = s.duplicate || s.positional ? 'give the step an id: and add a dated entry for it' : `add a dated entry with id: ${s.id}`;
-  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}${s.line === null ? '' : `; currently line ${s.line}`}) — remove it, or ${next}` });
+  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}${s.line === null ? '' : `; currently line ${s.line}`}) — ${s.writtenFalse ? 'write it as plain false, or ' : ''}remove it, or ${next}` });
 }
 
 process.exit(

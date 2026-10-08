@@ -40,9 +40,9 @@ test('the flag as text is not a flag: in a run block, under env, in a quoted tex
   }
 });
 
-test('the flag is found as a key of a step, of a job, and written as a flow or a quoted value', () => {
+test('the flag is found as a key of a step, of a job, and written as a flow or a quoted value; a plain false is not', () => {
   const r = fo1(
-    `name: x\non: [pull_request]\njobs:\n  a:\n    continue-on-error: "true"\n    steps:\n      - { id: b, run: echo, continue-on-error: true }\n      - id: c\n        run: echo\n        continue-on-error: "false"\n      - name: d\n        continue-on-error: ${'$'}{{ matrix.x }}\n        run: echo\n`
+    `name: x\non: [pull_request]\njobs:\n  a:\n    continue-on-error: "true"\n    steps:\n      - { id: b, run: echo, continue-on-error: true }\n      - id: c\n        run: echo\n        continue-on-error: false\n      - name: d\n        continue-on-error: ${'$'}{{ matrix.x }}\n        run: echo\n`
   );
   assert.equal(r.status, 1, r.out);
   assert.deepEqual(
@@ -82,16 +82,32 @@ test('the id of a job or a step is the same as before: id, then name, then posit
   );
 });
 
-test('only an empty flag and a plain false fail closed: every other spelling is reported', () => {
+test('only a plain false, in any case, and an empty flag fail closed', () => {
   const flag = (value) => fo1(wrap(`      - id: s\n        run: echo\n        continue-on-error: ${value}\n`));
-  for (const closed of ['false', 'False', 'FALSE', '"false"', "'false'", '']) {
+  for (const closed of ['false', 'False', 'FALSE', '', 'false # kept for the matrix']) {
     const r = flag(closed);
     assert.equal(r.status, 0, `${JSON.stringify(closed)}: ${r.out}`);
   }
-  for (const open of ['true', '"false "', '|\n          false', '>\n          false', '[false]', '{a: false}', 'no', '0']) {
+});
+
+test('a false written as quoted text or as a block is reported, and the finding says to write it plain', () => {
+  const flag = (value) => fo1(wrap(`      - id: s\n        run: echo\n        continue-on-error: ${value}\n`));
+  const blocks = ['|', '|-', '|+', '>', '>-', '>+'].map((indicator) => `${indicator}\n          false`);
+  for (const written of [...blocks, '"false"', "'false'"]) {
+    const r = flag(written);
+    assert.equal(r.status, 1, `${JSON.stringify(written)}: ${r.out}`);
+    assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/ci.yml#a/s'], written);
+    assert.match(r.json.findings[0].detail, /write it as plain false/, written);
+  }
+});
+
+test('every other value is reported, and its finding does not call it a false', () => {
+  const flag = (value) => fo1(wrap(`      - id: s\n        run: echo\n        continue-on-error: ${value}\n`));
+  for (const open of ['true', '[false]', '{a: false}', 'no', '0', '${{ matrix.x }}']) {
     const r = flag(open);
     assert.equal(r.status, 1, `${JSON.stringify(open)}: ${r.out}`);
     assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/ci.yml#a/s'], open);
+    assert.doesNotMatch(r.json.findings[0].detail, /plain false/, open);
   }
 });
 
