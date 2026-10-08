@@ -411,8 +411,8 @@ pinned parser is part of `ci/checks/`, and a workflow file is no longer read as 
 - **Each reader of workflow text.**
   - W1's reader (`ci/checks/lib/workflows.mjs`: what starts a workflow, its `run:` lines, the workflows it
     calls) moves to the parser, in #306's pull request.
-  - FO1 (`ci/checks/meta/fo1-fail-open.mjs`) moves to the parser in a follow-up. Until then it stays as it is:
-    it already exits BROKEN outside its subset, and none of the open findings is in it.
+  - FO1 (`ci/checks/meta/fo1-fail-open.mjs`) moved to the parser in the follow-up, #332. A workflow file the
+    reader refuses is BROKEN (exit 2), naming the file and the reader's reason.
   - D1 (`ci/checks/meta/d1-drift.mjs`) stays: it compares a workflow file's hash and never reads it as YAML.
   - The command reader (`ci/checks/lib/commands.mjs`) stays: it reads one shell command line, which is not YAML.
 - **Agreeing with YAML is not agreeing with GitHub's reader.** The reader refuses what the two are most likely

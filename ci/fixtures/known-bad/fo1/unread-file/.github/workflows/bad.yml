@@ -1,0 +1,12 @@
+# Inert text; nothing here is run. The flag reaches the step through an anchor and an alias, which the shared
+# reader refuses (D-033): FO1 cannot say what the file holds, so it never reads as clean.
+name: bad
+on: [pull_request]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults: &tolerant
+      continue-on-error: true
+    steps:
+      - run: echo flaky
+        <<: *tolerant

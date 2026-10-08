@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -129,19 +129,36 @@ for (const s of present) {
   }
 }
 
-// Every markdown file /pr-review ships, not only its SKILL.md: its references carry commands too.
-const reviewFiles = (exts) => {
-  const out = [];
-  const walk = (rel) => {
-    for (const e of readdirSync(join(SRC, rel), { withFileTypes: true })) {
-      const p = `${rel}/${e.name}`;
-      if (e.isDirectory()) walk(p);
-      else if (exts.some((x) => e.name.endsWith(x))) out.push(p);
-    }
-  };
-  if (existsSync(join(SRC, `.claude/skills/${REVIEW}`))) walk(`.claude/skills/${REVIEW}`);
-  return out;
-};
+// Every markdown file /pr-review ships, not only its SKILL.md: its references carry commands too. Git lists them,
+// tracked or new, so what it ignores never counts; a file removed and not yet committed is not there to read.
+const reviewFiles = (exts, root = SRC) =>
+  execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', `.claude/skills/${REVIEW}`], { cwd: root, encoding: 'utf8' })
+    .split('\0')
+    .filter((f) => f && exts.some((x) => f.endsWith(x)) && existsSync(join(root, f)));
+
+// The skill's own test builds fixture repositories in an ignored folder beside it, with links that point at nothing,
+// and an interrupted run leaves them behind (#347).
+test('/pr-review ships what git lists: nothing in an ignored folder, and a file not yet committed', () => {
+  const root = mkdtempSync(join(tmpdir(), 'review-files-'));
+  try {
+    const skill = `.claude/skills/${REVIEW}`;
+    const left = `${skill}/features/.test-tmp/run-x/repo-a/docs`;
+    const git = (...args) => execFileSync('git', args, { cwd: root, stdio: 'pipe' });
+    mkdirSync(join(root, left), { recursive: true });
+    writeFileSync(join(root, '.gitignore'), `${skill}/features/.test-tmp\n`);
+    writeFileSync(join(root, skill, 'SKILL.md'), '# shipped\n');
+    writeFileSync(join(root, skill, 'removed.md'), '# removed\n');
+    writeFileSync(join(root, left, 'notes.md'), '# a fixture\n');
+    symlinkSync('../outside-a/secret.md', join(root, left, 'domain-invariants.md'));
+    git('init', '-q');
+    git('add', '.gitignore', `${skill}/SKILL.md`, `${skill}/removed.md`);
+    rmSync(join(root, skill, 'removed.md'));
+    writeFileSync(join(root, skill, 'features/new-reference.md'), '# not yet committed\n');
+    assert.deepEqual(reviewFiles(['.md'], root).sort(), [`${skill}/SKILL.md`, `${skill}/features/new-reference.md`]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('no command in a skill or process/intake.md names a repository, label, milestone or board', () => {
   for (const p of [...new Set([...present.map(skillPath), ...reviewFiles(['.md']), 'process/intake.md'])]) {
@@ -415,8 +432,25 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   assert.match(skill, /never write one yourself/, 'work-ticket must keep forbidding a review-written threat model');
 });
 
-// #283 (D-031): what may be committed after the last review is said once, in /work-ticket → Rounds 2 and 3, for
-// every lane. The Deferred check rule and its feature doc point there, and Phase 6 does not say it a second way.
+// #314 (D-031): cold-review.md → How and → When to stop point at /work-ticket → Rounds 2 and 3, step 4 for what
+// is committed and when, neither keeps its earlier fix-it sentence, and How says whose the closing line is.
+test('process/cold-review.md points at work-ticket → Rounds 2 and 3, step 4 for what is committed and when', () => {
+  const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
+  const cold = read('process/cold-review.md');
+  const how = flat(section(cold, 'How', 2));
+  const stop = flat(section(cold, 'When to stop', 2));
+  const fixAfter = /fixed in the diff or explicitly waived|fixed in the same diff/i;
+  assert.match(how, /What is committed for a finding, and when, is `\/work-ticket`'s to say \(`\.claude\/skills\/work-ticket\/SKILL\.md` → Rounds 2 and 3, step 4; D-031\)/, 'How must point at the rule');
+  assert.doesNotMatch(how, fixAfter, 'How must not say to fix a finding without saying when');
+  assert.match(how, /Each finding's outcome is written there: fixed, waived, a known limitation or a follow-up\./, 'How must keep a written outcome for every finding');
+  assert.match(stop, /What becomes of anything else is that skill's Which findings count; what is committed for it, and when, is its Rounds 2 and 3, step 4 \(L-68, D-031\)/, 'When to stop must point at the rule');
+  assert.doesNotMatch(stop, fixAfter, 'When to stop must not say to fix a finding without saying when');
+  assert.match(how, /The line that closes the section, naming the last reviewed head and the pull request's head, is `\/work-ticket`'s only \(Phase 6\)\. A `\/pr-review` cold review names the one head it read and never writes that line; a pull request that carries one has no such line\./, 'How must say the closing line is /work-ticket\'s only, and that a /pr-review cold review has none');
+});
+
+// #283 (D-031): /work-ticket → Rounds 2 and 3 states the rule, its end of review and its one exception; neither
+// earlier wording is left in work-ticket, the Deferred check rule or its feature doc; Phase 6, the findings
+// table, the Deferred check rule and the feature doc point at it; decisions.md records it.
 test('work-ticket says in Rounds 2 and 3 that nothing is committed after the round that ends the review; intake and the feature doc point at it', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const wt = read(skillPath('work-ticket'));
