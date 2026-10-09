@@ -52,8 +52,9 @@ const FEATURE_DIRS = ['docs/features', 'dev/features'];
 // Not handled, and said so: an id written through markup or an escape (`## **D-1**`, `## D\-1`, `<h2>D-1</h2>`), a
 // setext heading, a look-alike letter, dash or digit that NFKC leaves alone (Cyrillic Р, U+2043, Arabic-Indic ٣), a file
 // name other than `*.md`, and README.md, which is skipped beside TEMPLATE.md.
-// Every character report.mjs's UNSAFE names, all of them on a line (its own regex has no `g`).
-const INVISIBLE = new RegExp(UNSAFE.source, 'gv');
+// Every character report.mjs's UNSAFE names, all of them on a line (its own regex has no `g`), and the three it leaves
+// for emoji (U+200D, U+FE0E, U+FE0F), which print as nothing between plain letters.
+const INVISIBLE = new RegExp(`[${UNSAFE.source}\\u200d\\ufe0e\\ufe0f]`, 'gv');
 function visible(md) {
   return md
     .replace(/^\uFEFF/, '')

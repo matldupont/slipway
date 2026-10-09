@@ -59,7 +59,7 @@ test('a decoy F-heading before the real one does not decide the doc\'s id; a BOM
 });
 
 test('several invisible characters, list markers of every kind, and a quote after a list marker hide nothing', () => {
-  for (const line of ['## D\u200b-\u200b1 — b', '## D\u00ad-\u200b1 — b', '\uFEFF\uFEFF\uFEFF## D-1 — b', '- > ## D-1 — b', '> - > ## D-1 — b', '1. > ## D-1 — b', '2) ## D-1 — b', '* ## D-1 — b', '+ ## D-1 — b']) {
+  for (const line of ['## D\u200b-\u200b1 — b', '## D\u00ad-\u200b1 — b', '## D\u200d-1 — b', '## D\ufe0f-1 — b', '## D-\ufe0e1 — b', '\uFEFF\uFEFF\uFEFF## D-1 — b', '- > ## D-1 — b', '> - > ## D-1 — b', '1. > ## D-1 — b', '2) ## D-1 — b', '* ## D-1 — b', '+ ## D-1 — b']) {
     assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\n' + line + '\n' }).findings, ['decisions.md#decision/duplicate/D-1'], JSON.stringify(line));
   }
   assert.deepEqual(id1({ [A]: doc('12'), 'docs/features/b.md': '# F-1\u200b\u200b2 — b\n' }).findings, ['docs/features/b.md#feature/duplicate/F-12']);
