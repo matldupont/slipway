@@ -191,6 +191,16 @@ test('every path the guard adds to the harness list is counted by the PR check, 
   // The guard's other hard-coded list, the .claude folder: the harness rule `**/.claude/**` counts all of it here.
   assert.ok(GUARD.includes("set -- ':(glob,icase)**/.claude/**' ':(glob,icase)**/.claude' ':(exclude,glob,icase)**/.claude/skills/**'\n"), 'the guard\'s .claude list moved or changed: re-read it against the PR check');
   assert.ok(gateGlobs(settings).includes('**/.claude/**'));
+  // #373, D-039: of the skills tree the guard counts a folder that holds a `.claude-plugin` entry, whole. The check
+  // counts every skill, so it needs no list of its own for them; these lines are the guard's, pinned as they read.
+  for (const line of ["set -- ':(glob,icase)**/.claude/skills/**'\n", 'at_base=$(g ls-tree -r --name-only "$base") ||', 'indexed=$(g ls-files -c) ||',
+    'if (!match(l, /(^"?|\\/)\\.claude\\/skills\\/[^\\/]+\\//)) next;', '!changes { if (l ~ /\\/\\.claude-plugin(\\/|"?$)/) plugins[folder] = 1; next }',
+    '"$tracked" "$untracked" "$dotclaude" "$dotclaude_new" "$plugin" |']) {
+    assert.ok(GUARD.includes(line), `the guard's plugin-folder list moved or changed (${line}): re-read it against the PR check`);
+  }
+  for (const p of ['.claude/skills/x/.claude-plugin/plugin.json', '.claude/skills/x/hooks/hooks.json', '.claude/skills/x/hooks/register.ts',
+    'apps/web/.claude/skills/x/.claude-plugin/plugin.json', '.claude/skills/x/SKILL.md']) assert.ok(gate(p), `${p} should be a gate file for the PR check`);
+  assert.equal(gate.lookalike('.claude/skills/x/.Claude-Plugin/plugin.json'), null, 'a plugin folder in another letter case is counted as it is, not as a lookalike');
   for (const g of GUARD_GLOBS) assert.ok(extras.includes(g), `${g} is no longer a path the guard counts`);
   for (const p of ['.gitmodules', '.gitattributes', 'apps/web/.gitattributes', 'vendor/x/.gitmodules']) assert.ok(gate(p), `${p} should be a gate file`);
   for (const p of ['docs/gitattributes', 'src/.gitattributes.ts', '.gitignore']) assert.ok(!gate(p), `${p} should not be`);

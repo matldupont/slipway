@@ -77,7 +77,8 @@ test('an owner-only file that is not gate code leaves the hooks running; setting
 
 // #173: under .claude only the skills tree is owner-only and no more; a skill runs when invoked, never from a hook.
 // Everything else there is gate code without being listed, and a gate file inside a skill still counts by its own name.
-test('a skills tree leaves the hooks running, whole; every file under .claude outside one stops them, at any depth and in any case', () => {
+// A skill folder that is a plugin is gate code too (#373): harness-plugin-folder.test.mjs.
+test('a skills tree with no plugin folder leaves the hooks running, whole; every file under .claude outside one stops them, at any depth and in any case', () => {
   for (const [i, p] of ['.claude/skills/x/SKILL.md', '.claude/skills/x/scripts/y.mjs', 'apps/web/.claude/skills/x/SKILL.md', '.claude/skills/x/.claude/notes.txt'].entries()) {
     clean();
     put(p, '# inert\n');
