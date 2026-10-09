@@ -129,7 +129,7 @@ Decisions: {id — what it decides · how this touches it} · Conflicts: {A vs B
 **Branch.** `{name}` is lowercase letters, digits and `-` only: it goes into branch names, paths and
 commands. `git status` must be empty (dirty: stop and ask, never stash silently). `git fetch`, then
 `git switch -c docs/feature-{name} origin/{default branch}`; with no remote, from the local default branch,
-and say so. Hold any settings answers until the id's commit is pushed, then commit them alone.
+and say so. Hold any settings answers until the doc's first commit, then commit them alone.
 
 **Feature doc.** Copy `{Feature docs dir}/TEMPLATE.md` (slipway's own: `docs/features/TEMPLATE.md`) to `{Feature docs dir}/{name}.md`, named for the
 feature, not the slice: later iterations extend the same doc. If that file exists, extend it instead (Edge
@@ -165,16 +165,12 @@ summary}), or a later milestone?" With no active milestone, name the one being s
 - **Later:** add the item to a shaping milestone's Contents. None exists: create one from the milestone
   template (`TEMPLATE.md` beside the milestones) with the next free `id:`, `status: shaping` and a one-line
   `summary:`, and add its row to the PRD's milestones table (§10), its one-line cell copied from `summary:`.
-- **Not scheduled:** that is a DEFER, as in Phase 2: stop and file nothing. No id is taken: title the doc `F-??`,
-  leave the branch unpushed, tell the owner its name, and give them the §4 line. Reviving takes the id: read `main`,
-  the open pull requests and the remote's branches, commit it first, push.
+- **Not scheduled:** that is a DEFER, as in Phase 2: stop and file nothing. No id is taken: title the doc and set `prd-ref:` to `F-??`,
+  remove the PRD §5 entry with its Version and Change log lines, leave the branch unpushed, tell the owner its name, and
+  give them the §4 line. Reviving takes the id: read `main`, the open pull requests and the remote's branches, commit it next, push.
 
-Commit on the branch, and run the repository's checks (R1 as PRD entry says). On a draft PRD the milestone
-check only confirms the PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). This commit carries the new F-id: push it at once (`git push -u origin docs/feature-{name}`; no remote: skip).
-
-```bash
-pnpm meta
-```
+Commit on the branch, and run `pnpm meta` (R1 as PRD entry says). On a draft PRD the milestone
+check only confirms the PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). This commit carries the new F-id: push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/feature-{name}`; no remote: skip.
 
 ```
 PHASE 4: CUT AND SPEC
@@ -266,6 +262,7 @@ stays green. Title: `docs({scope}): spec {feature name}`. Body, under the never-
 It goes to `{checkout}` (`process/intake.md` → Pull request); its number is `{pr}`.
 
 ```bash
+git push
 gh pr create --repo {checkout} --title "$(cat {prdir}/title.txt)" --body-file {prdir}/pr.md
 ```
 
