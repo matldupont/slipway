@@ -15,10 +15,11 @@
 //   companion/id-differs        the doc `companion-of:` names carries another F-<n>, or none; or the companion has no F-<n> heading
 //   feature/unreadable          a feature doc is a link or not a regular file, so its F-<n> cannot be read
 //
-// What counts as a declaration. In decisions.md, a line that starts (up to three spaces, then 1–6 `#`) with the id: `## D-014 — …`,
-// `## D-014 — … *(open — week 1)*`, `### PD-3 — …`. An id quoted in a body paragraph or a list item is not one; a
-// heading-shaped line inside a fenced block, an HTML comment or front matter is, because nothing is skipped. In a feature doc under docs/features/ or dev/features/, the first heading that starts
-// with `F-<n>` (TEMPLATE.md is the template: skipped). Ids compare by number: D-9 and D-009, F-2 and F-02 are one id.
+// What counts as a declaration. A line that starts (spaces, quote and list markers allowed, then 1–6 `#`) with the id:
+// `## D-014 — …`, `## D-014 — … *(open — week 1)*`, `### PD-3 — …`, `# F-12 — …`. An id quoted in a body paragraph is not
+// one; a heading-shaped line inside a fenced block, an HTML comment, front matter, a quote or a list item is, because
+// nothing is skipped. A feature doc claims every F-<n> it has a heading for, not only the first. Ids compare by number:
+// D-9 and D-009, F-2 and F-02 are one id. TEMPLATE.md is the template: skipped.
 //
 // Companions. A doc that carries the same F-<n> as another on purpose (one is the other's table, as slipway's
 // landing-page-claims.md is landing-page.md's) says so in its own frontmatter, in one form, and the doc it names carries
@@ -26,8 +27,8 @@
 //
 //   companion-of: dev/features/landing-page.md
 //
-// One direction, no chains; several companions may name one primary. The pair passes only when the named doc's heading
-// carries the same id.
+// One direction, no chains; several companions may name one primary. The pair passes only when the named doc carries every id
+// the companion does.
 //
 // Docs in a subfolder of those folders are not read, and a doc that is a link or not a regular file is a finding
 // (feature/unreadable), never skipped.
@@ -38,18 +39,29 @@
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter } from '../lib/frontmatter.mjs';
-import { report } from '../lib/report.mjs';
+import { report, UNSAFE } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
 const FEATURE_DIRS = ['docs/features', 'dev/features'];
 
 // [{ line, text }] for every line of the text, whatever it sits in. Nothing is skipped: a heading-shaped line inside a
-// fence, a comment or front matter counts too. Every skip rule a reader of markdown applies (fences, comments, indented
-// code, quotes) is a way to hide a duplicate from a gate, and three review rounds found one each; a false alarm on an
-// example heading costs a reword, a hidden duplicate costs a collision. CR, LF and CRLF all end a line.
+// fence, a comment, front matter, a quote, a list item or indented code counts too. Every skip rule a reader of markdown
+// applies is a way to hide a duplicate from a gate, and review rounds found one each; a false alarm on an example heading
+// costs a reword, a hidden duplicate costs a collision. CR, LF and CRLF all end a line. A byte-order mark, characters
+// that print as nothing, and look-alike hyphens and digits (NFKC) are normalised away before a line is matched.
+// Not handled, and said so: an id written through markup or an escape (`## **D-1**`, `## D\-1`, `<h2>D-1</h2>`), a
+// setext heading, a file name other than `*.md`.
 function visible(md) {
-  return md.split(/\r\n|\r|\n/).map((text, i) => ({ line: i + 1, text }));
+  return md
+    .replace(/^\uFEFF/, '')
+    .split(/\r\n|\r|\n/)
+    .map((raw, i) => ({ line: i + 1, text: raw.replace(UNSAFE, '').normalize('NFKC').replace(/[\p{Pd}\u2212]/gu, '-') }));
 }
+
+// What may stand in front of the `#`s: spaces, quote markers and list markers.
+const LEAD = String.raw`^[ \t>]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)*#{1,6}[ \t]+`;
+const DECISION = new RegExp(`${LEAD}(P?D)-(\\d+)\\b`);
+const FEATURE = new RegExp(`${LEAD}F-(\\d+)\\b`);
 
 const findings = [];
 let scanned = 0;
@@ -59,7 +71,7 @@ const decisionsPath = join(root, 'decisions.md');
 if (existsSync(decisionsPath)) {
   const seen = new Map();
   for (const { line, text } of visible(readFileSync(decisionsPath, 'utf8'))) {
-    const m = text.match(/^ {0,3}#{1,6}[ \t]+(P?D)-(\d+)\b/);
+    const m = text.match(DECISION);
     if (!m) continue;
     scanned++;
     const key = `${m[1]}-${Number(m[2])}`;
@@ -78,7 +90,7 @@ const regular = (path) => {
   }
 };
 
-// feature docs: path → { n (null: no F-id heading), companionOf }
+// feature docs: path → { ns (every F-<n> a heading of the doc carries; empty: none), companionOf }
 const docs = new Map();
 for (const dir of FEATURE_DIRS) {
   const abs = join(root, dir);
@@ -90,9 +102,9 @@ for (const dir of FEATURE_DIRS) {
       continue;
     }
     const md = readFileSync(join(abs, f), 'utf8');
-    const heading = visible(md).map((l) => l.text.match(/^ {0,3}#{1,6}[ \t]+F-(\d+)\b/)).find(Boolean);
-    if (heading) scanned++;
-    docs.set(path, { n: heading ? Number(heading[1]) : null, companionOf: (frontmatter(md) ?? {})['companion-of'] ?? null });
+    const ns = [...new Set(visible(md).map((l) => l.text.match(FEATURE)).filter(Boolean).map((m) => Number(m[1])))];
+    if (ns.length) scanned++;
+    docs.set(path, { ns, companionOf: (frontmatter(md.replace(/\r\n|\r/g, '\n')) ?? {})['companion-of'] ?? null });
   }
 }
 
@@ -101,23 +113,26 @@ const fid = (n) => `F-${String(n).padStart(2, '0')}`;
 const safe = (p) => typeof p === 'string' && p !== '' && !p.startsWith('/') && !/[\u0000-\u001f\u007f\\:]/.test(p) && p.split('/').every((s) => s !== '' && s !== '.' && s !== '..');
 const owners = new Map();
 const exempted = [];
+const list = (ns) => ns.map(fid).join(', ');
 for (const [path, d] of docs) {
-  if (d.n === null) {
+  if (d.ns.length === 0) {
     if (d.companionOf !== null) findings.push({ where: `${path}#companion/id-differs`, detail: `${path} names ${named(d.companionOf)} as its primary but carries no F-id of its own` });
     continue;
   }
   if (d.companionOf === null) {
-    if (!owners.has(d.n)) owners.set(d.n, []);
-    owners.get(d.n).push(path);
+    for (const n of d.ns) {
+      if (!owners.has(n)) owners.set(n, []);
+      owners.get(n).push(path);
+    }
     continue;
   }
   const target = safe(d.companionOf) ? docs.get(d.companionOf) : undefined;
   if (!target) {
-    findings.push({ where: `${path}#companion/missing`, detail: `companion-of names "${typeof d.companionOf === 'string' ? d.companionOf : '(no path)'}", which is not a regular feature doc under ${FEATURE_DIRS.join(' or ')} (a repo-relative path, no link, no "..")` });
+    findings.push({ where: `${path}#companion/missing`, detail: `companion-of names "${named(d.companionOf)}", which is not a regular feature doc under ${FEATURE_DIRS.join(' or ')} (a repo-relative path, no link, no "..")` });
   } else if (d.companionOf === path || target.companionOf !== null) {
-    findings.push({ where: `${path}#companion/chain`, detail: `${path} names ${d.companionOf} as its primary, and ${d.companionOf} is itself a companion (of ${named(target.companionOf)}): name the doc that owns ${fid(d.n)}, which declares nothing` });
-  } else if (target.n !== d.n) {
-    findings.push({ where: `${path}#companion/id-differs`, detail: `${path} carries ${fid(d.n)} and names ${d.companionOf} as its primary, which ${target.n === null ? 'carries no F-id' : `carries ${fid(target.n)}`}` });
+    findings.push({ where: `${path}#companion/chain`, detail: `${path} names ${d.companionOf} as its primary, and ${d.companionOf} is itself a companion (of ${named(target.companionOf)}): name the doc that owns ${list(d.ns)}, which declares nothing` });
+  } else if (d.ns.some((n) => !target.ns.includes(n))) {
+    findings.push({ where: `${path}#companion/id-differs`, detail: `${path} carries ${list(d.ns)} and names ${d.companionOf} as its primary, which carries ${target.ns.length ? list(target.ns) : 'no F-id'}: a companion's every F-id is its primary's` });
   } else exempted.push(`${path} (companion of ${d.companionOf})`);
 }
 for (const [n, paths] of owners) {

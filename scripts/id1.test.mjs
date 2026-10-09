@@ -49,6 +49,31 @@ test('nothing is skipped: a heading in a fence, a comment, front matter or behin
   assert.deepEqual(r.findings, ['docs/features/b.md#feature/duplicate/F-03']);
 });
 
+test('a decoy F-heading before the real one does not decide the doc\'s id; a BOM, a quote or list marker, and look-alike characters hide nothing', () => {
+  const dup = { [A]: doc('3') };
+  for (const body of ['<!--\n# F-77 — decoy\n-->\n# F-3 — b', '# F-77 — note\n# F-3 — b', '---\n# F-12 — was the parent idea\n---\n# F-3 — b', '```\n# F-7 — example\n```\n# F-3 — b', '\uFEFF# F-3 — b', '> # F-3 — b', '- # F-3 — b', '# F\u200b-3 — b', '# F\u2011\uFF13 — b']) {
+    const r = id1({ ...dup, 'docs/features/b.md': body + '\n' });
+    assert.deepEqual(r.findings, ['docs/features/b.md#feature/duplicate/F-03'], JSON.stringify(body));
+  }
+  assert.deepEqual(id1({ 'decisions.md': '\uFEFF## D-1 — a\n> ## D-1 — b\n' }).findings, ['decisions.md#decision/duplicate/D-1']);
+});
+
+test('a decisions.md heading inside front matter, a fence or a comment counts', () => {
+  for (const hidden of ['---\n## D-1 — b\n---', '```\n## D-1 — b\n```', '<!--\n## D-1 — b\n-->']) {
+    assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\n' + hidden + '\n' }).findings, ['decisions.md#decision/duplicate/D-1'], hidden);
+  }
+});
+
+test('a companion declared in a CR-only file is read', () => {
+  const r = id1({ [A]: doc('3'), 'docs/features/b.md': doc('3', A).replaceAll('\n', '\r') });
+  assert.deepEqual([r.status, r.findings], [0, []]);
+});
+
+test('a companion may carry only its primary\'s ids', () => {
+  const r = id1({ [A]: doc('3'), 'docs/features/b.md': doc('3', A) + '\n# F-4 — a second id\n' });
+  assert.deepEqual(r.findings, ['docs/features/b.md#companion/id-differs']);
+});
+
 test('ids compare by number: D-9 and D-009, F-2 and F-02', () => {
   assert.deepEqual(id1({ 'decisions.md': '## D-9 — a\n\n## D-009 — b\n' }).findings, ['decisions.md#decision/duplicate/D-9']);
   assert.deepEqual(id1({ [A]: doc('2'), 'docs/features/b.md': doc('02') }).findings, ['docs/features/b.md#feature/duplicate/F-02']);
