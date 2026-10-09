@@ -230,6 +230,12 @@ Since #241:
   says it "leaves #n open" (#296): GitHub closes `#n` from the closing word in any sentence, as #288 closed #252.
   The message quotes both lines and says to put the number before the verb or name the closing pull request.
 
+Since #282 (D-038):
+
+- Every journey in a plan runs in the environment its check names. A journey that runs elsewhere is not in that
+  plan: it is run and recorded before the PR is ready when it needs no deploy, and otherwise gets its own plan and
+  its own `Owed:` line. The reader is unchanged: an `Owed:` line's environment is any text, `local` included.
+
 `process/intake.md` → Milestone item gains one clause: a check line under an item is not part of the item's
 line, so the marker still ends it. `/close-milestone` → "Prove the gate" gains one sentence: every `Owed:`,
 unreadable or unresolved failed `Ran:` line under Contents is a gate line without evidence, and `pnpm meta`
@@ -269,6 +275,8 @@ their own escapes; neither is read by every session.
 
 ## Known limitations
 
+- No check reads a plan's journeys, so nothing goes red when a plan holds one that cannot run in its check's
+  environment (D-038); such a plan records partial runs, which stay owed.
 - A `Ran:` line is a pointer. MS1 checks its shape and that it points at a comment on the right issue, not that
   the comment exists or says what the line says; `pnpm status` and `pnpm meta` read no network (D-022).
   `/close-milestone` reads the linked comments when it proves the gate.
@@ -424,6 +432,9 @@ none
 
 ## Changes
 
+- 2026-10-08 · CHANGED · built (#282, D-038): every journey in a plan runs in the environment its check names;
+  one that runs elsewhere is run before the PR is ready, or gets its own plan and `Owed:` line (§6, Known
+  limitations). The reader is unchanged
 - 2026-10-07 · CHANGED · built (#257, D-030): a fail line naming a closed bug owes again, read by
   `/close-milestone` with `gh issue view`; an accepted failure has no line form, its check line is removed in a
   PR that records a decision naming the check and linking the failed run's comment; status's failed-check hint

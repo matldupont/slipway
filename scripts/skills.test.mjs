@@ -726,6 +726,15 @@ test('process/intake.md → Deferred check: the `Owed:` line names the whole QA 
   assert.match(d, /A `Ran: … pass` line for a check whose comment lists a journey `not run` is not allowed/, 'a pass line over a comment with journeys not run is refused');
 });
 
+// #282 (D-038): a plan holds no journey that runs in another environment than its check; the rule is 2 sentences.
+test('process/intake.md → Deferred check: every journey in a plan runs in the environment its check names, and one that runs elsewhere leaves the plan', () => {
+  const d = (section(intake, 'Deferred check', 2) ?? '').replace(/\s+/g, ' ');
+  const rule = d.match(/- \*\*Every journey in a plan runs in the environment its check names\.\*\* (.*?\(D-038\)\.)(?= - \*\*|$)/);
+  assert.ok(rule, 'Deferred check must say every journey in a plan runs in the environment its check names (D-038)');
+  assert.equal(rule[1], 'A journey that runs elsewhere is not in that plan: it is run and recorded before the PR is ready when it needs no deploy, and otherwise gets its own plan and its own `Owed:` line (D-038).', 'a journey that runs elsewhere leaves the plan: run before the PR is ready, or its own plan and `Owed:` line');
+  assert.equal(rule[0].split(/\.(?:\*\*)? /).length, 2, 'the rule is 2 sentences or fewer');
+});
+
 // #202: the deferred check written in a sub-issue's own Acceptance still closes the sub-issue and is recorded on the item's issue.
 test('process/intake.md → Deferred check: a sub-issue with a deferred check still closes, the run is recorded on the item\'s issue, and the split skills keep such a check off sub-issues', () => {
   const d = (section(intake, 'Deferred check', 2) ?? '').replace(/\s+/g, ' ');

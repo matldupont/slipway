@@ -43,6 +43,13 @@ test('an item whose split wrote its Owed: line owes 1 check, naming the whole pl
   assert.deepEqual(owing(split).map((c) => [c.kind, c.check, c.env]), [['owed', 'docs/qa/booking.md', 'staging']]);
 });
 
+// #282 (D-038): a journey that cannot run where its plan's check runs gets its own plan and its own `Owed:` line.
+// The reader takes that line as it is: the environment is whatever follows the last dash, `local` included.
+test('a plan of its own for another environment owes beside the staging plan: 2 checks, each with its environment', () => {
+  const i = item('   Owed: docs/qa/booking.md — staging', '   Owed: docs/qa/booking-local.md — local');
+  assert.deepEqual(owing(i).map((c) => [c.kind, c.check, c.env]), [['owed', 'docs/qa/booking.md', 'staging'], ['owed', 'docs/qa/booking-local.md', 'local']]);
+});
+
 test('a bulleted lower-case line, an Owed: with no environment and a Ran: on a day that does not exist are unreadable, and owed', () => {
   const i = item('   - owed: x', '   Owed: x', `   Ran: x — staging 2026-02-30 pass ${URL13}`);
   assert.deepEqual(kinds(i), ['unreadable', 'unreadable', 'unreadable']);
