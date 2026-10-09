@@ -668,8 +668,8 @@ part: the exemption stays for every other skill.
   a `.claude-plugin` entry sits anywhere below it in the session's pinned base, the index or the untracked files. A
   file added to, changed in or removed from it is a changed gate file: the working tree's hook does not run, the
   Stop and SessionStart hooks name the file, and the owner's yes covers it as it does any gate file.
-- **The name decides, not the content.** An entry of any kind counts (a folder, a file, a link), with or without a
-  manifest in it, and the guard reads no manifest: its content is a branch's text, and which files make a folder a
+- **The name decides, not the content.** An entry of any kind git lists counts (a folder with any file in it, a
+  file, a link), with or without a manifest in it, and the guard reads no manifest: its content is a branch's text, and which files make a folder a
   plugin is Claude Code's to change. What the guard cannot read it counts.
 - **Why whole.** A plugin loads from more of its folder than its manifest and its hooks file (agents, server
   settings, the scripts its hook commands name). From Claude Code's documentation, not tested: every path a
@@ -680,7 +680,8 @@ part: the exemption stays for every other skill.
 - **What it cannot do.** Claude Code loads and re-reads a plugin folder itself, before any hook runs. The guard
   reports the change at the next hook and cannot stop the load; the pre-launch check is what covers someone else's
   checkout. A plugin installed outside the repository, a project script a plugin's hook command names and a bundle
-  it names by address are limits, in `process/harness/README.md`. Nothing else under a skills tree is known to run
+  it names by address are limits, in `process/harness/README.md`; so is an empty `.claude-plugin` folder, which git
+  does not list and no checkout or pull request can carry. Nothing else under a skills tree is known to run
   without being invoked (Claude Code 2.1.293, read from its documentation on 2026-10-09).
 
 Decided by the owner (what counts). Consistent with D-023 and D-025's rule. Declined: counting only the

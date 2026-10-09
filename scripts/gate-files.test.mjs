@@ -194,7 +194,7 @@ test('every path the guard adds to the harness list is counted by the PR check, 
   // #373, D-039: of the skills tree the guard counts a folder that holds a `.claude-plugin` entry, whole. The check
   // counts every skill, so it needs no list of its own for them; these lines are the guard's, pinned as they read.
   for (const line of ["set -- ':(glob,icase)**/.claude/skills/**'\n", 'at_base=$(g ls-tree -r --name-only "$base") ||', 'indexed=$(g ls-files -c) ||',
-    'if (!match(l, /(^"?|\\/)\\.claude\\/skills\\/[^\\/]+\\//)) next;', '!changes { if (l ~ /\\/\\.claude-plugin(\\/|"?$)/) plugins[folder] = 1; next }',
+    'l = tolower($0); sub(/^"/, "", l); if (!match(l, /(^|\\/)\\.claude\\/skills\\/[^\\/]+\\//)) next;', '"$at_base" "$indexed" "$others" "$skills" "$skills_new" |', '!changes { if (l ~ /\\/\\.claude-plugin(\\/|"?$)/) plugins[folder] = 1; next }',
     '"$tracked" "$untracked" "$dotclaude" "$dotclaude_new" "$plugin" |']) {
     assert.ok(GUARD.includes(line), `the guard's plugin-folder list moved or changed (${line}): re-read it against the PR check`);
   }

@@ -120,7 +120,9 @@ dotclaude_new=$(g ls-files -o --exclude-standard -- "$@") || fail 'git ls-files 
 # Claude Code loads what it holds without anyone invoking the skill, so it is gate code by the rule above. The
 # folder `.claude/skills/<name>` counts whole when an entry of that name (a folder, a file or a link, at any depth
 # below it) is in the pinned base, the index or the untracked files: a file added to, changed in or removed from it
-# is a changed gate file. No manifest is read. Names are compared as text, lower-cased, and never handed to git.
+# is a changed gate file. No manifest is read. Names are compared as text, lower-cased, and never handed to git; a
+# name git quotes loses its opening quote first, so an entry with such a name marks the folder its plain names are in.
+# An empty `.claude-plugin` folder is in none of the three lists (git lists files), so it is not seen.
 set -- ':(glob,icase)**/.claude/skills/**'
 skills=$(gdiff "$@") || fail 'git diff failed'
 skills_new=$(g ls-files -o --exclude-standard -- "$@") || fail 'git ls-files failed'
@@ -131,7 +133,7 @@ if [ -n "$skills$skills_new" ]; then
   indexed=$(g ls-files -c) || fail 'git ls-files failed'
   plugin=$(printf '%s\n%s\n%s\n/\n%s\n%s\n' "$at_base" "$indexed" "$others" "$skills" "$skills_new" | LC_ALL=C awk '
     $0 == "/" { changes = 1; next }
-    { l = tolower($0); if (!match(l, /(^"?|\/)\.claude\/skills\/[^\/]+\//)) next; folder = substr(l, 1, RSTART + RLENGTH - 1) }
+    { l = tolower($0); sub(/^"/, "", l); if (!match(l, /(^|\/)\.claude\/skills\/[^\/]+\//)) next; folder = substr(l, 1, RSTART + RLENGTH - 1) }
     !changes { if (l ~ /\/\.claude-plugin(\/|"?$)/) plugins[folder] = 1; next }
     folder in plugins') || fail 'the plugin folders could not be read'
 fi

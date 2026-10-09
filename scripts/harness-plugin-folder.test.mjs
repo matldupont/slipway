@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { HOOKS, STATE, SID, work, git, put, marks, reset, run, clean, commitAll, unpin } from './harness-fixture.mjs';
+import { HOOKS, STATE, SID, work, git, put, marks, reset, run, clean, commit, commitAll, unpin } from './harness-fixture.mjs';
 
 const INERT = '{}\n';
 // The Stop hook ran no working-tree script, and its block names the file.
@@ -58,10 +58,13 @@ test('every file in a skill folder that holds a .claude-plugin entry stops the h
       reset();
       put(`${root}/${f}`, '# inert, changed\n');
       stopped(`${root}/${f}`, `${root}/${f}, changed beside the pin's entry`);
-      // The entry is gone from the checkout and was the base's: the folder still counts.
+      // The entry is gone from the checkout and its index, and was the base's: the folder still counts.
       rmSync(join(work, root, '.claude-plugin'), { recursive: true });
+      git('-C', work, 'add', '-A');
+      commit('the entry removed');
+      put(`${root}/${f}`, '# inert, changed again\n');
       reset();
-      stopped(`${root}/${f}`, `${root}/${f}, with the entry removed from the checkout`);
+      stopped(`${root}/${f}`, `${root}/${f}, with the entry only in the pin`);
       git('-C', work, 'checkout', '-q', '-f', 'main');
       git('-C', work, 'branch', '-q', '-D', 'with-plugin');
       // The entry is only the checkout's, untracked, in the other letter case.
@@ -92,6 +95,22 @@ test('a .claude-plugin entry that is a link or a plain file counts as one: the g
   put('.claude/skills/x/.claude-plugin', 'inert\n');
   put('.claude/skills/x/SKILL.md', '# inert\n');
   stopped('.claude/skills/x/SKILL.md', 'SKILL.md beside a plain file at .claude-plugin');
+  // An entry whose only name git has to quote, the pin's and unchanged: the plain names beside it still count.
+  for (const root of ['.claude/skills/x', 'apps/web/.claude/skills/x']) {
+    clean();
+    put(`${root}/.claude-plugin/\u00fc.json`, INERT);
+    put(`${root}/hooks/hooks.json`, INERT);
+    commitAll('quoted-entry', 'a plugin folder whose entry has a quoted name');
+    const pinned = git('-C', work, 'rev-parse', 'HEAD');
+    unpin();
+    mkdirSync(join(STATE, SID), { recursive: true });
+    writeFileSync(join(STATE, SID, 'base'), `${pinned}\n`);
+    put(`${root}/hooks/hooks.json`, '{ "inert": 1 }\n');
+    reset();
+    stopped(`${root}/hooks/hooks.json`, `${root}/hooks/hooks.json beside a pinned entry with a quoted name`);
+    git('-C', work, 'checkout', '-q', '-f', 'main');
+    git('-C', work, 'branch', '-q', '-D', 'quoted-entry');
+  }
   clean(); // a name that only looks like it is not an entry
   put('.claude/skills/x/.claude-plugin.md', '# inert\n');
   put('.claude/skills/x/claude-plugin/plugin.json', INERT);
