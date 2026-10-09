@@ -19,6 +19,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { report } from './checks/lib/report.mjs';
+import { scanPackage, summary } from './checks/lib/skips.mjs';
 import { REQUIRED_TASKS, VERIFY_TASKS } from './checks/lib/tasks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -63,6 +64,13 @@ for (const task of TASKS) {
     continue;
   }
   steps.push({ task, declaring });
+}
+
+// L-56: a package that declares `test` says how many skipped-test markers its test files hold, zero included, so a
+// package with no test files is not silent. These are markers in the text, not tests that did not run, and SK1
+// (ci/checks/meta/sk1-skipped-tests.mjs) is what fails on one with no issue; verify only prints.
+for (const p of packages.filter((p) => p.scripts.test !== undefined)) {
+  process.stdout.write(`VERIFY: skipped-test markers — ${p.name}: ${summary(scanPackage(root, p, packages))}\n`);
 }
 
 const ran = [];

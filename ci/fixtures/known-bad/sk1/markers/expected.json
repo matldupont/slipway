@@ -1,0 +1,19 @@
+{
+  "_note": "app/src/a.test.ts: lines 1, 3, 4, 5, 8 and 11 skip with no issue on the line (a comment counts, a decision id is not an issue); line 6 is focused although it names #14, and line 7 is focused. Line 2 (#12) and line 10 (owner/repo#5) are linked and pass; line 9 only says skip in a title. __tests__/b.ts is read for being under __tests__/; helper.ts is not a test file. packages/empty has a test script and no test files: no finding.",
+  "exit": 1,
+  "findings": [
+    "packages/app/__tests__/b.ts:1#skip/no-issue",
+    "packages/app/src/a.test.ts:1#skip/no-issue",
+    "packages/app/src/a.test.ts:3#skip/no-issue",
+    "packages/app/src/a.test.ts:4#skip/no-issue",
+    "packages/app/src/a.test.ts:5#skip/no-issue",
+    "packages/app/src/a.test.ts:6#only",
+    "packages/app/src/a.test.ts:7#only",
+    "packages/app/src/a.test.ts:8#skip/no-issue",
+    "packages/app/src/a.test.ts:11#skip/no-issue"
+  ],
+  "details": {
+    "packages/app/src/a.test.ts:1#skip/no-issue": "names no issue",
+    "packages/app/src/a.test.ts:6#only": "does not excuse it"
+  }
+}
