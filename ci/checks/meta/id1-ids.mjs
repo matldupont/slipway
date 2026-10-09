@@ -28,6 +28,9 @@
 // One direction, no chains; several companions may name one primary. The pair passes only when the named doc's heading
 // carries the same id.
 //
+// Docs in a subfolder of those folders are not read, and a doc that is a link or not a regular file is a finding
+// (feature/unreadable), never skipped.
+//
 // Out of scope, on purpose: a registry or a lock (a pushed branch is the claim), renumbering, the PRD's own feature
 // list (F1 reads it), lessons and milestones (L1 and MS1).
 
@@ -39,28 +42,20 @@ import { report } from '../lib/report.mjs';
 const root = process.argv[2] ?? '.';
 const FEATURE_DIRS = ['docs/features', 'dev/features'];
 
-// [{ line, text }] for each line a reader sees as text: not in a fenced block, not in an HTML comment.
+// [{ line, text }] for each line a reader sees as text: not in a fenced block, not in a closed HTML comment. A `<!--`
+// with no `-->` after it hides nothing (it may be written as text, in inline code): a duplicate hidden behind one
+// would pass, so the headings after it count (ci/checks/lib/markdown.mjs repeatedHeadings, same limits: a `<!--` in
+// inline code followed by a real `-->` further down still hides what lies between).
 function visible(md) {
   const out = [];
   let fence = null;
-  let comment = false;
-  md.split(/\r?\n/).forEach((raw, i) => {
-    let text = raw;
-    if (comment) {
-      const end = text.indexOf('-->');
-      if (end < 0) return;
-      comment = false;
-      text = text.slice(end + 3);
-    }
+  md.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, '')).split(/\r?\n/).forEach((text, i) => {
     const mark = text.match(/^\s{0,3}(`{3,}|~{3,})/)?.[1];
     if (fence) {
       if (mark && mark[0] === fence[0] && mark.length >= fence.length && text.trim() === mark) fence = null;
       return;
     }
     if (mark) { fence = mark; return; }
-    text = text.replace(/<!--[\s\S]*?-->/g, '');
-    const open = text.indexOf('<!--');
-    if (open >= 0) { comment = true; text = text.slice(0, open); }
     out.push({ line: i + 1, text });
   });
   return out;
@@ -100,7 +95,10 @@ for (const dir of FEATURE_DIRS) {
   if (!existsSync(abs)) continue;
   for (const f of readdirSync(abs).filter((x) => x.endsWith('.md') && x !== 'TEMPLATE.md' && x !== 'README.md').sort()) {
     const path = `${dir}/${f}`;
-    if (!regular(path)) continue;
+    if (!regular(path)) {
+      findings.push({ where: `${path}#feature/unreadable`, detail: `${path} is a link or not a regular file, so ID1 cannot read its F-id: make it a regular file` });
+      continue;
+    }
     const md = readFileSync(join(abs, f), 'utf8');
     const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, (m) => m.replace(/[^\n]/g, ''));
     const heading = visible(body).map((l) => l.text.match(/^ {0,3}#{1,6}[ \t]+F-(\d+)\b/)).find(Boolean);
@@ -112,8 +110,12 @@ for (const dir of FEATURE_DIRS) {
 const fid = (n) => `F-${String(n).padStart(2, '0')}`;
 const safe = (p) => typeof p === 'string' && !p.startsWith('/') && !/[\u0000-\u001f\u007f\\:]/.test(p) && p.split('/').every((s) => s !== '' && s !== '.' && s !== '..');
 const owners = new Map();
+const exempted = [];
 for (const [path, d] of docs) {
-  if (d.n === null) continue;
+  if (d.n === null) {
+    if (d.companionOf !== null) findings.push({ where: `${path}#companion/id-differs`, detail: `${path} names ${d.companionOf} as its primary but carries no F-id of its own` });
+    continue;
+  }
   if (d.companionOf === null) {
     if (!owners.has(d.n)) owners.set(d.n, []);
     owners.get(d.n).push(path);
@@ -126,10 +128,12 @@ for (const [path, d] of docs) {
     findings.push({ where: `${path}#companion/chain`, detail: `${path} names ${d.companionOf} as its primary, and ${d.companionOf} is itself a companion (of ${target.companionOf}): name the doc that owns ${fid(d.n)}, which declares nothing` });
   } else if (target.n !== d.n) {
     findings.push({ where: `${path}#companion/id-differs`, detail: `${path} carries ${fid(d.n)} and names ${d.companionOf} as its primary, which ${target.n === null ? 'carries no F-id' : `carries ${fid(target.n)}`}` });
-  }
+  } else exempted.push(`${path} (companion of ${d.companionOf})`);
 }
 for (const [n, paths] of owners) {
-  if (paths.length > 1) findings.push({ where: `${paths[1]}#feature/duplicate/${fid(n)}`, detail: `${fid(n)} is the heading of ${paths.join(' and ')}: give the later one the next free number, or declare it the other's companion with "companion-of: <path>" in its frontmatter` });
+  for (const later of paths.slice(1)) {
+    findings.push({ where: `${later}#feature/duplicate/${fid(n)}`, detail: `${fid(n)} is the heading of ${paths[0]} and ${later}: give the later one the next free number, or, only when it is the other doc's table or an extension of it, declare it the other's companion with "companion-of: <path>" in its frontmatter (the owner's yes; every accepted pair is printed)` });
+  }
 }
 
 process.exit(
@@ -139,5 +143,7 @@ process.exit(
     scanned,
     unit: 'decision and feature headings',
     findings,
+    exempted,
+    exemptedBy: 'companion-of',
   })
 );

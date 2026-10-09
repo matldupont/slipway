@@ -1,8 +1,14 @@
 {
-  "_note": "D-001 repeats D-1 by number; the second PD-1 repeats the first. D-2 is declared once (its twin is in a fence), and ids quoted in a body are never read.",
+  "_note": "D-001 repeats D-1 by number; the second PD-1 repeats the first. D-2 is declared once (its twin is in a fence), and ids quoted in a body are never read. D-3 repeats after a `<!--` written as text: an unclosed opener hides nothing.",
   "exit": 1,
   "findings": [
     "decisions.md#decision/duplicate/D-1",
-    "decisions.md#decision/duplicate/PD-1"
-  ]
+    "decisions.md#decision/duplicate/PD-1",
+    "decisions.md#decision/duplicate/D-3"
+  ],
+  "details": {
+    "decisions.md#decision/duplicate/D-1": "line 3 and on line 13",
+    "decisions.md#decision/duplicate/PD-1": "line 15 and on line 17",
+    "decisions.md#decision/duplicate/D-3": "line 21 and on line 25"
+  }
 }

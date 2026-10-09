@@ -17,3 +17,9 @@ Body quoting an id is not a declaration: see D-1 and the heading below.
 ### PD-1 — The same id again *(accepted)*
 
 ## PD-2 — Only once *(accepted)*
+
+## D-3 — Mentions the opener `<!--` as text *(decided 2026-09-12)*
+
+Writing `<!--` in prose hides nothing, so the repeat below is still read.
+
+## D-3 — Repeats D-3 after an unclosed opener *(decided 2026-09-12)*

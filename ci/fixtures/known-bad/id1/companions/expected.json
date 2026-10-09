@@ -1,5 +1,5 @@
 {
-  "_note": "ok.md passes. missing.md, dotdot.md, absolute.md and outside.md name nothing a companion may name. z.md names a companion (y.md, itself a companion of x.md). m1.md and m2.md name each other: each names a doc that is itself a companion. d.md and q.md name docs that carry another id or none.",
+  "_note": "ok.md passes. missing.md, dotdot.md, absolute.md and outside.md name nothing a companion may name. z.md names a companion (y.md, itself a companion of x.md). m1.md and m2.md name each other: each names a doc that is itself a companion. d.md and q.md name docs that carry another id or none. y.md is a valid companion of x.md (only z.md, which names y.md, chains).",
   "exit": 1,
   "findings": [
     "docs/features/absolute.md#companion/missing",
@@ -11,5 +11,9 @@
     "docs/features/outside.md#companion/missing",
     "docs/features/q.md#companion/id-differs",
     "docs/features/z.md#companion/chain"
+  ],
+  "exempted": [
+    "docs/features/ok.md (companion of docs/features/p.md)",
+    "docs/features/y.md (companion of docs/features/x.md)"
   ]
 }

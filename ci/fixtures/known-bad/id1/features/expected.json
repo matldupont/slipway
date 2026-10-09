@@ -1,7 +1,18 @@
 {
-  "_note": "a.md and b.md both carry F-3: the later one is the finding. f.md and g.md each declare themselves companions of e.md (two companions of one primary pass, across both folders).",
+  "_note": "a.md and b.md both carry F-3: the later one is the finding. f.md and g.md each declare themselves companions of e.md (two companions of one primary pass, across both folders). k.md, in dev/features/, repeats F-3 of docs/features/a.md.",
   "exit": 1,
   "findings": [
-    "docs/features/b.md#feature/duplicate/F-03"
-  ]
+    "docs/features/b.md#feature/duplicate/F-03",
+    "docs/features/i.md#feature/duplicate/F-06",
+    "dev/features/k.md#feature/duplicate/F-03"
+  ],
+  "exempted": [
+    "dev/features/g.md (companion of docs/features/e.md)",
+    "docs/features/f.md (companion of docs/features/e.md)"
+  ],
+  "details": {
+    "docs/features/b.md#feature/duplicate/F-03": "docs/features/a.md and docs/features/b.md",
+    "dev/features/k.md#feature/duplicate/F-03": "docs/features/a.md and dev/features/k.md",
+    "docs/features/i.md#feature/duplicate/F-06": "docs/features/h.md and docs/features/i.md"
+  }
 }

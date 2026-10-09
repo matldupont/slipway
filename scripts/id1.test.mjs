@@ -58,7 +58,17 @@ test('a companion that names a link or a directory is missing: the check never p
     symlinkSync(join(dir, A), join(dir, 'docs/features/link.md'));
     mkdirSync(join(dir, 'docs/features/sub'));
   });
-  assert.deepEqual(r.findings, ['docs/features/dd.md#companion/missing', 'docs/features/l.md#companion/missing']);
+  assert.deepEqual(r.findings.sort(), ['docs/features/dd.md#companion/missing', 'docs/features/l.md#companion/missing', 'docs/features/link.md#feature/unreadable']);
+});
+
+test('a feature doc that is a link is a finding, not skipped; a companion with no F-id heading is a finding', () => {
+  const r = id1({ [A]: doc('6'), 'docs/features/n.md': '---\ncompanion-of: docs/features/a.md\n---\n\nno heading\n' }, (dir) => symlinkSync(join(dir, A), join(dir, 'docs/features/b.md')));
+  assert.deepEqual(r.findings, ['docs/features/b.md#feature/unreadable', 'docs/features/n.md#companion/id-differs']);
+});
+
+test('every accepted companion pair is printed as an exemption', () => {
+  const r = id1({ [A]: doc('7'), 'docs/features/b.md': doc('7', A) });
+  assert.deepEqual(r.json.exempted, [`docs/features/b.md (companion of ${A})`]);
 });
 
 test('a doc that names itself is a chain', () => {
