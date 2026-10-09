@@ -1,6 +1,7 @@
 ---
 prd-ref: D-016
 status: draft
+companion-of: dev/features/landing-page.md
 ---
 
 # F-11 — Landing page: the claims table and the required facts, as built

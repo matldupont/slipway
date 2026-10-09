@@ -1,0 +1,15 @@
+{
+  "_note": "ok.md passes. missing.md, dotdot.md, absolute.md and outside.md name nothing a companion may name. z.md names a companion (y.md, itself a companion of x.md). m1.md and m2.md name each other: each names a doc that is itself a companion. d.md and q.md name docs that carry another id or none.",
+  "exit": 1,
+  "findings": [
+    "docs/features/absolute.md#companion/missing",
+    "docs/features/d.md#companion/id-differs",
+    "docs/features/dotdot.md#companion/missing",
+    "docs/features/m1.md#companion/chain",
+    "docs/features/m2.md#companion/chain",
+    "docs/features/missing.md#companion/missing",
+    "docs/features/outside.md#companion/missing",
+    "docs/features/q.md#companion/id-differs",
+    "docs/features/z.md#companion/chain"
+  ]
+}

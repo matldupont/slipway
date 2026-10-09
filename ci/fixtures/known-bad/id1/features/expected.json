@@ -1,0 +1,7 @@
+{
+  "_note": "a.md and b.md both carry F-3: the later one is the finding. f.md and g.md each declare themselves companions of e.md (two companions of one primary pass, across both folders).",
+  "exit": 1,
+  "findings": [
+    "docs/features/b.md#feature/duplicate/F-03"
+  ]
+}

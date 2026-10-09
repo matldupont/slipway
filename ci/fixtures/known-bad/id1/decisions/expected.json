@@ -1,0 +1,8 @@
+{
+  "_note": "D-001 repeats D-1 by number; the second PD-1 repeats the first. D-2 is declared once (its twin is in a fence), and ids quoted in a body are never read.",
+  "exit": 1,
+  "findings": [
+    "decisions.md#decision/duplicate/D-1",
+    "decisions.md#decision/duplicate/PD-1"
+  ]
+}

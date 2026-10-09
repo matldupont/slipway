@@ -76,7 +76,7 @@ and why is an answer, not a gap. A project has a manifest, so none of this reach
 - **Read the feature docs in `Feature docs dir` and `decisions.md`** wherever a skill reads or searches the PRD:
   they carry the requirements, so a search for an area's expected behaviour searches them.
 - **Put the F-ID in the feature doc,** as `# F-{nn} — {name}`, with `prd-ref:` the decision in `decisions.md` that it builds on, or `none`.
-  `{nn}` is one past the highest `F-` number in the doc titles under `Feature docs dir`. `docs/PRD.md` is not
+  `{nn}` is one past the highest `F-` number in the doc titles under `Feature docs dir`. A doc that carries another doc's F-ID on purpose (its table, say) declares `companion-of: <repo-relative path of that doc>` in its frontmatter; ID1 fails any other repeat. `docs/PRD.md` is not
   edited: no §5 entry, no `Version:` bump, no Change log line, and PRD entry does not apply. A line that would
   go into the PRD's §4 is shown to the owner as text.
 - **Copy the doc from `docs/features/TEMPLATE.md`** when `Feature docs dir` holds no `TEMPLATE.md`.
