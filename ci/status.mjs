@@ -126,18 +126,22 @@ const existential = deadlines && firstBet !== null
 
 // A high-severity finding with no tracker, and the active or closed milestone its Blocks cell names. A cell that
 // names no milestone adds nothing.
+const REGISTER_LINES = 20;
 const registerLines = registers.flatMap((r) => {
   if (r.state === 'unparsed') return [`Review register in ${r.file} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`];
   if (r.state !== 'ok') return [];
   const skipped = r.skipped ? [`Review register in ${r.file} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`] : [];
   if (!r.hasTracker) return [...skipped, `Review register in ${r.file} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`];
-  return [...skipped, ...r.rows.filter((f) => !f.tracked && (f.sev === 'S0' || f.sev === 'S1')).map((f) => {
+  const untracked = r.rows.filter((f) => !f.tracked && (f.sev === 'S0' || f.sev === 'S1'));
+  // At most this many lines per review: a long register must not fill the session's context or the call stack.
+  const more = untracked.length > REGISTER_LINES ? [`Review register in ${r.file}: ${untracked.length - REGISTER_LINES} more S0/S1 finding(s) with no tracker`] : [];
+  return [...skipped, ...untracked.slice(0, REGISTER_LINES).map((f) => {
     const held = milestonesNamed(f.blocks).flatMap((id) => {
       const m = ms.find((x) => String(x.id).toUpperCase() === id && (x.status === 'active' || x.status === 'closed'));
       return m ? [`${id} (${m.status})`] : [];
     });
     return `Review finding "${excerpt(f.id)}" (${f.sev}) in ${r.file} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`;
-  })];
+  }), ...more];
 });
 // Per severity, how many findings of the register have a tracker and how many do not.
 const registerStanding = (r) => {

@@ -68,11 +68,20 @@ test('only the first table of the Register section is read, with or without oute
   assert.deepEqual(bare.rows.map((f) => [f.id, f.sev, f.tracked]), [['AR-1', 'S0', true]]);
 });
 
-test('a very long cell is read to a bound, so the parse stays fast', () => {
+test('a long Tracker cell is read in bounded time and counts as not tracked; other cells are read whole', () => {
   const started = Date.now();
-  const r = readRegister(doc(...FULL, `| AR-1 | a | S0 | o | | ${'a'.repeat(200000)} |`));
-  assert.equal(r.rows[0].tracked, false);
+  const r = readRegister(doc(...FULL, `| AR-1 | a | S0 | o | | ${'a'.repeat(200000)} |`, `| AR-2 | b | S0 | o | | #12 ${'x'.repeat(300)} TBD |`));
+  assert.deepEqual(r.rows.map((f) => f.tracked), [false, false]);
   assert.ok(Date.now() - started < 1000);
+  // A token is never cut: `M12` names M12, and a milestone named late in a long cell is still named.
+  const blocks = readRegister(doc(...FULL, `| AR-1 | a | S0 | o | ${'z'.repeat(197)} M12 and ${'z'.repeat(300)} M3 | |`)).rows[0].blocks;
+  assert.deepEqual(milestonesNamed(blocks), ['M12', 'M3']);
+});
+
+test('a stray separator line inside the table is not a finding', () => {
+  const r = readRegister(doc(...FULL, '| AR-1 | a | S0 | o | | |', '|---|---|---|---|---|---|', '| AR-2 | b | S1 | o | | |'));
+  assert.equal(r.skipped, 0);
+  assert.equal(r.rows.length, 2);
 });
 
 // status on a copy of a fixture whose review is replaced by `review`: its output and exit code.
@@ -103,4 +112,16 @@ test('status counts the register by severity on the Where things stand list', ()
   const r = spawnSync(process.execPath, [resolve(root, '..', '..', '..', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10' } });
   assert.equal(r.status, 0);
   assert.ok(r.stdout.includes('- Review register: prd-review.md: S0 0 with a tracker, 1 without · S1 1 with a tracker, 2 without · S2 0 with a tracker, 1 without\n'), r.stdout);
+});
+
+test('status says how many severities it could not read, prints no register line for an empty register, and caps its lines', () => {
+  const skipped = statusWith([...header, ...FULL, '| AR-1 | a | high | o | | |', '| AR-2 | b | S2 | o | | #1 |'].join('\n'));
+  assert.ok(skipped.out.includes('- Review register in prd-review.md has 1 finding(s) whose severity reads none of S0 to S3'), skipped.out);
+  const empty = statusWith([...header, ...FULL].join('\n'));
+  assert.equal(empty.code, 0);
+  assert.ok(!empty.out.includes('Review register'), empty.out);
+  const many = statusWith([...header, ...FULL, ...Array.from({ length: 500 }, (_, n) => `| AR-${n} | a | S0 | o | | |`)].join('\n'));
+  assert.equal(many.code, 0);
+  assert.equal(many.out.split('\n').filter((l) => l.startsWith('- Review finding')).length, 20);
+  assert.ok(many.out.includes('- Review register in prd-review.md: 480 more S0/S1 finding(s) with no tracker'), many.out);
 });

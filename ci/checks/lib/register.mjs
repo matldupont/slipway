@@ -16,10 +16,11 @@ const COLUMNS = [
 // The severity is the cell's first word: `S1`, and also `S1 / money` or `S0 (blocker)`.
 const SEVERITY = /^(S[0-3])(?![\w])/i;
 
-// A cell is read to this length. The patterns that read a Tracker cell can retry the rest of the text from every
-// position, so a review in a pull request cannot make status slow with one long cell.
-const MAX_CELL = 200;
-const cell = (c) => (c ?? '').slice(0, MAX_CELL);
+// A Tracker cell longer than this is not read: the patterns that read it can retry the rest of the text from every
+// position, so a review in a pull request could make status slow with one long cell. Such a cell counts as not
+// tracked, so the error is one extra line, never a finding left out. No other cell is cut: a cut could split a
+// token and name another milestone.
+const MAX_TRACKER = 200;
 
 // `state` is one of
 //   none        the review has no Register section, or the section holds no table
@@ -38,17 +39,19 @@ export function readRegister(md) {
   const rows = [];
   let skipped = 0;
   for (const c of t.rows) {
-    const said = plain(cell(c[at.sev]));
+    if (c.every((x) => /^:?-+:?$/.test(x))) continue; // a stray separator line
+    const said = plain(c[at.sev] ?? '');
     const sev = said.match(SEVERITY)?.[1].toUpperCase();
     if (!sev) {
       if (said) skipped++;
       continue;
     }
+    const tracker = hasTracker ? c[at.tracker] ?? '' : '';
     rows.push({
-      id: plain(cell(c[at.id])),
+      id: plain(c[at.id] ?? ''),
       sev,
-      blocks: at.blocks >= 0 ? plain(cell(c[at.blocks])) : '',
-      tracked: hasTracker && filled(cell(c[at.tracker])) && TRACKER.test(plain(cell(c[at.tracker]))),
+      blocks: at.blocks >= 0 ? plain(c[at.blocks] ?? '') : '',
+      tracked: tracker.length <= MAX_TRACKER && filled(tracker) && TRACKER.test(plain(tracker)),
     });
   }
   return { state: !rows.length && skipped ? 'unparsed' : 'ok', rows, hasTracker, skipped };
