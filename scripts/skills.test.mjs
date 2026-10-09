@@ -995,7 +995,7 @@ test('log-feature pushes the commit that carries a new F-id at once, and a DEFER
   const md = read(skillPath('log-feature')).replace(/\s+/g, ' ');
   assert.ok(md.includes("This commit carries the new F-id: push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/feature-{name}`; no remote: skip."), 'log-feature must push the id\'s commit when it is made');
   assert.ok(md.includes('No id is taken: title the doc and set `prd-ref:` to `F-??`, remove the PRD §5 entry with its Version and Change log lines, commit the doc with any held settings answers, leave the branch unpushed'), 'a DEFER must leave the doc without an id');
-  assert.ok(md.includes("Reviving takes the id: read `main`, the open pull requests and the remote's branches, commit it next, push."), 'reviving a deferred doc must take the id the way a new one does');
+  assert.ok(md.includes("Reviving takes the id: read `main`, the open pull requests and the remote's branches, commit it next (the deferred commit before it carries no id), push."), 'reviving a deferred doc must take the id the way a new one does');
   assert.ok(md.includes("Hold any settings answers until the doc's first commit, then commit them alone."), 'settings answers must not come before the id\'s commit');
   assert.ok(md.includes('git push -u origin docs/feature-{name} gh pr create'), 'Phase 7 must push the later commits before it opens the PR');
 });
@@ -1003,6 +1003,6 @@ test('log-feature pushes the commit that carries a new F-id at once, and a DEFER
 test('log-bug pushes the commit that carries a new F-id at once, and a DEFER takes no id', () => {
   const md = read(skillPath('log-bug')).replace(/\s+/g, ' ');
   assert.ok(md.includes('C: this commit carries the new F-id, so push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/bug-{name}` (no remote: skip); B: push in Phase 5, once the issue number exists.'), 'log-bug must push the id\'s commit when it is made');
-  assert.ok(md.includes('title the doc and set `prd-ref:` to `F-??`, remove the §5 entry with its Version and Change log lines and the Contents item (no id until revived, as in `/log-feature`), commit the doc with any held settings answers, leave the branch unpushed'), 'a DEFER must leave the doc without an id');
+  assert.ok(md.includes('title the doc and set `prd-ref:` to `F-??`, remove the §5 entry with its Version and Change log lines and the Contents item (no id until revived, as in `/log-feature`, whose revive rule says why the id\'s commit may come second), commit the doc with any held settings answers, leave the branch unpushed'), 'a DEFER must leave the doc without an id');
   assert.ok(md.includes("Hold any settings answers until the doc's first commit, then commit them alone."), 'settings answers must not come before the id\'s commit');
 });

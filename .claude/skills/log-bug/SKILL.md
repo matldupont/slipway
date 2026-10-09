@@ -189,7 +189,7 @@ extend it (a Changes line, an acceptance line) instead of starting another.
   later milestone?"; with no active milestone, name the one being shaped next instead. Add a Contents item
   citing `(F-{nn})` to the one they name, and say what it displaces. If it breaks one of that milestone's
   no-gos, the owner picks: amend the no-go (same commit, with why), or another milestone. Neither: stop and
-  file nothing, title the doc and set `prd-ref:` to `F-??`, remove the §5 entry with its Version and Change log lines and the Contents item (no id until revived, as in `/log-feature`), commit the doc with any held settings answers, leave the branch unpushed, tell the owner its name, and give them the §4 *Out, explicitly*
+  file nothing, title the doc and set `prd-ref:` to `F-??`, remove the §5 entry with its Version and Change log lines and the Contents item (no id until revived, as in `/log-feature`, whose revive rule says why the id's commit may come second), commit the doc with any held settings answers, leave the branch unpushed, tell the owner its name, and give them the §4 *Out, explicitly*
   line instead.
 - **Commit** on the branch, and run `pnpm meta` (R1 as PRD entry says). On a draft PRD the milestone check only confirms the PRD
   exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). C: this commit carries the new F-id, so push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/bug-{name}` (no remote: skip); B: push in Phase 5, once the issue number exists.
