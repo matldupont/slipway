@@ -50,16 +50,20 @@ const FEATURE_DIRS = ['docs/features', 'dev/features'];
 // costs a reword, a hidden duplicate costs a collision. CR, LF and CRLF all end a line. A byte-order mark, characters
 // that print as nothing, and look-alike hyphens and digits (NFKC) are normalised away before a line is matched.
 // Not handled, and said so: an id written through markup or an escape (`## **D-1**`, `## D\-1`, `<h2>D-1</h2>`), a
-// setext heading, a file name other than `*.md`.
+// setext heading, a look-alike letter, dash or digit that NFKC leaves alone (Cyrillic Р, U+2043, Arabic-Indic ٣), a file
+// name other than `*.md`, and README.md, which is skipped beside TEMPLATE.md.
+// Every character report.mjs's UNSAFE names, all of them on a line (its own regex has no `g`).
+const INVISIBLE = new RegExp(UNSAFE.source, 'gv');
 function visible(md) {
   return md
     .replace(/^\uFEFF/, '')
     .split(/\r\n|\r|\n/)
-    .map((raw, i) => ({ line: i + 1, text: raw.replace(UNSAFE, '').normalize('NFKC').replace(/[\p{Pd}\u2212]/gu, '-') }));
+    .map((raw, i) => ({ line: i + 1, text: raw.replace(INVISIBLE, '').normalize('NFKC').replace(/[\p{Pd}\u2212]/gu, '-') }));
 }
 
 // What may stand in front of the `#`s: spaces, quote markers and list markers.
-const LEAD = String.raw`^[ \t>]*(?:(?:[-*+]|\d{1,9}[.)])[ \t]+)*#{1,6}[ \t]+`;
+// Each alternative starts with a different character class, so the match stays linear.
+const LEAD = String.raw`^(?:[ \t>]|[-*+][ \t]|\d{1,9}[.)][ \t])*#{1,6}[ \t]+`;
 const DECISION = new RegExp(`${LEAD}(P?D)-(\\d+)\\b`);
 const FEATURE = new RegExp(`${LEAD}F-(\\d+)\\b`);
 

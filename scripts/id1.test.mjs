@@ -58,6 +58,14 @@ test('a decoy F-heading before the real one does not decide the doc\'s id; a BOM
   assert.deepEqual(id1({ 'decisions.md': '\uFEFF## D-1 — a\n> ## D-1 — b\n' }).findings, ['decisions.md#decision/duplicate/D-1']);
 });
 
+test('several invisible characters, list markers of every kind, and a quote after a list marker hide nothing', () => {
+  for (const line of ['## D\u200b-\u200b1 — b', '## D\u00ad-\u200b1 — b', '\uFEFF\uFEFF\uFEFF## D-1 — b', '- > ## D-1 — b', '> - > ## D-1 — b', '1. > ## D-1 — b', '2) ## D-1 — b', '* ## D-1 — b', '+ ## D-1 — b']) {
+    assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\n' + line + '\n' }).findings, ['decisions.md#decision/duplicate/D-1'], JSON.stringify(line));
+  }
+  assert.deepEqual(id1({ [A]: doc('12'), 'docs/features/b.md': '# F-1\u200b\u200b2 — b\n' }).findings, ['docs/features/b.md#feature/duplicate/F-12']);
+  for (const line of ['-## D-1 — b', '- D-1 — b', 'see D-1']) assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\n' + line + '\n' }).findings, [], line);
+});
+
 test('a decisions.md heading inside front matter, a fence or a comment counts', () => {
   for (const hidden of ['---\n## D-1 — b\n---', '```\n## D-1 — b\n```', '<!--\n## D-1 — b\n-->']) {
     assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\n' + hidden + '\n' }).findings, ['decisions.md#decision/duplicate/D-1'], hidden);
