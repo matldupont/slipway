@@ -689,6 +689,30 @@ Decided by the owner (what counts). Consistent with D-023 and D-025's rule. Decl
 (every skill-only branch in every project would lose its Stop hook). `scripts/harness-plugin-folder.test.mjs` and
 `scripts/gate-files.test.mjs` hold it. #373.
 
+## D-040 — One drafted requirement block is cleared by the owner's confirmation, not a whole-document review *(decided 2026-10-09)*
+
+`/log-bug` drafts the requirement when a bug breaks one nobody wrote down, and asked for a `/review-doc` review of
+the whole document before the fix could start. For one small block in a long, shipped document that costs a full
+adversarial review to clear five lines the owner stated themselves.
+
+- **What is cleared by confirmation.** Exactly 1 `Given / When / Then` acceptance block added to a feature doc that
+  already exists, with no change to its Contract or to a Verify command. A new document, 2 or more blocks, or any
+  Contract or Verify change keeps the whole-document review.
+- **The ask is the gate.** `/log-bug` shows the owner the block's exact text and takes their yes in that session
+  before it writes "confirmed". A session never records a confirmation it did not just receive. No yes: the review.
+- **The record says what it is.** The doc's Changes line reads `owner-confirmed, not reviewed`, with the date, and
+  the bug's Expected quotes the block as confirmed, so the next whole-document review knows which blocks it has not
+  seen.
+- **An existing review stays current.** A review goes stale only when the version line it quotes leaves the
+  document (R1). A confirmed block and its Changes line do not move that line, and this path never bumps it,
+  whatever a feature doc's version line turns out to be (#268, related, undecided).
+- **Cost, accepted.** Unreviewed, owner-confirmed blocks can accumulate in a document across several bugs. They are
+  visible by their Changes lines; nothing counts them yet.
+
+Decided by the owner. Declined: a `/review-doc` scoped to one block (it needs a new provenance form for a partial
+review, and loses the contradictions between sections that are most of what that review finds).
+`scripts/skills.test.mjs` holds it. #260.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
