@@ -257,6 +257,8 @@ requires a `## Gate changes` line for it. A skill change is seen at the pull req
 Consistent with D-023. Declined: listing the gate paths under `.claude` one by one (a path nobody listed
 would not count), and exempting `.claude/commands/**` with skills. #173.
 
+Superseded in part by D-039: a skill folder that is a plugin is gate code.
+
 ## D-026 — The lockfile check trusts the registry host the project's `.npmrc` names *(decided 2026-10-01)*
 
 A project on a private registry (Artifactory, Verdaccio, a mirror) has pnpm write `tarball: <address>` beside each
@@ -653,6 +655,39 @@ Consequence: a project that wrote its own rule for such a journey into a plan mo
 its own, with its own `Owed:` line, and deletes its rule, on the sync that brings this: a journey that leaves a
 plan that already owes is never left with nothing owed for it. No check reads a plan's journeys, so a plan
 that still holds one goes on recording partial runs, which stay owed. #282.
+
+
+## D-039 — A skill folder that is a plugin is gate code, whole *(decided 2026-10-09)*
+
+D-025 exempted skills from the hook guard for one reason: a skill runs only when it is invoked. Claude Code has
+since made a skill folder that holds a `.claude-plugin` entry a plugin, and loads what a plugin holds (hooks among
+it) without anyone invoking the skill. By D-025's own rule that folder is gate code, so this supersedes D-025 in
+part: the exemption stays for every other skill.
+
+- **What counts.** The folder `.claude/skills/<name>/`, whole, at any depth of `.claude` and in any letter case, when
+  a `.claude-plugin` entry sits anywhere below it in the session's pinned base, the index or the untracked files. A
+  file added to, changed in or removed from it is a changed gate file: the working tree's hook does not run, the
+  Stop and SessionStart hooks name the file, and the owner's yes covers it as it does any gate file.
+- **The name decides, not the content.** An entry of any kind git lists counts (a folder with any file in it, a
+  file, a link), with or without a manifest in it, and the guard reads no manifest: its content is a branch's text, and which files make a folder a
+  plugin is Claude Code's to change. What the guard cannot read it counts.
+- **Why whole.** A plugin loads from more of its folder than its manifest and its hooks file (agents, server
+  settings, the scripts its hook commands name). From Claude Code's documentation, not tested: every path a
+  manifest names must resolve inside the plugin's folder, so the folder is the unit.
+- **Cost, accepted.** In a project that keeps a plugin under its skills tree, a branch that edits that folder loses
+  its hooks until the owner says yes, as for any gate file. A branch that changes only ordinary skills keeps its
+  Stop hook, as D-025 promised.
+- **What it cannot do.** Claude Code loads and re-reads a plugin folder itself, before any hook runs. The guard
+  reports the change at the next hook and cannot stop the load; the pre-launch check is what covers someone else's
+  checkout. A plugin installed outside the repository, a project script a plugin's hook command names and a bundle
+  it names by address are limits, in `process/harness/README.md`; so is an empty `.claude-plugin` folder, which git
+  does not list and no checkout or pull request can carry. Nothing else under a skills tree is known to run
+  without being invoked (Claude Code 2.1.293, read from its documentation on 2026-10-09).
+
+Decided by the owner (what counts). Consistent with D-023 and D-025's rule. Declined: counting only the
+`.claude-plugin` folder and `hooks/` (a plugin loads other files from its folder), and ending the skills exemption
+(every skill-only branch in every project would lose its Stop hook). `scripts/harness-plugin-folder.test.mjs` and
+`scripts/gate-files.test.mjs` hold it. #373.
 
 ## Week 1 — decide before M1 closes
 
