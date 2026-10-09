@@ -16,7 +16,7 @@ status` reads it from `AGENT.md`.
 | GitHub project | none | the board new issues are added to; none skips the board |
 | PRD path | none — slipway has no PRD of its own (`docs/PRD.md` is the template); each feature doc in `dev/features/` carries its F-ID and the decision in `decisions.md` behind it | where a feature's F-ID goes, and what intake checks a feature against |
 | Feature docs dir | `dev/features/` | where feature docs and bug-fix stubs are written |
-| Milestone roadmap | none — no milestone is active in slipway by design (`docs/milestones/` is the template); work runs under epic #312, in the order its body gives | where the active milestone is found, and the milestone docs intake checks for work the new issue changes |
+| Milestone roadmap | none — no milestone is active in slipway by design (`docs/milestones/` is the template); work runs under epic #379, in the order its body gives | where the active milestone is found, and the milestone docs intake checks for work the new issue changes |
 | Product frame | `SLIPWAY.md` — its thesis: a rule exists only where something fires | the first challenge a new feature must pass |
 | Change lanes | `process/slipway-rules.md#Lanes` — trivial, bounded, feature | the lane an issue and its PR are sized to |
 | Marketing context | none | the positioning questions a new feature is asked; none skips them |
