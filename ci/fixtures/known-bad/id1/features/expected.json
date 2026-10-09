@@ -1,0 +1,20 @@
+{
+  "_note": "a.md and b.md both carry F-3: the later one is the finding. f.md and g.md each declare themselves companions of e.md (two companions of one primary pass, across both folders). k.md, in dev/features/, repeats F-3 of docs/features/a.md. n.md has a decoy F-77 in a comment before its real heading, in a quote: both are claims, so F-8 is still found.",
+  "exit": 1,
+  "findings": [
+    "docs/features/b.md#feature/duplicate/F-03",
+    "docs/features/i.md#feature/duplicate/F-06",
+    "dev/features/k.md#feature/duplicate/F-03",
+    "docs/features/n.md#feature/duplicate/F-08"
+  ],
+  "exempted": [
+    "dev/features/g.md (companion of docs/features/e.md)",
+    "docs/features/f.md (companion of docs/features/e.md)"
+  ],
+  "details": {
+    "docs/features/b.md#feature/duplicate/F-03": "docs/features/a.md and docs/features/b.md",
+    "dev/features/k.md#feature/duplicate/F-03": "docs/features/a.md and dev/features/k.md",
+    "docs/features/i.md#feature/duplicate/F-06": "docs/features/h.md and docs/features/i.md",
+    "docs/features/n.md#feature/duplicate/F-08": "docs/features/m.md and docs/features/n.md"
+  }
+}
