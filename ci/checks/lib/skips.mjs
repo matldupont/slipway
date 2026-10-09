@@ -28,11 +28,11 @@ const LINE_CAP = 4096;
 // A skip: `it.skip`, `describe.skipIf(…)`, `test.runIf(…)`, `it.todo`, Playwright's `test.fixme`, the x-prefixed
 // forms, `{ skip: true }` in a test's options and `t.skip()` / `ctx.skip()` / `this.skip()` in its body. A focus:
 // `.only`, `{ only: true }`, `fit`, `fdescribe`. A name must start the word (not follow `.`, so `fitAddon.fit()` and
-// `db.users.skip(10)` are not tests), and a marker must be called or chained into `.each`/`.for`.
+// `db.users.skip(10)` are not tests), and a marker must be called, given type arguments, or followed by a template.
 const BLOCK = '(?:it|test|describe|suite|context|specify|bench)';
 const MODIFIER = '(?:concurrent|sequential|shuffle|parallel|serial|each|for|describe|skip|only|todo|fixme|fails|failing|skipIf|runIf)';
 const CHAIN = `(?:\\s*\\??\\.\\s*${MODIFIER}){0,6}`;
-const CALLED = `${CHAIN}(?=\\s*[(\`])`;
+const CALLED = `${CHAIN}(?=\\s*[(\`<])`;
 const START = '(?<![\\w$.])';
 const SKIP = new RegExp(
   `${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*(?:skip|skipIf|runIf|todo|fixme)\\b${CALLED}` +
@@ -40,11 +40,14 @@ const SKIP = new RegExp(
     `|${START}(?:t|ctx|context|this)\\.(?:skip|todo)\\s*\\(`
 );
 const ONLY = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*only\\b${CALLED}|${START}(?:fit|fdescribe)${CALLED}`);
-// A test call whose second argument is an options object that skips or focuses it: `test('x', { skip: true }, fn)`,
-// `t.test('x', { 'only': true })`, `{ skip }`. The title is a string or a name, and only the object's own braces are read.
-const TITLE = '(?:\'[^\']{0,200}\'|"[^"]{0,200}"|`[^`]{0,200}`|[\\w$.]{1,80})';
-const OPTIONS = new RegExp(`${START}(?:${BLOCK}${CHAIN}|(?:t|ctx|context)\\.test)\\s*\\(\\s*${TITLE}\\s*,\\s*\\{([^}]{0,300})\\}`);
-const KEY = /(?:^|[\s,])['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\b)\S|(?=[\s,}]|$))/g;
+// A test call whose options object skips or focuses it: `test('x', { skip: true }, fn)`, `t.test('x', { 'only': true })`,
+// `test({ skip }, fn)`, `{ timeout: { ms: 5 }, skip: true }`. The title is optional: a string (escapes read) or any text
+// without a comma or brace. Only the object's own braces are read, one nested object deep, so `db.find({ skip: 10 })`
+// inside a test body is not a marker. Not read: options as a third argument (`test('x', fn, { skip: true })`).
+const QUOTED = '(?:\'(?:[^\'\\\\]|\\\\.){0,200}\'|"(?:[^"\\\\]|\\\\.){0,200}"|`(?:[^`\\\\]|\\\\.){0,200}`)';
+const TITLE = `(?:${QUOTED}|[^,{}()]{1,200})`;
+const OPTIONS = new RegExp(`${START}(?:${BLOCK}${CHAIN}|(?:t|ctx|context)\\.test)\\s*\\(\\s*(?:${TITLE}\\s*,\\s*)?\\{((?:[^{}]|\\{[^{}]{0,100}\\}){0,300})\\}`, 'g');
+const KEY = /(?:^|,)\s*['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\b)\S|(?=\s*(?:,|$)))/g;
 
 // An issue reference: `#14`, or `owner/repo#14` (the tracker pattern in risks.mjs, whose `#n` this is; a decision id
 // such as D-7 is not an issue). Searched in the first LINE_CAP characters with a pattern that cannot backtrack.
@@ -56,7 +59,7 @@ const LINE_BREAK = new RegExp('\\r\\n|[\\r\\n\\u2028\\u2029]');
 export function markersIn(text) {
   const out = [];
   text.split(LINE_BREAK).forEach((line, i) => {
-    const keys = [...(OPTIONS.exec(line)?.[1] ?? '').matchAll(KEY)].map((m) => m[1]);
+    const keys = [...line.matchAll(OPTIONS)].flatMap((o) => [...o[1].matchAll(KEY)].map((m) => m[1]));
     if (ONLY.test(line) || keys.includes('only')) out.push({ line: i + 1, kind: 'only', linked: linked(line) });
     else if (SKIP.test(line) || keys.length) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
   });
@@ -88,7 +91,7 @@ function walk(root, dir, others, inTestDir, out, unread) {
     if (e.isSymbolicLink()) {
       // Never followed (it can lead outside the package), but a runner may follow it: said, not skipped silently.
       if (testFile || isDir(path)) {
-        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'If the link points inside this repository, replace it with the real file or folder; if it points outside, delete it. Never copy files from outside the repository into it' });
+        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'If the link points inside this repository, replace it with the real file or folder. If it points outside, remove only the link itself (unlink <path>, never rm -r), and ask the owner first when the project needs it. Never copy files from outside the repository into it' });
       }
     } else if (e.isDirectory()) {
       if (others.has(path)) continue;

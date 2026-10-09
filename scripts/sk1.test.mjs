@@ -169,6 +169,7 @@ test('a symlinked node_modules is left alone, and a link message never says to c
   assert.equal(r.status, 1, r.stdout);
   assert.doesNotMatch(r.stdout, /node_modules#unread/);
   assert.match(r.stdout, /packages\/app\/shared#unread: .*Never copy files from outside the repository into it/);
+  assert.match(r.stdout, /unlink <path>, never rm -r/);
 });
 
 test('a malformed package.json is BROKEN, with a next action', () => {
@@ -176,16 +177,26 @@ test('a malformed package.json is BROKEN, with a next action', () => {
   const r = sk1(root);
   rmSync(root, { recursive: true });
   assert.equal(r.status, 2, r.stdout);
-  assert.match(r.stdout, /could not read the workspace .*Fix the file the message names/);
+  assert.match(r.stdout, /could not read the workspace .*Fix the pnpm-workspace.yaml or the package.json in this repository/);
 });
 
 test('a hostile test file of long marker lines is read in a few seconds, not minutes', () => {
-  const line = `it.skip('x') ${'a/'.repeat(2000)}\n`;
+  const line = `it.skip('x') ${'a'.repeat(4000)}\n`;
   const root = workspace(app({ 'packages/app/a.test.ts': line.repeat(Math.floor((2 * 1024 * 1024 - 1000) / line.length)) }));
   const t0 = Date.now();
   const r = sk1(root);
   const ms = Date.now() - t0;
   rmSync(root, { recursive: true });
   assert.equal(r.status, 1, r.stdout.slice(0, 300));
-  assert.ok(ms < 3000, `${ms} ms`);
+  assert.ok(ms < 2000, `${ms} ms`);
+});
+
+test('a dense hostile file of option-like lines is read in a few seconds', () => {
+  const lines = ["it(a,{".repeat(600), "test('x', { " + 'a: { b: 1 }, '.repeat(250), "t.test(" + "'x', { ".repeat(500), "test('" + 'x'.repeat(190) + "', { skip: "];
+  for (const l of lines) {
+    const text = (l + '\n').repeat(Math.floor((2 * 1024 * 1024) / (l.length + 1)));
+    const t0 = Date.now();
+    markersIn(text);
+    assert.ok(Date.now() - t0 < 4000, `${l.slice(0, 12)}… took ${Date.now() - t0} ms`);
+  }
 });

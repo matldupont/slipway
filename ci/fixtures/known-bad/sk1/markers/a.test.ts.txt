@@ -36,3 +36,13 @@ const fit = computeFit();
 it('options of another call', () => pick({ only: 'a' }));
 it('a database skip', async () => db.find({ skip: 10 }));
 const xit = 1;
+it.skip.each<[number]>([[1]])('typed table', () => {});
+it.only.each<Case>(cases)('typed focus', () => {});
+test('it\'s escaped', { skip: true }, () => {});
+test(names[0], { skip: true }, () => {});
+test({ skip: true }, () => {});
+test('nested', { timeout: { ms: 5 }, skip: true }, () => {});
+test('reason', { skip: 'fails only in CI' }, () => {}); // #12
+test('two', { timeout: 1 }, () => {}); test('calls', { skip: true }, () => {});
+test('retry', { retry: 'skip' }, () => {});
+test('a, it\'s', { skip: true }, () => {});

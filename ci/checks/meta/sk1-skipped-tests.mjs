@@ -32,7 +32,7 @@ let ws;
 try {
   ws = discoverWorkspace(root);
 } catch (e) {
-  process.exit(report({ id: 'SK1', claim: '', scanned: 0, unit: UNIT, broken: `could not read the workspace (${e.message}). Fix the file the message names; if it names none, check pnpm-workspace.yaml and the package.json of each package, then run again` }));
+  process.exit(report({ id: 'SK1', claim: '', scanned: 0, unit: UNIT, broken: `could not read the workspace (${e.message}). Fix the pnpm-workspace.yaml or the package.json in this repository that it points at, never a file outside it; if the message names none, check pnpm-workspace.yaml and the package.json of each package, then run again` }));
 }
 
 const { packages } = ws;
