@@ -29,13 +29,24 @@ const id1 = (files, after = () => {}) => {
 };
 const A = 'docs/features/a.md';
 
-test('distinct ids pass, and a quoted or fenced id is not a declaration', () => {
+test('distinct ids pass, and an id quoted in a body paragraph or a list item is not a declaration', () => {
   const r = id1({
-    'decisions.md': '## D-1 — a\n\nSee D-1.\n\n```\n## D-1 — b\n```\n\n<!--\n## D-1 — c\n-->\n\n## D-2 — d *(open — week 1)*\n',
+    'decisions.md': '## D-1 — a\n\nSee D-1.\n\n- D-1 again\n\n## D-2 — d *(open — week 1)*\n',
     [A]: doc('1'),
     'docs/features/b.md': doc('2'),
   });
   assert.deepEqual([r.status, r.findings, r.json.scanned], [0, [], 4]);
+});
+
+test('nothing is skipped: a heading in a fence, a comment, front matter or behind <!--> still counts, with CR, LF or CRLF', () => {
+  for (const hidden of ['```\n## D-1 — b\n```', '<!--\n## D-1 — b\n-->', '<!-->\n## D-1 — b', '`<!--` as text\n## D-1 — b']) {
+    for (const nl of ['\n', '\r\n', '\r']) {
+      const r = id1({ 'decisions.md': `## D-1 — a\n${hidden}\n`.replaceAll('\n', nl) });
+      assert.deepEqual(r.findings, ['decisions.md#decision/duplicate/D-1'], JSON.stringify([hidden, nl]));
+    }
+  }
+  const r = id1({ [A]: doc('3'), 'docs/features/b.md': '---\nstatus: draft\n---\n\n<!-->\n# F-3 — b\n' });
+  assert.deepEqual(r.findings, ['docs/features/b.md#feature/duplicate/F-03']);
 });
 
 test('ids compare by number: D-9 and D-009, F-2 and F-02', () => {
@@ -71,20 +82,16 @@ test('every accepted companion pair is printed as an exemption', () => {
   assert.deepEqual(r.json.exempted, [`docs/features/b.md (companion of ${A})`]);
 });
 
-test('hostile comment openers cost linear time: 100k of them in one file', () => {
+test('hostile input costs linear time: 100k comment openers in one file, 80k comments on one line', () => {
   const t0 = Date.now();
   const r = id1({ 'decisions.md': '## D-1 — a\n' + '<!--\n'.repeat(100000) + '## D-2 — b\n' });
   assert.deepEqual([r.status, r.findings], [0, []]);
+  assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\n' + '<!---->'.repeat(80000) + '\n' }).findings, []);
   assert.ok(Date.now() - t0 < 5000, 'took ' + (Date.now() - t0) + ' ms');
 });
 
-test('a closed multi-line comment hides what is inside it, an unclosed opener hides nothing', () => {
-  assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\n<!--\n## D-1 — in a comment\n-->\n## D-2 — b\n' }).findings, []);
-  assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\nWe write `<!--` as text.\n## D-1 — b\n' }).findings, ['decisions.md#decision/duplicate/D-1']);
-});
-
-test('line numbers survive a closed multi-line comment and CRLF', () => {
-  for (const nl of ['\n', '\r\n']) {
+test('line numbers survive a multi-line comment, CRLF and lone CR', () => {
+  for (const nl of ['\n', '\r\n', '\r']) {
     const r = id1({ 'decisions.md': ['## D-1 — a', '<!--', 'x', '-->', '', '## D-1 — b', ''].join(nl) });
     assert.match(r.json.findings[0].detail, /line 1 and on line 6/);
   }

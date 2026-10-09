@@ -16,8 +16,8 @@
 //   feature/unreadable          a feature doc is a link or not a regular file, so its F-<n> cannot be read
 //
 // What counts as a declaration. In decisions.md, a line that starts (up to three spaces, then 1–6 `#`) with the id: `## D-014 — …`,
-// `## D-014 — … *(open — week 1)*`, `### PD-3 — …`. An id quoted in a body paragraph, a list item, fenced code or an
-// HTML comment is never a declaration. In a feature doc under docs/features/ or dev/features/, the first heading that starts
+// `## D-014 — … *(open — week 1)*`, `### PD-3 — …`. An id quoted in a body paragraph or a list item is not one; a
+// heading-shaped line inside a fenced block, an HTML comment or front matter is, because nothing is skipped. In a feature doc under docs/features/ or dev/features/, the first heading that starts
 // with `F-<n>` (TEMPLATE.md is the template: skipped). Ids compare by number: D-9 and D-009, F-2 and F-02 are one id.
 //
 // Companions. A doc that carries the same F-<n> as another on purpose (one is the other's table, as slipway's
@@ -43,52 +43,12 @@ import { report } from '../lib/report.mjs';
 const root = process.argv[2] ?? '.';
 const FEATURE_DIRS = ['docs/features', 'dev/features'];
 
-// [{ line, text }] for each line a reader sees as text: not in a fenced block, not in an HTML comment that closes. Fences
-// are read first, so a `<!--` inside a fenced example opens nothing. A `<!--` with no `-->` after it anywhere hides
-// nothing (it may be written as text, in inline code): a duplicate hidden behind one would pass, so the headings after
-// it count (ci/checks/lib/markdown.mjs repeatedHeadings, same limit: a `<!--` in inline code followed by a real `-->`
-// further down still hides what lies between). One pass, linear in the text.
+// [{ line, text }] for every line of the text, whatever it sits in. Nothing is skipped: a heading-shaped line inside a
+// fence, a comment or front matter counts too. Every skip rule a reader of markdown applies (fences, comments, indented
+// code, quotes) is a way to hide a duplicate from a gate, and three review rounds found one each; a false alarm on an
+// example heading costs a reword, a hidden duplicate costs a collision. CR, LF and CRLF all end a line.
 function visible(md) {
-  const out = [];
-  const lastClose = md.lastIndexOf('-->');
-  let fence = null;
-  let inComment = false;
-  let offset = 0;
-  md.split(/\r?\n/).forEach((raw, i) => {
-    const start = offset;
-    offset += raw.length + 1;
-    let text = raw;
-    if (inComment) {
-      const end = text.indexOf('-->');
-      if (end < 0) return;
-      inComment = false;
-      text = ' '.repeat(end + 3) + text.slice(end + 3);
-    }
-    if (!inComment) {
-      const mark = text.match(/^\s{0,3}(`{3,}|~{3,})/)?.[1];
-      if (fence) {
-        if (mark && mark[0] === fence[0] && mark.length >= fence.length && text.trim() === mark) fence = null;
-        return;
-      }
-      if (mark) { fence = mark; return; }
-    }
-    let at = 0;
-    for (;;) {
-      const open = text.indexOf('<!--', at);
-      if (open < 0) break;
-      const close = text.indexOf('-->', open + 4);
-      if (close >= 0) {
-        text = text.slice(0, open) + ' '.repeat(close + 3 - open) + text.slice(close + 3);
-        at = close + 3;
-      } else if (start + open < lastClose) {
-        inComment = true;
-        text = text.slice(0, open);
-        break;
-      } else break;
-    }
-    out.push({ line: i + 1, text });
-  });
-  return out;
+  return md.split(/\r\n|\r|\n/).map((text, i) => ({ line: i + 1, text }));
 }
 
 const findings = [];
@@ -130,20 +90,20 @@ for (const dir of FEATURE_DIRS) {
       continue;
     }
     const md = readFileSync(join(abs, f), 'utf8');
-    const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, (m) => m.replace(/[^\n]/g, ''));
-    const heading = visible(body).map((l) => l.text.match(/^ {0,3}#{1,6}[ \t]+F-(\d+)\b/)).find(Boolean);
+    const heading = visible(md).map((l) => l.text.match(/^ {0,3}#{1,6}[ \t]+F-(\d+)\b/)).find(Boolean);
     if (heading) scanned++;
     docs.set(path, { n: heading ? Number(heading[1]) : null, companionOf: (frontmatter(md) ?? {})['companion-of'] ?? null });
   }
 }
 
+const named = (v) => (typeof v === 'string' ? v : '(no path)');
 const fid = (n) => `F-${String(n).padStart(2, '0')}`;
 const safe = (p) => typeof p === 'string' && p !== '' && !p.startsWith('/') && !/[\u0000-\u001f\u007f\\:]/.test(p) && p.split('/').every((s) => s !== '' && s !== '.' && s !== '..');
 const owners = new Map();
 const exempted = [];
 for (const [path, d] of docs) {
   if (d.n === null) {
-    if (d.companionOf !== null) findings.push({ where: `${path}#companion/id-differs`, detail: `${path} names ${d.companionOf} as its primary but carries no F-id of its own` });
+    if (d.companionOf !== null) findings.push({ where: `${path}#companion/id-differs`, detail: `${path} names ${named(d.companionOf)} as its primary but carries no F-id of its own` });
     continue;
   }
   if (d.companionOf === null) {
@@ -155,7 +115,7 @@ for (const [path, d] of docs) {
   if (!target) {
     findings.push({ where: `${path}#companion/missing`, detail: `companion-of names "${typeof d.companionOf === 'string' ? d.companionOf : '(no path)'}", which is not a regular feature doc under ${FEATURE_DIRS.join(' or ')} (a repo-relative path, no link, no "..")` });
   } else if (d.companionOf === path || target.companionOf !== null) {
-    findings.push({ where: `${path}#companion/chain`, detail: `${path} names ${d.companionOf} as its primary, and ${d.companionOf} is itself a companion (of ${target.companionOf}): name the doc that owns ${fid(d.n)}, which declares nothing` });
+    findings.push({ where: `${path}#companion/chain`, detail: `${path} names ${d.companionOf} as its primary, and ${d.companionOf} is itself a companion (of ${named(target.companionOf)}): name the doc that owns ${fid(d.n)}, which declares nothing` });
   } else if (target.n !== d.n) {
     findings.push({ where: `${path}#companion/id-differs`, detail: `${path} carries ${fid(d.n)} and names ${d.companionOf} as its primary, which ${target.n === null ? 'carries no F-id' : `carries ${fid(target.n)}`}` });
   } else exempted.push(`${path} (companion of ${d.companionOf})`);

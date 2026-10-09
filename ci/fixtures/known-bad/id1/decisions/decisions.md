@@ -5,7 +5,7 @@
 Body quoting an id is not a declaration: see D-1 and the heading below.
 
 ```
-## D-2 — a heading inside a fence is not read
+## D-2 — a heading inside a fence counts too
 ```
 
 ## D-2 — Second *(open — week 1)*
