@@ -195,7 +195,10 @@ extend it (a Changes line, an acceptance line) instead of starting another.
   exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). C: this commit carries the new F-id, so push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/bug-{name}` (no remote: skip); B: push in Phase 5, once the issue number exists.
 
 The stub is a draft of intent. The bug's acceptance says it is reviewed first (Phase 5); there is no separate
-review issue.
+review issue. **One block (D-040).** When the whole draft is exactly 1 `Given / When / Then` acceptance block added to a doc that
+already exists, with no change to its Contract or to a Verify command, show the owner the block's exact text and ask: "Is this how
+{Product name} should work?" On their yes, given in this session, the block is confirmed and needs no review; never record a
+confirmation you did not just receive. No yes, a new doc, 2 or more blocks, or any Contract or Verify change: the review.
 
 ```
 PHASE 4: WRITTEN DOWN
@@ -210,7 +213,7 @@ Review:   {PRD entry's owner message, when R1 reports it} | none
 **Issue body** per `process/intake.md` → Issue body, with the bug form's headings, in this order:
 
 - `### Observed`: what happened, exact output, redacted. `### Expected`: what should have happened, citing
-  the PRD id, doc or issue, and whether the requirement was written (A) or drafted here (B, C, the doc path).
+  the PRD id, doc or issue, and whether the requirement was written (A) or drafted here (B, C, the doc path). A confirmed block (Phase 4) is quoted, as confirmed by the owner on {date}.
 - `### Reproduction`: the steps or command.
 - `### Root cause`: `file:line`, the wrong logic, the regression commit and PR, the class with its count,
   the class pattern verbatim in a fenced block (the fixer will not have your pattern file), each dropped hit
@@ -223,7 +226,7 @@ Review:   {PRD entry's owner message, when R1 reports it} | none
     site with what it must return: `` `weeksOf(5)` returns 5 weeks ``;
   - `` {N} tests in Missing test exist, each fails with the fix reverted, and `pnpm verify` runs them ``;
   - the unhappy path, and the rule from Phase 3 when there is one;
-  - B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``.
+  - B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``; for a confirmed block (Phase 4), instead: `` `{doc path}`'s Changes has an `owner-confirmed, not reviewed` line naming this issue ``.
 - `### Seams`, `### Seams detail`: does the fix add a person, a channel or a promise? Usually `none`, with one
   line of why.
 - `### Missing test`: the table from Phase 3.
@@ -240,7 +243,7 @@ per `Issue milestone` only.
 1. Write the body and title to a fresh folder that holds nothing else, and run the issue check
    (`process/intake.md` → Issue body). Fix every finding; nothing is filed red.
 2. File it, add it to the board, link it under any parent (`process/intake.md` → Commands).
-3. **Doc PR (B and C).** Put `{date} · ADDED · drafted from a bug · #{n}` in the doc's Changes and commit. With no
+3. **Doc PR (B and C).** Put `{date} · ADDED · drafted from a bug · #{n}` in the doc's Changes (a confirmed block: `{date} · ADDED · owner-confirmed, not reviewed · drafted from a bug · #{n}`) and commit. With no
    remote, stop here and tell the owner the branch is ready. Otherwise, in a fresh folder `{prdir}`: title
    `docs({scope}): draft {feature} for #{n}`; body `## What` (`Lane: bounded`, a draft for review, the bug
    in one line), `## Verification` (`pnpm meta` as run, in a code block), `## Links` (`Part of #{n}`, or
