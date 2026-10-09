@@ -1,0 +1,9 @@
+{
+  "_note": "#375. The same reviewed draft PRD with the walking skeleton active: Next is the skeleton's slice and Needs attention keeps the approval line.",
+  "today": "2026-03-10",
+  "next": "Step 4 (agent) — Walking skeleton: Walking skeleton. Next slice: item 1, \"Deploy a hello page (no feature: skeleton)\". Start it in a fresh session with /log-feature M1#1.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "PRD 0.3.0 is reviewed (prd-review.md) and still a draft — resolve the review's findings in the PRD, then set Status: approved"
+  ]
+}

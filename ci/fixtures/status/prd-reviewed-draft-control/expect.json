@@ -1,0 +1,9 @@
+{
+  "_note": "#375, #110. The PRD's version line holds an OSC window-title sequence (ESC ] … BEL), and the review copies it. The new Needs attention line shows each character as \\uXXXX; S1 also fails the case when one reaches the output raw.",
+  "today": "2026-03-10",
+  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "PRD 0.3.0\\u001b]0;pwned\\u0007 is reviewed (prd-review.md) and still a draft — resolve the review's findings in the PRD, then set Status: approved"
+  ]
+}

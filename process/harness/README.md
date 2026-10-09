@@ -104,7 +104,8 @@ SessionStart pins only when the session has no pin and its `source` is `startup`
 that come with a new session id; a compaction or a resume never pins. Git is called with `--no-replace-objects`, so a replace ref cannot swap the
 pinned guard. The guard runs the working tree's hook only when the checkout's gate files are the pin's. Gate files
 are the paths the base's own `Edit(...)` ask rules list (above) but its owner-only prose and sync tooling (#163),
-every `package.json`, everything under a `.claude` folder but its skills (#173, below), `.gitmodules`
+every `package.json`, everything under a `.claude` folder but its skills (#173, below), a skill folder that is a
+plugin (#373, below), `.gitmodules`
 and `.gitattributes`, matched ignoring case, documents included, and each gate folder itself (`node_modules`,
 `.claude`, `ci`), so a symlink in its place counts: tracked ones through `git diff` against the pin (a tracked
 file `.gitignore` ignores included, a submodule by its commit), and untracked ones. A symlink or a submodule link
@@ -119,6 +120,13 @@ and whatever Claude Code reads from that folder next, at any depth (`apps/web/.c
 left out, whole: scripts, and a `.claude` folder inside a skill, included. A skill runs when it is invoked, by a person
 or by the agent, never from a hook; a branch that changes only a skill keeps its Stop hook. A gate path the
 rest of the list names (`package.json`, `.npmrc`, `.claude/settings*.json`) still counts inside a skill.
+
+The exception is a skill folder that is a plugin (#373, D-039). Claude Code loads what a folder with a
+`.claude-plugin` entry holds (hooks among it) without anyone invoking the skill, so by the rule above it is gate
+code. The folder `.claude/skills/<name>/` counts whole when a `.claude-plugin` entry (a folder with a file in it, a file or a link, at
+any depth below it, in any letter case) is in the pin, the index or the untracked files: any file added to, changed
+in or removed from that folder is a changed gate file, and a yes covers it like any other. The guard reads no
+manifest; the name alone decides.
 
 When any differs, that hook does not run: the Stop hook blocks once to say so and name the files, SessionStart says
 so, and the advisory hooks stay quiet. Otherwise a branch's hook scripts, `ci/verify.mjs` and package scripts would
@@ -201,7 +209,9 @@ Known limitations:
 | the session folders | `~/.claude/slipway/sessions/` gains one small folder per session and nothing removes them |
 | the session id | the guard reads it from `CLAUDE_CODE_SESSION_ID`, which Claude Code sets for hook commands (checked on 2.1.283); a version that does not set it runs no hook, and the Stop and SessionStart hooks say so. The id survives a manual `/compact` (a live session kept it, 2.1.287, #213), so a long session keeps its pin; an automatic compaction was not tried |
 | `.gitignore` and local index flags | an untracked file is seen as git sees it, through the working tree's ignore rules; `skip-worktree` and `assume-unchanged` hide a tracked file's edit. A checkout alone brings neither an untracked file nor a flag |
-| a skill the branch changed | `.claude/skills/**` does not stop the hooks, yet a skill can carry inline shell or frontmatter hooks that run once it is invoked. It stays owner-only: the harness asks before an edit to it, and the PR check wants a `## Gate changes` line for it, so the change is seen at the pull request, not at the Stop hook. An untracked link below `.claude/skills/` is skill content, and a skill folder that is its own untracked git repository is not looked into (as any such folder); a checkout alone brings neither |
+| a plugin folder the branch changed | the guard reports it at the next hook, and cannot stop it: Claude Code loads a plugin folder's code itself, and reads it again when it changes, before any hook runs and with no prompt once the workspace is trusted. So the Stop and SessionStart hooks name the changed folder after its code may have run. For someone else's checkout the defence is the pre-launch check (`--check-checkout`, #114), run before a session is opened there. A `.claude-plugin` entry the ignore rules hide is not seen while it is untracked (the `.gitignore` row above), and neither is an empty `.claude-plugin` folder, since git lists files and not folders: a checkout alone brings neither, a command run in the session can make one |
+| a plugin outside the skills tree | a plugin installed for the user or from a marketplace lives outside the repository: a pull request cannot add or change one, and nothing here reads it. What a plugin folder in the repository reaches outside itself is not counted either: a script elsewhere in the project that one of its hook commands names, unless that script is a gate file already, and a bundle it names by address. From Claude Code's documentation, not tried here |
+| a skill the branch changed | `.claude/skills/**` with no `.claude-plugin` entry does not stop the hooks, yet a skill can carry inline shell or frontmatter hooks that run once it is invoked. It stays owner-only: the harness asks before an edit to it, and the PR check wants a `## Gate changes` line for it, so the change is seen at the pull request, not at the Stop hook. An untracked link below `.claude/skills/` is skill content, and a skill folder that is its own untracked git repository is not looked into (as any such folder); a checkout alone brings neither |
 | a symlink | a tracked symlink, or a submodule link, counts wherever it changes, and a gate folder counts when a link takes its place, tracked or untracked unless the ignore rules hide it (`node_modules` without a trailing slash ignores a link too). A link the pin already has is judged by the link, not by what its target holds now; an untracked link outside the gate folders does not count, since git reports no mode for an untracked file. A checkout alone brings no untracked link |
 | a submodule at another path | a submodule's commit and its own changes count at any path, but the guard never looks inside one: a file its own `.gitignore` ignores, or a file written into a submodule folder that is not checked out as a repository, is not seen |
 | a checkout while a hook runs | the guard checks, then the hook runs; a checkout in between (a background agent) changes what the hook reads |
@@ -214,7 +224,8 @@ Known limitations:
 The PR check (`ci/checks/lib/gate-files.mjs`, read by P1) counts every path the guard counts, `.gitmodules` and
 `.gitattributes` included (#174), except the rows below. `scripts/gate-files.test.mjs` pins each row, and fails when
 the guard's list of extra paths gains one the check neither counts nor excepts here, or its `.claude` list changes. The check also counts what the guard leaves
-out: owner-only prose, `dev/ownership.yaml`, `scripts/new-project.mjs` and `.claude/skills/**`.
+out: owner-only prose, `dev/ownership.yaml`, `scripts/new-project.mjs` and `.claude/skills/**`, of which the guard
+counts only a folder that is a plugin (#373).
 
 | the guard counts | why the PR check does not |
 |---|---|

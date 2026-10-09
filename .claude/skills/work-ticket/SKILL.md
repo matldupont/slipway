@@ -154,8 +154,8 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 3. **Each new test can fail** (L-04). Commit, revert the mechanism, run that test, see it red, restore. A
    line already true on `{base}`: break what keeps it true instead, and say so.
 4. **Size.** A file this change pushed over 300 lines: split it, or ask.
-5. **Manual testing.** When Phase 2 named a plan, add or amend the journey in `QA plans` now, in the plan's
-   own format, with an expected result that can be wrong; a new plan follows that folder's README.
+5. **Manual testing.** When Phase 2 named a plan, add or amend the journey in `QA plans` now, with an expected
+   result that can be wrong, in the plan's environment or in a new plan (`process/intake.md` → Deferred check; README).
 6. **The checks stay as they are.** Rule files change only on the owner's yes (Configuration); never weaken a check.
 
 ```

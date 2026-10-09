@@ -1,0 +1,7 @@
+{
+  "_note": "#375. The same reviewed draft PRD with the skeleton only shaping: no milestone is active or closed, so the step 3 line is Next and Needs attention does not repeat it.",
+  "today": "2026-03-10",
+  "next": "Step 3 (you) — Shape: 0.3.0 is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": ["nothing"]
+}

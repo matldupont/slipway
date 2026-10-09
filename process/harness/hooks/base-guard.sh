@@ -9,8 +9,9 @@
 # message has said yes to exactly these gate files (below). Otherwise that hook does not run: the Stop hook blocks
 # once to say so, SessionStart says so, the advisory hooks stay quiet.
 # Gate files: the base's own ask-level edit globs (settings.json, #133) but its owner-only prose and tooling, every
-# package.json, everything under a .claude folder but its skills (#173), .gitmodules and .gitattributes, matched
-# ignoring case, and each gate folder itself (`node_modules`, `.claude`), so a link in its place counts (#148).
+# package.json, everything under a .claude folder but its skills (#173), a skill folder that is a plugin (#373),
+# .gitmodules and .gitattributes, matched ignoring case, and each gate folder itself (`node_modules`, `.claude`), so
+# a link in its place counts (#148).
 # A changed or untracked name git has to quote (non-ASCII, a quote, a control character) counts too: a Mac disk
 # may open `node_moduleſ` as `node_modules`. So does a symlink or a submodule link added, removed or changed at
 # any path: the folder it stands for may hold gate files no pattern can name.
@@ -23,7 +24,7 @@
 # A prompt the session arranges for itself reaches UserPromptSubmit as a typed one does (#213), and nothing here can
 # tell them apart. So the refusal is not in this file (#222): a PreToolUse command in settings.json, which needs no
 # pin, denies a scheduling, messaging, terminal or typing tool call that carries the phrase as a whole value.
-# POSIX sh with git, sed, grep, sort, head, tr, cat, rm, mkdir and printf: hooks run under /bin/sh without your PATH (L-34).
+# POSIX sh with git, sed, grep, awk, sort, head, tr, cat, rm, mkdir and printf: hooks run under /bin/sh without your PATH (L-34).
 
 set -f # the globs below are git's, never the shell's
 hook=$1
@@ -109,19 +110,40 @@ untracked=$(g ls-files -o --exclude-standard -- "$@") || fail 'git ls-files fail
 # .claude (#173): every file under it is gate code, documents included (settings, hooks, agents, commands, and what
 # Claude Code reads from there next), and so is the folder itself, for a link in its place. Only the skills tree is
 # not: a skill runs when it is invoked, by a person or the agent, never from a hook, so it is owner-only and no more.
-# The tree is left out whole, a .claude folder or an untracked link inside it included. Its own pathspecs, so a
-# name the list above matches (a skill's package.json, .npmrc or .claude/settings.json) still counts.
+# The tree is left out here, a .claude folder or an untracked link inside it included, and the plugin folders in it
+# are counted below. Its own pathspecs, so a name the list above matches (a skill's package.json, .npmrc or
+# .claude/settings.json) still counts.
 set -- ':(glob,icase)**/.claude/**' ':(glob,icase)**/.claude' ':(exclude,glob,icase)**/.claude/skills/**'
 dotclaude=$(gdiff "$@") || fail 'git diff failed'
 dotclaude_new=$(g ls-files -o --exclude-standard -- "$@") || fail 'git ls-files failed'
-changed=$(printf '%s\n%s\n%s\n%s\n' "$tracked" "$untracked" "$dotclaude" "$dotclaude_new" | sed '/^$/d' | grep -v '^"' | sort -u)
+# A plugin folder in a skills tree (#373, D-039): a skill folder that holds a `.claude-plugin` entry is a plugin, and
+# Claude Code loads what it holds without anyone invoking the skill, so it is gate code by the rule above. The
+# folder `.claude/skills/<name>` counts whole when an entry of that name (a folder, a file or a link, at any depth
+# below it) is in the pinned base, the index or the untracked files: a file added to, changed in or removed from it
+# is a changed gate file. No manifest is read. Names are compared as text, lower-cased, and never handed to git; a
+# name git quotes loses its opening quote first, so an entry with such a name marks the folder its plain names are in.
+# An empty `.claude-plugin` folder is in none of the three lists (git lists files), so it is not seen.
+set -- ':(glob,icase)**/.claude/skills/**'
+skills=$(gdiff "$@") || fail 'git diff failed'
+skills_new=$(g ls-files -o --exclude-standard -- "$@") || fail 'git ls-files failed'
+others=$(g ls-files -o --exclude-standard) || fail 'git ls-files failed'
+plugin=
+if [ -n "$skills$skills_new" ]; then
+  at_base=$(g ls-tree -r --name-only "$base") || fail 'git ls-tree failed'
+  indexed=$(g ls-files -c) || fail 'git ls-files failed'
+  plugin=$(printf '%s\n%s\n%s\n/\n%s\n%s\n' "$at_base" "$indexed" "$others" "$skills" "$skills_new" | LC_ALL=C awk '
+    $0 == "/" { changes = 1; next }
+    { l = tolower($0); sub(/^"/, "", l); if (!match(l, /(^|\/)\.claude\/skills\/[^\/]+\//)) next; folder = substr(l, 1, RSTART + RLENGTH - 1) }
+    !changes { if (l ~ /\/\.claude-plugin(\/|"?$)/) plugins[folder] = 1; next }
+    folder in plugins') || fail 'the plugin folders could not be read'
+fi
+changed=$(printf '%s\n%s\n%s\n%s\n%s\n' "$tracked" "$untracked" "$dotclaude" "$dotclaude_new" "$plugin" | sed '/^$/d' | grep -v '^"' | sort -u)
 # Every change, with its modes (`:old new sha sha status<TAB>name`): the name is what follows the fifth field.
 raw=$(g diff --raw --no-renames --no-ext-diff --ignore-submodules=none "$base" --) || fail 'git diff failed'
 path() { sed 's/^:[^[:space:]]* [^[:space:]]* [^[:space:]]* [^[:space:]]* [^[:space:]]*[[:space:]]//'; }
 all=$(printf '%s\n' "$raw" | path)
 links=$(printf '%s\n' "$raw" | grep -E '^:(120000|160000) |^:[0-7]+ (120000|160000) ' | path)
 changed=$(printf '%s\n%s\n' "$changed" "$links" | sed '/^$/d' | grep -v '^"' | LC_ALL=C sort -u)
-others=$(g ls-files -o --exclude-standard) || fail 'git ls-files failed'
 odd=$(printf '%s\n%s\n' "$all" "$others" | grep '^"' | sort -u)
 if [ -z "$changed" ] && [ -z "$odd" ]; then
   [ "$hook" = trust-gates ] && fail 'no gate file differs from the base pinned for this session'

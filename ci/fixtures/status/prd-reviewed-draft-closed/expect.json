@@ -1,0 +1,9 @@
+{
+  "_note": "#375. The PRD is a draft at 0.3.0 with a review of that version, and the only milestone has closed, so the step 3 line is no longer Next. Needs attention keeps 1 line saying the review is there and what closes it.",
+  "today": "2026-03-10",
+  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "PRD 0.3.0 is reviewed (prd-review.md) and still a draft — resolve the review's findings in the PRD, then set Status: approved"
+  ]
+}

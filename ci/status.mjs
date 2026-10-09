@@ -263,6 +263,8 @@ if (ms.length) {
 }
 const attention = [
   ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`PRD ${prdVersion ?? ''} has no adversarial review — run /review-doc docs/PRD.md in a fresh session (needed before the PRD leaves draft)`] : []),
+  // While no milestone is active or closed the step 3 line is the Next line (next() above); with one, the approval is still owed.
+  ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`PRD ${prdVersion} is reviewed (${prdReviews.join(', ')}) and still a draft — resolve the review's findings in the PRD, then set Status: approved`] : []),
   ...(!bootstrapped && !step0 ? [`AGENT.md rows still unfilled: ${placeholders.join(', ')} — the skills read them${placeholders.includes('Timezone') ? ' (Timezone also sets when a deadline day ends)' : ''}; fill each row`] : []),
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
