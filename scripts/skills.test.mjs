@@ -981,3 +981,10 @@ test('the earlier review of a revised document: intake, /review-doc and the revi
   assert.ok(flat(template).includes('for each earlier review of that document, written > as `Supersedes: docs/reviews/<file>`'), 'the template does not say how the line is written');
   assert.ok(flat(template).includes('until a current review of the same document names it in `Supersedes:`'), 'the template still says a stale review is red for good');
 });
+
+// #372 (D-038): the step that adds a journey cites the environment rule, and the README a new project gets says one plan per environment.
+test('work-ticket\'s manual-testing step cites Deferred check for the plan\'s environment, and docs/qa/README.md says one plan per environment', () => {
+  const step = read(skillPath('work-ticket')).split('\n').join(' ').match(/\*\*Manual testing\.\*\* When Phase 2 named a plan.*?(?= \d\. \*\*)/)?.[0].replace(/\s+/g, ' ') ?? '';
+  assert.match(step, /in the plan's environment or in a new plan \(`process\/intake\.md` → Deferred check; README\)/, 'Phase 4 must send a journey that runs elsewhere to process/intake.md → Deferred check');
+  assert.match(read('docs/qa/README.md').replace(/\s+/g, ' '), /per environment: a plan's journeys all run in one environment/, 'docs/qa/README.md must say a plan\'s journeys run in one environment');
+});
