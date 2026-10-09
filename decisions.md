@@ -623,6 +623,37 @@ time and edited the scratch project in place; the build uses the pinned parser a
 commit outside the project (F-13), and its time on a hosted runner is not known until a project
 runs it. The mutator makes fewer kinds of change than StrykerJS. A weak test passes with either.
 
+## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
+
+A deferred check's recorded run has one row per journey, and any `not run` keeps the check owed
+(`process/intake.md` → Deferred check, #217). A real project's staging plan gained a journey that can only be
+run on a laptop: it writes rows by hand, which a shared database does not allow. That plan could never record a
+full staging run, and the project wrote its own rule into the plan to get round it (#282). The owner chose:
+
+- **A plan holds no journey that runs elsewhere.** Every journey in a plan runs in the environment that plan's
+  check names, so a full run is a full run with no marker and no exception.
+- **A journey run in the pull request that adds it is not a deferred check.** It is run, and its result
+  recorded in that pull request, before the pull request is ready.
+- **One that cannot be, or that leaves a plan that already owes, gets its own plan,** with its own
+  `Owed: {plan} — {environment}` line. The reader takes any environment, `local` included, so nothing in
+  `ci/checks/lib/milestones.mjs` changes.
+
+Why: no check reads a run comment's journey rows; the checks read `Owed:` and `Ran:` lines only, and only
+`/close-milestone` reads a linked comment. A rule that lets
+a staging run count a laptop journey by citing another run would be applied by a person reading, and nothing
+would go red when it was applied loosely. This rule stays on the lines the reader already holds. This session
+recommended the citation rule; the orchestrator session said the question was the owner's and advised this one,
+adding that a journey needing no deploy is not deferred at all.
+
+Declined: the journey stays and a run elsewhere counts it by citing a recorded run in its own environment (a
+rule nothing checks); it stays and is left out of runs elsewhere (nothing makes it run); no change (the plan
+never records a full run).
+
+Consequence: a project that wrote its own rule for such a journey into a plan moves the journey into a plan of
+its own, with its own `Owed:` line, and deletes its rule, on the sync that brings this: a journey that leaves a
+plan that already owes is never left with nothing owed for it. No check reads a plan's journeys, so a plan
+that still holds one goes on recording partial runs, which stay owed. #282.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
