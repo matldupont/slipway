@@ -1,57 +1,96 @@
 // Skipped-test markers in a package's test files. Shared by SK1 and ci/verify.mjs, so the count `verify` prints is
 // the one SK1 judges (L-56).
 //
-// What is counted is a marker in the text of a test file, not a test that did not run: one `describe.skip` covers
-// many tests. Every line is read as text, with nothing stripped, so a marker in a comment or a string is counted
-// too. What the scan cannot see: a skip reached through an alias (`const maybe = it.skip`), a computed member
-// (`it['skip']`), a skip a runner's config applies (`exclude`, `testPathIgnorePatterns`, a tag filter) and a
-// marker split across two lines.
+// What is counted is a line holding a marker in the text of a test file, not a test that did not run: one
+// `describe.skip` covers many tests, and two markers on a line count once. Every line is read as text, with nothing
+// stripped, so a marker in a comment or a string is counted too. What the scan cannot see: a skip reached through an
+// alias (`const maybe = it.skip`), a computed member (`it['skip']`), a skip a runner's config applies (`exclude`,
+// `testPathIgnorePatterns`, a tag filter), an options object that starts on a line after the call, and a marker
+// split across two lines. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
+//
+// Every pattern here is built from fixed words and bounded repetition, and the issue reference is looked for in the
+// first LINE_CAP characters of a line, so a hostile line cannot make the scan slow (the convention in risks.mjs).
 
-import { lstatSync, readdirSync, readFileSync } from 'node:fs';
+import { lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { TRACKER } from './risks.mjs';
 
-// `*.test.*` and `*.spec.*` in a JavaScript or TypeScript extension, and any such file under `__tests__/` or `tests/`.
+// A test file is `*.test.*`, `*.spec.*`, `*-test.*`, `*_test.*`, `test-*.*` or `*.e2e-spec.*` in a JavaScript or
+// TypeScript extension (the names `node --test`, Vitest, Jest, Mocha and Playwright run by default), or any such
+// source file under a folder named `test`, `tests`, `__tests__` or `__test__`.
 const SOURCE = /\.[cm]?[jt]sx?$/;
-const NAMED = /\.(?:test|spec)\.[cm]?[jt]sx?$/;
-const TEST_DIR = new Set(['__tests__', 'tests']);
+const NAMED = /(?:\.(?:test|spec|e2e-spec)|[-_]test)\.[cm]?[jt]sx?$|^test-[^/]*\.[cm]?[jt]sx?$/;
+const TEST_DIR = new Set(['test', 'tests', '__tests__', '__test__']);
 // Larger than this is not read, and is said so rather than counted as empty.
 const MAX_BYTES = 2 * 1024 * 1024;
+const LINE_CAP = 4096;
 
-// A skip: `it.skip`, `describe.skipIf(…)`, `test.runIf(…)`, `it.todo`, the x-prefixed forms. `describe.concurrent.skip`
-// and `it.skip.each` read too. A focus: `.only`, `fit`, `fdescribe`.
+// A skip: `it.skip`, `describe.skipIf(…)`, `test.runIf(…)`, `it.todo`, Playwright's `test.fixme`, the x-prefixed
+// forms, `{ skip: true }` in a test's options and `t.skip()` / `ctx.skip()` / `this.skip()` in its body. A focus:
+// `.only`, `{ only: true }`, `fit`, `fdescribe`. A name must start the word (not follow `.`, so `fitAddon.fit()` and
+// `db.users.skip(10)` are not tests), and a marker must be called or chained into `.each`/`.for`.
 const BLOCK = '(?:it|test|describe|suite|context|specify|bench)';
-const SKIP = new RegExp(`\\b${BLOCK}(?:\\.\\w+)*\\.(?:skip|skipIf|runIf|todo)\\b|\\b(?:xit|xtest|xdescribe|xcontext|xspecify)\\b`);
-const ONLY = new RegExp(`\\b${BLOCK}(?:\\.\\w+)*\\.only\\b|\\b(?:fit|fdescribe)\\s*\\(`);
+const MODIFIER = '(?:concurrent|sequential|shuffle|parallel|serial|each|for|describe|skip|only|todo|fixme|skipIf|runIf)';
+const CHAIN = `(?:\\s*\\??\\.\\s*${MODIFIER}){0,6}`;
+const CALLED = '(?=\\s*(?:\\(|\\.(?:each|for)\\b|`))';
+const START = '(?<![\\w$.])';
+const SKIP = new RegExp(
+  `${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*(?:skip|skipIf|runIf|todo|fixme)\\b${CALLED}` +
+    `|${START}(?:xit|xtest|xdescribe|xcontext|xspecify)${CALLED}` +
+    `|${START}(?:t|ctx|context|this)\\.(?:skip|todo)\\s*\\(`
+);
+const ONLY = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*only\\b${CALLED}|${START}(?:fit|fdescribe)${CALLED}`);
+// A test call whose options object skips or focuses it: `test('x', { skip: true }, fn)`.
+const CALL = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\(`);
+const OPTION = /[{,]\s*(skip|only|todo)\s*:\s*(?!false\b)\S/;
+
 // An issue reference: the tracker pattern risks.mjs holds, minus a decision id (D-7 is not an issue).
 const TRACKER_ALL = new RegExp(TRACKER.source, 'g');
-export const linked = (line) => (line.match(TRACKER_ALL) ?? []).some((m) => m.includes('#'));
+export const linked = (line) => (line.slice(0, LINE_CAP).match(TRACKER_ALL) ?? []).some((m) => m.includes('#'));
 
-/** The markers in one file's text: `{ line, kind: 'skip' | 'only', linked }`, in line order. */
+const LINE_BREAK = new RegExp('\\r\\n|[\\r\\n\\u2028\\u2029]');
+
+/** The markers in one file's text: `{ line, kind: 'skip' | 'only', linked }`, one per line, in line order. */
 export function markersIn(text) {
   const out = [];
-  text.split(/\r?\n|\u2028|\u2029/).forEach((line, i) => {
-    if (ONLY.test(line)) out.push({ line: i + 1, kind: 'only', linked: linked(line) });
-    else if (SKIP.test(line)) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
+  text.split(LINE_BREAK).forEach((line, i) => {
+    const option = CALL.test(line) ? OPTION.exec(line) : null;
+    if (ONLY.test(line) || option?.[1] === 'only') out.push({ line: i + 1, kind: 'only', linked: linked(line) });
+    else if (SKIP.test(line) || option) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
   });
   return out;
 }
 
-function walk(dir, others, inTestDir, out, unread) {
+const byName = (a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+const isDir = (path) => {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+function walk(root, dir, others, inTestDir, out, unread) {
+  const rel = (p) => relative(root, p).split(sep).join('/');
   let entries;
   try {
-    entries = readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    entries = readdirSync(dir, { withFileTypes: true }).sort(byName);
   } catch (e) {
-    unread.push({ path: dir, why: `cannot list the folder (${e.code ?? 'error'})` });
+    unread.push({ path: rel(dir), why: `cannot be listed (${e.code ?? 'error'})`, fix: 'Make the folder readable' });
     return;
   }
   for (const e of entries) {
     const path = join(dir, e.name);
-    if (e.isSymbolicLink()) continue; // never followed: a link can lead outside the package
-    if (e.isDirectory()) {
+    const testFile = SOURCE.test(e.name) && (inTestDir || NAMED.test(e.name));
+    if (e.isSymbolicLink()) {
+      // Never followed (it can lead outside the package), but a runner may follow it: said, not skipped silently.
+      if (testFile || isDir(path)) {
+        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'Replace the link with the file or folder itself, so its skipped tests can be counted' });
+      }
+    } else if (e.isDirectory()) {
       if (e.name === 'node_modules' || e.name === '.git' || others.has(path)) continue;
-      walk(path, others, inTestDir || TEST_DIR.has(e.name), out, unread);
-    } else if (e.isFile() && SOURCE.test(e.name) && (inTestDir || NAMED.test(e.name))) {
+      walk(root, path, others, inTestDir || TEST_DIR.has(e.name), out, unread);
+    } else if (e.isFile() && testFile) {
       out.push(path);
     }
   }
@@ -60,33 +99,34 @@ function walk(dir, others, inTestDir, out, unread) {
 /**
  * Scans one package. `packages` is the workspace's list (discoverWorkspace), so a package inside another is
  * counted once, for the inner one.
- * @returns {{ files: number, markers: Array<{file: string, line: number, kind: string, linked: boolean}>, unread: Array<{path: string, why: string}> }}
+ * @returns {{ files: number, markers: Array<{file: string, line: number, kind: string, linked: boolean}>, unread: Array<{path: string, why: string, fix: string}> }}
  */
 export function scanPackage(root, pkg, packages) {
   const dir = join(root, pkg.dir);
   const others = new Set(packages.filter((p) => p.dir !== pkg.dir).map((p) => join(root, p.dir)));
   const found = [];
   const unread = [];
-  walk(dir, others, false, found, unread);
+  walk(root, dir, others, false, found, unread);
   const markers = [];
   for (const path of found) {
     const rel = relative(root, path).split(sep).join('/');
     try {
       if (lstatSync(path).size > MAX_BYTES) {
-        unread.push({ path: rel, why: `larger than ${MAX_BYTES / 1024 / 1024} MB` });
+        unread.push({ path: rel, why: `is larger than ${MAX_BYTES / 1024 / 1024} MB`, fix: 'Split the file, so each part can be read' });
         continue;
       }
       for (const m of markersIn(readFileSync(path, 'utf8'))) markers.push({ file: rel, ...m });
     } catch (e) {
-      unread.push({ path: rel, why: `cannot be read (${e.code ?? 'error'})` });
+      unread.push({ path: rel, why: `cannot be read (${e.code ?? 'error'})`, fix: 'Make the file readable' });
     }
   }
   return { files: found.length, markers, unread };
 }
 
-/** The line `verify` prints for a package: what it counts, zero included. */
+/** The line `verify` prints for a package: what it counts, zero and unread included. */
 export function summary(scan) {
-  if (scan.files === 0) return '0 test files';
-  const none = scan.markers.filter((m) => m.kind === 'only' || !m.linked).length;
-  return `${scan.markers.length} in ${scan.files} test files (${none} with no issue)`;
+  const unread = scan.unread.length ? `, ${scan.unread.length} not read` : '';
+  if (scan.files === 0) return `0 test files${unread}`;
+  const fix = scan.markers.filter((m) => m.kind === 'only' || !m.linked).length;
+  return `${scan.markers.length} in ${scan.files} test files (${fix} to fix${unread})`;
 }

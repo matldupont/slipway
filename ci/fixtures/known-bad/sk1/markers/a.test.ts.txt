@@ -1,0 +1,27 @@
+describe.skip('no link', () => {});
+it.skip('linked', () => {}); // #12
+xit('x-prefixed, no link', () => {});
+test.skipIf(process.env.CI)('conditional, no link', () => {});
+it.todo('later');
+it.only('focused, even with a link', () => {}); // #14
+fdescribe('focused group', () => {});
+// it.skip('a comment is read as text')
+it('says skip in its title only', () => {});
+test.runIf(process.env.X)('linked elsewhere', () => {}); // owner/repo#5
+it.skip('a decision id is not an issue', () => {}); // D-7
+test.runIf(process.env.X)('runIf, no link', () => {});
+xtest('x-prefixed test', () => {});
+suite.skip('suite', () => {});
+bench.skip('bench', () => {});
+describe.concurrent.skip('chain', () => {});
+test('opt', { skip: true }, () => {});
+test('opt', { only: true }, () => {}); // #3
+test('opt off', { skip: false }, () => {});
+t.skip('in the body');
+test.fixme('playwright', () => {});
+test.describe.fixme('playwright group', () => {});
+fitAddon.fit();
+const n = context.db.users.skip(10);
+const title = context.todo.title;
+it.skip.each([1])('each', () => {});
+it?.skip('optional', () => {});

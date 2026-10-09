@@ -18,7 +18,7 @@
 //                                      hook; CI always runs the full set
 
 import { spawnSync } from 'node:child_process';
-import { report } from './checks/lib/report.mjs';
+import { escapeControl, report } from './checks/lib/report.mjs';
 import { scanPackage, summary } from './checks/lib/skips.mjs';
 import { REQUIRED_TASKS, VERIFY_TASKS } from './checks/lib/tasks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
@@ -54,7 +54,7 @@ const findings = [];
 const steps = [];
 for (const task of TASKS) {
   const declaring = packages.filter((p) => p.scripts[task] !== undefined).map((p) => p.name);
-  const list = declaring.length ? `: ${declaring.join(', ')}` : '';
+  const list = declaring.length ? `: ${declaring.map(escapeControl).join(', ')}` : '';
   process.stdout.write(`VERIFY: ${task} — declared by ${declaring.length} of ${packages.length} packages${list}\n`);
   if (declaring.length === 0) {
     if (REQUIRED_TASKS.includes(task)) {
@@ -70,7 +70,7 @@ for (const task of TASKS) {
 // package with no test files is not silent. These are markers in the text, not tests that did not run, and SK1
 // (ci/checks/meta/sk1-skipped-tests.mjs) is what fails on one with no issue; verify only prints.
 for (const p of packages.filter((p) => p.scripts.test !== undefined)) {
-  process.stdout.write(`VERIFY: skipped-test markers — ${p.name}: ${summary(scanPackage(root, p, packages))}\n`);
+  process.stdout.write(`VERIFY: skipped-test markers — ${escapeControl(p.name)}: ${summary(scanPackage(root, p, packages))}\n`);
 }
 
 const ran = [];

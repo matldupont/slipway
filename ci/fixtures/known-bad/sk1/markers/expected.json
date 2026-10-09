@@ -1,16 +1,33 @@
 {
-  "_note": "app/src/a.test.ts: lines 1, 3, 4, 5, 8 and 11 skip with no issue on the line (a comment counts, a decision id is not an issue); line 6 is focused although it names #14, and line 7 is focused. Line 2 (#12) and line 10 (owner/repo#5) are linked and pass; line 9 only says skip in a title. __tests__/b.ts is read for being under __tests__/; helper.ts is not a test file. packages/empty has a test script and no test files: no finding.",
+  "_note": "Lines of a.test.ts.txt, placed at packages/app/src/a.test.ts: every skip form with no issue on its line is a finding (a comment counts, a decision id is not an issue, an options object, t.skip(), Playwright's fixme, the x-prefixed and chained forms); lines 6 and 18 are focused although they name an issue, and line 7 is focused. Lines 2, 10 (owner/repo#5) are linked and pass; 9, 19 (skip: false), 23-25 (a method named fit, a skip on a database call, a property named todo) are not tests. b.ts is read for being under __tests__/; helper.ts is not a test file. packages/empty has a test script and no test files: no finding. The test files are stored as .txt and placed by PC1, so they never ship to a project as test code.",
   "exit": 1,
+  "files": {
+    "packages/app/src/a.test.ts": "a.test.ts.txt",
+    "packages/app/__tests__/b.ts": "b.ts.txt",
+    "packages/app/src/helper.ts": "helper.ts.txt"
+  },
   "findings": [
     "packages/app/__tests__/b.ts:1#skip/no-issue",
     "packages/app/src/a.test.ts:1#skip/no-issue",
+    "packages/app/src/a.test.ts:11#skip/no-issue",
+    "packages/app/src/a.test.ts:12#skip/no-issue",
+    "packages/app/src/a.test.ts:13#skip/no-issue",
+    "packages/app/src/a.test.ts:14#skip/no-issue",
+    "packages/app/src/a.test.ts:15#skip/no-issue",
+    "packages/app/src/a.test.ts:16#skip/no-issue",
+    "packages/app/src/a.test.ts:17#skip/no-issue",
+    "packages/app/src/a.test.ts:18#only",
+    "packages/app/src/a.test.ts:20#skip/no-issue",
+    "packages/app/src/a.test.ts:21#skip/no-issue",
+    "packages/app/src/a.test.ts:22#skip/no-issue",
+    "packages/app/src/a.test.ts:26#skip/no-issue",
+    "packages/app/src/a.test.ts:27#skip/no-issue",
     "packages/app/src/a.test.ts:3#skip/no-issue",
     "packages/app/src/a.test.ts:4#skip/no-issue",
     "packages/app/src/a.test.ts:5#skip/no-issue",
     "packages/app/src/a.test.ts:6#only",
     "packages/app/src/a.test.ts:7#only",
-    "packages/app/src/a.test.ts:8#skip/no-issue",
-    "packages/app/src/a.test.ts:11#skip/no-issue"
+    "packages/app/src/a.test.ts:8#skip/no-issue"
   ],
   "details": {
     "packages/app/src/a.test.ts:1#skip/no-issue": "names no issue",
