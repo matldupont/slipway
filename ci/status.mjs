@@ -129,14 +129,15 @@ const existential = deadlines && firstBet !== null
 const registerLines = registers.flatMap((r) => {
   if (r.state === 'unparsed') return [`Review register in ${r.file} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`];
   if (r.state !== 'ok') return [];
-  if (!r.hasTracker) return [`Review register in ${r.file} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`];
-  return r.rows.filter((f) => !f.tracked && (f.sev === 'S0' || f.sev === 'S1')).map((f) => {
+  const skipped = r.skipped ? [`Review register in ${r.file} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`] : [];
+  if (!r.hasTracker) return [...skipped, `Review register in ${r.file} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`];
+  return [...skipped, ...r.rows.filter((f) => !f.tracked && (f.sev === 'S0' || f.sev === 'S1')).map((f) => {
     const held = milestonesNamed(f.blocks).flatMap((id) => {
       const m = ms.find((x) => String(x.id).toUpperCase() === id && (x.status === 'active' || x.status === 'closed'));
       return m ? [`${id} (${m.status})`] : [];
     });
     return `Review finding "${excerpt(f.id)}" (${f.sev}) in ${r.file} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`;
-  });
+  })];
 });
 // Per severity, how many findings of the register have a tracker and how many do not.
 const registerStanding = (r) => {
@@ -280,7 +281,7 @@ L.push('## Where things stand', '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
 L.push(`- Frame: ${frame}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · ${riskBlocks}` : ''}` : ''}`);
 L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
-for (const r of registers) if (r.state === 'ok' && r.hasTracker) L.push(`- Review register: ${registerStanding(r)}`);
+for (const r of registers) if (r.state === 'ok' && r.hasTracker && r.rows.length) L.push(`- Review register: ${registerStanding(r)}`);
 if (cur) {
   const c = curAppetite && appetiteClock(curAppetite, today);
   const clock = c ? `day ${c.day} of ${c.of}, last day ${c.end}${c.overrun ? ' — OVERRUN' : ''}` : 'no appetite';

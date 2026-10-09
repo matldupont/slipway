@@ -3,7 +3,7 @@
 // are, so a review written before the Tracker column existed still parses. A Tracker cell counts as filled by the
 // rule the risks table uses (lib/risks.mjs): it names an issue, a PRD open decision or a decision.
 
-import { cells, plain, section } from './markdown.mjs';
+import { plain, section, table } from './markdown.mjs';
 import { filled, TRACKER } from './risks.mjs';
 
 const COLUMNS = [
@@ -13,39 +13,46 @@ const COLUMNS = [
   ['tracker', /^track/i],
 ];
 
-const SEVERITY = /^S[0-3]$/;
-const isSep = (l) => /^\|[\s:|-]+\|$/.test(l.trim());
+// The severity is the cell's first word: `S1`, and also `S1 / money` or `S0 (blocker)`.
+const SEVERITY = /^(S[0-3])(?![\w])/i;
+
+// A cell is read to this length. The patterns that read a Tracker cell can retry the rest of the text from every
+// position, so a review in a pull request cannot make status slow with one long cell.
+const MAX_CELL = 200;
+const cell = (c) => (c ?? '').slice(0, MAX_CELL);
 
 // `state` is one of
 //   none        the review has no Register section, or the section holds no table
-//   unparsed    a table with no ID or Sev header, or with no row whose severity reads S0 to S3
-//   ok          `rows` holds one entry per readable row; `hasTracker` is false when the table has no Tracker header
+//   unparsed    a table with no ID or Sev header, or with rows whose severity reads none of S0 to S3
+//   ok          `rows` holds one entry per readable row; `hasTracker` is false when the table has no Tracker header;
+//               `skipped` counts the rows with a severity cell that reads none of S0 to S3
 // A row: `{ id, sev, blocks, tracked }`. `id` and `blocks` are the cells as written (plain text); `sev` is S0 to
-// S3; `tracked` is true when the Tracker cell is filled with a tracker. A row whose severity does not read S0 to
-// S3 (the template's empty row, a placeholder) is left out.
+// S3; `tracked` is true when the Tracker cell is filled with a tracker. A row with an empty Sev cell (the
+// template's row) is no finding. Only the first table of the section is read.
 export function readRegister(md) {
-  const lines = (section(md, 'Register', 2) ?? '').split(/\r?\n/).filter((l) => l.trim().startsWith('|'));
-  const sep = lines.findIndex(isSep);
-  if (sep < 1) return { state: 'none', rows: [], hasTracker: false };
-  const header = cells(lines[sep - 1]).map(plain);
-  const at = Object.fromEntries(COLUMNS.map(([key, re]) => [key, header.findIndex((h) => re.test(h))]));
-  if (at.id < 0 || at.sev < 0) return { state: 'unparsed', rows: [], hasTracker: at.tracker >= 0 };
+  const t = table(section(md, 'Register', 2) ?? '');
+  if (!t) return { state: 'none', rows: [], hasTracker: false, skipped: 0 };
+  const at = Object.fromEntries(COLUMNS.map(([key, re]) => [key, t.header.findIndex((h) => re.test(h))]));
+  const hasTracker = at.tracker >= 0;
+  if (at.id < 0 || at.sev < 0) return { state: 'unparsed', rows: [], hasTracker, skipped: 0 };
   const rows = [];
-  for (const l of lines.slice(sep + 1)) {
-    if (isSep(l)) continue;
-    const c = cells(l);
-    const sev = plain(c[at.sev] ?? '').toUpperCase();
-    if (!SEVERITY.test(sev)) continue;
-    const tracker = at.tracker >= 0 ? c[at.tracker] ?? '' : '';
+  let skipped = 0;
+  for (const c of t.rows) {
+    const said = plain(cell(c[at.sev]));
+    const sev = said.match(SEVERITY)?.[1].toUpperCase();
+    if (!sev) {
+      if (said) skipped++;
+      continue;
+    }
     rows.push({
-      id: plain(c[at.id] ?? ''),
+      id: plain(cell(c[at.id])),
       sev,
-      blocks: at.blocks >= 0 ? plain(c[at.blocks] ?? '') : '',
-      tracked: filled(tracker) && TRACKER.test(plain(tracker)),
+      blocks: at.blocks >= 0 ? plain(cell(c[at.blocks])) : '',
+      tracked: hasTracker && filled(cell(c[at.tracker])) && TRACKER.test(plain(cell(c[at.tracker]))),
     });
   }
-  return { state: rows.length ? 'ok' : 'unparsed', rows, hasTracker: at.tracker >= 0 };
+  return { state: !rows.length && skipped ? 'unparsed' : 'ok', rows, hasTracker, skipped };
 }
 
 // The milestone ids a Blocks cell names, as `M<n>` tokens only: free text is never guessed at.
-export const milestonesNamed = (blocks) => [...new Set([...blocks.matchAll(/\bM\d+\b/gi)].map((m) => m[0].toUpperCase()))];
+export const milestonesNamed = (blocks) => [...new Set([...blocks.matchAll(/\bM\d+\b/g)].map((m) => m[0]))];

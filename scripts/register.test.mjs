@@ -5,7 +5,9 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { dirname, resolve } from 'node:path';
+import { cpSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { milestonesNamed, readRegister } from '../ci/checks/lib/register.mjs';
@@ -42,14 +44,58 @@ test('a renamed header is found by its start; one that cannot be found leaves th
 test('no Register section, or one with no table, is none; the template row is no finding', () => {
   assert.equal(readRegister('# Review\n\n## Findings\n').state, 'none');
   assert.equal(readRegister(doc('nothing here')).state, 'none');
-  assert.equal(readRegister(doc(...FULL, '| AR-1 | | | | | |')).state, 'unparsed');
+  assert.equal(readRegister(doc(...FULL, '| AR-1 | | | | | |')).state, 'ok');
+  assert.equal(readRegister(doc(...FULL)).rows.length, 0);
 });
 
 test('a Blocks cell names a milestone only as an M<n> token', () => {
-  assert.deepEqual(milestonesNamed('M1 and m3, M1'), ['M1', 'M3']);
+  assert.deepEqual(milestonesNamed('M1 and M3, M1'), ['M1', 'M3']);
   assert.deepEqual(milestonesNamed('before launch'), []);
-  assert.deepEqual(milestonesNamed('MX1, AM2, M'), []);
+  assert.deepEqual(milestonesNamed('MX1, AM2, M, m2, 40 m2'), []);
   assert.deepEqual(milestonesNamed(''), []);
+});
+
+test('a severity written with more than the level is read; one that reads none is counted, not dropped', () => {
+  const r = readRegister(doc(...FULL, '| AR-1 | a | S0 (blocker) | o | | |', '| AR-2 | b | S1 / money | o | | |', '| AR-3 | c | high | o | | |', '| AR-4 | d | S12 | o | | |'));
+  assert.deepEqual(r.rows.map((f) => f.sev), ['S0', 'S1']);
+  assert.equal(r.skipped, 2);
+});
+
+test('only the first table of the Register section is read, with or without outer pipes', () => {
+  const second = readRegister(doc(...FULL, '| AR-1 | a | S2 | o | | #1 |', '', 'Notes:', '', '| ID | Finding | Level |', '|---|---|---|', '| X | y | S0 |'));
+  assert.deepEqual(second.rows.map((f) => f.id), ['AR-1']);
+  const bare = readRegister(doc('ID | Finding | Sev | Tracker', '---|---|---|---', 'AR-1 | a | S0 | #3'));
+  assert.deepEqual(bare.rows.map((f) => [f.id, f.sev, f.tracked]), [['AR-1', 'S0', true]]);
+});
+
+test('a very long cell is read to a bound, so the parse stays fast', () => {
+  const started = Date.now();
+  const r = readRegister(doc(...FULL, `| AR-1 | a | S0 | o | | ${'a'.repeat(200000)} |`));
+  assert.equal(r.rows[0].tracked, false);
+  assert.ok(Date.now() - started < 1000);
+});
+
+// status on a copy of a fixture whose review is replaced by `review`: its output and exit code.
+function statusWith(review) {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const root = mkdtempSync(join(tmpdir(), 'register-'));
+  cpSync(resolve(here, '..', 'ci', 'fixtures', 'status', 'review-register-untracked'), root, { recursive: true });
+  writeFileSync(join(root, 'docs', 'reviews', 'prd-review.md'), review);
+  const r = spawnSync(process.execPath, [resolve(here, '..', 'ci', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10' } });
+  return { code: r.status, out: r.stdout };
+}
+const header = ['# Adversarial review — PRD 0.3.0', '', 'Reviewed: docs/PRD.md @ 1a2b3c4', 'Version line: Version: 0.3.0', 'Review date: 2026-03-09', 'Status: x', '', '## Register', ''];
+
+test('status says a register cannot be read, and still exits 0', () => {
+  const r = statusWith([...header, '| Thing | Level |', '|---|---|', '| a | S1 |'].join('\n'));
+  assert.equal(r.code, 0);
+  assert.ok(r.out.includes('- Review register in prd-review.md cannot be read'), r.out);
+});
+
+test('status prints a finding id inside quotes with its quote and control characters gone', () => {
+  const r = statusWith([...header, ...FULL, '| AR-1"\u202e\u001b[31m | a | S0 | o | | |'].join('\n'));
+  assert.equal(r.code, 0);
+  assert.ok(r.out.includes('- Review finding "AR-1\'[31m" (S0) in prd-review.md has no tracker\n'), r.out);
 });
 
 test('status counts the register by severity on the Where things stand list', () => {
