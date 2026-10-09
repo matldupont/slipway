@@ -632,12 +632,14 @@ full staging run, and the project wrote its own rule into the plan to get round 
 
 - **A plan holds no journey that runs elsewhere.** Every journey in a plan runs in the environment that plan's
   check names, so a full run is a full run with no marker and no exception.
-- **A journey that needs no deploy is not a deferred check.** It is run and recorded before the pull request is
-  ready, under `## Manual testing`.
-- **One that must wait for the merge gets its own plan,** with its own `Owed: {plan} — {environment}` line. The
-  reader takes any environment, `local` included, so nothing in `ci/checks/lib/milestones.mjs` changes.
+- **A journey run in the pull request that adds it is not a deferred check.** It is run, and its result
+  recorded in that pull request, before the pull request is ready.
+- **One that cannot be, or that leaves a plan that already owes, gets its own plan,** with its own
+  `Owed: {plan} — {environment}` line. The reader takes any environment, `local` included, so nothing in
+  `ci/checks/lib/milestones.mjs` changes.
 
-Why: nothing reads a run comment's journey rows; the checks read `Owed:` and `Ran:` lines only. A rule that lets
+Why: no check reads a run comment's journey rows; the checks read `Owed:` and `Ran:` lines only, and only
+`/close-milestone` reads a linked comment. A rule that lets
 a staging run count a laptop journey by citing another run would be applied by a person reading, and nothing
 would go red when it was applied loosely. This rule stays on the lines the reader already holds. This session
 recommended the citation rule; the orchestrator session said the question was the owner's and advised this one,
@@ -647,9 +649,10 @@ Declined: the journey stays and a run elsewhere counts it by citing a recorded r
 rule nothing checks); it stays and is left out of runs elsewhere (nothing makes it run); no change (the plan
 never records a full run).
 
-Consequence: a project that wrote its own rule for such a journey into a plan moves the journey out of that
-plan and deletes its rule, on the sync that brings this. No check reads a plan's journeys, so a plan that still
-holds one goes on recording partial runs, which stay owed. #282.
+Consequence: a project that wrote its own rule for such a journey into a plan moves the journey into a plan of
+its own, with its own `Owed:` line, and deletes its rule, on the sync that brings this: a journey that leaves a
+plan that already owes is never left with nothing owed for it. No check reads a plan's journeys, so a plan
+that still holds one goes on recording partial runs, which stay owed. #282.
 
 ## Week 1 — decide before M1 closes
 

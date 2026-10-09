@@ -233,8 +233,9 @@ Since #241:
 Since #282 (D-038):
 
 - Every journey in a plan runs in the environment its check names. A journey that runs elsewhere is not in that
-  plan: it is run and recorded before the PR is ready when it needs no deploy, and otherwise gets its own plan and
-  its own `Owed:` line. The reader is unchanged: an `Owed:` line's environment is any text, `local` included.
+  plan: it is run and its result recorded in the PR that adds it, before that PR is ready; one that cannot be, or
+  that leaves a plan that already owes, gets its own plan and its own `Owed:` line. The reader is unchanged: an
+  `Owed:` line's environment is any text, `local` included.
 
 `process/intake.md` → Milestone item gains one clause: a check line under an item is not part of the item's
 line, so the marker still ends it. `/close-milestone` → "Prove the gate" gains one sentence: every `Owed:`,
@@ -433,8 +434,9 @@ none
 ## Changes
 
 - 2026-10-08 · CHANGED · built (#282, D-038): every journey in a plan runs in the environment its check names;
-  one that runs elsewhere is run before the PR is ready, or gets its own plan and `Owed:` line (§6, Known
-  limitations). The reader is unchanged
+  one that runs elsewhere is run in the PR that adds it, or gets its own plan and `Owed:` line (§6, Known
+  limitations). The reader is unchanged. After review: the split is on whether the PR that adds the journey can
+  still record it, so a journey leaving a plan that already owes keeps an `Owed:` line
 - 2026-10-07 · CHANGED · built (#257, D-030): a fail line naming a closed bug owes again, read by
   `/close-milestone` with `gh issue view`; an accepted failure has no line form, its check line is removed in a
   PR that records a decision naming the check and linking the failed run's comment; status's failed-check hint

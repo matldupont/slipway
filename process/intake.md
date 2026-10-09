@@ -303,8 +303,8 @@ verified" line included.
   did not. A `Ran: … pass` line for a check whose comment lists a journey `not run` is not allowed, even when the
   comment says plainly which journeys were left out.
 - **Every journey in a plan runs in the environment its check names.** A journey that runs elsewhere is not in
-  that plan: it is run and recorded before the PR is ready when it needs no deploy, and otherwise gets its own
-  plan and its own `Owed:` line (D-038).
+  that plan: it is run and its result recorded in the PR that adds it, before that PR is ready; one that cannot
+  be, or that leaves a plan that already owes, gets its own plan and its own `Owed:` line (D-038).
 - **A result counts only as that comment.** A claim that a result was posted, with no such comment, does not.
 - **The run's report to the owner** names each owed check, read from the `Owed:` lines or the section the PR
   wrote (`pnpm status` prints a count, never the check), and how to record it: the comment, the `Ran:` line,
