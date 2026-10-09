@@ -175,7 +175,7 @@ extend it (a Changes line, an acceptance line) instead of starting another.
 - **Branch.** `{name}` is lowercase letters, digits and `-` only. `git status` must be empty (dirty: stop and
   ask, never stash silently). `git remote` prints nothing: there is no remote; branch from the local default
   branch, and say so. Otherwise `git fetch`, then `git switch -c docs/bug-{name} origin/{default branch}`.
-  Write any held settings answers now, in their own commit.
+  Hold any settings answers until the id's commit is pushed, then commit them alone.
 - **Write** `{Feature docs dir}/{name}.md` from `{Feature docs dir}/TEMPLATE.md`, `status: draft`, and fill
   every section: Problem (what the feature is for, citing the PRD ids), Contract (the behaviour as it should
   be, this bug's case among its states and error cases), Acceptance (`Given / When / Then`, unhappy and empty
@@ -189,11 +189,10 @@ extend it (a Changes line, an acceptance line) instead of starting another.
   later milestone?"; with no active milestone, name the one being shaped next instead. Add a Contents item
   citing `(F-{nn})` to the one they name, and say what it displaces. If it breaks one of that milestone's
   no-gos, the owner picks: amend the no-go (same commit, with why), or another milestone. Neither: stop and
-  file nothing, leave the branch unpushed, tell the owner its name, and give them the §4 *Out, explicitly*
+  file nothing, title the doc `F-??` (no id until revived, as in `/log-feature`), leave the branch unpushed, tell the owner its name, and give them the §4 *Out, explicitly*
   line instead.
 - **Commit** on the branch, and run `pnpm meta` (R1 as PRD entry says). On a draft PRD the milestone check only confirms the PRD
-  exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). Push in Phase 5,
-  once the issue number exists.
+  exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). C: this commit carries the new F-id, so push it at once; B: push in Phase 5, once the issue number exists.
 
 The stub is a draft of intent. The bug's acceptance says it is reviewed first (Phase 5); there is no separate
 review issue.
