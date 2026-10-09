@@ -35,6 +35,9 @@ milestone at a time → `/close-milestone`.
   `Verified against: <sha> <date>` (L-18).
 - Record decisions in `decisions.md` when they are made, not afterwards. Answer D-001–D-014 in place; number
   the decisions you add `PD-1`, `PD-2`…, so a slipway update never collides with them.
+- A session taking a new decision or feature id reads `main`, the open pull requests and the remote's branches first,
+  makes the entry that carries the id its first commit, and pushes the branch before any further work (ID1 holds two
+  of one id apart).
 - Before calling work done on a change touching money, auth, schema or data deletion, run `process/cold-review.md` from
   a fresh context, refuting by default.
 - Choose model and effort with `process/designation.md`.
