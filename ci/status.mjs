@@ -20,6 +20,7 @@ import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { isPrdPath, readPlain, reviewProvenance } from './checks/lib/review-header.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
@@ -80,6 +81,15 @@ const prdReviews = existsSync(reviewsDir)
       return !!reviewed && isPrdPath(reviewed.path) && !!prdVersion && !!version && version.includes(prdVersion);
     })
   : [];
+// The findings register of each of those reviews. A warning, never a gate: a register that cannot be read is said
+// and nothing else changes. Printed text is the review's ids and Blocks cells, so each goes through excerpt().
+const registers = prdReviews.map((f) => {
+  try {
+    return { file: f, ...readRegister(readPlain(root, `docs/reviews/${f}`) ?? '') };
+  } catch {
+    return { file: f, state: 'unparsed', rows: [], hasTracker: false };
+  }
+});
 const decisions = read('decisions.md') ?? '';
 const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*\((open[^)]*)\)\*/gm)].map((m) => `${m[1]} ${m[2]} (${m[3]})`);
 
@@ -113,6 +123,26 @@ const existential = deadlines && firstBet !== null
       return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${r.id}'s Result`];
     })
   : [];
+
+// A high-severity finding with no tracker, and the active or closed milestone its Blocks cell names. A cell that
+// names no milestone adds nothing.
+const registerLines = registers.flatMap((r) => {
+  if (r.state === 'unparsed') return [`Review register in ${r.file} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`];
+  if (r.state !== 'ok') return [];
+  if (!r.hasTracker) return [`Review register in ${r.file} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`];
+  return r.rows.filter((f) => !f.tracked && (f.sev === 'S0' || f.sev === 'S1')).map((f) => {
+    const held = milestonesNamed(f.blocks).flatMap((id) => {
+      const m = ms.find((x) => String(x.id).toUpperCase() === id && (x.status === 'active' || x.status === 'closed'));
+      return m ? [`${id} (${m.status})`] : [];
+    });
+    return `Review finding "${excerpt(f.id)}" (${f.sev}) in ${r.file} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`;
+  });
+});
+// Per severity, how many findings of the register have a tracker and how many do not.
+const registerStanding = (r) => {
+  const sevs = ['S0', 'S1', 'S2', 'S3'].filter((s) => r.rows.some((f) => f.sev === s));
+  return `${r.file}: ${sevs.map((s) => `${s} ${r.rows.filter((f) => f.sev === s && f.tracked).length} with a tracker, ${r.rows.filter((f) => f.sev === s && !f.tracked).length} without`).join(' · ')}`;
+};
 
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
@@ -250,6 +280,7 @@ L.push('## Where things stand', '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
 L.push(`- Frame: ${frame}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · ${riskBlocks}` : ''}` : ''}`);
 L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
+for (const r of registers) if (r.state === 'ok' && r.hasTracker) L.push(`- Review register: ${registerStanding(r)}`);
 if (cur) {
   const c = curAppetite && appetiteClock(curAppetite, today);
   const clock = c ? `day ${c.day} of ${c.of}, last day ${c.end}${c.overrun ? ' — OVERRUN' : ''}` : 'no appetite';
@@ -266,6 +297,7 @@ const attention = [
   // While no milestone is active or closed the step 3 line is the Next line (next() above); with one, the approval is still owed.
   ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`PRD ${prdVersion} is reviewed (${prdReviews.join(', ')}) and still a draft — resolve the review's findings in the PRD, then set Status: approved`] : []),
   ...(!bootstrapped && !step0 ? [`AGENT.md rows still unfilled: ${placeholders.join(', ')} — the skills read them${placeholders.includes('Timezone') ? ' (Timezone also sets when a deadline day ends)' : ''}; fill each row`] : []),
+  ...registerLines,
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),
