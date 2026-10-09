@@ -14,7 +14,8 @@
 //
 // Every line is read as text and nothing is stripped, so a marker in a comment is a finding too. It counts markers,
 // not tests that did not run. It cannot see an aliased `it.skip`, a computed member, a skip a runner's config
-// applies, or a marker split over two lines. `pnpm verify` prints the same count per package (ci/verify.mjs).
+// applies, an options object that starts on a later line, or a marker split over two lines (lib/skips.mjs lists
+// the rest). `pnpm verify` prints the same count per package (ci/verify.mjs).
 //
 // A workspace with no packages, or packages with no test files, is green and says so: the claim names the
 // denominator. The workspace is counted as one unit, so a project before /bootstrap is not BROKEN.
@@ -31,7 +32,7 @@ let ws;
 try {
   ws = discoverWorkspace(root);
 } catch (e) {
-  process.exit(report({ id: 'SK1', claim: '', scanned: 0, unit: UNIT, broken: `could not read the workspace (${e.message}). Fix pnpm-workspace.yaml, or the package.json it names, then run again` }));
+  process.exit(report({ id: 'SK1', claim: '', scanned: 0, unit: UNIT, broken: `could not read the workspace (${e.message}). Fix the file the message names; if it names none, check pnpm-workspace.yaml and the package.json of each package, then run again` }));
 }
 
 const { packages } = ws;

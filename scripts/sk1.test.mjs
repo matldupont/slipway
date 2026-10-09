@@ -149,11 +149,43 @@ test('verify prints a markers line for every package that declares test, zero in
 
 test('the test file names the runners use by default are read', () => {
   const skip = "it.skip('x');\n";
-  const names = ['x-test.mjs', 'y_test.mjs', 'test-z.mjs', 'a.e2e-spec.ts', 'b.spec.tsx', 'test/q.js', '__test__/r.js'];
-  const root = workspace(app({ ...Object.fromEntries(names.map((n) => [`packages/app/${n}`, skip])), 'packages/app/contest.mjs': skip, 'packages/app/latest.ts': skip }));
+  const names = ['x-test.mjs', 'y_test.mjs', 'test-z.mjs', 'a.e2e-spec.ts', 'b.spec.tsx', 'test.mjs', 'spec.ts', 'src/test.ts', 'test/q.js', '__test__/r.js'];
+  const root = workspace(app({ ...Object.fromEntries(names.map((n) => [`packages/app/${n}`, skip])), 'packages/app/contest.mjs': skip, 'packages/app/latest.ts': skip, 'packages/app/mytest.mjs': skip }));
   const r = sk1(root);
   rmSync(root, { recursive: true });
   assert.equal(r.status, 1, r.stdout);
   const found = JSON.parse(r.stdout.split('\n').find((l) => l.startsWith('@@json ')).slice(7)).findings.map((f) => f.where);
   assert.deepEqual(found.sort(), names.map((n) => `packages/app/${n}:1#skip/no-issue`).sort());
+});
+
+test('a symlinked node_modules is left alone, and a link message never says to copy from outside', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'sk1-out-'));
+  const root = workspace(app({ 'packages/app/a.test.ts': "it('fine');\n" }));
+  symlinkSync(outside, join(root, 'packages/app/node_modules'));
+  symlinkSync(outside, join(root, 'packages/app/shared'));
+  const r = sk1(root);
+  rmSync(root, { recursive: true });
+  rmSync(outside, { recursive: true });
+  assert.equal(r.status, 1, r.stdout);
+  assert.doesNotMatch(r.stdout, /node_modules#unread/);
+  assert.match(r.stdout, /packages\/app\/shared#unread: .*Never copy files from outside the repository into it/);
+});
+
+test('a malformed package.json is BROKEN, with a next action', () => {
+  const root = workspace({ 'packages/app/package.json': '{"name": }' });
+  const r = sk1(root);
+  rmSync(root, { recursive: true });
+  assert.equal(r.status, 2, r.stdout);
+  assert.match(r.stdout, /could not read the workspace .*Fix the file the message names/);
+});
+
+test('a hostile test file of long marker lines is read in a few seconds, not minutes', () => {
+  const line = `it.skip('x') ${'a/'.repeat(2000)}\n`;
+  const root = workspace(app({ 'packages/app/a.test.ts': line.repeat(Math.floor((2 * 1024 * 1024 - 1000) / line.length)) }));
+  const t0 = Date.now();
+  const r = sk1(root);
+  const ms = Date.now() - t0;
+  rmSync(root, { recursive: true });
+  assert.equal(r.status, 1, r.stdout.slice(0, 300));
+  assert.ok(ms < 3000, `${ms} ms`);
 });

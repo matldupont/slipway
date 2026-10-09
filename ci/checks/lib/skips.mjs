@@ -6,20 +6,20 @@
 // stripped, so a marker in a comment or a string is counted too. What the scan cannot see: a skip reached through an
 // alias (`const maybe = it.skip`), a computed member (`it['skip']`), a skip a runner's config applies (`exclude`,
 // `testPathIgnorePatterns`, a tag filter), an options object that starts on a line after the call, and a marker
-// split across two lines. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
+// split across two lines. Also unseen: a comment between the tokens (`it/**/.skip(`), `(it.skip)(`, `it.skip?.(`,
+// an escaped name, an option written as `{ skip: false || true }`, and a pending test with no callback. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
 //
 // Every pattern here is built from fixed words and bounded repetition, and the issue reference is looked for in the
 // first LINE_CAP characters of a line, so a hostile line cannot make the scan slow (the convention in risks.mjs).
 
 import { lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import { TRACKER } from './risks.mjs';
 
-// A test file is `*.test.*`, `*.spec.*`, `*-test.*`, `*_test.*`, `test-*.*` or `*.e2e-spec.*` in a JavaScript or
+// A test file is `*.test.*`, `*.spec.*`, `*-test.*`, `*_test.*`, `test-*.*`, `*.e2e-spec.*`, or a bare `test.*` or `spec.*`, in a JavaScript or
 // TypeScript extension (the names `node --test`, Vitest, Jest, Mocha and Playwright run by default), or any such
 // source file under a folder named `test`, `tests`, `__tests__` or `__test__`.
 const SOURCE = /\.[cm]?[jt]sx?$/;
-const NAMED = /(?:\.(?:test|spec|e2e-spec)|[-_]test)\.[cm]?[jt]sx?$|^test-[^/]*\.[cm]?[jt]sx?$/;
+const NAMED = /(?:\.(?:test|spec|e2e-spec)|[-_]test)\.[cm]?[jt]sx?$|^(?:test|spec)\.[cm]?[jt]sx?$|^test-[^/]*\.[cm]?[jt]sx?$/;
 const TEST_DIR = new Set(['test', 'tests', '__tests__', '__test__']);
 // Larger than this is not read, and is said so rather than counted as empty.
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -30,9 +30,9 @@ const LINE_CAP = 4096;
 // `.only`, `{ only: true }`, `fit`, `fdescribe`. A name must start the word (not follow `.`, so `fitAddon.fit()` and
 // `db.users.skip(10)` are not tests), and a marker must be called or chained into `.each`/`.for`.
 const BLOCK = '(?:it|test|describe|suite|context|specify|bench)';
-const MODIFIER = '(?:concurrent|sequential|shuffle|parallel|serial|each|for|describe|skip|only|todo|fixme|skipIf|runIf)';
+const MODIFIER = '(?:concurrent|sequential|shuffle|parallel|serial|each|for|describe|skip|only|todo|fixme|fails|failing|skipIf|runIf)';
 const CHAIN = `(?:\\s*\\??\\.\\s*${MODIFIER}){0,6}`;
-const CALLED = '(?=\\s*(?:\\(|\\.(?:each|for)\\b|`))';
+const CALLED = `${CHAIN}(?=\\s*[(\`])`;
 const START = '(?<![\\w$.])';
 const SKIP = new RegExp(
   `${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*(?:skip|skipIf|runIf|todo|fixme)\\b${CALLED}` +
@@ -40,13 +40,15 @@ const SKIP = new RegExp(
     `|${START}(?:t|ctx|context|this)\\.(?:skip|todo)\\s*\\(`
 );
 const ONLY = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*only\\b${CALLED}|${START}(?:fit|fdescribe)${CALLED}`);
-// A test call whose options object skips or focuses it: `test('x', { skip: true }, fn)`.
-const CALL = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\(`);
-const OPTION = /[{,]\s*(skip|only|todo)\s*:\s*(?!false\b)\S/;
+// A test call whose second argument is an options object that skips or focuses it: `test('x', { skip: true }, fn)`,
+// `t.test('x', { 'only': true })`, `{ skip }`. The title is a string or a name, and only the object's own braces are read.
+const TITLE = '(?:\'[^\']{0,200}\'|"[^"]{0,200}"|`[^`]{0,200}`|[\\w$.]{1,80})';
+const OPTIONS = new RegExp(`${START}(?:${BLOCK}${CHAIN}|(?:t|ctx|context)\\.test)\\s*\\(\\s*${TITLE}\\s*,\\s*\\{([^}]{0,300})\\}`);
+const KEY = /(?:^|[\s,])['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\b)\S|(?=[\s,}]|$))/g;
 
-// An issue reference: the tracker pattern risks.mjs holds, minus a decision id (D-7 is not an issue).
-const TRACKER_ALL = new RegExp(TRACKER.source, 'g');
-export const linked = (line) => (line.slice(0, LINE_CAP).match(TRACKER_ALL) ?? []).some((m) => m.includes('#'));
+// An issue reference: `#14`, or `owner/repo#14` (the tracker pattern in risks.mjs, whose `#n` this is; a decision id
+// such as D-7 is not an issue). Searched in the first LINE_CAP characters with a pattern that cannot backtrack.
+export const linked = (line) => /#\d/.test(line.slice(0, LINE_CAP));
 
 const LINE_BREAK = new RegExp('\\r\\n|[\\r\\n\\u2028\\u2029]');
 
@@ -54,9 +56,9 @@ const LINE_BREAK = new RegExp('\\r\\n|[\\r\\n\\u2028\\u2029]');
 export function markersIn(text) {
   const out = [];
   text.split(LINE_BREAK).forEach((line, i) => {
-    const option = CALL.test(line) ? OPTION.exec(line) : null;
-    if (ONLY.test(line) || option?.[1] === 'only') out.push({ line: i + 1, kind: 'only', linked: linked(line) });
-    else if (SKIP.test(line) || option) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
+    const keys = [...(OPTIONS.exec(line)?.[1] ?? '').matchAll(KEY)].map((m) => m[1]);
+    if (ONLY.test(line) || keys.includes('only')) out.push({ line: i + 1, kind: 'only', linked: linked(line) });
+    else if (SKIP.test(line) || keys.length) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
   });
   return out;
 }
@@ -81,14 +83,15 @@ function walk(root, dir, others, inTestDir, out, unread) {
   }
   for (const e of entries) {
     const path = join(dir, e.name);
+    if (e.name === 'node_modules' || e.name === '.git') continue;
     const testFile = SOURCE.test(e.name) && (inTestDir || NAMED.test(e.name));
     if (e.isSymbolicLink()) {
       // Never followed (it can lead outside the package), but a runner may follow it: said, not skipped silently.
       if (testFile || isDir(path)) {
-        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'Replace the link with the file or folder itself, so its skipped tests can be counted' });
+        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'If the link points inside this repository, replace it with the real file or folder; if it points outside, delete it. Never copy files from outside the repository into it' });
       }
     } else if (e.isDirectory()) {
-      if (e.name === 'node_modules' || e.name === '.git' || others.has(path)) continue;
+      if (others.has(path)) continue;
       walk(root, path, others, inTestDir || TEST_DIR.has(e.name), out, unread);
     } else if (e.isFile() && testFile) {
       out.push(path);
