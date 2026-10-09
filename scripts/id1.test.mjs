@@ -71,6 +71,36 @@ test('every accepted companion pair is printed as an exemption', () => {
   assert.deepEqual(r.json.exempted, [`docs/features/b.md (companion of ${A})`]);
 });
 
+test('hostile comment openers cost linear time: 100k of them in one file', () => {
+  const t0 = Date.now();
+  const r = id1({ 'decisions.md': '## D-1 — a\n' + '<!--\n'.repeat(100000) + '## D-2 — b\n' });
+  assert.deepEqual([r.status, r.findings], [0, []]);
+  assert.ok(Date.now() - t0 < 5000, 'took ' + (Date.now() - t0) + ' ms');
+});
+
+test('a closed multi-line comment hides what is inside it, an unclosed opener hides nothing', () => {
+  assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\n<!--\n## D-1 — in a comment\n-->\n## D-2 — b\n' }).findings, []);
+  assert.deepEqual(id1({ 'decisions.md': '## D-1 — a\nWe write `<!--` as text.\n## D-1 — b\n' }).findings, ['decisions.md#decision/duplicate/D-1']);
+});
+
+test('line numbers survive a closed multi-line comment and CRLF', () => {
+  for (const nl of ['\n', '\r\n']) {
+    const r = id1({ 'decisions.md': ['## D-1 — a', '<!--', 'x', '-->', '', '## D-1 — b', ''].join(nl) });
+    assert.match(r.json.findings[0].detail, /line 1 and on line 6/);
+  }
+});
+
+test('the duplicate message says a companion needs the owner\'s yes', () => {
+  const r = id1({ [A]: doc('8'), 'docs/features/b.md': doc('8') });
+  assert.match(r.json.findings[0].detail, /the owner's yes; every accepted pair is printed/);
+});
+
+test('an empty companion-of is a missing companion, not "[object Object]"', () => {
+  const r = id1({ [A]: doc('9'), 'docs/features/b.md': '---\ncompanion-of:\n---\n\n# F-9 — x\n' });
+  assert.deepEqual(r.findings, ['docs/features/b.md#companion/missing']);
+  assert.ok(!r.json.findings[0].detail.includes('[object'));
+});
+
 test('a doc that names itself is a chain', () => {
   assert.deepEqual(id1({ [A]: doc('5', A) }).findings, [`${A}#companion/chain`]);
 });

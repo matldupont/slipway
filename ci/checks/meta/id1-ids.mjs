@@ -12,7 +12,8 @@
 //                               `..`, not absolute) under docs/features/ or dev/features/
 //   companion/chain             the doc `companion-of:` names itself has `companion-of:` (two docs naming each other too);
 //                               names both files
-//   companion/id-differs        the doc `companion-of:` names carries another F-<n>, or none
+//   companion/id-differs        the doc `companion-of:` names carries another F-<n>, or none; or the companion has no F-<n> heading
+//   feature/unreadable          a feature doc is a link or not a regular file, so its F-<n> cannot be read
 //
 // What counts as a declaration. In decisions.md, a line that starts (up to three spaces, then 1–6 `#`) with the id: `## D-014 — …`,
 // `## D-014 — … *(open — week 1)*`, `### PD-3 — …`. An id quoted in a body paragraph, a list item, fenced code or an
@@ -42,20 +43,49 @@ import { report } from '../lib/report.mjs';
 const root = process.argv[2] ?? '.';
 const FEATURE_DIRS = ['docs/features', 'dev/features'];
 
-// [{ line, text }] for each line a reader sees as text: not in a fenced block, not in a closed HTML comment. A `<!--`
-// with no `-->` after it hides nothing (it may be written as text, in inline code): a duplicate hidden behind one
-// would pass, so the headings after it count (ci/checks/lib/markdown.mjs repeatedHeadings, same limits: a `<!--` in
-// inline code followed by a real `-->` further down still hides what lies between).
+// [{ line, text }] for each line a reader sees as text: not in a fenced block, not in an HTML comment that closes. Fences
+// are read first, so a `<!--` inside a fenced example opens nothing. A `<!--` with no `-->` after it anywhere hides
+// nothing (it may be written as text, in inline code): a duplicate hidden behind one would pass, so the headings after
+// it count (ci/checks/lib/markdown.mjs repeatedHeadings, same limit: a `<!--` in inline code followed by a real `-->`
+// further down still hides what lies between). One pass, linear in the text.
 function visible(md) {
   const out = [];
+  const lastClose = md.lastIndexOf('-->');
   let fence = null;
-  md.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, '')).split(/\r?\n/).forEach((text, i) => {
-    const mark = text.match(/^\s{0,3}(`{3,}|~{3,})/)?.[1];
-    if (fence) {
-      if (mark && mark[0] === fence[0] && mark.length >= fence.length && text.trim() === mark) fence = null;
-      return;
+  let inComment = false;
+  let offset = 0;
+  md.split(/\r?\n/).forEach((raw, i) => {
+    const start = offset;
+    offset += raw.length + 1;
+    let text = raw;
+    if (inComment) {
+      const end = text.indexOf('-->');
+      if (end < 0) return;
+      inComment = false;
+      text = ' '.repeat(end + 3) + text.slice(end + 3);
     }
-    if (mark) { fence = mark; return; }
+    if (!inComment) {
+      const mark = text.match(/^\s{0,3}(`{3,}|~{3,})/)?.[1];
+      if (fence) {
+        if (mark && mark[0] === fence[0] && mark.length >= fence.length && text.trim() === mark) fence = null;
+        return;
+      }
+      if (mark) { fence = mark; return; }
+    }
+    let at = 0;
+    for (;;) {
+      const open = text.indexOf('<!--', at);
+      if (open < 0) break;
+      const close = text.indexOf('-->', open + 4);
+      if (close >= 0) {
+        text = text.slice(0, open) + ' '.repeat(close + 3 - open) + text.slice(close + 3);
+        at = close + 3;
+      } else if (start + open < lastClose) {
+        inComment = true;
+        text = text.slice(0, open);
+        break;
+      } else break;
+    }
     out.push({ line: i + 1, text });
   });
   return out;
@@ -108,7 +138,7 @@ for (const dir of FEATURE_DIRS) {
 }
 
 const fid = (n) => `F-${String(n).padStart(2, '0')}`;
-const safe = (p) => typeof p === 'string' && !p.startsWith('/') && !/[\u0000-\u001f\u007f\\:]/.test(p) && p.split('/').every((s) => s !== '' && s !== '.' && s !== '..');
+const safe = (p) => typeof p === 'string' && p !== '' && !p.startsWith('/') && !/[\u0000-\u001f\u007f\\:]/.test(p) && p.split('/').every((s) => s !== '' && s !== '.' && s !== '..');
 const owners = new Map();
 const exempted = [];
 for (const [path, d] of docs) {
@@ -123,7 +153,7 @@ for (const [path, d] of docs) {
   }
   const target = safe(d.companionOf) ? docs.get(d.companionOf) : undefined;
   if (!target) {
-    findings.push({ where: `${path}#companion/missing`, detail: `companion-of names "${d.companionOf}", which is not a regular feature doc under ${FEATURE_DIRS.join(' or ')} (a repo-relative path, no link, no "..")` });
+    findings.push({ where: `${path}#companion/missing`, detail: `companion-of names "${typeof d.companionOf === 'string' ? d.companionOf : '(no path)'}", which is not a regular feature doc under ${FEATURE_DIRS.join(' or ')} (a repo-relative path, no link, no "..")` });
   } else if (d.companionOf === path || target.companionOf !== null) {
     findings.push({ where: `${path}#companion/chain`, detail: `${path} names ${d.companionOf} as its primary, and ${d.companionOf} is itself a companion (of ${target.companionOf}): name the doc that owns ${fid(d.n)}, which declares nothing` });
   } else if (target.n !== d.n) {
