@@ -126,23 +126,43 @@ const existential = deadlines && firstBet !== null
 
 // A high-severity finding with no tracker, and the active or closed milestone its Blocks cell names. A cell that
 // names no milestone adds nothing.
+// At most this many lines in all: a long register, or many reviews, must not fill the session's context. The
+// findings that matter most come first: the ones that block an active or closed milestone, then S0, then S1; what
+// is left out is counted, with how many of it are S0 or block a milestone.
 const REGISTER_LINES = 20;
-const registerLines = registers.flatMap((r) => {
-  if (r.state === 'unparsed') return [`Review register in ${r.file} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`];
-  if (r.state !== 'ok') return [];
-  const skipped = r.skipped ? [`Review register in ${r.file} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`] : [];
-  if (!r.hasTracker) return [...skipped, `Review register in ${r.file} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`];
-  const untracked = r.rows.filter((f) => !f.tracked && (f.sev === 'S0' || f.sev === 'S1'));
-  // At most this many lines per review: a long register must not fill the session's context or the call stack.
-  const more = untracked.length > REGISTER_LINES ? [`Review register in ${r.file}: ${untracked.length - REGISTER_LINES} more S0/S1 finding(s) with no tracker`] : [];
-  return [...skipped, ...untracked.slice(0, REGISTER_LINES).map((f) => {
-    const held = milestonesNamed(f.blocks).flatMap((id) => {
-      const m = ms.find((x) => String(x.id).toUpperCase() === id && (x.status === 'active' || x.status === 'closed'));
-      return m ? [`${id} (${m.status})`] : [];
-    });
-    return `Review finding "${excerpt(f.id)}" (${f.sev}) in ${r.file} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`;
-  }), ...more];
-});
+const registerLines = [];
+let registerLeft = REGISTER_LINES;
+let registerUnlisted = 0;
+let registerHot = 0;
+const say = (line) => (registerLeft > 0 ? (registerLeft--, registerLines.push(line)) : registerUnlisted++);
+for (const r of registers) {
+  if (r.state === 'unparsed') say(`Review register in ${r.file} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`);
+  if (r.state !== 'ok') continue;
+  if (r.skipped) say(`Review register in ${r.file} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`);
+  if (!r.hasTracker) {
+    say(`Review register in ${r.file} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`);
+    continue;
+  }
+  const untracked = r.rows
+    .filter((f) => !f.tracked && (f.sev === 'S0' || f.sev === 'S1'))
+    .map((f) => ({
+      f,
+      held: milestonesNamed(f.blocks).flatMap((id) => {
+        const m = ms.find((x) => String(x.id).toUpperCase() === id && (x.status === 'active' || x.status === 'closed'));
+        return m ? [`${id} (${m.status})`] : [];
+      }),
+    }))
+    .sort((x, y) => (y.held.length > 0) - (x.held.length > 0) || x.f.sev.localeCompare(y.f.sev));
+  const shown = untracked.slice(0, Math.max(registerLeft, 0));
+  for (const { f, held } of shown) say(`Review finding "${excerpt(f.id)}" (${f.sev}) in ${r.file} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`);
+  const rest = untracked.slice(shown.length);
+  if (rest.length) {
+    const hot = rest.filter(({ f, held }) => f.sev === 'S0' || held.length).length;
+    registerUnlisted += rest.length;
+    registerHot += hot;
+  }
+}
+if (registerUnlisted) registerLines.push(`Review registers: ${registerUnlisted} more line(s) not listed${registerHot ? `, ${registerHot} of them S0 or blocking a milestone` : ''} — fix the ones above first`);
 // Per severity, how many findings of the register have a tracker and how many do not.
 const registerStanding = (r) => {
   const sevs = ['S0', 'S1', 'S2', 'S3'].filter((s) => r.rows.some((f) => f.sev === s));
@@ -310,7 +330,10 @@ const attention = [
   ...parked_.map((c) => `Parked: ${c}`),
   ...dueSoon.map((d) => `Lesson review: ${d}`),
 ];
-L.push('## Needs attention', '', ...(attention.length ? attention.map((a) => `- ${a}`) : ['- nothing']), '');
+L.push('## Needs attention', '');
+// One at a time: a list spread into one call overflows the stack when it is long enough.
+for (const a of attention.length ? attention : ['nothing']) L.push(`- ${a}`);
+L.push('');
 // Project text is printed as read (milestone titles, ids, deadlines, file names): each line is escaped on its own,
 // so a line break a file name or a value carries is shown as \u000a and never starts a line (a forged Next:, a CI
 // log command), here and in the hook's context.

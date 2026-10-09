@@ -85,12 +85,13 @@ test('a stray separator line inside the table is not a finding', () => {
 });
 
 // status on a copy of a fixture whose review is replaced by `review`: its output and exit code.
-function statusWith(review) {
+function statusWith(review, extra = {}) {
   const here = dirname(fileURLToPath(import.meta.url));
   const root = mkdtempSync(join(tmpdir(), 'register-'));
   cpSync(resolve(here, '..', 'ci', 'fixtures', 'status', 'review-register-untracked'), root, { recursive: true });
   writeFileSync(join(root, 'docs', 'reviews', 'prd-review.md'), review);
-  const r = spawnSync(process.execPath, [resolve(here, '..', 'ci', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10' } });
+  for (const [file, text] of Object.entries(extra)) writeFileSync(join(root, file), text);
+  const r = spawnSync(process.execPath, [resolve(here, '..', 'ci', 'status.mjs'), root], { encoding: 'utf8', maxBuffer: 1 << 28, env: { ...process.env, CHECK_TODAY: '2026-03-10' } });
   return { code: r.status, out: r.stdout };
 }
 const header = ['# Adversarial review — PRD 0.3.0', '', 'Reviewed: docs/PRD.md @ 1a2b3c4', 'Version line: Version: 0.3.0', 'Review date: 2026-03-09', 'Status: x', '', '## Register', ''];
@@ -123,5 +124,21 @@ test('status says how many severities it could not read, prints no register line
   const many = statusWith([...header, ...FULL, ...Array.from({ length: 500 }, (_, n) => `| AR-${n} | a | S0 | o | | |`)].join('\n'));
   assert.equal(many.code, 0);
   assert.equal(many.out.split('\n').filter((l) => l.startsWith('- Review finding')).length, 20);
-  assert.ok(many.out.includes('- Review register in prd-review.md: 480 more S0/S1 finding(s) with no tracker'), many.out);
+  assert.ok(many.out.includes('- Review registers: 480 more line(s) not listed, 480 of them S0 or blocking a milestone'), many.out);
+});
+
+test('findings that block a milestone come first, then S0, and what is left out is counted', () => {
+  const rows = [...Array.from({ length: 25 }, (_, n) => `| AR-${n} | a | S1 | o | | |`), '| AR-90 | b | S0 | o | | |', '| AR-91 | c | S1 | o | M1 | |'];
+  const r = statusWith([...header, ...FULL, ...rows].join('\n'));
+  const lines = r.out.split('\n').filter((l) => l.startsWith('- Review finding'));
+  assert.equal(lines.length, 20);
+  assert.ok(lines[0].includes('"AR-91" (S1)') && lines[0].includes('blocks M1 (active)'), lines[0]);
+  assert.ok(lines[1].includes('"AR-90" (S0)'), lines[1]);
+  assert.ok(r.out.includes('- Review registers: 7 more line(s) not listed - fix the ones above first'.replace(' - ', ' — ')), r.out);
+});
+
+test('status survives more Needs attention lines than one function call can take', () => {
+  const r = statusWith([...header, ...FULL].join('\n'), { 'docs/questions.md': '[NEEDS CLARIFICATION: q]\n'.repeat(140000) });
+  assert.equal(r.code, 0);
+  assert.ok(r.out.split('\n').filter((l) => l.startsWith('- Open question')).length >= 140000);
 });
