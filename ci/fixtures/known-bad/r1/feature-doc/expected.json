@@ -1,0 +1,7 @@
+{
+  "_note": "A review of a feature doc (D-041, #268). good.md quotes the doc's current `Version:` line and passes. stale.md quotes 0.1, which left the doc when its Contract changed: the review is stale, as a PRD's would be. The doc's Changes entry is still there, which is why a review must not quote that instead.",
+  "exit": 1,
+  "findings": [
+    "docs/reviews/stale.md#provenance/stale"
+  ]
+}

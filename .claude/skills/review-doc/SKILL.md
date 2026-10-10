@@ -71,10 +71,12 @@ Copy `docs/reviews/TEMPLATE.md` to `docs/reviews/<YYYY-MM-DD>-<target>-<version>
 
 - `Reviewed: <path> @ <sha>` — the path you read and the sha from step 1.
 - `Version line: <copied verbatim from the file>` — open the file and copy it. Do not retype it
-  from memory; that is the failure R1 exists for, and a paraphrase turns it red.
+  from memory; that is the failure R1 exists for, and a paraphrase turns it red. The version line of a feature
+  doc is the `Version:` line under its title, which moves whenever its Contract, Acceptance or Verify changes (D-041).
+  A feature doc with no `Version:` line is not reviewed as it is: stop, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` under its title when one next changes its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target.
 - `Supersedes: docs/reviews/<file>` — one line for each earlier review in `docs/reviews/` whose `Reviewed:` line
   names the same path, every one of them, not only the latest; with none, write no such line.
-- The register, then one section per finding: where (by ID, never by heading), what is wrong with
+- The register, then one section per finding: where (by ID, never by heading alone; in a document with fewer IDs than sections, its ID, the section and the line range at the reviewed commit), what is wrong with
   the passage quoted, and a proposed resolution to argue with.
 
 Then run `pnpm meta` — R1 must be green — and commit the review on a branch with a PR
@@ -85,7 +87,7 @@ Then run `pnpm meta` — R1 must be green — and commit the review on a branch 
 List the S0 and S1 findings in the chat, each in one line, and say plainly that none of them is
 decided. When the owner files a finding as an issue, or records it as an `OD-` or `PD-` entry, write that
 id into the register's Tracker column in the same change — a finding whose issue is not named in the
-review loses its link back. The owner resolves each one in the document, bumps its `Version:` and change log, and —
+review loses its link back. The owner resolves each one in the document, bumps its `Version:` and change log (a feature doc: its `Version:` and Changes), and —
 because the version line moves — **a substantive revision needs a fresh review**. The earlier review stays in
 `docs/reviews/` as it was written, and stops being reported as stale once the fresh review names it in
 `Supersedes:`. The build goes red when the PRD leaves draft with no review naming its current version.

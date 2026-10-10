@@ -170,13 +170,13 @@ A bug breaks a requirement. When the requirement was never written, the gap is p
 
 **Doc stub (B and C).** The doc covers the whole feature the bug lives in, not the bug: "the export skips the
 last day" goes in `export.md`, with that day as one acceptance line. A doc for that feature already exists:
-extend it (a Changes line, an acceptance line) instead of starting another.
+extend it (a Changes line, an acceptance line) instead of starting another. A change to its Contract, Acceptance or Verify bumps the doc's `Version:` line in the same commit; a doc with none gains `Version: 0.1 ({date})` under its title then (D-041).
 
 - **Branch.** `{name}` is lowercase letters, digits and `-` only. `git status` must be empty (dirty: stop and
   ask, never stash silently). `git remote` prints nothing: there is no remote; branch from the local default
   branch, and say so. Otherwise `git fetch`, then `git switch -c docs/bug-{name} origin/{default branch}`.
   Hold any settings answers until the doc's first commit, then commit them alone.
-- **Write** `{Feature docs dir}/{name}.md` from `{Feature docs dir}/TEMPLATE.md`, `status: draft`, and fill
+- **Write** `{Feature docs dir}/{name}.md` from `{Feature docs dir}/TEMPLATE.md`, `status: draft`, `Version: 0.1 ({date})`, and fill
   every section: Problem (what the feature is for, citing the PRD ids), Contract (the behaviour as it should
   be, this bug's case among its states and error cases), Acceptance (`Given / When / Then`, unhappy and empty
   states included), Verify, and the rest. A section with nothing to say says why (`none beyond baseline`,
@@ -199,7 +199,7 @@ review issue. **One block (D-040).** When the whole draft is exactly 1 `Given / 
 already exists, and nothing else changes but that doc's Changes line (no PRD entry added or changed: a project's C run adds one, so it keeps the review), show the owner the block's exact text and ask: "This adds
 1 acceptance block to {doc path} and changes nothing else in it but its Changes line. Your yes stands in for a review of the document: is the block right?"
 A yes to any earlier question (C's among them) is not this one. On their yes, given in this session, the block is confirmed and needs no review; never record a
-confirmation you did not just receive. No yes, or anything else (a new doc, 2 or more blocks, a changed or removed block, a PRD entry added or changed, any other change to the doc): the review.
+confirmation you did not just receive. A confirmed block leaves the doc's `Version:` line as it is, and adds none (D-041). No yes, or anything else (a new doc, 2 or more blocks, a changed or removed block, a PRD entry added or changed, any other change to the doc): the review.
 
 ```
 PHASE 4: WRITTEN DOWN

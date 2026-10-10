@@ -135,7 +135,7 @@ and say so. Hold any settings answers until the doc's first commit, then commit 
 feature, not the slice: later iterations extend the same doc. If that file exists, extend it instead (Edge
 cases). Fill every section:
 
-- Frontmatter `prd-ref:` the new F-ID, `status: draft`. Title `# F-{nn} — {name}`.
+- Frontmatter `prd-ref:` the new F-ID, `status: draft`. Title `# F-{nn} — {name}`, and under it `Version: 0.1 ({date})`, the line a `/review-doc` review quotes (D-041).
 - **Problem:** the job story, the evidence, the PRD ids it serves, and the verdict with the alternatives table.
 - **Contract:** decisions, not questions: data shapes, states and transitions, error cases, the files,
   endpoints and components touched, what is reused (Phase 3). Every claim about current code is re-read on the
@@ -291,7 +291,7 @@ Declined: {row numbers | none}
 ## Edge cases
 
 - **Extends an existing feature.** Extend its doc (a Changes line, the Contract amended) instead of starting a
-  second one; a new doc only when the capability has an identity of its own. Cross-reference the others.
+  second one; a new doc only when the capability has an identity of its own. Cross-reference the others. A change to its Contract, Acceptance or Verify bumps the doc's `Version:` line in the same commit; a doc with none gains `Version: 0.1 ({date})` under its title then (D-041).
 - **Reshaped heavily.** The doc and issue use the new name; the ask is an alternatives row, "rejected — reshaped".
 - **The PRD is a draft, or does not cover the area.** Add the §5 entry anyway; if its §4 scope needs a wider
   look, say so in the issue. No PRD file at all: the project is not kicked off; stop, point at `/kickoff`, unless `PRD path` says `none` and why in slipway's own settings.

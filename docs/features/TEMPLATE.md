@@ -5,6 +5,11 @@ status: draft
 
 # F-00 — <feature>
 
+Version: 0.1 (<date>)
+
+The line above is the one a `/review-doc` review quotes. Bump it whenever the Contract, Acceptance or Verify
+below changes; a single acceptance block the owner confirmed (`/log-bug`) is the one change that leaves it.
+
 ## Problem
 
 What this solves, citing the PRD by ID.
