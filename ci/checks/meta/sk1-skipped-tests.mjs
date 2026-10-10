@@ -14,7 +14,7 @@
 //
 // Every line is read as text and nothing is stripped, so a marker in a comment is a finding too. It counts markers,
 // not tests that did not run. It cannot see an aliased `it.skip`, a computed member, a skip a runner's config
-// applies, an options object that starts on a later line, or a marker split over two lines (lib/skips.mjs lists
+// applies, an options object whose key is on a later line than the call, or a marker split over two lines (lib/skips.mjs lists
 // the rest). `pnpm verify` prints the same count per package (ci/verify.mjs).
 //
 // A workspace with no packages, or packages with no test files, is green and says so: the claim names the
@@ -46,9 +46,13 @@ for (const pkg of packages) {
   for (const u of scan.unread) findings.push({ where: `${u.path}#unread`, detail: `${u.path} ${u.why}, so its skipped tests were not counted. ${u.fix}; do not move a test out of its package to get past this` });
   for (const m of scan.markers) {
     if (m.kind === 'only') {
-      findings.push({ where: `${m.file}:${m.line}#only`, detail: `${m.file} line ${m.line} runs only this test, so every other test in the file is silently left out. Remove the focus; an issue number on the line does not excuse it` });
+      const out = m.option ? ' If the line is not a focus (an `only` option of another call in the test body), move that call onto its own line.' : '';
+      findings.push({ where: `${m.file}:${m.line}#only`, detail: `${m.file} line ${m.line} ${m.option ? 'has an `only` option in a test call, which would leave' : 'runs only this test, so'} every other test in the file ${m.option ? '' : 'is '}silently left out. Remove the focus; an issue number on the line does not excuse it.${out}` });
     } else if (!m.linked) {
-      findings.push({ where: `${m.file}:${m.line}#skip/no-issue`, detail: `${m.file} line ${m.line} skips a test and names no issue. Put the issue that brings it back on that line (#14), or delete the test` });
+      const detail = m.option
+        ? `${m.file} line ${m.line} has a \`skip\` or \`todo\` option in a test call and names no issue. If it skips the test, put the issue that brings it back on that line (#14); if it is an option of another call in the test body, move that call onto its own line`
+        : `${m.file} line ${m.line} skips a test and names no issue. Put the issue that brings it back on that line (#14), or delete the test`;
+      findings.push({ where: `${m.file}:${m.line}#skip/no-issue`, detail });
     }
   }
 }

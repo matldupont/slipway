@@ -5,7 +5,7 @@
 // `describe.skip` covers many tests, and two markers on a line count once. Every line is read as text, with nothing
 // stripped, so a marker in a comment or a string is counted too. What the scan cannot see: a skip reached through an
 // alias (`const maybe = it.skip`), a computed member (`it['skip']`), a skip a runner's config applies (`exclude`,
-// `testPathIgnorePatterns`, a tag filter), an options object that starts on a line after the call, and a marker
+// `testPathIgnorePatterns`, a tag filter), an options object whose key is on a later line than the call, and a marker
 // split across two lines. Also unseen: a comment between the tokens (`it/**/.skip(`), `(it.skip)(`, `it.skip?.(`,
 // an escaped name, an option written as `{ skip: false || true }`, and a pending test with no callback. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
 //
@@ -32,7 +32,7 @@ const LINE_CAP = 4096;
 const BLOCK = '(?:it|test|describe|suite|context|specify|bench)';
 const MODIFIER = '(?:concurrent|sequential|shuffle|parallel|serial|each|for|describe|skip|only|todo|fixme|fails|failing|skipIf|runIf)';
 const CHAIN = `(?:\\s*\\??\\.\\s*${MODIFIER}){0,6}`;
-const CALLED = `${CHAIN}(?=\\s*[(\`<])`;
+const CALLED = `${CHAIN}(?=\\s*(?:[(\`]|<(?![\\s=/])))`;
 const START = '(?<![\\w$.])';
 const SKIP = new RegExp(
   `${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*(?:skip|skipIf|runIf|todo|fixme)\\b${CALLED}` +
@@ -40,14 +40,13 @@ const SKIP = new RegExp(
     `|${START}(?:t|ctx|context|this)\\.(?:skip|todo)\\s*\\(`
 );
 const ONLY = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*only\\b${CALLED}|${START}(?:fit|fdescribe)${CALLED}`);
-// A test call whose options object skips or focuses it: `test('x', { skip: true }, fn)`, `t.test('x', { 'only': true })`,
-// `test({ skip }, fn)`, `{ timeout: { ms: 5 }, skip: true }`. The title is optional: a string (escapes read) or any text
-// without a comma or brace. Only the object's own braces are read, one nested object deep, so `db.find({ skip: 10 })`
-// inside a test body is not a marker. Not read: options as a third argument (`test('x', fn, { skip: true })`).
-const QUOTED = '(?:\'(?:[^\'\\\\]|\\\\.){0,200}\'|"(?:[^"\\\\]|\\\\.){0,200}"|`(?:[^`\\\\]|\\\\.){0,200}`)';
-const TITLE = `(?:${QUOTED}|[^,{}()]{1,200})`;
-const OPTIONS = new RegExp(`${START}(?:${BLOCK}${CHAIN}|(?:t|ctx|context)\\.test)\\s*\\(\\s*(?:${TITLE}\\s*,\\s*)?\\{((?:[^{}]|\\{[^{}]{0,100}\\}){0,300})\\}`, 'g');
-const KEY = /(?:^|,)\s*['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\b)\S|(?=\s*(?:,|$)))/g;
+// A test call whose options skip or focus it: `test('x', { skip: true }, fn)`, `t.test('x', { 'only': true })`,
+// `test({ skip }, fn)`. One rule on the whole line, with nothing to backtrack: if a test call opens on the line, a
+// `skip`, `only` or `todo` key that is not set to `false` or to a number counts (`skip: 10` is a query's offset, never a
+// skip option). So `pick({ only: 'a' })` inside a one-line test body is a false alarm, and its message says how to clear
+// it. Not seen: an options object whose key is on a later line than the call.
+const CALL = new RegExp(`${START}(?:${BLOCK}${CHAIN}|(?:t|ctx|context)\\.test)\\s*\\(`);
+const KEY = /[{,]\s*['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\b|-?\d)\S|(?=\s*[,}]))/g;
 
 // An issue reference: `#14`, or `owner/repo#14` (the tracker pattern in risks.mjs, whose `#n` this is; a decision id
 // such as D-7 is not an issue). Searched in the first LINE_CAP characters with a pattern that cannot backtrack.
@@ -59,9 +58,11 @@ const LINE_BREAK = new RegExp('\\r\\n|[\\r\\n\\u2028\\u2029]');
 export function markersIn(text) {
   const out = [];
   text.split(LINE_BREAK).forEach((line, i) => {
-    const keys = [...line.matchAll(OPTIONS)].flatMap((o) => [...o[1].matchAll(KEY)].map((m) => m[1]));
-    if (ONLY.test(line) || keys.includes('only')) out.push({ line: i + 1, kind: 'only', linked: linked(line) });
-    else if (SKIP.test(line) || keys.length) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
+    const keys = CALL.test(line) ? [...line.matchAll(KEY)].map((m) => m[1]) : [];
+    if (ONLY.test(line)) out.push({ line: i + 1, kind: 'only', linked: linked(line) });
+    else if (SKIP.test(line)) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
+    else if (keys.includes('only')) out.push({ line: i + 1, kind: 'only', linked: linked(line), option: true });
+    else if (keys.length) out.push({ line: i + 1, kind: 'skip', linked: linked(line), option: true });
   });
   return out;
 }
@@ -91,7 +92,7 @@ function walk(root, dir, others, inTestDir, out, unread) {
     if (e.isSymbolicLink()) {
       // Never followed (it can lead outside the package), but a runner may follow it: said, not skipped silently.
       if (testFile || isDir(path)) {
-        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'If the link points inside this repository, replace it with the real file or folder. If it points outside, remove only the link itself (unlink <path>, never rm -r), and ask the owner first when the project needs it. Never copy files from outside the repository into it' });
+        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'Ask the owner before removing a link the project may need. If the link points inside this repository, replace it with the real file or folder. If it points outside, remove only the link itself, with unlink and the path in single quotes, never rm -r. Never copy files from outside the repository into it' });
       }
     } else if (e.isDirectory()) {
       if (others.has(path)) continue;

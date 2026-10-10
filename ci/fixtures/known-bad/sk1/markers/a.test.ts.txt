@@ -46,3 +46,6 @@ test('reason', { skip: 'fails only in CI' }, () => {}); // #12
 test('two', { timeout: 1 }, () => {}); test('calls', { skip: true }, () => {});
 test('retry', { retry: 'skip' }, () => {});
 test('a, it\'s', { skip: true }, () => {});
+test('conditional', { ...(process.env.CI ? { skip: true } : {}) }, () => {});
+test('deep', { skip: true, meta: { a: { b: { c: 1 } } } }, () => {});
+test(String(n), { skip: n > 3 }, () => {});
