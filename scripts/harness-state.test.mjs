@@ -6,12 +6,19 @@
 // a project.
 
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 import { SRC, SID, work, git, put, reset, run, commit, unpin, pinOf } from './harness-fixture.mjs';
 
-const PATH = `/usr/bin:/bin:${dirname(process.execPath)}`;
+// A hook PATH holds node and a pnpm that answers `-v`, as the gate's runner does: the Stop hook says so and prints otherwise.
+const BIN = mkdtempSync(join(tmpdir(), 'harness-state-bin-'));
+writeFileSync(join(BIN, 'pnpm'), '#!/bin/sh\necho 0.0.0\n');
+chmodSync(join(BIN, 'pnpm'), 0o755);
+test.after(() => rmSync(BIN, { recursive: true, force: true }));
+const PATH = `/usr/bin:/bin:${dirname(process.execPath)}:${BIN}`;
 const REAL = ['session-state.sh', 'stop-verify.sh', 'stop-verify.mjs', 'find-node.sh'];
 
 // The base: the fixture's, with the real hooks and the real ci/ in it, and STATE.md ignored as it is in a project.
@@ -109,4 +116,23 @@ test('a link left at STATE.md is replaced, never written through, and a half-wri
   assert.ok(lstatSync(state).isFile(), 'the link was not replaced');
   assert.equal(readFileSync(state, 'utf8'), `${context(r.out)}\n`);
   assert.equal(git('-C', work, 'status', '--porcelain', '--ignored', '--untracked-files=all').split('\n').filter((l) => l.includes('.tmp')).length, 0, 'a temporary file was left behind');
+});
+
+test('node ci/status.mjs --write replaces a link at STATE.md and prints what it printed before', () => {
+  fresh();
+  const victim = join(work, '..', 'victim-write.txt');
+  writeFileSync(victim, 'not the state\n');
+  symlinkSync(victim, state);
+  const node = (...a) => spawnSync(process.execPath, [join(work, 'ci/status.mjs'), ...a, work], { encoding: 'utf8' });
+  const plain = node();
+  const written = node('--write');
+  assert.equal(written.status, 0);
+  assert.equal(written.stdout, plain.stdout, '--write printed something other than the plain print');
+  assert.equal(readFileSync(victim, 'utf8'), 'not the state\n', '--write followed the link');
+  assert.equal(readFileSync(state, 'utf8'), plain.stdout);
+  // A folder where the file goes is still an error here, where the hooks stay quiet.
+  rmSync(state);
+  mkdirSync(state);
+  assert.notEqual(node('--write').status, 0);
+  assert.deepEqual(readdirSync(work).filter((f) => f.endsWith('.tmp')), [], 'a temporary file was left behind');
 });

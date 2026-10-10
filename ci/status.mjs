@@ -345,15 +345,20 @@ const text = L.map(escapeControl).join('\n');
 // still hands on the state and exits 0.
 // The file is written beside STATE.md and renamed over it: a link or a pipe left at that ignored path is replaced, never
 // written through, and a reader never sees half a file.
-const refresh = () => {
+// --write uses the same write, and still fails loudly where the hooks stay quiet.
+const writeState = () => {
   const tmp = join(root, `.STATE.md.${process.pid}.tmp`);
   try {
     writeFileSync(tmp, text + '\n', { flag: 'wx' });
     renameSync(tmp, join(root, 'STATE.md'));
-  } catch {
-    // read-only folder, or a folder where the file goes: nothing to keep current
-    rmSync(tmp, { force: true });
+  } catch (e) {
+    // An EEXIST file is not this run's to remove; a clean-up that fails changes nothing about the error.
+    if (e.code !== 'EEXIST') try { rmSync(tmp, { force: true }); } catch { /* the original error is the one to report */ }
+    throw e;
   }
+};
+const refresh = () => {
+  try { writeState(); } catch { /* read-only folder, or a folder where the file goes: nothing to keep current */ }
 };
 if (args.includes('--hook')) {
   refresh();
@@ -362,5 +367,5 @@ if (args.includes('--hook')) {
   refresh();
 } else {
   process.stdout.write(text + '\n');
-  if (args.includes('--write')) writeFileSync(join(root, 'STATE.md'), text + '\n');
+  if (args.includes('--write')) writeState();
 }
