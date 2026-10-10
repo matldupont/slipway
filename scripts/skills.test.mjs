@@ -1011,7 +1011,8 @@ test('log-bug pushes the commit that carries a new F-id at once, and a DEFER tak
 // text, asked for in the session; anything bigger still gets the whole-document review.
 test('log-bug clears exactly 1 drafted block in an existing doc by the owner\'s confirmation, asked for before it is recorded', () => {
   const md = read(skillPath('log-bug')).replace(/\s+/g, ' ');
-  assert.ok(md.includes('When the whole draft is exactly 1 `Given / When / Then` acceptance block added to a doc that already exists, and nothing else in that doc changes but its Changes line, show the owner the block\'s exact text and ask: "This adds 1 acceptance block to {doc path} and changes nothing else in it. Your yes stands in for a review of the document: is the block right?"'), 'log-bug must name the one-block case, and its ask must say what it adds and what a yes clears');
+  assert.ok(md.includes('When the whole draft is exactly 1 `Given / When / Then` acceptance block added to a doc that already exists, and nothing else changes but that doc\'s Changes line (no PRD entry added or changed: a project\'s C run adds one, so it keeps the review), show the owner the block\'s exact text and ask: "This adds 1 acceptance block to {doc path} and changes nothing else in it but its Changes line. Your yes stands in for a review of the document: is the block right?"'), 'log-bug must name the one-block case, exclude a run that adds or changes a PRD entry, and its ask must say what it adds, that the Changes line is added too, and what a yes clears');
+  assert.ok(md.includes('· {1 block, the owner\'s yes: "{their words}" | none: the review}'), 'the Phase 4 output field must say when it applies');
   assert.ok(md.includes("A yes to any earlier question (C's among them) is not this one."), 'an earlier yes must not count as the confirmation');
   assert.ok(md.includes('On their yes, given in this session, the block is confirmed and needs no review; never record a confirmation you did not just receive.'), 'a confirmation is recorded only after the owner\'s yes in the session');
   assert.ok(md.includes('for a confirmed block (Phase 4), instead: `` `{doc path}`\'s Changes has an `owner-confirmed, not reviewed` line naming this issue, on the default branch before the fix starts ``.'), 'the bug\'s acceptance line must name the confirmation path, landed before the fix starts');
@@ -1021,6 +1022,7 @@ test('log-bug clears exactly 1 drafted block in an existing doc by the owner\'s 
 
 test('log-bug keeps the whole-document review for a new doc, 2 or more blocks, or any other change to the doc', () => {
   const md = read(skillPath('log-bug')).replace(/\s+/g, ' ');
-  assert.ok(md.includes('No yes, or anything else (a new doc, 2 or more blocks, a changed or removed block, any other change to the doc): the review.'), 'everything but the one-block case keeps the review');
+  assert.ok(md.includes('No yes, or anything else (a new doc, 2 or more blocks, a changed or removed block, a PRD entry added or changed, any other change to the doc): the review.'), 'everything but the one-block case keeps the review');
   assert.ok(md.includes('- B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``;'), 'the whole-document review line must stay the B / C default');
+  assert.ok(md.includes('(`Lane: bounded`, a draft for review, or one block the owner confirmed, the bug in one line)'), 'the doc PR\'s ## What must say when the doc is one confirmed block');
 });
