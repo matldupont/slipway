@@ -1,0 +1,5 @@
+{
+  "_note": "A glob the workspace reader does not support is BROKEN (exit 2), never a clean scan of nothing.",
+  "exit": 2,
+  "broken": "could not read the workspace (pnpm-workspace.yaml: unsupported glob"
+}

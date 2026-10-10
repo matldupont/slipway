@@ -1,0 +1,55 @@
+describe.skip('no link', () => {});
+it.skip('linked', () => {}); // #12
+xit('x-prefixed, no link', () => {});
+test.skipIf(process.env.CI)('conditional, no link', () => {});
+it.todo('later');
+it.only('focused, even with a link', () => {}); // #14
+fdescribe('focused group', () => {});
+// it.skip('a comment is read as text')
+it('says skip in its title only', () => {});
+test.runIf(process.env.X)('linked elsewhere', () => {}); // owner/repo#5
+it.skip('a decision id is not an issue', () => {}); // D-7
+test.runIf(process.env.X)('runIf, no link', () => {});
+xtest('x-prefixed test', () => {});
+suite.skip('suite', () => {});
+bench.skip('bench', () => {});
+describe.concurrent.skip('chain', () => {});
+test('opt', { skip: true }, () => {});
+test('opt', { only: true }, () => {}); // #3
+test('opt off', { skip: false }, () => {});
+t.skip('in the body');
+test.fixme('playwright', () => {});
+test.describe.fixme('playwright group', () => {});
+fitAddon.fit();
+const n = context.db.users.skip(10);
+const title = context.todo.title;
+it.skip.each([1])('each', () => {});
+it?.skip('optional', () => {});
+test.skip.concurrent('chained after the marker', () => {});
+test.only.failing('focused, chained after', () => {});
+it.concurrent.fails.skip('chained both sides', () => {});
+await t.test('subtest', { skip: true }, () => {});
+test('quoted key', { 'skip': true }, () => {});
+test('shorthand', { skip }, () => {});
+test('both keys', { skip: true, only: true }, () => {}); // #4
+const fit = computeFit();
+it('options of another call', () => pick({ only: 'a' }));
+it('a database skip', async () => db.find({ skip: 10 }));
+const xit = 1;
+it.skip.each<[number]>([[1]])('typed table', () => {});
+it.only.each<Case>(cases)('typed focus', () => {});
+test('it\'s escaped', { skip: true }, () => {});
+test(names[0], { skip: true }, () => {});
+test({ skip: true }, () => {});
+test('nested', { timeout: { ms: 5 }, skip: true }, () => {});
+test('reason', { skip: 'fails only in CI' }, () => {}); // #12
+test('two', { timeout: 1 }, () => {}); test('calls', { skip: true }, () => {});
+test('retry', { retry: 'skip' }, () => {});
+test('a, it\'s', { skip: true }, () => {});
+test('conditional', { ...(process.env.CI ? { skip: true } : {}) }, () => {});
+test('deep', { skip: true, meta: { a: { b: { c: 1 } } } }, () => {});
+test(String(n), { skip: n > 3 }, () => {});
+test('number', { skip: 1 }, () => {});
+test('zero', { skip: 0 }, () => {});
+it.skip.each< [number] >([[1]])('spaced type arguments', () => {});
+it.skip('a', f); test('b', { only: true }, f); // #4
