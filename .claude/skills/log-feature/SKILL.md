@@ -169,7 +169,7 @@ summary}), or a later milestone?" With no active milestone, name the one being s
   remove the PRD §5 entry with its Version and Change log lines, commit the doc with any held settings answers, leave the branch unpushed, tell the owner its name, and
   give them the §4 line. Reviving takes the id: read `main`, the open pull requests and the remote's branches, commit it next (the deferred commit before it carries no id), push.
 
-Commit on the branch, and run `pnpm meta` (R1 as PRD entry says). On a draft PRD the milestone
+Commit on the branch, and run `pnpm meta` (R1 as PRD entry and Feature doc version say). On a draft PRD the milestone
 check only confirms the PRD exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). This commit carries the new F-id: push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/feature-{name}`; no remote: skip.
 
 ```
@@ -180,7 +180,7 @@ Build map: 1. {step} — {layer}, ~{size} …
 Lane:      feature | bounded → /log-followup
 Doc:       {Feature docs dir}/{name}.md · PRD §5 F-{nn} (Version {old} → {new}) | F-{nn} in its title, PRD: none by design — "{row}"
 Scheduled: {milestone id} Contents item {n} | none by design — "{row}" | DEFER — stopped, no id, branch {name} unpushed
-Review:    {PRD entry's owner message, when R1 reports it} | none
+Review:    {PRD entry's or Feature doc version's owner message, when R1 reports it} | none
 Branch:    docs/feature-{name} (committed, id pushed | DEFER: unpushed)
 ```
 
@@ -291,7 +291,7 @@ Declined: {row numbers | none}
 ## Edge cases
 
 - **Extends an existing feature.** Extend its doc (a Changes line, the Contract amended) instead of starting a
-  second one; a new doc only when the capability has an identity of its own. Cross-reference the others. A change to its Contract, Acceptance or Verify bumps the doc's `Version:` line in the same commit; a doc with none gains `Version: 0.1 ({date})` under its title then (D-041).
+  second one; a new doc only when the capability has an identity of its own. Cross-reference the others. Any edit inside its Contract, Acceptance or Verify moves the doc's `Version:` line, in the same commit: `process/intake.md` → Feature doc version.
 - **Reshaped heavily.** The doc and issue use the new name; the ask is an alternatives row, "rejected — reshaped".
 - **The PRD is a draft, or does not cover the area.** Add the §5 entry anyway; if its §4 scope needs a wider
   look, say so in the issue. No PRD file at all: the project is not kicked off; stop, point at `/kickoff`, unless `PRD path` says `none` and why in slipway's own settings.

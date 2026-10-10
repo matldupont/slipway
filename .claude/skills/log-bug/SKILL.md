@@ -170,7 +170,7 @@ A bug breaks a requirement. When the requirement was never written, the gap is p
 
 **Doc stub (B and C).** The doc covers the whole feature the bug lives in, not the bug: "the export skips the
 last day" goes in `export.md`, with that day as one acceptance line. A doc for that feature already exists:
-extend it (a Changes line, an acceptance line) instead of starting another. A change to its Contract, Acceptance or Verify bumps the doc's `Version:` line in the same commit; a doc with none gains `Version: 0.1 ({date})` under its title then (D-041).
+extend it (a Changes line, an acceptance line) instead of starting another. Any edit inside its Contract, Acceptance or Verify moves the doc's `Version:` line, in the same commit: `process/intake.md` → Feature doc version.
 
 - **Branch.** `{name}` is lowercase letters, digits and `-` only. `git status` must be empty (dirty: stop and
   ask, never stash silently). `git remote` prints nothing: there is no remote; branch from the local default
@@ -191,7 +191,7 @@ extend it (a Changes line, an acceptance line) instead of starting another. A ch
   no-gos, the owner picks: amend the no-go (same commit, with why), or another milestone. Neither: stop and
   file nothing, title the doc and set `prd-ref:` to `F-??`, remove the §5 entry with its Version and Change log lines and the Contents item (no id until revived, as in `/log-feature`, whose revive rule says why the id's commit may come second), commit the doc with any held settings answers, leave the branch unpushed, tell the owner its name, and give them the §4 *Out, explicitly*
   line instead.
-- **Commit** on the branch, and run `pnpm meta` (R1 as PRD entry says). On a draft PRD the milestone check only confirms the PRD
+- **Commit** on the branch, and run `pnpm meta` (R1 as PRD entry and Feature doc version say). On a draft PRD the milestone check only confirms the PRD
   exists: say so, and confirm by reading that the F-ID sits in a live milestone's Contents (not where `PRD path` says `none`). C: this commit carries the new F-id, so push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/bug-{name}` (no remote: skip); B: push in Phase 5, once the issue number exists.
 
 The stub is a draft of intent. The bug's acceptance says it is reviewed first (Phase 5); there is no separate
@@ -199,14 +199,14 @@ review issue. **One block (D-040).** When the whole draft is exactly 1 `Given / 
 already exists, and nothing else changes but that doc's Changes line (no PRD entry added or changed: a project's C run adds one, so it keeps the review), show the owner the block's exact text and ask: "This adds
 1 acceptance block to {doc path} and changes nothing else in it but its Changes line. Your yes stands in for a review of the document: is the block right?"
 A yes to any earlier question (C's among them) is not this one. On their yes, given in this session, the block is confirmed and needs no review; never record a
-confirmation you did not just receive. A confirmed block leaves the doc's `Version:` line as it is, and adds none (D-041). No yes, or anything else (a new doc, 2 or more blocks, a changed or removed block, a PRD entry added or changed, any other change to the doc): the review.
+confirmation you did not just receive. A draft that could be this block holds the `Version:` bump until the owner answers: confirmed, the line stays as it is and none is added; otherwise it is bumped or added before the push, which is where it is checked (Feature doc version). No yes, or anything else (a new doc, 2 or more blocks, a changed or removed block, a PRD entry added or changed, any other change to the doc): the review.
 
 ```
 PHASE 4: WRITTEN DOWN
 PRD:      {§ and ids} "{quoted lines}" | none by design — "{row}" | not found
 Doc:      A {path | #n} | B/C drafted {path} (draft, committed on docs/bug-{name}) · {1 block, the owner's yes: "{their words}" | none: the review} | C → not a bug | C → /log-feature
 PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none (milestone: none by design — "{row}")
-Review:   {PRD entry's owner message, when R1 reports it} | none
+Review:   {PRD entry's or Feature doc version's owner message, when R1 reports it} | none
 ```
 
 ## Phase 5 — File the issue

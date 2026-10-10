@@ -731,21 +731,32 @@ change.
 - **When it moves.** Whenever the doc's Contract, Acceptance or Verify changes; `/log-feature` and `/log-bug` bump
   it in the change that does so. Acceptance is in the list because `/log-bug` adds acceptance blocks, and a version
   that stood still would leave the earlier review current with nothing to force the one that path asks for.
+- **What counts is a list, not a judgement** (the owner's pick, after the first review of #268). Every edit inside
+  those three sections moves the line, a typo among them, except a line that begins `Verified against:`, which
+  `/close-milestone` refreshes. After `status: shipped`, a behaviour change recorded under Changes moves it too. A
+  session that decided a change was "not real" would have passed a gate without being asked.
 - **The one exception.** D-040's single owner-confirmed acceptance block: the version does not move, no line is
   added, and an existing review stays current.
-- **A doc written before the line.** It gains `Version: 0.1 (<date>)` the first time `/log-feature` or `/log-bug`
+- **A doc written before the line** (the orchestrator session's advice, taken). It gains `Version: 0.1 (<date>)` the first time `/log-feature` or `/log-bug`
   changes its Contract, Acceptance or Verify, in that change; otherwise its owner or author adds the line in a
   commit of its own before a review. `/review-doc` stops on a doc without one and says which: a reviewer never
   edits its target. No check requires the line, so a project's existing feature docs do not go red on the sync
-  that brings the template (D-036).
+  that brings the template (D-036). `dev/features/landing-page.md` carried a line before this, worded "Contract or
+  Verify"; it is left as written, since rewording it would turn its review stale for nothing, and this entry
+  governs it.
+- **The red is not worked around** (the orchestrator session's advice, taken). `process/intake.md` → Feature doc
+  version holds the rule once, for the skills and the milestone-item path: never edit a file under `docs/reviews/`,
+  never hold back or undo a bump, never reword the line, to turn R1 green. A draft that could be D-040's one block
+  holds the bump until the owner answers, and it is checked before the push.
 - **Cost, accepted.** A feature doc now behaves as the PRD does: any such change to a reviewed doc turns R1 red on
   that branch until a fresh whole-document review names the earlier one in `Supersedes:`. D-040 cuts that cost for
   the one-block case only.
 
-Decided by the owner. Declined: no new line, the reviewer quoting the newest Changes entry (a review that can never
+Decided by the owner, but for the bullets marked as advice. Declined: no new line, the reviewer quoting the newest Changes entry (a review that can never
 go stale is the fault this was filed for); a version that moves on Contract or Verify only, as #268 first worded it
 (acceptance blocks would then be added under a review that still reads as current). `scripts/skills.test.mjs` holds
-the wording in the template and the three skills; `ci/fixtures/known-bad/r1/feature-doc` holds R1's side. #268.
+the wording in the template, `process/intake.md` and the three skills; `ci/fixtures/known-bad/r1/feature-doc` holds
+R1's side. #268.
 
 ## Week 1 — decide before M1 closes
 

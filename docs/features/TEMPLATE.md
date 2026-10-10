@@ -7,8 +7,9 @@ status: draft
 
 Version: 0.1 (<date>)
 
-The line above is the one a `/review-doc` review quotes. Bump it whenever the Contract, Acceptance or Verify
-below changes; a single acceptance block the owner confirmed (`/log-bug`) is the one change that leaves it.
+The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
+below moves it, in the same commit, bar a line that begins `Verified against:`; a single acceptance block the owner
+confirmed (`/log-bug`) is the one change that leaves it.
 
 ## Problem
 

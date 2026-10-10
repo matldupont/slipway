@@ -1027,23 +1027,27 @@ test('log-bug keeps the whole-document review for a new doc, 2 or more blocks, o
   assert.ok(md.includes('(`Lane: bounded`, a draft for review, or one block the owner confirmed, the bug in one line)'), 'the doc PR\'s ## What must say when the doc is one confirmed block');
 });
 
-// #268 (D-041): a feature doc has a `Version:` line for a review to quote, the template carries it, and the two
-// skills that change a doc's Contract, Acceptance or Verify say they bump it. R1's side is pinned by
-// ci/fixtures/known-bad/r1/feature-doc.
+// #268 (D-041): a feature doc has a `Version:` line for a review to quote, the template carries it, and the rule
+// for moving it lives once in process/intake.md → Feature doc version, cited by the skills that edit a doc. R1's
+// side is pinned by ci/fixtures/known-bad/r1/feature-doc.
 const reviewDoc = () => read('.claude/skills/review-doc/SKILL.md');
 const stepOf = (md, title) => (section(md, title, 2) ?? '').replace(/\s+/g, ' ');
-const VERSION_BUMP = "A change to its Contract, Acceptance or Verify bumps the doc's `Version:` line in the same commit; a doc with none gains `Version: 0.1 ({date})` under its title then (D-041).";
+const VERSION_CITE = "Any edit inside its Contract, Acceptance or Verify moves the doc's `Version:` line, in the same commit: `process/intake.md` → Feature doc version.";
 
 test('/review-doc names the version line of a feature doc, and it moves with the Contract, Acceptance or Verify', () => {
-  assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('The version line of a feature doc is the `Version:` line under its title, which moves whenever its Contract, Acceptance or Verify changes (D-041).'), '/review-doc step 3 does not say which line a review of a feature doc quotes');
+  assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('The version line of a feature doc is the `Version:` line under its title, which moves whenever its Contract, Acceptance or Verify changes (D-041; `process/intake.md` → Feature doc version).'), '/review-doc step 3 does not say which line a review of a feature doc quotes');
 });
 
-test('/review-doc stops on a feature doc written before the line existed, and never adds it itself', () => {
-  assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('A feature doc with no `Version:` line is not reviewed as it is: stop, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` under its title when one next changes its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target.'), '/review-doc step 3 has no rule for a feature doc with no Version: line');
+test('/review-doc stops before the review on a feature doc written before the line existed, and never adds it itself', () => {
+  const one = stepOf(reviewDoc(), '1 — Read the target, and only the target');
+  assert.ok(one.includes('A feature doc with no `Version:` line under its title is not reviewed as it is: stop here, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` when one next edits its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target.'), '/review-doc step 1 has no rule for a feature doc with no Version: line');
+  assert.ok(one.indexOf('is not reviewed as it is') < one.indexOf('Read the document in full.'), 'the stop must come before the document is reviewed');
+  assert.ok(one.includes("An `owner-confirmed, not reviewed` line in its Changes beside a `Version:` that did not move is D-040's one exception, not a finding."), '/review-doc must not report a confirmed block as an unmoved version');
 });
 
-test('/review-doc says where a finding points in a document with fewer IDs than sections', () => {
+test('/review-doc and the review template say where a finding points in a document with fewer IDs than sections', () => {
   assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('where (by ID, never by heading alone; in a document with fewer IDs than sections, its ID, the section and the line range at the reviewed commit)'), '/review-doc step 3 does not say what "where" cites in a feature doc');
+  assert.ok(read('docs/reviews/TEMPLATE.md').replace(/\s+/g, ' ').includes("**Where:** the document's IDs (F-01, OD-3), never a heading alone; in a document with fewer IDs than sections, its ID, the section and the line range at the reviewed commit."), 'the review template must say the same as step 3');
 });
 
 test('/review-doc step 4 names what the owner bumps in a feature doc', () => {
@@ -1053,18 +1057,33 @@ test('/review-doc step 4 names what the owner bumps in a feature doc', () => {
 test('docs/features/TEMPLATE.md carries a Version: line of its own, under the title, and says when it moves', () => {
   const template = read('docs/features/TEMPLATE.md');
   assert.match(template, /^# F-00 — <feature>\n\nVersion: 0\.1 \(<date>\)\n\n/m, 'the feature template must carry `Version: 0.1 (<date>)` as a line of its own under the title');
-  assert.ok(template.replace(/\s+/g, ' ').includes('Bump it whenever the Contract, Acceptance or Verify below changes; a single acceptance block the owner confirmed (`/log-bug`) is the one change that leaves it.'), 'the feature template must say when the line moves');
+  assert.ok(template.replace(/\s+/g, ' ').includes('Any edit inside the Contract, Acceptance or Verify below moves it, in the same commit, bar a line that begins `Verified against:`; a single acceptance block the owner confirmed (`/log-bug`) is the one change that leaves it.'), 'the feature template must say when the line moves');
 });
 
-test('log-feature starts a doc at Version: 0.1 and bumps the line when it changes a Contract, Acceptance or Verify', () => {
+test('process/intake.md → Feature doc version: what moves the line is a list, and the red it causes is not worked around', () => {
+  const rule = stepOf(intake, 'Feature doc version');
+  assert.ok(rule.includes('The commit that edits anything inside the doc\'s `## Contract`, `## Acceptance` or `## Verify` bumps the number and the date. Every edit there counts, a typo among them; the one kind of line that does not is a line that begins `Verified against:`.'), 'what moves the line must be a list');
+  assert.ok(rule.includes('Never judge whether a change is big enough to count: this list decides.'), 'a session must not decide a change is not real');
+  assert.ok(rule.includes('After `status: shipped`, a behaviour change recorded under Changes instead of in the Contract moves it too.'), 'a shipped doc\'s Changes entry must move the line');
+  assert.ok(rule.includes('**A doc with no line** gains `Version: 0.1 ({date})` under its title in that same commit.'), 'a doc written before the line must gain it');
+  assert.ok(rule.includes('Never edit a file under `docs/reviews/`, never hold back or undo a bump, and never reword the line, to turn R1 green: the way out is a fresh review.'), 'the stale review must not be worked around');
+  assert.ok(rule.includes('A draft that could be that block holds the bump until the owner answers: on their yes the line stays; with no yes, the bump (or the new line) is committed before the branch is pushed.'), 'a held bump must not be dropped');
+  assert.ok(rule.includes('an edit inside the three sections with no moved line and no confirmation recorded in Changes is not pushed'), 'the push is where a held bump is checked');
+  assert.ok(rule.includes('Run `/review-doc {doc path}` from a fresh session before it is built from.'), 'the owner must be told which doc needs a review');
+  assert.ok(stepOf(intake, 'Milestone item').includes('an existing doc with that `prd-ref` is extended (Contract amended, a Changes line, its `Version:` moved: Feature doc version)'), 'the milestone-item path must move the line too');
+});
+
+test('log-feature starts a doc at Version: 0.1 and cites the rule when it edits a Contract, Acceptance or Verify', () => {
   const md = read(skillPath('log-feature')).replace(/\s+/g, ' ');
   assert.ok(md.includes('Title `# F-{nn} — {name}`, and under it `Version: 0.1 ({date})`, the line a `/review-doc` review quotes (D-041).'), 'log-feature must fill the new doc\'s Version: line');
-  assert.ok(stepOf(read(skillPath('log-feature')), 'Edge cases').includes(`Cross-reference the others. ${VERSION_BUMP}`), 'log-feature must bump the Version: line of a doc it extends');
+  assert.ok(stepOf(read(skillPath('log-feature')), 'Edge cases').includes(`Cross-reference the others. ${VERSION_CITE}`), 'log-feature must move the Version: line of a doc it extends');
+  assert.ok(md.includes('run `pnpm meta` (R1 as PRD entry and Feature doc version say)') && md.includes("{PRD entry's or Feature doc version's owner message, when R1 reports it} | none"), 'log-feature must report R1\'s red for a feature doc as the rule says');
 });
 
-test('log-bug bumps the Version: line when it changes a doc, and a confirmed block (D-040) leaves it', () => {
+test('log-bug cites the rule when it edits a doc, and a draft that could be one block (D-040) holds the bump for the answer', () => {
   const md = read(skillPath('log-bug')).replace(/\s+/g, ' ');
-  assert.ok(md.includes(`extend it (a Changes line, an acceptance line) instead of starting another. ${VERSION_BUMP}`), 'log-bug must bump the Version: line of a doc it extends');
+  assert.ok(md.includes(`extend it (a Changes line, an acceptance line) instead of starting another. ${VERSION_CITE}`), 'log-bug must move the Version: line of a doc it extends');
   assert.ok(md.includes('from `{Feature docs dir}/TEMPLATE.md`, `status: draft`, `Version: 0.1 ({date})`, and fill'), 'log-bug must fill a new doc\'s Version: line');
-  assert.ok(md.includes("A confirmed block leaves the doc's `Version:` line as it is, and adds none (D-041). No yes,"), 'the one-block path must not move or add the Version: line');
+  assert.ok(md.includes('A draft that could be this block holds the `Version:` bump until the owner answers: confirmed, the line stays as it is and none is added; otherwise it is bumped or added before the push, which is where it is checked (Feature doc version). No yes,'), 'the one-block path must hold the bump, and never drop it');
+  assert.ok(md.includes('run `pnpm meta` (R1 as PRD entry and Feature doc version say)') && md.includes("{PRD entry's or Feature doc version's owner message, when R1 reports it} | none"), 'log-bug must report R1\'s red for a feature doc as the rule says');
 });
