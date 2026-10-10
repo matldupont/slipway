@@ -169,7 +169,7 @@ test('a symlinked node_modules is left alone, and a link message never says to c
   assert.equal(r.status, 1, r.stdout);
   assert.doesNotMatch(r.stdout, /node_modules#unread/);
   assert.match(r.stdout, /packages\/app\/shared#unread: .*Never copy files from outside the repository into it/);
-  assert.match(r.stdout, /remove only the link itself, with unlink and the path in single quotes, never rm -r/);
+  assert.match(r.stdout, /never type its path into a shell command/);
 });
 
 test('a malformed package.json is BROKEN, with a next action', () => {
@@ -202,6 +202,9 @@ test('hostile lines of every shape that once backtracked are read in seconds, ea
     "it.skip('x') " + 'a'.repeat(4000),
     'it.' .repeat(1300),
     'fit' + ' '.repeat(2000) + '<',
+    '{test({skip' + ' '.repeat(2000) + 'x',
+    'test({only' + '\t'.repeat(2000) + 'x',
+    "test({'todo'" + ' '.repeat(2000) + 'x',
   ];
   for (const l of shapes) {
     const text = (l + '\n').repeat(Math.ceil((2 * 1024 * 1024) / (l.length + 1)));
@@ -209,20 +212,29 @@ test('hostile lines of every shape that once backtracked are read in seconds, ea
     markersIn(text);
     assert.ok(Date.now() - t0 < 3000, `${l.slice(0, 14)}… took ${Date.now() - t0} ms`);
   }
-  const one = 'test(' + ' '.repeat(2 * 1024 * 1024 - 10);
-  const t1 = Date.now();
-  markersIn(one);
-  assert.ok(Date.now() - t1 < 3000, `one 2 MB line took ${Date.now() - t1} ms`);
+  for (const head of ['test(', 'test({skip', "test({'only'", 'it(a, {todo']) {
+    const one = head + ' '.repeat(2 * 1024 * 1024 - 20);
+    const t1 = Date.now();
+    markersIn(one);
+    assert.ok(Date.now() - t1 < 3000, `one 2 MB line after ${head} took ${Date.now() - t1} ms`);
+  }
 });
 
-test('an options key is a marker unless its value is false or a number; a type argument is not a comparison', () => {
+test('an options key is a marker unless its value is false or 0; a type argument is not a comparison', () => {
   const kinds = (t) => markersIn(t).map((m) => m.kind + (m.option ? '*' : ''));
   assert.deepEqual(kinds("test('a', { skip: true }, f);"), ['skip*']);
   assert.deepEqual(kinds("test('a', { skip: 'fails only in CI' }, f); // #1").concat(markersIn("test('a', { skip: 'x' }); // #1").map((m) => m.linked)), ['skip*', true]);
   assert.deepEqual(kinds("test('a', { skip: false }, f);"), []);
-  assert.deepEqual(kinds("it('a', async () => db.find({ skip: 10 }));"), []);
+  assert.deepEqual(kinds("it('a', async () => db.find({ skip: 10 }));"), ['skip*']); // a false alarm by decision
   assert.deepEqual(kinds("test('a', { retry: 'skip' }, f);"), []);
   assert.deepEqual(kinds("test('a', { skip }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: 1 }, f); test('b', { todo: 2 }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: 0 }, f);"), []);
+  assert.deepEqual(kinds("it.skip('a', f); test('b', { only: true }, f); // #4"), ['only*']);
+  assert.deepEqual(kinds('it.skip.each< [number] >([[1]])("a", f);'), ['skip']);
+  assert.deepEqual(kinds('test.only<string>("d", f);'), ['only']);
+  assert.deepEqual(kinds('fit <T>(x);'), ['only']);
+  assert.deepEqual(kinds('while (fit < best) {}; if (fit<=3) {}; <p>it.only</p>'), []);
   assert.deepEqual(kinds('const config = { skip: true, only: true };'), []);
   assert.deepEqual(kinds("test('a', { skip: true, only: true }, f);"), ['only*']);
   assert.deepEqual(kinds('it.skip.each<[number]>([[1]])("a", f);'), ['skip']);

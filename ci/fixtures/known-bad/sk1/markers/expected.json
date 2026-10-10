@@ -1,5 +1,5 @@
 {
-  "_note": "Lines of a.test.ts.txt, placed at packages/app/src/a.test.ts: every skip form with no issue on its line is a finding (a comment counts, a decision id is not an issue, an options object, t.skip(), Playwright's fixme, the x-prefixed and chained forms); lines 6 and 18 are focused although they name an issue, and line 7 is focused. Lines 2, 10 (owner/repo#5) are linked and pass; 9, 19 (skip: false), 23-25 (a method named fit, a skip on a database call, a property named todo) are not tests. b.ts is read for being under __tests__/; helper.ts is not a test file. packages/empty has a test script and no test files: no finding. The test files are stored as .txt and placed by PC1, so they never ship to a project as test code. Lines 28-34: a modifier after the marker, an options object on a node:test subtest, a quoted or shorthand key, and `{ skip: true, only: true }` (focus wins, even with #4). Lines 35-38 are not tests: a variable named fit, an option of another call, a database skip, a variable named xit. Lines 39-40: type arguments on .each. Lines 41-44 and 46: an escaped quote in the title, a computed title, no title, a nested object before the key, a second call on the line. Line 45 is a linked skip with a free-text reason that contains the word only; line 47 sets a retry option whose value is the word skip: neither is a finding. Line 48: a title with a comma and an escaped quote. Options objects are read by one rule on the line (no parser): lines 36 (a false alarm by design, `pick({ only: 'a' })` inside a one-line test; its message says to move that call onto its own line), 41-44, 46, 48 and 49-51 (a conditional spread, a deep object, a computed title with parentheses) are findings. A number or false value (line 19, line 37) is not.",
+  "_note": "Lines of a.test.ts.txt, placed at packages/app/src/a.test.ts: every skip form with no issue on its line is a finding (a comment counts, a decision id is not an issue, an options object, t.skip(), Playwright's fixme, the x-prefixed and chained forms); lines 6 and 18 are focused although they name an issue, and line 7 is focused. Lines 2, 10 (owner/repo#5) are linked and pass; 9, 19 (skip: false), 23-25 (a method named fit, a skip on a database call, a property named todo) are not tests. b.ts is read for being under __tests__/; helper.ts is not a test file. packages/empty has a test script and no test files: no finding. The test files are stored as .txt and placed by PC1, so they never ship to a project as test code. Lines 28-34: a modifier after the marker, an options object on a node:test subtest, a quoted or shorthand key, and `{ skip: true, only: true }` (focus wins, even with #4). Lines 35 and 38 are not tests (a variable named fit or xit). Lines 36 and 37 are false alarms by design (an option of another call in a one-line test body, a database `skip: 10`): the rule counts any key that is not false or 0, and the message says how to clear it. Lines 39-40: type arguments on .each. Lines 41-44 and 46: an escaped quote in the title, a computed title, no title, a nested object before the key, a second call on the line. Line 45 is a linked skip with a free-text reason that contains the word only; line 47 sets a retry option whose value is the word skip: neither is a finding. Line 48: a title with a comma and an escaped quote. Options objects are read by one rule on the line (no parser): lines 36 (a false alarm by design, `pick({ only: 'a' })` inside a one-line test; its message says to move that call onto its own line), 41-44, 46, 48 and 49-51 (a conditional spread, a deep object, a computed title with parentheses) are findings. A number or false value (line 19, line 37) is not. Lines 52-55: a number skips a test (1), 0 does not; spaces inside type arguments; a focus option beside a linked skip is a focus.",
   "exit": 1,
   "files": {
     "packages/app/src/a.test.ts": "a.test.ts.txt",
@@ -31,6 +31,7 @@
     "packages/app/src/a.test.ts:33#skip/no-issue",
     "packages/app/src/a.test.ts:34#only",
     "packages/app/src/a.test.ts:36#only",
+    "packages/app/src/a.test.ts:37#skip/no-issue",
     "packages/app/src/a.test.ts:39#skip/no-issue",
     "packages/app/src/a.test.ts:4#skip/no-issue",
     "packages/app/src/a.test.ts:40#only",
@@ -44,6 +45,9 @@
     "packages/app/src/a.test.ts:5#skip/no-issue",
     "packages/app/src/a.test.ts:50#skip/no-issue",
     "packages/app/src/a.test.ts:51#skip/no-issue",
+    "packages/app/src/a.test.ts:52#skip/no-issue",
+    "packages/app/src/a.test.ts:54#skip/no-issue",
+    "packages/app/src/a.test.ts:55#only",
     "packages/app/src/a.test.ts:6#only",
     "packages/app/src/a.test.ts:7#only",
     "packages/app/src/a.test.ts:8#skip/no-issue"
@@ -51,6 +55,6 @@
   "details": {
     "packages/app/src/a.test.ts:1#skip/no-issue": "names no issue",
     "packages/app/src/a.test.ts:6#only": "does not excuse it",
-    "packages/app/src/a.test.ts:36#only": "not a focus"
+    "packages/app/src/a.test.ts:36#only": "holds no such option"
   }
 }

@@ -9,8 +9,9 @@
 // split across two lines. Also unseen: a comment between the tokens (`it/**/.skip(`), `(it.skip)(`, `it.skip?.(`,
 // an escaped name, an option written as `{ skip: false || true }`, and a pending test with no callback. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
 //
-// Every pattern here is built from fixed words and bounded repetition, and the issue reference is looked for in the
-// first LINE_CAP characters of a line, so a hostile line cannot make the scan slow (the convention in risks.mjs).
+// Every pattern here is built from fixed words, bounded repetition and whitespace runs that cannot be split two ways, and
+// the issue reference is looked for in the first LINE_CAP characters of a line. scripts/sk1.test.mjs times 2 MB lines of
+// every shape that once backtracked (the convention in risks.mjs).
 
 import { lstatSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
@@ -32,7 +33,7 @@ const LINE_CAP = 4096;
 const BLOCK = '(?:it|test|describe|suite|context|specify|bench)';
 const MODIFIER = '(?:concurrent|sequential|shuffle|parallel|serial|each|for|describe|skip|only|todo|fixme|fails|failing|skipIf|runIf)';
 const CHAIN = `(?:\\s*\\??\\.\\s*${MODIFIER}){0,6}`;
-const CALLED = `${CHAIN}(?=\\s*(?:[(\`]|<(?![\\s=/])))`;
+const CALLED = `${CHAIN}(?=\\s*[(\`]|<(?![=/])|\\s+<(?![\\s=/]))`;
 const START = '(?<![\\w$.])';
 const SKIP = new RegExp(
   `${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*(?:skip|skipIf|runIf|todo|fixme)\\b${CALLED}` +
@@ -42,11 +43,11 @@ const SKIP = new RegExp(
 const ONLY = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*only\\b${CALLED}|${START}(?:fit|fdescribe)${CALLED}`);
 // A test call whose options skip or focus it: `test('x', { skip: true }, fn)`, `t.test('x', { 'only': true })`,
 // `test({ skip }, fn)`. One rule on the whole line, with nothing to backtrack: if a test call opens on the line, a
-// `skip`, `only` or `todo` key that is not set to `false` or to a number counts (`skip: 10` is a query's offset, never a
-// skip option). So `pick({ only: 'a' })` inside a one-line test body is a false alarm, and its message says how to clear
-// it. Not seen: an options object whose key is on a later line than the call.
+// `skip`, `only` or `todo` key that is not set to `false` or `0` counts (a number skips a test in node:test, so
+// `skip: 10` counts too). So `pick({ only: 'a' })` or `db.find({ skip: 10 })` inside a one-line test body is a false
+// alarm, and its message says how to clear it. A focus option wins over a skip on the same line. Not seen: an options object whose key is on a later line than the call.
 const CALL = new RegExp(`${START}(?:${BLOCK}${CHAIN}|(?:t|ctx|context)\\.test)\\s*\\(`);
-const KEY = /[{,]\s*['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\b|-?\d)\S|(?=\s*[,}]))/g;
+const KEY = /[{,]\s*['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\b|0\s*[,}])\S|(?=[,}]))/g;
 
 // An issue reference: `#14`, or `owner/repo#14` (the tracker pattern in risks.mjs, whose `#n` this is; a decision id
 // such as D-7 is not an issue). Searched in the first LINE_CAP characters with a pattern that cannot backtrack.
@@ -60,8 +61,8 @@ export function markersIn(text) {
   text.split(LINE_BREAK).forEach((line, i) => {
     const keys = CALL.test(line) ? [...line.matchAll(KEY)].map((m) => m[1]) : [];
     if (ONLY.test(line)) out.push({ line: i + 1, kind: 'only', linked: linked(line) });
-    else if (SKIP.test(line)) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
     else if (keys.includes('only')) out.push({ line: i + 1, kind: 'only', linked: linked(line), option: true });
+    else if (SKIP.test(line)) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
     else if (keys.length) out.push({ line: i + 1, kind: 'skip', linked: linked(line), option: true });
   });
   return out;
@@ -92,7 +93,7 @@ function walk(root, dir, others, inTestDir, out, unread) {
     if (e.isSymbolicLink()) {
       // Never followed (it can lead outside the package), but a runner may follow it: said, not skipped silently.
       if (testFile || isDir(path)) {
-        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'Ask the owner before removing a link the project may need. If the link points inside this repository, replace it with the real file or folder. If it points outside, remove only the link itself, with unlink and the path in single quotes, never rm -r. Never copy files from outside the repository into it' });
+        unread.push({ path: rel(path), why: 'is a symbolic link, which is not followed', fix: 'Ask the owner what to do with it, and never type its path into a shell command: it is project text and may hold characters a shell runs. If the link points inside this repository, the owner replaces it with the real file or folder. Never copy files from outside the repository into it' });
       }
     } else if (e.isDirectory()) {
       if (others.has(path)) continue;

@@ -49,3 +49,7 @@ test('a, it\'s', { skip: true }, () => {});
 test('conditional', { ...(process.env.CI ? { skip: true } : {}) }, () => {});
 test('deep', { skip: true, meta: { a: { b: { c: 1 } } } }, () => {});
 test(String(n), { skip: n > 3 }, () => {});
+test('number', { skip: 1 }, () => {});
+test('zero', { skip: 0 }, () => {});
+it.skip.each< [number] >([[1]])('spaced type arguments', () => {});
+it.skip('a', f); test('b', { only: true }, f); // #4
