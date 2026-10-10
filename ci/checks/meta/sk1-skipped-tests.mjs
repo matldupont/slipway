@@ -15,7 +15,7 @@
 // Every line is read as text and nothing is stripped, so a marker in a comment is a finding too. It counts markers,
 // not tests that did not run. It cannot see an aliased `it.skip`, a computed member, a skip a runner's config
 // applies, an options object whose key is on a later line than the call, or a marker split over two lines (lib/skips.mjs lists
-// the rest). `pnpm verify` prints the same count per package (ci/verify.mjs).
+// the rest, among them a method option and spaced type arguments, tracked in #398). `pnpm verify` prints the same count per package (ci/verify.mjs).
 //
 // A workspace with no packages, or packages with no test files, is green and says so: the claim names the
 // denominator. The workspace is counted as one unit, so a project before /bootstrap is not BROKEN.

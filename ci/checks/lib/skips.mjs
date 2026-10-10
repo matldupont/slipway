@@ -7,7 +7,9 @@
 // alias (`const maybe = it.skip`), a computed member (`it['skip']`), a skip a runner's config applies (`exclude`,
 // `testPathIgnorePatterns`, a tag filter), an options object whose key is on a later line than the call, and a marker
 // split across two lines. Also unseen: a comment between the tokens (`it/**/.skip(`), `(it.skip)(`, `it.skip?.(`,
-// an escaped name, an option written as `{ skip: false || true }`, and a pending test with no callback. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
+// an escaped name, an option written as `{ skip: false || true }` or `{ skip: false ? 0 : 1 }`, a method or getter option
+// (`{ skip() {…} }`), type arguments with a space on both sides of `<` (`it.only.each < [number] >(…)`), and a pending
+// test with no callback. The last three shapes are tracked in #398. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
 //
 // Every pattern here is built from fixed words, bounded repetition and whitespace runs that cannot be split two ways, and
 // the issue reference is looked for in the first LINE_CAP characters of a line. scripts/sk1.test.mjs times 2 MB lines of
