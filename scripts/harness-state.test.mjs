@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { gitignoreText } from './lib/install.mjs';
 import test from 'node:test';
-import { SRC, SID, work, git, put, reset, run, commit, unpin, pinOf } from './harness-fixture.mjs';
+import { SRC, SID, T, commands, work, git, put, reset, run, commit, unpin, pinOf } from './harness-fixture.mjs';
 
 // A hook PATH holds node and a pnpm that answers `-v`, as the gate's runner does: the Stop hook says so and prints otherwise.
 const BIN = mkdtempSync(join(tmpdir(), 'harness-state-bin-'));
@@ -174,7 +174,12 @@ test('a turn-end refresh that never returns is cut off at the limit, and the Sto
   assert.equal(spawnSync('mkfifo', [fifo]).status, 0); // a read of a pipe with no writer never returns
   appendFileSync(join(work, '.git/info/exclude'), 'docs/PRD.md\n'); // git and the gate never read it; only status does
   const t0 = Date.now();
-  const r = run('stop-verify.sh', '{}', SID, { PATH, STATUS_REFRESH_LIMIT_MS: '1500' });
+  // Run here rather than through run(): with no limit the hook never returns, and the test must fail, not hang.
+  const spawned = spawnSync('/bin/sh', ['-c', commands.get('stop-verify.sh')], {
+    input: '{}', encoding: 'utf8', cwd: work, timeout: 15000, killSignal: 'SIGKILL',
+    env: { PATH, HOME: T, CLAUDE_PROJECT_DIR: work, CLAUDE_CODE_SESSION_ID: SID, STATUS_REFRESH_LIMIT_MS: '1500' },
+  });
+  const r = { status: spawned.status, out: `${spawned.stdout}${spawned.stderr}` };
   const took = Date.now() - t0;
   assert.ok(took >= 1400 && took < 15000, `the refresh ran ${took} ms`);
   assert.equal(r.out, base.out);
