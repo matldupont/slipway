@@ -696,8 +696,8 @@ the whole document before the fix could start. For one small block in a long, sh
 adversarial review to clear five lines the owner stated themselves.
 
 - **What is cleared by confirmation.** Exactly 1 `Given / When / Then` acceptance block added to a feature doc that
-  already exists, with no change to its Contract or to a Verify command. A new document, 2 or more blocks, or any
-  Contract or Verify change keeps the whole-document review.
+  already exists, with nothing else in that doc changed but its Changes line. Anything else (a new document, 2 or more
+  blocks, a changed or removed block, any other change to the doc) keeps the whole-document review.
 - **The ask is the gate.** `/log-bug` shows the owner the block's exact text and takes their yes in that session
   before it writes "confirmed". A session never records a confirmation it did not just receive. No yes: the review.
 - **The record says what it is.** The doc's Changes line reads `owner-confirmed, not reviewed`, with the date, and
@@ -711,7 +711,9 @@ adversarial review to clear five lines the owner stated themselves.
 
 Decided by the owner. Declined: a `/review-doc` scoped to one block (it needs a new provenance form for a partial
 review, and loses the contradictions between sections that are most of what that review finds).
-`scripts/skills.test.mjs` holds it. #260.
+`scripts/skills.test.mjs` holds the skill's wording. Nothing holds the version-line bullet, which stays true while the
+skill bumps no version line of a feature doc and bumps the PRD's only when it adds a feature entry, which the
+confirmed-block path never does. #260.
 
 ## Week 1 — decide before M1 closes
 

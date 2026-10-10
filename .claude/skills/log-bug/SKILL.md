@@ -196,14 +196,15 @@ extend it (a Changes line, an acceptance line) instead of starting another.
 
 The stub is a draft of intent. The bug's acceptance says it is reviewed first (Phase 5); there is no separate
 review issue. **One block (D-040).** When the whole draft is exactly 1 `Given / When / Then` acceptance block added to a doc that
-already exists, with no change to its Contract or to a Verify command, show the owner the block's exact text and ask: "Is this how
-{Product name} should work?" On their yes, given in this session, the block is confirmed and needs no review; never record a
-confirmation you did not just receive. No yes, a new doc, 2 or more blocks, or any Contract or Verify change: the review.
+already exists, and nothing else in that doc changes but its Changes line, show the owner the block's exact text and ask: "This adds
+1 acceptance block to {doc path} and changes nothing else in it. Your yes stands in for a review of the document: is the block right?"
+A yes to any earlier question (C's among them) is not this one. On their yes, given in this session, the block is confirmed and needs no review; never record a
+confirmation you did not just receive. No yes, or anything else (a new doc, 2 or more blocks, a changed or removed block, any other change to the doc): the review.
 
 ```
 PHASE 4: WRITTEN DOWN
 PRD:      {§ and ids} "{quoted lines}" | none by design — "{row}" | not found
-Doc:      A {path | #n} | B/C drafted {path} (draft, committed on docs/bug-{name}) | C → not a bug | C → /log-feature
+Doc:      A {path | #n} | B/C drafted {path} (draft, committed on docs/bug-{name}) · 1 block, the owner's yes: "{their words}" | C → not a bug | C → /log-feature
 PRD edit: F-{nn} added, Version {old} → {new}, scheduled in {milestone} | none (milestone: none by design — "{row}")
 Review:   {PRD entry's owner message, when R1 reports it} | none
 ```
@@ -226,7 +227,7 @@ Review:   {PRD entry's owner message, when R1 reports it} | none
     site with what it must return: `` `weeksOf(5)` returns 5 weeks ``;
   - `` {N} tests in Missing test exist, each fails with the fix reverted, and `pnpm verify` runs them ``;
   - the unhappy path, and the rule from Phase 3 when there is one;
-  - B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``; for a confirmed block (Phase 4), instead: `` `{doc path}`'s Changes has an `owner-confirmed, not reviewed` line naming this issue ``.
+  - B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``; for a confirmed block (Phase 4), instead: `` `{doc path}`'s Changes has an `owner-confirmed, not reviewed` line naming this issue, on the default branch before the fix starts ``.
 - `### Seams`, `### Seams detail`: does the fix add a person, a channel or a promise? Usually `none`, with one
   line of why.
 - `### Missing test`: the table from Phase 3.
@@ -245,7 +246,7 @@ per `Issue milestone` only.
 2. File it, add it to the board, link it under any parent (`process/intake.md` → Commands).
 3. **Doc PR (B and C).** Put `{date} · ADDED · drafted from a bug · #{n}` in the doc's Changes (a confirmed block: `{date} · ADDED · owner-confirmed, not reviewed · drafted from a bug · #{n}`) and commit. With no
    remote, stop here and tell the owner the branch is ready. Otherwise, in a fresh folder `{prdir}`: title
-   `docs({scope}): draft {feature} for #{n}`; body `## What` (`Lane: bounded`, a draft for review, the bug
+   `docs({scope}): draft {feature} for #{n}`; body `## What` (`Lane: bounded`, a draft for review, or one block the owner confirmed, the bug
    in one line), `## Verification` (`pnpm meta` as run, in a code block), `## Links` (`Part of #{n}`, or
    `Part of {repo}#{n}` when the two repositories differ), with no closing keyword in any form (close, fix,
    resolve, and their -s and -d forms): this PR must not close the bug, and its body says it "leaves #{n} open" (the PR check asks for that). `gh pr create` prints its URL; its number is `{pr}`.
