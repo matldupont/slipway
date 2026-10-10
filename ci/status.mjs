@@ -15,7 +15,7 @@
 // milestone ids, a decision title, a lesson id, file names) print as read, each line passed through escapeControl at
 // the end. Anything a session must act on (a command, an id) is built from validated values, never from the text.
 
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
@@ -343,8 +343,17 @@ const text = L.map(escapeControl).join('\n');
 // The two hook modes keep STATE.md current (#374). The guard runs them only from the working tree it has cleared, so a
 // session whose gate files changed never reaches this line. A folder that cannot be written does not stop the hook: it
 // still hands on the state and exits 0.
+// The file is written beside STATE.md and renamed over it: a link or a pipe left at that ignored path is replaced, never
+// written through, and a reader never sees half a file.
 const refresh = () => {
-  try { writeFileSync(join(root, 'STATE.md'), text + '\n'); } catch { /* read-only folder: nothing to keep current */ }
+  const tmp = join(root, `.STATE.md.${process.pid}.tmp`);
+  try {
+    writeFileSync(tmp, text + '\n', { flag: 'wx' });
+    renameSync(tmp, join(root, 'STATE.md'));
+  } catch {
+    // read-only folder, or a folder where the file goes: nothing to keep current
+    rmSync(tmp, { force: true });
+  }
 };
 if (args.includes('--hook')) {
   refresh();

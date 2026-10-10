@@ -6,7 +6,7 @@
 // a project.
 
 import assert from 'node:assert/strict';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { SRC, SID, work, git, put, reset, run, commit, unpin, pinOf } from './harness-fixture.mjs';
@@ -85,6 +85,7 @@ test('when the guard does not run the working tree’s hooks, STATE.md is byte-f
 test('a project folder that cannot write STATE.md: SessionStart still prints the context and exits 0; the turn-end write changes nothing the Stop hook says', () => {
   fresh();
   const good = start();
+  assert.equal(readFileSync(state, 'utf8'), `${context(good.out)}\n`, 'a writable folder was not written');
   const goodStop = stop();
   fresh();
   mkdirSync(state); // a folder where the file goes: the write fails, whoever runs it
@@ -94,4 +95,18 @@ test('a project folder that cannot write STATE.md: SessionStart still prints the
   const t = stop();
   assert.equal(t.status, 0);
   assert.equal(t.out, goodStop.out);
+});
+
+test('a link left at STATE.md is replaced, never written through, and a half-written file is never left behind', () => {
+  fresh();
+  const victim = join(work, '..', 'victim.txt');
+  writeFileSync(victim, 'not the state\n');
+  symlinkSync(victim, state);
+  const r = start();
+  assert.equal(r.status, 0);
+  stop();
+  assert.equal(readFileSync(victim, 'utf8'), 'not the state\n', 'the write followed the link');
+  assert.ok(lstatSync(state).isFile(), 'the link was not replaced');
+  assert.equal(readFileSync(state, 'utf8'), `${context(r.out)}\n`);
+  assert.equal(git('-C', work, 'status', '--porcelain', '--ignored', '--untracked-files=all').split('\n').filter((l) => l.includes('.tmp')).length, 0, 'a temporary file was left behind');
 });
