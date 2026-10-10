@@ -242,8 +242,8 @@ prompt; the guard and the PR check still count it.
 
 | hook | event | does |
 |---|---|---|
-| `hooks/session-state.sh` | SessionStart | injects `node ci/status.mjs` — where the project is on the slipway path and the next step — before the agent reads anything else |
-| `hooks/stop-verify.sh` | Stop | runs `pnpm verify:fast`; while red, it blocks the first stop of a turn. A second stop ends the turn red, with the agent asked to say what is failing. Quiet before an app exists; skips a tree it already verified green. A package with dependencies and no `node_modules` (a fresh worktree) blocks with `pnpm install --frozen-lockfile` as the reason, before any cache check, and never counts as green |
+| `hooks/session-state.sh` | SessionStart | injects `node ci/status.mjs` — where the project is on the slipway path and the next step — before the agent reads anything else, and writes the same text to the gitignored `STATE.md` (#374); a folder it cannot write to does not stop it |
+| `hooks/stop-verify.sh` | Stop | first rewrites `STATE.md` with `node ci/status.mjs --refresh`, red or green, printing nothing and never failing (#374); then runs `pnpm verify:fast`; while red, it blocks the first stop of a turn. A second stop ends the turn red, with the agent asked to say what is failing. Quiet before an app exists; skips a tree it already verified green. A package with dependencies and no `node_modules` (a fresh worktree) blocks with `pnpm install --frozen-lockfile` as the reason, before any cache check, and never counts as green |
 
 The Stop hook is the only blocking hook. It answers the most documented agent failure — declaring work
 done that was never run — with the one thing that blocks a stop. `verify:fast` is `verify`

@@ -1,4 +1,4 @@
-// Shared by the harness tests (harness-gate-files, harness-plugin-folder, harness-base, harness-no-pin, harness-yes .test.mjs): every hook command in
+// Shared by the harness tests (harness-gate-files, harness-plugin-folder, harness-base, harness-no-pin, harness-yes, harness-state .test.mjs): every hook command in
 // process/harness/settings.json, and the throwaway origin and clone whose stub hooks write a marker. Each test file
 // is its own process and so has its own copy of the temp folder, removed when that file's tests end. Not a test.
 

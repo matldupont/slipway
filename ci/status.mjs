@@ -6,7 +6,8 @@
 //
 //   node ci/status.mjs [root]            print
 //   node ci/status.mjs --write [root]    also write STATE.md (gitignored)
-//   node ci/status.mjs --hook [root]     SessionStart hook output: the same text as context
+//   node ci/status.mjs --hook [root]     SessionStart hook output: the same text as context, and STATE.md rewritten
+//   node ci/status.mjs --refresh [root]  the Stop hook's call: rewrite STATE.md, print nothing
 //
 // Free text a document carries (a milestone title in the Next line, a Contents item, a [NEEDS CLARIFICATION] or
 // [PARKED] marker) is quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double
@@ -14,7 +15,7 @@
 // milestone ids, a decision title, a lesson id, file names) print as read, each line passed through escapeControl at
 // the end. Anything a session must act on (a command, an id) is built from validated values, never from the text.
 
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
@@ -339,9 +340,32 @@ L.push('');
 // log command), here and in the hook's context.
 const text = L.map(escapeControl).join('\n');
 
+// The two hook modes keep STATE.md current (#374). The guard runs them only from the working tree it has cleared, so a
+// session whose gate files changed never reaches this line. A folder that cannot be written does not stop the hook: it
+// still hands on the state and exits 0.
+// The file is written beside STATE.md and renamed over it: a link or a pipe left at that ignored path is replaced, never
+// written through, and a reader never sees half a file.
+// --write uses the same write, and still fails loudly where the hooks stay quiet.
+const writeState = () => {
+  const tmp = join(root, `.STATE.md.${process.pid}.tmp`);
+  try {
+    writeFileSync(tmp, text + '\n', { flag: 'wx' });
+    renameSync(tmp, join(root, 'STATE.md'));
+  } catch (e) {
+    // An EEXIST file is not this run's to remove; a clean-up that fails changes nothing about the error.
+    if (e.code !== 'EEXIST') try { rmSync(tmp, { force: true }); } catch { /* the original error is the one to report */ }
+    throw e;
+  }
+};
+const refresh = () => {
+  try { writeState(); } catch { /* read-only folder, or a folder where the file goes: nothing to keep current */ }
+};
 if (args.includes('--hook')) {
+  refresh();
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }) + '\n');
+} else if (args.includes('--refresh')) {
+  refresh();
 } else {
   process.stdout.write(text + '\n');
-  if (args.includes('--write')) writeFileSync(join(root, 'STATE.md'), text + '\n');
+  if (args.includes('--write')) writeState();
 }
