@@ -988,3 +988,39 @@ test('work-ticket\'s manual-testing step cites Deferred check for the plan\'s en
   assert.match(step, /in the plan's environment or in a new plan \(`process\/intake\.md` → Deferred check; README\)/, 'Phase 4 must send a journey that runs elsewhere to process/intake.md → Deferred check');
   assert.match(read('docs/qa/README.md').replace(/\s+/g, ' '), /per environment: a plan's journeys all run in one environment/, 'docs/qa/README.md must say a plan\'s journeys run in one environment');
 });
+
+// #386 (follows #368): a new feature id is claimed by pushing the commit that carries it, so /log-feature and
+// /log-bug push that commit when it is made, and a deferred doc takes no id until it is revived.
+test('log-feature pushes the commit that carries a new F-id at once, and a DEFER takes no id', () => {
+  const md = read(skillPath('log-feature')).replace(/\s+/g, ' ');
+  assert.ok(md.includes("This commit carries the new F-id: push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/feature-{name}`; no remote: skip."), 'log-feature must push the id\'s commit when it is made');
+  assert.ok(md.includes('No id is taken: title the doc and set `prd-ref:` to `F-??`, remove the PRD §5 entry with its Version and Change log lines, commit the doc with any held settings answers, leave the branch unpushed'), 'a DEFER must leave the doc without an id');
+  assert.ok(md.includes("Reviving takes the id: read `main`, the open pull requests and the remote's branches, commit it next (the deferred commit before it carries no id), push."), 'reviving a deferred doc must take the id the way a new one does');
+  assert.ok(md.includes("Hold any settings answers until the doc's first commit, then commit them alone."), 'settings answers must not come before the id\'s commit');
+  assert.ok(md.includes('git push -u origin docs/feature-{name} gh pr create'), 'Phase 7 must push the later commits before it opens the PR');
+});
+
+test('log-bug pushes the commit that carries a new F-id at once, and a DEFER takes no id', () => {
+  const md = read(skillPath('log-bug')).replace(/\s+/g, ' ');
+  assert.ok(md.includes('C: this commit carries the new F-id, so push it at once, after the `{checkout}` check (`process/intake.md` → Pull request): `git push -u origin docs/bug-{name}` (no remote: skip); B: push in Phase 5, once the issue number exists.'), 'log-bug must push the id\'s commit when it is made');
+  assert.ok(md.includes('title the doc and set `prd-ref:` to `F-??`, remove the §5 entry with its Version and Change log lines and the Contents item (no id until revived, as in `/log-feature`, whose revive rule says why the id\'s commit may come second), commit the doc with any held settings answers, leave the branch unpushed'), 'a DEFER must leave the doc without an id');
+  assert.ok(md.includes("Hold any settings answers until the doc's first commit, then commit them alone."), 'settings answers must not come before the id\'s commit');
+});
+
+// #260 (D-040): one drafted block added to a doc that already exists is cleared by the owner's confirmation of its
+// text, asked for in the session; anything bigger still gets the whole-document review.
+test('log-bug clears exactly 1 drafted block in an existing doc by the owner\'s confirmation, asked for before it is recorded', () => {
+  const md = read(skillPath('log-bug')).replace(/\s+/g, ' ');
+  assert.ok(md.includes('When the whole draft is exactly 1 `Given / When / Then` acceptance block added to a doc that already exists, and nothing else in that doc changes but its Changes line, show the owner the block\'s exact text and ask: "This adds 1 acceptance block to {doc path} and changes nothing else in it. Your yes stands in for a review of the document: is the block right?"'), 'log-bug must name the one-block case, and its ask must say what it adds and what a yes clears');
+  assert.ok(md.includes("A yes to any earlier question (C's among them) is not this one."), 'an earlier yes must not count as the confirmation');
+  assert.ok(md.includes('On their yes, given in this session, the block is confirmed and needs no review; never record a confirmation you did not just receive.'), 'a confirmation is recorded only after the owner\'s yes in the session');
+  assert.ok(md.includes('for a confirmed block (Phase 4), instead: `` `{doc path}`\'s Changes has an `owner-confirmed, not reviewed` line naming this issue, on the default branch before the fix starts ``.'), 'the bug\'s acceptance line must name the confirmation path, landed before the fix starts');
+  assert.ok(md.includes('(a confirmed block: `{date} · ADDED · owner-confirmed, not reviewed · drafted from a bug · #{n}`)'), 'the Changes line must say owner-confirmed, not reviewed');
+  assert.ok(md.includes('A confirmed block (Phase 4) is quoted, as confirmed by the owner on {date}.'), 'Expected must quote the confirmed block');
+});
+
+test('log-bug keeps the whole-document review for a new doc, 2 or more blocks, or any other change to the doc', () => {
+  const md = read(skillPath('log-bug')).replace(/\s+/g, ' ');
+  assert.ok(md.includes('No yes, or anything else (a new doc, 2 or more blocks, a changed or removed block, any other change to the doc): the review.'), 'everything but the one-block case keeps the review');
+  assert.ok(md.includes('- B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``;'), 'the whole-document review line must stay the B / C default');
+});

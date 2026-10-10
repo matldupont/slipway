@@ -6,7 +6,8 @@
 //
 //   node ci/status.mjs [root]            print
 //   node ci/status.mjs --write [root]    also write STATE.md (gitignored)
-//   node ci/status.mjs --hook [root]     SessionStart hook output: the same text as context
+//   node ci/status.mjs --hook [root]     SessionStart hook output: the same text as context, and STATE.md rewritten
+//   node ci/status.mjs --refresh [root]  the Stop hook's call: rewrite STATE.md, print nothing
 //
 // Free text a document carries (a milestone title in the Next line, a Contents item, a [NEEDS CLARIFICATION] or
 // [PARKED] marker) is quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double
@@ -14,12 +15,13 @@
 // milestone ids, a decision title, a lesson id, file names) print as read, each line passed through escapeControl at
 // the end. Anything a session must act on (a command, an id) is built from validated values, never from the text.
 
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { isPrdPath, readPlain, reviewProvenance } from './checks/lib/review-header.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
@@ -80,6 +82,15 @@ const prdReviews = existsSync(reviewsDir)
       return !!reviewed && isPrdPath(reviewed.path) && !!prdVersion && !!version && version.includes(prdVersion);
     })
   : [];
+// The findings register of each of those reviews. A warning, never a gate: a register that cannot be read is said
+// and nothing else changes. Printed text is the review's ids and Blocks cells, so each goes through excerpt().
+const registers = prdReviews.map((f) => {
+  try {
+    return { file: f, ...readRegister(readPlain(root, `docs/reviews/${f}`) ?? '') };
+  } catch {
+    return { file: f, state: 'unparsed', rows: [], hasTracker: false };
+  }
+});
 const decisions = read('decisions.md') ?? '';
 const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*\((open[^)]*)\)\*/gm)].map((m) => `${m[1]} ${m[2]} (${m[3]})`);
 
@@ -113,6 +124,51 @@ const existential = deadlines && firstBet !== null
       return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${r.id}'s Result`];
     })
   : [];
+
+// A high-severity finding with no tracker, and the active or closed milestone its Blocks cell names. A cell that
+// names no milestone adds nothing.
+// At most this many lines in all: a long register, or many reviews, must not fill the session's context. The
+// findings that matter most come first: the ones that block an active or closed milestone, then S0, then S1; what
+// is left out is counted, with how many of it are S0 or block a milestone.
+const REGISTER_LINES = 20;
+const registerLines = [];
+let registerLeft = REGISTER_LINES;
+let registerUnlisted = 0;
+let registerHot = 0;
+const say = (line) => (registerLeft > 0 ? (registerLeft--, registerLines.push(line)) : registerUnlisted++);
+for (const r of registers) {
+  if (r.state === 'unparsed') say(`Review register in ${r.file} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`);
+  if (r.state !== 'ok') continue;
+  if (r.skipped) say(`Review register in ${r.file} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`);
+  if (!r.hasTracker) {
+    say(`Review register in ${r.file} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`);
+    continue;
+  }
+  const untracked = r.rows
+    .filter((f) => !f.tracked && (f.sev === 'S0' || f.sev === 'S1'))
+    .map((f) => ({
+      f,
+      held: milestonesNamed(f.blocks).flatMap((id) => {
+        const m = ms.find((x) => String(x.id).toUpperCase() === id && (x.status === 'active' || x.status === 'closed'));
+        return m ? [`${id} (${m.status})`] : [];
+      }),
+    }))
+    .sort((x, y) => (y.held.length > 0) - (x.held.length > 0) || x.f.sev.localeCompare(y.f.sev));
+  const shown = untracked.slice(0, Math.max(registerLeft, 0));
+  for (const { f, held } of shown) say(`Review finding "${excerpt(f.id)}" (${f.sev}) in ${r.file} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`);
+  const rest = untracked.slice(shown.length);
+  if (rest.length) {
+    const hot = rest.filter(({ f, held }) => f.sev === 'S0' || held.length).length;
+    registerUnlisted += rest.length;
+    registerHot += hot;
+  }
+}
+if (registerUnlisted) registerLines.push(`Review registers: ${registerUnlisted} more line(s) not listed${registerHot ? `, ${registerHot} of them S0 or blocking a milestone` : ''} — fix the ones above first`);
+// Per severity, how many findings of the register have a tracker and how many do not.
+const registerStanding = (r) => {
+  const sevs = ['S0', 'S1', 'S2', 'S3'].filter((s) => r.rows.some((f) => f.sev === s));
+  return `${r.file}: ${sevs.map((s) => `${s} ${r.rows.filter((f) => f.sev === s && f.tracked).length} with a tracker, ${r.rows.filter((f) => f.sev === s && !f.tracked).length} without`).join(' · ')}`;
+};
 
 function walk(dir, out = []) {
   if (!existsSync(dir)) return out;
@@ -250,6 +306,7 @@ L.push('## Where things stand', '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
 L.push(`- Frame: ${frame}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · ${riskBlocks}` : ''}` : ''}`);
 L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
+for (const r of registers) if (r.state === 'ok' && r.hasTracker && r.rows.length) L.push(`- Review register: ${registerStanding(r)}`);
 if (cur) {
   const c = curAppetite && appetiteClock(curAppetite, today);
   const clock = c ? `day ${c.day} of ${c.of}, last day ${c.end}${c.overrun ? ' — OVERRUN' : ''}` : 'no appetite';
@@ -266,6 +323,7 @@ const attention = [
   // While no milestone is active or closed the step 3 line is the Next line (next() above); with one, the approval is still owed.
   ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`PRD ${prdVersion} is reviewed (${prdReviews.join(', ')}) and still a draft — resolve the review's findings in the PRD, then set Status: approved`] : []),
   ...(!bootstrapped && !step0 ? [`AGENT.md rows still unfilled: ${placeholders.join(', ')} — the skills read them${placeholders.includes('Timezone') ? ' (Timezone also sets when a deadline day ends)' : ''}; fill each row`] : []),
+  ...registerLines,
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
   ...open_.map((c) => `Open question: ${c}`),
@@ -273,15 +331,41 @@ const attention = [
   ...parked_.map((c) => `Parked: ${c}`),
   ...dueSoon.map((d) => `Lesson review: ${d}`),
 ];
-L.push('## Needs attention', '', ...(attention.length ? attention.map((a) => `- ${a}`) : ['- nothing']), '');
+L.push('## Needs attention', '');
+// One at a time: a list spread into one call overflows the stack when it is long enough.
+for (const a of attention.length ? attention : ['nothing']) L.push(`- ${a}`);
+L.push('');
 // Project text is printed as read (milestone titles, ids, deadlines, file names): each line is escaped on its own,
 // so a line break a file name or a value carries is shown as \u000a and never starts a line (a forged Next:, a CI
 // log command), here and in the hook's context.
 const text = L.map(escapeControl).join('\n');
 
+// The two hook modes keep STATE.md current (#374). The guard runs them only from the working tree it has cleared, so a
+// session whose gate files changed never reaches this line. A folder that cannot be written does not stop the hook: it
+// still hands on the state and exits 0.
+// The file is written beside STATE.md and renamed over it: a link or a pipe left at that ignored path is replaced, never
+// written through, and a reader never sees half a file.
+// --write uses the same write, and still fails loudly where the hooks stay quiet.
+const writeState = () => {
+  const tmp = join(root, `.STATE.md.${process.pid}.tmp`);
+  try {
+    writeFileSync(tmp, text + '\n', { flag: 'wx' });
+    renameSync(tmp, join(root, 'STATE.md'));
+  } catch (e) {
+    // An EEXIST file is not this run's to remove; a clean-up that fails changes nothing about the error.
+    if (e.code !== 'EEXIST') try { rmSync(tmp, { force: true }); } catch { /* the original error is the one to report */ }
+    throw e;
+  }
+};
+const refresh = () => {
+  try { writeState(); } catch { /* read-only folder, or a folder where the file goes: nothing to keep current */ }
+};
 if (args.includes('--hook')) {
+  refresh();
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }) + '\n');
+} else if (args.includes('--refresh')) {
+  refresh();
 } else {
   process.stdout.write(text + '\n');
-  if (args.includes('--write')) writeFileSync(join(root, 'STATE.md'), text + '\n');
+  if (args.includes('--write')) writeState();
 }
