@@ -6,7 +6,7 @@
 // a project.
 
 import assert from 'node:assert/strict';
-import { appendFileSync, chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, closeSync, openSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -164,7 +164,7 @@ test('a write that fails removes its temporary file, and still reports the failu
   assert.ok(lstatSync(state).isDirectory(), 'the folder at STATE.md was replaced');
 });
 
-test('a turn-end refresh that never returns is cut off at the limit, and the Stop hook prints what it prints today', () => {
+test('a turn-end refresh that never returns is cut off after 20 s, and the Stop hook prints what it prints today', { timeout: 60000 }, () => {
   fresh();
   start();
   const base = stop();
@@ -173,17 +173,20 @@ test('a turn-end refresh that never returns is cut off at the limit, and the Sto
   rmSync(fifo, { force: true });
   assert.equal(spawnSync('mkfifo', [fifo]).status, 0); // a read of a pipe with no writer never returns
   appendFileSync(join(work, '.git/info/exclude'), 'docs/PRD.md\n'); // git and the gate never read it; only status does
-  const t0 = Date.now();
-  // Run here rather than through run(): with no limit the hook never returns, and the test must fail, not hang.
-  const spawned = spawnSync('/bin/sh', ['-c', commands.get('stop-verify.sh')], {
-    input: '{}', encoding: 'utf8', cwd: work, timeout: 15000, killSignal: 'SIGKILL',
-    env: { PATH, HOME: T, CLAUDE_PROJECT_DIR: work, CLAUDE_CODE_SESSION_ID: SID, STATUS_REFRESH_LIMIT_MS: '1500' },
-  });
-  const r = { status: spawned.status, out: `${spawned.stdout}${spawned.stderr}` };
-  const took = Date.now() - t0;
-  assert.ok(took >= 1400 && took < 15000, `the refresh ran ${took} ms`);
-  assert.equal(r.out, base.out);
-  assert.equal(r.status, 0);
-  rmSync(fifo, { force: true });
-  writeFileSync(join(work, '.git/info/exclude'), '');
+  try {
+    // Run here rather than through run(): with no limit the hook never returns, and the test must fail, not hang.
+    const t0 = Date.now();
+    const spawned = spawnSync('/bin/sh', ['-c', commands.get('stop-verify.sh')], {
+      input: '{}', encoding: 'utf8', cwd: work, timeout: 30000, killSignal: 'SIGKILL',
+      env: { PATH, HOME: T, CLAUDE_PROJECT_DIR: work, CLAUDE_CODE_SESSION_ID: SID },
+    });
+    const took = Date.now() - t0;
+    assert.ok(took >= 19000 && took <= 25000, `the refresh ran ${took} ms, not the 20 s limit`);
+    assert.equal(spawned.status, 0);
+    assert.equal(`${spawned.stdout}${spawned.stderr}`, base.out);
+  } finally {
+    try { closeSync(openSync(fifo, 'r+')); } catch { /* lets a reader a failed run left behind see the end of the file */ }
+    rmSync(fifo, { force: true });
+    writeFileSync(join(work, '.git/info/exclude'), '');
+  }
 });

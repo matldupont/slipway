@@ -31,8 +31,8 @@ import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
 const args = process.argv.slice(2);
 // The turn-end refresh runs before the gate inside the Stop hook's budget (#397): a read that never returns (a pipe left
-// where a file is read) is cut off, and the hook goes on. STATUS_REFRESH_LIMIT_MS may only lower the limit.
-const REFRESH_LIMIT_MS = Math.min(20_000, Number(process.env.STATUS_REFRESH_LIMIT_MS) || 20_000);
+// where a file is read) is cut off after 20 s, and the hook goes on.
+const REFRESH_LIMIT_MS = 20_000;
 if (args.includes('--refresh')) {
   // The work runs in a child killed at the limit, before this process reads anything; a temporary file the child
   // leaves is ignored (.gitignore). Never fails, prints nothing.
