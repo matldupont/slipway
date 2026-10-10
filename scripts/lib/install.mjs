@@ -75,7 +75,7 @@ export function templateFiles(src) {
 
 // The .gitignore an install writes: npm never packs one, so under `npx github:…` there is none to copy.
 export const gitignoreText = (src) =>
-  existsSync(join(src, '.gitignore')) ? readFileSync(join(src, '.gitignore'), 'utf8') : 'node_modules/\n.DS_Store\nSTATE.md\n.claude/skills/pr-review/features/.test-tmp\n';
+  existsSync(join(src, '.gitignore')) ? readFileSync(join(src, '.gitignore'), 'utf8') : 'node_modules/\n.DS_Store\nSTATE.md\n.STATE.md.*.tmp\n.claude/skills/pr-review/features/.test-tmp\n';
 
 // Every URL in `text` (a git message) as publicSource shows it: git drops userinfo from its own
 // messages but keeps a `?token=` query.

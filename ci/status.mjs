@@ -7,7 +7,7 @@
 //   node ci/status.mjs [root]            print
 //   node ci/status.mjs --write [root]    also write STATE.md (gitignored)
 //   node ci/status.mjs --hook [root]     SessionStart hook output: the same text as context, and STATE.md rewritten
-//   node ci/status.mjs --refresh [root]  the Stop hook's call: rewrite STATE.md, print nothing
+//   node ci/status.mjs --refresh [root]  the Stop hook's call: rewrite STATE.md, print nothing, cut off after 20 s
 //
 // Free text a document carries (a milestone title in the Next line, a Contents item, a [NEEDS CLARIFICATION] or
 // [PARKED] marker) is quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double
@@ -15,8 +15,10 @@
 // milestone ids, a decision title, a lesson id, file names) print as read, each line passed through escapeControl at
 // the end. Anything a session must act on (a command, an id) is built from validated values, never from the text.
 
+import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { section } from './checks/lib/markdown.mjs';
@@ -28,6 +30,15 @@ import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
 const args = process.argv.slice(2);
+// The turn-end refresh runs before the gate inside the Stop hook's budget (#397): a read that never returns (a pipe left
+// where a file is read) is cut off, and the hook goes on. STATUS_REFRESH_LIMIT_MS may only lower the limit.
+const REFRESH_LIMIT_MS = Math.min(20_000, Number(process.env.STATUS_REFRESH_LIMIT_MS) || 20_000);
+if (args.includes('--refresh')) {
+  // The work runs in a child killed at the limit, before this process reads anything; a temporary file the child
+  // leaves is ignored (.gitignore). Never fails, prints nothing.
+  spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--refresh-run', ...args.filter((a) => a !== '--refresh')], { stdio: 'ignore', timeout: REFRESH_LIMIT_MS, killSignal: 'SIGKILL' });
+  process.exit(0);
+}
 const root = args.find((a) => !a.startsWith('--')) ?? '.';
 let today;
 try {
@@ -363,7 +374,7 @@ const refresh = () => {
 if (args.includes('--hook')) {
   refresh();
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'SessionStart', additionalContext: text } }) + '\n');
-} else if (args.includes('--refresh')) {
+} else if (args.includes('--refresh-run')) {
   refresh();
 } else {
   process.stdout.write(text + '\n');

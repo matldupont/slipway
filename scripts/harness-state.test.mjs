@@ -6,10 +6,11 @@
 // a project.
 
 import assert from 'node:assert/strict';
-import { chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { gitignoreText } from './lib/install.mjs';
 import test from 'node:test';
 import { SRC, SID, work, git, put, reset, run, commit, unpin, pinOf } from './harness-fixture.mjs';
 
@@ -21,12 +22,12 @@ test.after(() => rmSync(BIN, { recursive: true, force: true }));
 const PATH = `/usr/bin:/bin:${dirname(process.execPath)}:${BIN}`;
 const REAL = ['session-state.sh', 'stop-verify.sh', 'stop-verify.mjs', 'find-node.sh'];
 
-// The base: the fixture's, with the real hooks and the real ci/ in it, and STATE.md ignored as it is in a project.
+// The base: the fixture's, with the real hooks and the real ci/ in it, and the ignore rules a project has.
 git('-C', work, 'checkout', '-q', 'main');
 for (const h of REAL) cpSync(join(SRC, 'process/harness/hooks', h), join(work, 'process/harness/hooks', h));
 rmSync(join(work, 'ci'), { recursive: true, force: true });
 cpSync(join(SRC, 'ci'), join(work, 'ci'), { recursive: true, filter: (p) => !p.includes('/fixtures') && !p.includes('node_modules') });
-writeFileSync(join(work, '.gitignore'), 'STATE.md\nnode_modules/\n');
+writeFileSync(join(work, '.gitignore'), gitignoreText(SRC));
 git('-C', work, 'add', '-A');
 commit('real hooks');
 git('-C', work, 'push', '-q', 'origin', 'main');
@@ -135,4 +136,49 @@ test('node ci/status.mjs --write replaces a link at STATE.md and prints what it 
   mkdirSync(state);
   assert.notEqual(node('--write').status, 0);
   assert.deepEqual(readdirSync(work).filter((f) => f.endsWith('.tmp')), [], 'a temporary file was left behind');
+});
+
+test('a refresh killed between the write and the rename leaves nothing git sees, here and in the .gitignore a project gets', () => {
+  fresh();
+  start();
+  writeFileSync(join(work, '.STATE.md.12345.tmp'), 'half\n');
+  assert.equal(git('-C', work, 'status', '--porcelain'), '', 'the temporary file shows up as untracked');
+  const out = stop();
+  assert.equal(`${out.status} ${out.out}`, '0 ', 'a leftover temporary file blocked the Stop hook');
+  // The rule is in the text a new project and a sync write, not only in this repository's file.
+  const none = mkdtempSync(join(tmpdir(), 'harness-state-ignore-'));
+  try {
+    assert.match(gitignoreText(none), /^\.STATE\.md\.\*\.tmp$/m);
+  } finally {
+    rmSync(none, { recursive: true, force: true });
+  }
+});
+
+test('a write that fails removes its temporary file, and still reports the failure', () => {
+  fresh();
+  mkdirSync(state); // the rename onto a folder fails after the temporary file is written
+  mkdirSync(join(state, 'keep'));
+  const node = spawnSync(process.execPath, [join(work, 'ci/status.mjs'), '--write', work], { encoding: 'utf8' });
+  assert.notEqual(node.status, 0);
+  assert.deepEqual(readdirSync(work).filter((f) => f.startsWith('.STATE.md.')), [], 'the temporary file was left behind');
+  assert.ok(lstatSync(state).isDirectory(), 'the folder at STATE.md was replaced');
+});
+
+test('a turn-end refresh that never returns is cut off at the limit, and the Stop hook prints what it prints today', () => {
+  fresh();
+  start();
+  const base = stop();
+  assert.equal(`${base.status} ${base.out}`, '0 ');
+  const fifo = join(work, 'docs/PRD.md');
+  rmSync(fifo, { force: true });
+  assert.equal(spawnSync('mkfifo', [fifo]).status, 0); // a read of a pipe with no writer never returns
+  appendFileSync(join(work, '.git/info/exclude'), 'docs/PRD.md\n'); // git and the gate never read it; only status does
+  const t0 = Date.now();
+  const r = run('stop-verify.sh', '{}', SID, { PATH, STATUS_REFRESH_LIMIT_MS: '1500' });
+  const took = Date.now() - t0;
+  assert.ok(took >= 1400 && took < 15000, `the refresh ran ${took} ms`);
+  assert.equal(r.out, base.out);
+  assert.equal(r.status, 0);
+  rmSync(fifo, { force: true });
+  writeFileSync(join(work, '.git/info/exclude'), '');
 });
