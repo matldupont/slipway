@@ -696,24 +696,28 @@ the whole document before the fix could start. For one small block in a long, sh
 adversarial review to clear five lines the owner stated themselves.
 
 - **What is cleared by confirmation.** Exactly 1 `Given / When / Then` acceptance block added to a feature doc that
-  already exists, with nothing else in that doc changed but its Changes line. Anything else (a new document, 2 or more
-  blocks, a changed or removed block, any other change to the doc) keeps the whole-document review.
+  already exists, with nothing else changed but that doc's Changes line: no PRD entry is added or changed. Anything
+  else (a new document, 2 or more blocks, a changed or removed block, a PRD entry added or changed, any other change
+  to the doc) keeps the whole-document review. In a project, a requirement written nowhere (`/log-bug` case C) adds a
+  PRD entry and bumps the PRD's version, so it keeps the review; a requirement the PRD names but no doc spells out
+  (case B) takes this path.
 - **The ask is the gate.** `/log-bug` shows the owner the block's exact text and takes their yes in that session
   before it writes "confirmed". A session never records a confirmation it did not just receive. No yes: the review.
 - **The record says what it is.** The doc's Changes line reads `owner-confirmed, not reviewed`, with the date, and
   the bug's Expected quotes the block as confirmed, so the next whole-document review knows which blocks it has not
   seen.
 - **An existing review stays current.** A review goes stale only when the version line it quotes leaves the
-  document (R1). A confirmed block and its Changes line do not move that line, and this path never bumps it,
-  whatever a feature doc's version line turns out to be (#268, related, undecided).
+  document (R1). A confirmed block and its Changes line do not move that line. A run that would bump the PRD's
+  version adds a PRD entry, so it is not this path: this path never bumps it, whatever a feature doc's version line
+  turns out to be (#268, related, undecided).
 - **Cost, accepted.** Unreviewed, owner-confirmed blocks can accumulate in a document across several bugs. They are
   visible by their Changes lines; nothing counts them yet.
 
 Decided by the owner. Declined: a `/review-doc` scoped to one block (it needs a new provenance form for a partial
 review, and loses the contradictions between sections that are most of what that review finds).
-`scripts/skills.test.mjs` holds the skill's wording. Nothing holds the version-line bullet, which stays true while the
-skill bumps no version line of a feature doc and bumps the PRD's only when it adds a feature entry, which the
-confirmed-block path never does. #260.
+`scripts/skills.test.mjs` holds the skill's wording, the PRD-entry exclusion and the Phase 4 output field. Amended
+2026-10-09 (#396): the first wording let a case C run reach this path, and its PRD entry would have moved the version;
+the owner chose that such a run keeps the review. #260.
 
 ## Week 1 — decide before M1 closes
 
