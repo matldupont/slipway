@@ -1,6 +1,7 @@
 node_modules/
 .DS_Store
 STATE.md
+.STATE.md.*.tmp
 .jscpd/
 .serena/
 .claude/skills/pr-review/features/.test-tmp
