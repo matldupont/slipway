@@ -1042,7 +1042,7 @@ test('/review-doc stops before the review on a feature doc written before the li
   const one = stepOf(reviewDoc(), '1 — Read the target, and only the target');
   assert.ok(one.includes('A feature doc with no `Version:` line under its title is not reviewed as it is: stop here, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` when one next edits its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target.'), '/review-doc step 1 has no rule for a feature doc with no Version: line');
   assert.ok(one.indexOf('is not reviewed as it is') < one.indexOf('Read the document in full.'), 'the stop must come before the document is reviewed');
-  assert.ok(one.includes("An `owner-confirmed, not reviewed` line in its Changes beside a `Version:` that did not move is D-040's one exception, not a finding."), '/review-doc must not report a confirmed block as an unmoved version');
+  assert.ok(one.includes("An `owner-confirmed, not reviewed` line in its Changes beside a `Version:` that did not move is D-040's one exception, not a finding; the block itself is reviewed like the rest."), '/review-doc must not report a confirmed block as an unmoved version');
 });
 
 test('/review-doc and the review template say where a finding points in a document with fewer IDs than sections', () => {
@@ -1057,18 +1057,23 @@ test('/review-doc step 4 names what the owner bumps in a feature doc', () => {
 test('docs/features/TEMPLATE.md carries a Version: line of its own, under the title, and says when it moves', () => {
   const template = read('docs/features/TEMPLATE.md');
   assert.match(template, /^# F-00 — <feature>\n\nVersion: 0\.1 \(<date>\)\n\n/m, 'the feature template must carry `Version: 0.1 (<date>)` as a line of its own under the title');
-  assert.ok(template.replace(/\s+/g, ' ').includes('Any edit inside the Contract, Acceptance or Verify below moves it, in the same commit, bar a line that begins `Verified against:`; a single acceptance block the owner confirmed (`/log-bug`) is the one change that leaves it.'), 'the feature template must say when the line moves');
+  assert.ok(template.replace(/\s+/g, ' ').includes('Any edit inside the Contract, Acceptance or Verify below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner confirmed (`/log-bug`) is the one change that leaves it.'), 'the feature template must say when the line moves');
 });
 
 test('process/intake.md → Feature doc version: what moves the line is a list, and the red it causes is not worked around', () => {
   const rule = stepOf(intake, 'Feature doc version');
-  assert.ok(rule.includes('The commit that edits anything inside the doc\'s `## Contract`, `## Acceptance` or `## Verify` bumps the number and the date. Every edit there counts, a typo among them; the one kind of line that does not is a line that begins `Verified against:`.'), 'what moves the line must be a list');
+  assert.ok(rule.includes('The commit that edits anything inside the doc\'s `## Contract`, `## Acceptance` or `## Verify` bumps the number and the date. Every edit there counts, a typo among them; the one edit that does not is to the sha and date of a `Verified against:` line, with nothing else on it changed.'), 'what moves the line must be a list');
   assert.ok(rule.includes('Never judge whether a change is big enough to count: this list decides.'), 'a session must not decide a change is not real');
   assert.ok(rule.includes('After `status: shipped`, a behaviour change recorded under Changes instead of in the Contract moves it too.'), 'a shipped doc\'s Changes entry must move the line');
   assert.ok(rule.includes('**A doc with no line** gains `Version: 0.1 ({date})` under its title in that same commit.'), 'a doc written before the line must gain it');
-  assert.ok(rule.includes('Never edit a file under `docs/reviews/`, never hold back or undo a bump, and never reword the line, to turn R1 green: the way out is a fresh review.'), 'the stale review must not be worked around');
+  assert.ok(rule.includes('Never touch `docs/reviews/` (add, edit, delete or rename a file there), never hold back or undo a bump, and never reword the line, to turn R1 green: the way out is a fresh review, by `/review-doc` in a session of its own.'), 'the stale review must not be worked around');
+  const proof = '`git diff --stat origin/{default branch}...HEAD -- docs/reviews` and `git status --porcelain -- docs/reviews` both print nothing after the run';
+  assert.ok(rule.includes(proof) && stepOf(intake, 'PRD entry').includes(proof), 'the proof that no review was touched must see a committed, staged or new file, for a feature doc and for the PRD');
+  assert.ok(rule.includes('Any other red check is not expected: fix it.') && rule.includes('Until #405 this rule is prose'), 'the rule must say what else is red, and what holds it');
+  assert.ok(rule.includes('Run `pnpm meta` again once a held bump is committed: the run before it does not count.'), 'a held bump must be followed by a fresh gate run');
+  assert.ok(stepOf(read('.claude/skills/close-milestone/SKILL.md'), '4. Update the record').includes("`## Changes` line, not a rewrite, and that line moves the doc's `Version:` (`process/intake.md` → Feature doc version)."), '/close-milestone must move the line when it records a shipped doc\'s behaviour change');
   assert.ok(rule.includes('A draft that could be that block holds the bump until the owner answers: on their yes the line stays; with no yes, the bump (or the new line) is committed before the branch is pushed.'), 'a held bump must not be dropped');
-  assert.ok(rule.includes('an edit inside the three sections with no moved line and no confirmation recorded in Changes is not pushed'), 'the push is where a held bump is checked');
+  assert.ok(rule.includes('an edit inside the three sections with no moved line and no `owner-confirmed, not reviewed` line added to Changes in that same diff, naming this issue, is not pushed.'), 'the push is where a held bump is checked');
   assert.ok(rule.includes('Run `/review-doc {doc path}` from a fresh session before it is built from.'), 'the owner must be told which doc needs a review');
   assert.ok(stepOf(intake, 'Milestone item').includes('an existing doc with that `prd-ref` is extended (Contract amended, a Changes line, its `Version:` moved: Feature doc version)'), 'the milestone-item path must move the line too');
 });

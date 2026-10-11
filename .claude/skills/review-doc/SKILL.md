@@ -29,7 +29,7 @@ git rev-parse --short HEAD        # the sha you are reviewing at
 ```
 
 A feature doc with no `Version:` line under its title is not reviewed as it is: stop here, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` when one next edits its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target. An
-`owner-confirmed, not reviewed` line in its Changes beside a `Version:` that did not move is D-040's one exception, not a finding.
+`owner-confirmed, not reviewed` line in its Changes beside a `Version:` that did not move is D-040's one exception, not a finding; the block itself is reviewed like the rest.
 
 Read the document in full. Then read what it depends on, to check it against something:
 `docs/product/FRAME.md` (does every feature serve the question?), `decisions.md`, the

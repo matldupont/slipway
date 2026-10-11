@@ -732,7 +732,7 @@ change.
   it in the change that does so. Acceptance is in the list because `/log-bug` adds acceptance blocks, and a version
   that stood still would leave the earlier review current with nothing to force the one that path asks for.
 - **What counts is a list, not a judgement** (the owner's pick, after the first review of #268). Every edit inside
-  those three sections moves the line, a typo among them, except a line that begins `Verified against:`, which
+  those three sections moves the line, a typo among them, except the sha and date of a `Verified against:` line, which
   `/close-milestone` refreshes. After `status: shipped`, a behaviour change recorded under Changes moves it too. A
   session that decided a change was "not real" would have passed a gate without being asked.
 - **The one exception.** D-040's single owner-confirmed acceptance block: the version does not move, no line is
@@ -745,8 +745,10 @@ change.
   Verify"; it is left as written, since rewording it would turn its review stale for nothing, and this entry
   governs it.
 - **The red is not worked around** (the orchestrator session's advice, taken). `process/intake.md` → Feature doc
-  version holds the rule once, for the skills and the milestone-item path: never edit a file under `docs/reviews/`,
-  never hold back or undo a bump, never reword the line, to turn R1 green. A draft that could be D-040's one block
+  version holds the rule once, for the skills and the milestone-item path: never touch `docs/reviews/`
+  (add, edit, delete, rename), never hold back or undo a bump, never reword the line, to turn R1 green. It is
+  prose until the harness asks before that folder changes (#405); `/close-milestone` cites it where it records a
+  shipped doc's behaviour change. A draft that could be D-040's one block
   holds the bump until the owner answers, and it is checked before the push.
 - **Cost, accepted.** A feature doc now behaves as the PRD does: any such change to a reviewed doc turns R1 red on
   that branch until a fresh whole-document review names the earlier one in `Supersedes:`. D-040 cuts that cost for
