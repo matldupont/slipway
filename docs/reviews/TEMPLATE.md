@@ -33,7 +33,8 @@ finding and the work that resolves it point at each other.
 
 ### AR-1 — <title>
 
-**Where:** the document's IDs (F-01, OD-3), not its headings.
+**Where:** the document's IDs (F-01, OD-3), never a heading alone; in a document with fewer IDs than sections, its
+ID, the section and the line range at the reviewed commit.
 
 What is wrong, with the passage quoted.
 

@@ -66,7 +66,7 @@ Keep it to one screen. Opinions about quality go in lessons, not the retro.
 1. Milestone frontmatter: `status: closed` (or `killed`).
 2. Each feature doc the milestone shipped: `status: shipped`, and a fresh
    `Verified against: <main sha> <date>`. Behaviour that differs from its Contract becomes a
-   `## Changes` line, not a rewrite.
+   `## Changes` line, not a rewrite, and that line moves the doc's `Version:` (`process/intake.md` → Feature doc version).
 3. Open issues still in the GitHub milestone: move each to the next milestone, to a declined
    lesson with a trigger, or close it with a reason. Then close the GitHub milestone:
    `gh api -X PATCH repos/{owner}/{repo}/milestones/<number> -f state=closed`. With no GitHub milestone,

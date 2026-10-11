@@ -318,7 +318,7 @@ that already has one: `provenance/stale` for each review naming the old line, an
 draft, `review/missing` until a review names the new version. That is expected, not a fault in the edit.
 
 - **Never touch `docs/reviews/`,** and never restore or reword the version line to turn R1 green: a review
-  records what was read at that version. `git diff --stat -- docs/reviews` is empty after the run.
+  records what was read at that version. `git diff --stat origin/{default branch}...HEAD -- docs/reviews` and `git status --porcelain -- docs/reviews` both print nothing after the run.
 - **Record it as run.** The doc PR's Verification shows `pnpm meta` with R1's findings named, not called
   green. Any other red check is not expected: fix it.
 - **Tell the owner,** in the skill's output, when R1 reports either finding for the PRD: "The PRD moved to
@@ -326,6 +326,35 @@ draft, `review/missing` until a review names the new version. That is expected, 
   before this PRD is relied on." With no review of the PRD on file, R1 says nothing and neither does the skill.
 - **How it ends.** The earlier review stays in `docs/reviews/` as it was written, and R1 stops reporting it once
   the fresh review of the new version names it in a `Supersedes:` line.
+
+## Feature doc version
+
+A feature doc carries `Version: {n} ({date})` under its title: the line a `/review-doc` review of it quotes (D-041).
+This section applies in slipway itself too.
+
+- **When it moves.** The commit that edits anything inside the doc's `## Contract`, `## Acceptance` or `## Verify`
+  bumps the number and the date. Every edit there counts, a typo among them; the one edit that does not is
+  to the sha and date of a `Verified against:` line, with nothing else on it changed. After `status: shipped`, a behaviour change recorded under Changes
+  instead of in the Contract moves it too. Never judge whether a change is big enough to count: this list decides.
+- **A doc with no line** gains `Version: 0.1 ({date})` under its title in that same commit. Otherwise only its
+  owner or author adds one, in a commit of its own.
+- **The one exception (D-040).** A single acceptance block the owner confirmed in `/log-bug` moves no line and
+  adds none. A draft that could be that block holds the bump until the owner answers: on their yes the line stays;
+  with no yes, the bump (or the new line) is committed before the branch is pushed. Before that push, read the
+  doc's diff to the default branch: an edit inside the three sections with no moved line and no
+  `owner-confirmed, not reviewed` line added to Changes in that same diff, naming this issue, is not pushed. Run
+  `pnpm meta` again once a held bump is committed: the run before it does not count.
+- **R1 goes red, and that is expected,** when a review in `docs/reviews/` quotes the old line
+  (`provenance/stale`). Never touch `docs/reviews/` (add, edit, delete or rename a file there), never hold
+  back or undo a bump, and never reword the line, to turn R1 green: the way out is a fresh review, by `/review-doc`
+  in a session of its own. `git diff --stat origin/{default branch}...HEAD -- docs/reviews` and `git status --porcelain -- docs/reviews` both print nothing after the run.
+  The PR's Verification shows `pnpm meta` with R1's finding named, not called green. Any other red check is not
+  expected: fix it. Until #405 this rule is prose: nothing asks before a session changes that folder.
+- **Tell the owner,** in the skill's output, when R1 reports it: "{doc path} moved to Version {new}; its review of
+  {old} no longer matches. Run `/review-doc {doc path}` from a fresh session before it is built from." With no
+  review of the doc on file, R1 says nothing and neither does the skill.
+- **How it ends.** As for the PRD (PRD entry): the earlier review stays as it was written, and R1 stops reporting
+  it once the fresh review names it in a `Supersedes:` line.
 
 ## Decisions
 
@@ -380,7 +409,7 @@ before it matches; anything else is an idea.
    with the Contents line as its frame and `Milestone: {id} item {n}` in its Links; once it has filed, step 6
    runs here. A feature item gets one
    doc, named for the first F-ID the line cites; an existing doc with that `prd-ref` is extended (Contract
-   amended, a Changes line). Other F-IDs the line cites are covered in it as `Also builds: F-{nn} ({the part
+   amended, a Changes line, its `Version:` moved: Feature doc version). Other F-IDs the line cites are covered in it as `Also builds: F-{nn} ({the part
    this slice builds})`. They are all in PRD §5 already, so no F-ID is added and the PRD version is not
    bumped. Schedule is skipped: `Scheduled: {id} Contents item {n} (already)`.
 6. **Started marker.** Once the issue is filed, append ` · #{issue}` to the item's last line in the milestone
