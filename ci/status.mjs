@@ -25,7 +25,7 @@ import { section } from './checks/lib/markdown.mjs';
 import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
-import { isPrdPath, readPlain, reviewProvenance } from './checks/lib/review-header.mjs';
+import { isPrdPath, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
 import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -83,14 +83,16 @@ const ods = [...prd.matchAll(/^###\s+(OD-\d+)\s+—\s+(.+)$/gm)]
   .map((m) => ({ id: m[1], title: m[2].trim(), blocking: /BLOCKING/.test(section(prd, `${m[1]} — ${m[2].trim()}`, 3) ?? '') }))
   .filter((o) => !o.title.startsWith('<'));
 const prdVersion = (prd.match(/^Version:\s*(.+)$/m) ?? [])[1]?.trim() ?? null;
-// A review of the PRD's current version, the way R1 counts one: both read the review's header through lib/review-header.mjs.
+// A review of the PRD's current version, the way R1 counts one: both read the review's header, and compare the line
+// it quotes with the PRD's version line, through lib/review-header.mjs; and it names that version, as it always had to.
+const prdVersionLines = versionLines(prd);
 const reviewsDir = join(root, 'docs', 'reviews');
 const prdReviews = existsSync(reviewsDir)
   ? readdirSync(reviewsDir).filter((f) => f.endsWith('.md') && f !== 'TEMPLATE.md').filter((f) => {
       const text = readPlain(root, `docs/reviews/${f}`);
       if (text === null) return false;
       const { reviewed, version } = reviewProvenance(text);
-      return !!reviewed && isPrdPath(reviewed.path) && !!prdVersion && !!version && version.includes(prdVersion);
+      return !!reviewed && isPrdPath(reviewed.path) && !!prdVersion && !!version && version.includes(prdVersion) && quotedVersion(prd, version, prdVersionLines) === 'current';
     })
   : [];
 // The findings register of each of those reviews. A warning, never a gate: a register that cannot be read is said
