@@ -5,6 +5,8 @@ status: draft
 
 # F-12 — Fit: a feature doc says what it reuses and where its numbers live, and a check holds it to that
 
+Version: 0.1 (2026-10-12)
+
 ## Problem
 
 Slipway checks that a feature works (`pnpm verify`) and that it is wanted (FRAME → PRD → feature doc →
