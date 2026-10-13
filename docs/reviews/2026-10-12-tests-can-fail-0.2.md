@@ -62,20 +62,20 @@ No finding below is S0.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | In CI `HEAD` is the pull request's merge commit, not `HEAD_SHA`; the Contract treats them as one commit, and no acceptance block has them differ | S1 | owner | build steps 0, 3, 4 | |
-| AR-2 | A test whose assertion is deleted is neither new nor named: only added and changed lines mark a test | S1 | owner | build step 4 | |
-| AR-3 | A pull request that mechanically touches many test files cannot go green: every old test is new, out of time is a failure, and the excuse is one dated entry per file | S2 | owner | build step 4 | |
-| AR-4 | "Looks like a test, in any language" takes in snapshot files and anything under `__tests__/`, and each is `never-run` | S2 | owner | build step 4 | |
-| AR-5 | A test's own support code is a subject, so a test that asserts on its own fixture is credited when the fixture is built in another file | S2 | owner | build step 4 | |
-| AR-6 | Step 0 sets the pass marks from the run they then judge, names no result that stops the build, and runs a program the repository does not hold | S2 | owner | build step 0 | |
-| AR-7 | Not judged is a warning in a job log, which the document says nothing reads; a pull request whose new tests are all unjudged passes, and the deferral has no detector | S2 | owner | build step 3 | |
-| AR-8 | A Vitest outside 4 and 5 is run and judged, not refused; an error name the reader does not recognise counts as a failure | S2 | owner | build step 4 | |
-| AR-9 | Three outcomes of a changed run have no row: a load failure in `tried`, a timeout in `crashes`, a new test skipped by the change | S2 | owner | build steps 3, 4 | |
-| AR-10 | Where `/work-ticket` runs the step is not said: the configured gate row leaves existing projects out, a line in the skill is exit 2 in slipway itself | S2 | owner | build step 5 | |
-| AR-11 | Between build steps 3 and 5 `main` holds a job that exits 2 on every pull request, and only a sentence keeps a project from taking it | S2 | owner | build step 3 | |
-| AR-12 | The arguments kept from a `test` script go to the listing and to every changed run unread; a flag with its value as a second word leaves a filter behind | S2 | owner | build step 4 | |
-| AR-13 | Contract lines no acceptance block holds, and one sentence of §2 that, as written, leaves exported code unchanged | S2 | owner | build steps 2, 4 | |
-| AR-14 | Hygiene: who pays, "runs no shell", the expect exception unmeasured, the workspace root, small gaps in the record | S3 | owner | — | |
+| AR-1 | In CI `HEAD` is the pull request's merge commit, not `HEAD_SHA`; the Contract treats them as one commit, and no acceptance block has them differ | S1 | owner | build steps 0, 3, 4 | #51; fixed in 0.3 (§1, §3.1) |
+| AR-2 | A test whose assertion is deleted is neither new nor named: only added and changed lines mark a test | S1 | owner | build step 4 | #51; fixed in 0.3 (§3.5); D-037 |
+| AR-3 | A pull request that mechanically touches many test files cannot go green: every old test is new, out of time is a failure, and the excuse is one dated entry per file | S2 | owner | build step 4 | #51; fixed in 0.3 (§3.7); D-037 |
+| AR-4 | "Looks like a test, in any language" takes in snapshot files and anything under `__tests__/`, and each is `never-run` | S2 | owner | build step 4 | #51; fixed in 0.3 (§3.2, §3.5) |
+| AR-5 | A test's own support code is a subject, so a test that asserts on its own fixture is credited when the fixture is built in another file | S2 | owner | build step 4 | #51; fixed in 0.3 (§3.6); D-037 |
+| AR-6 | Step 0 sets the pass marks from the run they then judge, names no result that stops the build, and runs a program the repository does not hold | S2 | owner | build step 0 | #51; stop line fixed in 0.3, D-037; the rest: build step 0 |
+| AR-7 | Not judged is a warning in a job log, which the document says nothing reads; a pull request whose new tests are all unjudged passes, and the deferral has no detector | S2 | owner | build step 3 | #51; fixed in 0.3 (§4), D-037; the detector: build step 5 |
+| AR-8 | A Vitest outside 4 and 5 is run and judged, not refused; an error name the reader does not recognise counts as a failure | S2 | owner | build step 4 | #51; build step 3 |
+| AR-9 | Three outcomes of a changed run have no row: a load failure in `tried`, a timeout in `crashes`, a new test skipped by the change | S2 | owner | build steps 3, 4 | #51; build steps 3 and 4 |
+| AR-10 | Where `/work-ticket` runs the step is not said: the configured gate row leaves existing projects out, a line in the skill is exit 2 in slipway itself | S2 | owner | build step 5 | #51; build step 5 |
+| AR-11 | Between build steps 3 and 5 `main` holds a job that exits 2 on every pull request, and only a sentence keeps a project from taking it | S2 | owner | build step 3 | #51; fixed in 0.3 (Build map) |
+| AR-12 | The arguments kept from a `test` script go to the listing and to every changed run unread; a flag with its value as a second word leaves a filter behind | S2 | owner | build step 4 | #51; build step 3 |
+| AR-13 | Contract lines no acceptance block holds, and one sentence of §2 that, as written, leaves exported code unchanged | S2 | owner | build steps 2, 4 | #51; §2 fixed in 0.3; the rest: build steps 2, 3, 4 and 5 |
+| AR-14 | Hygiene: who pays, "runs no shell", the expect exception unmeasured, the workspace root, small gaps in the record | S3 | owner | — | #51; build step 0 (a count for the `expect` exception, the open questions, the pull request on a real project), step 3 (the workspace root, a flaky test at the baseline, one run's limit, `version` and two `run:` entries, `-w`, "no shell", the `meta` script) and step 4 (who pays, `excuse-expired` with no test changed, the `meta` script) |
 
 ## Findings
 
