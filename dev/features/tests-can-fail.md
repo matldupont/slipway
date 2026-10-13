@@ -593,7 +593,7 @@ Then  its sha256 equals the pinned one, and the test fails when one byte of the 
 Given a TypeScript source, a TSX source, a plain JavaScript source and a JSX source under scripts/fixtures/mutants/, each with a function, an if, a comparison and a boolean, and beside each a file holding the changes expected of it
 When  scripts/mutants.test.mjs calls mutants() on each
 Then  the result equals that file exactly: every change, its kind, line and replacement, in order
-And   each applies to give a text the parser reads again, and nothing is returned inside an import, a type annotation or a string
+And   each applies to give a text the parser reads again, and 0 changes are returned inside an import, a type annotation or a string
 ```
 
 ```
@@ -606,7 +606,7 @@ Then  the first is { unreadable } with the parser's reason and the second { unre
 Given a test file with two tests, a beforeEach, a helper function, an it.each of three rows, an expect whose argument runs over three lines, and a file that only re-exports from ./a and ./b
 When  scripts/mutants.test.mjs calls spans() on the first and reExports() on the second
 Then  spans() gives the first and last line of each of the three test calls and of each expect call, and no span for the hook or the helper
-And   reExports() gives ./a and ./b
+And   reExports() gives 2 paths, ./a and ./b
 ```
 
 ```
@@ -619,7 +619,7 @@ Then  the first four are read, the fourth with its node flag kept, and the last 
 Given the recorded Vitest 4 and Vitest 5 outputs under scripts/fixtures/vitest/
 When  scripts/mutation.test.mjs reads each with ci/checks/lib/runner-output.mjs
 Then  the listing gives each test's file, name and line; the results give passed and failed tests
-And   the four failures read as: counts (assertion), counts (a query that found no element), does not count (a TypeError whose first frame is in the code), counts (a TypeError whose first frame is in the test file, on a line inside an expect)
+And   the 4 failures read as: counts (assertion), counts (a query that found no element), does not count (a TypeError whose first frame is in the code), counts (a TypeError whose first frame is in the test file, on a line inside an expect)
 And   with the line field removed from a listing, or failureMessages from a failure, the reader throws the message of §5 with the range and the version
 ```
 
@@ -661,14 +661,14 @@ And   MT1 on that record exits 1 with only-crashes for the first and third and n
 Given the same project, and a commit that changes only a test file importing ./cart, ./utils (an index.ts that re-exports from ./a, which re-exports from ./b), ./types (types only), ./factories, ../mocks/handlers and a workspace package by name
 When  ci/mutation.mjs lists the subjects
 Then  they are cart's file, a's and b's, and that package's entry file with what it re-exports by relative path; ./types is dropped and named, ./factories and ../mocks/handlers are in the record's support, and nothing else is a subject
-And   a test file importing only ./types has its new tests in notJudged as no-change-to-make, one importing only ./factories has them as support-only, and none is in tests
+And   a test file importing only ./types has its new tests in notJudged as no-change-to-make, one importing only ./factories has them as support-only, and 0 of them are in tests
 ```
 
 ```
 Given a test file whose only subject cannot be parsed, one that imports nothing but the test runner, one with an unexpired tests-can-fail# entry, one in a folder a keep-out entry names, and one the stand-in runner does not list
 When  ci/mutation.mjs runs
 Then  the record's notJudged names the first four with could-not-be-parsed, no-subject, excused and kept-out, none is in tests, and the fifth is in neverRun
-And   with a changed __snapshots__/cart.test.tsx.snap, __tests__/fixtures/order.json and __tests__/helpers.ts that the runner does not list, none is in neverRun: the first is not a changed test file, and the other two are in notTests
+And   with a changed __snapshots__/cart.test.tsx.snap, __tests__/fixtures/order.json and __tests__/helpers.ts that the runner does not list, 0 of the 3 are in neverRun: the first is not a changed test file, and the other 2 are in notTests
 ```
 
 ```
@@ -705,7 +705,7 @@ Then  the first judges the last commit and says one file's changes were not judg
 Given a run killed (SIGKILL) while a changed file is in the copy
 When  the project is looked at afterwards
 Then  `git status` shows nothing the run made, `git worktree list` shows one worktree, and `pnpm meta` gives the result it gave before the run
-And   the next run removes a tests-can-fail-* folder in the temporary directory that is more than a day old and leaves a newer one
+And   the next run removes a tests-can-fail-* folder in the temporary directory that is more than 1 day old and leaves a newer one
 ```
 
 ```
@@ -767,7 +767,7 @@ And   the step-5 pull request names a reader who did not write them, and records
 Given a real project built from slipway
 When  the step is run once on one of its pull requests before it ships
 Then  at least 1 new test is judged, and the share not judged is under the figure D-037 holds after step 0; either one missed is not accepted without a decision of the owner's
-And   the last build step's pull request records the result as a pass or a miss against each, with no name, path, figure or content of that project: its figures are shown to the owner and not recorded
+And   the last build step's pull request records the result as a pass or a miss against each of the 2, with no name, path, figure or content of that project: its figures are shown to the owner and not recorded
 ```
 
 ```
@@ -912,4 +912,4 @@ figures D-037 does not hold yet.
 
 - 2026-10-08 · ADDED · the spec, from #51 · #370
 - 2026-10-12 · MODIFIED · Version 0.1 → 0.2, resolving the review of the draft (`docs/reviews/2026-10-09-tests-can-fail-unversioned.md`, AR-1 to AR-16), with D-037 amended the same day. A plain crash no longer counts as a test failing, except on a line inside an `expect` of the test's own file, and a test that only crashes is a finding (measured first, on the code D-037 used). Re-exports are followed 3 levels, and a subject with nothing to change is named, not a fault. The judged tests are what a package's `test` script runs, read in two plain forms, and a changed test file nothing runs is a finding. A pull request that changes no test passes before anything is copied. `ci/before-verify.sh` runs in the copy. The record stays inside one process. A new test is one whose own call changed; rows on one line are one group; a test that fails with nothing changed is a finding. The listing of unnoticed changes is withdrawn (L-69). Out of time stays a failure, the figures are provisional, and a step 0 measures on a hosted runner before the parser. Four acceptance lines that could not fail have a pass mark. The Vitest range is stated and its output is held by recorded files. The `Version:` line was added in the commit before this one
-- 2026-10-13 · MODIFIED · Version 0.2 → 0.3, resolving nine findings of the review of 0.2 (`docs/reviews/2026-10-12-tests-can-fail-0.2.md`: AR-1 to AR-7, AR-11, and the §2 sentence of AR-13) under the owner's cap of the same day, with D-037 amended. The job checks out the pull request's head commit, and a checkout that is not that commit stops the step. Lines removed from inside a test make it new. A pull request with new tests and none judged fails (`nothing-judged`). A mechanical change takes one dated entry that counts only in the pull request that adds it. Test support files, by a closed list of names, are not subjects. `never-run` is for a file a runner could list; a snapshot is never a test file. Deleted test files, files that are not tests, changes outside every test and support files left out are counted in the summary. §2 says a re-export, not an export. Step 0 has a stop line. The Build map builds the run (step 3) before the verdict and the job (step 4). AR-8, AR-9, AR-10, AR-12 and the rest of AR-13 are carried into the build as lines under their steps; no other Contract, Acceptance or Verify text changed
+- 2026-10-13 · MODIFIED · Version 0.2 → 0.3, resolving nine findings of the review of 0.2 (`docs/reviews/2026-10-12-tests-can-fail-0.2.md`: AR-1 to AR-7, AR-11, and the §2 sentence of AR-13) under the owner's cap of the same day, with D-037 amended. The job checks out the pull request's head commit, and a checkout that is not that commit stops the step. Lines removed from inside a test make it new. A pull request with new tests and none judged fails (`nothing-judged`). A mechanical change takes one dated entry that counts only in the pull request that adds it. Test support files, by a closed list of names, are not subjects. `never-run` is for a file a runner could list; a snapshot is never a test file. Deleted test files, files that are not tests, changes outside every test and support files left out are counted in the summary. §2 says a re-export, not an export. Step 0 has a stop line. The Build map builds the run (step 3) before the verdict and the job (step 4). AR-8, AR-9, AR-10, AR-12 and the rest of AR-13 are carried into the build as lines under their steps. Five older Acceptance lines are reworded to state a count, with no assertion changed, so #51's shape check reads them (the owner's exception to the cap); no other Contract, Acceptance or Verify text changed
