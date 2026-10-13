@@ -46,22 +46,22 @@ No finding below is S0.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | "Failed once" credits a crash, so the commonest cannot-fail test (it calls the code and asserts nothing) passes | S1 | owner | build step 2 | |
-| AR-2 | A subject that parses and has no change to make (a barrel, a types or constants file) ends in exit 2 "contradicts itself" | S1 | owner | build step 4 | |
-| AR-3 | The judged set is what bare `vitest` lists, not what CI runs; a new test file nothing runs is a warning | S1 | owner | build step 4 | |
-| AR-4 | The 10-minute stop fails correct pull requests; the budget rests on a prototype that differs from the Contract | S1 | owner | build step 4 | |
-| AR-5 | The threat model promises what Known limitations take back | S2 | owner | build step 3 | |
-| AR-6 | The job is red on every pull request of a project without Vitest, and pays the copy and install on pull requests that change no test | S2 | owner | build step 4 | |
-| AR-7 | The copy holds only tracked files; `ci/before-verify.sh`, the sanctioned setup, writes untracked ones | S2 | owner | build step 4 | |
-| AR-8 | Four acceptance lines cannot fail | S2 | owner | build steps 1–5 | |
-| AR-9 | "Tied to no runner version" is asserted; the step reads two of Vitest's JSON formats and slipway tests neither | S2 | owner | build step 4 | |
-| AR-10 | What counts as a new test breaks on `it.each`, loops, shared helpers and mechanical edits | S2 | owner | build step 4 | |
-| AR-11 | A flaky test is credited with a kill | S2 | owner | build step 4 | |
-| AR-12 | The survivors listing fires nothing, spends the budget, and its deferral has no detector | S2 | owner | build step 4 | |
-| AR-13 | The riskiest assumptions are measured last, after four build steps, and the figure behind "named, not failed" is unrecorded | S2 | owner | build map | |
-| AR-14 | Outside `pnpm verify`, nothing in the agent's loop fires; the job also departs from `ci.yml`'s "both triggers, always" without saying so | S2 | owner | build step 5 | |
-| AR-15 | The document has no `Version:` line, so a later review can never go stale | S3 | owner | the next review | |
-| AR-16 | Hygiene: a stale epic, minutes against seconds, an undeclared knob, a job added twice, one argument set per package | S3 | owner | — | |
+| AR-1 | "Failed once" credits a crash, so the commonest cannot-fail test (it calls the code and asserts nothing) passes | S1 | owner | build step 2 | #413; D-037 |
+| AR-2 | A subject that parses and has no change to make (a barrel, a types or constants file) ends in exit 2 "contradicts itself" | S1 | owner | build step 4 | #413 |
+| AR-3 | The judged set is what bare `vitest` lists, not what CI runs; a new test file nothing runs is a warning | S1 | owner | build step 4 | #413; D-037 |
+| AR-4 | The 10-minute stop fails correct pull requests; the budget rests on a prototype that differs from the Contract | S1 | owner | build step 4 | #413; D-037 |
+| AR-5 | The threat model promises what Known limitations take back | S2 | owner | build step 3 | #413 |
+| AR-6 | The job is red on every pull request of a project without Vitest, and pays the copy and install on pull requests that change no test | S2 | owner | build step 4 | #413; D-037 |
+| AR-7 | The copy holds only tracked files; `ci/before-verify.sh`, the sanctioned setup, writes untracked ones | S2 | owner | build step 4 | #413 |
+| AR-8 | Four acceptance lines cannot fail | S2 | owner | build steps 1–5 | #413 |
+| AR-9 | "Tied to no runner version" is asserted; the step reads two of Vitest's JSON formats and slipway tests neither | S2 | owner | build step 4 | #413 |
+| AR-10 | What counts as a new test breaks on `it.each`, loops, shared helpers and mechanical edits | S2 | owner | build step 4 | #413 |
+| AR-11 | A flaky test is credited with a kill | S2 | owner | build step 4 | #413 |
+| AR-12 | The survivors listing fires nothing, spends the budget, and its deferral has no detector | S2 | owner | build step 4 | #413; D-037, L-69 |
+| AR-13 | The riskiest assumptions are measured last, after four build steps, and the figure behind "named, not failed" is unrecorded | S2 | owner | build map | #413; D-037 |
+| AR-14 | Outside `pnpm verify`, nothing in the agent's loop fires; the job also departs from `ci.yml`'s "both triggers, always" without saying so | S2 | owner | build step 5 | #413; D-037 |
+| AR-15 | The document has no `Version:` line, so a later review can never go stale | S3 | owner | the next review | #413; #404 |
+| AR-16 | Hygiene: a stale epic, minutes against seconds, an undeclared knob, a job added twice, one argument set per package | S3 | owner | — | #413 |
 
 ## Findings
 
