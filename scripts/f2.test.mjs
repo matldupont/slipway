@@ -6,13 +6,14 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { section } from '../ci/checks/lib/markdown.mjs';
+import { excerpt } from '../ci/checks/lib/report.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const F2 = join(SRC, 'ci', 'checks', 'meta', 'f2-feature-fit.mjs');
@@ -31,16 +32,22 @@ const C = 'docs/features/c.md';
 // The check run on a folder holding `files`, with `flags`: its exit code, its lines, its JSON report and the
 // baselines file as it is afterwards (null when there is none).
 function f2(files, ...flags) {
+  return f2With(files, () => {}, ...flags);
+}
+// The same, with `arrange(dir)` run after the files are written, for what a file cannot be: a link, a folder, a mode.
+function f2With(files, arrange, ...flags) {
   const dir = mkdtempSync(join(tmpdir(), 'f2-'));
   try {
     for (const [p, body] of Object.entries(files)) {
       mkdirSync(dirname(join(dir, p)), { recursive: true });
       writeFileSync(join(dir, p), body);
     }
+    arrange(dir);
     const r = spawnSync(process.execPath, [F2, dir, ...flags], { encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1' } });
     const all = r.stdout.trimEnd().split('\n');
     const json = JSON.parse(all.findLast((l) => l.startsWith('@@json ')).slice('@@json '.length));
-    return { status: r.status, err: r.stderr, lines: all.filter((l) => !l.startsWith('@@json ')), json, file: existsSync(join(dir, BASELINES)) ? readFileSync(join(dir, BASELINES), 'utf8') : null };
+    const plain = existsSync(join(dir, BASELINES)) && lstatSync(join(dir, BASELINES)).isFile() && (lstatSync(join(dir, BASELINES)).mode & 0o400) !== 0;
+    return { status: r.status, out: r.stdout, err: r.stderr, lines: all.filter((l) => !l.startsWith('@@json ')), json, file: plain ? readFileSync(join(dir, BASELINES), 'utf8') : null };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -182,12 +189,13 @@ test('no ci/baselines.json, a count written as text, a negative or a fractional 
   }
 });
 
-test('a ci/baselines.json that is not JSON, or not an object: exit 2 naming the file, with and without --update, and nothing is written (0.2 review, AR-10 item 6)', () => {
-  for (const text of ['{ "feature-fit": 0,', '[0]', 'null', '']) {
+test('a ci/baselines.json that is not JSON, or not an object: exit 2 naming the file and none of its text, with and without --update, and nothing is written (0.2 review, AR-10 item 6)', () => {
+  for (const text of ['{ "feature-fit": 0,', '[0]', 'null', '', 'MARKER_ONE {', '{ "feature-fit": 0, MARKER_TWO']) {
     for (const flags of [[], ['--update']]) {
       const r = f2({ [A]: doc('shipped', FILLED), [BASELINES]: text }, ...flags);
       assert.equal(r.status, 2, text);
-      assert.match(r.lines[1], /^F2: BROKEN — ci\/baselines\.json is not (valid JSON|a JSON object)/, text);
+      assert.equal(r.lines[1], 'F2: BROKEN — ci/baselines.json is not a JSON object of counts', text);
+      assert.doesNotMatch(r.out + r.err, /MARK|Unexpected|token/, 'no word of the file, and none of the parser\'s, is printed');
       assert.equal(r.lines.length, 2);
       assert.equal(r.err, '', 'never a stack trace');
       assert.equal(r.file, text);
@@ -237,4 +245,53 @@ test("slipway's own ci/baselines.json holds the count the check gives at this he
   assert.equal(r.stdout.includes('improved'), false);
   const json = JSON.parse(r.stdout.split('\n').findLast((l) => l.startsWith('@@json ')).slice('@@json '.length));
   assert.ok(ids(json.warnings).includes('dev/features/landing-page-qa.md#not-a-feature-doc'));
+});
+
+// The count's file is a plain file of the repository or it is not read and not written.
+test('a link or a folder at ci/baselines.json, or a ci/ reached through a link: exit 2 before any read, and --update writes nowhere', () => {
+  const files = { [A]: doc('shipped') };
+  const outside = mkdtempSync(join(tmpdir(), 'f2-outside-'));
+  try {
+    const target = join(outside, 'target.json');
+    const arrangements = {
+      'a link to a file': [(dir) => (mkdirSync(join(dir, 'ci')), writeFileSync(target, 'MARKER_THREE'), symlinkSync(target, join(dir, BASELINES))), 'is a link, not a file'],
+      'a link to counts elsewhere': [(dir) => (mkdirSync(join(dir, 'ci')), writeFileSync(target, baseline(5)), symlinkSync(target, join(dir, BASELINES))), 'is a link, not a file'],
+      'a link to nothing': [(dir) => (mkdirSync(join(dir, 'ci')), rmSync(target, { force: true }), symlinkSync(target, join(dir, BASELINES))), 'is a link, not a file'],
+      'a folder': [(dir) => mkdirSync(join(dir, BASELINES), { recursive: true }), 'is not a regular file'],
+      'ci/ is a link': [(dir) => (rmSync(target, { force: true }), mkdirSync(join(outside, 'ci'), { recursive: true }), symlinkSync(join(outside, 'ci'), join(dir, 'ci'))), 'is reached through a link'],
+    };
+    for (const [name, [arrange, why]] of Object.entries(arrangements)) {
+      for (const flags of [[], ['--update']]) {
+        let before;
+        const r = f2With(files, (dir) => (arrange(dir), (before = existsSync(target) ? readFileSync(target, 'utf8') : null)), ...flags);
+        assert.equal(r.status, 2, name);
+        assert.deepEqual(r.lines.slice(1), [`F2: BROKEN — ci/baselines.json ${why}, so it is neither read nor written — make it a plain file`], name);
+        assert.doesNotMatch(r.out + r.err, /MARK/, name);
+        assert.equal(existsSync(target) ? readFileSync(target, 'utf8') : null, before, `${name}: the link's target is as it was`);
+        assert.equal(existsSync(join(outside, 'ci', 'baselines.json')), false, name);
+      }
+    }
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('a ci/baselines.json nobody may read: exit 2 by the error\'s code', { skip: process.getuid?.() === 0 }, () => {
+  const r = f2With({ [A]: doc('shipped', FILLED), [BASELINES]: baseline(0) }, (dir) => chmodSync(join(dir, BASELINES), 0o000));
+  assert.deepEqual([r.status, r.lines[1]], [2, 'F2: BROKEN — ci/baselines.json cannot be read (EACCES)']);
+});
+
+test('--update at the recorded count writes it again and passes; no ci/ folder yet is made by --update', () => {
+  const u = f2({ [A]: doc('shipped'), [BASELINES]: baseline(1) }, '--update');
+  assert.deepEqual([u.status, u.file, last(u)], [0, baseline(1), 'F2: PASS — green proves: feature-fit recorded at 1 in ci/baselines.json']);
+  assert.equal(f2({ [A]: doc('shipped', FILLED) }, '--update').file, baseline(0));
+});
+
+test('a status word is quoted cut to 30 characters, and a folder or a link among the docs is named as one', () => {
+  const long = 'in review by the whole product team since march';
+  const r = f2With({ [A]: doc(long), [BASELINES]: baseline(0) }, (dir) => mkdirSync(join(dir, 'docs', 'features', 'folder.md')));
+  assert.equal(r.status, 1);
+  assert.ok(excerpt(long, 30).length <= 30 && excerpt(long, 30) !== long);
+  assert.ok(r.json.findings[0].detail.startsWith(`\`${A}\` has the status "${excerpt(long, 30)}", which is not draft and has no`), r.json.findings[0].detail);
+  assert.deepEqual(r.json.warnings, [{ where: 'docs/features/folder.md#not-a-feature-doc', detail: '`docs/features/folder.md` is a link or a folder, not a file, so it is not read and its Fit is not checked' }]);
 });

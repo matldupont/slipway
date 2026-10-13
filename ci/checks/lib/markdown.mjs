@@ -2,12 +2,6 @@
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// The text under a heading with this exact title (case-insensitive), up to the next
-// heading of the same or a higher level, with HTML comments removed. null if absent.
-// A RegExp title matches the whole heading text: /9\.\s+Estimates?/ for a renamed one.
-// Comments are removed first, so a heading or an example inside a template comment
-// never counts as content.
-//
 // Each span from a `<!--` to the next `-->`, as `[start, end)`, in one pass: what /<!--[\s\S]*?-->/g matches. The
 // pattern looks to the end of the text from every `<!--` that has no `-->` after it, so a document of openers
 // costs the square of its length; here the first opener with no closer ends the search, since none after it
@@ -31,6 +25,12 @@ const withoutComments = (md) => {
   }
   return out + md.slice(from);
 };
+
+// The text under a heading with this exact title (case-insensitive), up to the next
+// heading of the same or a higher level, with HTML comments removed. null if absent.
+// A RegExp title matches the whole heading text: /9\.\s+Estimates?/ for a renamed one.
+// Comments are removed first, so a heading or an example inside a template comment
+// never counts as content.
 export const section = (md, title, level) => sectionLines(md, title, level)?.join('\n').trim() ?? null;
 
 // The same section as its lines, as written: nothing trimmed, so a reader that goes by where a line starts

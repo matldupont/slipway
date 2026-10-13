@@ -29,10 +29,13 @@
 // duplication ratchet sees copied lines, not a second calculation of one number or a second kind of surface.
 // F2 holds that the question was answered in the doc, not that the answer is true: a reviewer reads that.
 
+import { realpathSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { FEATURE_DIRS } from '../lib/feature-docs.mjs';
 import { fitCount } from '../lib/fit.mjs';
 import { BASELINES, compare, FIT_KEY, isCount, readBaselines, writeBaselines } from '../lib/ratchet.mjs';
 import { excerpt, report } from '../lib/report.mjs';
+import { MISSING, notPlainFile } from '../lib/review-header.mjs';
 
 const args = process.argv.slice(2);
 const update = args.includes('--update');
@@ -45,12 +48,23 @@ const fit = fitCount(root);
 const scanned = 1 + fit.files;
 const broken = (why) => process.exit(report({ id: 'F2', claim: '', scanned, unit: UNIT, broken: why }));
 
+// The count is read from, and written to, a plain file of the repository and nothing else: a link or a folder at
+// that path, or a `ci/` reached through a link, is refused before either, as sync refuses it for its own write.
+const notPlain = notPlainFile(root, BASELINES);
+const folder = dirname(BASELINES);
+let linked = false;
+try {
+  linked = realpathSync(join(root, folder)) !== join(realpathSync(root), folder);
+} catch {
+  // no ci/ folder yet: --update makes it
+}
+if (linked || (notPlain !== null && notPlain !== MISSING)) broken(`${BASELINES} ${linked ? 'is reached through a link' : notPlain}, so it is neither read nor written — make it a plain file`);
 let baselines;
 try {
   baselines = readBaselines(root);
 } catch (e) {
-  // The helper's own message names the file; an error from the file system is given by its code, never its text.
-  broken(e.code ? `${BASELINES} cannot be read (${e.code})` : e.message);
+  // By what went wrong, never by the error's text: a parser's message quotes the file it could not read.
+  broken(e.code ? `${BASELINES} cannot be read (${e.code})` : `${BASELINES} is not a JSON object of counts`);
 }
 const base = baselines[FIT_KEY];
 const outcome = compare(fit.count, base, isCount);

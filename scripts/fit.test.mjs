@@ -12,8 +12,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { isFeatureDoc, readFeatureFiles } from '../ci/checks/lib/feature-docs.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
-import { frontmatter, hasPlaceholder, PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
-import { commentCrossesHeading, commentSpans, section, sectionLines } from '../ci/checks/lib/markdown.mjs';
+import { frontmatter, hasPlaceholder, lineRest, PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
+import { commentCrossesHeading, commentSpans, prose, repeatedHeadings, section, sectionLines } from '../ci/checks/lib/markdown.mjs';
 import { citedFeatures, contents } from '../ci/checks/lib/milestones.mjs';
 import { parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 
@@ -57,6 +57,17 @@ function count(files, after = () => {}) {
 }
 const reasons = (files) => count(files).docs.find((d) => d.path === A).reasons;
 const rules = (files, path = A) => count(files).docs.find((d) => d.path === path).heldBy.map((h) => h.rule);
+
+test("docs/features/TEMPLATE.md: its Fit section is the one this file holds, and each of its three lines holds a placeholder", () => {
+  const template = readFileSync(join(SRC, 'docs', 'features', 'TEMPLATE.md'), 'utf8');
+  const own = sectionLines(template, 'Fit', 2);
+  assert.deepEqual(own, sectionLines(`${TEMPLATE_FIT}\n## Contract\n`, 'Fit', 2), 'TEMPLATE_FIT below is the template\'s section, line for line');
+  for (const label of ['Reuses:', 'Numbers:', 'New:']) {
+    const at = own.findIndex((l) => l.startsWith(label));
+    const end = own.findIndex((l, i) => i > at && l === '');
+    assert.match(own.slice(at, end < 0 ? undefined : end).join('\n'), PLACEHOLDER, `${label} in the template`);
+  }
+});
 
 test("the template's section, byte for byte: each of the three lines holds a placeholder, and a held doc with it lacks all three", () => {
   for (const label of ['Reuses:', 'Numbers:', 'New:']) {
@@ -313,15 +324,34 @@ test('a list mark with nothing after it is no item: `nothing` beside one, with `
 
 // The readers the count goes through, each rewritten to read a line once (#430): the patterns they replace are
 // kept here, and each reader gives what its pattern gave on text built from the pieces that matter to it.
+// mulberry32: every pair of neighbouring pieces turns up, which a generator read by its low bits does not give.
 const pick = (seed) => {
-  let s = seed;
-  return (n) => (s = (s * 1103515245 + 12345) % 2147483648) % n;
+  let s = seed >>> 0;
+  return (n) => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return Math.floor((((t ^ (t >>> 14)) >>> 0) / 4294967296) * n);
+  };
 };
 const built = (pieces, seed, max = 12) => {
   const next = pick(seed);
   return Array.from({ length: 1 + next(max) }, () => pieces[next(pieces.length)]).join('');
 };
 const OLD_COMMENT = /<!--[\s\S]*?-->/g;
+// prose() with closed comments only, as it was: its comment pattern, then the same pass over fences.
+function oldProse(md) {
+  const out = [];
+  let fence = null;
+  for (const line of md.replace(OLD_COMMENT, '').split(/\r?\n/)) {
+    const mark = line.match(/^\s{0,3}(`{3,}|~{3,})/)?.[1];
+    if (fence) {
+      if (mark && mark[0] === fence[0] && mark.length >= fence.length && line.trim() === mark) fence = null;
+    } else if (mark) fence = mark;
+    else out.push(line);
+  }
+  return out.join('\n');
+}
 function oldFrontmatter(md) {
   const unquote = (s) => s.trim().replace(/^(['"])(.*)\1$/, '$2');
   const m = md.match(/^---\r?\n([\s\S]*?)\r?\n---/);
@@ -343,10 +373,12 @@ function oldFrontmatter(md) {
 }
 
 test('commentSpans: the spans the comment pattern matched, on 20,000 built texts; section() and commentCrossesHeading() read through it', () => {
-  const pieces = ['<!--', '-->', '<!-', '->', '-', '>', '<', '!', 'a', '\n', '## H\n', ' '];
+  const pieces = ['<!--', '-->', '<!-', '->', '-', '>', '<', '!', 'a', '\n', '## H\n', '##', ' '];
   for (let seed = 1; seed <= 20000; seed++) {
     const md = built(pieces, seed);
     assert.deepEqual(commentSpans(md).map(([a, b]) => md.slice(a, b)), md.match(OLD_COMMENT) ?? [], JSON.stringify(md));
+    assert.equal(commentCrossesHeading(md), (md.match(OLD_COMMENT) ?? []).some((span) => span.slice(0, -3).split('\n').slice(1).some((l) => /^#{1,6}(?:\s|$)/.test(l.trim()))), JSON.stringify(md));
+    assert.equal(prose(md, { frontmatter: false, unclosed: false }), oldProse(md), JSON.stringify(md));
     assert.equal(section(`## T\n${md}`, 'T', 2), (() => {
       const lines = `## T\n${md}`.replace(OLD_COMMENT, '').split(/\r?\n/);
       const start = lines.findIndex((l) => /^##\s+T\s*$/i.test(l.trim()));
@@ -411,7 +443,9 @@ test('text nobody writes is read in time that grows with its length: openers wit
   const item = `## Contents\n\n1.${' '.repeat(300000)}x\u2028y\n`;
   within(1500, () => assert.deepEqual(contents(item), []));
   within(1500, () => assert.equal(hasPlaceholder(`${'<…\n'.repeat(300000)}>`), false));
-  const line = '<…'.repeat(2499);
+  within(1500, () => assert.equal(hasPlaceholder(`${'<…'.repeat(300000)}\n>`), false));
+  within(1500, () => assert.deepEqual(repeatedHeadings(`## A\n${'<!--'.repeat(150000)}`), []));
+  const line = '<…x'.repeat(1666);
   const lines = `${front('shipped')}# F-1 — x\n\n## Fit\n\nReuses:\n${`${line}\n`.repeat(1000)}\nNumbers:\n- x\n\nNew: x\n`;
   within(1500, () => assert.deepEqual(reasons({ [A]: lines }), [], 'an unclosed placeholder opener is not a placeholder'));
 });
@@ -428,4 +462,38 @@ test('section() is sectionLines() joined and trimmed, and null for the same docu
   assert.deepEqual(sectionLines(md, 'One', 2), ['', '  first', 'second  ', '']);
   assert.equal(section(md, 'One', 2), 'first\nsecond');
   assert.deepEqual([section(md, 'Three', 2), sectionLines(md, 'Three', 2)], [null, null]);
+});
+
+test('a closer on the heading\'s own line, a comment that hides a repeated heading, and a lone CR in a header: the three lines of the rewritten readers no built text reaches', () => {
+  assert.equal(commentCrossesHeading('<!--\n##-->'), true, 'the closer is cut before the line is read as a heading');
+  assert.deepEqual(repeatedHeadings('## A\n<!--\n## A\n-->\n'), [], 'a heading in a closed comment is not a repeat');
+  assert.deepEqual(repeatedHeadings('## A\n<!--\n## A\n').map((h) => h.title), ['A'], 'an unclosed comment hides nothing');
+  const CR = String.fromCodePoint(13);
+  assert.equal(lineRest(` a${CR}b`), null);
+  assert.equal(lineRest(`${CR} a b `), 'a b ', 'a line end in the leading whitespace is whitespace');
+  assert.deepEqual(frontmatter(`---\nkey: a${CR}b\nother: c\n---\n`), { other: 'c' });
+});
+
+// Filled means: says something. A label's text, and an item under it, counts only when it holds a letter or a digit.
+test('a label whose text holds no letter and no digit is unfilled: characters nobody sees, punctuation, a symbol, list marks', () => {
+  const blank = [0x200b, 0x2060, 0x3164, 0x2800, 0xad, 0xfeff, 0x200d].map((c) => String.fromCodePoint(c));
+  for (const x of [...blank, blank.join(''), '—', '...', '- -', '* *', '✅', '&', '-', '*']) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${x}`, `Numbers: ${x}`, `New: ${x}`)) }), ['fit/unfilled/reuses', 'fit/unfilled/numbers', 'fit/unfilled/new'], JSON.stringify(x));
+  }
+  for (const x of ['a', '3', 'é', '再利用', 'lib/x.ts', `a${blank[0]}`]) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${x}`, `Numbers: ${x}`, `New: ${x}`)) }), [], JSON.stringify(x));
+  }
+});
+
+test('a line that says nothing is no item, with or without a space after its mark: `nothing` beside one, with `New: none`, is unfilled/new', () => {
+  const ZW = String.fromCodePoint(0x200b);
+  for (const other of ['-', '*', '- ', '-\t', `- ${ZW}`, ZW, '- —', '...', '  -  ']) {
+    for (const reuses of [`Reuses:\n${other}\n- nothing`, `Reuses:\n- nothing\n${other}`, `Reuses:\n\n${other}\n\n- \`nothing\`; searched\n`, `Reuses: nothing\n${other}`]) {
+      assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, 'Numbers:\n- the total, in lib/money.ts', 'New: none')) }), ['fit/unfilled/new'], JSON.stringify(reuses));
+    }
+  }
+  // A second line that says something is an item, or continues one: the doc reuses something.
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:\n-\n- nothing\n- `total()` in lib/money.ts', 'Numbers:\n- none shown', 'New: none')) }), []);
+  // `nothing` hidden behind a character nobody sees is still `nothing`.
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${ZW}nothing`, 'Numbers:\n- none shown', `New: no${ZW}ne`)) }), ['fit/unfilled/new']);
 });

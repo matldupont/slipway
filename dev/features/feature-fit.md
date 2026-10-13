@@ -405,6 +405,9 @@ as the other ratchets' are.
   reading (decision-defaults §5).
 - F2 reads `docs/features/` and `dev/features/`, as ID1 does. A project whose `Feature docs dir` setting names
   another folder has its docs unread by both; the claim line names the folders read.
+- A label's text, and an item under it, counts as filled only when it holds a letter or a digit, once characters
+  nobody sees are taken out. A value written as a symbol only (a dash, a tick) reads as unfilled: counted, never
+  passed. The rule says what is filled so that nothing that looks empty has to be listed.
 - A line of a label's text longer than 5,000 characters reads as unfilled, and the finding says the line is not
   filled in, not that it is too long. The cap bounds what the reader does per line; over it the reader refuses
   rather than guesses, so such a doc is counted, never passed. Wrap the line.

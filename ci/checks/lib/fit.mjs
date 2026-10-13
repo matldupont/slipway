@@ -24,7 +24,7 @@
 
 import { existsSync, readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { docFrontmatter, isFeatureDoc, readFeatureFiles } from './feature-docs.mjs';
+import { docFrontmatter, isFeatureDoc, readFeatureFiles, visible } from './feature-docs.mjs';
 import { hasPlaceholder } from './frontmatter.mjs';
 import { sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
@@ -50,30 +50,32 @@ function fitTexts(md) {
   return Object.fromEntries(Object.entries(texts).map(([k, lines]) => [k, lines.join('\n')]));
 }
 
+// What says something: text with at least one letter or digit, in any script. The rule names what is filled, not
+// what is empty, so a list mark alone, a line of punctuation and every character nobody sees say nothing without
+// being listed. A value written as a symbol only reads as unfilled: counted, never passed.
+const says = (s) => /[\p{L}\p{N}]/u.test(s);
+// A label's text as a reader sees it, the way ID1 reads a heading (lib/feature-docs.mjs): characters that print as
+// nothing removed, look-alike forms folded. For the answers and the items only: the placeholder test reads the
+// text as written, since folding rewrites the template's own `…`.
+const seen = (text) => visible(text).map((l) => l.text).join('\n');
 const word = (s) => s.replace(/`/g, '').trim().toLowerCase();
 // A label's text as one short answer: its list mark, backticks and closing full stop removed, case ignored.
 const answer = (text) => word(text.trimStart().replace(/^[-*]\s/, '')).replace(/\.$/, '').trim();
 // What a label's text lists: the text on the label's own line, then each bullet or unmarked line, with the lines
-// that continue it.
+// that continue it. A line that says nothing is no item and continues none.
 function items(text) {
   const [own, ...rest] = text.split('\n');
-  const out = own.trim() ? [own] : [];
-  let open = out.length > 0;
+  const out = says(own) ? [own.trim()] : [];
   for (const line of rest) {
+    if (!says(line)) continue;
     // The mark alone is matched, anchored, and the rest is cut: a pattern that also spans the line retries on one
     // that holds a line separator.
     const mark = line.match(/^\s*[-*]\s/);
-    // A mark with nothing after it lists nothing: it is no item, so it cannot stand beside `nothing` as a second one.
-    if (mark && !line.slice(mark[0].length).trim()) continue;
-    if (mark) out.push(line.slice(mark[0].length).trim());
-    else if (!line.trim()) continue;
-    else if (open) out[out.length - 1] += ` ${line.trim()}`;
-    else out.push(line.trim()); // text under the label with no list mark is an item too
-    open = true;
+    if (mark || out.length === 0) out.push(line.slice(mark ? mark[0].length : 0).trim()); // unmarked text under the label is an item too
+    else out[out.length - 1] += ` ${line.trim()}`;
   }
   return out;
 }
-const empty = (text) => text.replace(/[\s*-]/g, '') === '';
 // Whether a label's text still holds a template placeholder, read a line at a time and each line in one pass
 // (hasPlaceholder). A line longer than any a person writes is read as holding one: a doc is other people's
 // content, and a line nobody reads is never a filled one.
@@ -84,17 +86,18 @@ const placeholder = (text) => text.split('\n').some((line) => line.length > LINE
 function readFit(md) {
   const texts = fitTexts(md);
   if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
-  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || empty(texts[k]) || placeholder(texts[k]));
-  const listed = items(texts.reuses ?? '');
-  const reusesNothing = !unfilled.includes('reuses') && listed.every((i) => word(i).startsWith('nothing'));
-  const nothingNew = !unfilled.includes('new') && answer(texts.new) === 'none';
+  // The placeholder test and its length cap come first, on the text as written, so a line nobody reads is not folded.
+  const read = {};
+  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || !says((read[k] = seen(texts[k]))));
+  const reusesNothing = !unfilled.includes('reuses') && items(read.reuses).every((i) => word(i).startsWith('nothing'));
+  const nothingNew = !unfilled.includes('new') && answer(read.new) === 'none';
   // A feature that neither reuses nor adds anything has not been described.
   if (reusesNothing && nothingNew) unfilled.push('new');
   const filled = unfilled.length === 0;
   return {
     reasons: unfilled.map((k) => `fit/unfilled/${k}`),
     reusesNothing: filled && reusesNothing,
-    noNumbers: filled && answer(texts.numbers) === 'none shown',
+    noNumbers: filled && answer(read.numbers) === 'none shown',
     nothingNew: filled && nothingNew,
   };
 }
