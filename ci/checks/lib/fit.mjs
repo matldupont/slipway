@@ -26,7 +26,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, readFeatureFiles } from './feature-docs.mjs';
 import { hasPlaceholder } from './frontmatter.mjs';
-import { section } from './markdown.mjs';
+import { sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
 import { readPlain, reviewProvenance } from './review-header.mjs';
 
@@ -35,11 +35,12 @@ const REVIEWS = 'docs/reviews';
 
 // The text of each label of a doc's Fit section, absent labels left out; null when the doc has no section.
 function fitTexts(md) {
-  const body = section(md, 'Fit', 2);
+  // The lines as written: section() trims its text, and an indented `Reuses:` on the first line is not a label.
+  const body = sectionLines(md, 'Fit', 2);
   if (body === null) return null;
   const texts = {};
   let cur = null;
-  for (const line of body.split(/\r?\n/)) {
+  for (const line of body) {
     const key = Object.keys(LABELS).find((k) => line.startsWith(LABELS[k]));
     if (key) {
       cur = key in texts ? null : key; // a label written twice: its first line is the one read

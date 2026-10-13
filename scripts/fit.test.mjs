@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { isFeatureDoc, readFeatureFiles } from '../ci/checks/lib/feature-docs.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { frontmatter, hasPlaceholder, PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
-import { commentCrossesHeading, commentSpans, section } from '../ci/checks/lib/markdown.mjs';
+import { commentCrossesHeading, commentSpans, section, sectionLines } from '../ci/checks/lib/markdown.mjs';
 import { citedFeatures, contents } from '../ci/checks/lib/milestones.mjs';
 import { parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 
@@ -414,4 +414,18 @@ test('text nobody writes is read in time that grows with its length: openers wit
   const line = '<…'.repeat(2499);
   const lines = `${front('shipped')}# F-1 — x\n\n## Fit\n\nReuses:\n${`${line}\n`.repeat(1000)}\nNumbers:\n- x\n\nNew: x\n`;
   within(1500, () => assert.deepEqual(reasons({ [A]: lines }), [], 'an unclosed placeholder opener is not a placeholder'));
+});
+
+test("a label is a label only at the first column, on the section's first line too: an indented `Reuses:` straight under the heading reads as absent", () => {
+  const indented = (lead) => `## Fit\n${lead}Reuses:\n- \`total()\` in lib/money.ts\n\nNumbers:\n- none shown\n\nNew: the export button\n`;
+  for (const lead of ['  ', '\t', '\n    ']) assert.deepEqual(reasons({ [A]: doc('shipped', indented(lead)) }), ['fit/unfilled/reuses'], JSON.stringify(lead));
+  assert.deepEqual(reasons({ [A]: doc('shipped', indented('')) }), []);
+  assert.deepEqual(reasons({ [A]: doc('shipped', indented('\n\n')) }), [], 'blank lines under the heading change nothing');
+});
+
+test('section() is sectionLines() joined and trimmed, and null for the same documents', () => {
+  const md = '# T\n\n## One\n\n  first\nsecond  \n\n## Two\nx\n';
+  assert.deepEqual(sectionLines(md, 'One', 2), ['', '  first', 'second  ', '']);
+  assert.equal(section(md, 'One', 2), 'first\nsecond');
+  assert.deepEqual([section(md, 'Three', 2), sectionLines(md, 'Three', 2)], [null, null]);
 });

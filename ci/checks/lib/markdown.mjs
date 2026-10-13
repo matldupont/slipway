@@ -31,7 +31,11 @@ const withoutComments = (md) => {
   }
   return out + md.slice(from);
 };
-export function section(md, title, level) {
+export const section = (md, title, level) => sectionLines(md, title, level)?.join('\n').trim() ?? null;
+
+// The same section as its lines, as written: nothing trimmed, so a reader that goes by where a line starts
+// (a label at the first column) sees the first line's indent too. null if absent.
+export function sectionLines(md, title, level) {
   const lines = withoutComments(md).split(/\r?\n/);
   const text = title instanceof RegExp ? title.source : escapeRe(title);
   const heading = new RegExp(`^#{${level}}\\s+(?:${text})\\s*$`, 'i');
@@ -43,7 +47,7 @@ export function section(md, title, level) {
     if (h && h[1].length <= level) break;
     body.push(l);
   }
-  return body.join('\n').trim();
+  return body;
 }
 
 // Whether a span section() removes as a comment holds a heading-shaped line (at any indent: section() finds a
