@@ -14,7 +14,7 @@ import { isFeatureDoc, readFeatureFiles } from '../ci/checks/lib/feature-docs.mj
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
 import { citedFeatures } from '../ci/checks/lib/milestones.mjs';
-import { onlySpacingDiffers, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
+import { parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -239,6 +239,10 @@ test('a line no person writes is read as unfilled, in bounded time: a label line
   const started = Date.now();
   assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses: ${'<…'.repeat(200_000)}`, 'Numbers:\n- b', 'New: c')) }), ['fit/unfilled/reuses']);
   assert.ok(Date.now() - started < 3_000, `took ${Date.now() - started} ms`);
+  // A bullet line of spaces, then text, then a line separator: the mark is matched alone, so the line is read once.
+  const again = Date.now();
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${' '.repeat(150_000)}a helper\u2028in lib/x`, 'Numbers:\n- b', 'New: c')) }), ['fit/unfilled/reuses'], 'over the line cap, so unfilled');
+  assert.ok(Date.now() - again < 3_000, `took ${Date.now() - again} ms`);
   assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${'a helper. '.repeat(600)}`, 'Numbers:\n- b', 'New: c')) }), ['fit/unfilled/reuses'], 'over the line cap');
   assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${'a helper. '.repeat(400)}`, 'Numbers:\n- b', 'New: c')) }), [], 'a long line under the cap is read');
 });
@@ -259,30 +263,10 @@ test('a review that is a link is not read, so it holds nothing', () => {
 });
 
 // The shared reader and writer of ci/baselines.json (ci/checks/lib/ratchet.mjs).
-test('onlySpacingDiffers: yes for a file whose tokens are the ones written back, whatever its spacing; no for anything else, and no when it cannot tell', () => {
-  const form = serialiseBaselines({ dup: 12, 'a "quoted" name': 1, 'back\\': 2, nested: { a: [1, 2] } });
-  for (const [text, why] of [
-    [form, 'the one form'],
-    [form.replace(/\n {2}/g, '\n\t'), 'tab-indented'],
-    [JSON.stringify(JSON.parse(form)), 'compact'],
-    [form.trimEnd(), 'no final newline'],
-    [form.replace(/\n/g, '\r\n'), 'CRLF'],
-    ['{ "a b":1 ,\n"c"  :  [ ] }', 'a name with a space in it, and loose spacing between tokens'],
-  ]) assert.equal(onlySpacingDiffers(text), true, why);
-  for (const [text, why] of [
-    ['{"a": 1.50}', 'a number written another way'],
-    ['{"a": 12345678901234567890}', 'a number too large to hold'],
-    ['{"a": 1e400}', 'a number that reads as none'],
-    ['{"b": 1, "7": 2}', 'a name that is a whole number moves to the front'],
-    ['{"a": 1, "a": 2}', 'a name written twice'],
-    ['{"\\u00e9": 1}', 'an escape in a name'],
-    ['{"a": "x\\/y"}', 'an escape in a value'],
-    ['{"a\\u0020b": 1}', 'a space written as an escape'],
-    ['[1]', 'not an object'],
-    ['{ not json', 'not JSON'],
-  ]) assert.equal(onlySpacingDiffers(text), false, why);
-  assert.equal(onlySpacingDiffers('{"a  b": 1, "a b": 2}'), true, 'two names that differ by a space inside them are two names, and both come back as written');
+test('parseBaselines and serialiseBaselines: an object of names comes back in the one form; anything else is refused by name', () => {
+  assert.equal(serialiseBaselines(parseBaselines('{"dup":12,\t"feature-fit":0}')), '{\n  "dup": 12,\n  "feature-fit": 0\n}\n');
   assert.throws(() => parseBaselines('[1]'), /^Error: ci\/baselines\.json is not a JSON object of name → number$/);
+  assert.throws(() => parseBaselines('null'), /not a JSON object/);
   assert.throws(() => parseBaselines('{'), /^Error: ci\/baselines\.json is not valid JSON: /);
 });
 

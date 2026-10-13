@@ -26,24 +26,6 @@ export function parseBaselines(text) {
 // The one form the file is written in: two-space JSON and a final newline.
 export const serialiseBaselines = (baselines) => `${JSON.stringify(baselines, null, 2)}\n`;
 
-// JSON text with its whitespace removed. Spaces inside a string go too, which changes no answer below: a string
-// comes back from a parse and a write with the same characters unless it was written with an escape the writer
-// spells another way, and that differs in a character that is not whitespace.
-const squeeze = (text) => text.replace(/[ \t\n\r]/g, '');
-
-// Whether writing `text`'s baselines back in the one form changes nothing but its spacing.
-// False when anything else would change: a number written another way (`1.0`, one too large to hold), a name
-// written twice, a name that is a whole number (it moves to the front), an escape in a name. It decides only
-// "rewrite or refuse" for a caller about to rewrite a file it does not own, and whatever it cannot make equal is
-// a no: a wrong answer here can only refuse, never rewrite.
-export const onlySpacingDiffers = (text) => {
-  try {
-    return squeeze(text) === squeeze(serialiseBaselines(parseBaselines(text)));
-  } catch {
-    return false;
-  }
-};
-
 // The baselines under `root`; none when the file is absent.
 export const readBaselines = (root = '.') => (existsSync(join(root, BASELINES)) ? parseBaselines(readFileSync(join(root, BASELINES), 'utf8')) : {});
 

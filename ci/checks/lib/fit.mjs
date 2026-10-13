@@ -51,15 +51,18 @@ function fitTexts(md) {
 
 const word = (s) => s.replace(/`/g, '').trim().toLowerCase();
 // A label's text as one short answer: its list mark, backticks and closing full stop removed, case ignored.
-const answer = (text) => word(text.replace(/^\s*[-*]\s+/, '')).replace(/\.$/, '').trim();
-// What a label's text lists: the text on the label's own line, then each bullet with the lines that continue it.
+const answer = (text) => word(text.trimStart().replace(/^[-*]\s/, '')).replace(/\.$/, '').trim();
+// What a label's text lists: the text on the label's own line, then each bullet or unmarked line, with the lines
+// that continue it.
 function items(text) {
   const [own, ...rest] = text.split('\n');
   const out = own.trim() ? [own] : [];
   let open = out.length > 0;
   for (const line of rest) {
-    const bullet = line.match(/^\s*[-*]\s+(.*)$/);
-    if (bullet) out.push(bullet[1]);
+    // The mark alone is matched, anchored, and the rest is cut: a pattern that also spans the line retries on one
+    // that holds a line separator.
+    const mark = line.match(/^\s*[-*]\s/);
+    if (mark) out.push(line.slice(mark[0].length).trim());
     else if (!line.trim()) continue;
     else if (open) out[out.length - 1] += ` ${line.trim()}`;
     else out.push(line.trim()); // text under the label with no list mark is an item too
@@ -137,7 +140,7 @@ export function fitCount(root) {
   const docs = [];
   const drafts = [];
   for (const f of files.filter(isFeatureDoc)) {
-    // As ID1 reads a doc: a byte-order mark is not part of it, and CR, LF and CRLF all end a line.
+    // A byte-order mark is not part of the doc, and CR, LF and CRLF all end a line, as ID1 reads its headings.
     const md = f.md.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n');
     const fm = docFrontmatter(md);
     const status = typeof fm?.status === 'string' ? fm.status.trim().toLowerCase() : '';

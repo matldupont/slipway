@@ -34,9 +34,10 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { FEATURE_DIRS } from '../ci/checks/lib/feature-docs.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
-import { BASELINES, FIT_KEY, isCount, onlySpacingDiffers, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
+import { BASELINES, FIT_KEY, isCount, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
@@ -452,15 +453,16 @@ export function plan({ root, manifest, overrides, base, gitDir, target, targetRu
 
 // The project's ci/baselines.json as an object, or null when it has none. A file sync cannot read is a refusal
 // before any write, as a package.json that is not JSON is: sync never rewrites what it could not parse.
-function projectBaselines(root, { text = false } = {}) {
+function projectBaselines(root, { bytes = false } = {}) {
   const cur = readProjectFile(root, BASELINES);
   if (cur === null) return null;
   if (!Buffer.isBuffer(cur)) throw new Refusal(`${BASELINES} is a link or a folder, not a file, and sync records a count in it — make it a regular file; nothing was written`);
   try {
     const json = parseBaselines(cur.toString('utf8'));
-    return text ? { json, text: cur.toString('utf8') } : json;
+    return bytes ? { json, bytes: cur } : json;
   } catch (e) {
-    throw new Refusal(`${oneLine(e.message)} — sync records a count in it and does not rewrite a file it cannot read; nothing was written`);
+    // The parser's message quotes the file, which is the project's text: the refusal says what is wrong in its own words.
+    throw new Refusal(`${BASELINES} is not ${/not valid JSON/.test(e.message) ? 'valid JSON' : 'a JSON object of name → number'} — sync records a count in it and does not rewrite a file it cannot read; nothing was written`);
   }
 }
 
@@ -779,20 +781,28 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       (target.has(p) ? todo.kept.shipped : todo.kept.gone).push(p);
     } else if (kind === COUNT_ROW) {
       // Counted here, so --apply recounts: the plan and --apply are two runs, and what is printed is what is
-      // written. The file is written in its one form. One in another form is rewritten, and said to be, only
-      // when nothing but its spacing changes; one whose entries would not come back as they were written is
-      // refused before any write, since the file is the project's.
-      const was = projectBaselines(root, { text: true });
+      // written. Sync adds the count to a file that is absent, or whose bytes are exactly what the one writer
+      // writes for it, so every other entry stays byte for byte. A file in any other form is the project's to
+      // put back: sync never rewrites it, and refuses before any write (the owner, 2026-10-13). Nothing is
+      // decoded to decide: the bytes are equal or they are not.
+      const was = projectBaselines(root, { bytes: true });
       if (was && isCount(was.json[FIT_KEY])) throw moved(p);
-      const reformatted = Boolean(was) && serialiseBaselines(was.json) !== was.text;
-      if (reformatted && !onlySpacingDiffers(was.text)) {
-        throw new Refusal(`${BASELINES} holds an entry that would change if sync rewrote the file to record a count in it: a number written another way (1.0, or one too large), a name written twice, or a name that is a whole number — rewrite the file yourself as two-space JSON, check its entries, commit, then sync again; nothing was written`);
+      let inForm = !was;
+      try {
+        inForm ||= was.bytes.equals(Buffer.from(serialiseBaselines(was.json)));
+      } catch {
+        // a file the writer cannot write back is not in its form
+      }
+      if (!inForm) {
+        throw new Refusal(`${BASELINES} is not in the form slipway writes it in (two-space JSON, each entry once and as slipway would write it, one final newline), and sync does not rewrite a file of yours to record a count in it — put the file back in that form (if a formatter changed it, keep the formatter off this file), commit, then sync again; nothing was written`);
       }
       let fit;
       try {
         fit = fitCount(root);
       } catch (e) {
-        throw new Refusal(`could not count the feature docs with no Fit section: ${oneLine(e.message)} — docs/features/, docs/reviews/ and docs/milestones/ must be folders of regular files; nothing was written`);
+        // The error's text names a path of the project's, so only its code is shown.
+        const code = /^[A-Z][A-Z0-9_]{1,30}$/.test(e?.code ?? '') ? ` (${e.code})` : '';
+        throw new Refusal(`could not read the project's feature docs, reviews or milestones to count the feature docs with no Fit section${code} — look in docs/features/, dev/features/, docs/reviews/ and docs/milestones/ for an entry that is not a regular file, such as a folder or a link to nothing; nothing was written`);
       }
       const bytes = serialiseBaselines({ ...was?.json, [FIT_KEY]: fit.count });
       todo.writes.set(p, { bytes: Buffer.from(bytes) });
@@ -800,9 +810,8 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
         file: p,
         n: fit.count,
         noStatus: fit.docs.filter((d) => d.reasons.includes('frontmatter/unreadable')).length,
-        drafts: fit.drafts,
-        others: fit.others.map((o) => o.path),
-        reformatted,
+        drafts: fit.drafts.length,
+        others: Object.fromEntries(FEATURE_DIRS.map((d) => [`${d}/`, fit.others.filter((o) => o.path.startsWith(`${d}/`)).length])),
       };
     }
   }
