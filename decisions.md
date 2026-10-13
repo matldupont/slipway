@@ -694,6 +694,37 @@ The same measurement was run on a private product with one engineer, a web app; 
 owner and are not recorded. Step 0 follows the same rule: a real project's figures are shown to the owner, and
 this entry records the scratch project's and what the owner set from both.
 
+**Amended 2026-10-13**, answering the review of F-13 at 0.2 (`docs/reviews/2026-10-12-tests-can-fail-0.2.md`). The
+owner capped the review loop the same day: 0.3 fixes nine findings, the others are carried into the build as lines
+under the Build map step that touches each, and the review of 0.3 is the last of the whole document before the
+build. The owner picked each of these:
+
+- **Removed lines edit a test** (AR-2). "Adds or edits" takes in a test that only has lines removed from inside
+  it: it must still fail on a change to the code, or the pull request is red. A test deleted whole, and a deleted
+  test file, are counted and are not findings.
+- **A pull request whose new tests are all unjudged fails** (AR-7). "It never passes for having nothing to look
+  at" holds for a pull request that did change tests. What never counts against it: a test the owner excused,
+  kept out or marked mechanical, a project's dated `other-runner` entry, and a skipped test. One unjudged test
+  beside a judged one stays named and not failed.
+- **A mechanical change takes one dated line** (AR-3). `tests-can-fail#mechanical` in `ci/exceptions.yaml` counts
+  only in the pull request whose diff adds it: that pull request's new tests are not judged, each named and
+  counted. Afterwards it excuses nothing. This replaces the session's call of 2026-10-12 that such a pull request
+  stays red. The cost taken: the pull request that adds the line excuses its own tests. What holds it: the file
+  asks the owner before it changes, the pull request lists it under `## Gate changes`, and the run names every
+  test it let through.
+- **Test support files are not code under test** (AR-5). A closed list of folder and file names, in F-13 §3.6. A
+  product file under one of those names is not changed, and a test of that file alone is named not judged; a
+  helper under another name is still changed, a known limit.
+- **Step 0's stop line, written before it runs** (AR-6). Over 10 minutes on the scratch change on a hosted
+  runner, or more than a third of a real project's new tests not judged, and the build does not start: F-13 comes
+  back to the owner with both figures. The threshold is slipway's; a real project's measured figures are shown to
+  the owner and not recorded.
+
+Taken with the orchestrator session, whose reply is advice: the `mutation` job checks out the pull request's head
+commit, so the commit diffed, copied and held to is one, and the job judges the branch as pushed while `verify`
+runs the merge (AR-1); `never-run` is for a file a runner could list, and a snapshot is never a test file (AR-4);
+the run is built before the verdict, so the job is added once with the run behind it (AR-11).
+
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
 
 A deferred check's recorded run has one row per journey, and any `not run` keeps the check owed
