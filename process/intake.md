@@ -318,7 +318,7 @@ that already has one: `provenance/stale` for each review naming the old line, an
 draft, `review/missing` until a review names the new version. That is expected, not a fault in the edit.
 
 - **Never touch `docs/reviews/`,** and never restore or reword the version line to turn R1 green: a review
-  records what was read at that version. `git diff --stat origin/{default branch}...HEAD -- docs/reviews` and `git status --porcelain -- docs/reviews` both print nothing after the run.
+  records what was read at that version. The harness asks before a session writes there (`Edit(**/docs/reviews/**/*.md)`), and the pull request check counts a changed review as a gate file. Run at the repository root, `git diff --stat origin/{default branch}...HEAD -- ':/docs/reviews'` and `git status --porcelain -- ':/docs/reviews'` both print nothing after the run.
 - **Record it as run.** The doc PR's Verification shows `pnpm meta` with R1's findings named, not called
   green. Any other red check is not expected: fix it.
 - **Tell the owner,** in the skill's output, when R1 reports either finding for the PRD: "The PRD moved to
@@ -347,9 +347,9 @@ This section applies in slipway itself too.
 - **R1 goes red, and that is expected,** when a review in `docs/reviews/` quotes the old line
   (`provenance/stale`). Never touch `docs/reviews/` (add, edit, delete or rename a file there), never hold
   back or undo a bump, and never reword the line, to turn R1 green: the way out is a fresh review, by `/review-doc`
-  in a session of its own. `git diff --stat origin/{default branch}...HEAD -- docs/reviews` and `git status --porcelain -- docs/reviews` both print nothing after the run.
+  in a session of its own. The harness asks before a session writes there, and the pull request check counts a changed review as a gate file (PRD entry). Run at the repository root, `git diff --stat origin/{default branch}...HEAD -- ':/docs/reviews'` and `git status --porcelain -- ':/docs/reviews'` both print nothing after the run.
   The PR's Verification shows `pnpm meta` with R1's finding named, not called green. Any other red check is not
-  expected: fix it. Until #405 this rule is prose: nothing asks before a session changes that folder.
+  expected: fix it.
 - **Tell the owner,** in the skill's output, when R1 reports it: "{doc path} moved to Version {new}; its review of
   {old} no longer matches. Run `/review-doc {doc path}` from a fresh session before it is built from." With no
   review of the doc on file, R1 says nothing and neither does the skill.

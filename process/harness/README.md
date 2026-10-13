@@ -62,6 +62,15 @@ held to them too (#305). A pull request that leaves no root `AGENT.md` is never 
 repair the row first. Known limitation: run by hand on a branch, or from a workflow that checks out anything but the
 pull request's merge, the check has no merge to read the tip from, so only the base given counts there.
 
+**So are the reviews** (#405): a review under `docs/reviews/` is evidence a gate reads (R1 goes red when it no longer matches
+its document, and the way out is a fresh review), so a session that writes one is asked first, and the PR check counts it:
+
+| path | why it is a gate file |
+|---|---|
+| `**/docs/reviews/**/*.md` | R1 reads each review against its document; changing one to turn R1 green weakens the gate. The rule names `*.md` because the PR check treats Markdown as a document unless a rule names it by a `.md` pattern; `**/` is zero or more folders, so a review at the folder's top and one in a sub-folder both count |
+
+Known limitation: a file in that folder that is not Markdown is neither asked about nor counted; no check reads such a file.
+
 **So are the files that change which program a gate command runs, or how pnpm and node start it** (#133).
 Each is a gate file here and in the PR check:
 

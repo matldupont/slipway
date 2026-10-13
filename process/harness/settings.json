@@ -57,6 +57,7 @@
       "Edit(**/dev/skill-configuration.md)",
       "Edit(**/dev/ownership.yaml)",
       "Edit(**/scripts/new-project.mjs)",
+      "Edit(**/docs/reviews/**/*.md)",
       "Edit(**/.npmrc)",
       "Edit(**/.pnpmfile.cjs)",
       "Edit(**/pnpm-workspace.yaml)",
