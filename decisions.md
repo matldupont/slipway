@@ -542,6 +542,22 @@ proposed the ratchet; the owner set the condition on sync.
 Declined: backfill before green (a); an exemption line with a reason (b); a grace rule keyed on when a doc's
 status changed (c, nothing records that). #48.
 
+Amended 2026-10-12 (#48, the owner's answers to the review of the spec at 0.1,
+`docs/reviews/2026-10-12-feature-fit-0.1.md`). Three things, and the rule above is otherwise as decided:
+
+- **What is counted.** Not only docs past `draft`: a feature doc is held from its first review, or from the day a
+  milestone that is running schedules it, so the check arrives before the feature is built. Sync records the
+  count of all held docs with no filled Fit, so a project's reviewed or scheduled drafts are recorded on sync
+  too, never red.
+- **Fit is three lines:** `Reuses:`, `Numbers:`, `New:`. `Serves:` is dropped; `prd-ref:` carries that link.
+- **Slipway's own count is the honest number, not 0.** A held doc another open pull request is editing is not
+  backfilled; the count goes down as each lands its own Fit.
+
+Also the owner's yes, the same day: the spec names three owner-only files that gain one sentence each telling
+their reader to check Fit against the code (`process/cold-review.md`, `/review-doc`, `/close-milestone`).
+Advised by the orchestrator session and taken: the build order turned round (sync's count first, the check
+second), so the stop condition above is met before anything is live.
+
 ## D-037 — A pull request's new tests must each fail on a change to the code; slipway's own mutator checks it, within 5 minutes *(decided 2026-10-08)*
 
 #51 asks that a product's tests be able to fail, checked on every pull request (F-13,
@@ -624,6 +640,59 @@ What this leaves open: the prototype that was timed used the TypeScript compiler
 time and edited the scratch project in place; the build uses the pinned parser and works in a copy of the
 commit outside the project (F-13), and its time on a hosted runner is not known until a project
 runs it. The mutator makes fewer kinds of change than StrykerJS. A weak test passes with either.
+
+**Amended 2026-10-12**, answering the review of F-13 (`docs/reviews/2026-10-09-tests-can-fail-unversioned.md`). The
+owner picked each of these but the last, which is the session's call in the plan the owner approved:
+
+- **What counts as a test failing** (AR-1). A failure counts unless it is a plain crash: a `TypeError`, a
+  `ReferenceError` or a `RangeError`, a timeout, or the test file no longer loading. One exception, and one rule
+  only: a plain crash counts when the failing line is in the test's own file and falls inside the line span of an
+  `expect(...)` call there, because the test was reading the result it checks. No helper is followed and nothing is
+  read a second time, so a result read on the line before the `expect` is a crash that does not count, and the
+  message says so. A new test whose only failures are crashes that do not count fails the pull request. This takes
+  back "a weak test passes" for the test that calls the code and asserts nothing.
+- **A new test file nothing runs fails** (AR-3). A changed test file the runner does not list is a finding, unless
+  `ci/tests-can-fail.yaml` keeps it or its folder out: a file the owner is asked about.
+- **What is judged is what the package's `test` script runs** (AR-3). The step reads the runner call from that
+  script, in two plain forms and no other: the runner by name, or `node` with its flags and the path to the
+  runner, as a package writes it when its tests need an environment file. Anything else stops the step and asks
+  for the call in `ci/tests-can-fail.yaml`. No shell is parsed.
+- **Out of time stays a failure, and the figures are set from a hosted runner first** (AR-4, AR-13). The 5 and 10
+  minutes above stand until F-13's build step 0 times the Contract's own workload on a hosted runner; this entry
+  is then edited with that number, before step 1 starts. The work that had no bound gets a cap.
+- **Green when no test changed** (AR-6). A pull request that adds or changes no test file passes, saying so, with
+  no copy and no install. "Needs Vitest" fails only a pull request that changed a test file no package can run.
+  This narrows "a project with no such package fails the step".
+- **The list of unnoticed changes is withdrawn** (AR-12). "Changes to the pull request's own lines that no test
+  noticed are listed" is reversed: a warning in a job log fires nothing, and it spent the time the step's limit is
+  racing. The step does one thing. L-69 holds the list as declined work, and its review date is what brings it
+  back; no issue is filed until then.
+- **The excuse has one place.** A test that cannot be judged for good, or whose only failures are crashes, is
+  excused in `ci/exceptions.yaml` with a date. `ci/tests-can-fail.yaml` says how tests are run and which folders
+  are kept out, and carries no dates.
+- **The job runs on pull requests only** (AR-14), unlike `ci.yml`'s other jobs: the rule is about the tests a pull
+  request adds, and a push to `main` has no such set. `/work-ticket` runs the same command before a pull request
+  is marked ready.
+
+**Measured** 2026-10-12, on the scratch project above, by the prototype changed to record what each failure was
+and to stop a test only at an assertion failure; every `body` change and 30 more per test file; the same laptop,
+1 run.
+
+| the scratch project's 38 new tests | |
+|---|---|
+| fail on no change at all (the two planted so they cannot) | 2 |
+| fail by an assertion failure | 33 |
+| fail only by an element query that found nothing, though they assert on the element | 2 |
+| fail only by a crash inside the code (the planted test that asserts on its own input) | 1 |
+| runs, seconds | 111, 67 |
+
+"Only an assertion failure counts", the first rule considered, failed tests that were fine. The rule above fails
+only the planted test. No new test had an element query as its only check. A crash no longer ends a test, so the
+loop tries more changes than stopping at any failure did, which is one more reason the figures wait for step 0.
+
+The same measurement was run on a private product with one engineer, a web app; its figures were shown to the
+owner and are not recorded. Step 0 follows the same rule: a real project's figures are shown to the owner, and
+this entry records the scratch project's and what the owner set from both.
 
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
 
@@ -759,6 +828,77 @@ go stale is the fault this was filed for); a version that moves on Contract or V
 (acceptance blocks would then be added under a review that still reads as current). `scripts/skills.test.mjs` holds
 the wording in the template, `process/intake.md` and the three skills; `ci/fixtures/known-bad/r1/feature-doc` holds
 R1's side. #268.
+
+## D-042 — A project with a front end plans a design item before its first screen, and accessibility is a gate line, not a late audit *(decided 2026-10-12)*
+
+Slipway planned a web app with one engineer and never asked who designs it or when: no milestone held a design
+item, the skeleton's no-go excluded styling and named no later place, and accessibility appeared once, as an outside
+audit in the last milestone, which can only discover. The owner's word: "WCAG shouldn't be a nice to have and any
+project requiring a front end should have an explicit design phase." Six choices, each the owner's (#406):
+
+- **How slipway knows.** `/kickoff` asks, in the Frame phase right after the moment, where people use the product
+  (screens of a web or phone app, a terminal, an API, nothing) and writes the answer as one labelled line in
+  `docs/product/FRAME.md`. A product question, asked at framing, before any milestone is shaped; the check reads the
+  frame as K1 does. Declined: an `AGENT.md` row (machinery, filled before the product is framed); deriving it from
+  D-005 (the default is React, so every project would count until the owner wrote `none`).
+- **What a design item is.** One Contents item, placed before the first item that builds a screen, with its hours
+  inside that milestone's appetite (PRD §9, so MS1's appetite warning covers it). It says, in the project's own
+  words, what it delivers for the screens to be built to, and who or what does the work. Slipway names no method
+  and no tool: a designer's handoff, an existing design system, a project's own skill, or direction plus an
+  accessible component set plus flows all count. `/kickoff` may offer those three as the usual answer, as a prompt,
+  never as a requirement. The check sees that the item exists, comes first and is not a placeholder; it does not
+  judge what is in it. Declined: a design milestone of its own (one more milestone every front-end project must
+  shape and close); flows per screen (the first screens would be built with no flow drawn before them).
+- **Where accessibility is proved.** Per component as it is built, to WCAG 2.2 AA: every milestone that builds
+  screens carries one Gate line saying its screens meet WCAG 2.2 AA and what holds it, something that can go red
+  (an automated check in CI, a keyboard and screen-reader pass recorded in `docs/qa/`). A later audit confirms and
+  does not discover. The check sees the line exists, not whether it is met. Declined: A before launch and AA after
+  (the early components get reworked, the late-audit cost again); one gate on the release milestone (the audit the
+  issue names as the gap).
+- **A check, not advice.** A new meta check reads the frame's line and the milestones. A front-end project with an
+  active milestone that builds screens and no design item before it: one finding naming the milestone and what
+  closes it. The same check wants the WCAG 2.2 AA Gate line on each active screen milestone. Shaping milestones stay
+  drafts: a line in `pnpm status` only, so kickoff is not red between two commits of ordinary shaping. Declined: red
+  from shaping on; a status line only (advice was skipped in the case that filed this).
+- **On sync.** `/sync-slipway` asks the one question in the project's words and writes the frame's line. No front
+  end: nothing more. A front end with an active screen milestone and no design item: one finding, closed by a design
+  item in that active milestone or by a decision in `decisions.md` that the milestone names (as `extended:` names
+  one). A frame with no line and an active screen milestone is a finding too: the check never passes on what it
+  cannot see (`process/decision-defaults.md` §4). Closed milestones are not reported: their screens were built and
+  their gate proved under the earlier rule. Declined: nothing red on sync with a status line (a project could keep
+  building screens with no design and no gate); red on every synced project until the owner adds the line by hand.
+- **With #94.** Independent. The design item names who or what does the work, and #94's design-direction skill is
+  one answer among a designer's handoff or an existing design system. Neither waits on the other; #94 stays parked
+  with its trigger, gains a note that the design item is where its skill would be used, and no check names a skill.
+  Declined: unparking #94 (the tool before the first front-end project needs it); folding it in (plan plus tool in
+  one feature, built beside a check that must not name it).
+
+Amended 2026-10-12 (the owner's two picks, after the review of F-14 at 0.1,
+`docs/reviews/2026-10-12-design-before-screens-0.1.md`, AR-1 and AR-5):
+
+- **The skeleton builds screens, so it carries the Gate line; design need not come before it.** Every project's
+  walking skeleton builds and deploys sign-in and the one core action. It says how those screens meet WCAG 2.2 AA
+  like any milestone that builds screens (plain semantic markup and a keyboard pass meet it at that size). The
+  design item sits before the first screen milestone past the skeleton, and the skeleton's no-go says its own
+  screens are rebuilt to it. This replaces "before the first item that builds a screen" above. Declined: the
+  skeleton exempt from both (the first screens a project ships would carry no gate, the late-audit shape again);
+  both applying to the skeleton (design work ahead of proving the stack).
+- **A milestone already running when the rule arrives says how, or records why not yet.** Its Gate says how its
+  screens meet WCAG 2.2 AA, or the milestone names a decision in `decisions.md` saying what is not held yet and
+  by when (`accessibility: PD-<n>`, read as `extended:` is). Its design item may sit below the work already
+  begun. `/sync-slipway` asks a second question, about that milestone, of a front-end project that has one
+  running. So "one finding" in *On sync* above is at most two for that milestone once the frame's line is
+  written. Declined: exempt until the next milestone (nothing looks at the screens being built now, and an
+  exemption needs a marker a check can read anyway).
+
+Not changed by the amendment, and said plainly in F-14 at 0.2 on the orchestrator session's advice: the design
+item's hours are held per milestone (PRD §9 has one row per milestone, the item's share is named in its Basis
+cell and nothing checks the share); `/kickoff` writes a terminal, an API and nothing as `none`; the check's
+output names what it did not hold and why.
+
+Why: a milestone plan that places design nowhere costs the schedule the most where it is found last, and an
+accessibility audit after the build is the one shape of that work that can only discover. The feature doc is
+`dev/features/design-before-screens.md` (F-14). #406.
 
 ## Week 1 — decide before M1 closes
 
