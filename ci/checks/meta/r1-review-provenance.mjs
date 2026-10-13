@@ -141,8 +141,8 @@ for (const f of files) {
   if (isPrdPath(targetRel) && prdVersion && want.includes(prdVersion) && quoted === 'current') reviewedPrd.push(rel);
   // To retire another review, the version line has to be a whole line of the document. In a document with no
   // `Version:` line, a word that is merely somewhere in it ("#", "Spec") keeps this review from being stale, as
-  // it always has, and no more.
-  const wholeLine = docLines(doc).some((l) => readings(l).includes(want));
+  // it always has, and no more: such a document's lines are split as they always were, so nothing about it changes.
+  const wholeLine = (versions.length ? docLines(doc) : doc.split(/\r?\n/)).some((l) => readings(l).includes(want));
   reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: quoted !== 'current', quoted, versions: versions.length, wholeLine, supersedes });
 }
 
@@ -167,7 +167,7 @@ for (const r of reviews) {
 // edit to the review.
 const REMEDY = "review the current version (/review-doc) and name this file in that review's Supersedes: line";
 const staleDetail = (r) => (r.quoted === 'unreadable'
-  ? `${shown(r.targetRel)} has ${r.versions} lines starting \`Version:\` (see its document/version-lines finding), so "${shown(r.want)}" is not compared with either: this review is read again once the document has one`
+  ? `${shown(r.targetRel)} has ${r.versions} lines starting \`Version:\` (see its document/version-lines finding), so "${shown(r.want)}" is not compared with any of them: this review is read again once the document has one`
   : `"${shown(r.want)}" is not ${r.versions === 1 ? 'the Version: line of' : 'in'} ${shown(r.targetRel)} — the document moved on, or the line was written from memory: ${REMEDY}`);
 for (const r of reviews) {
   if (!r.stale || retired.has(r.rel)) continue;

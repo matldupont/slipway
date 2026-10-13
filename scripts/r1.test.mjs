@@ -228,7 +228,7 @@ test('a document with more than one `Version:` line is a finding, once, and a re
   try {
     const r = r1(dir);
     assert.deepEqual(r.findings.map((f) => f.where).sort(), ['docs/reviews/new.md#provenance/stale', 'docs/reviews/old.md#provenance/stale', 'docs/specs/a.md#document/version-lines']);
-    assert.equal(stale(r, 'new.md'), 'docs/specs/a.md has 2 lines starting `Version:` (see its document/version-lines finding), so "Version: 0.2" is not compared with either: this review is read again once the document has one');
+    assert.equal(stale(r, 'new.md'), 'docs/specs/a.md has 2 lines starting `Version:` (see its document/version-lines finding), so "Version: 0.2" is not compared with any of them: this review is read again once the document has one');
     assert.equal(r.findings.find((f) => f.where === 'docs/specs/a.md#document/version-lines').detail, 'docs/specs/a.md has 2 lines starting `Version:`, and nothing says which is its version line, so no review of it is current: leave the current one as the only line that starts that way');
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -320,6 +320,19 @@ test('a review of the PRD still has to name its version as R1 reads it, as befor
   try {
     assert.deepEqual(r1(dir).findings.map((f) => f.where), ['docs/PRD.md#review/missing']);
     assert.match(statusOf(dir), /review: none for this version/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a document with no `Version:` line is split as before: a line that ends in another line break is no whole line of it', () => {
+  const dir = project({
+    'docs/specs/a.md': '# Spec\r\rv1\rmore\r',
+    'docs/reviews/new.md': `${review('docs/specs/a.md', 'v1')}Supersedes: docs/reviews/old.md\n`,
+    'docs/reviews/old.md': review('docs/specs/a.md', 'v0'),
+  });
+  try {
+    assert.deepEqual(r1(dir).findings.map((f) => f.where).sort(), ['docs/reviews/new.md#provenance/supersedes-invalid', 'docs/reviews/old.md#provenance/stale']);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
