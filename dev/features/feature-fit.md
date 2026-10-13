@@ -5,7 +5,7 @@ status: draft
 
 # F-12 — Fit: a feature doc says what it reuses and where its numbers live, and a check holds it to that
 
-Version: 0.2 (2026-10-12)
+Version: 0.3 (2026-10-13)
 
 ## Problem
 
@@ -17,6 +17,15 @@ expectation, and #49's pass across what shipped is what would show it false: no 
 and no surface built two ways. The duplication ratchet catches copied lines, not a second way of doing the same
 thing, and `docs/conventions.md` → "Before writing something new" asks for the search in the PR, where it is
 read once and lost.
+
+The build is not held for that pass (the owner, 2026-10-13; D-036 as amended that day). The reason put to the
+owner: what has shipped was shaped one feature at a time, so a clean pass over it would not settle the
+expectation for features shaped side by side, and the section has to exist before the next project's feature
+docs are written. What reopens the choice has a reader. #49's first pass over a milestone built with Fit
+reports two things: each number calculated in two places or surface built two ways that the docs' Fit lines
+did not stop, and how many of the milestone's docs gave only the short answers (`nothing`, `none shown`,
+`none`). A drift Fit did not stop, or short answers in most of the docs, brings the check and the sync count
+back to the owner. The line goes into #49's acceptance when this version merges.
 
 Evidence of a neighbouring kind, from slipway's own tree: of the fifteen docs in `dev/features/` with
 frontmatter, six carry an ad hoc "what is reused" list (`deferred-checks.md`, `cli-output.md`, `next-slice.md`,
@@ -116,8 +125,9 @@ New: <…anything this adds that nothing existing does, and why reuse was not po
 - `New:` what the feature adds that nothing existing does, and why reuse was not possible.
 
 The guidance paragraph may stay in a filled doc: text between the heading and the first label is not read. A
-bug-fix stub `/log-bug` writes from the template starts with the section as the template has it; it is a draft
-with no review and no schedule, so nothing is asked of it yet.
+bug-fix stub `/log-bug` writes from the template is held like any doc, and in the run that writes it: the skill
+sends it to review, and schedules it when the owner places the fix in the running milestone (§2, rules 3 and
+4). `/log-bug` fills its Fit before the stub's commit (§5).
 
 ### 2. What is held, and what lacks Fit — `ci/checks/lib/feature-docs.mjs`, `ci/checks/lib/fit.mjs`
 
@@ -283,13 +293,24 @@ each doc it counts; the number is expected to be 2 and goes down as each of thos
   it. One new pin: that `/log-feature` fills `## Fit` from Phase 3's search before proposing anything new.
 - **`process/cold-review.md`** gains one checklist line: the diff against the Fit of the doc the issue embeds:
   each `Reuses:` path is used, and each number is computed where `Numbers:` says. That file asks for a lesson
-  behind a new line; the lesson is added under `process/lessons/` with it.
+  behind a new line; the lesson is added under `process/lessons/` with it, and says the failure it names is
+  expected, not yet seen (Problem).
 - **`.claude/skills/review-doc/SKILL.md`** step 2 gains one sentence: a Fit line is a claim about the code, so it
-  is verified like one.
+  is verified like one. Step 1 gains a stop, beside the one for a doc with no `Version:` line: a feature doc
+  with no filled Fit (no `## Fit`, a label absent, or a placeholder left in one) is not reviewed as it is. The
+  review would hold it (§2, rule 3) and turn the reviewer's own pull request red on a file a reviewer never
+  edits. The skill stops and says the doc's author fills Fit first, or a session the owner opens for it when
+  the author's is gone; the reviewer never does. A Fit edit moves no `Version:`. One new pin.
 - **`.claude/skills/close-milestone/SKILL.md`** §4 step 2 gains one line: a doc marked shipped has its Fit
   filled first, from the search, since the check holds it from that commit.
 
-`/log-bug`'s stub step needs no change.
+- **`.claude/skills/log-bug/SKILL.md`**, the doc stub step, gains one sentence: a doc the step writes, or
+  extends and sends to review, has its Fit filled before the step's commit. The feature is already built, so the
+  three lines are read from its code as Phase 2 traced it (what it reuses, with paths; where each number it
+  shows is calculated), never from memory. When the trace shows nothing shared, the stub gives the short
+  answers any doc may, under the same rules (§2), and F2's claim line counts them like the rest. D-040's one
+  block is not sent to review and leaves Fit as it is. The skill is 300 lines against the cap of 300; room is
+  made by rewording or trimming, the cap is not raised and no rule is dropped. One new pin.
 
 ### What is reused
 
@@ -297,8 +318,9 @@ See `## Fit` above; this doc is the section's first instance, and the build read
 
 `ci/**`, `package.json` scripts, `dev/ownership.yaml`, `scripts/new-project.mjs`, `process/cold-review.md` and
 `.claude/skills/**` are owner-only: the build asks the owner before each edit, and each PR lists the files under
-`## Gate changes`. The owner said yes on 2026-10-12 to this doc naming the three reviewer files of §5; the edits
-themselves are still asked for when they are made.
+`## Gate changes`. The owner said yes on 2026-10-12 to this doc naming the three reviewer files of §5, and on
+2026-10-13 to it naming `/review-doc`'s stop and `/log-bug`'s sentence; the edits themselves are still asked for
+when they are made.
 
 ### Order and overlap
 
@@ -328,6 +350,12 @@ the `package.json` scripts derivation), `scripts/new-project.mjs` (writes `proce
 `.claude/skills/close-milestone/SKILL.md` §4 step 2, `ci/status.mjs:105` (reads `decisions.md`), no `f2` under
 `ci/checks/**` or in `ci/exceptions.yaml`, the word `Fit` in none of `process/cold-review.md`,
 `.claude/agents/*.md` or the review-doc and close-milestone skills.
+
+Verified against: 2259472 2026-10-13 — for what 0.3 adds, nothing else re-read: `.claude/skills/log-bug/SKILL.md`
+(300 lines; its doc stub step writes from the template, adds the Contents item, commits and runs `pnpm meta`, and
+the review follows; D-040's one block), `.claude/skills/review-doc/SKILL.md` step 1 (the stop for a doc with no
+`Version:` line; "a reviewer never edits its target"), `scripts/skills.test.mjs` (`log-bug` is under the cap of
+300), no open pull request on this doc, its reviews or those two skills.
 
 ## Seams
 
@@ -451,6 +479,11 @@ Then  it is ≤ 300 lines, Phase 3 names the number and surface search and where
 Given process/cold-review.md, .claude/skills/review-doc/SKILL.md and .claude/skills/close-milestone/SKILL.md
 Then  each carries its sentence of Contract §5, scripts/skills.test.mjs pins the two in skills, and the lesson
       behind the cold-review line passes L1
+
+Given .claude/skills/log-bug/SKILL.md and .claude/skills/review-doc/SKILL.md
+Then  the first is ≤ 300 lines and its stub step fills Fit from the feature's code, before its commit, in a doc it
+      writes or sends to review; the second's step 1 stops on a feature doc with no filled Fit; and
+      scripts/skills.test.mjs pins both sentences
 ```
 
 ## Verify
@@ -470,14 +503,25 @@ git diff --stat main -- 'ci/fixtures/**/expected.json'     # only ci/fixtures/kn
 pnpm meta
 ```
 
-Owner probe, in a scratch project with one shipped doc and no Fit: `sync --plan` shows the count recorded at 1,
-`--apply` writes it, and `pnpm meta` is green there.
+Owner probes, each in a scratch project:
+
+- **Step 1, before its PR is marked ready** (D-036's condition). The build session makes the project, outside
+  the repository, and no session deletes it. It holds a shipped doc and a reviewed draft with no Fit, a draft
+  with no Fit that is neither reviewed nor scheduled, and one file that is not a feature doc; it syncs from
+  step 1's branch. The session runs `sync --plan` and shows the output, with what `/sync-slipway` relays of it
+  (AR-4); the owner runs `--apply` in their own terminal, from one pasted command. The owner reads three things:
+  the plan shows `ci/baselines.json` as "count recorded" with the three sentences of Contract §3 (2, 1, 1) and
+  no check id; after `--apply` the file holds the 2 that was printed; a second `sync --plan` shows the file
+  unchanged. Their yes or no to what they read is the evidence.
+- **Step 2.** In a scratch project with one shipped doc and no Fit, synced from step 2's branch: the count is
+  recorded at 1 and `pnpm meta` is green there.
 
 ## Build map
 
 Three PRs, all `Part of #48`; the last closes it. No sub-issues: #48 is the ticket. **No release is tagged, and
 no project syncs from `main`, until the third has merged**; each PR body says so. A project synced after the
 second and before a release that carries all three is held to a section its skills do not yet tell it to write.
+A scratch project made for an owner probe (Verify) is not a project for this rule.
 
 1. **The count, and sync.** `scripts/ratchet.test.mjs` first, in its own commit, against today's `ci/ratchet.mjs`;
    then `ci/checks/lib/ratchet.mjs` (with `ci/ratchet.mjs` calling it), `ci/checks/lib/feature-docs.mjs` (with
@@ -486,13 +530,20 @@ second and before a release that carries all three is held to a section its skil
    `scripts/new-project.mjs` and its test; the `dev/ownership.yaml` row and legend; `package.json` `meta` for the
    two new test files — checks, new-project and sync, ~M. Leaves #48 open. No check reads the count yet, so
    nothing can go red in a project. **The owner's condition sits here** (D-036): if sync cannot show and write
-   the count cleanly, the build stops with nothing live to back out, and the question comes back.
+   the count cleanly, the build stops with nothing live to back out, and the question comes back. What answers
+   it is the owner's probe for step 1 (Verify), run before this PR is marked ready: their yes or no to what they
+   read, in their words, goes in the PR's `## Verification`. On a no the PR is not merged.
+   Carried from the 0.2 review: AR-4, check what `/sync-slipway` shows the owner of the count (it reads the plan
+   as JSON) against the code and pin it with a test.
 2. **The section and the check.** `docs/features/TEMPLATE.md` → `## Fit`; F2; `ci/fixtures/known-bad/f2/**`;
    `scripts/f2.test.mjs`; `package.json` `meta`; `concept-audit.md` and `landing-page.md` backfilled; slipway's
    `ci/baselines.json`; the release note line — checks, ~M. Leaves #48 open.
-3. **The skills and the readers.** `/log-feature` Phase 3 and 4, within 300 lines; the lines in
-   `process/cold-review.md` (with its lesson), `/review-doc` and `/close-milestone`; `scripts/skills.test.mjs`
-   pins — skills and rules, ~S. Closes #48.
+   Carried from the 0.2 review: AR-6, check each clause of "held" the fixtures do not reach (a closed milestone, a
+   shaping or killed one, a review of another doc, a review that is not current) against the code and pin it
+   with a test.
+3. **The skills and the readers.** `/log-feature` Phase 3 and 4, within 300 lines; `/log-bug`'s stub step,
+   within 300 lines; the lines in `process/cold-review.md` (with its lesson), `/review-doc` (its sentence and
+   its stop) and `/close-milestone`; `scripts/skills.test.mjs` pins — skills and rules, ~S. Closes #48.
 
 ## Out of scope
 
@@ -516,6 +567,8 @@ second and before a release that carries all three is held to a section its skil
 - ~~When a doc is first held; whether `Serves:` stays; who reads Fit for truth~~ — the owner, 2026-10-12: from
   its review or its schedule; dropped; the cold reviewer, `/review-doc` and `/close-milestone` are told (D-036 as
   amended; Contract §2, §1, §5).
+- ~~Whether the build waits for a pass that looks for the drift Fit is meant to stop~~ — the owner, 2026-10-13:
+  it does not; #49's first pass reports what reopens it (D-036 as amended; Problem).
 
 ## Changes
 
@@ -530,4 +583,12 @@ second and before a release that carries all three is held to a section its skil
   check knows (AR-2); the denominator (AR-4); the count as a module, a row kind of its own, slipway's bytes never
   shipped (AR-9); a case per clause and the ratchet pinned before the move (AR-11); the eight readings (AR-12);
   re-verified at 0eb12fc (AR-13); the evidence said to be an expectation, "deferred" made "declined" (AR-15) ·
+  PR for #48
+- 2026-10-13 · MODIFIED · 0.3: four findings of `docs/reviews/2026-10-12-feature-fit-0.2.md`, and no other edit
+  to Contract, Acceptance or Verify. The owner's: the build is not held for #49's pass, and that pass reports
+  what reopens it (AR-5; D-036 as amended 2026-10-13); the spec names `/review-doc`'s stop and `/log-bug`'s
+  sentence. Advised by the orchestrator session and taken: a bug stub is held like any doc and `/log-bug` fills
+  its Fit from the feature's code (AR-1); `/review-doc` stops on a feature doc with no filled Fit (AR-2); the
+  owner's probe before step 1's PR is ready is the evidence for D-036's condition (AR-3). Carried into the
+  build with no Contract change: AR-4 (step 1), AR-6 (step 2). AR-7 to AR-10: the review's Tracker column ·
   PR for #48
