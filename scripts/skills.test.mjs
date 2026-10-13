@@ -982,6 +982,15 @@ test('the earlier review of a revised document: intake, /review-doc and the revi
   assert.ok(flat(template).includes('until a current review of the same document names it in `Supersedes:`'), 'the template still says a stale review is red for good');
 });
 
+// #426 (D-043, #277): R1 retires the reviews of a moved document's old path when the fresh review names them, so the two
+// places that tell a reviewer what to write say it.
+test('a review of a moved or renamed document names the reviews of its old path: /review-doc and the review template say so', () => {
+  const flat = (s) => s.replace(/\s+/g, ' ');
+  const skill = read('.claude/skills/review-doc/SKILL.md');
+  assert.ok(flat(section(skill, '3 — Write the file', 2) ?? '').includes('When the document was moved or renamed, also write one `Supersedes:` line for each review in `docs/reviews/` whose `Reviewed:` path no longer exists and was this document\'s;'), '/review-doc step 3 does not tell the reviewer to name the reviews of the old path');
+  assert.ok(flat(read('docs/reviews/TEMPLATE.md')).includes('When the document was moved or renamed, that includes each review whose > `Reviewed:` path no longer exists and was this document\'s.'), 'the review template does not say a moved document names the reviews of its old path');
+});
+
 // #372 (D-038): the step that adds a journey cites the environment rule, and the README a new project gets says one plan per environment.
 test('work-ticket\'s manual-testing step cites Deferred check for the plan\'s environment, and docs/qa/README.md says one plan per environment', () => {
   const step = read(skillPath('work-ticket')).split('\n').join(' ').match(/\*\*Manual testing\.\*\* When Phase 2 named a plan.*?(?= \d\. \*\*)/)?.[0].replace(/\s+/g, ' ') ?? '';

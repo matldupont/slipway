@@ -9,7 +9,8 @@ Status: for argument — nothing here is a decision until the owners resolve it
 > document is stale and turns CI red, until a current review of the same document names it in `Supersedes:`.
 > Copying the line is the point: it cannot be transcribed without opening the file under review. A review of
 > a revised document adds one line under `Version line:` for each earlier review of that document, written
-> as `Supersedes: docs/reviews/<file>`.
+> as `Supersedes: docs/reviews/<file>`. When the document was moved or renamed, that includes each review whose
+> `Reviewed:` path no longer exists and was this document's.
 
 ## Severity
 
