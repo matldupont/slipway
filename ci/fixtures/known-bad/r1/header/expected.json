@@ -24,9 +24,9 @@
   "details": {
     "docs/reviews/long-path.md#provenance/target-missing": "reviewed path docs/specs/part00-part01-part02-part03-part04-part05-part06-part07-part08-part09-part10-part11-part12-part13-part14-par… does not exist",
     "docs/reviews/long-supersedes.md#provenance/supersedes-invalid": "Supersedes: docs/reviews/name00-name01-name02-name03-name04-name05-name06-name07-name08-name09-name10-name11-name12-name13-name14-n… is not another review",
-    "docs/reviews/long-version.md#provenance/stale": "\"Version: 0.2 word00 word01 word02 word03 word04 word05 word06 word07 word08 word09 word10 word11 word12 word13 word14…\" is not in docs/specs/q.md",
-    "docs/reviews/control.md#provenance/stale": "\"Version: 9.9 [31mred[0m desrever zerowidth [hidden characters left out]\" is not in docs/specs/p.md",
-    "docs/reviews/long-stale-path.md#provenance/stale": "\"Version: 0.1\" is not in docs/specs/././././././././././././././././././././././././././././././././././././././././././././././././././././././…",
+    "docs/reviews/long-version.md#provenance/stale": "\"Version: 0.2 word00 word01 word02 word03 word04 word05 word06 word07 word08 word09 word10 word11 word12 word13 word14…\" is not the Version: line of docs/specs/q.md",
+    "docs/reviews/control.md#provenance/stale": "\"Version: 9.9 [31mred[0m desrever zerowidth [hidden characters left out]\" is not the Version: line of docs/specs/p.md",
+    "docs/reviews/long-stale-path.md#provenance/stale": "\"Version: 0.1\" is not the Version: line of docs/specs/././././././././././././././././././././././././././././././././././././././././././././././././././././././…",
     "docs/reviews/long-other.md#provenance/supersedes-invalid": "Supersedes: docs/reviews/l-old.md is a review of docs/specs/l.md, not of docs/specs/././././././././././././././././././././././././././././././././././././././././././././././././././././././…"
   }
 }

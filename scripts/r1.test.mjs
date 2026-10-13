@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { MAX_LINE, reviewedOf, reviewProvenance, unquote, versionOf } from '../ci/checks/lib/review-header.mjs';
+import { MAX_LINE, quotedVersion, reviewedOf, reviewProvenance, unquote, versionOf } from '../ci/checks/lib/review-header.mjs';
 
 const R1 = join(dirname(fileURLToPath(import.meta.url)), '..', 'ci', 'checks', 'meta', 'r1-review-provenance.mjs');
 const LONG = 100_000;
@@ -193,6 +193,92 @@ test('a reviewed path counts as the PRD only when it normalises to docs/PRD.md',
   } finally {
     rmSync(dir, { recursive: true, force: true });
     rmSync(same, { recursive: true, force: true });
+  }
+});
+
+// --- the document's version line (#403) ---
+
+const REMEDY = "review the current version (/review-doc) and name this file in that review's Supersedes: line";
+const stale = (r, file) => r.findings.find((f) => f.where === `docs/reviews/${file}#provenance/stale`)?.detail;
+
+test("a stale finding names one remedy, the fresh review process/intake.md allows, and never an edit to the review", () => {
+  const dir = project({
+    'docs/specs/a.md': SPEC,
+    'docs/specs/plain.md': '# Spec\n\nContent.\n',
+    'docs/reviews/a.md': review('docs/specs/a.md', 'Version: 0.1'),
+    'docs/reviews/plain.md': review('docs/specs/plain.md', 'Version: 0.1'),
+  });
+  try {
+    const r = r1(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.equal(stale(r, 'a.md'), `"Version: 0.1" is not the Version: line of docs/specs/a.md — the document moved on, or the line was written from memory: ${REMEDY}`);
+    assert.equal(stale(r, 'plain.md'), `"Version: 0.1" is not in docs/specs/plain.md — the document moved on, or the line was written from memory: ${REMEDY}`);
+    assert.doesNotMatch(r.out, /copy the line|edit|delete/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a document with more than one `Version:` line is a finding, once, and a review of it is told no remedy but the document', () => {
+  const dir = project({
+    'docs/specs/a.md': '# Spec\n\nVersion: 0.1\nVersion: 0.2\n',
+    'docs/reviews/new.md': review('docs/specs/a.md'),
+    'docs/reviews/old.md': review('./docs/specs/a.md', 'Version: 0.1'),
+  });
+  try {
+    const r = r1(dir);
+    assert.deepEqual(r.findings.map((f) => f.where).sort(), ['docs/reviews/new.md#provenance/stale', 'docs/reviews/old.md#provenance/stale', 'docs/specs/a.md#document/version-lines']);
+    assert.equal(stale(r, 'new.md'), 'docs/specs/a.md has 2 lines starting `Version:`, so "Version: 0.2" cannot be read as its version line: this review is read again once the document has one');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a review of a document with no `Version:` line is current while the line it quotes is anywhere in the text, as before', () => {
+  const dir = project({ 'docs/specs/a.md': '# Spec\n\n- 2026-01-01 · ADDED · the spec\n', 'docs/reviews/a.md': review('docs/specs/a.md', 'ADDED · the spec') });
+  try {
+    assert.equal(r1(dir).status, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('R1 and `pnpm status` count the same reviews of the PRD: one that quotes its version line, and no other', () => {
+  const moved = '# Acme\n\nVersion: 0.4.0\nStatus: approved\n\nBody.\n\n## Change log\n\n- 0.4.0 · was "Version: 0.3.0"\n';
+  const longer = '# Acme\n\nVersion: 0.3.0-rc.1\nStatus: approved\n\nBody.\n';
+  const two = '# Acme\n\nVersion: 0.3.0\nStatus: approved\n\nBody.\n\nVersion: 0.2.0\n';
+  const cases = [
+    { prd: PRD, reviewed: true, wheres: [] },
+    { prd: moved, reviewed: false, wheres: ['docs/PRD.md#review/missing', 'docs/reviews/r.md#provenance/stale'] },
+    { prd: longer, reviewed: false, wheres: ['docs/PRD.md#review/missing', 'docs/reviews/r.md#provenance/stale'] },
+    { prd: two, reviewed: false, wheres: ['docs/PRD.md#document/version-lines', 'docs/PRD.md#review/missing', 'docs/reviews/r.md#provenance/stale'] },
+  ];
+  for (const { prd, reviewed, wheres } of cases) {
+    const dir = project({ 'docs/PRD.md': prd, 'docs/reviews/r.md': prdReview() });
+    try {
+      assert.deepEqual(r1(dir).findings.map((f) => f.where).sort(), wheres, prd);
+      assert.match(statusOf(dir), reviewed ? /review: r\.md/ : /review: none for this version/, prd);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test('a PRD with more than one `Version:` line is a finding with no review of it on file', () => {
+  const dir = project({ 'docs/PRD.md': '# Acme\n\nVersion: 0.3.0\nVersion: 0.2.0\nStatus: draft\n' });
+  try {
+    assert.deepEqual(r1(dir).findings.map((f) => f.where), ['docs/PRD.md#document/version-lines']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('quotedVersion reads a document of 100,000 `Version:` lines, and one 100,000-character line, in under 100 ms', () => {
+  assert.equal(timed(() => quotedVersion('Version: 1\n'.repeat(LONG), 'Version: 1')).value, 'ambiguous');
+  for (const doc of [`Version: ${'*'.repeat(LONG)}x`, `Version: ${' '.repeat(LONG)}x`, `Version: ${'"'.repeat(LONG)}x`]) {
+    const { value, ms } = timed(() => quotedVersion(doc, 'Version: 1'));
+    assert.equal(value, 'stale');
+    assert.ok(ms < 100, `${ms} ms`);
   }
 });
 

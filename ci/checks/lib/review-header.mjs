@@ -58,6 +58,29 @@ export const unquote = (s) => {
   return t.slice(a, b);
 };
 
+// A line of a reviewed document under each reading a review's copy of it may take: as written, with its emphasis,
+// list and quote marks removed, and with the quote marks around it removed.
+const unmarked = (l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim();
+export const readings = (l) => [l.trim(), unmarked(l), unquote(l)];
+
+// The document's version line is its one line that starts `Version:`, read from the raw line start: nothing is
+// skipped, a fenced or commented line counts. Every such line is returned, so a caller can tell one from several.
+export const versionLines = (doc) => doc.split(/\r?\n/).filter((l) => l.startsWith('Version:'));
+
+// Whether `want`, the line a review quotes, is the version line of `doc`, the one comparison R1 and `pnpm status`
+// share (#403):
+//   'current'    the document has one `Version:` line and `want` is that line, under one of its readings
+//   'stale'      it has one and `want` is not it, wherever else in the document `want` may be written
+//   'ambiguous'  it has more than one: nothing says which is the document's, so no review of it is current
+// A document with no `Version:` line has no version line to compare: `want` is current while it is anywhere in the
+// text, as it was before there was a line to hold a review to.
+export const quotedVersion = (doc, want) => {
+  const lines = versionLines(doc);
+  if (lines.length > 1) return 'ambiguous';
+  if (lines.length === 1) return readings(lines[0]).includes(want) ? 'current' : 'stale';
+  return doc.includes(want) ? 'current' : 'stale';
+};
+
 // A value never holds a line break the split below left in (a lone CR, a line or paragraph separator).
 const BREAK = /[\r\u2028\u2029]/;
 
