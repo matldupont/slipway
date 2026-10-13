@@ -625,6 +625,59 @@ time and edited the scratch project in place; the build uses the pinned parser a
 commit outside the project (F-13), and its time on a hosted runner is not known until a project
 runs it. The mutator makes fewer kinds of change than StrykerJS. A weak test passes with either.
 
+**Amended 2026-10-12**, answering the review of F-13 (`docs/reviews/2026-10-09-tests-can-fail-unversioned.md`). The
+owner picked each of these but the last, which is the session's call in the plan the owner approved:
+
+- **What counts as a test failing** (AR-1). A failure counts unless it is a plain crash: a `TypeError`, a
+  `ReferenceError` or a `RangeError`, a timeout, or the test file no longer loading. One exception, and one rule
+  only: a plain crash counts when the failing line is in the test's own file and falls inside the line span of an
+  `expect(...)` call there, because the test was reading the result it checks. No helper is followed and nothing is
+  read a second time, so a result read on the line before the `expect` is a crash that does not count, and the
+  message says so. A new test whose only failures are crashes that do not count fails the pull request. This takes
+  back "a weak test passes" for the test that calls the code and asserts nothing.
+- **A new test file nothing runs fails** (AR-3). A changed test file the runner does not list is a finding, unless
+  `ci/tests-can-fail.yaml` keeps it or its folder out: a file the owner is asked about.
+- **What is judged is what the package's `test` script runs** (AR-3). The step reads the runner call from that
+  script, in two plain forms and no other: the runner by name, or `node` with its flags and the path to the
+  runner, as a package writes it when its tests need an environment file. Anything else stops the step and asks
+  for the call in `ci/tests-can-fail.yaml`. No shell is parsed.
+- **Out of time stays a failure, and the figures are set from a hosted runner first** (AR-4, AR-13). The 5 and 10
+  minutes above stand until F-13's build step 0 times the Contract's own workload on a hosted runner; this entry
+  is then edited with that number, before step 1 starts. The work that had no bound gets a cap.
+- **Green when no test changed** (AR-6). A pull request that adds or changes no test file passes, saying so, with
+  no copy and no install. "Needs Vitest" fails only a pull request that changed a test file no package can run.
+  This narrows "a project with no such package fails the step".
+- **The list of unnoticed changes is withdrawn** (AR-12). "Changes to the pull request's own lines that no test
+  noticed are listed" is reversed: a warning in a job log fires nothing, and it spent the time the step's limit is
+  racing. The step does one thing. L-69 holds the list as declined work, and its review date is what brings it
+  back; no issue is filed until then.
+- **The excuse has one place.** A test that cannot be judged for good, or whose only failures are crashes, is
+  excused in `ci/exceptions.yaml` with a date. `ci/tests-can-fail.yaml` says how tests are run and which folders
+  are kept out, and carries no dates.
+- **The job runs on pull requests only** (AR-14), unlike `ci.yml`'s other jobs: the rule is about the tests a pull
+  request adds, and a push to `main` has no such set. `/work-ticket` runs the same command before a pull request
+  is marked ready.
+
+**Measured** 2026-10-12, on the scratch project above, by the prototype changed to record what each failure was
+and to stop a test only at an assertion failure; every `body` change and 30 more per test file; the same laptop,
+1 run.
+
+| the scratch project's 38 new tests | |
+|---|---|
+| fail on no change at all (the two planted so they cannot) | 2 |
+| fail by an assertion failure | 33 |
+| fail only by an element query that found nothing, though they assert on the element | 2 |
+| fail only by a crash inside the code (the planted test that asserts on its own input) | 1 |
+| runs, seconds | 111, 67 |
+
+"Only an assertion failure counts", the first rule considered, failed tests that were fine. The rule above fails
+only the planted test. No new test had an element query as its only check. A crash no longer ends a test, so the
+loop tries more changes than stopping at any failure did, which is one more reason the figures wait for step 0.
+
+The same measurement was run on a private product with one engineer, a web app; its figures were shown to the
+owner and are not recorded. Step 0 follows the same rule: a real project's figures are shown to the owner, and
+this entry records the scratch project's and what the owner set from both.
+
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
 
 A deferred check's recorded run has one row per journey, and any `not run` keeps the check owed
