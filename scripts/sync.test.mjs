@@ -511,7 +511,7 @@ test('resolveBase: closest-match mode ranks every commit and names the runner-up
 test('from a packed install (no .git, no .gitignore) of B: the target is B by content, and .gitignore is compared with B\'s own', () => {
   const pkgDir = join(root, 'packed-b');
   mkdirSync(pkgDir);
-  execFileSync('tar', ['-x', '-C', pkgDir], { input: execFileSync('git', ['-C', slip, 'archive', B]) });
+  unpackArchive(slip, B, pkgDir);
   rmSync(join(pkgDir, '.gitignore'));
   const r = spawnBin(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), 'sync', '--verbose'], { cwd: project(), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
@@ -926,7 +926,7 @@ test('a target the base descends from, with no release tag: the plan and --apply
   assert.equal(sync(dir, '--apply').status, 0); // now at B
   const older = join(root, 'packed-a');
   mkdirSync(older);
-  execFileSync('tar', ['-x', '-C', older], { input: execFileSync('git', ['-C', slip, 'archive', A]) });
+  unpackArchive(slip, A, older);
   git(dir, 'switch', '-q', 'main');
   git(dir, 'merge', '-q', '--ff-only', BRANCH);
   git(dir, 'branch', '-q', '-D', BRANCH);
@@ -995,7 +995,7 @@ const versioned = join(root, 'versioned');
 {
   const pkgDir = join(root, 'packed-a-adopt');
   mkdirSync(pkgDir);
-  execFileSync('tar', ['-x', '-C', pkgDir], { input: execFileSync('git', ['-C', slip, 'archive', A]) });
+  unpackArchive(slip, A, pkgDir);
   const r = spawnBin(process.execPath, [join(pkgDir, 'scripts', 'new-project.mjs'), versioned, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   rmSync(join(versioned, '.slipway'), { recursive: true });
@@ -1850,11 +1850,20 @@ function commitLater(dir, msg) {
   execFileSync('git', ['commit', '-q', '--allow-empty', '-m', msg], { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: date, GIT_COMMITTER_DATE: date }, stdio: 'ignore' });
   return git(dir, 'rev-parse', 'HEAD');
 }
+// The tree of `sha` unpacked into `dir`. The archive goes through a file: tar can close a pipe before node has
+// written all of `input`, and the write then fails with EPIPE now and then.
+function unpackArchive(repo, sha, dir) {
+  const file = `${dir}.tar`;
+  execFileSync('git', ['-C', repo, 'archive', '-o', file, sha]);
+  execFileSync('tar', ['-xf', file, '-C', dir]);
+  rmSync(file);
+}
+
 // A registry-style copy of slipway at `sha`: its files as npm delivers them, with no .git and no .gitignore.
 function packed(repo, sha) {
   const dir = join(root, `packed-release-${++sources}`);
   mkdirSync(dir);
-  execFileSync('tar', ['-x', '-C', dir], { input: execFileSync('git', ['-C', repo, 'archive', sha]) });
+  unpackArchive(repo, sha, dir);
   rmSync(join(dir, '.gitignore'));
   assert.ok(!existsSync(join(dir, '.git')));
   return dir;
