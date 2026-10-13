@@ -7,6 +7,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 export const BASELINES = 'ci/baselines.json';
+// The name the Fit count is kept under (lib/fit.mjs).
+export const FIT_KEY = 'feature-fit';
 
 // The file's text as an object of name → number. Throws, naming why, on text that is not JSON or not an object:
 // a file nobody can read is never an empty one.

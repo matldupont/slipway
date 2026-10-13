@@ -5,7 +5,8 @@
 # Quote a glob that starts with `*`, or YAML reads an alias.
 #
 #   managed   slipway's; a sync replaces it
-#   seeded    written once by new-project, then the project's
+#   seeded    written once by new-project, then the project's. For ci/baselines.json alone, sync adds the
+#             `feature-fit` key once, counted from the project's own feature docs, and writes nothing else in it
 #   merged    package.json scripts only
 #   internal  never shipped
 #
@@ -76,6 +77,10 @@ paths:
   # the project's own setup before verify runs in CI (a service its tests need, an env var). Slipway ships no
   # file here, so a project's own is never a collision; the class keeps one out of the managed ci/** tree
   - glob: ci/before-verify.sh
+    class: seeded
+  # the project's counts that may only go down. Slipway's own copy is its own live count and never travels:
+  # new-project writes the project's file, and sync records the Fit count in it once (F-12, feature-fit.md §3)
+  - glob: ci/baselines.json
     class: seeded
 
   # managed

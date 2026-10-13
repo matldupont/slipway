@@ -21,7 +21,7 @@ import { ownDecisions } from './adopt.mjs';
 import { bashAsks } from './ask-rules.mjs';
 import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
-import { appliedText, planText } from './lib/sync-text.mjs';
+import { appliedText, countLines, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
 import { KINDS, checkWrites, nothingToTake, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
 
@@ -1650,6 +1650,7 @@ const NOT_OUTSIDE_TEXT = new Map([
   ['USAGE', 'fixed text'],
   ['MANIFEST', 'a constant'],
   ['OVERRIDES', 'a constant'],
+  ['BASELINES', 'a constant'],
   ["json ? '--json' : '--verbose'", 'fixed text'],
   ["o.keep.has(p) ? '--keep' : '--revert (or remove that entry first)'", 'fixed text'],
   ['dirty.length', 'a count'],
@@ -2460,4 +2461,225 @@ test('a call that never ends fails with its command and "timed out" inside a few
   assert.throws(() => hang(process.execPath, ['--version']), /not run, an earlier call did not end.*setInterval/s);
   assert.ok(Date.now() - again < 1_000);
   assert.equal(timedRunner(1_000)(process.execPath, ['--version']).status, 0);
+});
+
+// ---- the count sync records (F-12, dev/features/feature-fit.md §3; #48): one case per Acceptance line
+
+const BASELINES_FILE = 'ci/baselines.json';
+const fitDoc = (status, n) => `---\nstatus: ${status}\n---\n\n# F-${n} — x\n\n## Problem\n\nx\n`;
+// 3 held docs with no Fit (shipped, reviewed, scheduled), 2 drafts not yet held with none, 1 file that is no feature doc.
+const FIT_DOCS = {
+  'docs/features/shipped.md': fitDoc('shipped', 1),
+  'docs/features/reviewed.md': fitDoc('draft', 2),
+  'docs/features/scheduled.md': fitDoc('draft', 3),
+  'docs/features/draft-a.md': fitDoc('draft', 4),
+  'docs/features/draft-b.md': fitDoc('draft', 5),
+  'docs/features/notes.md': '# Notes\n',
+  'docs/reviews/r.md': '# Review\n\nReviewed: docs/features/reviewed.md @ abc1234\nVersion line: Version: 0.1\n',
+  'docs/milestones/M1.md': '---\nid: M1\nstatus: active\n---\n\n# M1 — x\n\n## Contents\n\n1. the third (F-03)\n',
+};
+const SENTENCES = [
+  '3 feature docs that are shipped, reviewed or scheduled have no Fit section filled in yet. The count is recorded at 3 and may only go down.',
+  '2 feature docs still being drafted have no Fit section; each needs one before it is reviewed, scheduled or shipped.',
+  '1 file in docs/features/ is not a feature doc and is not counted: notes.md.',
+];
+const REWRITTEN = 'The file is rewritten in its standard form (two-space JSON); every other entry keeps its name and value.';
+const baselinesOf = (dir) => (existsSync(join(dir, BASELINES_FILE)) ? readFileSync(join(dir, BASELINES_FILE), 'utf8') : null);
+// A project with nothing else for the owner to settle, holding `files` (null removes one), committed.
+const counted = (files) => pristine((d) => put(d, files));
+const syncBranch = `slipway/sync-${short(B)}`;
+
+test('no ci/baselines.json: the plan shows it as "count recorded" with the three sentences (3, 2, 1) and no check id, and writes nothing; --apply writes {"feature-fit": 3} and prints 3; a second sync shows the file unchanged', () => {
+  const dir = counted({ ...FIT_DOCS, [BASELINES_FILE]: null });
+  const before = treeHash(dir);
+  const text = sync(dir);
+  assert.equal(text.status, 0, text.stderr);
+  assert.ok(text.stdout.includes(`◇  ci/baselines.json — count recorded\n${SENTENCES.map((l) => `│  ${l}\n`).join('')}│\n`), text.stdout);
+  const verbose = sync(dir, '--verbose').stdout;
+  assert.equal(rows(verbose)[BASELINES_FILE], 'count recorded');
+  assert.match(verbose, /\b1 count recorded\b/);
+  for (const o of [text.stdout, verbose]) assert.doesNotMatch(o, /\bF2\b|feature-fit|computed|pristine|seeded|managed|merged|\bP[LD]-/i);
+
+  const doc = JSON.parse(sync(dir, '--json').stdout);
+  assert.deepEqual(doc.notes, SENTENCES, 'the sentences travel as notes, which /sync-slipway says to the owner');
+  assert.deepEqual(doc.rows.find((r) => r.path === BASELINES_FILE), { kind: 'computed: count recorded', label: 'count recorded', path: BASELINES_FILE });
+  const bucket = doc.buckets.find((b) => b.kind === 'computed: count recorded');
+  assert.deepEqual([bucket.label, bucket.count], ['count recorded', 1]);
+  assert.match(bucket.meaning, /^your file, .*--apply counts your feature docs that have no Fit section filled in yet and records the number in it once, changing no other entry$/);
+  assert.doesNotMatch(bucket.meaning, /\bF2\b|seeded|managed/);
+  assert.deepEqual(doc.needsYou, [], 'the count asks nothing of the owner');
+  assert.equal(treeHash(dir), before, 'a plan wrote to the project');
+
+  const applied = sync(dir, '--apply');
+  assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+  assert.ok(applied.stdout.includes(`◇  ci/baselines.json — count recorded at 3\n${SENTENCES.map((l) => `│  ${l}\n`).join('')}`), applied.stdout);
+  assert.equal(baselinesOf(dir), '{\n  "feature-fit": 3\n}\n');
+  assert.equal(git(dir, 'show', '--format=', '--name-only', 'HEAD').split('\n').includes(BASELINES_FILE), true, 'the count is in the sync commit');
+  assert.equal(git(dir, 'status', '--porcelain'), '');
+
+  // The second sync, on the sync branch and once it is merged: the file is the project's, and nothing is written.
+  for (const merge of [false, true]) {
+    if (merge) {
+      git(dir, 'switch', '-q', 'main');
+      git(dir, 'merge', '-q', '--ff-only', syncBranch);
+    }
+    const second = sync(dir, '--verbose');
+    assert.equal(second.status, 0, second.stderr);
+    assert.equal(rows(second.stdout)[BASELINES_FILE], 'unchanged');
+    assert.doesNotMatch(second.stdout, /count recorded/);
+    assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).notes, []);
+    assert.equal(baselinesOf(dir), '{\n  "feature-fit": 3\n}\n');
+  }
+});
+
+test('--apply recounts: a doc that became held after the plan changes the number, and the number printed is the number written', () => {
+  const dir = counted({ ...FIT_DOCS, [BASELINES_FILE]: null });
+  assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).notes[0], SENTENCES[0]);
+  put(dir, { 'docs/features/draft-a.md': fitDoc('shipped', 4) });
+  commit(dir, 'a draft ships between the plan and --apply');
+  const applied = sync(dir, '--apply');
+  assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+  assert.match(applied.stdout, /^◇ {2}ci\/baselines\.json — count recorded at 4$/m);
+  assert.match(applied.stdout, /^│ {2}4 feature docs that are shipped, reviewed or scheduled have no Fit section filled in yet\. The count is recorded at 4 and may only go down\.$/m);
+  assert.match(applied.stdout, /^│ {2}1 feature doc still being drafted has no Fit section; it needs one before it is reviewed, scheduled or shipped\.$/m);
+  assert.equal(baselinesOf(dir), '{\n  "feature-fit": 4\n}\n');
+});
+
+test('a project whose ci/baselines.json holds its own keys and no feature-fit: --apply adds the key and every other key is byte for byte as it was; "feature-fit": "x" is set to the count where it stood', () => {
+  const own = '{\n  "duplication": 12,\n  "dead-code": 4\n}\n';
+  const dir = counted({ ...FIT_DOCS, [BASELINES_FILE]: own });
+  assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).notes, SENTENCES, 'a file already in the one form is not said to be rewritten');
+  assert.equal(sync(dir, '--apply').status, 0);
+  assert.equal(baselinesOf(dir), `${own.slice(0, -3)},\n  "feature-fit": 3\n}\n`);
+
+  for (const bad of ['"x"', '-1', '1.5', 'null', '[3]']) {
+    const other = counted({ [BASELINES_FILE]: `{\n  "feature-fit": ${bad},\n  "duplication": 12\n}\n` });
+    assert.equal(rows(sync(other, '--verbose').stdout)[BASELINES_FILE], 'count recorded', bad);
+    assert.equal(sync(other, '--apply').status, 0);
+    assert.equal(baselinesOf(other), '{\n  "feature-fit": 0,\n  "duplication": 12\n}\n', bad);
+  }
+});
+
+test('a ci/baselines.json that is not two-space JSON: every key and value is kept, the file is written in its one form, and the plan and --apply say it is rewritten (0.2 review, AR-7)', () => {
+  const dir = counted({ [BASELINES_FILE]: '{\n\t"duplication": 12,\n\t"nested": {"a": [1, 2]},\n\t"dead-code": 4}' });
+  const doc = JSON.parse(sync(dir, '--json').stdout);
+  assert.deepEqual(doc.notes, ['No feature doc that is shipped, reviewed or scheduled is missing its Fit section. The count is recorded at 0 and may not go up.', REWRITTEN]);
+  assert.ok(sync(dir).stdout.includes(`│  ${REWRITTEN}\n`));
+  const applied = sync(dir, '--apply');
+  assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+  assert.ok(applied.stdout.includes(`│  ${REWRITTEN}\n`));
+  assert.equal(baselinesOf(dir), `${JSON.stringify({ duplication: 12, nested: { a: [1, 2] }, 'dead-code': 4, 'feature-fit': 0 }, null, 2)}\n`);
+});
+
+test('a ci/baselines.json sync cannot read — not JSON, not an object, a link: the plan and --apply refuse by name and write nothing anywhere', () => {
+  for (const [bytes, why] of [['{ not json', /^sync: ci\/baselines\.json is not valid JSON: /], ['[1, 2]\n', /^sync: ci\/baselines\.json is not a JSON object of name → number — /], ['3\n', /not a JSON object/], ['null\n', /not a JSON object/]]) {
+    const dir = counted({ ...FIT_DOCS, [BASELINES_FILE]: bytes });
+    const before = treeHash(dir);
+    for (const args of [[], ['--json'], ['--verbose'], ['--apply']]) {
+      const r = sync(dir, ...args);
+      assert.deepEqual([r.status, r.stdout], [1, ''], `${bytes} ${args}`);
+      assert.match(r.stderr, why);
+      assert.match(r.stderr, /nothing was written/);
+    }
+    assert.equal(treeHash(dir), before, 'a refusal wrote to the project');
+    assert.equal(branches(dir), 'main');
+  }
+  const linked = pristine((d) => {
+    put(d, { [BASELINES_FILE]: null, 'elsewhere.json': '{}\n' });
+    symlinkSync(join(d, 'elsewhere.json'), join(d, BASELINES_FILE));
+  });
+  const r = sync(linked, '--apply');
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /^sync: ci\/baselines\.json is a link or a folder, not a file/);
+  assert.equal(readFileSync(join(linked, 'elsewhere.json'), 'utf8'), '{}\n');
+  assert.equal(branches(linked), 'main');
+});
+
+// A slipway that ships its own ci/baselines.json, as it will once its own check reads one: X holds 9, Y holds 4.
+function countingSlipway() {
+  const dir = join(root, `slipway-count-${++sources}`);
+  git(root, 'clone', '-q', slip, dir);
+  put(dir, { 'dev/ownership.yaml': MAP_YAML.replace('  - glob: ci/checks/**', '  - glob: ci/baselines.json\n    class: seeded\n  - glob: ci/checks/**'), [BASELINES_FILE]: '{\n  "feature-fit": 9\n}\n' });
+  const X = commit(dir, 'X: slipway counts its own docs');
+  const proj = join(root, `count-project-${sources}`);
+  const np = spawnBin(process.execPath, [join(dir, 'scripts', 'new-project.mjs'), proj, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: dir } });
+  assert.equal(np.status, 0, np.stdout + np.stderr);
+  put(dir, { [BASELINES_FILE]: '{\n  "feature-fit": 4\n}\n', 'process/later.md': 'later\n' });
+  const Y = commit(dir, 'Y: slipway filled five of its own');
+  return { from: dir, proj, X, Y };
+}
+
+test("a project that already holds a whole-number feature-fit, and slipway's own copy changed: the plan shows the file unchanged, never as slipway's template changed and never as a collision, whatever the install record holds", () => {
+  const { from, proj, Y } = countingSlipway();
+  assert.equal(baselinesOf(proj), '{\n  "feature-fit": 0\n}\n', "new-project wrote the project's own count, not slipway's 9");
+  assert.equal(manifestOf(proj).files[BASELINES_FILE].class, 'seeded');
+  put(proj, { ...FIT_DOCS, [BASELINES_FILE]: '{\n  "feature-fit": 2\n}\n' });
+  commit(proj, 'the project counts its own');
+
+  // With the path in the install record, and with the record holding nothing for it (0.2 review, AR-10 item 5).
+  for (const listed of [true, false]) {
+    if (!listed) {
+      const m = manifestOf(proj);
+      delete m.files[BASELINES_FILE];
+      put(proj, { [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+      commit(proj, 'a record with no entry for the file');
+    }
+    const verbose = runFrom(from, proj, '--verbose');
+    assert.equal(verbose.status, 0, verbose.stderr);
+    assert.equal(rows(verbose.stdout)[BASELINES_FILE], 'unchanged', `listed: ${listed}`);
+    assert.doesNotMatch(verbose.stdout, /template changed|collision|count recorded/);
+    assert.deepEqual(JSON.parse(runFrom(from, proj, '--json').stdout).notes, []);
+  }
+  const applied = runFrom(from, proj, '--apply');
+  assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+  assert.equal(baselinesOf(proj), '{\n  "feature-fit": 2\n}\n');
+  assert.equal(existsSync(join(proj, '.slipway/upstream', `${BASELINES_FILE}.diff`)), false);
+  assert.equal(manifestOf(proj).slipway, Y);
+  assert.equal(manifestOf(proj).files[BASELINES_FILE], undefined, 'sync writes no entry for the file in the install record');
+});
+
+test("a project with no count, synced to a slipway that ships its own: --apply writes the project's count, never slipway's bytes, with the path in the install record or not", () => {
+  for (const listed of [true, false]) {
+    const { from, proj } = countingSlipway();
+    const m = manifestOf(proj);
+    if (!listed) delete m.files[BASELINES_FILE];
+    put(proj, { ...FIT_DOCS, [BASELINES_FILE]: null, [MANIFEST]: `${JSON.stringify(m, null, 2)}\n` });
+    commit(proj, 'the count removed');
+    assert.equal(rows(runFrom(from, proj, '--verbose').stdout)[BASELINES_FILE], 'count recorded', `listed: ${listed}`);
+    const applied = runFrom(from, proj, '--apply');
+    assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+    assert.equal(baselinesOf(proj), '{\n  "feature-fit": 3\n}\n', `listed: ${listed}`);
+    assert.equal(rows(runFrom(from, proj, '--verbose').stdout)[BASELINES_FILE], 'unchanged');
+  }
+});
+
+test('countLines: 0, 1 and many; the status clause only when a counted doc has no status line; files named by folder; a long list cut; a name on one line', () => {
+  assert.deepEqual(countLines({ n: 0 }), ['No feature doc that is shipped, reviewed or scheduled is missing its Fit section. The count is recorded at 0 and may not go up.']);
+  assert.deepEqual(countLines({ n: 1, drafts: ['a'], others: ['dev/features/qa.md'] }), [
+    '1 feature doc that is shipped, reviewed or scheduled has no Fit section filled in yet. The count is recorded at 1 and may only go down.',
+    '1 feature doc still being drafted has no Fit section; it needs one before it is reviewed, scheduled or shipped.',
+    '1 file in dev/features/ is not a feature doc and is not counted: qa.md.',
+  ]);
+  assert.deepEqual(countLines({ n: 2, noStatus: 1 })[1], 'Of these, 1 has no status line in its header, so it is counted whatever its Fit says; give it one and it is read normally.');
+  assert.deepEqual(countLines({ n: 3, noStatus: 2 })[1], 'Of these, 2 have no status line in their header, so they are counted whatever their Fit says; give each one and it is read normally.');
+  assert.deepEqual(countLines({ n: 0, others: ['docs/features/a.md', 'dev/features/b.md'] })[1], '2 files in docs/features/ and dev/features/ are not feature docs and are not counted: docs/features/a.md, dev/features/b.md.');
+  const many = Array.from({ length: 7 }, (_, i) => `docs/features/n${i}.md`);
+  assert.match(countLines({ n: 0, others: many })[1], /: n0\.md, n1\.md, n2\.md, n3\.md, n4\.md, \+2 more\.$/);
+  for (const l of countLines({ n: 0, others: ['docs/features/a\nb.md'] })) assert.doesNotMatch(l, /\n/);
+});
+
+test('a counted doc with a filled Fit and no status line: the plan says why it is counted, in words the owner can act on', () => {
+  const filled = '# F-9 — x\n\n## Fit\n\nReuses:\n- a helper in lib/x\n\nNumbers:\n- none shown\n\nNew: a thing nothing else does.\n';
+  const dir = counted({ 'docs/features/shipped.md': fitDoc('shipped', 1), 'docs/features/no-status.md': filled, [BASELINES_FILE]: null });
+  assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).notes, [
+    '2 feature docs that are shipped, reviewed or scheduled have no Fit section filled in yet. The count is recorded at 2 and may only go down.',
+    'Of these, 1 has no status line in its header, so it is counted whatever its Fit says; give it one and it is read normally.',
+  ]);
+});
+
+test('/sync-slipway reads the plan as JSON and is told to say each note to the owner: where the count\'s sentences travel (0.2 review, AR-4)', () => {
+  const skill = readFileSync(join(SRC, '.claude/skills/sync-slipway/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.ok(skill.includes('Run `sync --json`'), 'step 1 no longer reads the plan as JSON');
+  assert.ok(skill.includes('A `remote` that is not `null`, and each note, is said to the owner first'), 'the skill no longer says each note to the owner');
+  assert.ok(skill.includes('use `label` and `meaning` with the owner, never `kind`'), 'the skill no longer shows a row by its label');
 });

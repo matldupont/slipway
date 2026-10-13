@@ -11,7 +11,7 @@ The base is the slipway commit these files last matched. Sync needs it to tell "
   1 package.json scripts                         package.json scripts: sync updates them key by key, and keeps any you changed
   3 changed by you                               slipway's file that you changed since the base. Needs your choice below; then sync combines slipway's changes with yours, or leaves it if you keep it
 
-4 tracked file(s) are the project's own: not in the base, so sync never touches them.
+5 tracked file(s) are the project's own: not in the base, so sync never touches them.
 
 Needs you (3):
   changed by you  process/kept.md
