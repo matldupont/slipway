@@ -36,37 +36,16 @@
 // Out of scope, on purpose: a registry or a lock (a pushed branch is the claim), renumbering, the PRD's own feature
 // list (F1 reads it), lessons and milestones (L1 and MS1).
 
-import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter } from '../lib/frontmatter.mjs';
-import { report, UNSAFE } from '../lib/report.mjs';
+import { FEATURE_DIRS, LEAD, readFeatureFiles, visible } from '../lib/feature-docs.mjs';
+import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
-const FEATURE_DIRS = ['docs/features', 'dev/features'];
 
-// [{ line, text }] for every line of the text, whatever it sits in. Nothing is skipped: a heading-shaped line inside a
-// fence, a comment, front matter, a quote, a list item or indented code counts too. Every skip rule a reader of markdown
-// applies is a way to hide a duplicate from a gate, and review rounds found one each; a false alarm on an example heading
-// costs a reword, a hidden duplicate costs a collision. CR, LF and CRLF all end a line. A byte-order mark, characters
-// that print as nothing, and look-alike hyphens and digits (NFKC) are normalised away before a line is matched.
-// Not handled, and said so: an id written through markup or an escape (`## **D-1**`, `## D\-1`, `<h2>D-1</h2>`), a
-// setext heading, a look-alike letter, dash or digit that NFKC leaves alone (Cyrillic Р, U+2043, Arabic-Indic ٣), a file
-// name other than `*.md`, and README.md, which is skipped beside TEMPLATE.md.
-// Every character report.mjs's UNSAFE names, all of them on a line (its own regex has no `g`), and the three it leaves
-// for emoji (U+200D, U+FE0E, U+FE0F), which print as nothing between plain letters.
-const INVISIBLE = new RegExp(`[${UNSAFE.source}\\u200d\\ufe0e\\ufe0f]`, 'gv');
-function visible(md) {
-  return md
-    .replace(/^\uFEFF/, '')
-    .split(/\r\n|\r|\n/)
-    .map((raw, i) => ({ line: i + 1, text: raw.replace(INVISIBLE, '').normalize('NFKC').replace(/[\p{Pd}\u2212]/gu, '-') }));
-}
-
-// What may stand in front of the `#`s: spaces, quote markers and list markers.
-// Each alternative starts with a different character class, so the match stays linear.
-const LEAD = String.raw`^(?:[ \t>]|[-*+][ \t]|\d{1,9}[.)][ \t])*#{1,6}[ \t]+`;
+// What a feature doc is, how a line is read (nothing is skipped, look-alikes are normalised) and what may stand in
+// front of a heading's `#`s live in lib/feature-docs.mjs, shared with the Fit count so the two class a file alike.
 const DECISION = new RegExp(`${LEAD}(P?D)-(\\d+)\\b`);
-const FEATURE = new RegExp(`${LEAD}F-(\\d+)\\b`);
 
 const findings = [];
 let scanned = 0;
@@ -86,31 +65,15 @@ if (existsSync(decisionsPath)) {
   }
 }
 
-const regular = (path) => {
-  try {
-    const st = lstatSync(join(root, path));
-    return st.isFile() && !st.isSymbolicLink();
-  } catch {
-    return false;
-  }
-};
-
 // feature docs: path → { ns (every F-<n> a heading of the doc carries; empty: none), companionOf }
 const docs = new Map();
-for (const dir of FEATURE_DIRS) {
-  const abs = join(root, dir);
-  if (!existsSync(abs)) continue;
-  for (const f of readdirSync(abs).filter((x) => x.endsWith('.md') && x !== 'TEMPLATE.md' && x !== 'README.md').sort()) {
-    const path = `${dir}/${f}`;
-    if (!regular(path)) {
-      findings.push({ where: `${path}#feature/unreadable`, detail: `${path} is a link or not a regular file, so ID1 cannot read its F-id: make it a regular file` });
-      continue;
-    }
-    const md = readFileSync(join(abs, f), 'utf8');
-    const ns = [...new Set(visible(md).map((l) => l.text.match(FEATURE)).filter(Boolean).map((m) => Number(m[1])))];
-    if (ns.length) scanned++;
-    docs.set(path, { ns, companionOf: (frontmatter(md.replace(/\r\n|\r/g, '\n')) ?? {})['companion-of'] ?? null });
+for (const { path, regular, ns, companionOf } of readFeatureFiles(root)) {
+  if (!regular) {
+    findings.push({ where: `${path}#feature/unreadable`, detail: `${path} is a link or not a regular file, so ID1 cannot read its F-id: make it a regular file` });
+    continue;
   }
+  if (ns.length) scanned++;
+  docs.set(path, { ns, companionOf });
 }
 
 const named = (v) => (typeof v === 'string' ? v : '(no path)');

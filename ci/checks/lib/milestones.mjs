@@ -73,6 +73,10 @@ export function contents(md) {
   });
 }
 
+// The features a Contents item cites: every `F-<n>` in its text, as numbers, so F-2 and F-02 are one feature.
+// Shared by F1 (is each feature scheduled) and the Fit count (is this doc scheduled).
+export const citedFeatures = (text) => [...text.matchAll(/\bF-(\d+)\b/g)].map((m) => Number(m[1]));
+
 // One check line, already trimmed and cut, under an item whose marker is `at`. Exactly one of
 //   Owed: {check} — {environment}
 //   Ran: {check} — {environment} {yyyy-mm-dd} pass|fail {comment URL}[ · bug #{n}]
