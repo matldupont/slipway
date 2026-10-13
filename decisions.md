@@ -977,21 +977,23 @@ Why: a milestone plan that places design nowhere costs the schedule the most whe
 accessibility audit after the build is the one shape of that work that can only discover. The feature doc is
 `dev/features/design-before-screens.md` (F-14). #406.
 
-## D-043 — A milestone carries a `Version:` line, and it moves when its plan changes, not its bookkeeping *(decided 2026-10-13)*
+## D-044 — A milestone carries a `Version:` line, and it moves when its plan changes, not its bookkeeping *(decided 2026-10-13)*
 
 `/review-doc` takes "the PRD, a feature doc, a milestone". D-041 gave a feature doc a `Version:` line for a review to
-quote; a milestone had none, so its reviewer picked a line, as happened with feature docs before D-041. Three
-choices, each the owner's (#404):
+quote; a milestone had none, so its reviewer picked a line, as happened with feature docs before D-041. Which line
+it is follows from D-041 (reuse, no pick); when it moves, the extension, the M1 skeleton and the stop are the
+owner's picks (#404):
 
 - **The line.** `docs/milestones/TEMPLATE.md` and `docs/milestones/M1-walking-skeleton.md` carry
   `Version: 0.1 (<date>)` under the title. That is the line a review of a milestone quotes. It is the line R1
   already reads in any reviewed document, so no check changes.
-- **When it moves: a list, not a judgement** (as D-041). Every edit to the milestone's `appetite:`, or inside its
-  Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria, moves it, in the same commit. Bookkeeping does not:
+- **When it moves: a list, not a judgement** (as D-041). Every edit to the milestone's `appetite:` or `extended:`,
+  or inside its Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria, moves it, in the same commit. Bookkeeping does not:
   the ` · #n` marker that says an item is started, an `Owed:` or `Ran:` line under an item, `status:`, `summary:`
   and the Retro. Declined: every edit but the Retro (each started item and each recorded run would turn the
   milestone's review stale); Contents and Gate only (a changed appetite, no-go or kill criterion would leave the
-  earlier review current).
+  earlier review current). `extended:` is on the list because an extension gives the bet more time with
+  `appetite:` untouched (found by the review of #404's pull request).
 - **A milestone written before the line.** `/review-doc` stops on one and says its owner adds
   `Version: 0.1 (<date>)` in a commit of its own first: a reviewer never edits its target. No check requires the
   line, so a project's existing milestones do not go red on the sync that brings the template (D-036).

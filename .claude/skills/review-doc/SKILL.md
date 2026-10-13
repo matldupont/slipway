@@ -30,7 +30,7 @@ git rev-parse --short HEAD        # the sha you are reviewing at
 
 A feature doc with no `Version:` line under its title is not reviewed as it is: stop here, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` when one next edits its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target. An
 `owner-confirmed, not reviewed` line in its Changes beside a `Version:` that did not move is D-040's one exception, not a finding; the block itself is reviewed like the rest.
-A milestone with no `Version:` line under its title is not reviewed as it is either: stop here, and say that its owner adds `Version: 0.1 (<date>)` in a commit of its own first (D-043).
+A milestone with no `Version:` line under its title is not reviewed as it is either: stop here, and say that its owner adds `Version: 0.1 (<date>)` in a commit of its own first (D-044).
 
 Read the document in full. Then read what it depends on, to check it against something:
 `docs/product/FRAME.md` (does every feature serve the question?), `decisions.md`, the
@@ -77,7 +77,7 @@ Copy `docs/reviews/TEMPLATE.md` to `docs/reviews/<YYYY-MM-DD>-<target>-<version>
 - `Version line: <copied verbatim from the file>` — open the file and copy it. Do not retype it
   from memory; that is the failure R1 exists for, and a paraphrase turns it red. The version line of a feature
   doc is the `Version:` line under its title, which moves whenever its Contract, Acceptance or Verify changes
-  (D-041; `process/intake.md` → Feature doc version). The version line of a milestone is the `Version:` line under its title, which moves whenever its appetite, Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria change, and not for a started marker, an `Owed:` or `Ran:` line, `status:`, `summary:` or the Retro (D-043).
+  (D-041; `process/intake.md` → Feature doc version). The version line of a milestone is the `Version:` line under its title, which moves whenever its appetite or its extension (`extended:`), Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria change, and not for a started marker, an `Owed:` or `Ran:` line, `status:`, `summary:` or the Retro (D-044).
 - `Supersedes: docs/reviews/<file>` — one line for each earlier review in `docs/reviews/` whose `Reviewed:` line
   names the same path, every one of them, not only the latest; with none, write no such line.
 - The register, then one section per finding: where (by ID, never by heading alone; in a document with fewer IDs than sections, its ID, the section and the line range at the reviewed commit), what is wrong with

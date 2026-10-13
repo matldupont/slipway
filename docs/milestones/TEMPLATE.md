@@ -22,9 +22,9 @@ Version: 0.1 (<date>)
 >   is generated from these fields, never hand-written; MS1 flags a row that differs. A `|` in it
 >   is written `\|` in the row.
 > - Shaping milestones may hold placeholders. Active, closed and killed ones may not.
-> - `Version:` is the line a `/review-doc` review of this milestone quotes. Any edit to `appetite`, or inside
->   Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria below, moves it, in the same commit. Bookkeeping
->   does not: an item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status`, `summary` and the Retro.
+> - `Version:` is the line a `/review-doc` review of this milestone quotes. Any edit to `appetite` or
+>   `extended`, or inside Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria below, moves it, in the same
+>   commit. Bookkeeping does not: an item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status`, `summary` and the Retro.
 
 ## Why
 
