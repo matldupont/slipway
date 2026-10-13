@@ -410,6 +410,7 @@ test('text nobody writes is read in time that grows with its length: openers wit
   within(1500, () => assert.deepEqual(frontmatter(header), {}));
   const item = `## Contents\n\n1.${' '.repeat(300000)}x\u2028y\n`;
   within(1500, () => assert.deepEqual(contents(item), []));
+  within(1500, () => assert.equal(hasPlaceholder(`${'<…\n'.repeat(300000)}>`), false));
   const line = '<…'.repeat(2499);
   const lines = `${front('shipped')}# F-1 — x\n\n## Fit\n\nReuses:\n${`${line}\n`.repeat(1000)}\nNumbers:\n- x\n\nNew: x\n`;
   within(1500, () => assert.deepEqual(reasons({ [A]: lines }), [], 'an unclosed placeholder opener is not a placeholder'));
