@@ -63,16 +63,16 @@ No finding below is S0.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | `/log-bug` schedules its stub in the running milestone and sends it to review inside its own flow, so the stub is held with the template's Fit unfilled; the Contract says nothing is asked of it and the skill needs no change | S1 | owner | Build map 2, 3 | |
-| AR-2 | The first review of a draft with no Fit turns the reviewer's pull request red on a file a reviewer may not edit; `/review-doc` gains a sentence and no stop | S2 | owner | Build map 3 | |
-| AR-3 | The owner's stop condition has no named evidence at step 1, and the one owner probe needs step 2 and a sync the Build map forbids | S2 | owner | Build map 1 | |
-| AR-4 | The owner meets a sync through `/sync-slipway`, which reads the plan as JSON; the Contract does not say the JSON carries the count's sentences, and the skill is not among those changed | S2 | author | Build map 1 | |
-| AR-5 | The premise is an expectation with no instance, the pass that could show it false is ordered after the build, and the new cold-review line needs a lesson naming a failure nobody has seen | S2 | owner | Build map 1 | |
-| AR-6 | Four clauses of "held" have no case: a closed milestone, a shaping or killed one, a review of another doc, a review that is not current | S2 | author | Build map 2 | |
-| AR-7 | "Every other key is byte for byte as it was" and "serialises it (two-space JSON)" are both true only of a file already in that form | S3 | author | Build map 1 | |
-| AR-8 | F2 prints less than "whatever the result" on a BROKEN run, and its BROKEN message hands out the one command that records any count | S3 | author | Build map 2 | |
-| AR-9 | The Problem's count is off by one: a seventh doc carries an ad hoc reuse list | S3 | author | — | |
-| AR-10 | Seven readings the check and its readers depend on are not specified | S3 | author | Build map 1, 2 | |
+| AR-1 | `/log-bug` schedules its stub in the running milestone and sends it to review inside its own flow, so the stub is held with the template's Fit unfilled; the Contract says nothing is asked of it and the skill needs no change | S1 | owner | Build map 2, 3 | 0.3: Contract §1 and §5 (`/log-bug` fills the stub's Fit); built in Build map 3 |
+| AR-2 | The first review of a draft with no Fit turns the reviewer's pull request red on a file a reviewer may not edit; `/review-doc` gains a sentence and no stop | S2 | owner | Build map 3 | 0.3: Contract §5 (`/review-doc` step 1 stops); built in Build map 3. Why a doc is held, in F2's finding: Build map 2, with AR-10 item 4 |
+| AR-3 | The owner's stop condition has no named evidence at step 1, and the one owner probe needs step 2 and a sync the Build map forbids | S2 | owner | Build map 1 | 0.3: Build map 1 and Verify's owner probes (the step 1 probe, the owner's yes or no in that PR) |
+| AR-4 | The owner meets a sync through `/sync-slipway`, which reads the plan as JSON; the Contract does not say the JSON carries the count's sentences, and the skill is not among those changed | S2 | author | Build map 1 | Build map 1, carried: what `/sync-slipway` shows the owner is checked against the code and pinned by a test |
+| AR-5 | The premise is an expectation with no instance, the pass that could show it false is ordered after the build, and the new cold-review line needs a lesson naming a failure nobody has seen | S2 | owner | Build map 1 | D-036 as amended 2026-10-13 (the owner: build as ordered; #49's first pass reports what reopens it); 0.3: Problem, Contract §5 (the lesson's wording) |
+| AR-6 | Four clauses of "held" have no case: a closed milestone, a shaping or killed one, a review of another doc, a review that is not current | S2 | author | Build map 2 | Build map 2, carried: a test for each of the four clauses, in the test files; the fixture cases stay sixteen |
+| AR-7 | "Every other key is byte for byte as it was" and "serialises it (two-space JSON)" are both true only of a file already in that form | S3 | author | Build map 1 | Build map 1: `scripts/sync.test.mjs` gives the row a file that is not already two-space JSON |
+| AR-8 | F2 prints less than "whatever the result" on a BROKEN run, and its BROKEN message hands out the one command that records any count | S3 | author | Build map 2 | Build map 2: `scripts/f2.test.mjs` pins what a BROKEN run prints; the `--update` path with no baseline is named in that PR's known limitations |
+| AR-9 | The Problem's count is off by one: a seventh doc carries an ad hoc reuse list | S3 | author | — | Build map 2: the PR that recounts `dev/features/` for the backfill corrects the three numbers, here and in #48 |
+| AR-10 | Seven readings the check and its readers depend on are not specified | S3 | author | Build map 1, 2 | Build map 1: items 1, 2, 3, 5 (`scripts/fit.test.mjs`, `scripts/sync.test.mjs`). Build map 2: items 4, 6. Build map 3: item 7 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.

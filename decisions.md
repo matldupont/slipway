@@ -558,6 +558,33 @@ their reader to check Fit against the code (`process/cold-review.md`, `/review-d
 Advised by the orchestrator session and taken: the build order turned round (sync's count first, the check
 second), so the stop condition above is met before anything is live.
 
+Amended 2026-10-13 (#48, the owner's answers on the review of the spec at 0.2,
+`docs/reviews/2026-10-12-feature-fit-0.2.md`). The rule above is as decided.
+
+- **The build is not held for evidence.** The drift Fit is for (one number calculated two ways, one surface built
+  two ways) is an expectation: no instance is cited, and the pass that would look for one (#49) is ordered after
+  #48. The owner chose to build in that order. The reason put to them: what has shipped was shaped one feature at
+  a time, so a clean pass over it would not settle the expectation for features shaped side by side, and the
+  section has to exist before the next real project's feature docs are written. Declined: the pass first, then
+  the build (a session spent before the docs it is for are written); the pass first and, on a clean result, only
+  the section and the skill sentences, with the check and the sync count held (Fit would be advice with nothing
+  holding it).
+- **What reopens it, and who reads it.** #49's first pass over a milestone built with Fit reports two things:
+  each number calculated in two places or surface built two ways that the docs' Fit lines did not stop, and how
+  many of the milestone's docs gave only the short answers (`nothing`, `none shown`, `none`). A drift Fit did not
+  stop, or short answers in most of the docs, brings the check and the sync count back to the owner. The line
+  goes into #49's acceptance when the spec's 0.3 merges. The lesson behind the cold-review line says the failure
+  it names is expected, not yet seen.
+- **Two more sentences in owner-only files are named by the spec** (the owner's yes, the same day): a stop in
+  `/review-doc` step 1 for a feature doc with no filled Fit, and a sentence in `/log-bug`'s stub step that fills
+  it. Each edit is still asked for when it is made.
+
+Advised by the orchestrator session and taken: a bug-fix stub is held like any doc, and `/log-bug` fills its Fit
+from the feature's code; `/review-doc` stops on a doc with no filled Fit, since its review would turn its own
+pull request red on a file a reviewer never edits; what answers the stop condition above is the owner's yes or
+no to a probe run before build PR 1 is marked ready, recorded in that PR. The 0.2 review is the last but one:
+the review of 0.3 is the last whole-document review before the build (the owner, 2026-10-13).
+
 ## D-037 — A pull request's new tests must each fail on a change to the code; slipway's own mutator checks it, within 5 minutes *(decided 2026-10-08)*
 
 #51 asks that a product's tests be able to fail, checked on every pull request (F-13,
