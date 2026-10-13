@@ -8,6 +8,8 @@ summary: walking skeleton — thinnest core path, deployed through CI
 
 # M1 — Walking skeleton
 
+Version: 0.1 (<date>)
+
 > Pre-filled: every project's first milestone is the same shape. Replace the placeholders,
 > set the appetite (a few days to a week), and set `status: active` when you start.
 

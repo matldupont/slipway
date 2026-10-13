@@ -1011,6 +1011,31 @@ for a stale review); a header line in the new review stating the old path, match
 `Reviewed:` line (a new line in the review template and `/review-doc` for a case naming already states);
 telling a move from a deletion by reading git history.
 
+## D-044 — A milestone carries a `Version:` line, and it moves when its plan changes, not its bookkeeping *(decided 2026-10-13)*
+
+`/review-doc` takes "the PRD, a feature doc, a milestone". D-041 gave a feature doc a `Version:` line for a review to
+quote; a milestone had none, so its reviewer picked a line, as happened with feature docs before D-041. Which line
+it is follows from D-041 (reuse, no pick); when it moves, the extension, the M1 skeleton and the stop are the
+owner's picks (#404):
+
+- **The line.** `docs/milestones/TEMPLATE.md` and `docs/milestones/M1-walking-skeleton.md` carry
+  `Version: 0.1 (<date>)` under the title. That is the line a review of a milestone quotes. It is the line R1
+  already reads in any reviewed document, so no check changes.
+- **When it moves: a list, not a judgement** (as D-041). Every edit to the milestone's `appetite:` or `extended:`,
+  or inside its Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria, moves it, in the same commit. Bookkeeping does not:
+  the ` · #n` marker that says an item is started, an `Owed:` or `Ran:` line under an item, `status:`, `summary:`
+  and the Retro. Declined: every edit but the Retro (each started item and each recorded run would turn the
+  milestone's review stale); Contents and Gate only (a changed appetite, no-go or kill criterion would leave the
+  earlier review current). `extended:` is on the list because an extension gives the bet more time with
+  `appetite:` untouched (found by the review of #404's pull request).
+- **A milestone written before the line.** `/review-doc` stops on one and says its owner adds
+  `Version: 0.1 (<date>)` in a commit of its own first: a reviewer never edits its target. No check requires the
+  line, so a project's existing milestones do not go red on the sync that brings the template (D-036).
+
+Why: a review is current while the line it quotes is in the document, so the line has to move exactly when what
+was reviewed, the bet, has changed. The skills that edit a milestone's Contents do not yet cite this rule; that is
+a follow-up of #404.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
