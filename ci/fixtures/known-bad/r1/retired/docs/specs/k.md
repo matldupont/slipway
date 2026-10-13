@@ -1,5 +1,5 @@
 # Spec k
 
-Version: "0.2"
+version: "0.2"
 
 Content.

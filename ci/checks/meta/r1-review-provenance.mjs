@@ -10,10 +10,8 @@
 //                               regular file of it: a folder, a link or a path through one, .git/
 //   provenance/stale            the version line is not the reviewed document's `Version:` line — the
 //                               document moved on, or the line was written from memory
-//   document/version-lines      the version line of a reviewed document, or of the PRD, cannot be read: more
-//                               than one line starts `Version:`, or a line reads as one and does not start
-//                               with it (white space, an emphasis, list, quote or heading mark, a backtick or
-//                               a hidden character before it, or another letter case). No review of it is current
+//   document/version-lines      a reviewed document, or the PRD, has more than one line starting `Version:`:
+//                               nothing says which is its version line, so no review of it is current
 //   provenance/supersedes-invalid  a `Supersedes:` line names something other than a review of the
 //                               same document, or sits in a review that quotes no whole line of it
 //   provenance/review-unreadable  a file in docs/reviews/ that is a link, a folder or reached through a link: not read
@@ -28,10 +26,10 @@
 //
 // The document's version line is its one line that starts `Version:` (lib/review-header.mjs, shared with
 // `pnpm status`). A review is current only while the line it quotes is that line: the same text written anywhere
-// else in the document, inside another line or as a line of its own, keeps no review current. A document R1
-// cannot read one version line from is a finding and is never passed. A document with no `Version:` line, and no
-// line that reads as one, has none to compare, and a review of it is current while the line it quotes is anywhere
-// in the text. For the PRD, a review counts as one of its current version only when it also names that version, as
+// else in the document, inside another line or as a line of its own, keeps no review current. A document with
+// more than one such line is a finding and is never passed. A document with no line that starts `Version:` has
+// none to compare, and a review of it is current while the line it quotes is anywhere in the text; a version line
+// written any other way is not looked for. For the PRD, a review counts as one of its current version only when it also names that version, as
 // it had to before: that test is never looser than it was.
 //
 // The missing-review rule fires at the same moment F1's does: while the PRD is a draft it is still
@@ -65,7 +63,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { excerpt, report, UNSAFE } from '../lib/report.mjs';
-import { isPrdPath, MAX_LINE, MISSING, notPlainFile, quotedVersion, readings, reviewProvenance, versionOfDoc, versionUnreadable } from '../lib/review-header.mjs';
+import { docLines, isPrdPath, MAX_LINE, MISSING, notPlainFile, quotedVersion, readings, reviewProvenance, versionLines } from '../lib/review-header.mjs';
 
 const root = process.argv[2] ?? '.';
 const prdPath = join(root, 'docs', 'PRD.md');
@@ -78,8 +76,8 @@ const dir = join(root, 'docs', 'reviews');
 const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
 const findings = [];
 const reviews = [];
-// Reviewed documents whose version line cannot be read, by normalised path: each is reported once.
-const unreadDocs = new Map();
+// Reviewed documents with more than one `Version:` line, by normalised path, with the count: each is reported once.
+const severalVersions = new Map();
 
 const BOUND = 120;
 // One review file gets at most this many Supersedes: findings; the rest are counted in one more.
@@ -136,16 +134,16 @@ for (const f of files) {
   }
   const want = version;
   const doc = readFileSync(join(root, targetRel), 'utf8');
-  const stated = versionOfDoc(doc);
-  const quoted = quotedVersion(doc, want, stated);
-  if (versionUnreadable(stated)) unreadDocs.set(posix.normalize(targetRel), { targetRel, stated });
+  const versions = versionLines(doc);
+  const quoted = quotedVersion(doc, want, versions);
+  if (versions.length > 1) severalVersions.set(posix.normalize(targetRel), versions.length);
   // The PRD is reviewed by a review that names its version, as before, and that R1 does not also call stale.
   if (isPrdPath(targetRel) && prdVersion && want.includes(prdVersion) && quoted === 'current') reviewedPrd.push(rel);
   // To retire another review, the version line has to be a whole line of the document. In a document with no
   // `Version:` line, a word that is merely somewhere in it ("#", "Spec") keeps this review from being stale, as
   // it always has, and no more.
-  const wholeLine = doc.split(/\r?\n/).some((l) => readings(l).includes(want));
-  reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: quoted !== 'current', quoted, versions: stated.lines.length, wholeLine, supersedes });
+  const wholeLine = docLines(doc).some((l) => readings(l).includes(want));
+  reviews.push({ rel, want, targetRel, doc: posix.normalize(targetRel), stale: quoted !== 'current', quoted, versions: versions.length, wholeLine, supersedes });
 }
 
 // Two spellings of one path that do not normalise alike read as two documents: nothing retires.
@@ -169,20 +167,15 @@ for (const r of reviews) {
 // edit to the review.
 const REMEDY = "review the current version (/review-doc) and name this file in that review's Supersedes: line";
 const staleDetail = (r) => (r.quoted === 'unreadable'
-  ? `the version line of ${shown(r.targetRel)} cannot be read (see its document/version-lines finding), so "${shown(r.want)}" is not compared with it: this review is read again once the document has one line starting \`Version:\``
+  ? `${shown(r.targetRel)} has ${r.versions} lines starting \`Version:\` (see its document/version-lines finding), so "${shown(r.want)}" is not compared with either: this review is read again once the document has one`
   : `"${shown(r.want)}" is not ${r.versions === 1 ? 'the Version: line of' : 'in'} ${shown(r.targetRel)} — the document moved on, or the line was written from memory: ${REMEDY}`);
 for (const r of reviews) {
   if (!r.stale || retired.has(r.rel)) continue;
   findings.push({ where: `${r.rel}#provenance/stale`, detail: staleDetail(r) });
 }
-if (prd && versionUnreadable(versionOfDoc(prd))) unreadDocs.set('docs/PRD.md', { targetRel: 'docs/PRD.md', stated: versionOfDoc(prd) });
-const lineList = (ns) => `line ${ns.slice(0, 3).join(', ')}${ns.length > 3 ? ` and ${ns.length - 3} more` : ''}`;
-for (const [doc, { stated }] of unreadDocs) {
-  const why = [
-    ...(stated.lines.length > 1 ? [`${stated.lines.length} lines start \`Version:\`, and nothing says which is its version line: leave the current one as the only line that starts that way`] : []),
-    ...(stated.unread.length ? [`${lineList(stated.unread)} reads as a version line and does not start with \`Version:\`: make the line start with \`Version:\`, or reword it so that word does not lead the line`] : []),
-  ].join('; ');
-  findings.push({ where: `${shown(doc)}#document/version-lines`, detail: `the version line of ${shown(doc)} cannot be read, so no review of it is current — ${why}` });
+if (prd && versionLines(prd).length > 1) severalVersions.set('docs/PRD.md', versionLines(prd).length);
+for (const [doc, count] of severalVersions) {
+  findings.push({ where: `${shown(doc)}#document/version-lines`, detail: `${shown(doc)} has ${count} lines starting \`Version:\`, and nothing says which is its version line, so no review of it is current: leave the current one as the only line that starts that way` });
 }
 
 if (prdWhy !== null && prdWhy !== MISSING) {

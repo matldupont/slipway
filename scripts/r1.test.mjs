@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { MAX_LINE, quotedVersion, reviewedOf, reviewProvenance, unquote, versionOf, versionOfDoc } from '../ci/checks/lib/review-header.mjs';
+import { MAX_LINE, quotedVersion, reviewedOf, reviewProvenance, unquote, versionOf } from '../ci/checks/lib/review-header.mjs';
 
 const R1 = join(dirname(fileURLToPath(import.meta.url)), '..', 'ci', 'checks', 'meta', 'r1-review-provenance.mjs');
 const LONG = 100_000;
@@ -228,8 +228,8 @@ test('a document with more than one `Version:` line is a finding, once, and a re
   try {
     const r = r1(dir);
     assert.deepEqual(r.findings.map((f) => f.where).sort(), ['docs/reviews/new.md#provenance/stale', 'docs/reviews/old.md#provenance/stale', 'docs/specs/a.md#document/version-lines']);
-    assert.equal(stale(r, 'new.md'), 'the version line of docs/specs/a.md cannot be read (see its document/version-lines finding), so "Version: 0.2" is not compared with it: this review is read again once the document has one line starting `Version:`');
-    assert.equal(r.findings.find((f) => f.where === 'docs/specs/a.md#document/version-lines').detail, 'the version line of docs/specs/a.md cannot be read, so no review of it is current — 2 lines start `Version:`, and nothing says which is its version line: leave the current one as the only line that starts that way');
+    assert.equal(stale(r, 'new.md'), 'docs/specs/a.md has 2 lines starting `Version:` (see its document/version-lines finding), so "Version: 0.2" is not compared with either: this review is read again once the document has one');
+    assert.equal(r.findings.find((f) => f.where === 'docs/specs/a.md#document/version-lines').detail, 'docs/specs/a.md has 2 lines starting `Version:`, and nothing says which is its version line, so no review of it is current: leave the current one as the only line that starts that way');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -297,29 +297,43 @@ test("a review that copies the version line is current under each reading of it:
 
 test('a byte-order mark before a first-line `Version:` line does not hide it', () => {
   const doc = `${String.fromCodePoint(0xfeff)}Version: 0.2\n\n- was "Version: 0.1"\n`;
-  assert.deepEqual(versionOfDoc(doc), { lines: ['Version: 0.2'], unread: [] });
   assert.equal(quotedVersion(doc, 'Version: 0.1'), 'stale');
   assert.equal(quotedVersion(doc, 'Version: 0.2'), 'current');
 });
 
-test('a line that reads as a version line and does not start with `Version:` makes the document unreadable; the list of what may stand before it is closed', () => {
-  const at = String.fromCodePoint;
-  const before = [' ', '\t', '**', '_', '- ', '* ', '+ ', '> ', '# ', '### ', '`', at(0x200b), at(0x200d), at(0xfe0f), at(0x202e), '> - **`'];
-  for (const lead of before) {
-    const doc = `# Spec\n\n${lead}Version: 0.2\n\n- was "Version: 0.1"\n`;
-    assert.deepEqual(versionOfDoc(doc), { lines: [], unread: [3] }, JSON.stringify(lead));
-    for (const want of ['Version: 0.1', 'Version: 0.2', 'Spec']) assert.equal(quotedVersion(doc, want), 'unreadable', JSON.stringify(lead));
+test('only a line that starts `Version:` is a version line: a line that merely reads like one changes nothing', () => {
+  const looks = ['```yaml\nversion: 3\n```', '- version: integer', '## Version: history', '**Version:** 0.1', ' Version: 0.1'];
+  for (const extra of looks) {
+    const dir = project({ 'docs/specs/a.md': `${SPEC}\n${extra}\n`, 'docs/reviews/a.md': review('docs/specs/a.md') });
+    try {
+      assert.equal(r1(dir).status, 0, extra);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   }
-  for (const line of ['version: 0.2', 'VERSION: 0.2', 'Version : 0.2', '**Version: 0.2**']) assert.deepEqual(versionOfDoc(`# Spec\n\n${line}\n`).unread, [3], line);
-  // Not version lines: the word later in a line, another word, and a character outside the list before it.
-  for (const line of ['The Version: line moves.', 'Versions: two', '| Version: 0.2 |', '1. Version: 0.2', '<!-- Version: 0.2 -->']) {
-    assert.deepEqual(versionOfDoc(`# Spec\n\n${line}\n`), { lines: [], unread: [] }, line);
-  }
-  const dir = project({ 'docs/specs/a.md': '# Spec\n\n**Version:** 0.2\n\n- was "Version: 0.1"\n', 'docs/reviews/a.md': review('docs/specs/a.md', 'Version: 0.1') });
+});
+
+// The clause main had at the PRD site decides alone here: the review copies the line, and does not name the version
+// as the PRD's pattern reads it. It was `review/missing` before #403 and still is.
+test('a review of the PRD still has to name its version as R1 reads it, as before', () => {
+  const dir = project({ 'docs/PRD.md': '# Acme\n\nVersion: "0.3.0"\nStatus: approved\n', 'docs/reviews/r.md': review('docs/PRD.md', 'Version: "0.3.0"') });
   try {
-    const r = r1(dir);
-    assert.deepEqual(r.findings.map((f) => f.where).sort(), ['docs/reviews/a.md#provenance/stale', 'docs/specs/a.md#document/version-lines']);
-    assert.equal(r.findings.find((f) => f.where === 'docs/specs/a.md#document/version-lines').detail, 'the version line of docs/specs/a.md cannot be read, so no review of it is current — line 3 reads as a version line and does not start with `Version:`: make the line start with `Version:`, or reword it so that word does not lead the line');
+    assert.deepEqual(r1(dir).findings.map((f) => f.where), ['docs/PRD.md#review/missing']);
+    assert.match(statusOf(dir), /review: none for this version/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a current review retires an older one in a document whose lines end in another line break', () => {
+  const brk = String.fromCodePoint(0x2028);
+  const dir = project({
+    'docs/specs/a.md': ['# Spec', '', 'Version: 0.2', ''].join(brk),
+    'docs/reviews/new.md': `${review('docs/specs/a.md')}Supersedes: docs/reviews/old.md\n`,
+    'docs/reviews/old.md': review('docs/specs/a.md', 'Version: 0.1'),
+  });
+  try {
+    assert.equal(r1(dir).status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
