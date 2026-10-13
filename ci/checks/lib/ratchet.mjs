@@ -31,7 +31,7 @@ export const serialiseBaselines = (baselines) => `${JSON.stringify(baselines, nu
 // spells another way, and that differs in a character that is not whitespace.
 const squeeze = (text) => text.replace(/[ \t\n\r]/g, '');
 
-// Whether writing `text`'s baselines back in the one form changes nothing but the spacing between its tokens.
+// Whether writing `text`'s baselines back in the one form changes nothing but its spacing.
 // False when anything else would change: a number written another way (`1.0`, one too large to hold), a name
 // written twice, a name that is a whole number (it moves to the front), an escape in a name. It decides only
 // "rewrite or refuse" for a caller about to rewrite a file it does not own, and whatever it cannot make equal is

@@ -267,7 +267,7 @@ test('onlySpacingDiffers: yes for a file whose tokens are the ones written back,
     [JSON.stringify(JSON.parse(form)), 'compact'],
     [form.trimEnd(), 'no final newline'],
     [form.replace(/\n/g, '\r\n'), 'CRLF'],
-    ['{ "a b":1 ,\n"c"  :  [ ] }', 'spaces inside a name are kept, spaces between tokens are not'],
+    ['{ "a b":1 ,\n"c"  :  [ ] }', 'a name with a space in it, and loose spacing between tokens'],
   ]) assert.equal(onlySpacingDiffers(text), true, why);
   for (const [text, why] of [
     ['{"a": 1.50}', 'a number written another way'],
@@ -281,7 +281,7 @@ test('onlySpacingDiffers: yes for a file whose tokens are the ones written back,
     ['[1]', 'not an object'],
     ['{ not json', 'not JSON'],
   ]) assert.equal(onlySpacingDiffers(text), false, why);
-  assert.equal(onlySpacingDiffers('{"a  b": 1, "a b": 2}'), true, 'spaces inside two names are part of them, so both come back as written');
+  assert.equal(onlySpacingDiffers('{"a  b": 1, "a b": 2}'), true, 'two names that differ by a space inside them are two names, and both come back as written');
   assert.throws(() => parseBaselines('[1]'), /^Error: ci\/baselines\.json is not a JSON object of name → number$/);
   assert.throws(() => parseBaselines('{'), /^Error: ci\/baselines\.json is not valid JSON: /);
 });
