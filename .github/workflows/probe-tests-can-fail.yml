@@ -1,0 +1,60 @@
+name: probe-tests-can-fail
+
+# NEVER MERGED. F-13 Build map step 0 (dev/features/tests-can-fail.md, D-037): times the measurement probe on a
+# hosted runner, on the scratch project kept under dev/probes/tests-can-fail/scratch/. This file lives only on a
+# throwaway branch whose draft pull request is closed after the run; main never holds it.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-tests-can-fail-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  measure:
+    name: measure (vitest ${{ matrix.vitest }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        vitest: ['5', '4']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Build the scratch project from its patches
+        env:
+          VITEST_MAJOR: ${{ matrix.vitest }}
+        run: |
+          set -euo pipefail
+          scratch="$RUNNER_TEMP/scratch"
+          patches="$GITHUB_WORKSPACE/dev/probes/tests-can-fail/scratch"
+          mkdir "$scratch"
+          git -C "$scratch" init -q -b main
+          git -C "$scratch" config user.name probe
+          git -C "$scratch" config user.email probe@example.invalid
+          git -C "$scratch" apply "$patches/base.patch"
+          if [ "$VITEST_MAJOR" = "4" ]; then git -C "$scratch" apply "$patches/vitest-4.patch"; fi
+          git -C "$scratch" add -A
+          git -C "$scratch" commit -q -m base
+          git -C "$scratch" apply "$patches/change.patch"
+          git -C "$scratch" add -A
+          git -C "$scratch" commit -q -m change
+          # The job's own install, as `verify` has one: it fills the store the probe's copy installs from, offline.
+          cd "$scratch"
+          pnpm install --frozen-lockfile
+      - name: Measure, 3 runs
+        run: |
+          set -euo pipefail
+          nproc
+          for run in 1 2 3; do
+            node dev/probes/tests-can-fail/measure.mjs "$RUNNER_TEMP/scratch" main HEAD > "$RUNNER_TEMP/run-$run.json"
+            echo "=== run $run ==="
+            node -e 'const o = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8")); console.log(JSON.stringify({ seconds: o.seconds, phases: o.phases, node: o.node, runs: o.runs, install: o.install, runnerCalls: o.runnerCalls, summary: o.summary, failureKinds: o.failureKinds, notPassing: o.tests.filter((t) => t.verdict !== "passes").map((t) => `${t.verdict}: ${t.file} › ${t.name} (tried ${t.tried})`), tried: o.tests.map((t) => t.tried) }, null, 1));' "$RUNNER_TEMP/run-$run.json"
+          done
