@@ -345,6 +345,8 @@ written from memory would pass beside an honest review, which is the failure R1 
 `Review date:` (a from-memory review dated the same day as an honest one would retire, and reviews and revisions
 do land on one day).
 
+Extended by D-043: a review whose reviewed path is gone retires the same way.
+
 ## D-030 — A recorded decision settles a failed run only by removing its line; a closed bug settles nothing *(decided 2026-10-07)*
 
 A failed run stops owing in two ways, as before: a later `Ran:` line says `pass` for the same check, or the fail
@@ -976,6 +978,38 @@ AR-1 and AR-11; the first is the owner's pick):
 Why: a milestone plan that places design nowhere costs the schedule the most where it is found last, and an
 accessibility audit after the build is the one shape of that work that can only discover. The feature doc is
 `dev/features/design-before-screens.md` (F-14). #406.
+
+## D-043 — A review of a document whose path is gone retires when a current review names it *(decided 2026-10-13)*
+
+When a reviewed document is renamed or moved, the review of it at its new path names each review of the old
+path, one `Supersedes: docs/reviews/<file>` line each, as D-029 has a review of a new version do. R1 stops
+reporting `provenance/target-missing` for a review once a current review names it that way. The earlier file
+stays as it was written, and a review of a gone path that nobody names is reported as before.
+
+- **Only a path that is plainly not there.** One rule says which paths can be: the path as the review wrote it
+  is names of letters, digits and `. _ -` joined by single slashes, with no `.` or `..` name, and every folder on
+  the way to the first missing name is a real folder. Any other reviewed path stays reported whatever names it:
+  one that leaves the repository, sits in `.git/`, is a folder or a link, goes through a link or under a file, or
+  holds any other character (a space, an accented letter, a character nobody sees). A document whose old path was
+  written that way keeps its old review reported; the rule admits what it can check, and lists nothing to refuse.
+- **The naming review meets two of D-029's three tests.** It is itself current and quotes a whole line of its
+  document. A line in a stale review retires nothing, and there is no chain. The third test, a review of the
+  same document, has nothing to compare: the path is gone.
+- **R1 does not tell a move from a deletion.** The naming is the statement, so a current review of any document
+  can retire the review of a document that was deleted outright, or of one that moved. R1 green after a move
+  therefore says the old review was named, not that the document has a current review at its new path. A review
+  written from memory cannot get the line by accident.
+- **The message names this way out.** It no longer says to fix the `Reviewed:` line or delete the review: a
+  review is not edited or deleted without the owner's yes.
+
+Why: a moved document left every review of it red for as long as the file existed, and the message's two ways
+out were the two things `process/intake.md` forbids. A review of a gone path was not one a `Supersedes:` line
+could name, so a fresh review at the new path could not end it either. #277.
+
+Declined: the owner deletes the review (its findings and their trackers leave the tree, which D-029 declined
+for a stale review); a header line in the new review stating the old path, matched against the old review's
+`Reviewed:` line (a new line in the review template and `/review-doc` for a case naming already states);
+telling a move from a deletion by reading git history.
 
 ## D-044 — A milestone carries a `Version:` line, and it moves when its plan changes, not its bookkeeping *(decided 2026-10-13)*
 

@@ -75,6 +75,41 @@ test('a reviewed path that is a link, to a file, a folder or nothing, is target-
   }
 });
 
+// D-043 (#277): a review of a path that is gone retires when a current review names it. PC1 pins the rule and
+// the limits a shipped fixture can hold (r1/moved); a link is not one of them.
+test('a path that is not there under a linked folder is not gone: the review that names it retires nothing, while a plainly gone one retires', () => {
+  const names = (...olds) => `${review('docs/specs/a.md')}${olds.map((o) => `Supersedes: docs/reviews/${o}.md\n`).join('')}`;
+  const dir = project(
+    { 'docs/specs/a.md': SPEC, 'docs/reviews/gone.md': review('docs/old/a.md', 'Version: 0.1'), 'docs/reviews/through.md': review('docs/linked/nope.md', 'Version: 0.1'), 'docs/reviews/new.md': names('gone', 'through') },
+    { 'docs/linked': 'specs' },
+  );
+  try {
+    const r = r1(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.deepEqual(r.findings.map((f) => f.where).sort(), ['docs/reviews/new.md#provenance/supersedes-invalid', 'docs/reviews/through.md#provenance/target-missing']);
+    assert.match(r.findings.find((f) => f.where.startsWith('docs/reviews/new.md')).detail, /Supersedes: docs\/reviews\/through\.md/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('no target-missing message tells the reader to fix the Reviewed: line or delete the review; each says when a review changes', () => {
+  const dir = project(
+    { 'docs/specs/a.md': SPEC, 'docs/reviews/gone.md': review('docs/old/a.md'), 'docs/reviews/folder.md': review('docs/specs'), 'docs/reviews/outside.md': review('../a.md'), 'docs/reviews/git.md': review('.git/config'), 'docs/reviews/slash.md': review('docs/specs/a.md/') },
+  );
+  try {
+    const r = r1(dir);
+    assert.equal(r.status, 1, r.out);
+    assert.deepEqual(r.findings.map((f) => f.where).sort(), ['folder', 'git', 'gone', 'outside', 'slash'].map((n) => `docs/reviews/${n}.md#provenance/target-missing`));
+    for (const f of r.findings) {
+      assert.doesNotMatch(f.detail, /fix the Reviewed|delete the review|delete it|edit the review/i, f.detail);
+      assert.match(f.detail, /; a review is not edited or deleted without the owner's yes$/, f.detail);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('a reviewed path that passes through a linked folder is target-missing, though the file it reaches is a document', () => {
   const dir = project({ 'docs/specs/a.md': SPEC, 'docs/reviews/through.md': review('docs/linked/a.md') }, { 'docs/linked': 'specs' });
   try {

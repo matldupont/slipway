@@ -6,8 +6,10 @@
 //
 //   provenance/missing          no `Reviewed: <path> @ <ref>` line
 //   provenance/no-version-line  no `Version line: <verbatim text>` line
-//   provenance/target-missing   the reviewed path does not exist, leaves the repository, or is not a
-//                               regular file of it: a folder, a link or a path through one, .git/
+//   provenance/target-missing   the reviewed path does not exist and no current review names this one, or it
+//                               leaves the repository, or is not a regular file of it: a folder, a link or a
+//                               path through one, .git/, or it does not exist and is not written plainly
+//                               (plainlyGone), which no review retires
 //   provenance/stale            the version line is not the reviewed document's `Version:` line — the
 //                               document moved on, or the line was written from memory
 //   document/version-lines      a reviewed document, or the PRD, has more than one line starting `Version:`:
@@ -42,6 +44,14 @@
 // an honest review. A stale review's own Supersedes: lines retire nothing, and there is no chain. The
 // review that retires another quotes a whole line of the document, not a word found somewhere in it.
 //
+// A review whose reviewed path does not exist retires the same way (D-043): the document moved, and a current
+// review, of the document at its new path, names it. R1 does not tell a move from a deletion, so the naming is
+// the statement, and no test ties the naming review's document to the one that is gone. Only a path that is
+// plainly not there (plainlyGone): written with letters, digits and `. _ - /` alone, with no `.` or `..` name, and
+// reached through real folders. Any other path stays reported whatever names it: one that leaves the repository,
+// sits in .git/, is a folder or a link, goes through a link or under a file, or is written any other way. A
+// target-missing message never says to edit or delete a review.
+//
 // The three lines count only in the review's header: the first run of non-blank lines under its title, the
 // file's first non-blank line, a `# ` heading. A line lower down, or one in the header that starts with a quote
 // mark (`>`), is text the review carries, not what the review says of itself: a block quoted lower in a review
@@ -60,7 +70,7 @@
 // reviewed path is opened only when it is a regular file inside the repository, reached through no link, and no
 // part of it is git's own folder: a review cannot point R1 at a folder, a device or a file outside the tree.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { excerpt, report, UNSAFE } from '../lib/report.mjs';
 import { docLines, isPrdPath, MAX_LINE, MISSING, notPlainFile, quotedVersion, readings, reviewProvenance, versionLines } from '../lib/review-header.mjs';
@@ -76,6 +86,8 @@ const dir = join(root, 'docs', 'reviews');
 const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
 const findings = [];
 const reviews = [];
+// Reviews whose reviewed path does not exist, by their own path: a current review may name one (D-043).
+const gone = new Map();
 // Reviewed documents with more than one `Version:` line, by normalised path, with the count: each is reported once.
 const severalVersions = new Map();
 
@@ -83,6 +95,8 @@ const BOUND = 120;
 // One review file gets at most this many Supersedes: findings; the rest are counted in one more.
 const MAX_SUPERSEDES = 10;
 const shown = (s) => `${excerpt(s, BOUND)}${UNSAFE.test(s) ? ' [hidden characters left out]' : ''}`;
+// The one condition under which a review changes, said in each target-missing finding (process/intake.md).
+const OWNER_ONLY = "a review is not edited or deleted without the owner's yes";
 // Said beside a missing line: the line may be there, and too long to be read.
 const unreadNote = (unread) => (unread.length
   ? ` (line ${unread.slice(0, 3).join(', ')}${unread.length > 3 ? ` and ${unread.length - 3} more` : ''} of this file is in the header and over ${MAX_LINE} characters: a header line that long is not read, so shorten it)`
@@ -103,6 +117,32 @@ const unreadable = (rel) => {
   if (norm.startsWith('..')) return 'leaves the repository';
   if (norm.split('/').some(gitFolder)) return 'is inside .git/, which holds no document';
   return notPlainFile(root, norm);
+};
+
+// Whether a reviewed path that could not be opened is plainly not there (D-043). One rule says which paths can be:
+// the path as the review wrote it, before any normalising, is names of letters, digits and `. _ -` joined by single
+// slashes, and no name is `.` or `..`. So a space, a character nobody sees, a letter outside A-Z, a leading or
+// trailing slash and a path that climbs are all refused by what the rule admits, not by a list of what it refuses.
+// Then every folder on the way to the first missing name is a real folder: a path through a link or under a file,
+// or one the filesystem refuses for any reason other than "no such entry", is not gone. Nothing retires a review
+// of a path this answers no for.
+const PLAIN_PATH = /^[A-Za-z0-9._\-]+(?:\/[A-Za-z0-9._\-]+)*$/;
+const plainlyGone = (rel) => {
+  if (!PLAIN_PATH.test(rel)) return false;
+  const segs = rel.split('/');
+  if (segs.some((seg) => seg === '.' || seg === '..')) return false;
+  let at = root;
+  for (const seg of segs) {
+    at = join(at, seg);
+    let st;
+    try {
+      st = lstatSync(at);
+    } catch (e) {
+      return e.code === 'ENOENT';
+    }
+    if (!st.isDirectory()) return false;
+  }
+  return false;
 };
 
 for (const f of files) {
@@ -129,7 +169,9 @@ for (const f of files) {
   const targetRel = reviewed.path;
   const why = unreadable(targetRel);
   if (why) {
-    findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${shown(targetRel) || '(empty)'} ${why}: fix the Reviewed: line, or delete the review` });
+    // A path that is not there may be a document that moved: reported after the Supersedes: lines are read.
+    if (why === MISSING && plainlyGone(targetRel)) gone.set(rel, { rel, targetRel });
+    else findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${shown(targetRel) || '(empty)'} ${why}: R1 reads a review only against a regular file of the repository, and no Supersedes: line retires this one; ${OWNER_ONLY}` });
     continue;
   }
   const want = version;
@@ -153,15 +195,23 @@ for (const r of reviews) {
   let reported = 0;
   for (const name of r.supersedes) {
     const named = byRel.get(name);
-    const why = !named || named === r
-      ? 'is not another review in docs/reviews/ with both provenance lines and a reviewed path that exists'
-      : named.doc !== r.doc ? `is a review of ${shown(named.targetRel)}, not of ${shown(r.targetRel)}`
-        : !r.stale && !r.wholeLine ? `is named by a review whose own version line is not a whole line of ${shown(r.targetRel)}` : null;
+    // A review of a path that is gone has no document to compare with r's: naming it is the statement (D-043).
+    const lost = named ? undefined : gone.get(name);
+    const notWhole = !r.stale && !r.wholeLine ? `is named by a review whose own version line is not a whole line of ${shown(r.targetRel)}` : null;
+    const why = lost ? notWhole
+      : !named || named === r
+        ? 'is not another review in docs/reviews/ with both provenance lines and a reviewed path that is a document or is gone'
+        : named.doc !== r.doc ? `is a review of ${shown(named.targetRel)}, not of ${shown(r.targetRel)}`
+          : notWhole;
     if (why && ++reported > MAX_SUPERSEDES) continue;
-    if (why) findings.push({ where: `${r.rel}#provenance/supersedes-invalid`, detail: `Supersedes: ${shown(name)} ${why}, so it retires nothing: name an earlier review of the same document by its path, or remove the line` });
-    else if (!r.stale) retired.add(named.rel);
+    if (why) findings.push({ where: `${r.rel}#provenance/supersedes-invalid`, detail: `Supersedes: ${shown(name)} ${why}, so it retires nothing: name an earlier review of the same document, or of it at a path that is gone, by its path, or remove the line` });
+    else if (!r.stale) retired.add((named ?? lost).rel);
   }
   if (reported > MAX_SUPERSEDES) findings.push({ where: `${r.rel}#provenance/supersedes-invalid`, detail: `${reported - MAX_SUPERSEDES} more Supersedes: lines are not listed (at most ${MAX_SUPERSEDES} are): each retires nothing, so remove the ones that are not valid` });
+}
+for (const g of gone.values()) {
+  if (retired.has(g.rel)) continue;
+  findings.push({ where: `${g.rel}#provenance/target-missing`, detail: `reviewed path ${shown(g.targetRel) || '(empty)'} ${MISSING}: if the document moved, review it at its new path (/review-doc) and name this file in that review's Supersedes: line; ${OWNER_ONLY}` });
 }
 // The one remedy for a stale review is the one process/intake.md allows: a fresh review that names it. Never an
 // edit to the review.
@@ -191,7 +241,7 @@ if (prd && prdStatus !== 'draft' && reviewedPrd.length === 0) {
 process.exit(
   report({
     id: 'R1',
-    claim: `every review names the file it read and a version line that is still that file's one \`Version:\` line, or still verbatim in a file that has none, or is named by the review that replaced it${prd && prdStatus !== 'draft' ? `, and the PRD at ${prdVersion} has one` : ''}`,
+    claim: `every review names the file it read and a version line that is still that file's one \`Version:\` line, or still verbatim in a file that has none, or is named by the review that replaced it, and every reviewed path that is gone is named that way${prd && prdStatus !== 'draft' ? `, and the PRD at ${prdVersion} has one` : ''}`,
     scanned: files.length + (prd || prdWhy !== MISSING ? 1 : 0),
     unit: `review files${prd ? ` and the PRD (${prdStatus})` : ''}`,
     findings,
