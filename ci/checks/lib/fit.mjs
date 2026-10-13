@@ -80,7 +80,7 @@ function readFit(md) {
   if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
   const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || empty(texts[k]) || placeholder(texts[k]));
   const listed = items(texts.reuses ?? '');
-  const reusesNothing = !unfilled.includes('reuses') && listed.length > 0 && listed.every((i) => word(i).startsWith('nothing'));
+  const reusesNothing = !unfilled.includes('reuses') && listed.every((i) => word(i).startsWith('nothing'));
   const nothingNew = !unfilled.includes('new') && answer(texts.new) === 'none';
   // A feature that neither reuses nor adds anything has not been described.
   if (reusesNothing && nothingNew) unfilled.push('new');

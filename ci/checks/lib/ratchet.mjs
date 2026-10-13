@@ -26,24 +26,10 @@ export function parseBaselines(text) {
 // The one form the file is written in: two-space JSON and a final newline.
 export const serialiseBaselines = (baselines) => `${JSON.stringify(baselines, null, 2)}\n`;
 
-// JSON text with the whitespace between its tokens removed. Text inside a string is kept as written, an escaped
-// quote or backslash included.
-function squeeze(text) {
-  let out = '';
-  let inString = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inString) {
-      out += c;
-      if (c === '\\') out += text[++i] ?? '';
-      else if (c === '"') inString = false;
-    } else if (c === '"') {
-      inString = true;
-      out += c;
-    } else if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') out += c;
-  }
-  return out;
-}
+// JSON text with its whitespace removed. Spaces inside a string go too, which changes no answer below: a string
+// comes back from a parse and a write with the same characters unless it was written with an escape the writer
+// spells another way, and that differs in a character that is not whitespace.
+const squeeze = (text) => text.replace(/[ \t\n\r]/g, '');
 
 // Whether writing `text`'s baselines back in the one form changes nothing but the spacing between its tokens.
 // False when anything else would change: a number written another way (`1.0`, one too large to hold), a name

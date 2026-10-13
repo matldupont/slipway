@@ -277,6 +277,7 @@ test('onlySpacingDiffers: yes for a file whose tokens are the ones written back,
     ['{"a": 1, "a": 2}', 'a name written twice'],
     ['{"\\u00e9": 1}', 'an escape in a name'],
     ['{"a": "x\\/y"}', 'an escape in a value'],
+    ['{"a\\u0020b": 1}', 'a space written as an escape'],
     ['[1]', 'not an object'],
     ['{ not json', 'not JSON'],
   ]) assert.equal(onlySpacingDiffers(text), false, why);
