@@ -21,6 +21,34 @@ new user meets first, labelled, with where it surfaces and what was done about i
 **Job:** when I start a project from slipway, I want every line it shows me or asks me to be about my
 project, so I can act on it without learning how slipway works.
 
+## Fit
+
+Reuses:
+- `report()` in `ci/checks/lib/report.mjs`: every check prints through it, so each reworded claim, unit and
+  "nothing was examined" line changed in one place, and the `K1:` output prefix stayed.
+- PC1's known-bad cases and their `expected.json` (`ci/checks/meta/pc1-positive-control.mjs`,
+  `ci/fixtures/known-bad/`): the surface each check was run against before and after, and the layout the two new
+  K1 cases use (`k1/marker-in-code`, `k1/placeholder-in-code`).
+- The status fixtures S1 compares (`ci/fixtures/status/`, `ci/checks/meta/s1-status.mjs`): `deadlines-toronto`
+  carries the controls for a marker inside inline code.
+- The surfaces themselves, edited in place: `scripts/new-project.mjs`, `ci/status.mjs`, the checks under
+  `ci/checks/meta/`, the skills under `.claude/skills/`, `.github/ISSUE_TEMPLATE/`,
+  `.github/pull_request_template.md` and `process/slipway-rules.md`.
+- D-016's test in `decisions.md` (a line names the project's own thing and the next action), and
+  `process/lessons/README.md` as the one place a project learns its own lesson prefix.
+- The `internal` class in `dev/ownership.yaml`: how S1 and its fixtures stopped reaching a project.
+
+Numbers:
+- The audit shows no number of its own. The lines it reworded carry counts that are calculated where they were:
+  each check's scanned and finding counts in `report()` (`ci/checks/lib/report.mjs`), the files `new-project`
+  says it installed in `scripts/new-project.mjs`, and "day n of m" in `appetiteClock()`
+  (`ci/checks/lib/milestones.mjs`).
+
+New: the list itself (every concept a new user meets, labelled practice or machinery, with what was done), which
+nothing held before: #63 found no inventory to reuse. One parser rule, written in both `ci/status.mjs` and
+`ci/checks/meta/k1-frame.mjs`: an open-question marker sitting whole inside inline code is skipped. No new
+helper, check or file format; every other change is wording in a file that already existed.
+
 ## Contract
 
 ### Method

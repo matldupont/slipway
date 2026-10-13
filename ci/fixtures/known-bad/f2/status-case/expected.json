@@ -1,0 +1,6 @@
+{
+  "_note": "`status: Draft` is a draft in any letter case: import.md is not held and only warned of; export.md is shipped and counted.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/missing"],
+  "warnings": ["docs/features/import.md#fit/draft"]
+}

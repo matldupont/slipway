@@ -1,0 +1,6 @@
+{
+  "_note": "A shipped doc with Fit filled and no ci/baselines.json: no count to compare with is BROKEN, never green.",
+  "exit": 2,
+  "broken": "ci/baselines.json has no feature-fit count",
+  "findings": []
+}

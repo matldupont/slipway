@@ -1,0 +1,6 @@
+{
+  "_note": "A draft with no Fit that a review in docs/reviews/ names: held from its first review.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/missing"],
+  "details": { "docs/features/export.md#fit/missing": "is reviewed (docs/reviews/2026-01-02-export-0.1.md)" }
+}

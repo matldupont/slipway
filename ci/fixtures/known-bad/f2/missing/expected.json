@@ -1,0 +1,6 @@
+{
+  "_note": "A shipped doc with no `## Fit` section, against a count of 0.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/missing"],
+  "details": { "docs/features/export.md#fit/missing": "`docs/features/export.md` is shipped and has no `## Fit` section" }
+}

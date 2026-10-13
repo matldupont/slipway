@@ -1,0 +1,5 @@
+{
+  "_note": "A shipped doc whose Fit has no `New:` line.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/unfilled/new"]
+}

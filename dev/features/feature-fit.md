@@ -36,9 +36,10 @@ One such drift, or short answers in more than half of the milestone's feature do
 sync count back to the owner. Reading the first real result is #423.
 
 Evidence of a neighbouring kind, from slipway's own tree: of the fifteen docs in `dev/features/` with
-frontmatter, six carry an ad hoc "what is reused" list (`deferred-checks.md`, `cli-output.md`, `next-slice.md`,
+frontmatter, seven carry an ad hoc "what is reused" list (`deferred-checks.md`, `cli-output.md`, `next-slice.md`,
 `tests-can-fail.md` and `experience-evidence.md` under "What is reused", `intake-skills.md` as "Reused, not
-rewritten"), each in its own shape; this doc is the seventh, and eight carry none. `ci/checks/lib/risks.mjs:1`
+rewritten", `design-before-screens.md` as a "Reuses (searched by behaviour)" paragraph), each in its own shape;
+this doc is the eighth, and seven carry none. `ci/checks/lib/risks.mjs:1`
 says why there is one reader of risks: "so the two can never disagree". The rule is known; it is not written
 where a check can hold it. Workaround today: a reviewer notices, or nobody does. Why now: #379's order puts #48
 before the next real project's feature docs are written, so those docs are born with the section.
@@ -397,6 +398,9 @@ as the other ratchets' are.
   file, and no skill is told to run it. While the baseline is above the count there is room: that many docs can
   become held with no Fit and the check stays green. The room grows by one for each Fit filled and not locked
   in, so it can get as large as the count sync first recorded.
+- `--update` with no count recorded writes whatever the count is: the one path with no ratchet. The check's
+  BROKEN message names the command. In a project the file is owner-only and sync records the count; a key
+  removed and written again shows in the diff, as a count raised by hand does.
 - A project that uses `status:` words beyond `draft` and `shipped` has every other word held. That is the strict
   reading (decision-defaults §5).
 - F2 reads `docs/features/` and `dev/features/`, as ID1 does. A project whose `Feature docs dir` setting names

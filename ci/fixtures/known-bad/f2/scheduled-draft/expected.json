@@ -1,0 +1,6 @@
+{
+  "_note": "A draft with no Fit that an active milestone's Contents cites: held from its schedule.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/missing"],
+  "details": { "docs/features/export.md#fit/missing": "is scheduled (docs/milestones/M1-active.md)" }
+}

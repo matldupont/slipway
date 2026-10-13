@@ -74,6 +74,46 @@ checks out the pull request's head commit, so one commit is diffed, copied and h
 file a runner could list; a deleted test file and a change outside every test are counted and are not
 findings; the run is built before the verdict, so the job is added once with the run behind it.
 
+## Fit
+
+Nothing here is built yet: each line says what the spec plans to reuse, checked against the tree, not what a
+build was found to use.
+
+Reuses:
+- Planned: the verdict will report through `report()` in `ci/checks/lib/report.mjs` (exit 0, 1, 2; warnings that
+  never change the exit code; project text escaped).
+- Planned: will call `trustedGit()` in `ci/checks/lib/manifest.mjs` for the diff and the commit under review, and
+  `discoverWorkspace()` in `ci/checks/lib/workspace.mjs` for the packages.
+- Planned: will call `loadRegistry()` and `expiryProblem()` in `ci/checks/lib/exceptions.mjs` to read a dated
+  excuse from `ci/exceptions.yaml`, the registry FO1 and LK1 already share.
+- Planned: will call `readList()` in strict mode (`ci/checks/lib/yaml-list.mjs`) for a project's
+  `ci/tests-can-fail.yaml`.
+- Planned: will take `BASE_SHA` and `HEAD_SHA` from the pull request as `.github/workflows/pr-body.yml` passes
+  them, and will copy the `verify` job's steps in `.github/workflows/ci.yml`, with the project's own
+  `ci/before-verify.sh` hook that job already runs.
+- Planned: PC1's fixture layout and its list of names a fixture may set
+  (`ci/checks/meta/pc1-positive-control.mjs`, `ci/fixtures/known-bad/`), and W1's reading of root scripts, 3
+  levels deep (`ci/checks/meta/w1-declared-vs-invoked.mjs`).
+- Planned: the vendor folder's README table, licence file and pinned hash (`ci/checks/lib/vendor/`,
+  `scripts/workflow-yaml.test.mjs`) for the one parser file it will add.
+- Planned: `i1` and `p1` as the precedent for a check under `ci/checks/meta/` that a job of its own runs
+  (`ci/checks/meta/i1-issue-shape.mjs`, `ci/checks/meta/p1-pr-body.mjs`).
+
+Numbers:
+- The summary line's counts (new tests, passed, failed, not judged) and the lines after it (test files removed or
+  renamed away, changed files that are not tests, test files changed outside any test, test support files left
+  out) will be counted once, in the verdict, `ci/checks/meta/mt1-tests-can-fail.mjs`, from the record.
+- How many changes were tried on a test, and how many of its failures were crashes, as a failure message prints
+  them: will be counted in the run, `ci/mutation.mjs`, and carried in the record.
+- Seconds taken, the budget and the limit, as the over-budget warning and the out-of-time message print them:
+  will be measured and set in `ci/mutation.mjs`; the limit's default will sit there and the figures are D-037's.
+
+New: `ci/mutation.mjs` (the run), `ci/checks/meta/mt1-tests-can-fail.mjs` (the verdict), `ci/checks/lib/mutants.mjs`
+with one vendored parser file, `ci/checks/lib/runner-call.mjs`, `ci/checks/lib/runner-output.mjs`, a
+`check:mutation` root script and a `mutation` job on pull requests. "What is reused" in the Contract gives the
+search: no mutation code, no reader of a test run or of a `test` script's words, and no `check:*` root script.
+`ci/ratchet.mjs` was not reusable: it fails a number that rises, and this rule stores no number.
+
 ## Contract
 
 Verified against: 2259472 2026-10-13 — `ci/ratchet.mjs` (fails a number above its baseline; one named number

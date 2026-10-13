@@ -1,0 +1,5 @@
+{
+  "_note": "The first `## Fit` in the file is the one read, fenced or not: the template quoted in a fence above the doc's own filled Fit reads as unfilled.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/unfilled/reuses", "docs/features/export.md#fit/unfilled/numbers", "docs/features/export.md#fit/unfilled/new"]
+}

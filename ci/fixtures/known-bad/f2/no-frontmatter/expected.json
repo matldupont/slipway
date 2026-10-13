@@ -1,0 +1,6 @@
+{
+  "_note": "A feature doc with no frontmatter and a filled Fit: nothing says it is a draft, so it is counted whatever its Fit says.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#frontmatter/unreadable"],
+  "details": { "docs/features/export.md#frontmatter/unreadable": "has no status line" }
+}

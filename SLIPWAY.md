@@ -127,7 +127,7 @@ instead of rewriting the Contract.
 | `pnpm verify` | the gate: `check`, `lint`, `test`, `build` in every package — CI, agents and humans run the same thing |
 | `pnpm verify:fast` | `verify` without `build`; the inner loop and the Stop hook |
 | `node ci/ratchet.mjs <name> <report> <path>` | a code-health number may go down, never up (D-014); `--update` locks in an improvement |
-| `pnpm meta` | checks the checks, and the planning documents: PC1 W1 FO1 R1 L1 MS1 K1 F1 D1 (in slipway itself also S1, O1, PK1) |
+| `pnpm meta` | checks the checks, and the planning documents: PC1 W1 FO1 R1 L1 MS1 K1 F1 F2 D1 (in slipway itself also S1, O1, PK1) |
 | `/bootstrap` | step 0, after `new-project`: scaffold the app, bootstrap PR, acceptance probes |
 | `/clarify` | walk the open questions: answer in place, or park with an assumption, a cost and a tracker |
 | `/review-doc <path>` | step 3, fresh session: adversarial review of a document into `docs/reviews/` — not a code diff |
@@ -169,7 +169,7 @@ process/harness/                    permissions and hooks — installed into .cl
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
 docs/conventions.md                 the one way to do each recurring thing, with its canonical example
-ci/checks/meta/                     W1 FO1 PC1 P1 I1 R1 L1 MS1 K1 F1 D1 — and O1, S1, PK1 in slipway itself, never copied
+ci/checks/meta/                     W1 FO1 PC1 P1 I1 R1 L1 MS1 K1 F1 F2 D1 — and O1, S1, PK1 in slipway itself, never copied
 ci/fixtures/known-bad/              known-bad fixtures, one expected.json per case
 ci/fixtures/status/                 fixture roots S1 runs `ci/status.mjs` against, one expect.json each (slipway itself, never copied)
 ci/exceptions.yaml                  expiring, structurally keyed exceptions
@@ -214,6 +214,7 @@ merged by judgment file by file:
 | L1 | every lesson points at a home that exists, and none is past its review date | lessons enforced by nothing get re-learned |
 | MS1 | milestones are shaped bets; at most one is active; none outruns its appetite without a decision; closed ones have a retro; each `summary:` matches its PRD milestones row; warns when a PRD estimate is more than the appetite holds | milestones left open after their work ends, new surfaces started before launch, and the same fact drifting between the PRD and a milestone |
 | F1 | every PRD feature is scheduled by a live milestone; every active or closed slice cites a feature | a PRD feature nobody scheduled, and slices of work no feature asked for |
+| F2 | no more feature docs that are shipped, reviewed or scheduled lack a filled `## Fit` section (what the feature reuses, where each number it shows is calculated, what it adds) than the count recorded in `ci/baselines.json` | a feature that works and is wanted, and is a second way of doing what the product already does |
 | K1 | no milestone starts before the frame is finished (open questions answered, or parked with an assumption, a cost and a tracker); every untested value risk names a tracker once a milestone is underway; nothing past the skeleton before each value risk is tested against a bar set first, or settled by experience with what would prove it wrong written down | building before anyone names the question the product answers or tests whether people want it |
 | S1 | `ci/status.mjs` prints the expected Next and Frame lines — each risk tested, settled by experience, scheduled, overran, window unreadable or untested — for its fixture roots | status telling the owner a risk is on schedule while its evidence is no longer read |
 | Stop hook | blocks the first stop of a turn while `verify:fast` is red; a second stop ends the turn red, with the agent asked to say what is failing | agents declaring done work that was never run |
