@@ -541,11 +541,26 @@ machine (decision-defaults §3); and a test written to pass this step and nothin
   touched test is new and the run reaches its limit, so the pull request takes the one dated line of §3.7
   (the owner's pick, D-037), and none of its tests is judged.
 - **The job judges the branch as pushed, not as merged.** A test that can fail on the branch and not once
-  merged with a newer base is not seen here; `verify` runs the merge.
+  merged with a newer base is not seen here; `verify` runs the merge. The step's own files, and the two
+  files that take tests out (`ci/exceptions.yaml`, `ci/tests-can-fail.yaml`), are the branch's and not the
+  base's, while the job's steps are the merge's: a pull request open when a project takes the step, or when
+  the base gains an entry, is judged without it until the base branch is merged in.
 - **A change outside every test marks none new.** A helper, a hook, a mock or an import line in a test file
   changes what every test there can notice, and none of them is judged. Such files are counted in every run.
 - **An updated snapshot marks no test new.** A snapshot file changes what a test asserts without a line of
-  the test changing.
+  the test changing, and it is not counted.
+- **A pull request whose only new tests are of code this step has no change for fails until each is
+  excused, and the excuse expires.** A schema declared as data, a table of routes, a map of constants: the
+  subject reads and holds nothing §2 changes, so its test is `no-change-to-make`, and alone in a pull request
+  that is `nothing-judged`. The same holds for `support-only`, `other-language` and `could-not-be-parsed`.
+  The rule is the owner's pick (D-037); this is its cost.
+- **A test the runner lists under another name is never seen.** A changed test file is told by its name
+  (`*.test.*`, `*.spec.*`, under `__tests__/`) before any runner is asked. A project whose runner includes
+  other names (`tests/**/*.ts`, `*.unit.ts`, tests inside source files) has tests the step does not judge,
+  name or count, and a file renamed to such a name reads as "removed or renamed away" while its tests run.
+- **A test under `__tests__/` that nothing runs is counted as not a test.** `never-run` is for
+  `*.test.<ext>` and `*.spec.<ext>`; `__tests__/cart.ts`, another runner's habit, is one of the "changed
+  files under a test name or folder [that] are not tests".
 - **Lines removed whole are not judged.** A test deleted from a file, or a deleted test file, is counted and
   nothing more: the step judges tests that exist.
 - **Test support is told by name.** A helper under a name off the list of §3.6 is still changed, and a test
@@ -814,7 +829,16 @@ line and the wall time.
 
    Carried from the 0.2 review: AR-6, keep this step's script in the repository where it does not ship
    (`dev/probes/`), and say in D-037, beside the number, which parts of this Contract's workload the script
-   leaves out.
+   leaves out. The script applies §3.6 whole, the support list included; a part of §3.6 it leaves out is
+   said beside the share.
+
+   Carried from the 0.3 review:
+   - AR-5, say beside the share whether the measured pull request would itself have been `nothing-judged`,
+     shown to the owner with the rest.
+   - AR-10, a decision that cites which line was crossed holds, for the share, that the line was crossed and
+     no more: a real project's figure is not written into D-037.
+   - AR-10, the recordings §8 needs come from this run: it runs Vitest 4 and Vitest 5 and plants the fourth
+     kind of failure (a crash on a line inside an `expect`), or step 3 records what it did not.
 1. **The parser** — `ci/checks/lib/vendor/babel-parser.mjs`, its licence, the README table, and the hash pin
    in `scripts/mutants.test.mjs` (added to the `meta` script). A third-party file and nothing else, so it can
    be read alone. Checks, ~40 lines beside the file. Blocked by 0.
@@ -830,20 +854,36 @@ line and the wall time.
    that record", that half is proven in step 4. Checks, ~600 lines. Blocked by 0 and 2.
 
    Carried from the 0.2 review:
-   - AR-8, check what the step does with a Vitest outside 4 and 5, and with a failure entry whose first
-     word is not an error's name, against the code and pin it with a test.
+   - AR-8, a Vitest major with no recording under `scripts/fixtures/vitest/` is exit 2 before anything
+     runs, and a failure entry whose first word is not an error's name counts for nothing and is named; pin
+     both with a test.
    - AR-9, check what one changed run adds to `tried`, `crashes` and `failedOn` when the test file does not
      load, when the test times out, and when the change leaves the test skipped, against the code and pin
      it with a test.
-   - AR-12, check which arguments of a `test` script reach the listing and each changed run
-     (`--reporter verbose` as two words, `--coverage`, `--outputFile=x`, `--shard`, `--changed`, `--bail`,
-     `-t`) against the code and pin it with a test.
+   - AR-12, none of these arguments of a `test` script leaves a word behind as a filter or changes which
+     tests a single-file run executes (`--reporter verbose` as two words, `--coverage`, `--outputFile=x`,
+     `--shard`, `--changed`, `--bail`, `-t`): each is dropped with its value, or is exit 2 with "Write the
+     call"; pin each with a test.
    - AR-13, check each of these against the code and pin it with a test: every `NAME=value` line of
      `GITHUB_ENV` reaches every runner call (§3.4); a `ci/tests-can-fail.yaml` entry with both keys or
      neither, an unknown package or an unknown key is exit 2, and two `run:` entries for one package are
      both judged (§3.3); a test file `spans()` cannot read has every test new (§3.5); a skipped or `todo`
      new test is `skipped`, and `other-language` is reached (§3.8, §3.6); the order of changes and the two
      caps (§3.9).
+
+   Carried from the 0.3 review:
+   - AR-3, a hunk that only removes lines and marks no test puts its file in `outsideAnyTest`; pin it in
+     the block that deletes a whole test, and with a hook that loses a line. A hunk that only adds or
+     removes blank lines marks no test; pin it in the block that changes whitespace inside a test.
+   - AR-4, check each of these against the code and pin it with a test: a changed data file under
+     `__tests__/` in a package that does not use Vitest is not a test, as §3.5 has it for one that does; a
+     changed test file at the root, outside every package, is named and counted and is no finding by
+     itself; a `keep-out:` that names a folder of a package on another runner gives `kept-out`.
+   - AR-9, check what counts as "adds" for a moved or re-touched `tests-can-fail#mechanical` line and for
+     one that arrives by a merge, and that `ci/exceptions.yaml` and `ci/tests-can-fail.yaml` are read from
+     the commit, against the code and pin each with a test.
+   - AR-10, the support list's folder names (§3.6) are matched on the path inside the repository, so a
+     checkout under a folder named `test` makes no file support; pin it with a test.
 4. **The verdict and the job** — `ci/checks/meta/mt1-tests-can-fail.mjs` in both forms (`<folder>` and
    `--run`), `ci/fixtures/known-bad/mt1/**`, `scripts/mt1.test.mjs`, `CHECK_HEAD` in PC1's list, FO1 leaving
    `tests-can-fail#` ids alone, the `check:mutation` root script, and **the `mutation` job, added here,
@@ -857,6 +897,22 @@ line and the wall time.
      0 against the code and pin it with a test.
    - AR-13, check the job's `if:`, `permissions` and `timeout-minutes` (§1) against the code and pin it
      with a test; and give the fixture record the not-judged reasons it lacks.
+
+   Carried from the 0.3 review:
+   - AR-1, check what the job prints on a commit with no `check:mutation` script, and that it names the
+     action (merge the base branch into this branch), and pin it with a test.
+   - AR-2, before step 5 starts, the job is run on the scratch repository step 0 asked the owner for: on a
+     pull request that changes a test, on the same one after its base moved and was merged in, and on one
+     that changes no test; the 3 result lines go in this step's pull request. Say whether a fork's pull
+     request was tried, and if not, list it in Known limitations as not run.
+   - AR-4, the not-judged line for `other-runner` names the entry `tests-can-fail#other-runner`.
+   - AR-5, `nothing-judged` gives the next action for each reason it lists, and only `no-subject` is told
+     to import by a relative path.
+   - AR-10, `excuse-expired` gets its wording in the message, for an entry that names no test file too
+     (`#mechanical`, `#other-runner`); the message block is scoped to findings, exits and warnings, not the
+     count lines or "No tests were added or changed."; the count lines print the names the record holds,
+     through the escape; and the head-commit block's last clause (the job's checkout step names
+     `github.event.pull_request.head.sha`) is proven here.
 5. **What a project is told** — `BOOTSTRAP.md` "Tests can fail" (the two files, what a project on another
    runner does, what to do when the step runs out of time) and the `/bootstrap` step that runs it once;
    `/work-ticket`'s quality gate runs `pnpm check:mutation` before a pull request is marked ready;
@@ -868,10 +924,24 @@ line and the wall time.
    - AR-10, check where `/work-ticket` runs the step (the project's `Quality gate` row, or the skill), that
      a project made before this is told, and that the step does not turn `/work-ticket` red in slipway on a
      pull request that changes a `scripts/*.test.mjs`, against the code and pin it with a test.
-   - AR-7, nothing measures a project's not-judged share after this step's one run: say here what brings
-     the stricter rule of Known limitations back, and the date it is looked at again.
+   - AR-7, nothing measures a project's not-judged share after this step's one run: file the stricter rule
+     of Known limitations as a declined lesson with a `review-by` and a trigger, as L-69, so L1 holds the
+     date.
    - AR-13, the reader of the messages is given the messages and nothing else, and a miss is an action
      they could not name: record both in this step's pull request.
+
+   Carried from the 0.3 review:
+   - AR-1, the sync and `BOOTSTRAP.md` tell the owner that pull requests open when the step arrives need
+     the base branch merged in.
+   - AR-2, the run on a real project is the job's, on a hosted runner, not a local `pnpm check:mutation`.
+   - AR-9, `BOOTSTRAP.md` names the mechanical line, when it is for, and that it counts once.
+   - AR-10, `/work-ticket` copies each count of the summary that is not zero into the pull request's
+     `## Verification`.
+
+**At the split** (carried from the 0.3 review, AR-8). When #51 is split, each step's issue embeds that step's
+carried lines as acceptance lines, each naming the test file that holds it (`scripts/mutation.test.mjs`,
+`scripts/mt1.test.mjs`, `scripts/skills.test.mjs`). The bullets of the 0.2 review's AR-14 that have a step
+get a line under that step, as the lines above did.
 
 The job arrives in step 4 with the run behind it, so at no commit does `main` hold a job that fails on every
 pull request, whether a project takes a tag or `main` by ref. Steps 1 to 5 still land before the next version
@@ -913,3 +983,4 @@ figures D-037 does not hold yet.
 - 2026-10-08 · ADDED · the spec, from #51 · #370
 - 2026-10-12 · MODIFIED · Version 0.1 → 0.2, resolving the review of the draft (`docs/reviews/2026-10-09-tests-can-fail-unversioned.md`, AR-1 to AR-16), with D-037 amended the same day. A plain crash no longer counts as a test failing, except on a line inside an `expect` of the test's own file, and a test that only crashes is a finding (measured first, on the code D-037 used). Re-exports are followed 3 levels, and a subject with nothing to change is named, not a fault. The judged tests are what a package's `test` script runs, read in two plain forms, and a changed test file nothing runs is a finding. A pull request that changes no test passes before anything is copied. `ci/before-verify.sh` runs in the copy. The record stays inside one process. A new test is one whose own call changed; rows on one line are one group; a test that fails with nothing changed is a finding. The listing of unnoticed changes is withdrawn (L-69). Out of time stays a failure, the figures are provisional, and a step 0 measures on a hosted runner before the parser. Four acceptance lines that could not fail have a pass mark. The Vitest range is stated and its output is held by recorded files. The `Version:` line was added in the commit before this one
 - 2026-10-13 · MODIFIED · Version 0.2 → 0.3, resolving nine findings of the review of 0.2 (`docs/reviews/2026-10-12-tests-can-fail-0.2.md`: AR-1 to AR-7, AR-11, and the §2 sentence of AR-13) under the owner's cap of the same day, with D-037 amended. The job checks out the pull request's head commit, and a checkout that is not that commit stops the step. Lines removed from inside a test make it new. A pull request with new tests and none judged fails (`nothing-judged`). A mechanical change takes one dated entry that counts only in the pull request that adds it. Test support files, by a closed list of names, are not subjects. `never-run` is for a file a runner could list; a snapshot is never a test file. Deleted test files, files that are not tests, changes outside every test and support files left out are counted in the summary. §2 says a re-export, not an export. Step 0 has a stop line. The Build map builds the run (step 3) before the verdict and the job (step 4). AR-8, AR-9, AR-10, AR-12 and the rest of AR-13 are carried into the build as lines under their steps. Five older Acceptance lines are reworded to state a count, with no assertion changed, so #51's shape check reads them (the owner's exception to the cap); no other Contract, Acceptance or Verify text changed
+- 2026-10-13 · MODIFIED · the review of 0.3 (`docs/reviews/2026-10-13-tests-can-fail-0.3.md`, AR-1 to AR-10) carried in as that review sorts each finding: lines under the Build map steps it names, a line for the split, and Known limitations lines. Four lines carried from the 0.2 review are reworded to hold what their findings asked (the review's AR-7). Version stays 0.3: no Contract, Acceptance or Verify text changed
