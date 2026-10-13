@@ -98,14 +98,14 @@ No finding below is S0 or S1.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | The dated entry is red on the day it is written: FO1 reports it as stale. The document states the fact and files it as a thing to check; the change to FO1 is in no list of gate changes, and no check owns a `docs/milestones#` id that is not well formed | S2 | author | Build map 3, 4 | |
-| AR-2 | An entry ends with a sentence nobody proves: the milestone closes with no accessibility evidence, the line is later typed into a closed file, and `/close-milestone` is unchanged. Nothing shows the debt before its day | S2 | owner | Build map 3, 4 | |
-| AR-3 | On sync the skeleton's two new lines and the owner's answers do not compose: a shaping skeleton takes placeholders the next bullet forbids, a running one that answers with a date goes red on MS1, and a project with no front end is not told to decline them | S2 | author | Build map 4 | |
-| AR-4 | The carried lines and half the tracked findings end in Contract edits, each of which moves `Version:` and asks for the review the cap says is the last; seven findings are tracked only in a review this one supersedes | S2 | owner | Build map 2–4 | |
-| AR-5 | `Front end: none` "closes every finding but `screens/unknown`", an entry's included; five readings of an entry and of a decision id are not specified | S3 | author | Build map 3 | |
-| AR-6 | "The two differ in that argument and nowhere else" is not what the two rules say; thirteen status cases change and the Build map names four | S3 | author | Build map 3 | |
-| AR-7 | One design item answers for every later milestone for the life of the project, and any item that starts `Design:` is one | S3 | owner | — | |
-| AR-8 | `accessibility/entry` has seven clauses and one case; four more clauses of 0.3 have none | S3 | author | Build map 3 | |
+| AR-1 | The dated entry is red on the day it is written: FO1 reports it as stale. The document states the fact and files it as a thing to check; the change to FO1 is in no list of gate changes, and no check owns a `docs/milestones#` id that is not well formed | S2 | author | Build map 3, 4 | #406 · Build map step 3 (FO1 skips the prefix, a gate file under `## Gate changes`; DS1 owns every `docs/milestones#` entry; three cases) |
+| AR-2 | An entry ends with a sentence nobody proves: the milestone closes with no accessibility evidence, the line is later typed into a closed file, and `/close-milestone` is unchanged. Nothing shows the debt before its day | S2 | owner | Build map 3, 4 | #406 · Known limitations; a `pnpm status` line for live entries is a follow-up |
+| AR-3 | On sync the skeleton's two new lines and the owner's answers do not compose: a shaping skeleton takes placeholders the next bullet forbids, a running one that answers with a date goes red on MS1, and a project with no front end is not told to decline them | S2 | author | Build map 4 | #406 · Build map step 4; the Contract's two passages corrected in 0.4 |
+| AR-4 | The carried lines and half the tracked findings end in Contract edits, each of which moves `Version:` and asks for the review the cap says is the last; seven findings are tracked only in a review this one supersedes | S2 | owner | Build map 2–4 | #406 · Build map, opening: corrections collected through steps 2 to 4, made once as 0.4 in step 4's pull request, one review; the 0.2 review's tracked findings are lines under steps 2 to 4 |
+| AR-5 | `Front end: none` "closes every finding but `screens/unknown`", an entry's included; five readings of an entry and of a decision id are not specified | S3 | author | Build map 3 | #406 · Build map step 3 |
+| AR-6 | "The two differ in that argument and nowhere else" is not what the two rules say; thirteen status cases change and the Build map names four | S3 | author | Build map 3 | #406 · Build map step 3 |
+| AR-7 | One design item answers for every later milestone for the life of the project, and any item that starts `Design:` is one | S3 | owner | — | #406 · Known limitations |
+| AR-8 | `accessibility/entry` has seven clauses and one case; four more clauses of 0.3 have none | S3 | author | Build map 3 | #406 · Build map step 3 |
 | AR-9 | Five small things: Seams, Out of scope, the template's own instruction, the "Verified against" list, the example's `reason:` | S3 | author | — | |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the

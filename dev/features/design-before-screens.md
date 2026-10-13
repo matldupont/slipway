@@ -432,6 +432,10 @@ line's way out is not such a word: it is a dated entry in an owner-only file (§
   delivered or not.
 - Slipway's own tree never exercises the check beyond the control cases: it has no active milestone by design.
   Decision-defaults §9 is met by running DS1 once against a real project's files, the result recorded as a count.
+- A milestone closes under a live entry with no accessibility evidence; the line written later into the closed
+  file is proved by no skill; nothing shows the entry before its day. A `pnpm status` line for live entries is a
+  follow-up (0.3 AR-2).
+- One design item answers for every later milestone; any Contents item that starts `Design:` is one (0.3 AR-7).
 
 ## Acceptance
 
@@ -558,6 +562,9 @@ red on something it was never asked (after 2, a frame placeholder its `/kickoff`
 `frontend/unrecorded` before `/sync-slipway` asks the question, the option D-042 declined). Each of the three
 pull requests says "no tag until step 4" in its body.
 
+Contract corrections found in the build are collected through steps 2 to 4 and made once, as 0.4, in step 4's
+pull request, with one review of that revision before the release (0.3 AR-4).
+
 1. This document and D-042 (docs, no build). Then `/review-doc` from a fresh session.
 2. Templates: the front-end line in `docs/product/FRAME.md`; `screens:` and `design:` in
    `docs/milestones/TEMPLATE.md`'s header note and the accessibility line under its Gate;
@@ -566,6 +573,8 @@ pull requests says "no tag until step 4" in its body.
    - Carried from the 0.2 review: AR-6 point 1, check what class `docs/milestones/TEMPLATE.md` has
      (`classify()`, `dev/ownership.yaml`: the Contract's "Verified against" says seeded, §3 speaks of a template
      that loses the field) against the code and pin it with a test.
+   - 0.2 AR-12: reword "Nothing new fires yet" (K1 and MS1 read the new placeholders in a project created from
+     this tree); the one-release hold is written in #379.
 3. The check: `ci/checks/lib/milestones.mjs` gains `designItems()` and the decision resolver; the frame line
    reader; `ci/checks/meta/ds1-design-before-screens.mjs`; `ci/fixtures/known-bad/ds1/` (one case per id);
    `scripts/ds1.test.mjs` (controls, and the mutation run); `package.json`'s `meta` gains the check and the test;
@@ -576,12 +585,28 @@ pull requests says "no tag until step 4" in its body.
      and pin it with a test.
    - Carried from the 0.2 review: AR-6 point 2, check that W1 reports a check file no workflow runs in a
      project as well as in slipway against the code and pin it with a test.
-   - Carried from the 0.3 round: AR-1, check how FO1 treats a registry entry that is not its own (it reports
-     one that matches no `continue-on-error` as stale, and skips only the lockfile's) against the code and pin
-     with a test that an entry of DS1's class is not reported by FO1 or LK1; the registry's header comment
-     gains the id's form.
+   - 0.3 AR-1: FO1 skips registry ids that start `docs/milestones#`, as it skips the lockfile's.
+     `ci/checks/meta/fo1-fail-open.mjs` is a gate file, named under `## Gate changes` beside MS1. DS1 reports
+     every entry with that prefix that it cannot hold to a milestone and the `/accessibility` form, as
+     `accessibility/entry`. Cases: FO1 still reports a stale entry of its own class; FO1 and LK1 do not report
+     DS1's. The registry's header comment gains the id's form.
    - The resolver's hold (§4) changes what MS1 passes: `ci/checks/meta/ms1-milestones.mjs` is a gate file, its
      callers are the two uses of `hasDecision` (L-15), and the pull request says so under `## Gate changes`.
+   - 0.2 AR-7: the Known limitations sentence loses "that was running when the rule arrived".
+   - 0.2 AR-8: decided with AR-3's channel: the view says what satisfied each milestone, or both edits are
+     accepted under Known limitations.
+   - 0.2 AR-9: one case list; the killed-milestone case; a case for each of the five clauses; the
+     `frontend/unrecorded` red test lives in `scripts/ds1.test.mjs`.
+   - 0.2 AR-13: two runs on a scratch copy of a real project's files, as it stands and with the line written;
+     counts only.
+   - 0.2 AR-14: one line for each of the six readings, and a case for readings 1, 2 and 3.
+   - 0.3 AR-5: entry findings are reported whatever the frame says; `D-<n>` resolves only against a heading
+     with that exact id, and one sentence says whether a slipway stub may answer; `reason` and `owner` are held
+     as LK1 holds them. A case for each of the first two.
+   - 0.3 AR-6: the own-milestone rule is inside the shared predicate ("item 1, or below started items only");
+     name the existing cases under `ci/fixtures/status/` that change.
+   - 0.3 AR-8: one case per clause of `accessibility/entry`; plus an entry under `screens: none`, an entry
+     under `Front end: none`, a killed earlier milestone for status, `design: D-<n>` against `## D-<n>`.
 4. The skills: `/kickoff` (the question, the item, the no-go, the Gate line, the readiness question),
    `/review-doc` (the step-2 item), `/sync-slipway` (the question on sync, and the one about a running milestone),
    each pinned in
@@ -589,6 +614,12 @@ pull requests says "no tag until step 4" in its body.
    - Carried from the 0.2 review: AR-6 points 3 and 4, check sync's own rule (both gates green before its pull
      request opens) and how a declined change reaches the owner against `.claude/skills/sync-slipway/SKILL.md`
      and pin each sentence with a test.
+   - 0.2 AR-9: two `/kickoff` pins (the question and its `none` mapping; no front end deletes the no-go and
+     the lines).
+   - 0.3 AR-3: a sync never writes a placeholder into a project's file. The Gate bullet is written filled with
+     the owner's answer or not at all; the no-go's sentence only when a design item exists to name. Covers a
+     shaping skeleton, a running one answered with a date, and no front end. The Contract's two passages are
+     corrected in 0.4.
 
 Machinery before surface: the templates and the check (2, 3) land before the skills that write what the check
 reads (4), so a skill never promises a line nothing holds.
