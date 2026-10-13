@@ -10,6 +10,7 @@ slipway's commits, base → target (3, newest first):
 
   unchanged                           .gitattributes
   unchanged                           .gitignore
+  unchanged                           ci/baselines.json
   yours — slipway's template changed  docs/PRD.md
   unchanged                           docs/same.md
   script updated                      package.json scripts.a
@@ -29,4 +30,4 @@ slipway's commits, base → target (3, newest first):
   replace                             process/replace.md
   unchanged                           process/same.md
 
-20 rows: 2 replace, 1 merge, 3 add, 2 delete, 1 keep (edited), 1 collision, 1 yours — slipway's template changed, 3 script updated, 1 script kept, yours differs, 5 unchanged. Plan only — nothing was written.
+21 rows: 2 replace, 1 merge, 3 add, 2 delete, 1 keep (edited), 1 collision, 1 yours — slipway's template changed, 3 script updated, 1 script kept, yours differs, 6 unchanged. Plan only — nothing was written.

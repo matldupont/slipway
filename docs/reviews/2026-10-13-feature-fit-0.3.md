@@ -73,13 +73,13 @@ is a recorded decision with a stated reason) cleanly; AR-1 and AR-2 each leave t
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | `/log-bug` is told to read Fit "from its code as Phase 2 traced it"; Phase 2 traces the bug's path and the stub covers the whole feature | S2 | owner | Build map 3 | |
-| AR-2 | `/review-doc`'s stop restates "no filled Fit" as three conditions where Contract §2 has more, and nothing tells a reviewer what F2 will say of a draft not yet held | S2 | owner | Build map 3 | |
-| AR-3 | A filled Fit leaves the baseline above the count until someone runs `--update` on an owner-only file; nobody is told to, and each backfill leaves room for a new held doc with no Fit to pass | S2 | owner | Build map 2, 3 | |
-| AR-4 | What reopens the choice cannot be read off as written: "only the short answers" has no reading under Contract §2, and the line is headed for the acceptance of an issue whose pull request cannot meet it | S2 | owner | #49 | |
-| AR-5 | The step 1 probe does not say which slipway makes the scratch project; one made by step 1's own `new-project` already holds `feature-fit: 0`, and the plan shows the file unchanged | S3 | author | Build map 1 | |
-| AR-6 | Six items carried from the 0.2 review have their build step only in the Tracker column of a review this one supersedes; neither the Build map nor #48 names them | S3 | author | Build map 1, 2, 3 | |
-| AR-7 | Five small things: who sends a stub to review, slipway's expected count, the pins, a cap one sentence cannot break, the window between build steps 2 and 3 | S3 | author | — | |
+| AR-1 | `/log-bug` is told to read Fit "from its code as Phase 2 traced it"; Phase 2 traces the bug's path and the stub covers the whole feature | S2 | owner | Build map 3 | Build map 3, carried: the stub step's reach is checked against Phase 2 and pinned |
+| AR-2 | `/review-doc`'s stop restates "no filled Fit" as three conditions where Contract §2 has more, and nothing tells a reviewer what F2 will say of a draft not yet held | S2 | owner | Build map 3 | Build map 3, carried: the stop's wording against Contract §2's table. Build map 2, carried: the named lines for drafts not yet held |
+| AR-3 | A filled Fit leaves the baseline above the count until someone runs `--update` on an owner-only file; nobody is told to, and each backfill leaves room for a new held doc with no Fit to pass | S2 | owner | Build map 2, 3 | Build map 2 and 3, carried; Known limitations (the room, and how large it can get) |
+| AR-4 | What reopens the choice cannot be read off as written: "only the short answers" has no reading under Contract §2, and the line is headed for the acceptance of an issue whose pull request cannot meet it | S2 | owner | #49 | The owner, 2026-10-13: Problem, and D-036 as amended that day; #49's acceptance; #423 |
+| AR-5 | The step 1 probe does not say which slipway makes the scratch project; one made by step 1's own `new-project` already holds `feature-fit: 0`, and the plan shows the file unchanged | S3 | author | Build map 1 | Build map 1: a clause in the probe sentence |
+| AR-6 | Six items carried from the 0.2 review have their build step only in the Tracker column of a review this one supersedes; neither the Build map nor #48 names them | S3 | author | Build map 1, 2, 3 | Build map 1, 2 and 3: one carried line under each step |
+| AR-7 | Five small things: who sends a stub to review, slipway's expected count, the pins, a cap one sentence cannot break, the window between build steps 2 and 3 | S3 | author | — | Build map 2 and 3: item 5. Items 1 to 4 wait for the first Contract edit the build needs |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.

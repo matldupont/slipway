@@ -23,7 +23,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { section } from '../lib/markdown.mjs';
-import { contents, readMilestones } from '../lib/milestones.mjs';
+import { citedFeatures, contents, readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
@@ -50,7 +50,7 @@ if (status !== 'draft') {
   for (const { file, md, fm } of milestones) {
     if (!fm?.status || fm.status === 'killed') continue;
     for (const item of contents(md)) {
-      const cited = [...item.text.matchAll(/\bF-(\d+)\b/g)].map((m) => Number(m[1]));
+      const cited = citedFeatures(item.text);
       cited.forEach((n) => scheduled.add(n));
       if (fm.status === 'shaping') continue;
       slices++;

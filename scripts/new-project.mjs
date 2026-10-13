@@ -31,8 +31,10 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFi
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from '../ci/checks/lib/clock.mjs';
+import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { MANIFEST } from '../ci/checks/lib/manifest.mjs';
 import { listSource, MAP } from '../ci/checks/lib/ownership.mjs';
+import { FIT_KEY, writeBaselines } from '../ci/checks/lib/ratchet.mjs';
 import { buildManifest, derivePackageJson, gitignoreText, publicSource, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -162,6 +164,8 @@ if (!opts.dryRun) {
   edit('decisions.md', (s) => s.replace(/^## D-(?:01[5-9]|0[2-9]\d) [^\n]*\n[\s\S]*?(?=^## )/gm, '').replace(' (D-015)', ''));
   edit('package.json', (s) => JSON.stringify(derivePackageJson(JSON.parse(s), { name: slug, rules }), null, 2) + '\n');
   writeFileSync(join(dest, 'process', 'anchor'), today + '\n');
+  // The project's own count of feature docs with no Fit section, never slipway's (F-12): 0 in a new project.
+  writeBaselines(dest, { [FIT_KEY]: fitCount(dest).count });
   writeFileSync(join(dest, '.gitignore'), gitignoreText(SRC));
   writeFileSync(join(dest, 'README.md'), `# ${name}
 
@@ -177,7 +181,7 @@ To take a newer slipway later: \`pnpm -s use-slipway sync\` prints the plan; \`/
 `);
 }
 note(`<Product> → ${name}${repo ? `, <owner/repo> → ${repo}` : ''} in ${PLACEHOLDER_FILES.join(', ')}`);
-note(`package.json name → ${slug}; start date ${today} → process/anchor; README.md → product stub; .gitignore written`);
+note(`package.json name → ${slug}; start date ${today} → process/anchor; ci/baselines.json → its counts start at 0; README.md → product stub; .gitignore written`);
 
 // ---- 2b. harness
 step('2b', opts.harness ? 'Install the agent harness' : 'Agent harness — skipped (--no-harness)');

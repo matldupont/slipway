@@ -34,11 +34,14 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { FEATURE_DIRS } from '../ci/checks/lib/feature-docs.mjs';
+import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
+import { BASELINES, FIT_KEY, isCount, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
-import { alreadyLine, alreadyText, appliedText, CONVENTIONAL, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
+import { alreadyLine, alreadyText, appliedText, CONVENTIONAL, countLines, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
@@ -49,8 +52,11 @@ const FLAGS = ['--plan', '--apply', '--verbose', '--log', '--json'];
 const PROGRESS = "◇  Reading slipway's history…";
 export const KINDS = [
   'replace', 'merge', 'add', 'delete', 'keep (edited)', 'collision',
-  'seeded: upstream changed', 'no longer tracked', 'merged: key updated', 'merged: key reported', 'unchanged',
+  'seeded: upstream changed', 'no longer tracked', 'merged: key updated', 'merged: key reported', 'computed: count recorded', 'unchanged',
 ];
+// The one file sync computes (F-12, dev/features/feature-fit.md §3): the project's ci/baselines.json gets its
+// `feature-fit` count once, from the project's own feature docs. Slipway's copy of the file never travels.
+const COUNT_ROW = 'computed: count recorded';
 
 // A named reason to stop: printed as `sync: <reason>`, exit 1. Adopt (adopt.mjs) throws it too.
 export class Refusal extends Error {}
@@ -126,13 +132,14 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
       const { stale, absorbed } = todo;
       settle();
       if (json) {
-        writeDoc(out, planDoc(ctx, rows, { stale, absorbed }));
+        writeDoc(out, planDoc(ctx, rows, { stale, absorbed, count: todo.count }));
         return 0;
       }
       if (ctx.verbose) {
         printVerbose(out, ctx, rows);
         out.write('Plan only — nothing was written.\n');
-      } else out.write(planText(ui(out, env), planView(ctx, rows, { stale, absorbed, log })));
+        if (todo.count) out.write(clean(`\n${todo.count.file} — count recorded:\n${countLines(todo.count).map((l) => `  ${l}\n`).join('')}`));
+      } else out.write(planText(ui(out, env), planView(ctx, rows, { stale, absorbed, log, count: todo.count })));
       return 0;
     }
     settle();
@@ -409,7 +416,14 @@ export function plan({ root, manifest, overrides, base, gitDir, target, targetRu
   const rows = [];
   const add = (kind, path) => rows.push({ kind, path });
 
-  for (const p of [...new Set([...Object.keys(manifest.files), ...target.keys()])].sort()) {
+  // ci/baselines.json is planned in every project, whether or not slipway ships a copy or the manifest lists it.
+  for (const p of [...new Set([...Object.keys(manifest.files), ...target.keys(), BASELINES])].sort()) {
+    if (p === BASELINES) {
+      // Before any other rule, so it is never a collision and never "slipway's template changed": the row depends
+      // on the project's file alone. A count already there is the project's, and nothing is written.
+      add(isCount(projectBaselines(root)?.[FIT_KEY]) ? 'unchanged' : COUNT_ROW, p);
+      continue;
+    }
     const m = manifest.files[p];
     const t = target.get(p);
     const cls = t ? classify(targetRules, p) : m.class;
@@ -437,6 +451,21 @@ export function plan({ root, manifest, overrides, base, gitDir, target, targetRu
   return rows;
 }
 
+// The project's ci/baselines.json as an object, or null when it has none. A file sync cannot read is a refusal
+// before any write, as a package.json that is not JSON is: sync never rewrites what it could not parse.
+function projectBaselines(root, { bytes = false } = {}) {
+  const cur = readProjectFile(root, BASELINES);
+  if (cur === null) return null;
+  if (!Buffer.isBuffer(cur)) throw new Refusal(`${BASELINES} is a link or a folder, not a file, and sync records a count in it — make it a regular file; nothing was written`);
+  try {
+    const json = parseBaselines(cur.toString('utf8'));
+    return bytes ? { json, bytes: cur } : json;
+  } catch (e) {
+    // The parser's message quotes the file, which is the project's text: the refusal says what is wrong in its own words.
+    throw new Refusal(`${BASELINES} is not ${/not valid JSON/.test(e.message) ? 'valid JSON' : 'a JSON object of name → number'} — sync records a count in it and does not rewrite a file it cannot read; nothing was written`);
+  }
+}
+
 // package.json `scripts`, key by key (F-01 `merged`): a key slipway changed between base and target is
 // `updated` when the project still has the base value, else `reported`. Both sides go through the same
 // derivation new-project uses, so a key that calls an internal path never counts.
@@ -462,6 +491,7 @@ function scriptRows(p, { base, target, cur, baseRules, targetRules }) {
 // reads whose file it is (D-016). A kind with no entry is already plain.
 const LABEL = {
   'seeded: upstream changed': "yours — slipway's template changed",
+  [COUNT_ROW]: 'count recorded',
   'merged: key updated': 'script updated',
   'merged: key reported': 'script kept, yours differs',
 };
@@ -484,6 +514,7 @@ const MEANING = {
   'seeded: upstream changed': "your file (started from slipway's template), which slipway's template has since changed. --apply never rewrites it: it writes slipway's diff under .slipway/upstream/ as a reference to apply by hand, not a patch (it is against the template's copy); /sync-slipway walks you through it",
   'merged: key updated': 'a package.json script you left at the base value: --apply updates it',
   'merged: key reported': "a package.json script you changed: --apply keeps yours and shows slipway's",
+  [COUNT_ROW]: 'your file, where counts that may only go down are kept: --apply counts your feature docs that have no Fit section filled in yet and records the number in it once, changing no other entry',
   unchanged: 'the same on both sides: nothing to do',
 };
 
@@ -540,7 +571,7 @@ const alreadyView = (ctx, rows, todo) => ({ root: ctx.root, branch: ctx.branch, 
  * and `next` is that sentence. `nothingToTake` is true then, and when the project is at the target (`at`),
  * whichever commit is later: `next` is a sentence in both.
  */
-function planDoc(ctx, rows, { stale, absorbed, reported = [], at = false }) {
+function planDoc(ctx, rows, { stale, absorbed, reported = [], at = false, count = null }) {
   const { root, branch, remote, source, base, targetSha, targetVersion, past, notes, commits } = ctx;
   const entry = ({ line, path }) => ({ line, path });
   return {
@@ -551,7 +582,8 @@ function planDoc(ctx, rows, { stale, absorbed, reported = [], at = false }) {
     target: targetSha ?? null,
     targetVersion: targetVersion ?? null,
     remote: remote ?? null,
-    notes,
+    // The count's sentences travel as notes: /sync-slipway says each note to the owner, so it needs no other field.
+    notes: [...notes, ...(count ? countLines(count) : [])],
     commits: commits.map((subject) => {
       const m = CONVENTIONAL.exec(subject);
       return { subject, type: m?.[1] ?? null, scope: m?.[2] ?? null };
@@ -568,10 +600,10 @@ function planDoc(ctx, rows, { stale, absorbed, reported = [], at = false }) {
 }
 
 // The plan as lib/sync-text.mjs lays it out for the owner (F-08 §3): the same lists --json carries.
-function planView(ctx, rows, { stale, absorbed, log }) {
+function planView(ctx, rows, { stale, absorbed, log, count }) {
   const { root, branch, remote, source, base, targetSha, targetVersion, notes, commits } = ctx;
   return {
-    root, branch, remote, notes, commits, log,
+    root, branch, remote, notes, commits, log, count,
     source: publicSource(source),
     base: base.sha,
     target: targetSha,
@@ -680,6 +712,7 @@ function apply(out, u, ctx, rows) {
     absorbed: todo.absorbed.length,
     stale: todo.stale.length,
     also: todo.harness && !todo.harness.owed ? [todo.harness.text] : [],
+    count: todo.count,
     skill: skillChanged(rows),
   }));
   const owed = todo.conflicts.length || todo.stale.length || todo.harness?.owed || rows.some((r) => OWNER_ROWS.includes(r.kind));
@@ -706,7 +739,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   // The executable bit, as slipway ships it: a hook it adds must still run.
   const exec = (p) => existsSync(join(SRC, p)) && (statSync(join(SRC, p)).mode & 0o111) !== 0;
   const moved = (p) => new Refusal(`${oneLine(p)} changed after it was planned — nothing was written`);
-  const todo = { writes: new Map(), removes: [], conflicts: [], diffs: [], kept: { gone: [], shipped: [] }, stale: [], absorbed: [], reported: [], harness: null, manifest: null, unrecorded: null };
+  const todo = { writes: new Map(), removes: [], conflicts: [], diffs: [], kept: { gone: [], shipped: [] }, stale: [], absorbed: [], reported: [], harness: null, count: null, manifest: null, unrecorded: null };
   let pkg = null; // the project's package.json, once a key is updated
   let n = 0;
 
@@ -746,6 +779,40 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       else pkg.json.scripts[r.key] = now;
     } else if (kind === 'keep (edited)') {
       (target.has(p) ? todo.kept.shipped : todo.kept.gone).push(p);
+    } else if (kind === COUNT_ROW) {
+      // Counted here, so --apply recounts: the plan and --apply are two runs, and what is printed is what is
+      // written. Sync adds the count to a file that is absent, or whose bytes are exactly what the one writer
+      // writes for it, so every other entry stays byte for byte. A file in any other form is the project's to
+      // put back: sync never rewrites it, and refuses before any write (the owner, 2026-10-13). Nothing is
+      // decoded to decide: the bytes are equal or they are not.
+      const was = projectBaselines(root, { bytes: true });
+      if (was && isCount(was.json[FIT_KEY])) throw moved(p);
+      let inForm = !was;
+      try {
+        inForm ||= was.bytes.equals(Buffer.from(serialiseBaselines(was.json)));
+      } catch {
+        // a file the writer cannot write back is not in its form
+      }
+      if (!inForm) {
+        throw new Refusal(`${BASELINES} is not in the form slipway writes it in (two-space JSON, each entry once and as slipway would write it, one final newline), and sync does not rewrite a file of yours to record a count in it — put the file back in that form (if a formatter changed it, keep the formatter off this file), commit, then sync again; nothing was written`);
+      }
+      let fit;
+      try {
+        fit = fitCount(root);
+      } catch (e) {
+        // The error's text names a path of the project's, so only its code is shown.
+        const code = /^[A-Z][A-Z0-9_]{1,30}$/.test(e?.code ?? '') ? ` (${e.code})` : '';
+        throw new Refusal(`could not read the project's feature docs, reviews or milestones to count the feature docs with no Fit section${code} — look in docs/features/, dev/features/, docs/reviews/ and docs/milestones/ for an entry that is not a regular file, such as a folder or a link to nothing; nothing was written`);
+      }
+      const bytes = serialiseBaselines({ ...was?.json, [FIT_KEY]: fit.count });
+      todo.writes.set(p, { bytes: Buffer.from(bytes) });
+      todo.count = {
+        file: p,
+        n: fit.count,
+        noStatus: fit.docs.filter((d) => d.reasons.includes('frontmatter/unreadable')).length,
+        drafts: fit.drafts.length,
+        others: Object.fromEntries(FEATURE_DIRS.map((d) => [`${d}/`, fit.others.filter((o) => o.path.startsWith(`${d}/`)).length])),
+      };
     }
   }
   if (pkg) todo.writes.set(pkg.file, { bytes: Buffer.from(`${JSON.stringify(pkg.json, null, 2)}\n`) });

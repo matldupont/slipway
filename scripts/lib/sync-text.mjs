@@ -56,6 +56,30 @@ function changeLines(counts, { absorbed = 0, stale = 0 } = {}) {
 // release's — a commit carries a version number without being that release. `sha` is already as shown.
 export const targetName = (version, sha) => (version ? `use-slipway ${oneLine(version)}, commit ${sha}` : `commit ${sha}, not a release`);
 
+// What the owner reads of the count sync records in ci/baselines.json (F-12, dev/features/feature-fit.md §3), one
+// sentence per line, in the project's words (D-016): never a check's id. `count` holds numbers only: `{ n,
+// noStatus, drafts, others }` — the held docs with no filled Fit, how many of them are counted for a missing
+// status line, how many drafts not yet held lack Fit, and how many files in each of the two folders are not
+// feature docs (`{ 'docs/features/': 1 }`). The plan, --apply and --json's notes carry the same lines.
+//
+// No text of the project's reaches a line: no file name, no path, no error text. The notes are read to the owner
+// by an agent, and a file name is a sentence someone else wrote. The folders are named from this list alone.
+const FEATURE_FOLDERS = ['docs/features/', 'dev/features/'];
+export function countLines({ n, noStatus = 0, drafts = 0, others = {} }) {
+  const lines = [
+    n === 0
+      ? 'No feature doc that is shipped, reviewed or scheduled is missing its Fit section. The count is recorded at 0 and may not go up.'
+      : `${plural(n, 'feature doc')} that ${n === 1 ? 'is' : 'are'} shipped, reviewed or scheduled ${n === 1 ? 'has' : 'have'} no Fit section filled in yet. The count is recorded at ${n} and may only go down.`,
+  ];
+  if (noStatus) lines.push(`Of these, ${noStatus} ${noStatus === 1 ? 'has' : 'have'} no status line in ${noStatus === 1 ? 'its' : 'their'} header, so ${noStatus === 1 ? 'it is' : 'they are'} counted whatever ${noStatus === 1 ? 'its' : 'their'} Fit says; give ${noStatus === 1 ? 'it' : 'each'} one and it is read normally.`);
+  if (drafts) lines.push(`${plural(drafts, 'feature doc')} still being drafted ${drafts === 1 ? 'has' : 'have'} no Fit section; ${drafts === 1 ? 'it' : 'each'} needs one before it is reviewed, scheduled or shipped.`);
+  const folders = FEATURE_FOLDERS.filter((d) => Number.isInteger(others[d]) && others[d] > 0);
+  const files = folders.reduce((sum, d) => sum + others[d], 0);
+  if (files) lines.push(`${plural(files, 'file')} in ${folders.join(' and ')} ${files === 1 ? 'is not a feature doc, having no F-number heading, and is' : 'are not feature docs, having no F-number heading, and are'} not counted.`);
+  return lines;
+}
+const countSection = (u, count, applied) => [u.section('◇', `${count.file} — count recorded${applied ? ` at ${count.n}` : ''}`), ...countLines(count).map((l) => u.line(l)), gap(u)];
+
 const gap = (u) => u.style('dim', '│');
 const remoteAndNotes = (u, { remote, notes = [] }) => [
   ...(remote ? [u.line(`remote: ${remote}`)] : []),
@@ -73,7 +97,7 @@ const settledTitle = (n) => `Settled with you: ${n} of your files started from s
 
 /**
  * The plan (§3). `view`: `{ root, branch, source, base, target, remote, notes, commits, owed, counts,
- * absorbed, stale, next, log, version }` — `version` the release the target is, or null, `commits` the non-merge subjects newest first, `owed` the items under
+ * absorbed, stale, next, log, version, count }` — `count` what countLines() takes, with the `file` it is recorded in, or null, `version` the release the target is, or null, `commits` the non-merge subjects newest first, `owed` the items under
  * "Needs you by hand" (`{ kind, path, next, file }`), `log` true for every change instead of what's new.
  */
 export function planText(u, view) {
@@ -97,6 +121,7 @@ export function planText(u, view) {
 
   const settled = counts['seeded: upstream changed'] ?? 0;
   if (settled) out.push(u.section('◇', settledTitle(settled)), u.line(SETTLED), gap(u));
+  if (view.count) out.push(...countSection(u, view.count, false));
 
   const changes = changeLines(counts, view);
   if (changes.length) out.push(u.section('◇', 'What changes'), ...changes.map((l) => u.line(l)), gap(u));
@@ -132,6 +157,7 @@ export function appliedText(u, view) {
   if (settled) {
     out.push(u.section('◇', settledTitle(settled)), u.line("slipway's change to each is saved under .slipway/upstream/ to read, not to apply as a patch."), u.line(SETTLED), gap(u));
   }
+  if (view.count) out.push(...countSection(u, view.count, true));
   const changes = [...changeLines(counts, view), ...also, ...(skill ? [SKILL_CHANGED] : [])];
   if (changes.length) out.push(u.section('◇', 'What changed'), ...changes.map((l) => u.line(l)), gap(u));
   out.push(u.line('Next: in Claude Code, /sync-slipway settles the rest and opens the PR (if it sent you here, go back to that session)', { last: true }));

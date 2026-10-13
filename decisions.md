@@ -577,6 +577,13 @@ Amended 2026-10-13 (#48, the owner's answers on the review of the spec at 0.2,
   stop, or short answers in most of the docs, brings the check and the sync count back to the owner. The line
   goes into #49's acceptance when the spec's 0.3 merges. The lesson behind the cold-review line says the failure
   it names is expected, not yet seen.
+  Made exact the same day (the owner, on AR-4 of `docs/reviews/2026-10-13-feature-fit-0.3.md`). A doc "gave only
+  the short answers" when its Fit says `nothing` under `Reuses:` and `none shown` under `Numbers:`. "Most" is
+  more than half of the milestone's feature docs. A drift counts only when the earlier feature was already on
+  `main` when the later doc's Fit was written, so two features shaped side by side that each truthfully found
+  nothing do not count. #49 prints the two counts at every close (its acceptance has the line), and reading the
+  first real result is #423. One such drift, or short answers in more than half, brings the check back to the
+  owner.
 - **Two more sentences in owner-only files are named by the spec** (the owner's yes, the same day): a stop in
   `/review-doc` step 1 for a feature doc with no filled Fit, and a sentence in `/log-bug`'s stub step that fills
   it. Each edit is still asked for when it is made.

@@ -21,11 +21,19 @@ read once and lost.
 The build is not held for that pass (the owner, 2026-10-13; D-036 as amended that day). The reason put to the
 owner: what has shipped was shaped one feature at a time, so a clean pass over it would not settle the
 expectation for features shaped side by side, and the section has to exist before the next project's feature
-docs are written. What reopens the choice has a reader. #49's first pass over a milestone built with Fit
-reports two things: each number calculated in two places or surface built two ways that the docs' Fit lines
-did not stop, and how many of the milestone's docs gave only the short answers (`nothing`, `none shown`,
-`none`). A drift Fit did not stop, or short answers in most of the docs, brings the check and the sync count
-back to the owner. The line goes into #49's acceptance when this version merges.
+docs are written. What reopens the choice has a reader, and is read off two counts (the owner, 2026-10-13, on
+AR-4 of `docs/reviews/2026-10-13-feature-fit-0.3.md`). At every close #49's step prints both for the milestone,
+and its acceptance has the line:
+
+- **The drifts Fit did not stop:** each number calculated in two places, or surface built two ways, that no Fit
+  line named. A drift counts only when the earlier feature was already on `main` when the later doc's Fit was
+  written. Two features shaped side by side that each truthfully found nothing do not count: Known limitations
+  already accepts that case.
+- **The docs that gave only the short answers,** out of how many feature docs the milestone has. A doc gave only
+  the short answers when its Fit says `nothing` under `Reuses:` and `none shown` under `Numbers:`.
+
+One such drift, or short answers in more than half of the milestone's feature docs, brings the check and the
+sync count back to the owner. Reading the first real result is #423.
 
 Evidence of a neighbouring kind, from slipway's own tree: of the fifteen docs in `dev/features/` with
 frontmatter, six carry an ad hoc "what is reused" list (`deferred-checks.md`, `cli-output.md`, `next-slice.md`,
@@ -385,6 +393,10 @@ as the other ratchets' are.
 - The short answers (`nothing`, `none shown`, `none`) pass, each alone. They are counted on F2's claim line, not
   refused. A doc that stays `draft`, unreviewed and unscheduled, is never held.
 - The count ratchets down. At rest it names the docs behind it as warnings; it does not say which to fill first.
+- A filled Fit leaves the baseline above the count until `--update` is run on `ci/baselines.json`, an owner-only
+  file, and no skill is told to run it. While the baseline is above the count there is room: that many docs can
+  become held with no Fit and the check stays green. The room grows by one for each Fit filled and not locked
+  in, so it can get as large as the count sync first recorded.
 - A project that uses `status:` words beyond `draft` and `shipped` has every other word held. That is the strict
   reading (decision-defaults §5).
 - F2 reads `docs/features/` and `dev/features/`, as ID1 does. A project whose `Feature docs dir` setting names
@@ -531,19 +543,44 @@ A scratch project made for an owner probe (Verify) is not a project for this rul
    two new test files — checks, new-project and sync, ~M. Leaves #48 open. No check reads the count yet, so
    nothing can go red in a project. **The owner's condition sits here** (D-036): if sync cannot show and write
    the count cleanly, the build stops with nothing live to back out, and the question comes back. What answers
-   it is the owner's probe for step 1 (Verify), run before this PR is marked ready: their yes or no to what they
-   read, in their words, goes in the PR's `## Verification`. On a no the PR is not merged.
+   it is the owner's probe for step 1 (Verify), run before this PR is marked ready, in a scratch project the
+   session asks before making, made from the newest release (not from this branch, whose `new-project` already
+   writes the count), given its docs and a review file, committed, then synced from the branch: their yes or no
+   to what they read, in their words, goes in the PR's `## Verification`. On a no the PR is not merged.
    Carried from the 0.2 review: AR-4, check what `/sync-slipway` shows the owner of the count (it reads the plan
    as JSON) against the code and pin it with a test.
+   Carried from the 0.2 review, by its Tracker column (AR-6 of the 0.3 review): AR-7, `scripts/sync.test.mjs`
+   gives the row a file that is not already two-space JSON; AR-10 items 1, 2, 3 and 5 (a `Reuses:` with no
+   bullets, backticks on `nothing`, how a review's path is compared, what sync's install record holds for the
+   path), each decided against the code and pinned in `scripts/fit.test.mjs` or `scripts/sync.test.mjs`.
 2. **The section and the check.** `docs/features/TEMPLATE.md` → `## Fit`; F2; `ci/fixtures/known-bad/f2/**`;
    `scripts/f2.test.mjs`; `package.json` `meta`; `concept-audit.md` and `landing-page.md` backfilled; slipway's
    `ci/baselines.json`; the release note line — checks, ~M. Leaves #48 open.
    Carried from the 0.2 review: AR-6, check each clause of "held" the fixtures do not reach (a closed milestone, a
    shaping or killed one, a review of another doc, a review that is not current) against the code and pin it
    with a test.
+   Carried from the 0.2 review, by its Tracker column (AR-6 of the 0.3 review): AR-8, `scripts/f2.test.mjs` pins
+   what a BROKEN run prints, and the `--update` path with no baseline is named in this PR's known limitations;
+   AR-9, the Problem's three numbers are corrected, here and in #48; AR-10 item 4 with the second half of AR-2,
+   F2's finding says why a doc is held; AR-10 item 6, a `ci/baselines.json` that is not JSON, met by F2.
+   Carried from the 0.3 review: AR-2, F2 prints, on every run that is not BROKEN, one named line for each draft
+   not yet held that would lack Fit, so `pnpm meta` before a review says whether the doc would be counted. AR-3,
+   each backfill in this PR is locked in with `--update` in the same PR, named under `## Gate changes`, so
+   slipway's baseline equals its count at the PR's head. AR-7 item 5, this PR's body says that until step 3
+   merges a first review of a slipway draft nothing holds yet turns that review's pull request red on
+   `fit/missing`, with no skill saying why.
 3. **The skills and the readers.** `/log-feature` Phase 3 and 4, within 300 lines; `/log-bug`'s stub step,
    within 300 lines; the lines in `process/cold-review.md` (with its lesson), `/review-doc` (its sentence and
    its stop) and `/close-milestone`; `scripts/skills.test.mjs` pins — skills and rules, ~S. Closes #48.
+   Carried from the 0.2 review, by its Tracker column (AR-6 of the 0.3 review): AR-10 item 7, "the Fit of the
+   doc the issue embeds" is made exact (the reviewer opens the doc at the pull request's head, or `/log-feature`
+   embeds Fit beside the Contract); the smaller item of AR-6, the pin for the cold-review sentence.
+   Carried from the 0.3 review: AR-1, check the stub step's reach against `/log-bug`'s Phase 2 and the doc it
+   writes, and pin what the sentence says is read. AR-2, the stop's wording is checked against Contract §2's
+   table, case by case, and pinned. AR-3, each sentence that fills a Fit in a doc already counted (`/log-bug`,
+   `/close-milestone`, the author before `/review-doc`) is checked for who runs `--update`, and what is found is
+   pinned or named in this PR's known limitations. AR-7 item 5, this PR's body says the window step 2 opened in
+   slipway's own tree is closed.
 
 ## Out of scope
 
@@ -592,3 +629,9 @@ A scratch project made for an owner probe (Verify) is not a project for this rul
   owner's probe before step 1's PR is ready is the evidence for D-036's condition (AR-3). Carried into the
   build with no Contract change: AR-4 (step 1), AR-6 (step 2). AR-7 to AR-10: the review's Tracker column ·
   PR for #48
+- 2026-10-13 · MODIFIED · Version stays 0.3: the seven findings of `docs/reviews/2026-10-13-feature-fit-0.3.md`
+  placed, with no change to Contract, Acceptance or Verify. The owner's: what reopens the choice is made exact
+  (AR-4; Problem, D-036 as amended 2026-10-13, #49's acceptance, #423). Carried into the Build map, one line
+  under each step: AR-1, AR-2, AR-3 (with a Known limitations line), AR-5 (step 1's probe sentence), the six
+  items of the 0.2 review that AR-6 names, AR-7 item 5. AR-7 items 1 to 4 wait for the first Contract edit the
+  build needs. The review's Tracker cells name where each went · PR for #48, build step 1

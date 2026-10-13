@@ -514,3 +514,27 @@ test('the harness note says what the Stop hook does: it blocks the first stop, a
   assert.match(note, /blocks the first stop of a turn while `pnpm verify:fast` is red \(a second stop ends it red, with the agent asked to say what is failing\)/);
   assert.doesNotMatch(note, /blocks a turn from ending/);
 });
+
+// F-12 (dev/features/feature-fit.md §3): the count a new project starts from is its own, written, never copied.
+test('ci/baselines.json: a new project gets {"feature-fit": 0} whatever slipway\'s own copy holds; the path is seeded, and O1 passes with slipway holding one', () => {
+  assert.equal(classify(rules, 'ci/baselines.json'), 'seeded');
+  const zero = '{\n  "feature-fit": 0\n}\n';
+
+  const plain = join(tmp(), 'probe');
+  newProject(SRC, plain, { SLIPWAY_SOURCE: '' });
+  assert.equal(readFileSync(join(plain, 'ci', 'baselines.json'), 'utf8'), zero);
+  assert.equal(git(plain, 'status', '--porcelain'), '', 'the file is in the first commit');
+
+  // A slipway whose own tree holds a count, as it will once its check reads one.
+  const src = join(tmp(), 'slipway');
+  copyTemplate(src);
+  writeFileSync(join(src, 'ci', 'baselines.json'), '{\n  "feature-fit": 7,\n  "duplication": 3\n}\n');
+  const o1 = check(src, 'o1-ownership.mjs');
+  assert.equal(o1.status, 0, o1.stdout);
+  const dest = join(tmp(), 'probe');
+  const { manifest } = newProject(src, dest, { SLIPWAY_SOURCE: '' });
+  const written = readFileSync(join(dest, 'ci', 'baselines.json'));
+  assert.equal(written.toString('utf8'), zero, "slipway's own count reached a project");
+  assert.deepEqual(manifest.files['ci/baselines.json'], { class: 'seeded', sha256: sha256(written), blob: blobSha(written) }, 'recorded as the project wrote it');
+  assert.equal(check(dest, 'd1-drift.mjs').status, 0);
+});
