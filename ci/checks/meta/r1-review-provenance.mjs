@@ -47,8 +47,8 @@
 // review, of the document at its new path, names it. R1 does not tell a move from a deletion, so the naming is
 // the statement, and no test ties the naming review's document to the one that is gone. Only a path that is
 // plainly not there (plainlyGone): one that leaves the repository, sits in .git/, is a folder or a link, goes
-// through a link or under a file, ends in a slash or starts at the filesystem's root stays reported whatever names
-// it. A target-missing message never says to edit or delete a review.
+// through a link or under a file, ends in a slash, starts at the filesystem's root or carries a character nobody
+// sees stays reported whatever names it. A target-missing message never says to edit or delete a review.
 //
 // The three lines count only in the review's header: the first run of non-blank lines under its title, the
 // file's first non-blank line, a `# ` heading. A line lower down, or one in the header that starts with a quote
@@ -103,6 +103,8 @@ const unreadNote = (unread) => (unread.length
 // git's own folder under the spellings a filesystem is known to take for it: letter case, characters nobody sees
 // (the three UNSAFE leaves for emoji too), trailing dots and spaces, the short name. Not every spelling there is.
 const hiddenAll = new RegExp(`${UNSAFE.source}|[\u200d\ufe0e\ufe0f]`, 'gv');
+// The same characters, asked of a whole path once: no /g, so a second call starts from the path's first character.
+const hiddenAny = new RegExp(hiddenAll.source, 'v');
 const gitFolder = (seg) => {
   const s = seg.replace(hiddenAll, '');
   let end = s.length;
@@ -119,11 +121,11 @@ const unreadable = (rel) => {
 
 // Whether a reviewed path that could not be opened is plainly not there (D-043): written as a file's path inside
 // the repository, with every folder on the way to the first missing name a real folder. A path that goes through
-// a link or under a file, ends in a slash, starts at the filesystem's root, or that the filesystem refuses for any
-// other reason is not gone: nothing retires a review of it.
+// a link or under a file, ends in a slash, starts at the filesystem's root, carries a character nobody sees, or
+// that the filesystem refuses for any other reason is not gone: nothing retires a review of it.
 const plainlyGone = (rel) => {
   const norm = posix.normalize(rel);
-  if (norm.startsWith('/') || norm.endsWith('/')) return false;
+  if (norm.startsWith('/') || norm.endsWith('/') || hiddenAny.test(norm)) return false;
   let at = root;
   for (const seg of norm.split('/')) {
     at = join(at, seg);
