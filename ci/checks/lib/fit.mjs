@@ -25,7 +25,7 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, readFeatureFiles } from './feature-docs.mjs';
-import { PLACEHOLDER } from './frontmatter.mjs';
+import { hasPlaceholder } from './frontmatter.mjs';
 import { section } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
 import { readPlain, reviewProvenance } from './review-header.mjs';
@@ -62,6 +62,8 @@ function items(text) {
     // The mark alone is matched, anchored, and the rest is cut: a pattern that also spans the line retries on one
     // that holds a line separator.
     const mark = line.match(/^\s*[-*]\s/);
+    // A mark with nothing after it lists nothing: it is no item, so it cannot stand beside `nothing` as a second one.
+    if (mark && !line.slice(mark[0].length).trim()) continue;
     if (mark) out.push(line.slice(mark[0].length).trim());
     else if (!line.trim()) continue;
     else if (open) out[out.length - 1] += ` ${line.trim()}`;
@@ -71,11 +73,11 @@ function items(text) {
   return out;
 }
 const empty = (text) => text.replace(/[\s*-]/g, '') === '';
-// Whether a label's text still holds a template placeholder, read a line at a time. A line longer than any a
-// person writes is read as holding one: PLACEHOLDER retries from every `<…` on a line that never closes it, and
-// a doc is other people's content, so its cost is bounded here and an unreadable line is never a filled one.
+// Whether a label's text still holds a template placeholder, read a line at a time and each line in one pass
+// (hasPlaceholder). A line longer than any a person writes is read as holding one: a doc is other people's
+// content, and a line nobody reads is never a filled one.
 const LINE_MAX = 5000;
-const placeholder = (text) => text.split('\n').some((line) => line.length > LINE_MAX || PLACEHOLDER.test(line));
+const placeholder = (text) => text.split('\n').some((line) => line.length > LINE_MAX || hasPlaceholder(line));
 
 // How a doc's Fit reads: `reasons` it lacks Fit (none: filled), and for a filled one which short answers it gave.
 function readFit(md) {

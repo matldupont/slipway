@@ -7,9 +7,32 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // A RegExp title matches the whole heading text: /9\.\s+Estimates?/ for a renamed one.
 // Comments are removed first, so a heading or an example inside a template comment
 // never counts as content.
-const COMMENT = /<!--[\s\S]*?-->/g;
+//
+// Each span from a `<!--` to the next `-->`, as `[start, end)`, in one pass: what /<!--[\s\S]*?-->/g matches. The
+// pattern looks to the end of the text from every `<!--` that has no `-->` after it, so a document of openers
+// costs the square of its length; here the first opener with no closer ends the search, since none after it
+// has one either.
+export function commentSpans(md) {
+  const spans = [];
+  for (let at = md.indexOf('<!--'); at >= 0; ) {
+    const close = md.indexOf('-->', at + 4);
+    if (close < 0) break;
+    spans.push([at, close + 3]);
+    at = md.indexOf('<!--', close + 3);
+  }
+  return spans;
+}
+const withoutComments = (md) => {
+  let out = '';
+  let from = 0;
+  for (const [start, end] of commentSpans(md)) {
+    out += md.slice(from, start);
+    from = end;
+  }
+  return out + md.slice(from);
+};
 export function section(md, title, level) {
-  const lines = md.replace(COMMENT, '').split(/\r?\n/);
+  const lines = withoutComments(md).split(/\r?\n/);
   const text = title instanceof RegExp ? title.source : escapeRe(title);
   const heading = new RegExp(`^#{${level}}\\s+(?:${text})\\s*$`, 'i');
   const start = lines.findIndex((l) => heading.test(l.trim()));
@@ -28,14 +51,15 @@ export function section(md, title, level) {
 // `-->` further down: section() cannot tell, and removing it runs one section on into the next. A reader of text
 // other people write asks this first, and does not trust the sections of a body where it is true (#189).
 export const commentCrossesHeading = (md) =>
-  (md.match(COMMENT) ?? []).some((span) => span.slice(0, -3).split('\n').slice(1).some((l) => /^#{1,6}(?:\s|$)/.test(l.trim())));
+  commentSpans(md).some(([start, end]) => md.slice(start, end - 3).split('\n').slice(1).some((l) => /^#{1,6}(?:\s|$)/.test(l.trim())));
 
 // The text a reader sees as prose, roughly: the frontmatter, HTML comments and fenced code blocks removed (an
 // unclosed comment or fence runs to the end). Two simple passes, comments then fences, so it misreads a `<!--` in
 // inline code, a ` ``` x ``` ` line and a tab-indented fence (dev/features/roadmap-page.md → Known limitations).
 // For owner-only views; nothing that publishes reads through it.
 export function prose(md, { frontmatter = true, unclosed = true } = {}) {
-  const text = (frontmatter ? md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '') : md).replace(unclosed ? /<!--[\s\S]*?(?:-->|$)/g : /<!--[\s\S]*?-->/g, '');
+  const body = frontmatter ? md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '') : md;
+  const text = unclosed ? body.replace(/<!--[\s\S]*?(?:-->|$)/g, '') : withoutComments(body);
   const out = [];
   let fence = null;
   for (const line of text.split(/\r?\n/)) {

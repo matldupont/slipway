@@ -12,8 +12,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { isFeatureDoc, readFeatureFiles } from '../ci/checks/lib/feature-docs.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
-import { PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
-import { citedFeatures } from '../ci/checks/lib/milestones.mjs';
+import { frontmatter, hasPlaceholder, PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
+import { commentCrossesHeading, commentSpans, section } from '../ci/checks/lib/markdown.mjs';
+import { citedFeatures, contents } from '../ci/checks/lib/milestones.mjs';
 import { parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -299,4 +300,117 @@ test('readFeatureFiles normalises what ID1 always has: a minus sign for the hyph
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('a list mark with nothing after it is no item: `nothing` beside one, with `New: none`, is still unfilled/new', () => {
+  for (const reuses of ['Reuses: nothing\n- ', 'Reuses:\n- nothing\n- ', 'Reuses:\n* \n- `nothing`; searched\n-\t', 'Reuses:\n- \n- nothing']) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, 'Numbers:\n- the total, in lib/money.ts', 'New: none')) }), ['fit/unfilled/new'], JSON.stringify(reuses));
+  }
+  // An empty mark beside a real item changes nothing, and marks alone are still an empty label.
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:\n- \n- `total()` in lib/money.ts', 'Numbers:\n- none shown', 'New: none')) }), []);
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:\n- \n* ', 'Numbers:\n- none shown', 'New: none')) }), ['fit/unfilled/reuses']);
+});
+
+// The readers the count goes through, each rewritten to read a line once (#430): the patterns they replace are
+// kept here, and each reader gives what its pattern gave on text built from the pieces that matter to it.
+const pick = (seed) => {
+  let s = seed;
+  return (n) => (s = (s * 1103515245 + 12345) % 2147483648) % n;
+};
+const built = (pieces, seed, max = 12) => {
+  const next = pick(seed);
+  return Array.from({ length: 1 + next(max) }, () => pieces[next(pieces.length)]).join('');
+};
+const OLD_COMMENT = /<!--[\s\S]*?-->/g;
+function oldFrontmatter(md) {
+  const unquote = (s) => s.trim().replace(/^(['"])(.*)\1$/, '$2');
+  const m = md.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!m) return null;
+  const out = {};
+  let parent = null;
+  for (const line of m[1].split(/\r?\n/)) {
+    if (/^\s*(#.*)?$/.test(line)) continue;
+    const top = line.match(/^([\w-]+):\s*(.*)$/);
+    if (top) {
+      parent = top[2].trim() === '' ? top[1] : null;
+      out[top[1]] = parent ? {} : unquote(top[2]);
+      continue;
+    }
+    const child = line.match(/^\s+([\w-]+):\s*(.*)$/);
+    if (child && parent) out[parent][child[1]] = unquote(child[2]);
+  }
+  return out;
+}
+
+test('commentSpans: the spans the comment pattern matched, on 20,000 built texts; section() and commentCrossesHeading() read through it', () => {
+  const pieces = ['<!--', '-->', '<!-', '->', '-', '>', '<', '!', 'a', '\n', '## H\n', ' '];
+  for (let seed = 1; seed <= 20000; seed++) {
+    const md = built(pieces, seed);
+    assert.deepEqual(commentSpans(md).map(([a, b]) => md.slice(a, b)), md.match(OLD_COMMENT) ?? [], JSON.stringify(md));
+    assert.equal(section(`## T\n${md}`, 'T', 2), (() => {
+      const lines = `## T\n${md}`.replace(OLD_COMMENT, '').split(/\r?\n/);
+      const start = lines.findIndex((l) => /^##\s+T\s*$/i.test(l.trim()));
+      if (start < 0) return null;
+      const body = [];
+      for (const l of lines.slice(start + 1)) {
+        const h = l.match(/^(#{1,6})\s/);
+        if (h && h[1].length <= 2) break;
+        body.push(l);
+      }
+      return body.join('\n').trim();
+    })(), JSON.stringify(md));
+  }
+});
+
+test('frontmatter(): what the two header patterns read, on 20,000 built blocks — a line that holds a line or paragraph separator, or a lone CR, among them', () => {
+  const pieces = ['key', 'a-b', ':', ': ', ' ', '  ', '\t', 'value', '"q"', "'", '#', '\u2028', '\u2029', '\r', '\n', '\n', '\n  ', '\u00a0'];
+  for (let seed = 1; seed <= 20000; seed++) {
+    const md = `---\n${built(pieces, seed, 16)}\n---\n`;
+    assert.deepEqual(frontmatter(md), oldFrontmatter(md), JSON.stringify(md));
+  }
+});
+
+test('contents(): the items the numbered-line pattern opened, on 20,000 built sections', () => {
+  const pieces = ['1', '12', '.', '. ', ' ', '\t', 'text', '(F-01)', '\u2028', '\r', '\n', '\n', '\n  ', '\u00a0'];
+  const old = (md) => {
+    const items = [];
+    for (const line of (section(md, 'Contents', 2) ?? '').split(/\r?\n/)) {
+      const open = line.match(/^(\d+)\.\s+(.*)$/);
+      if (open) items.push({ n: Number(open[1]), text: open[2] });
+      else if (items.length && /^\s+\S/.test(line) && !/^\s*(?:owed|ran):/i.test(line)) items[items.length - 1].text += ' ' + line.trim();
+    }
+    return items;
+  };
+  for (let seed = 1; seed <= 20000; seed++) {
+    const md = `## Contents\n\n${built(pieces, seed, 16)}\n`;
+    assert.deepEqual(contents(md).map(({ n, text }) => ({ n, text })), old(md), JSON.stringify(md));
+  }
+});
+
+test('hasPlaceholder(): PLACEHOLDER.test(), on 20,000 built texts', () => {
+  const pieces = ['<…', '<', '…', '>', '\n', 'x', ' ', 'TBD', 'TBDs', '[NEEDS CLARIFICATION', '[NEEDS'];
+  for (let seed = 1; seed <= 20000; seed++) {
+    const text = built(pieces, seed);
+    assert.equal(hasPlaceholder(text), PLACEHOLDER.test(text), JSON.stringify(text));
+  }
+});
+
+// Each bound is many times what the reader takes and a small part of what its pattern took on the same text.
+const within = (ms, run) => {
+  const t = performance.now();
+  run();
+  const took = performance.now() - t;
+  assert.ok(took < ms, `took ${Math.round(took)} ms, over ${ms}`);
+};
+test('text nobody writes is read in time that grows with its length: openers with no closer, a header line or a numbered line of spaces before a separator, a file of unclosed placeholders', () => {
+  const openers = `## Fit\n${'<!--'.repeat(150000)}`;
+  within(1500, () => assert.equal(section(openers, 'Fit', 2).length, 600000));
+  within(1500, () => assert.equal(commentCrossesHeading(openers), false));
+  const header = `---\nstatus:${' '.repeat(300000)}x\u2028\n---\n`;
+  within(1500, () => assert.deepEqual(frontmatter(header), {}));
+  const item = `## Contents\n\n1.${' '.repeat(300000)}x\u2028y\n`;
+  within(1500, () => assert.deepEqual(contents(item), []));
+  const line = '<…'.repeat(2499);
+  const lines = `${front('shipped')}# F-1 — x\n\n## Fit\n\nReuses:\n${`${line}\n`.repeat(1000)}\nNumbers:\n- x\n\nNew: x\n`;
+  within(1500, () => assert.deepEqual(reasons({ [A]: lines }), [], 'an unclosed placeholder opener is not a placeholder'));
 });
