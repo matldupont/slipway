@@ -760,6 +760,54 @@ go stale is the fault this was filed for); a version that moves on Contract or V
 the wording in the template, `process/intake.md` and the three skills; `ci/fixtures/known-bad/r1/feature-doc` holds
 R1's side. #268.
 
+## D-042 — A project with a front end plans a design item before its first screen, and accessibility is a gate line, not a late audit *(decided 2026-10-12)*
+
+Slipway planned a web app with one engineer and never asked who designs it or when: no milestone held a design
+item, the skeleton's no-go excluded styling and named no later place, and accessibility appeared once, as an outside
+audit in the last milestone, which can only discover. The owner's word: "WCAG shouldn't be a nice to have and any
+project requiring a front end should have an explicit design phase." Six choices, each the owner's (#406):
+
+- **How slipway knows.** `/kickoff` asks, in the Frame phase right after the moment, where people use the product
+  (screens of a web or phone app, a terminal, an API, nothing) and writes the answer as one labelled line in
+  `docs/product/FRAME.md`. A product question, asked at framing, before any milestone is shaped; the check reads the
+  frame as K1 does. Declined: an `AGENT.md` row (machinery, filled before the product is framed); deriving it from
+  D-005 (the default is React, so every project would count until the owner wrote `none`).
+- **What a design item is.** One Contents item, placed before the first item that builds a screen, with its hours
+  inside that milestone's appetite (PRD §9, so MS1's appetite warning covers it). It says, in the project's own
+  words, what it delivers for the screens to be built to, and who or what does the work. Slipway names no method
+  and no tool: a designer's handoff, an existing design system, a project's own skill, or direction plus an
+  accessible component set plus flows all count. `/kickoff` may offer those three as the usual answer, as a prompt,
+  never as a requirement. The check sees that the item exists, comes first and is not a placeholder; it does not
+  judge what is in it. Declined: a design milestone of its own (one more milestone every front-end project must
+  shape and close); flows per screen (the first screens would be built with no flow drawn before them).
+- **Where accessibility is proved.** Per component as it is built, to WCAG 2.2 AA: every milestone that builds
+  screens carries one Gate line saying its screens meet WCAG 2.2 AA and what holds it, something that can go red
+  (an automated check in CI, a keyboard and screen-reader pass recorded in `docs/qa/`). A later audit confirms and
+  does not discover. The check sees the line exists, not whether it is met. Declined: A before launch and AA after
+  (the early components get reworked, the late-audit cost again); one gate on the release milestone (the audit the
+  issue names as the gap).
+- **A check, not advice.** A new meta check reads the frame's line and the milestones. A front-end project with an
+  active milestone that builds screens and no design item before it: one finding naming the milestone and what
+  closes it. The same check wants the WCAG 2.2 AA Gate line on each active screen milestone. Shaping milestones stay
+  drafts: a line in `pnpm status` only, so kickoff is not red between two commits of ordinary shaping. Declined: red
+  from shaping on; a status line only (advice was skipped in the case that filed this).
+- **On sync.** `/sync-slipway` asks the one question in the project's words and writes the frame's line. No front
+  end: nothing more. A front end with an active screen milestone and no design item: one finding, closed by a design
+  item in that active milestone or by a decision in `decisions.md` that the milestone names (as `extended:` names
+  one). A frame with no line and an active screen milestone is a finding too: the check never passes on what it
+  cannot see (`process/decision-defaults.md` §4). Closed milestones are not reported: their screens were built and
+  their gate proved under the earlier rule. Declined: nothing red on sync with a status line (a project could keep
+  building screens with no design and no gate); red on every synced project until the owner adds the line by hand.
+- **With #94.** Independent. The design item names who or what does the work, and #94's design-direction skill is
+  one answer among a designer's handoff or an existing design system. Neither waits on the other; #94 stays parked
+  with its trigger, gains a note that the design item is where its skill would be used, and no check names a skill.
+  Declined: unparking #94 (the tool before the first front-end project needs it); folding it in (plan plus tool in
+  one feature, built beside a check that must not name it).
+
+Why: a milestone plan that places design nowhere costs the schedule the most where it is found last, and an
+accessibility audit after the build is the one shape of that work that can only discover. The feature doc is
+`dev/features/design-before-screens.md` (F-14). #406.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
