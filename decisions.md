@@ -804,6 +804,29 @@ project requiring a front end should have an explicit design phase." Six choices
   Declined: unparking #94 (the tool before the first front-end project needs it); folding it in (plan plus tool in
   one feature, built beside a check that must not name it).
 
+Amended 2026-10-12 (the owner's two picks, after the review of F-14 at 0.1,
+`docs/reviews/2026-10-12-design-before-screens-0.1.md`, AR-1 and AR-5):
+
+- **The skeleton builds screens, so it carries the Gate line; design need not come before it.** Every project's
+  walking skeleton builds and deploys sign-in and the one core action. It says how those screens meet WCAG 2.2 AA
+  like any milestone that builds screens (plain semantic markup and a keyboard pass meet it at that size). The
+  design item sits before the first screen milestone past the skeleton, and the skeleton's no-go says its own
+  screens are rebuilt to it. This replaces "before the first item that builds a screen" above. Declined: the
+  skeleton exempt from both (the first screens a project ships would carry no gate, the late-audit shape again);
+  both applying to the skeleton (design work ahead of proving the stack).
+- **A milestone already running when the rule arrives says how, or records why not yet.** Its Gate says how its
+  screens meet WCAG 2.2 AA, or the milestone names a decision in `decisions.md` saying what is not held yet and
+  by when (`accessibility: PD-<n>`, read as `extended:` is). Its design item may sit below the work already
+  begun. `/sync-slipway` asks a second question, about that milestone, of a front-end project that has one
+  running. So "one finding" in *On sync* above is at most two for that milestone once the frame's line is
+  written. Declined: exempt until the next milestone (nothing looks at the screens being built now, and an
+  exemption needs a marker a check can read anyway).
+
+Not changed by the amendment, and said plainly in F-14 at 0.2 on the orchestrator session's advice: the design
+item's hours are held per milestone (PRD §9 has one row per milestone, the item's share is named in its Basis
+cell and nothing checks the share); `/kickoff` writes a terminal, an API and nothing as `none`; the check's
+output names what it did not hold and why.
+
 Why: a milestone plan that places design nowhere costs the schedule the most where it is found last, and an
 accessibility audit after the build is the one shape of that work that can only discover. The feature doc is
 `dev/features/design-before-screens.md` (F-14). #406.
