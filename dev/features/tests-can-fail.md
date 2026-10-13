@@ -5,6 +5,8 @@ status: draft
 
 # F-13 — Tests can fail: a pull request's new tests must each fail on a change to the code
 
+Version: 0.1 (2026-10-08)
+
 ## Problem
 
 **Job:** when a pull request adds tests, I want each new test shown to fail when the code it covers is
