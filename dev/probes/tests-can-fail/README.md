@@ -31,7 +31,7 @@ git -C "$tmp" add -A && git -C "$tmp" commit -q -m base
 git -C "$tmp" apply "$PWD/dev/probes/tests-can-fail/scratch/change.patch"
 git -C "$tmp" add -A && git -C "$tmp" commit -q -m change
 (cd "$tmp" && pnpm install --frozen-lockfile)                               # fills the store the copy installs from
-node dev/probes/tests-can-fail/measure.mjs "$tmp" main HEAD
+node dev/probes/tests-can-fail/measure.mjs "$tmp" HEAD~1 HEAD
 ```
 
 `--counts-only` prints no test name, path or commit. `--record <folder>` saves the runner outputs.
