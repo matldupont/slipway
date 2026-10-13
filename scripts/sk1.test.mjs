@@ -262,7 +262,8 @@ test('an option is a marker unless its value is the bare false or 0; a method or
   assert.deepEqual(kinds("test('a', { skip() { return true } }, f);"), ['skip*']);
   assert.deepEqual(kinds("test('a', { get skip() { return true } }, f);"), ['skip*']);
   assert.deepEqual(kinds("test('a', { async skip() { return true } }, f);"), ['skip*']);
-  assert.deepEqual(kinds("test('a', { skip: 0 "), []);
+  assert.deepEqual(kinds("test('a', { skip: 0 "), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: false "), []);
   assert.deepEqual(kinds("test('a', { skip: false ? 0 : 1 }, f);"), ['skip*']);
   assert.deepEqual(kinds("test('a', { skip: false || true }, f);"), ['skip*']);
   assert.deepEqual(kinds("test('a', { skip: 0.5 }, f);"), ['skip*']);

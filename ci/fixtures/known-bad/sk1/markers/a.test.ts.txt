@@ -63,3 +63,5 @@ test('fraction', { skip: 0.5 }, f);
 test('hex', { skip: 0x1 }, f);
 const near = fit< best;
 if (xit< 3) { n = 1; }
+test('multi-line zero', { skip: 0
+test('multi-line false', { skip: false

@@ -46,12 +46,12 @@ const SKIP = new RegExp(
 const ONLY = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*only\\b${CALLED}|${START}(?:fit|fdescribe)${CALLED}`);
 // A test call whose options skip or focus it: `test('x', { skip: true }, fn)`, `t.test('x', { 'only': true })`,
 // `test({ skip }, fn)`. One rule on the whole line, with nothing to backtrack: if a test call opens on the line, a
-// `skip`, `only` or `todo` key that is not set to the bare value `false` or `0` counts (a number skips a test in node:test, so
+// `skip`, `only` or `todo` key that is not set to the bare value `false` (before `,`, `}` or the end of the line) or `0` (before `,` or `}`) counts (a number skips a test in node:test, so
 // `skip: 10` counts too, and so do `false ? 0 : 1` and `0.5`; a method or getter key counts as well: `{ skip() {…} }`). So `pick({ only: 'a' })` or `db.find({ skip: 10 })` inside a one-line test body is a false
 // alarm, and its message says how to clear it. A focus option wins over a skip on the same line. Not seen: an options object whose key is on a later line than the call.
 const MAYBE = new RegExp(`${START}(?:fit|fdescribe|xit|xtest|xdescribe|xcontext|xspecify)\\s*<`);
 const CALL = new RegExp(`${START}(?:${BLOCK}${CHAIN}|(?:t|ctx|context)\\.test)\\s*\\(`);
-const KEY = /[{,]\s*(?:(?:get|async)\s+)?['"]?(skip|only|todo)['"]?\s*(?::\s*(?!(?:false|0)\s*(?:[,}]|$))\S|(?=[,}(]))/g;
+const KEY = /[{,]\s*(?:(?:get|async)\s+)?['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\s*(?:[,}]|$)|0\s*[,}])\S|(?=[,}(]))/g;
 
 // An issue reference: `#14`, or `owner/repo#14` (the tracker pattern in risks.mjs, whose `#n` this is; a decision id
 // such as D-7 is not an issue). Searched in the first LINE_CAP characters with a pattern that cannot backtrack.
