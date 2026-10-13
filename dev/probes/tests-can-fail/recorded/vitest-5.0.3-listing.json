@@ -1,0 +1,50 @@
+[
+ {
+  "name": "says when the cart is empty",
+  "file": "<copy>/copy/apps/web/src/components/CartSummary.test.tsx",
+  "location": {
+   "line": 8,
+   "column": 1
+  }
+ },
+ {
+  "name": "lists lines, the total, and removes by sku",
+  "file": "<copy>/copy/apps/web/src/components/CartSummary.test.tsx",
+  "location": {
+   "line": 12,
+   "column": 1
+  }
+ },
+ {
+  "name": "shows the discounted total with the old price struck",
+  "file": "<copy>/copy/apps/web/src/components/CartSummary.test.tsx",
+  "location": {
+   "line": 20,
+   "column": 1
+  }
+ },
+ {
+  "name": "says why a code did not apply",
+  "file": "<copy>/copy/apps/web/src/components/CartSummary.test.tsx",
+  "location": {
+   "line": 25,
+   "column": 1
+  }
+ },
+ {
+  "name": "validates every field",
+  "file": "<copy>/copy/apps/web/src/components/OrderForm.test.tsx",
+  "location": {
+   "line": 7,
+   "column": 1
+  }
+ },
+ {
+  "name": "shows errors and does not submit a bad order",
+  "file": "<copy>/copy/apps/web/src/components/OrderForm.test.tsx",
+  "location": {
+   "line": 16,
+   "column": 1
+  }
+ }
+]
