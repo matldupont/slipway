@@ -1,5 +1,5 @@
 {
-  "_note": "#403. A review is current only while the line it quotes is the reviewed document's one `Version:` line. a-old, b-old and c-old each quote a line that is written in their document and is not its version line: each is stale. b.md and c.md each have two lines starting `Version:`, so nothing says which is the version line: each document is a finding, and c-new, which quotes the newer of c.md's two, is not current either. d-current quotes d.md's one `Version:` line and has no finding: the control. e.md has no `Version:` line, so a review of it is read as before: e-line quotes a line of it and has no finding; e-word quotes a word that is in it and is no whole line, so it is not stale and its Supersedes: line retires nothing; e-older quotes a line that is not in it.",
+  "_note": "#403. A review is current only while the line it quotes is the reviewed document's one `Version:` line. a-old, b-old and c-old each quote a line that is written in their document and is not its version line: each is stale. b.md and c.md each have two lines starting `Version:`, so nothing says which is the version line: each document is a finding, and c-new, which quotes the newer of c.md's two, is not current either. d-current quotes d.md's one `Version:` line and has no finding: the control. e.md has no `Version:` line, so a review of it is read as before: e-line quotes a line of it and has no finding; e-word quotes a word that is in it and is no whole line, so it is not stale and its Supersedes: line retires nothing; e-older quotes a line that is not in it. #403, review round 1: a document R1 cannot read one version line from is a finding and is never read as having none. Each f- document writes its version line so that it reads as one and does not start with `Version:`, one per kind R1 names: white space, emphasis, a list mark, a quote mark, a heading mark, a backtick, a hidden character, another letter case. Each is a finding and its review, which quotes an older line still written in the document, is not current. g.md has one `Version:` line and the word again in the middle of a prose line: g-current has no finding.",
   "exit": 1,
   "findings": [
     "docs/reviews/a-old.md#provenance/stale",
@@ -8,14 +8,32 @@
     "docs/reviews/c-old.md#provenance/stale",
     "docs/reviews/e-older.md#provenance/stale",
     "docs/reviews/e-word.md#provenance/supersedes-invalid",
+    "docs/reviews/f-backtick.md#provenance/stale",
+    "docs/reviews/f-case.md#provenance/stale",
+    "docs/reviews/f-emphasis.md#provenance/stale",
+    "docs/reviews/f-heading.md#provenance/stale",
+    "docs/reviews/f-hidden.md#provenance/stale",
+    "docs/reviews/f-list.md#provenance/stale",
+    "docs/reviews/f-quote.md#provenance/stale",
+    "docs/reviews/f-space.md#provenance/stale",
     "docs/specs/b.md#document/version-lines",
-    "docs/specs/c.md#document/version-lines"
+    "docs/specs/c.md#document/version-lines",
+    "docs/specs/f-backtick.md#document/version-lines",
+    "docs/specs/f-case.md#document/version-lines",
+    "docs/specs/f-emphasis.md#document/version-lines",
+    "docs/specs/f-heading.md#document/version-lines",
+    "docs/specs/f-hidden.md#document/version-lines",
+    "docs/specs/f-list.md#document/version-lines",
+    "docs/specs/f-quote.md#document/version-lines",
+    "docs/specs/f-space.md#document/version-lines"
   ],
   "details": {
     "docs/reviews/a-old.md#provenance/stale": "is not the Version: line of docs/specs/a.md",
-    "docs/reviews/c-new.md#provenance/stale": "docs/specs/c.md has 2 lines starting `Version:`",
-    "docs/specs/b.md#document/version-lines": "has 2 lines starting `Version:`",
+    "docs/reviews/c-new.md#provenance/stale": "the version line of docs/specs/c.md cannot be read",
+    "docs/specs/b.md#document/version-lines": "2 lines start `Version:`",
     "docs/reviews/e-older.md#provenance/stale": "is not in docs/specs/e.md",
-    "docs/reviews/e-word.md#provenance/supersedes-invalid": "is not a whole line of docs/specs/e.md"
+    "docs/reviews/e-word.md#provenance/supersedes-invalid": "is not a whole line of docs/specs/e.md",
+    "docs/specs/f-hidden.md#document/version-lines": "line 3 reads as a version line and does not start with `Version:`",
+    "docs/reviews/f-case.md#provenance/stale": "the version line of docs/specs/f-case.md cannot be read"
   }
 }

@@ -84,14 +84,14 @@ const ods = [...prd.matchAll(/^###\s+(OD-\d+)\s+—\s+(.+)$/gm)]
   .filter((o) => !o.title.startsWith('<'));
 const prdVersion = (prd.match(/^Version:\s*(.+)$/m) ?? [])[1]?.trim() ?? null;
 // A review of the PRD's current version, the way R1 counts one: both read the review's header, and compare the line
-// it quotes with the PRD's version line, through lib/review-header.mjs.
+// it quotes with the PRD's version line, through lib/review-header.mjs; and it names that version, as it always had to.
 const reviewsDir = join(root, 'docs', 'reviews');
 const prdReviews = existsSync(reviewsDir)
   ? readdirSync(reviewsDir).filter((f) => f.endsWith('.md') && f !== 'TEMPLATE.md').filter((f) => {
       const text = readPlain(root, `docs/reviews/${f}`);
       if (text === null) return false;
       const { reviewed, version } = reviewProvenance(text);
-      return !!reviewed && isPrdPath(reviewed.path) && !!prdVersion && !!version && quotedVersion(prd, version) === 'current';
+      return !!reviewed && isPrdPath(reviewed.path) && !!prdVersion && !!version && version.includes(prdVersion) && quotedVersion(prd, version) === 'current';
     })
   : [];
 // The findings register of each of those reviews. A warning, never a gate: a register that cannot be read is said

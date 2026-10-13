@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { MAX_LINE, quotedVersion, reviewedOf, reviewProvenance, unquote, versionOf } from '../ci/checks/lib/review-header.mjs';
+import { MAX_LINE, quotedVersion, reviewedOf, reviewProvenance, unquote, versionOf, versionOfDoc } from '../ci/checks/lib/review-header.mjs';
 
 const R1 = join(dirname(fileURLToPath(import.meta.url)), '..', 'ci', 'checks', 'meta', 'r1-review-provenance.mjs');
 const LONG = 100_000;
@@ -219,7 +219,7 @@ test("a stale finding names one remedy, the fresh review process/intake.md allow
   }
 });
 
-test('a document with more than one `Version:` line is a finding, once, and a review of it is told no remedy but the document', () => {
+test('a document with more than one `Version:` line is a finding, once, and a review of it is told to wait for the document', () => {
   const dir = project({
     'docs/specs/a.md': '# Spec\n\nVersion: 0.1\nVersion: 0.2\n',
     'docs/reviews/new.md': review('docs/specs/a.md'),
@@ -228,7 +228,8 @@ test('a document with more than one `Version:` line is a finding, once, and a re
   try {
     const r = r1(dir);
     assert.deepEqual(r.findings.map((f) => f.where).sort(), ['docs/reviews/new.md#provenance/stale', 'docs/reviews/old.md#provenance/stale', 'docs/specs/a.md#document/version-lines']);
-    assert.equal(stale(r, 'new.md'), 'docs/specs/a.md has 2 lines starting `Version:`, so "Version: 0.2" cannot be read as its version line: this review is read again once the document has one');
+    assert.equal(stale(r, 'new.md'), 'the version line of docs/specs/a.md cannot be read (see its document/version-lines finding), so "Version: 0.2" is not compared with it: this review is read again once the document has one line starting `Version:`');
+    assert.equal(r.findings.find((f) => f.where === 'docs/specs/a.md#document/version-lines').detail, 'the version line of docs/specs/a.md cannot be read, so no review of it is current — 2 lines start `Version:`, and nothing says which is its version line: leave the current one as the only line that starts that way');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -264,6 +265,66 @@ test('R1 and `pnpm status` count the same reviews of the PRD: one that quotes it
   }
 });
 
+// The PRD's version is read by a pattern whose `^` follows every line break. The comparison reads the same lines, and
+// a review of the PRD still has to name that version, so this site is never looser than it was before #403.
+test('a review that does not quote the PRD version line is no review of it, whatever line break stands before that line', () => {
+  const at = String.fromCodePoint;
+  for (const brk of ['\r', at(0x2028), at(0x2029), '\r\n', '\n']) {
+    const prd = `# Acme\n${brk}Version: 0.4.0\nStatus: approved\n\nBody.\n\n- 0.4.0 · was "Version: 0.3.0"\n`;
+    for (const quoted of ['Version: 0.3.0', 'Acme']) {
+      const dir = project({ 'docs/PRD.md': prd, 'docs/reviews/r.md': review('docs/PRD.md', quoted) });
+      try {
+        assert.deepEqual(r1(dir).findings.map((f) => f.where).sort(), ['docs/PRD.md#review/missing', 'docs/reviews/r.md#provenance/stale'], JSON.stringify([brk, quoted]));
+        assert.match(statusOf(dir), /review: none for this version/, JSON.stringify([brk, quoted]));
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  }
+});
+
+test("a review that copies the version line is current under each reading of it: as written, without emphasis marks, without quote marks", () => {
+  // A review's header drops `**` and the quote marks around its value, so the document's line is read both ways too.
+  for (const [line, quoted] of [['Version: 0.2', 'Version: 0.2'], ['Version: **0.2**', 'Version: **0.2**'], ['Version: "0.2"', 'Version: "0.2"'], ['Version: 0.2  ', 'Version: 0.2']]) {
+    const dir = project({ 'docs/specs/a.md': `# Spec\n\n${line}\n`, 'docs/reviews/a.md': review('docs/specs/a.md', quoted) });
+    try {
+      assert.equal(r1(dir).status, 0, line);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test('a byte-order mark before a first-line `Version:` line does not hide it', () => {
+  const doc = `${String.fromCodePoint(0xfeff)}Version: 0.2\n\n- was "Version: 0.1"\n`;
+  assert.deepEqual(versionOfDoc(doc), { lines: ['Version: 0.2'], unread: [] });
+  assert.equal(quotedVersion(doc, 'Version: 0.1'), 'stale');
+  assert.equal(quotedVersion(doc, 'Version: 0.2'), 'current');
+});
+
+test('a line that reads as a version line and does not start with `Version:` makes the document unreadable; the list of what may stand before it is closed', () => {
+  const at = String.fromCodePoint;
+  const before = [' ', '\t', '**', '_', '- ', '* ', '+ ', '> ', '# ', '### ', '`', at(0x200b), at(0x200d), at(0xfe0f), at(0x202e), '> - **`'];
+  for (const lead of before) {
+    const doc = `# Spec\n\n${lead}Version: 0.2\n\n- was "Version: 0.1"\n`;
+    assert.deepEqual(versionOfDoc(doc), { lines: [], unread: [3] }, JSON.stringify(lead));
+    for (const want of ['Version: 0.1', 'Version: 0.2', 'Spec']) assert.equal(quotedVersion(doc, want), 'unreadable', JSON.stringify(lead));
+  }
+  for (const line of ['version: 0.2', 'VERSION: 0.2', 'Version : 0.2', '**Version: 0.2**']) assert.deepEqual(versionOfDoc(`# Spec\n\n${line}\n`).unread, [3], line);
+  // Not version lines: the word later in a line, another word, and a character outside the list before it.
+  for (const line of ['The Version: line moves.', 'Versions: two', '| Version: 0.2 |', '1. Version: 0.2', '<!-- Version: 0.2 -->']) {
+    assert.deepEqual(versionOfDoc(`# Spec\n\n${line}\n`), { lines: [], unread: [] }, line);
+  }
+  const dir = project({ 'docs/specs/a.md': '# Spec\n\n**Version:** 0.2\n\n- was "Version: 0.1"\n', 'docs/reviews/a.md': review('docs/specs/a.md', 'Version: 0.1') });
+  try {
+    const r = r1(dir);
+    assert.deepEqual(r.findings.map((f) => f.where).sort(), ['docs/reviews/a.md#provenance/stale', 'docs/specs/a.md#document/version-lines']);
+    assert.equal(r.findings.find((f) => f.where === 'docs/specs/a.md#document/version-lines').detail, 'the version line of docs/specs/a.md cannot be read, so no review of it is current — line 3 reads as a version line and does not start with `Version:`: make the line start with `Version:`, or reword it so that word does not lead the line');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('a PRD with more than one `Version:` line is a finding with no review of it on file', () => {
   const dir = project({ 'docs/PRD.md': '# Acme\n\nVersion: 0.3.0\nVersion: 0.2.0\nStatus: draft\n' });
   try {
@@ -274,8 +335,11 @@ test('a PRD with more than one `Version:` line is a finding with no review of it
 });
 
 test('quotedVersion reads a document of 100,000 `Version:` lines, and one 100,000-character line, in under 100 ms', () => {
-  assert.equal(timed(() => quotedVersion('Version: 1\n'.repeat(LONG), 'Version: 1')).value, 'ambiguous');
-  for (const doc of [`Version: ${'*'.repeat(LONG)}x`, `Version: ${' '.repeat(LONG)}x`, `Version: ${'"'.repeat(LONG)}x`]) {
+  const many = timed(() => quotedVersion('Version: 1\n'.repeat(LONG), 'Version: 1'));
+  assert.equal(many.value, 'unreadable');
+  assert.ok(many.ms < 100, `${many.ms} ms`);
+  const marks = ['*', ' ', '"', '> ', '`', String.fromCodePoint(0x200b)];
+  for (const doc of marks.flatMap((m) => [`Version: ${m.repeat(LONG)}x`, `Version: 2\n${m.repeat(LONG)}x`])) {
     const { value, ms } = timed(() => quotedVersion(doc, 'Version: 1'));
     assert.equal(value, 'stale');
     assert.ok(ms < 100, `${ms} ms`);

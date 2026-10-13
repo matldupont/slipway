@@ -64,20 +64,41 @@ const unmarked = (l) => l.replace(/\*\*/g, '').replace(/^[>\s*_-]+/, '').trim();
 export const readings = (l) => [l.trim(), unmarked(l), unquote(l)];
 
 // The document's version line is its one line that starts `Version:`, read from the raw line start: nothing is
-// skipped, a fenced or commented line counts. Every such line is returned, so a caller can tell one from several.
-export const versionLines = (doc) => doc.split(/\r?\n/).filter((l) => l.startsWith('Version:'));
+// skipped, a fenced or commented line counts. A line ends at every break a reader or a pattern's `^` takes for one
+// (CR LF, LF, a lone CR, the line and paragraph separators), and a byte-order mark before the first is not part of it.
+const docLines = (doc) => doc.replace(/^\ufeff/, '').split(/\r\n|[\n\r\u2028\u2029]/);
+
+// What may stand before `Version:` on a line that reads as a version line and does not start with it. A closed list:
+// white space; the emphasis marks `*` and `_`; the list marks `-`, `*` and `+`; the quote mark `>`; the heading mark
+// `#`; the backtick; and the characters nobody sees (report.mjs UNSAFE, with the joiner and the two presentation
+// marks it leaves for emoji). A character outside the list is not removed. After them the word, in any letter case,
+// then spaces or tabs, then the colon.
+const LEAD = new RegExp(`^(?:${UNSAFE.source}|[\\s*_\\-+>#\`\\u200d\\ufe0e\\ufe0f])+`, 'v');
+const readsAsVersion = (l) => /^version[ \t]*:/i.test(l.replace(LEAD, ''));
+
+// How a document states its version: `lines`, each line that starts `Version:`; `unread`, the line number of each
+// line that reads as a version line and does not start that way (marks or hidden characters before it, or another
+// letter case). `unread` decides only whether the document can be read; no line in it is ever compared.
+export const versionOfDoc = (doc) => {
+  const all = docLines(doc);
+  const lines = all.filter((l) => l.startsWith('Version:'));
+  const unread = all.flatMap((l, i) => (!l.startsWith('Version:') && readsAsVersion(l) ? [i + 1] : []));
+  return { lines, unread };
+};
+// A document whose version line cannot be read: more than one line starts `Version:`, or a line reads as one and
+// does not start with it. It is a finding of its own, and no review of it is current.
+export const versionUnreadable = ({ lines, unread }) => lines.length > 1 || unread.length > 0;
 
 // Whether `want`, the line a review quotes, is the version line of `doc`, the one comparison R1 and `pnpm status`
-// share (#403):
-//   'current'    the document has one `Version:` line and `want` is that line, under one of its readings
-//   'stale'      it has one and `want` is not it, wherever else in the document `want` may be written
-//   'ambiguous'  it has more than one: nothing says which is the document's, so no review of it is current
-// A document with no `Version:` line has no version line to compare: `want` is current while it is anywhere in the
-// text, as it was before there was a line to hold a review to.
-export const quotedVersion = (doc, want) => {
-  const lines = versionLines(doc);
-  if (lines.length > 1) return 'ambiguous';
-  if (lines.length === 1) return readings(lines[0]).includes(want) ? 'current' : 'stale';
+// share (#403). `stated` is versionOfDoc(doc), for a caller that has it already.
+//   'current'     the document has one `Version:` line and `want` is that line, under one of its readings
+//   'stale'       it has one and `want` is not it, wherever else in the document `want` may be written
+//   'unreadable'  its version line cannot be read (versionUnreadable): no review of it is current
+// A document with no `Version:` line, and no line that reads as one, has no version line to compare: `want` is
+// current while it is anywhere in the text, as it was before there was a line to hold a review to.
+export const quotedVersion = (doc, want, stated = versionOfDoc(doc)) => {
+  if (versionUnreadable(stated)) return 'unreadable';
+  if (stated.lines.length === 1) return readings(stated.lines[0]).includes(want) ? 'current' : 'stale';
   return doc.includes(want) ? 'current' : 'stale';
 };
 
