@@ -1,5 +1,5 @@
 {
-  "_note": "D-043 (#277). a-old reviewed a path that is gone and a-new, current for the document at its new path, names it in Supersedes: the pair has no finding. b-old's path is gone and nothing names it. c-old's path is gone and c-new, which names it, is stale: c-old stays reported. d-old's reviewed path is a folder, not a path that is gone: d-new's line retires nothing and is reported. e-old's path is gone and e-new, which names it, quotes a word that is no whole line of its document: the line is reported and e-old stays. No message tells the reader to fix the Reviewed: line or delete the review.",
+  "_note": "D-043 (#277). a-old reviewed a path that is gone and a-new, current for the document at its new path, names it in Supersedes: the pair has no finding. b-old's path is gone and nothing names it. c-old's path is gone and c-new, which names it, is stale: c-old stays reported. d-old's reviewed path is a folder, f-old's leaves the repository, g-old's is in .git/, h-old's is a document written with a slash, i-old's starts at the filesystem's root j-old's is under a file and k-old's has a name of 300 characters, which no folder holds: none is plainly not there, so d-new, which is current and names all seven, retires none of them and each line is reported. e-old's path is gone and e-new, which names it, quotes a word that is no whole line of its document: the line is reported and e-old stays. No message tells the reader to fix the Reviewed: line or delete the review.",
   "exit": 1,
   "findings": [
     "docs/reviews/b-old.md#provenance/target-missing",
@@ -8,12 +8,19 @@
     "docs/reviews/d-new.md#provenance/supersedes-invalid",
     "docs/reviews/d-old.md#provenance/target-missing",
     "docs/reviews/e-new.md#provenance/supersedes-invalid",
-    "docs/reviews/e-old.md#provenance/target-missing"
+    "docs/reviews/e-old.md#provenance/target-missing",
+    "docs/reviews/f-old.md#provenance/target-missing",
+    "docs/reviews/g-old.md#provenance/target-missing",
+    "docs/reviews/h-old.md#provenance/target-missing",
+    "docs/reviews/i-old.md#provenance/target-missing",
+    "docs/reviews/j-old.md#provenance/target-missing",
+    "docs/reviews/k-old.md#provenance/target-missing"
   ],
   "details": {
     "docs/reviews/b-old.md#provenance/target-missing": "does not exist: if the document moved, review it at its new path (/review-doc) and name this file in that review's Supersedes: line; a review is not edited or deleted without the owner's yes",
     "docs/reviews/d-old.md#provenance/target-missing": "is not a regular file: R1 reads a review only against a regular file of the repository, and no Supersedes: line retires this one; a review is not edited or deleted without the owner's yes",
     "docs/reviews/d-new.md#provenance/supersedes-invalid": "a reviewed path that is a document or is gone",
-    "docs/reviews/e-new.md#provenance/supersedes-invalid": "is not a whole line of docs/specs/e.md"
+    "docs/reviews/e-new.md#provenance/supersedes-invalid": "is not a whole line of docs/specs/e.md",
+    "docs/reviews/i-old.md#provenance/target-missing": "does not exist: R1 reads a review only against a regular file of the repository, and no Supersedes: line retires this one"
   }
 }

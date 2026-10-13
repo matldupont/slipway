@@ -45,8 +45,10 @@
 //
 // A review whose reviewed path does not exist retires the same way (D-043): the document moved, and a current
 // review, of the document at its new path, names it. R1 does not tell a move from a deletion, so the naming is
-// the statement. Only a path that is not there: one that leaves the repository, sits in .git/, or is a folder or
-// a link stays reported whatever names it. The message never says to edit or delete a review.
+// the statement, and no test ties the naming review's document to the one that is gone. Only a path that is
+// plainly not there (plainlyGone): one that leaves the repository, sits in .git/, is a folder or a link, goes
+// through a link or under a file, ends in a slash or starts at the filesystem's root stays reported whatever names
+// it. A target-missing message never says to edit or delete a review.
 //
 // The three lines count only in the review's header: the first run of non-blank lines under its title, the
 // file's first non-blank line, a `# ` heading. A line lower down, or one in the header that starts with a quote
@@ -66,7 +68,7 @@
 // reviewed path is opened only when it is a regular file inside the repository, reached through no link, and no
 // part of it is git's own folder: a review cannot point R1 at a folder, a device or a file outside the tree.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { excerpt, report, UNSAFE } from '../lib/report.mjs';
 import { docLines, isPrdPath, MAX_LINE, MISSING, notPlainFile, quotedVersion, readings, reviewProvenance, versionLines } from '../lib/review-header.mjs';
@@ -91,9 +93,9 @@ const BOUND = 120;
 // One review file gets at most this many Supersedes: findings; the rest are counted in one more.
 const MAX_SUPERSEDES = 10;
 const shown = (s) => `${excerpt(s, BOUND)}${UNSAFE.test(s) ? ' [hidden characters left out]' : ''}`;
-// Said beside a missing line: the line may be there, and too long to be read.
-// The one condition under which a review changes, said wherever a finding has no other way out (process/intake.md).
+// The one condition under which a review changes, said in each target-missing finding (process/intake.md).
 const OWNER_ONLY = "a review is not edited or deleted without the owner's yes";
+// Said beside a missing line: the line may be there, and too long to be read.
 const unreadNote = (unread) => (unread.length
   ? ` (line ${unread.slice(0, 3).join(', ')}${unread.length > 3 ? ` and ${unread.length - 3} more` : ''} of this file is in the header and over ${MAX_LINE} characters: a header line that long is not read, so shorten it)`
   : '');
@@ -113,6 +115,27 @@ const unreadable = (rel) => {
   if (norm.startsWith('..')) return 'leaves the repository';
   if (norm.split('/').some(gitFolder)) return 'is inside .git/, which holds no document';
   return notPlainFile(root, norm);
+};
+
+// Whether a reviewed path that could not be opened is plainly not there (D-043): written as a file's path inside
+// the repository, with every folder on the way to the first missing name a real folder. A path that goes through
+// a link or under a file, ends in a slash, starts at the filesystem's root, or that the filesystem refuses for any
+// other reason is not gone: nothing retires a review of it.
+const plainlyGone = (rel) => {
+  const norm = posix.normalize(rel);
+  if (norm.startsWith('/') || norm.endsWith('/')) return false;
+  let at = root;
+  for (const seg of norm.split('/')) {
+    at = join(at, seg);
+    let st;
+    try {
+      st = lstatSync(at);
+    } catch (e) {
+      return e.code === 'ENOENT';
+    }
+    if (!st.isDirectory()) return false;
+  }
+  return false;
 };
 
 for (const f of files) {
@@ -140,7 +163,7 @@ for (const f of files) {
   const why = unreadable(targetRel);
   if (why) {
     // A path that is not there may be a document that moved: reported after the Supersedes: lines are read.
-    if (why === MISSING) gone.set(rel, { rel, targetRel });
+    if (why === MISSING && plainlyGone(targetRel)) gone.set(rel, { rel, targetRel });
     else findings.push({ where: `${rel}#provenance/target-missing`, detail: `reviewed path ${shown(targetRel) || '(empty)'} ${why}: R1 reads a review only against a regular file of the repository, and no Supersedes: line retires this one; ${OWNER_ONLY}` });
     continue;
   }

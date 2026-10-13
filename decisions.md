@@ -986,12 +986,16 @@ path, one `Supersedes: docs/reviews/<file>` line each, as D-029 has a review of 
 reporting `provenance/target-missing` for a review once a current review names it that way. The earlier file
 stays as it was written, and a review of a gone path that nobody names is reported as before.
 
-- **Only a path that does not exist.** A reviewed path that leaves the repository, sits in `.git/`, or is a
-  folder, a link or reached through one stays reported whatever names it.
-- **The naming review meets D-029's bar.** It is itself current and quotes a whole line of its document. A line
-  in a stale review retires nothing, and there is no chain.
-- **R1 does not tell a move from a deletion.** The naming is the statement, so a current review can retire the
-  review of a document that was deleted outright. A review written from memory cannot get the line by accident.
+- **Only a path that is plainly not there.** A reviewed path that leaves the repository, sits in `.git/`, is a
+  folder or a link, goes through a link or under a file, ends in a slash or starts at the filesystem's root stays
+  reported whatever names it.
+- **The naming review meets two of D-029's three tests.** It is itself current and quotes a whole line of its
+  document. A line in a stale review retires nothing, and there is no chain. The third test, a review of the
+  same document, has nothing to compare: the path is gone.
+- **R1 does not tell a move from a deletion.** The naming is the statement, so a current review of any document
+  can retire the review of a document that was deleted outright, or of one that moved. R1 green after a move
+  therefore says the old review was named, not that the document has a current review at its new path. A review
+  written from memory cannot get the line by accident.
 - **The message names this way out.** It no longer says to fix the `Reviewed:` line or delete the review: a
   review is not edited or deleted without the owner's yes.
 
