@@ -1056,7 +1056,23 @@ test('/review-doc and the review template say where a finding points in a docume
 });
 
 test('/review-doc step 4 names what the owner bumps in a feature doc', () => {
-  assert.ok(stepOf(reviewDoc(), '4 — Hand back').includes('bumps its `Version:` and change log (a feature doc: its `Version:` and Changes), and — because the version line moves — **a substantive revision needs a fresh review**.'), '/review-doc step 4 must read true for a feature doc');
+  assert.ok(stepOf(reviewDoc(), '4 — Hand back').includes('bumps its `Version:` and change log (a feature doc: its `Version:` and Changes; a milestone: its `Version:`), and — because the version line moves — **a substantive revision needs a fresh review**.'), '/review-doc step 4 must read true for a feature doc and a milestone');
+});
+
+// #404 (D-044): a milestone has the same line, moved by its plan and not by its bookkeeping.
+test('/review-doc names the version line of a milestone and when it moves, and stops on a milestone with none', () => {
+  assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('The version line of a milestone is the `Version:` line under its title, which moves whenever its appetite or its extension (`extended:`), Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria change, and not for a started marker, an `Owed:` or `Ran:` line, `status:`, `summary:` or the Retro (D-044).'), '/review-doc step 3 does not say which line a review of a milestone quotes');
+  const one = stepOf(reviewDoc(), '1 — Read the target, and only the target');
+  const stop = 'A milestone with no `Version:` line under its title is not reviewed as it is either: stop here, and say that its owner adds `Version: 0.1 (<date>)` in a commit of its own first (D-044).';
+  assert.ok(one.includes(stop), '/review-doc step 1 has no rule for a milestone with no Version: line');
+  assert.ok(one.indexOf(stop) < one.indexOf('Read the document in full.'), 'the stop must come before the milestone is reviewed');
+});
+
+test('docs/milestones/TEMPLATE.md and the M1 skeleton carry a Version: line of their own, under the title, and the template says when it moves', () => {
+  const template = read('docs/milestones/TEMPLATE.md');
+  assert.match(template, /^# M0 — <name>\n\nVersion: 0\.1 \(<date>\)\n\n/m, 'the milestone template must carry `Version: 0.1 (<date>)` as a line of its own under the title');
+  assert.match(read('docs/milestones/M1-walking-skeleton.md'), /^# M1 — Walking skeleton\n\nVersion: 0\.1 \(<date>\)\n\n/m, 'the M1 skeleton must carry the line too');
+  assert.ok(template.replace(/\s+/g, ' ').includes("Any edit to `appetite` or > `extended`, or inside Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria below, moves it, in the same > commit. Bookkeeping does not: an item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status`, `summary` and the Retro."), 'the milestone template must say when the line moves');
 });
 
 test('docs/features/TEMPLATE.md carries a Version: line of its own, under the title, and says when it moves', () => {

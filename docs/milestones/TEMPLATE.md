@@ -8,6 +8,8 @@ summary: <…one line: what this bet delivers…>
 
 # M0 — <name>
 
+Version: 0.1 (<date>)
+
 > A milestone is a bet, not an estimate. The appetite is how long it is **worth**; scope
 > bends to fit it. MS1 checks this file.
 >
@@ -20,6 +22,9 @@ summary: <…one line: what this bet delivers…>
 >   is generated from these fields, never hand-written; MS1 flags a row that differs. A `|` in it
 >   is written `\|` in the row.
 > - Shaping milestones may hold placeholders. Active, closed and killed ones may not.
+> - `Version:` is the line a `/review-doc` review of this milestone quotes. Any edit to `appetite` or
+>   `extended`, or inside Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria below, moves it, in the same
+>   commit. Bookkeeping does not: an item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status`, `summary` and the Retro.
 
 ## Why
 
