@@ -1039,7 +1039,8 @@ test('/review-doc names the version line of a feature doc, and it moves with the
 });
 
 test('/review-doc says that writing its review file asks the owner, and that its pull request carries the Gate changes line (#405)', () => {
-  assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('Writing the review file asks the owner once, and its pull request lists the file under `## Gate changes` (`process/intake.md` → Pull request).'), '/review-doc step 3 does not say that a review file is asked about and listed under Gate changes');
+  assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('Write the review file whole, in one Write call: writing it asks the owner, once per call, and its pull request lists the file under `## Gate changes` (`process/intake.md` → Pull request).'), '/review-doc step 3 does not say that a review file is asked about and listed under Gate changes');
+  assert.ok(read('.claude/skills/kickoff/SKILL.md').replace(/\s+/g, ' ').includes('Writing it asks the owner; list it under `## Gate changes` in the PR.'), '/kickoff also writes a review file: it must say the same');
 });
 
 test('/review-doc stops before the review on a feature doc written before the line existed, and never adds it itself', () => {
@@ -1074,7 +1075,7 @@ test('process/intake.md → Feature doc version: what moves the line is a list, 
   // #405: the proof runs at the repository root, whatever folder the session is in, and the ask is what holds the rule.
   const proof = "Run at the repository root, `git diff --stat origin/{default branch}...HEAD -- ':/docs/reviews'` and `git status --porcelain -- ':/docs/reviews'` both print nothing after the run";
   assert.ok(rule.includes(proof) && stepOf(intake, 'PRD entry').includes(proof), 'the proof that no review was touched must see a committed, staged or new file from any folder, for a feature doc and for the PRD');
-  assert.ok(rule.includes('The harness asks before a session writes there, and the pull request check counts a changed review as a gate file'), 'the rule must name the ask that holds it');
+  assert.ok(rule.includes('The harness asks before a session\'s file-writing tools write there (a shell command does not ask), and the pull request check counts a changed review as a gate file'), 'the rule must name the ask that holds it');
   assert.ok(!intake.includes('#405'), 'process/intake.md ships to projects, where a slipway issue number means nothing');
   assert.ok(rule.includes('Any other red check is not expected: fix it.'), 'the rule must say what else is red');
   assert.ok(rule.includes('Run `pnpm meta` again once a held bump is committed: the run before it does not count.'), 'a held bump must be followed by a fresh gate run');
