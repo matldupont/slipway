@@ -8,7 +8,8 @@
 //   provenance/no-version-line  no `Version line: <verbatim text>` line
 //   provenance/target-missing   the reviewed path does not exist and no current review names this one, or it
 //                               leaves the repository, or is not a regular file of it: a folder, a link or a
-//                               path through one, .git/
+//                               path through one, .git/, or it does not exist and is not written plainly
+//                               (plainlyGone), which no review retires
 //   provenance/stale            the version line is not the reviewed document's `Version:` line — the
 //                               document moved on, or the line was written from memory
 //   document/version-lines      a reviewed document, or the PRD, has more than one line starting `Version:`:
@@ -46,9 +47,10 @@
 // A review whose reviewed path does not exist retires the same way (D-043): the document moved, and a current
 // review, of the document at its new path, names it. R1 does not tell a move from a deletion, so the naming is
 // the statement, and no test ties the naming review's document to the one that is gone. Only a path that is
-// plainly not there (plainlyGone): one that leaves the repository, sits in .git/, is a folder or a link, goes
-// through a link or under a file, ends in a slash, starts at the filesystem's root or carries a character nobody
-// sees stays reported whatever names it. A target-missing message never says to edit or delete a review.
+// plainly not there (plainlyGone): written with letters, digits and `. _ - /` alone, with no `.` or `..` name, and
+// reached through real folders. Any other path stays reported whatever names it: one that leaves the repository,
+// sits in .git/, is a folder or a link, goes through a link or under a file, or is written any other way. A
+// target-missing message never says to edit or delete a review.
 //
 // The three lines count only in the review's header: the first run of non-blank lines under its title, the
 // file's first non-blank line, a `# ` heading. A line lower down, or one in the header that starts with a quote
@@ -103,8 +105,6 @@ const unreadNote = (unread) => (unread.length
 // git's own folder under the spellings a filesystem is known to take for it: letter case, characters nobody sees
 // (the three UNSAFE leaves for emoji too), trailing dots and spaces, the short name. Not every spelling there is.
 const hiddenAll = new RegExp(`${UNSAFE.source}|[\u200d\ufe0e\ufe0f]`, 'gv');
-// The same characters, asked of a whole path once: no /g, so a second call starts from the path's first character.
-const hiddenAny = new RegExp(hiddenAll.source, 'v');
 const gitFolder = (seg) => {
   const s = seg.replace(hiddenAll, '');
   let end = s.length;
@@ -119,15 +119,20 @@ const unreadable = (rel) => {
   return notPlainFile(root, norm);
 };
 
-// Whether a reviewed path that could not be opened is plainly not there (D-043): written as a file's path inside
-// the repository, with every folder on the way to the first missing name a real folder. A path that goes through
-// a link or under a file, ends in a slash, starts at the filesystem's root, carries a character nobody sees, or
-// that the filesystem refuses for any other reason is not gone: nothing retires a review of it.
+// Whether a reviewed path that could not be opened is plainly not there (D-043). One rule says which paths can be:
+// the path as the review wrote it, before any normalising, is names of letters, digits and `. _ -` joined by single
+// slashes, and no name is `.` or `..`. So a space, a character nobody sees, a letter outside A-Z, a leading or
+// trailing slash and a path that climbs are all refused by what the rule admits, not by a list of what it refuses.
+// Then every folder on the way to the first missing name is a real folder: a path through a link or under a file,
+// or one the filesystem refuses for any reason other than "no such entry", is not gone. Nothing retires a review
+// of a path this answers no for.
+const PLAIN_PATH = /^[A-Za-z0-9._\-]+(?:\/[A-Za-z0-9._\-]+)*$/;
 const plainlyGone = (rel) => {
-  const norm = posix.normalize(rel);
-  if (norm.startsWith('/') || norm.endsWith('/') || hiddenAny.test(norm)) return false;
+  if (!PLAIN_PATH.test(rel)) return false;
+  const segs = rel.split('/');
+  if (segs.some((seg) => seg === '.' || seg === '..')) return false;
   let at = root;
-  for (const seg of norm.split('/')) {
+  for (const seg of segs) {
     at = join(at, seg);
     let st;
     try {

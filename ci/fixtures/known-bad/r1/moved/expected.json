@@ -1,5 +1,5 @@
 {
-  "_note": "D-043 (#277). a-old reviewed a path that is gone and a-new, current for the document at its new path, names it in Supersedes: the pair has no finding. b-old's path is gone and nothing names it. c-old's path is gone and c-new, which names it, is stale: c-old stays reported. d-old's reviewed path is a folder, f-old's leaves the repository, g-old's is in .git/, h-old's is a document written with a slash, i-old's starts at the filesystem's root j-old's is under a file, k-old's has a name of 300 characters, which no folder holds, and l-old's carries a character nobody sees: none is plainly not there, so d-new, which is current and names all eight, retires none of them and each line is reported. e-old's path is gone and e-new, which names it, quotes a word that is no whole line of its document: the line is reported and e-old stays. No message tells the reader to fix the Reviewed: line or delete the review.",
+  "_note": "D-043 (#277). a-old reviewed a path that is gone and a-new, current for the document at its new path, names it in Supersedes: the pair has no finding. b-old's path is gone and nothing names it. c-old's path is gone and c-new, which names it, is stale: c-old stays reported. d-old's reviewed path is a folder, f-old's leaves the repository, g-old's is in .git/, h-old's is a document written with a slash, i-old's starts at the filesystem's root, j-old's is under a file, k-old's has a name of 300 characters, which no folder holds, l-old's carries a character nobody sees, m-old's a space, n-old's a `..` name, o-old's a letter outside A to Z and p-old's a `.` name: none is plainly not there, so d-new, which is current and names all twelve, retires none of them and each line is reported. e-old's path is gone and e-new, which names it, quotes a word that is no whole line of its document: the line is reported and e-old stays. No message tells the reader to fix the Reviewed: line or delete the review.",
   "exit": 1,
   "findings": [
     "docs/reviews/b-old.md#provenance/target-missing",
@@ -15,7 +15,11 @@
     "docs/reviews/i-old.md#provenance/target-missing",
     "docs/reviews/j-old.md#provenance/target-missing",
     "docs/reviews/k-old.md#provenance/target-missing",
-    "docs/reviews/l-old.md#provenance/target-missing"
+    "docs/reviews/l-old.md#provenance/target-missing",
+    "docs/reviews/m-old.md#provenance/target-missing",
+    "docs/reviews/n-old.md#provenance/target-missing",
+    "docs/reviews/o-old.md#provenance/target-missing",
+    "docs/reviews/p-old.md#provenance/target-missing"
   ],
   "details": {
     "docs/reviews/b-old.md#provenance/target-missing": "does not exist: if the document moved, review it at its new path (/review-doc) and name this file in that review's Supersedes: line; a review is not edited or deleted without the owner's yes",
