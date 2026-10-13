@@ -68,20 +68,20 @@ No finding below is S0.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | F2 fires when a doc leaves draft, which is at milestone close, after the feature is built; nothing fires at shaping, where the document says the search matters | S1 | owner | Build map 1 | |
+| AR-1 | F2 fires when a doc leaves draft, which is at milestone close, after the feature is built; nothing fires at shaping, where the document says the search matters | S1 | owner | Build map 1 | D-036 |
 | AR-2 | The template's four lines, as the Contract writes them, are not placeholders `PLACEHOLDER` matches: an untouched Fit in a shipped doc counts as filled | S1 | author | Build map 1 | |
 | AR-3 | One file with no frontmatter turns the whole check BROKEN: slipway's own tree has one, and a project with one is red on the sync D-036 says is never red | S1 | owner | Build map 1, 2 | |
 | AR-4 | A project with no feature docs yet: `report()` calls 0 scanned BROKEN, and the Contract names no denominator | S2 | author | Build map 1 | |
-| AR-5 | "Truth is the reviewer's" names no reviewer, and no reviewer is told to read Fit | S2 | owner | Build map 3 | |
+| AR-5 | "Truth is the reviewer's" names no reviewer, and no reviewer is told to read Fit | S2 | owner | Build map 3 | D-036 |
 | AR-6 | The cause named is agents in parallel; the mechanism is one search of `main` at shaping, and nothing compares Fit across docs | S2 | owner | Build map 3 | |
 | AR-7 | The Verdict rejects an exemption line because nobody would count it; the Contract has four uncounted exits | S2 | owner | Build map 1 | |
-| AR-8 | F2 lands one PR before sync can record the count, and the owner's stop condition sits on the second | S2 | owner | Build map 1–2 | |
+| AR-8 | F2 lands one PR before sync can record the count, and the owner's stop condition sits on the second | S2 | owner | Build map 1–2 | D-036 |
 | AR-9 | The sync row is specified against code that does not work that way: the import, the row kind, the seed file's two roles | S2 | author | Build map 2 | |
-| AR-10 | Docs drafted before the section and shipped after it owe Fit at close; the plan's sentence and `/close-milestone` say nothing | S2 | owner | Build map 2 | |
+| AR-10 | Docs drafted before the section and shipped after it owe Fit at close; the plan's sentence and `/close-milestone` say nothing | S2 | owner | Build map 2 | D-036 |
 | AR-11 | Five clauses of the count have no case, two finding ids cannot be pinned as ids, and the ratchet's "unchanged" is pinned after the move | S2 | author | Build map 1 | |
 | AR-12 | Eight readings the check depends on are not specified | S3 | author | Build map 1 | |
 | AR-13 | The verified line is four days and one landed dependency old; five of its facts have moved | S3 | author | — | |
-| AR-14 | `Serves:` is outside the job, restates what `prd-ref:` holds, and its fallback applies only to slipway | S3 | owner | — | |
+| AR-14 | `Serves:` is outside the job, restates what `prd-ref:` holds, and its fallback applies only to slipway | S3 | owner | — | D-036 |
 | AR-15 | The evidence is about slipway's helpers, not the two drifts named; "deferred, no condition" is a deferral nothing fires | S3 | author | — | |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
