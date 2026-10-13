@@ -102,20 +102,20 @@ No finding below is S0.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | `accessibility: PD-<n>` defers the line to a date nothing reads, is open to every milestone, and leaves every surface when the milestone closes | S1 | owner | Build map 2, 3 | |
-| AR-2 | Four passages still place design "before the first screen", the wording D-042's amendment replaced; two of them become pinned skill sentences | S2 | author | Build map 4 | |
-| AR-3 | DS1's view has no named channel in `report()`: the claim prints on a pass only, the controls assert the view only at exit 0, and `pnpm meta` stops before DS1 when an earlier check is red | S2 | author | Build map 3 | |
-| AR-4 | The resolver lifted from MS1 takes any text: `design: .*` names a decision that exists | S2 | author | Build map 3 | |
-| AR-5 | The `pnpm status` line asks what a shaping milestone "would get once active" and does not say what the other milestones are then; read with the check's own rule it reports a correct plan | S2 | owner | Build map 3 | |
-| AR-6 | Four statements about what a sync does are not what sync does: the milestone template is managed, a kept `meta` line turns W1 red, the skill may not end red, and an active skeleton's no-go has no answer | S2 | author | Build map 4 | |
-| AR-7 | The design item's place "in a milestone already running" is every milestone's, and the document says otherwise twice | S3 | author | — | |
-| AR-8 | Two more edits turn `design/missing` off, and the view names neither | S3 | owner | Build map 3 | |
-| AR-9 | The fixture list, the acceptance and the predicate disagree: one case named in one and not the other, five clauses with no case, two of `/kickoff`'s behaviours with no acceptance line | S3 | author | Build map 3, 4 | |
-| AR-10 | The Contract departs from three of #406's acceptance lines and its `Touches:`; the document flags one | S3 | author | — | |
-| AR-11 | "Plain semantic markup with a keyboard pass meets the level" is asserted, and WCAG 2.2 AA asks more of a sign-in form | S3 | owner | Build map 2 | |
-| AR-12 | The one-release hold lives in three merged pull request bodies, does not cover a sync from `main`, and sits beside "nothing new fires yet" | S3 | owner | Build map 2–4 | |
-| AR-13 | The run on a real project's files reports at most one finding and reads no milestone | S3 | author | Build map 3 | |
-| AR-14 | Six readings the check depends on are not specified | S3 | author | Build map 3 | |
+| AR-1 | `accessibility: PD-<n>` defers the line to a date nothing reads, is open to every milestone, and leaves every surface when the milestone closes | S1 | owner | Build map 2, 3 | #406 · D-042 amended 2026-10-13 (the owner's pick: a dated entry in `ci/exceptions.yaml`) · F-14 0.3 §3, §4; the FO1 fact carried under Build map step 3 |
+| AR-2 | Four passages still place design "before the first screen", the wording D-042's amendment replaced; two of them become pinned skill sentences | S2 | author | Build map 4 | #406 · F-14 0.3 Problem, §5 |
+| AR-3 | DS1's view has no named channel in `report()`: the claim prints on a pass only, the controls assert the view only at exit 0, and `pnpm meta` stops before DS1 when an earlier check is red | S2 | author | Build map 3 | #406 · Build map step 3, carried: checked against the code and pinned with a test |
+| AR-4 | The resolver lifted from MS1 takes any text: `design: .*` names a decision that exists | S2 | author | Build map 3 | #406 · F-14 0.3 §4; built in Build map step 3 |
+| AR-5 | The `pnpm status` line asks what a shaping milestone "would get once active" and does not say what the other milestones are then; read with the check's own rule it reports a correct plan | S2 | owner | Build map 3 | #406 · F-14 0.3 §4 `pnpm status`; built in Build map step 3 |
+| AR-6 | Four statements about what a sync does are not what sync does: the milestone template is managed, a kept `meta` line turns W1 red, the skill may not end red, and an active skeleton's no-go has no answer | S2 | author | Build map 4 | #406 · F-14 0.3 §4, §5 (points 2 to 4, and the pinned sentence of point 1) · the rest carried: Build map step 2 (point 1), step 3 (point 2), step 4 (points 3, 4) |
+| AR-7 | The design item's place "in a milestone already running" is every milestone's, and the document says otherwise twice | S3 | author | — | #406 · Build map step 3: the limitation's sentence corrected in that pull request |
+| AR-8 | Two more edits turn `design/missing` off, and the view names neither | S3 | owner | Build map 3 | #406 · Build map step 3, decided with AR-3's channel: the view says what satisfied each milestone, or both are accepted under Known limitations |
+| AR-9 | The fixture list, the acceptance and the predicate disagree: one case named in one and not the other, five clauses with no case, two of `/kickoff`'s behaviours with no acceptance line | S3 | author | Build map 3, 4 | #406 · Build map step 3 (one case list, the killed case, the five clauses, the red test in `scripts/ds1.test.mjs`) and step 4 (the two `/kickoff` pins) |
+| AR-10 | The Contract departs from three of #406's acceptance lines and its `Touches:`; the document flags one | S3 | author | — | #406 · its body, edited when the Contract of 0.3 was embedded (acceptance lines 2 and 7, `Touches:`), with a comment saying so |
+| AR-11 | "Plain semantic markup with a keyboard pass meets the level" is asserted, and WCAG 2.2 AA asks more of a sign-in form | S3 | owner | Build map 2 | #406 · D-042 amended 2026-10-13 (the clause withdrawn) · F-14 0.3 §3 |
+| AR-12 | The one-release hold lives in three merged pull request bodies, does not cover a sync from `main`, and sits beside "nothing new fires yet" | S3 | owner | Build map 2–4 | #406 · Build map step 2: its pull request rewords "nothing new fires yet" and has the hold written in #379 |
+| AR-13 | The run on a real project's files reports at most one finding and reads no milestone | S3 | author | Build map 3 | #406 · Build map step 3: two runs on a scratch copy; nothing of a private project is recorded |
+| AR-14 | Six readings the check depends on are not specified | S3 | author | Build map 3 | #406 · Build map step 3: one line each, and a case for readings 1, 2 and 3 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
