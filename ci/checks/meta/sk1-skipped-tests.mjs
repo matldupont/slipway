@@ -46,7 +46,7 @@ for (const pkg of packages) {
   for (const u of scan.unread) findings.push({ where: `${u.path}#unread`, detail: `${u.path} ${u.why}, so its skipped tests were not counted. ${u.fix}; do not move a test out of its package to get past this` });
   for (const m of scan.markers) {
     const words = ' If the line holds no such option (the word is in a title, a string or a comment, or belongs to another call), reword that text or move that call onto its own line. Never move the test\'s own options to another line: that hides them from this check, it does not fix them';
-    const maybe = m.maybe ? ' The name may not be a test: `fit<` or `xit<` can be a variable in a comparison. If it is, rename the variable; if it is a test, fix it as said' : '';
+    const maybe = m.maybe ? ' The name may not be a test: `fit<`, `xit<` and the like can be a variable in a comparison. If it is, rename the variable; if it is a test, fix it as said' : '';
     if (m.kind === 'only') {
       const detail = m.option
         ? `${m.file} line ${m.line} has an \`only\` option in a test call, which would leave every other test in the file out of the run. Remove the option; an issue number on the line does not excuse it.${words}`

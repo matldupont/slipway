@@ -204,6 +204,9 @@ test('hostile lines of every shape that once backtracked are read in seconds, ea
     'fit' + ' '.repeat(2000) + '<',
     '{test({skip' + ' '.repeat(2000) + 'x',
     'test({only' + '\t'.repeat(2000) + 'x',
+    'describe . '.repeat(7) + 'only . '.repeat(6) + 'only < T >' + ' '.repeat(2000) + 'x',
+    'test({get' + ' '.repeat(2000) + 'x',
+    'test({async' + ' '.repeat(2000) + 'x',
     "test({'todo'" + ' '.repeat(2000) + 'x',
   ];
   for (const l of shapes) {
@@ -250,12 +253,16 @@ test('type arguments spaced on both sides are a marker; a comparison with spaces
   assert.deepEqual(kinds('if (fit < best && n > (1)) {}'), []);
   assert.deepEqual(kinds('if (fit <= 3) {}; if (xit < = 3) {}'), []);
   assert.deepEqual(kinds('<p>it.only </p>; <p>fit </p>'), []);
+  assert.deepEqual(kinds('if (fit < a || b > (c)) {}'), []);
+  assert.deepEqual(kinds('if (fit < a; b > (c)) {}'), []);
 });
 
 test('an option is a marker unless its value is the bare false or 0; a method or getter key is one', () => {
   const kinds = (t) => markersIn(t).map((m) => m.kind + (m.option ? '*' : ''));
   assert.deepEqual(kinds("test('a', { skip() { return true } }, f);"), ['skip*']);
   assert.deepEqual(kinds("test('a', { get skip() { return true } }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { async skip() { return true } }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: 0 "), []);
   assert.deepEqual(kinds("test('a', { skip: false ? 0 : 1 }, f);"), ['skip*']);
   assert.deepEqual(kinds("test('a', { skip: false || true }, f);"), ['skip*']);
   assert.deepEqual(kinds("test('a', { skip: 0.5 }, f);"), ['skip*']);

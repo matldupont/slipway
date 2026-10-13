@@ -7,7 +7,8 @@
 // alias (`const maybe = it.skip`), a computed member (`it['skip']`), a skip a runner's config applies (`exclude`,
 // `testPathIgnorePatterns`, a tag filter), an options object whose key is on a later line than the call, and a marker
 // split across two lines. Also unseen: a comment between the tokens (`it/**/.skip(`), `(it.skip)(`, `it.skip?.(`,
-// an escaped name, and a pending test with no callback. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
+// an escaped name, a pending test with no callback, a generator method option (`{ *skip() {} }`), and spaced type arguments that hold
+// `<`, `(`, `)` or `;` or run past 80 characters (`it.only.each < Array<number> >(…)`). A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
 //
 // Every pattern here is built from fixed words, bounded repetition and whitespace runs that cannot be split two ways, and
 // the issue reference is looked for in the first LINE_CAP characters of a line. scripts/sk1.test.mjs times 2 MB lines of
@@ -34,7 +35,7 @@ const BLOCK = '(?:it|test|describe|suite|context|specify|bench)';
 const MODIFIER = '(?:concurrent|sequential|shuffle|parallel|serial|each|for|describe|skip|only|todo|fixme|fails|failing|skipIf|runIf)';
 const CHAIN = `(?:\\s*\\??\\.\\s*${MODIFIER}){0,6}`;
 // Type arguments: `<` right after the name, or ` <` when the next character is not a space, `=` or `/` (a comparison, `<=`, a
-// closing tag), or ` < … >` spaced on both sides when a `>` closes within 80 characters (no `&&` or `||`, which make a comparison) and a call or template follows it.
+// closing tag), or ` < … >` spaced on both sides when a `>` closes within 80 characters (no `<`, `(`, `)`, `;`, `&&` or `||` between: those make a comparison or a shape not read) and a call or template follows it.
 const CALLED = `${CHAIN}(?=\\s*[(\`]|<(?![=/])|\\s+<(?![\\s=/])|\\s+<(?=\\s(?:[^<>();&|]|&(?!&)|\\|(?!\\|)){0,80}>\\s*[(\`]))`;
 const START = '(?<![\\w$.])';
 const SKIP = new RegExp(
