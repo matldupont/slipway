@@ -36,7 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
-import { BASELINES, FIT_KEY, isCount, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
+import { BASELINES, FIT_KEY, isCount, onlySpacingDiffers, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
@@ -137,6 +137,7 @@ export function main(argv, { cwd = process.cwd(), out = process.stdout, err = pr
       if (ctx.verbose) {
         printVerbose(out, ctx, rows);
         out.write('Plan only — nothing was written.\n');
+        if (todo.count) out.write(clean(`\n${todo.count.file} — count recorded:\n${countLines(todo.count).map((l) => `  ${l}\n`).join('')}`));
       } else out.write(planText(ui(out, env), planView(ctx, rows, { stale, absorbed, log, count: todo.count })));
       return 0;
     }
@@ -778,11 +779,21 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       (target.has(p) ? todo.kept.shipped : todo.kept.gone).push(p);
     } else if (kind === COUNT_ROW) {
       // Counted here, so --apply recounts: the plan and --apply are two runs, and what is printed is what is
-      // written. Every other entry keeps its name and value; the file is written in its one form, so one that
-      // was in another form is said to be rewritten.
+      // written. The file is written in its one form. One in another form is rewritten, and said to be, only
+      // when nothing but its spacing changes; one whose entries would not come back as they were written is
+      // refused before any write, since the file is the project's.
       const was = projectBaselines(root, { text: true });
       if (was && isCount(was.json[FIT_KEY])) throw moved(p);
-      const fit = fitCount(root);
+      const reformatted = Boolean(was) && serialiseBaselines(was.json) !== was.text;
+      if (reformatted && !onlySpacingDiffers(was.text)) {
+        throw new Refusal(`${BASELINES} holds an entry that would change if sync rewrote the file to record a count in it: a number written another way (1.0, or one too large), a name written twice, or a name that is a whole number — rewrite the file yourself as two-space JSON, check its entries, commit, then sync again; nothing was written`);
+      }
+      let fit;
+      try {
+        fit = fitCount(root);
+      } catch (e) {
+        throw new Refusal(`could not count the feature docs with no Fit section: ${oneLine(e.message)} — docs/features/, docs/reviews/ and docs/milestones/ must be folders of regular files; nothing was written`);
+      }
       const bytes = serialiseBaselines({ ...was?.json, [FIT_KEY]: fit.count });
       todo.writes.set(p, { bytes: Buffer.from(bytes) });
       todo.count = {
@@ -791,7 +802,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
         noStatus: fit.docs.filter((d) => d.reasons.includes('frontmatter/unreadable')).length,
         drafts: fit.drafts,
         others: fit.others.map((o) => o.path),
-        reformatted: Boolean(was) && serialiseBaselines(was.json) !== was.text,
+        reformatted,
       };
     }
   }

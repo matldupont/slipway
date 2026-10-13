@@ -26,9 +26,9 @@ export const FEATURE_DIRS = ['docs/features', 'dev/features'];
 const INVISIBLE = new RegExp(`[${UNSAFE.source}\\u200d\\ufe0e\\ufe0f]`, 'gv');
 export function visible(md) {
   return md
-    .replace(/^﻿/, '')
+    .replace(/^\uFEFF/, '')
     .split(/\r\n|\r|\n/)
-    .map((raw, i) => ({ line: i + 1, text: raw.replace(INVISIBLE, '').normalize('NFKC').replace(/[\p{Pd}−]/gu, '-') }));
+    .map((raw, i) => ({ line: i + 1, text: raw.replace(INVISIBLE, '').normalize('NFKC').replace(/[\p{Pd}\u2212]/gu, '-') }));
 }
 
 // What may stand in front of the `#`s: spaces, quote markers and list markers.

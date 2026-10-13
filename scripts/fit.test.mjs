@@ -4,14 +4,19 @@
 // own test. Every file here is inert text. Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { isFeatureDoc, readFeatureFiles } from '../ci/checks/lib/feature-docs.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
 import { citedFeatures } from '../ci/checks/lib/milestones.mjs';
+import { onlySpacingDiffers, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
+
+const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // The section as Contract §1 gives it for docs/features/TEMPLATE.md.
 const TEMPLATE_FIT = `## Fit
@@ -213,6 +218,99 @@ test('readFeatureFiles: every F-<n> a heading carries, the companion as written,
     const [a, b] = readFeatureFiles(dir);
     assert.deepEqual([a.path, a.regular, a.ns, a.companionOf, isFeatureDoc(a)], [A, true, [2, 7], 'docs/features/b.md', false]);
     assert.deepEqual([b.ns, b.companionOf, isFeatureDoc(b)], [[2], null, true]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('text under `Reuses:` with no list mark is an item, wherever it starts: `nothing` on the next line with `New: none` is unfilled/new', () => {
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:\nnothing, searched lib/ by behaviour', 'Numbers:\n- b', 'New: none')) }), ['fit/unfilled/new']);
+  assert.equal(count({ [A]: doc('shipped', fit('Reuses:\n\nnothing, searched lib/\n  by behaviour', 'Numbers:\n- b', 'New: c')) }).short.reusesNothing, 1);
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:\nthe date helper in lib/dates.ts', 'Numbers:\n- b', 'New: none')) }), []);
+});
+
+test('an unfilled label is never also a short answer: an empty `Reuses:` with `New: none` lacks reuses only, and a doc with any label unfilled gave no short answer', () => {
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:', 'Numbers:\n- b', 'New: none')) }), ['fit/unfilled/reuses']);
+  const r = count({ [A]: doc('shipped', fit('Reuses:\n- nothing, searched lib/', 'Numbers:', 'New: c')) });
+  assert.deepEqual([r.docs[0].reasons, r.docs[0].reusesNothing, r.short], [['fit/unfilled/numbers'], false, { reusesNothing: 0, noNumbers: 0, nothingNew: 0 }]);
+});
+
+test('a line no person writes is read as unfilled, in bounded time: a label line of 200,000 unclosed placeholders', () => {
+  const started = Date.now();
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses: ${'<…'.repeat(200_000)}`, 'Numbers:\n- b', 'New: c')) }), ['fit/unfilled/reuses']);
+  assert.ok(Date.now() - started < 3_000, `took ${Date.now() - started} ms`);
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${'a helper. '.repeat(600)}`, 'Numbers:\n- b', 'New: c')) }), ['fit/unfilled/reuses'], 'over the line cap');
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${'a helper. '.repeat(400)}`, 'Numbers:\n- b', 'New: c')) }), [], 'a long line under the cap is read');
+});
+
+test('a doc is read as ID1 reads it: a byte-order mark is not part of it, and a lone CR ends a line', () => {
+  const bom = count({ [A]: `﻿${doc('draft')}` });
+  assert.deepEqual([bom.docs[0].heldBy, bom.count], [[], 0], 'a draft saved with a byte-order mark is still a draft');
+  assert.deepEqual(reasons({ [A]: doc('shipped', FILLED).replace(/\n/g, '\r') }), []);
+  assert.deepEqual(reasons({ [A]: doc('shipped', FILLED).replace(/\n/g, '\r\n') }), []);
+});
+
+test('a review that is a link is not read, so it holds nothing', () => {
+  const r = count({ [A]: doc('draft'), 'elsewhere/r.md': review(A) }, (dir) => {
+    mkdirSync(join(dir, 'docs/reviews'), { recursive: true });
+    symlinkSync(join(dir, 'elsewhere/r.md'), join(dir, 'docs/reviews/r.md'));
+  });
+  assert.deepEqual(r.docs[0].heldBy, []);
+});
+
+// The shared reader and writer of ci/baselines.json (ci/checks/lib/ratchet.mjs).
+test('onlySpacingDiffers: yes for a file whose tokens are the ones written back, whatever its spacing; no for anything else, and no when it cannot tell', () => {
+  const form = serialiseBaselines({ dup: 12, 'a "quoted" name': 1, 'back\\': 2, nested: { a: [1, 2] } });
+  for (const [text, why] of [
+    [form, 'the one form'],
+    [form.replace(/\n {2}/g, '\n\t'), 'tab-indented'],
+    [JSON.stringify(JSON.parse(form)), 'compact'],
+    [form.trimEnd(), 'no final newline'],
+    [form.replace(/\n/g, '\r\n'), 'CRLF'],
+    ['{ "a b":1 ,\n"c"  :  [ ] }', 'spaces inside a name are kept, spaces between tokens are not'],
+  ]) assert.equal(onlySpacingDiffers(text), true, why);
+  for (const [text, why] of [
+    ['{"a": 1.50}', 'a number written another way'],
+    ['{"a": 12345678901234567890}', 'a number too large to hold'],
+    ['{"a": 1e400}', 'a number that reads as none'],
+    ['{"b": 1, "7": 2}', 'a name that is a whole number moves to the front'],
+    ['{"a": 1, "a": 2}', 'a name written twice'],
+    ['{"\\u00e9": 1}', 'an escape in a name'],
+    ['{"a": "x\\/y"}', 'an escape in a value'],
+    ['[1]', 'not an object'],
+    ['{ not json', 'not JSON'],
+  ]) assert.equal(onlySpacingDiffers(text), false, why);
+  assert.equal(onlySpacingDiffers('{"a  b": 1, "a b": 2}'), true, 'spaces inside two names are part of them, so both come back as written');
+  assert.throws(() => parseBaselines('[1]'), /^Error: ci\/baselines\.json is not a JSON object of name → number$/);
+  assert.throws(() => parseBaselines('{'), /^Error: ci\/baselines\.json is not valid JSON: /);
+});
+
+test('the ratchet command on a ci/baselines.json it cannot read: BROKEN, exit 2, naming the file — never a stack trace, never green, and --update writes nothing', () => {
+  for (const [bytes, why] of [['[]\n', /BROKEN — ci\/baselines\.json is not a JSON object of name → number/], ['{ not json', /BROKEN — ci\/baselines\.json is not valid JSON: /]]) {
+    for (const flags of [[], ['--update']]) {
+      const dir = mkdtempSync(join(tmpdir(), 'fit-'));
+      try {
+        mkdirSync(join(dir, 'ci'));
+        writeFileSync(join(dir, 'ci/baselines.json'), bytes);
+        writeFileSync(join(dir, 'report.json'), '{"n": 1}');
+        const r = spawnSync(process.execPath, [join(SRC, 'ci/ratchet.mjs'), 'dup', 'report.json', 'n', ...flags], { cwd: dir, encoding: 'utf8' });
+        assert.deepEqual([r.status, r.stderr], [2, ''], `${bytes} ${flags}`);
+        assert.match(r.stdout, why);
+        assert.equal(readFileSync(join(dir, 'ci/baselines.json'), 'utf8'), bytes);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  }
+});
+
+test('readFeatureFiles normalises what ID1 always has: a minus sign for the hyphen, a byte-order mark before the first heading', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'fit-'));
+  try {
+    mkdirSync(join(dir, 'docs/features'), { recursive: true });
+    writeFileSync(join(dir, A), '# F−3 — a minus sign\n');
+    writeFileSync(join(dir, 'docs/features/b.md'), '﻿# F-4 — after a byte-order mark\n');
+    assert.deepEqual(readFeatureFiles(dir).map((f) => f.ns), [[3], [4]]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

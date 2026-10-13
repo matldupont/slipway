@@ -60,18 +60,25 @@ function items(text) {
   for (const line of rest) {
     const bullet = line.match(/^\s*[-*]\s+(.*)$/);
     if (bullet) out.push(bullet[1]);
-    else if (open && line.trim()) out[out.length - 1] += ` ${line.trim()}`;
-    open ||= Boolean(bullet);
+    else if (!line.trim()) continue;
+    else if (open) out[out.length - 1] += ` ${line.trim()}`;
+    else out.push(line.trim()); // text under the label with no list mark is an item too
+    open = true;
   }
   return out;
 }
 const empty = (text) => text.replace(/[\s*-]/g, '') === '';
+// Whether a label's text still holds a template placeholder, read a line at a time. A line longer than any a
+// person writes is read as holding one: PLACEHOLDER retries from every `<…` on a line that never closes it, and
+// a doc is other people's content, so its cost is bounded here and an unreadable line is never a filled one.
+const LINE_MAX = 5000;
+const placeholder = (text) => text.split('\n').some((line) => line.length > LINE_MAX || PLACEHOLDER.test(line));
 
 // How a doc's Fit reads: `reasons` it lacks Fit (none: filled), and for a filled one which short answers it gave.
 function readFit(md) {
   const texts = fitTexts(md);
   if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
-  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || empty(texts[k]) || PLACEHOLDER.test(texts[k]));
+  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || empty(texts[k]) || placeholder(texts[k]));
   const listed = items(texts.reuses ?? '');
   const reusesNothing = !unfilled.includes('reuses') && listed.length > 0 && listed.every((i) => word(i).startsWith('nothing'));
   const nothingNew = !unfilled.includes('new') && answer(texts.new) === 'none';
@@ -130,14 +137,16 @@ export function fitCount(root) {
   const docs = [];
   const drafts = [];
   for (const f of files.filter(isFeatureDoc)) {
-    const fm = docFrontmatter(f.md);
+    // As ID1 reads a doc: a byte-order mark is not part of it, and CR, LF and CRLF all end a line.
+    const md = f.md.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n');
+    const fm = docFrontmatter(md);
     const status = typeof fm?.status === 'string' ? fm.status.trim().toLowerCase() : '';
     const heldBy = [
       ...(status === '' ? [{ rule: 'unreadable', by: fm ? 'no status' : 'no frontmatter' }] : status === 'draft' ? [] : [{ rule: 'status', by: status }]),
       ...(reviewed.get(f.path) ?? []).map((by) => ({ rule: 'review', by })),
       ...[...new Set(f.ns.flatMap((n) => scheduled.get(n) ?? []))].map((by) => ({ rule: 'milestone', by })),
     ];
-    const fit = readFit(f.md);
+    const fit = readFit(md);
     const held = heldBy.length > 0;
     if (!held && fit.reasons.length) drafts.push(f.path);
     const reasons = held ? [...(heldBy.some((h) => h.rule === 'unreadable') ? ['frontmatter/unreadable'] : []), ...fit.reasons] : [];

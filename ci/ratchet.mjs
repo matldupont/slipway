@@ -41,7 +41,12 @@ try {
 if (typeof value !== 'number' || !Number.isFinite(value)) broken(`${path} in ${reportPath} is ${JSON.stringify(value)}, not a number`);
 
 // The rule and the file's one reader and writer are shared with the Fit count (checks/lib/ratchet.mjs).
-const baselines = readBaselines();
+let baselines;
+try {
+  baselines = readBaselines();
+} catch (e) {
+  broken(e.message);
+}
 const base = baselines[name];
 
 if (update) {

@@ -62,7 +62,12 @@ export const targetName = (version, sha) => (version ? `use-slipway ${oneLine(ve
 // paths of the drafts not yet held that lack Fit, the paths of the files that are not feature docs, and whether
 // the file was in another form than the one it is written in. The plan, --apply and --json's notes carry the
 // same lines.
+const FEATURE_FOLDERS = ['docs/features/', 'dev/features/'];
 const NAMED_MAX = 5; // file names listed, then `+N more`
+// A file name is shown only when it is plain: letters, digits, `.`, `_` and `-`. The sentences travel in --json's
+// notes, which an agent reads to the owner, and a file name is other people's content: a name that could carry
+// words, or characters nobody sees, is counted and never quoted.
+const PLAIN_NAME = /^[A-Za-z0-9._-]{1,80}$/;
 export function countLines({ n, noStatus = 0, drafts = [], others = [], reformatted = false }) {
   const lines = [
     n === 0
@@ -72,10 +77,12 @@ export function countLines({ n, noStatus = 0, drafts = [], others = [], reformat
   if (noStatus) lines.push(`Of these, ${noStatus} ${noStatus === 1 ? 'has' : 'have'} no status line in ${noStatus === 1 ? 'its' : 'their'} header, so ${noStatus === 1 ? 'it is' : 'they are'} counted whatever ${noStatus === 1 ? 'its' : 'their'} Fit says; give ${noStatus === 1 ? 'it' : 'each'} one and it is read normally.`);
   if (drafts.length) lines.push(`${plural(drafts.length, 'feature doc')} still being drafted ${drafts.length === 1 ? 'has' : 'have'} no Fit section; ${drafts.length === 1 ? 'it' : 'each'} needs one before it is reviewed, scheduled or shipped.`);
   if (others.length) {
-    const dirs = [...new Set(others.map((p) => p.slice(0, p.lastIndexOf('/') + 1)))];
-    const names = others.map((p) => oneLine(dirs.length === 1 ? p.slice(dirs[0].length) : p));
-    const shown = `${names.slice(0, NAMED_MAX).join(', ')}${names.length > NAMED_MAX ? `, +${names.length - NAMED_MAX} more` : ''}`;
-    lines.push(`${plural(others.length, 'file')} in ${dirs.map(oneLine).join(' and ')} ${others.length === 1 ? 'is not a feature doc and is' : 'are not feature docs and are'} not counted: ${shown}.`);
+    const split = others.map((p) => ({ dir: p.slice(0, p.lastIndexOf('/') + 1), name: p.slice(p.lastIndexOf('/') + 1) }));
+    const dirs = [...new Set(split.map((f) => f.dir))].filter((d) => FEATURE_FOLDERS.includes(d));
+    const names = split.filter((f) => PLAIN_NAME.test(f.name) && dirs.includes(f.dir)).map((f) => (dirs.length === 1 ? f.name : `${f.dir}${f.name}`)).slice(0, NAMED_MAX);
+    const more = others.length - names.length;
+    const shown = [...names, ...(more ? [`+${more} more`] : [])].join(', ');
+    lines.push(`${plural(others.length, 'file')} in ${dirs.join(' and ') || 'the feature docs folders'} ${others.length === 1 ? 'is not a feature doc and is' : 'are not feature docs and are'} not counted: ${shown}.`);
   }
   if (reformatted) lines.push('The file is rewritten in its standard form (two-space JSON); every other entry keeps its name and value.');
   return lines;
