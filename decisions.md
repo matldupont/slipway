@@ -954,6 +954,25 @@ item's hours are held per milestone (PRD §9 has one row per milestone, the item
 cell and nothing checks the share); `/kickoff` writes a terminal, an API and nothing as `none`; the check's
 output names what it did not hold and why.
 
+Amended 2026-10-13 (after the review of F-14 at 0.2, `docs/reviews/2026-10-12-design-before-screens-0.2.md`,
+AR-1 and AR-11; the first is the owner's pick):
+
+- **"Not held yet" is a dated entry, not a decision.** A milestone that cannot yet show how its screens meet
+  WCAG 2.2 AA has one dated entry in `ci/exceptions.yaml`, for that milestone alone, with a reason and an owner.
+  The build goes red the day the date passes, after the milestone has closed too, until the line is written
+  into that milestone's Gate with what holds it, or the owner sets a later date with a reason. The file is
+  owner-only, so each entry is the owner's to approve. This replaces "names a decision in `decisions.md` saying
+  what is not held yet and by when (`accessibility: PD-<n>`, read as `extended:` is)" in the amendment of
+  2026-10-12: nothing read that date, the decision left every surface on the day its milestone closed, and one
+  decision could be named by every milestone. The design item's way out (`design: PD-<n>`) is not changed.
+  Declined: no way out (it withdraws the pick of 2026-10-12, and a milestone with a fixed appetite and screens
+  partly built has nowhere to go but an extension); due by a later milestone (new wording and a new rule, tied
+  to the order of a plan where a date already has something that reads it).
+- **Nothing here says what meets the level.** The clause "(plain semantic markup and a keyboard pass meet it at
+  that size)" in the amendment of 2026-10-12 is withdrawn. It was a claim about a standard with no evidence
+  behind it, and WCAG 2.2 AA asks more of a sign-in form than a keyboard pass shows. The skeleton carries the
+  line and says what holds it, like every milestone that builds screens.
+
 Why: a milestone plan that places design nowhere costs the schedule the most where it is found last, and an
 accessibility audit after the build is the one shape of that work that can only discover. The feature doc is
 `dev/features/design-before-screens.md` (F-14). #406.
