@@ -15,7 +15,7 @@
 // Every line is read as text and nothing is stripped, so a marker in a comment is a finding too. It counts markers,
 // not tests that did not run. It cannot see an aliased `it.skip`, a computed member, a skip a runner's config
 // applies, an options object whose key is on a later line than the call, or a marker split over two lines (lib/skips.mjs lists
-// the rest, among them a method option and spaced type arguments, tracked in #398). `pnpm verify` prints the same count per package (ci/verify.mjs).
+// the rest). `pnpm verify` prints the same count per package (ci/verify.mjs).
 //
 // A workspace with no packages, or packages with no test files, is green and says so: the claim names the
 // denominator. The workspace is counted as one unit, so a project before /bootstrap is not BROKEN.
@@ -45,16 +45,17 @@ for (const pkg of packages) {
   markers += scan.markers.length;
   for (const u of scan.unread) findings.push({ where: `${u.path}#unread`, detail: `${u.path} ${u.why}, so its skipped tests were not counted. ${u.fix}; do not move a test out of its package to get past this` });
   for (const m of scan.markers) {
-    const words = ' If the line holds no such option (the word is in a title, a string or a comment, or belongs to another call), reword that text or move that call onto its own line. Never move the test\'s own options to another line: that hides them from SK1, it does not fix them';
+    const words = ' If the line holds no such option (the word is in a title, a string or a comment, or belongs to another call), reword that text or move that call onto its own line. Never move the test\'s own options to another line: that hides them from this check, it does not fix them';
+    const maybe = m.maybe ? ' The name may not be a test: `fit<` or `xit<` can be a variable in a comparison. If it is, rename the variable; if it is a test, fix it as said' : '';
     if (m.kind === 'only') {
       const detail = m.option
         ? `${m.file} line ${m.line} has an \`only\` option in a test call, which would leave every other test in the file out of the run. Remove the option; an issue number on the line does not excuse it.${words}`
-        : `${m.file} line ${m.line} runs only this test, so every other test in the file is silently left out. Remove the focus; an issue number on the line does not excuse it`;
+        : `${m.file} line ${m.line} runs only this test, so every other test in the file is silently left out. Remove the focus; an issue number on the line does not excuse it.${maybe}`;
       findings.push({ where: `${m.file}:${m.line}#only`, detail });
     } else if (!m.linked) {
       const detail = m.option
         ? `${m.file} line ${m.line} has a \`skip\` or \`todo\` option in a test call and names no issue. If it skips the test, put the issue that brings it back on that line (#14).${words}`
-        : `${m.file} line ${m.line} skips a test and names no issue. Put the issue that brings it back on that line (#14), or delete the test`;
+        : `${m.file} line ${m.line} skips a test and names no issue. Put the issue that brings it back on that line (#14), or delete the test.${maybe}`;
       findings.push({ where: `${m.file}:${m.line}#skip/no-issue`, detail });
     }
   }

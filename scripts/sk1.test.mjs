@@ -240,3 +240,39 @@ test('an options key is a marker unless its value is false or 0; a type argument
   assert.deepEqual(kinds('it.skip.each<[number]>([[1]])("a", f);'), ['skip']);
   assert.deepEqual(kinds('while (fit < best) {}; if (xit <= 3) {}; <p>it.only</p>'), []);
 });
+
+test('type arguments spaced on both sides are a marker; a comparison with spaces is not', () => {
+  const kinds = (t) => markersIn(t).map((m) => m.kind);
+  assert.deepEqual(kinds('it.only.each < [number] >([[1]])("a", f);'), ['only']);
+  assert.deepEqual(kinds('fit < T >(x);'), ['only']);
+  assert.deepEqual(kinds('it.skip.each < [number] >`a`;'), ['skip']);
+  assert.deepEqual(kinds('while (fit < best) { n -= 1; }'), []);
+  assert.deepEqual(kinds('if (fit < best && n > (1)) {}'), []);
+  assert.deepEqual(kinds('if (fit <= 3) {}; if (xit < = 3) {}'), []);
+  assert.deepEqual(kinds('<p>it.only </p>; <p>fit </p>'), []);
+});
+
+test('an option is a marker unless its value is the bare false or 0; a method or getter key is one', () => {
+  const kinds = (t) => markersIn(t).map((m) => m.kind + (m.option ? '*' : ''));
+  assert.deepEqual(kinds("test('a', { skip() { return true } }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { get skip() { return true } }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: false ? 0 : 1 }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: false || true }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: 0.5 }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: 0x1 }, f);"), ['skip*']);
+  assert.deepEqual(kinds("test('a', { skip: false }, f); test('b', { skip: 0 }, f);"), []);
+  assert.deepEqual(kinds("test('a', { skip: false , x: 1 }, f);"), []);
+});
+
+test('fit< and xit< say the name may not be a test; the option messages say this check', () => {
+  assert.deepEqual(markersIn('const near = fit< best;').map((m) => m.maybe), [true]);
+  assert.deepEqual(markersIn('if (xit< 3) {}').map((m) => m.maybe), [true]);
+  assert.deepEqual(markersIn("it.skip('a');").map((m) => m.maybe), [undefined]);
+  const root = workspace(app({ 'packages/app/a.test.ts': "const near = fit< best;\ntest('a', { skip: true }, f);\n" }));
+  const r = sk1(root);
+  rmSync(root, { recursive: true });
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, /a\.test\.ts line 1 runs only this test.*The name may not be a test/);
+  assert.match(r.stdout, /hides them from this check/);
+  assert.doesNotMatch(r.stdout, /from SK1/);
+});
