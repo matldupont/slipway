@@ -148,7 +148,7 @@ anyway with a decision in `decisions.md` that says why.
 2. **Set up the adversarial review, then stop.** Copy `docs/reviews/TEMPLATE.md` to
    `docs/reviews/<YYYY-MM-DD>-prd-<version>.md` with the two provenance lines already filled in —
    `Reviewed: docs/PRD.md @ <short sha>` and the `Version line:` copied from the PRD — and leave the
-   register empty. Commit it with the rest. Then tell the user, in these words:
+   register empty. Writing it asks the owner; list it under `## Gate changes` in the PR. Commit it with the rest. Then tell the user, in these words:
 
    > Open a **new** session and run `/review-doc docs/PRD.md`. It fills
    > `docs/reviews/<file>`. This is the document review, not a code review of the PR, which

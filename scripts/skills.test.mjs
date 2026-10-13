@@ -1038,6 +1038,11 @@ test('/review-doc names the version line of a feature doc, and it moves with the
   assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('The version line of a feature doc is the `Version:` line under its title, which moves whenever its Contract, Acceptance or Verify changes (D-041; `process/intake.md` → Feature doc version).'), '/review-doc step 3 does not say which line a review of a feature doc quotes');
 });
 
+test('/review-doc says that writing its review file asks the owner, and that its pull request carries the Gate changes line (#405)', () => {
+  assert.ok(stepOf(reviewDoc(), '3 — Write the file').includes('Write the review file whole, in one Write call: writing it asks the owner, once per call, and its pull request lists the file under `## Gate changes` (`process/intake.md` → Pull request).'), '/review-doc step 3 does not say that a review file is asked about and listed under Gate changes');
+  assert.ok(read('.claude/skills/kickoff/SKILL.md').replace(/\s+/g, ' ').includes('Writing it asks the owner; list it under `## Gate changes` in the PR.'), '/kickoff also writes a review file: it must say the same');
+});
+
 test('/review-doc stops before the review on a feature doc written before the line existed, and never adds it itself', () => {
   const one = stepOf(reviewDoc(), '1 — Read the target, and only the target');
   assert.ok(one.includes('A feature doc with no `Version:` line under its title is not reviewed as it is: stop here, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` when one next edits its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target.'), '/review-doc step 1 has no rule for a feature doc with no Version: line');
@@ -1067,9 +1072,12 @@ test('process/intake.md → Feature doc version: what moves the line is a list, 
   assert.ok(rule.includes('After `status: shipped`, a behaviour change recorded under Changes instead of in the Contract moves it too.'), 'a shipped doc\'s Changes entry must move the line');
   assert.ok(rule.includes('**A doc with no line** gains `Version: 0.1 ({date})` under its title in that same commit.'), 'a doc written before the line must gain it');
   assert.ok(rule.includes('Never touch `docs/reviews/` (add, edit, delete or rename a file there), never hold back or undo a bump, and never reword the line, to turn R1 green: the way out is a fresh review, by `/review-doc` in a session of its own.'), 'the stale review must not be worked around');
-  const proof = '`git diff --stat origin/{default branch}...HEAD -- docs/reviews` and `git status --porcelain -- docs/reviews` both print nothing after the run';
-  assert.ok(rule.includes(proof) && stepOf(intake, 'PRD entry').includes(proof), 'the proof that no review was touched must see a committed, staged or new file, for a feature doc and for the PRD');
-  assert.ok(rule.includes('Any other red check is not expected: fix it.') && rule.includes('Until #405 this rule is prose'), 'the rule must say what else is red, and what holds it');
+  // #405: the proof runs at the repository root, whatever folder the session is in, and the ask is what holds the rule.
+  const proof = "Run at the repository root, `git diff --stat origin/{default branch}...HEAD -- ':/docs/reviews'` and `git status --porcelain -- ':/docs/reviews'` both print nothing after the run";
+  assert.ok(rule.includes(proof) && stepOf(intake, 'PRD entry').includes(proof), 'the proof that no review was touched must see a committed, staged or new file from any folder, for a feature doc and for the PRD');
+  assert.ok(rule.includes('The harness asks before a session\'s file-writing tools write there (a shell command does not ask), and the pull request check counts a changed review as a gate file'), 'the rule must name the ask that holds it');
+  assert.ok(!intake.includes('#405'), 'process/intake.md ships to projects, where a slipway issue number means nothing');
+  assert.ok(rule.includes('Any other red check is not expected: fix it.'), 'the rule must say what else is red');
   assert.ok(rule.includes('Run `pnpm meta` again once a held bump is committed: the run before it does not count.'), 'a held bump must be followed by a fresh gate run');
   assert.ok(stepOf(read('.claude/skills/close-milestone/SKILL.md'), '4. Update the record').includes("`## Changes` line, not a rewrite, and that line moves the doc's `Version:` (`process/intake.md` → Feature doc version)."), '/close-milestone must move the line when it records a shipped doc\'s behaviour change');
   assert.ok(rule.includes('A draft that could be that block holds the bump until the owner answers: on their yes the line stays; with no yes, the bump (or the new line) is committed before the branch is pushed.'), 'a held bump must not be dropped');

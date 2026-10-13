@@ -82,6 +82,8 @@ Copy `docs/reviews/TEMPLATE.md` to `docs/reviews/<YYYY-MM-DD>-<target>-<version>
 - The register, then one section per finding: where (by ID, never by heading alone; in a document with fewer IDs than sections, its ID, the section and the line range at the reviewed commit), what is wrong with
   the passage quoted, and a proposed resolution to argue with.
 
+Write the review file whole, in one Write call: writing it asks the owner, once per call, and its pull request lists the file under `## Gate changes` (`process/intake.md` → Pull request).
+
 Then run `pnpm meta` — R1 must be green — and commit the review on a branch with a PR
 (`Lane: bounded`, `## Verification` showing the R1 output, `## Links` the PRD's PR or `none:`).
 

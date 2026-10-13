@@ -62,7 +62,7 @@ held to them too (#305). A pull request that leaves no root `AGENT.md` is never 
 repair the row first. Known limitation: run by hand on a branch, or from a workflow that checks out anything but the
 pull request's merge, the check has no merge to read the tip from, so only the base given counts there.
 
-**So are the files that change which program a gate command runs, or how pnpm and node start it** (#133).
+**So are the files that change which program a gate command runs, or how pnpm and node start it** (#133), **and the reviews** (#405).
 Each is a gate file here and in the PR check:
 
 | path | why it is a gate file |
@@ -73,10 +73,13 @@ Each is a gate file here and in the PR check:
 | `**/pnpm-workspace.yaml` | holds pnpm's settings as well as the package list; the whole file, since any key may change how pnpm runs |
 | `**/.envrc` | direnv runs it as shell once trusted, and can set PATH or `NODE_OPTIONS` for every command |
 | `**/mise.toml`, `**/.mise.toml`, `**/mise.*.toml`, `**/.mise.*.toml`, `**/.config/mise.toml`, `**/.config/mise.*.toml`, `**/.config/mise/**`, `**/mise/*.toml`, `**/.mise/*.toml` | the names mise reads its settings from; once trusted, each can set PATH, environment variables and tasks |
+| `**/docs/reviews/**/*.md` | R1 reads each review against its document; changing one to turn R1 green weakens the gate. The rule names `*.md` because the PR check treats Markdown as a document unless a rule names it by a `.md` pattern; `**/` is zero or more folders, so a review at the folder's top and one in a sub-folder both count |
 | `**/package.yaml`, `**/package.json5` | pnpm reads a package's manifest, scripts included, from either as it does from `package.json` |
 | a `package.json`'s `scripts`, `packageManager`, `pnpm`, `resolutions`, `engines`, `devEngines`, `bin` and `directories` keys, the keys a gate tool reads its settings from or that change how node loads code (`type`, `imports`, `prettier`, `eslintConfig`, `stylelint`, `jest`, `mocha`, `ava`, `c8`, `nyc`), and a dependency on local code or a runtime (`link:`, `file:`, `workspace:`, a path, `runtime:`) | what a gate command runs, the pnpm and node that run it, pnpm's settings, and a program from the repository in node_modules/.bin (the PR check reads these; the file itself is not ask-level, and a file it cannot parse counts as changed) |
 
 A path that only reads as one of these in canonical form (NFKC, then lower case: `.NPMRC`, `PACKAGE.JSON`, a long-s `node_moduleſ`) is refused outright by N1 and the PR check, as a lookalike: a case-insensitive disk would open it as the gate file, and it cannot be declared in Gate changes.
+
+A review is a gate file only as Markdown with a lower-case `.md`, in a lower-case `docs/reviews/` folder: `docs/Reviews/x.md` and `docs/reviews/x.MD` are lookalikes, refused outright and not declarable in Gate changes, and a file there that is not Markdown is neither asked about nor counted (no check reads one).
 
 Known limitations:
 
@@ -87,7 +90,7 @@ Known limitations:
 | `.tool-versions` | the node or pnpm version asdf or mise pick locally; CI pins both |
 | a file a gate setting points at | a pnpmfile path, a script shell, or node options that load a file: once the owner approves the setting, later edits to that file are not asked about. Nothing sets one today |
 | `pnpm-lock.yaml` | not a gate file, since every dependency bump changes it; #138 checks that each entry resolves from the registry with an integrity hash |
-| a shell write to an owner-only file | `Edit(...)` rules cover the file-writing tools only: `sed -i`, a redirect or `tee` onto `CLAUDE.md` or `.claude/**` does not ask. The rule in `process/slipway-rules.md` → Gates still holds, and `/work-ticket`'s rule-file check still reads the diff |
+| a shell write to an owner-only file, or to a review | `Edit(...)` rules cover the file-writing tools only: `sed -i`, a redirect or `tee` onto `CLAUDE.md` or `.claude/**` does not ask, nor does a `git rm`, `git mv` or `rm` of a review or a write to one. The rule in `process/slipway-rules.md` → Gates still holds for the owner-only files; for a review the PR check counts the changed path, so its Gate changes line is the backstop, and `/work-ticket`'s rule-file check still reads the diff |
 | the ask prompt's case | the harness's own rules match case as Claude Code does; on a case-insensitive disk, `NODE_MODULES/` or `Claude.md` may not ask where `node_modules/` or `CLAUDE.md` does. N1 and the PR check still refuse it |
 | the canonical form | NFKC and lower case approximate how macOS folds names; a folding it misses matters only on a Mac that runs a branch's code, which #114 and #126 exist to prevent |
 
@@ -224,7 +227,7 @@ Known limitations:
 The PR check (`ci/checks/lib/gate-files.mjs`, read by P1) counts every path the guard counts, `.gitmodules` and
 `.gitattributes` included (#174), except the rows below. `scripts/gate-files.test.mjs` pins each row, and fails when
 the guard's list of extra paths gains one the check neither counts nor excepts here, or its `.claude` list changes. The check also counts what the guard leaves
-out: owner-only prose, `dev/ownership.yaml`, `scripts/new-project.mjs` and `.claude/skills/**`, of which the guard
+out: owner-only prose, reviews (Markdown, so the guard's rule skips them), `dev/ownership.yaml`, `scripts/new-project.mjs` and `.claude/skills/**`, of which the guard
 counts only a folder that is a plugin (#373).
 
 | the guard counts | why the PR check does not |

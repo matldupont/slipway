@@ -24,7 +24,7 @@ const ASK_PATHS = [
   '**/.github/workflows/**', '**/ci/**', '**/process/harness/**', '**/.claude/settings*.json', '**/.slipway/**',
   '**/.claude/**', '**/AGENT.md', '**/CLAUDE.md', '**/CLAUDE.local.md', '**/process/slipway-rules.md',
   '**/process/intake.md', '**/dev/skill-configuration.md', '**/dev/ownership.yaml', '**/scripts/new-project.mjs',
-  '**/.npmrc', '**/.pnpmfile.cjs', '**/pnpm-workspace.yaml', '**/node_modules/**', '**/.envrc', '**/mise.toml',
+  '**/docs/reviews/**/*.md', '**/.npmrc', '**/.pnpmfile.cjs', '**/pnpm-workspace.yaml', '**/node_modules/**', '**/.envrc', '**/mise.toml',
   '**/.mise.toml', '**/package.yaml', '**/package.json5', '**/mise.*.toml', '**/.mise.*.toml',
   '**/.config/mise.toml', '**/.config/mise.*.toml', '**/.config/mise/**', '**/mise/*.toml', '**/.mise/*.toml',
   '~/.claude/slipway/**',
@@ -50,6 +50,9 @@ test('the matcher covers the harness paths, at any depth, and nothing else', () 
   assert.equal(gate.lookalike('docs/Claude.Local.md'), '**/CLAUDE.local.md', 'a case-folded CLAUDE.local.md is a lookalike, not a document');
   assert.ok(gate('ci/a\nb.mjs') && gate('.github/workflows/x\r.yml'), 'a line break in a name hides nothing');
   assert.ok(gateMatcher(settings, ['**/legacy-gate.cfg'])('x/legacy-gate.cfg'), 'extra globs (the base branch\'s) are added');
+  // #405: a review is Markdown, so the rule names `*.md`: the folder is asked about and counted at any depth.
+  for (const p of ['docs/reviews/2026-10-06-landing-page-0.1.md', 'docs/reviews/TEMPLATE.md', 'docs/reviews/old/2026-10-06-prd-0.1.md', 'site/docs/reviews/a/b/x.md']) assert.ok(gate(p), `${p} should be a gate file`);
+  for (const p of ['docs/reviews/notes.txt', 'docs/review/x.md', 'docs/reviews.md', 'src/docs/reviews-x/y.md']) assert.ok(!gate(p), `${p} should not be`);
   for (const p of ['src/ci.ts', 'src/tsconfig.ts', 'ci/README.md', 'docs/ci/notes.md', 'process/harness/README.md', 'ci/fixtures/known-bad/p1/gate-none.md', 'package.json', 'README.md', '.nvmrc', '.node-version', '.tool-versions', 'src/node_modules.ts']) assert.ok(!gate(p), `${p} should not be`);
 });
 
@@ -315,6 +318,50 @@ test('the script prints the gate files of the diff under `gate`: the list P1 ask
   const one = { files: ['ci/verify.mjs'], scripts: [], links: [], globs: [] };
   assert.deepEqual(gateListed(one, settings), ['ci/verify.mjs']);
   for (const [why, text] of [['missing', null], ['unparsable', 'not json'], ['no ask rules', '{}'], ['no Edit rule', JSON.stringify({ permissions: { ask: ['Bash(git push:*)'] } })]]) assert.equal(gateListed(one, text), null, `rules ${why}`);
+});
+
+// #405: a changed review is a gate change. P1 on a real diff: written at the folder's top and in a sub-folder, edited,
+// renamed and deleted, each asks for a `## Gate changes` line naming the file; with the line, P1 is quiet.
+test('a review under docs/reviews/ is a gate file: P1 asks for its Gate changes line, at any depth, and is quiet with it', () => {
+  git('switch', '-q', '-c', 'reviews', head);
+  const body = (gate) => `## What\nLane: bounded.\n\n## Verification\n\`\`\`\npnpm meta\n\`\`\`\n${gate ? `\n## Gate changes\n${gate}\n` : ''}\n## Links\nCloses #1\n`;
+  const runP1 = (from, tip, gate) => {
+    const dir = mkdtempSync(join(tmpdir(), 'gate-files-p1-'));
+    try {
+      writeFileSync(join(dir, 'body.md'), body(gate));
+      writeFileSync(join(dir, 'body.changes.json'), JSON.stringify(changes(from, tip, repo)));
+      return spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/p1-pr-body.mjs'), dir], { encoding: 'utf8' });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const step = (what, run) => {
+    const from = git('rev-parse', 'HEAD');
+    run();
+    git('add', '-A');
+    git('commit', '-q', '-m', what);
+    return [from, git('rev-parse', 'HEAD')];
+  };
+  const cases = [
+    ['a review written at the top of the folder', 'docs/reviews/2026-10-13-a-0.1.md', () => put('docs/reviews/2026-10-13-a-0.1.md', 'one\n')],
+    ['a review written in a sub-folder', 'docs/reviews/old/2026-10-13-b-0.1.md', () => put('docs/reviews/old/2026-10-13-b-0.1.md', 'one\n')],
+    ['a review edited', 'docs/reviews/2026-10-13-a-0.1.md', () => put('docs/reviews/2026-10-13-a-0.1.md', 'two\n')],
+    ['a review deleted', 'docs/reviews/2026-10-13-a-0.1.md', () => git('rm', '-q', 'docs/reviews/2026-10-13-a-0.1.md')],
+  ];
+  for (const [what, path, run] of cases) {
+    const [from, tip] = step(what, run);
+    assert.deepEqual(changes(from, tip, repo).files, [path], what);
+    missing(runP1(from, tip, ''), path);
+    const ok = runP1(from, tip, `- \`${path}\` — the same: a review file, written by \`/review-doc\`.`);
+    assert.equal(ok.status, 0, `${what}, with its line: ${ok.stdout}${ok.stderr}`);
+  }
+  // A rename is a delete and an add: both paths are listed (the diff runs with --no-renames), and P1 asks for both.
+  const [from, tip] = step('a review renamed', () => git('mv', 'docs/reviews/old/2026-10-13-b-0.1.md', 'docs/reviews/old/2026-10-13-c-0.1.md'));
+  assert.deepEqual(changes(from, tip, repo).files.sort(), ['docs/reviews/old/2026-10-13-b-0.1.md', 'docs/reviews/old/2026-10-13-c-0.1.md']);
+  missing(runP1(from, tip, ''), 'docs/reviews/old/2026-10-13-b-0.1.md');
+  // Known limitation: a file in the folder that is not Markdown is not a gate file (no check reads one).
+  const [f2, t2] = step('a non-Markdown file in the folder', () => put('docs/reviews/notes.txt', 'x\n'));
+  assert.equal(runP1(f2, t2, '').status, 0);
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));
