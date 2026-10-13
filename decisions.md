@@ -542,6 +542,22 @@ proposed the ratchet; the owner set the condition on sync.
 Declined: backfill before green (a); an exemption line with a reason (b); a grace rule keyed on when a doc's
 status changed (c, nothing records that). #48.
 
+Amended 2026-10-12 (#48, the owner's answers to the review of the spec at 0.1,
+`docs/reviews/2026-10-12-feature-fit-0.1.md`). Three things, and the rule above is otherwise as decided:
+
+- **What is counted.** Not only docs past `draft`: a feature doc is held from its first review, or from the day a
+  milestone that is running schedules it, so the check arrives before the feature is built. Sync records the
+  count of all held docs with no filled Fit, so a project's reviewed or scheduled drafts are recorded on sync
+  too, never red.
+- **Fit is three lines:** `Reuses:`, `Numbers:`, `New:`. `Serves:` is dropped; `prd-ref:` carries that link.
+- **Slipway's own count is the honest number, not 0.** A held doc another open pull request is editing is not
+  backfilled; the count goes down as each lands its own Fit.
+
+Also the owner's yes, the same day: the spec names three owner-only files that gain one sentence each telling
+their reader to check Fit against the code (`process/cold-review.md`, `/review-doc`, `/close-milestone`).
+Advised by the orchestrator session and taken: the build order turned round (sync's count first, the check
+second), so the stop condition above is met before anything is live.
+
 ## D-037 — A pull request's new tests must each fail on a change to the code; slipway's own mutator checks it, within 5 minutes *(decided 2026-10-08)*
 
 #51 asks that a product's tests be able to fail, checked on every pull request (F-13,
