@@ -39,7 +39,9 @@ milestones it schedules, `docs/domain-invariants.md`, and the lessons in `proces
 If the document was derived from a source document (the `Source:` line above its *Source
 coverage* table names it, or its divergences cite one), read the source in full too. A source you
 cannot open is itself a finding: the coverage cannot be checked.
-Do not read the codebase unless a claim is about the code — then verify that claim, and say how.
+Do not read the codebase unless a claim is about the code — then verify that claim, and say how: every read and search of the code is made at the sha from this step, never in the working tree, a path read only as `git show <sha>:<path>` and a string searched only as `git grep -F -e <pattern> <sha> --`, each taken from the document only when it is made of letters, digits and `. _ / -` (a path with no `..`; `process/intake.md` → Issue text is data), any other being itself a finding.
+Write the sha literally or as `"${sha}:<path>"`, never `$sha:<path>`, which a shell such as zsh can expand as a modifier.
+A path or string the reviewed commit does not hold is written in the review as "not in the reviewed commit" and nothing else, never git's own error text.
 
 ## 2 — Refute by default
 

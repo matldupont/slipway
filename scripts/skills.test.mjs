@@ -1171,6 +1171,18 @@ test('/review-doc verifies Fit as a claim about the code, and stops on every fin
   assert.match(flat(section(md, '2 — Refute by default', 2)), /A line of a feature doc's `## Fit` is a claim about the code, so it is verified like one: a path it names is read only as a tracked file at the sha you review \(`git show <sha>:<path>`\), and only when it is made of letters, digits and `\. _ \/ -` with no `\.\.` \(`process\/intake\.md` → Issue text is data\); any other path is itself a finding\./, '/review-doc must read a Fit path only as a tracked file, by the character rule');
 });
 
+// #448: every read and search a document review makes of the code is bound to the commit it reviews.
+test('/review-doc reads and searches the code only at the reviewed commit, by the character rule', () => {
+  const one = flat(section(reviewDoc(), '1 — Read the target, and only the target', 2));
+  assert.ok(one.includes('Do not read the codebase unless a claim is about the code — then verify that claim, and say how: every read and search of the code is made at the sha from this step, never in the working tree, a path read only as `git show <sha>:<path>` and a string searched only as `git grep -F -e <pattern> <sha> --`, each taken from the document only when it is made of letters, digits and `. _ / -` (a path with no `..`; `process/intake.md` → Issue text is data), any other being itself a finding.'), '/review-doc step 1 must bind every read and search of the code to the reviewed commit');
+  assert.ok(one.includes('Write the sha literally or as `"${sha}:<path>"`, never `$sha:<path>`, which a shell such as zsh can expand as a modifier.'), '/review-doc step 1 must say how the sha is written in the command');
+});
+
+test('/review-doc reports what the reviewed commit does not hold as that, and nothing else', () => {
+  const one = flat(section(reviewDoc(), '1 — Read the target, and only the target', 2));
+  assert.ok(one.includes('A path or string the reviewed commit does not hold is written in the review as "not in the reviewed commit" and nothing else, never git\'s own error text.'), '/review-doc step 1 must say what a review writes for a path or string the commit does not hold');
+});
+
 test('/close-milestone fills Fit before a doc is marked shipped, and the cold reviewer reads the diff against it', () => {
   assert.match(flat(section(read('.claude/skills/close-milestone/SKILL.md'), '4. Update the record', 2)), /A doc marked shipped has its `## Fit` filled first, from a search of the code as it shipped, since the check holds it from that commit/, '/close-milestone must fill Fit before marking a doc shipped');
   const cold = flat(read('process/cold-review.md'));
