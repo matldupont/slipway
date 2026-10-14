@@ -1,0 +1,12 @@
+{
+  "files": {
+    "docs/product/FRAME.md": {
+      "class": "seeded",
+      "sha256": "673f5a339e39e3c7c73fbff5ff61d94f126c001681eed38a8134ca00892869f0"
+    },
+    "docs/PRD.md": {
+      "class": "seeded",
+      "sha256": "c67fa3ffb3e28e2e4efeb8c2a0dd10b674d829b98c1fce1c94c0434167571a7b"
+    }
+  }
+}

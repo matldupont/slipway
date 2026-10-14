@@ -21,12 +21,14 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
+import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { section } from './checks/lib/markdown.mjs';
 import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { isPrdPath, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
-import { milestoneNumber, readDeadlines, readRisks, TRACKER } from './checks/lib/risks.mjs';
+import { milestoneNumber, readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
+import { stepLines, stepName } from './checks/lib/steps.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
 const args = process.argv.slice(2);
@@ -75,6 +77,15 @@ const riskState = (r) => {
     ? ', window unreadable — write yyyy-mm-dd..yyyy-mm-dd'
     : r.window && `, window ${r.window.start}..${r.window.end}${r.window.end < today ? ' — overran' : ''}`;
   return `${r.id} scheduled (${r.tracker}${w || ''})`;
+};
+
+// A seeded file nobody has edited yet: its bytes are the ones the install manifest recorded. Without a readable manifest
+// (slipway itself, a project older than sync) every file that exists counts as edited.
+let seeded = {};
+try { seeded = readManifest(root)?.files ?? {}; } catch { /* no manifest to compare with */ }
+const touched = (p) => {
+  const bytes = readProjectFile(root, p);
+  return bytes !== null && (bytes === NOT_A_FILE || seeded[p]?.sha256 !== sha256(bytes));
 };
 
 const prd = readPlain(root, 'docs/PRD.md') ?? '';
@@ -259,15 +270,15 @@ const step0 = packages === 0 || (!bootstrapped && !ms.some((m) => m.status === '
 function next() {
   if (step0) {
     const missing = [!bootstrapped && `AGENT.md still has placeholders: ${placeholders.join(', ')}`, packages === 0 && 'no app yet'].filter(Boolean);
-    return `Step 0 (you + agent) — Bootstrap: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
+    return `Step 0 (you + agent) — ${stepName(0)}: run /bootstrap (${missing.join('; ')}); BOOTSTRAP.md is the reference.`;
   }
-  if (frame !== 'framed') return 'Step 1 (you, with /kickoff) — Frame: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.';
-  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results go in docs/product/evidence/ — or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the risk's Result.`;
+  if (frame !== 'framed') return `Step 1 (you, with /kickoff) — ${stepName(1)}: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.`;
+  const testTheRisk = `Step 2 (YOURS, not an agent's — days to weeks) — ${stepName(2)}: ${riskLine}. An agent can prepare the materials; running the test with real people is yours.${riskFile} Thresholds and results go in docs/product/evidence/ — or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the risk's Result.`;
   if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) return testTheRisk;
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
     return prdReviews.length
-      ? `Step 3 (you) — Shape: ${prdVersion} is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.`
-      : `Step 3 (you, with /kickoff) — Shape: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not a code review of a pull request — and only then set Status: approved (the build goes red otherwise).`;
+      ? `Step 3 (you) — ${stepName(3)}: ${prdVersion} is reviewed. Resolve the review's findings in the PRD, then set Status: approved and activate a milestone.`
+      : `Step 3 (you, with /kickoff) — ${stepName(3)}: PRD with IDs, week-1 decisions and milestone pitches (/kickoff). Then, in a NEW session, run /review-doc docs/PRD.md — the adversarial review of the document, not a code review of a pull request — and only then set Status: approved (the build goes red otherwise).`;
   }
   if (active.length > 1) return `Fix: ${active.length} milestones are active (${active.map((m) => m.id).join(', ')}). One at a time; pnpm meta is red until then.`;
   if (cur && curAppetite && curAppetite.end < today && !cur.extended) {
@@ -275,7 +286,7 @@ function next() {
   }
   if (cur) {
     const risk = untestedValue.length ? ` Meanwhile (yours): ${riskLine}.${riskFile}` : '';
-    const lead = `${cur.kind === 'skeleton' ? 'Step 4 (agent) — Walking skeleton' : 'Step 5 (agent) — Build loop'}: ${excerpt(cur.title)}`;
+    const lead = `${cur.kind === 'skeleton' ? `Step 4 (agent) — ${stepName(4)}` : `Step 5 (agent) — ${stepName(5)}`}: ${excerpt(cur.title)}`;
     // The command is built from the id and the item's number, never from its text, and only for an id the
     // skill accepts (process/intake.md → Milestone item): this line enters every session through the hook.
     const items = contents(cur.md).filter((i) => !i.text.trim().startsWith('<'));
@@ -288,11 +299,11 @@ function next() {
   }
   const shaping = ms.filter((m) => m.status === 'shaping');
   if (shaping.some((m) => m.kind === 'skeleton')) {
-    return 'Step 4 (agent) — Walking skeleton: activate the skeleton milestone (real appetite dates, status: active) and build its first slice.';
+    return `Step 4 (agent) — ${stepName(4)}: activate the skeleton milestone (real appetite dates, status: active) and build its first slice.`;
   }
   if (untestedValue.length) return testTheRisk;
   return shaping.length
-    ? `Step 6 (you) — Choose the next bet: activate one of ${shaping.map((m) => m.id).join(', ')} (set appetite dates), or shape a new one.`
+    ? `Step 6 (you) — ${stepName(6)}: choose the next bet, and activate one of ${shaping.map((m) => m.id).join(', ')} (set appetite dates), or shape a new one.`
     : 'Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.';
 }
 
@@ -316,6 +327,20 @@ if (open_.length) also.push(`(you) ${open_.length} open question(s) below — an
 if (also.length) L.push('**Also unblocked:**', ...also.map((a) => `- ${a}`), '');
 
 L.push('## Where things stand', '');
+// Every step at once: the Next line names one, but step 4 runs beside step 2 and step 7 sends the project back to 5.
+const valueRisks = risks.filter((r) => r.value);
+L.push(...stepLines({
+  bootstrapped,
+  packages,
+  frame,
+  frameTouched: touched('docs/product/FRAME.md'),
+  valueRisks: valueRisks.length,
+  settled: valueRisks.filter(settled).length,
+  scheduled: valueRisks.filter((r) => !settled(r) && r.tracker).length,
+  prdStatus,
+  prdTouched: touched('docs/PRD.md'),
+  milestones: ms,
+}), '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
 L.push(`- Frame: ${frame}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · ${riskBlocks}` : ''}` : ''}`);
 L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);

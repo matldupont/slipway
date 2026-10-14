@@ -5,5 +5,15 @@
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
     "PRD 0.3.0 is reviewed (prd-review.md) and still a draft — resolve the review's findings in the PRD, then set Status: approved"
+  ],
+  "steps": [
+    "Step 0 · Bootstrap: done",
+    "Step 1 · Frame: done",
+    "Step 2 · Test the risk: done",
+    "Step 3 · Shape: in hand",
+    "Step 4 · Walking skeleton: done",
+    "Step 5 · Build loop: not started",
+    "Step 6 · Close the milestone: each milestone",
+    "Step 7 · Learn: each milestone"
   ]
 }

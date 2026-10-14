@@ -94,6 +94,11 @@ function readEvidence(root) {
   return out;
 }
 
+// Whether a risk's Result stands in K1's eyes: a Result; a Threshold when it is a measured one; and, when the Result says
+// experience, one of the three rationales with its `Wrong if:` line. K1 keeps these rules inline (k1-frame.mjs), so
+// scripts/steps.test.mjs pins each against K1's own findings. `pnpm status` reads steps 2 and 5 through this.
+export const settled = (r) => r.tested && (r.claimsExperience ? !!r.experience && !!r.refutation : filled(r.threshold));
+
 // `rows`: one entry per `| RISK-n |` row. Its `tracker` is FRAME's Tracker cell, or the evidence file's
 // `Tracked:` line when the cell names none; `window` and `refutation` (its `Wrong if:` line) come from the
 // evidence file only. `experience` is `{ rationale }` when the Result is settled by experience with one of
