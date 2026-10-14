@@ -218,3 +218,29 @@ test('a finding names the filter key: paths, paths-ignore, or both', () => {
   assert.match(detail('    paths-ignore: ["a/**"]'), /with a paths-ignore filter/);
   assert.match(detail('    paths: ["a/**"]\n    paths-ignore: ["b/**"]'), /with a paths and paths-ignore filter/);
 });
+
+test('each command of a line is judged on its own; cd, a workflow default directory and a run-script form are read (#392)', () => {
+  const filtered = flow('  push:\n    paths: ["x/**"]', 'pnpm test');
+  const found = (other) => fo1Files({ 'a.yml': filtered, 'b.yml': other }).json.findings.map((f) => f.where);
+  const hit = ['.github/workflows/a.yml#on.push'];
+  const on = 'name: x\non: [push]\n';
+  const job = (steps, head = '') => `${on}${head}jobs:\n  a:\n    runs-on: ubuntu-latest\n${steps}`;
+  for (const narrower of ['cd apps/api && pnpm test', 'pnpm test --silent; pnpm test --watch', 'pnpm -r test || pnpm test', 'pnpm install && pnpm --filter web test']) {
+    assert.deepEqual(found(flow('  push:', narrower)), hit, narrower);
+  }
+  const broad = (line) => fo1Files({ 'a.yml': flow('  push:\n    paths: ["x/**"]', line), 'b.yml': flow('  push:', 'pnpm test') }).json.findings.map((f) => f.where);
+  for (const line of ['pnpm test && pnpm -r test', 'pnpm test && pnpm --filter web test']) {
+    assert.deepEqual(broad(line), hit, `${line}: the narrower command is not covered by the plain one beside it`);
+  }
+  assert.deepEqual(found(flow('  push:', 'pnpm install && pnpm test')), [], 'another command beside the plain one is no narrowing');
+  assert.deepEqual(found(flow('  push:', 'pnpm  run   test')), [], 'extra spaces');
+  assert.deepEqual(found(flow('  push:', 'pnpm run-script test')), [], 'pnpm run-script <script> is the plain form');
+  assert.deepEqual(found(job('    steps:\n      - run: |\n          cd apps/api\n          pnpm test\n')), hit, 'a cd on an earlier line of the step');
+  assert.deepEqual(found(job('    steps:\n      - run: cd apps/api\n      - run: pnpm test\n')), [], 'a cd in another step does not carry over');
+  assert.deepEqual(found(job('    steps:\n      - run: pnpm test\n', 'defaults:\n  run:\n    working-directory: apps/api\n')), hit, 'a workflow default directory');
+  assert.deepEqual(found(job('    steps:\n      - run: pnpm test\n', 'defaults:\n  run:\n    working-directory: .\n')), [], 'the repository root is no other place');
+  assert.deepEqual(found(job('    steps:\n      - run: pnpm test\n        working-directory: [apps]\n')), hit, 'a directory that is not text');
+  const fast = (a, b) => fo1Files({ 'a.yml': flow('  push:\n    paths: ["x/**"]', a), 'b.yml': flow('  push:', b) }).json.findings.length;
+  assert.equal(fast('pnpm verify:fast', 'pnpm verify:fast'), 0);
+  assert.equal(fast('pnpm verify:fast', 'pnpm verify'), 1, 'verify:fast is a gate, and not the same gate as verify');
+});

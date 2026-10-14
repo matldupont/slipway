@@ -10,15 +10,15 @@
 // matching path runs no copy of the gate, and the pull request is green having proved nothing (L-56). A job a
 // trigger filter skips never runs, so it cannot print that it was skipped: the filter is what is reported.
 //
-// THE PATH-FILTER RULE (lib/workflows.mjs filteredGates): for each gate command (a package's gated script,
+// THE PATH-FILTER RULE (lib/path-filters.mjs filteredGates): for each gate command (a package's gated script,
 // `pnpm verify`, `pnpm meta`, `node ci/verify.mjs`, a check under ci/checks/meta) and each of `pull_request` and
 // `push`, it is a finding when EVERY workflow that runs the command on that event carries a `paths` or
 // `paths-ignore` filter for it. A gate some workflow also runs on that event unfiltered is covered, so a deploy
 // workflow that skips documentation-only pushes is no finding while ci.yml runs the same gate on every push (#239),
 // and a filtered workflow that runs no gate is none either. A finding is keyed `<workflow path>#on.<event>` (a job
-// id that holds a dot is not one GitHub runs, so it does not collide with a job's id in a workflow that runs) and is excused like a flag, by a dated entry. A gate is named by what it runs and where (lib/workflows.mjs
-// gatesOf): a narrower run (`-C`, `--filter`, `--plan`, another working directory) never covers a broader one. Not
-// followed: a gate a reusable workflow runs for a caller, whose caller's filter applies; what a root script calls; a shell condition, a job's `if:`, and the branches a covering workflow runs on, which are not read.
+// id that holds a dot is not one GitHub runs, so it does not collide with a job's id in a workflow that runs) and is excused like a flag, by a dated entry. A gate is named by what it runs and where (lib/path-filters.mjs
+// gatesOf): a narrower run (`-C`, `--filter`, `--plan`, another working directory or `cd`) never covers a broader one. Not
+// followed: a gate a reusable workflow runs for a caller, whose caller's filter applies; what a root script calls; a subshell around a command, a shell condition, a job's `if:`, and the branches a covering workflow runs on, which are not read.
 //
 // WHY IT READS STRUCTURE, NOT LINES — two defects a naive version has:
 //  1. An unanchored grep counts commented-out flags as fail-open steps. Any line match also counts the flag's
@@ -48,7 +48,7 @@ import { today as localToday } from '../lib/clock.mjs';
 import { expiryProblem, loadRegistry } from '../lib/exceptions.mjs';
 import { ID_PREFIX } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
-import { filteredGates } from '../lib/workflows.mjs';
+import { filteredGates } from '../lib/path-filters.mjs';
 import { readWorkflow } from '../lib/workflow-yaml.mjs';
 
 // A flag is closed only when it is written as plain `false` (any letter case) or left empty. A quoted `"false"`
