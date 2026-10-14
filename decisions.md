@@ -798,7 +798,7 @@ crossed**: more than a third of that project's new tests were not judged. So ste
   machine building the pull request, before it is marked ready, and no `mutation` job is added. What that gives up:
   the rule fires only where `/work-ticket` runs.
 - **F-13 is revised before any build step starts**: where it runs, a smaller cap on the changes tried per file,
-  and test support told apart so a real project's tests that reach their code through a helper are judged. The
+  and a support rule under which a test that reaches its code through a helper is still judged. The
   budget, the limit, the caps and the not-judged share are set in that revision, not from this entry's figures
   alone. Until it lands, F-13 0.3's Contract describes a job that will not be built.
 
