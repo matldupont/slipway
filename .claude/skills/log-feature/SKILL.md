@@ -100,8 +100,10 @@ A feature that ignores the codebase gets grafted on; one that reuses what is the
 
 1. **Prior art,** searched by behaviour, not by name: `rg` for the operation, and a code graph where one
    exists. Quote `file:line` and what it does.
-2. **Reusable pieces:** for each capability the feature needs, where it already lives, or net-new with the
-   search behind it. The `Conventions doc` row each new piece falls under.
+2. **Reusable pieces:** for each capability, where it already lives or net-new with the search behind it, and
+   the `Conventions doc` row it falls under; for each number it will show, where it is calculated now; for each
+   surface (a page, a drawer, a dialog, a list), the feature that last built one and how. Search the code, then
+   the `## Fit` of every doc in `Feature docs dir` on the default branch and in open pull requests, draft or not.
 3. **Touch points,** by layer (the parts of the app, data, jobs, outside services), and the rules of the
    nearest `AGENT.md` or `CLAUDE.md` in each touched folder.
 4. **Feature docs** in `Feature docs dir` this builds on or changes, and PRD ids it touches (F-, PRIN-, OD-).
@@ -137,6 +139,7 @@ cases). Fill every section:
 
 - Frontmatter `prd-ref:` the new F-ID, `status: draft`. Title `# F-{nn} — {name}`, and under it `Version: 0.1 ({date})`, the line a `/review-doc` review quotes (D-041).
 - **Problem:** the job story, the evidence, the PRD ids it serves, and the verdict with the alternatives table.
+- **Fit:** filled from Phase 3's search before anything new is proposed, never from memory (`Reuses:`, `Numbers:`, `New:`).
 - **Contract:** decisions, not questions: data shapes, states and transitions, error cases, the files,
   endpoints and components touched, what is reused (Phase 3). Every claim about current code is re-read on the
   default branch: `Verified against: <sha> <date>` (L-18). A decision it rests on is stated in words, its id
