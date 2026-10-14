@@ -10,7 +10,7 @@
 // What it applies: §3.1 (the diff, removal-only hunks), §3.2, §3.4 (a copy of the commit outside the project,
 // an offline install, ci/before-verify.sh), §3.5 (which tests are new), §3.6 whole (relative imports, the file
 // beside the test, a workspace package by name, re-exports 3 deep, the support list), §3.8 (the baseline),
-// §3.9 (the order, both caps, what a failure counts for, the untouched run after).
+// §3.9 (both caps, what a failure counts for, the untouched run after; its order departs, as README.md says).
 //
 // What it leaves out (README.md says what each could move): the vendored parser (it reads source with the
 // TypeScript compiler API), runnerCall() (the runner is `vitest` in the package, with --call's words added),
@@ -61,11 +61,11 @@ const mergeBase = git(['merge-base', base, head]).trim();
 const added = {}; const removedAfter = {};
 {
   let file = null; let inHeader = false;
-  for (const l of git(['-c', 'core.quotePath=false', 'diff', '-U0', '-M', '-w', '--no-color', '--no-ext-diff', mergeBase, head]).split('\n')) {
+  for (const l of git(['-c', 'core.quotePath=false', 'diff', '-U0', '-M', '-w', '--no-color', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/', mergeBase, head]).split('\n')) {
     // A file's header runs from `diff --git` to its first hunk; a `+++ ` line anywhere else is an added line.
     if (l.startsWith('diff --git ')) { inHeader = true; continue; }
     if (l.startsWith('@@')) inHeader = false;
-    if (inHeader && l.startsWith('+++ ')) { file = l === '+++ /dev/null' ? null : l.slice(6); continue; }
+    if (inHeader && l.startsWith('+++ ')) { file = l === '+++ /dev/null' ? null : l.slice(6).replace(/\t$/, ''); continue; }
     const m = /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/.exec(l);
     if (!m || !file) continue;
     const start = +m[1]; const n = m[2] === undefined ? 1 : +m[2];
@@ -116,8 +116,10 @@ if (!changedTestFiles.length) finish();
 const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'tests-can-fail-probe-')));
 const copy = join(tmp, 'copy');
 process.on('exit', () => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* the folder is in the temporary directory */ } });
-// Ctrl-C, or a job cancelled or out of time, removes the copy too: `exit` does not fire on a signal.
-for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, () => process.exit(130));
+// A child killed by a signal stops the run, and `exit` removes the copy; the 120 s run limit kills with SIGTERM
+// too, and is not a stop. The script is synchronous, so a signal to the probe itself (Ctrl-C, a cancelled job)
+// ends it at once and can leave the copy in the temporary directory (README).
+const run = (cmd, args, opts) => { const r = spawnSync(cmd, args, opts); if (r.signal && r.error?.code !== 'ETIMEDOUT') process.exit(130); return r; };
 const fail = (message, detail) => { out.stopped = message; if (detail && !countsOnly) out.detail = String(detail).split('\n').slice(-12).join('\n'); finish(2); };
 timed('copy', () => {
   const env = { GIT_INDEX_FILE: join(tmp, 'index') };
@@ -126,15 +128,15 @@ timed('copy', () => {
 });
 const tracked = new Set(git(['ls-tree', '-r', '--name-only', '-z', head]).split('\0').filter(Boolean));
 timed('install', () => {
-  let r = spawnSync('pnpm', ['install', '--frozen-lockfile', '--offline'], { cwd: copy, encoding: 'utf8' });
+  let r = run('pnpm', ['install', '--frozen-lockfile', '--offline'], { cwd: copy, encoding: 'utf8' });
   out.install = 'offline';
-  if (r.status !== 0) { out.install = 'offline failed; installed with the network'; r = spawnSync('pnpm', ['install', '--frozen-lockfile'], { cwd: copy, encoding: 'utf8' }); }
+  if (r.status !== 0) { out.install = 'offline failed; installed with the network'; r = run('pnpm', ['install', '--frozen-lockfile'], { cwd: copy, encoding: 'utf8' }); }
   if (r.status !== 0) fail('the install in the copy failed', r.stdout + r.stderr);
 });
 const runEnv = { ...process.env };
 if (!noSetup && tracked.has('ci/before-verify.sh')) timed('setup', () => {
   const envFile = join(tmp, 'github-env'); writeFileSync(envFile, '');
-  const r = spawnSync('bash', ['ci/before-verify.sh'], { cwd: copy, encoding: 'utf8', env: { ...process.env, GITHUB_ENV: envFile } });
+  const r = run('bash', ['ci/before-verify.sh'], { cwd: copy, encoding: 'utf8', env: { ...process.env, GITHUB_ENV: envFile } });
   out.setup = r.status === 0 ? 'ci/before-verify.sh ran' : 'ci/before-verify.sh failed';
   for (const l of readFileSync(envFile, 'utf8').split('\n')) { const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(l); if (m) runEnv[m[1]] = m[2]; }
 });
@@ -156,7 +158,7 @@ const typescriptOf = (pkg) => {
   }
   return loaded.get(pkg.dir);
 };
-const vitest = (pkg, args) => { out.runnerCalls++; return spawnSync(join(copy, pkg.dir, 'node_modules/.bin/vitest'), [...args, ...callWords], { cwd: join(copy, pkg.dir), encoding: 'utf8', env: runEnv, timeout: RUN_LIMIT_MS, maxBuffer: 256 << 20 }); };
+const vitest = (pkg, args) => { out.runnerCalls++; return run(join(copy, pkg.dir, 'node_modules/.bin/vitest'), [...args, ...callWords], { cwd: join(copy, pkg.dir), encoding: 'utf8', env: runEnv, timeout: RUN_LIMIT_MS, maxBuffer: 256 << 20 }); };
 
 // §2 — the changes a source text gets, and the spans of a test file, read with the project's TypeScript.
 const parse = (ts, path, text) => {
@@ -253,7 +255,8 @@ function subjectsOf(ts, testFile, read) {
   return { pools, dropped };
 }
 
-// §3.9 — the changes in order: the pull request's own lines first, then by kind, taking turns across the
+// §3.9 — the changes in order (the README says where this departs from §3.9): every `body` change first, the pull
+// request's own lines first within each kind, taking turns across the
 // subjects; at most 30 `body` changes, then at most 30 more.
 function queueOf(pools) {
   for (const p of pools) { const own = added[p.f] ?? new Set(); p.list.sort((a, b) => (own.has(b.line) - own.has(a.line)) || a.rank - b.rank || a.start - b.start); }

@@ -800,7 +800,8 @@ crossed**: more than a third of that project's new tests were not judged. So ste
   the rule fires only where `/work-ticket` runs.
 - **F-13 is revised before any build step starts** (#439): where the step runs, and the rule's caps and
   subjects. The budget, the limit, the two caps of §3.9 and the not-judged share are set by the owner in that
-  revision, not here: this replaces step 0's acceptance clause that this entry holds them. Step 1 waits for the
+  revision and recorded in this entry then, not now: this replaces step 0's acceptance clause that this entry
+  holds them when step 0 ends. Step 1 waits for the
   revision. Until it lands, F-13 0.3's Contract describes a job that will not be built.
 
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*

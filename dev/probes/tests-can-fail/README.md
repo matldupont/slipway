@@ -37,20 +37,25 @@ node dev/probes/tests-can-fail/measure.mjs "$tmp" HEAD~1 HEAD
 `--counts-only` prints no test name, path or commit, and an error it did not foresee prints one fixed line.
 `failureKinds` still names the error classes the project's code throws. `--record <folder>` saves the runner
 outputs, test names and failure messages included, whatever else is passed: on a private project, point it
-outside any repository, never under this one.
+outside any repository, never under this one. `--no-setup` skips `ci/before-verify.sh`. `--call "<words>"`
+adds words to every runner call.
 
-Where the probe departs from the Contract beyond the cut below (a reviewer's reading at the step 0 pull
-request; none moves the not-judged share, and each can move the seconds): a group of rows (`it.each`) is
-credited when any row's failure counts, not the first listed; every `body` change is tried before any other
-kind, and the pull request's own lines come first within each kind; `expect.any(…)` and the like count as
-`expect` spans; and a file is in `outsideAnyTest` only when none of its tests is new.
-`--no-setup` skips `ci/before-verify.sh`. `--call "<words>"` adds words to every runner call.
+Ctrl-C, or a cancelled job, ends the probe at once: it is synchronous, so it cannot clean up on a signal, and
+the copy (`tests-can-fail-probe-*`, the whole commit with one file changed) can be left in the temporary
+directory. Remove it by hand. The project's own checkout is never written.
 
 ## What it applies, and what it leaves out
 
 Applied: §3.1 (the diff, hunks that only remove lines), §3.2, §3.4 (a copy of the commit outside the project,
-an offline install, `ci/before-verify.sh`), §3.5, §3.6 whole (the support list included), §3.8, and §3.9 (the
-order, both caps of 30, what a failure counts for, the untouched run after).
+an offline install, `ci/before-verify.sh`), §3.5, §3.6 whole (the support list included), §3.8, and from §3.9
+both caps of 30, what a failure counts for and the untouched run after; its order with the departure below.
+
+Where the probe departs from the Contract beyond the cut below (a reviewer's reading at the step 0 pull
+request; none moves the not-judged share): a group of rows (`it.each`) is credited when any row's failure
+counts, not the first listed; every `body` change is tried before any other kind, and the pull request's own
+lines come first within each kind; and `expect.any(…)` and the like count as `expect` spans. Each of those can
+move the seconds. A file is in `outsideAnyTest` only when none of its tests is new, which moves that count
+alone.
 
 Left out, and what each could move:
 
