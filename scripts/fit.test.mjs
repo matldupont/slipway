@@ -497,3 +497,22 @@ test('a line that says nothing is no item, with or without a space after its mar
   // `nothing` hidden behind a character nobody sees is still `nothing`.
   assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${ZW}nothing`, 'Numbers:\n- none shown', `New: no${ZW}ne`)) }), ['fit/unfilled/new']);
 });
+
+test('a list mark is looked for on the line as written: a wrapped line that opens with a dash continues its item, and a space nobody sees after a mark is a space', () => {
+  const cp = (...c) => String.fromCodePoint(...c);
+  for (const dash of [cp(0x2014), cp(0x2013), cp(0x2212), cp(0xff0d), cp(0xff0a)]) {
+    for (const reuses of [`Reuses:\n- nothing; searched ci/checks/lib/ by behaviour\n  ${dash} no reader of a count exists there`, `Reuses: nothing\n${dash} searched ci/checks/lib/`]) {
+      assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, 'Numbers:\n- none shown', 'New: none')) }), ['fit/unfilled/new'], JSON.stringify(reuses));
+    }
+  }
+  for (const space of [cp(0x0b), cp(0x0c), cp(0xfeff), cp(0x2028)]) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n-${space}nothing`, 'Numbers:\n- none shown', `New: -${space}none`)) }), ['fit/unfilled/new'], JSON.stringify(space));
+  }
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- nothing${cp(0x301)}`, 'Numbers:\n- none shown', 'New: none')) }), ['fit/unfilled/new'], 'a combining mark after the word');
+});
+
+test("the label's own line and the Numbers answer go through the same reading: punctuation alone there is no item, and `none shown` with a character nobody sees is counted as none shown", () => {
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses: ${String.fromCodePoint(0x2014)}\n- nothing`, 'Numbers:\n- the total, in lib/money.ts', 'New: none')) }), ['fit/unfilled/new']);
+  const short = count({ [A]: doc('shipped', fit('Reuses:\n- `total()` in lib/money.ts', `Numbers:\n- none${String.fromCodePoint(0x200b)} shown`, 'New: the export button')) }).short;
+  assert.deepEqual(short, { reusesNothing: 0, noNumbers: 1, nothingNew: 0 });
+});

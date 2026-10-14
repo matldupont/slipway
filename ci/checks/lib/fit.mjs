@@ -24,7 +24,7 @@
 
 import { existsSync, readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { docFrontmatter, isFeatureDoc, readFeatureFiles, visible } from './feature-docs.mjs';
+import { docFrontmatter, isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
 import { hasPlaceholder } from './frontmatter.mjs';
 import { sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
@@ -50,15 +50,13 @@ function fitTexts(md) {
   return Object.fromEntries(Object.entries(texts).map(([k, lines]) => [k, lines.join('\n')]));
 }
 
-// What says something: text with at least one letter or digit, in any script. The rule names what is filled, not
-// what is empty, so a list mark alone, a line of punctuation and every character nobody sees say nothing without
-// being listed. A value written as a symbol only reads as unfilled: counted, never passed.
-const says = (s) => /[\p{L}\p{N}]/u.test(s);
-// A label's text as a reader sees it, the way ID1 reads a heading (lib/feature-docs.mjs): characters that print as
-// nothing removed, look-alike forms folded. For the answers and the items only: the placeholder test reads the
-// text as written, since folding rewrites the template's own `…`.
-const seen = (text) => visible(text).map((l) => l.text).join('\n');
-const word = (s) => s.replace(/`/g, '').trim().toLowerCase();
+// What says something: text with at least one letter or digit, in any script, once the characters that print as
+// nothing are taken out (lib/feature-docs.mjs). The rule names what is filled, not what is empty, so a list mark
+// alone, a line of punctuation and every character nobody sees say nothing without being listed. A value written
+// as a symbol only reads as unfilled: counted, never passed. Nothing is folded: a list mark is looked for on the
+// line as written, so a dash that opens a wrapped line stays part of the item above it.
+const says = (s) => /[\p{L}\p{N}]/u.test(unseen(s));
+const word = (s) => unseen(s).replace(/`/g, '').trim().toLowerCase();
 // A label's text as one short answer: its list mark, backticks and closing full stop removed, case ignored.
 const answer = (text) => word(text.trimStart().replace(/^[-*]\s/, '')).replace(/\.$/, '').trim();
 // What a label's text lists: the text on the label's own line, then each bullet or unmarked line, with the lines
@@ -86,18 +84,17 @@ const placeholder = (text) => text.split('\n').some((line) => line.length > LINE
 function readFit(md) {
   const texts = fitTexts(md);
   if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
-  // The placeholder test and its length cap come first, on the text as written, so a line nobody reads is not folded.
-  const read = {};
-  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || !says((read[k] = seen(texts[k]))));
-  const reusesNothing = !unfilled.includes('reuses') && items(read.reuses).every((i) => word(i).startsWith('nothing'));
-  const nothingNew = !unfilled.includes('new') && answer(read.new) === 'none';
+  // The placeholder test and its length cap come first, so a line nobody reads is never read further.
+  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || !says(texts[k]));
+  const reusesNothing = !unfilled.includes('reuses') && items(texts.reuses).every((i) => word(i).startsWith('nothing'));
+  const nothingNew = !unfilled.includes('new') && answer(texts.new) === 'none';
   // A feature that neither reuses nor adds anything has not been described.
   if (reusesNothing && nothingNew) unfilled.push('new');
   const filled = unfilled.length === 0;
   return {
     reasons: unfilled.map((k) => `fit/unfilled/${k}`),
     reusesNothing: filled && reusesNothing,
-    noNumbers: filled && answer(read.numbers) === 'none shown',
+    noNumbers: filled && answer(texts.numbers) === 'none shown',
     nothingNew: filled && nothingNew,
   };
 }

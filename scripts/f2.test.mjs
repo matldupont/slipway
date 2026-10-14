@@ -248,6 +248,7 @@ test("slipway's own ci/baselines.json holds the count the check gives at this he
 });
 
 // The count's file is a plain file of the repository or it is not read and not written.
+const UNDER = 'is under a ci/ that is a link or not a folder';
 test('a link or a folder at ci/baselines.json, or a ci/ reached through a link: exit 2 before any read, and --update writes nowhere', () => {
   const files = { [A]: doc('shipped') };
   const outside = mkdtempSync(join(tmpdir(), 'f2-outside-'));
@@ -258,14 +259,16 @@ test('a link or a folder at ci/baselines.json, or a ci/ reached through a link: 
       'a link to counts elsewhere': [(dir) => (mkdirSync(join(dir, 'ci')), writeFileSync(target, baseline(5)), symlinkSync(target, join(dir, BASELINES))), 'is a link, not a file'],
       'a link to nothing': [(dir) => (mkdirSync(join(dir, 'ci')), rmSync(target, { force: true }), symlinkSync(target, join(dir, BASELINES))), 'is a link, not a file'],
       'a folder': [(dir) => mkdirSync(join(dir, BASELINES), { recursive: true }), 'is not a regular file'],
-      'ci/ is a link': [(dir) => (rmSync(target, { force: true }), mkdirSync(join(outside, 'ci'), { recursive: true }), symlinkSync(join(outside, 'ci'), join(dir, 'ci'))), 'is reached through a link'],
+      'ci/ is a link': [(dir) => (rmSync(target, { force: true }), mkdirSync(join(outside, 'ci'), { recursive: true }), symlinkSync(join(outside, 'ci'), join(dir, 'ci'))), UNDER],
+      'ci/ is a link to nothing': [(dir) => (rmSync(target, { force: true }), symlinkSync(join(outside, 'gone'), join(dir, 'ci'))), UNDER],
+      'ci/ is a file': [(dir) => (rmSync(target, { force: true }), writeFileSync(join(dir, 'ci'), 'MARKER_FOUR')), UNDER],
     };
     for (const [name, [arrange, why]] of Object.entries(arrangements)) {
       for (const flags of [[], ['--update']]) {
         let before;
         const r = f2With(files, (dir) => (arrange(dir), (before = existsSync(target) ? readFileSync(target, 'utf8') : null)), ...flags);
         assert.equal(r.status, 2, name);
-        assert.deepEqual(r.lines.slice(1), [`F2: BROKEN — ci/baselines.json ${why}, so it is neither read nor written — make it a plain file`], name);
+        assert.deepEqual(r.lines.slice(1), [why === UNDER ? `F2: BROKEN — ci/baselines.json ${UNDER}, so it is neither read nor written — make ci/ a plain folder` : `F2: BROKEN — ci/baselines.json ${why}, so it is neither read nor written — make it a plain file`], name);
         assert.doesNotMatch(r.out + r.err, /MARK/, name);
         assert.equal(existsSync(target) ? readFileSync(target, 'utf8') : null, before, `${name}: the link's target is as it was`);
         assert.equal(existsSync(join(outside, 'ci', 'baselines.json')), false, name);

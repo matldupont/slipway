@@ -24,6 +24,8 @@ export const FEATURE_DIRS = ['docs/features', 'dev/features'];
 // Every character report.mjs's UNSAFE names, all of them on a line (its own regex has no `g`), and the three it leaves
 // for emoji (U+200D, U+FE0E, U+FE0F), which print as nothing between plain letters.
 const INVISIBLE = new RegExp(`[${UNSAFE.source}\\u200d\\ufe0e\\ufe0f]`, 'gv');
+// A text with those characters taken out and nothing else changed: no folding, no line split.
+export const unseen = (s) => s.replace(INVISIBLE, '');
 export function visible(md) {
   return md
     .replace(/^\uFEFF/, '')

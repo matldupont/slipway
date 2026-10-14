@@ -407,7 +407,11 @@ as the other ratchets' are.
   another folder has its docs unread by both; the claim line names the folders read.
 - A label's text, and an item under it, counts as filled only when it holds a letter or a digit, once characters
   nobody sees are taken out. A value written as a symbol only (a dash, a tick) reads as unfilled: counted, never
-  passed. The rule says what is filled so that nothing that looks empty has to be listed.
+  passed. It covers characters nobody sees and bare list marks; it does not cover a numbered mark alone (it
+  holds a digit), markup a renderer shows as nothing, or a placeholder with a character nobody sees inside it.
+  Each of those is text in the diff a reviewer reads.
+- The short answers are read as written: `nothing` and `none` in another form (another list mark, emphasis, a
+  look-alike letter) are not the short answers, so a doc that gives them that way is not counted among them.
 - A line of a label's text longer than 5,000 characters reads as unfilled, and the finding says the line is not
   filled in, not that it is too long. The cap bounds what the reader does per line; over it the reader refuses
   rather than guesses, so such a doc is counted, never passed. Wrap the line.

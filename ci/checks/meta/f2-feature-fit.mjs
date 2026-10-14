@@ -29,7 +29,7 @@
 // duplication ratchet sees copied lines, not a second calculation of one number or a second kind of surface.
 // F2 holds that the question was answered in the doc, not that the answer is true: a reviewer reads that.
 
-import { realpathSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { FEATURE_DIRS } from '../lib/feature-docs.mjs';
 import { fitCount } from '../lib/fit.mjs';
@@ -49,16 +49,19 @@ const scanned = 1 + fit.files;
 const broken = (why) => process.exit(report({ id: 'F2', claim: '', scanned, unit: UNIT, broken: why }));
 
 // The count is read from, and written to, a plain file of the repository and nothing else: a link or a folder at
-// that path, or a `ci/` reached through a link, is refused before either, as sync refuses it for its own write.
+// that path, or under a `ci/` that is a link (to anything or nothing) or not a folder, is refused before either,
+// as sync refuses a link or a folder at that path for its own write.
 const notPlain = notPlainFile(root, BASELINES);
 const folder = dirname(BASELINES);
 let linked = false;
 try {
-  linked = realpathSync(join(root, folder)) !== join(realpathSync(root), folder);
-} catch {
-  // no ci/ folder yet: --update makes it
+  const st = lstatSync(join(root, folder));
+  linked = !st.isDirectory() || realpathSync(join(root, folder)) !== join(realpathSync(root), folder);
+} catch (e) {
+  linked = e.code !== 'ENOENT'; // no ci/ folder yet: --update makes it; anything else is not a plain folder
 }
-if (linked || (notPlain !== null && notPlain !== MISSING)) broken(`${BASELINES} ${linked ? 'is reached through a link' : notPlain}, so it is neither read nor written — make it a plain file`);
+if (linked) broken(`${BASELINES} is under a ${folder}/ that is a link or not a folder, so it is neither read nor written — make ${folder}/ a plain folder`);
+if (notPlain !== null && notPlain !== MISSING) broken(`${BASELINES} ${notPlain}, so it is neither read nor written — make it a plain file`);
 let baselines;
 try {
   baselines = readBaselines(root);
