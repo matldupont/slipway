@@ -74,6 +74,37 @@ checks out the pull request's head commit, so one commit is diffed, copied and h
 file a runner could list; a deleted test file and a change outside every test are counted and are not
 findings; the run is built before the verdict, so the job is added once with the run behind it.
 
+## Fit
+
+Nothing here is built yet: each line says what the spec plans to reuse, checked against the tree, not what a
+build was found to use.
+
+Reuses:
+- Planned: will report through `report()` in `ci/checks/lib/report.mjs`, with PC1's `expected.json` layout
+  (`ci/checks/meta/pc1-positive-control.mjs`) for the known-bad cases under `ci/fixtures/known-bad/mt1/`.
+- Planned: will read git through `trustedGit` in `ci/checks/lib/manifest.mjs`, and a workspace's packages
+  through `discoverWorkspace()` in `ci/checks/lib/workspace.mjs`.
+- Planned: will read dated excuses with `loadRegistry()` and `expiryProblem()` in `ci/checks/lib/exceptions.mjs`
+  from `ci/exceptions.yaml`, and `ci/tests-can-fail.yaml` with `readList()` in strict mode
+  (`ci/checks/lib/yaml-list.mjs`).
+- Planned: will take the base and head commits as `BASE_SHA` and `HEAD_SHA`, the pattern of
+  `.github/workflows/pr-body.yml`, and will run as a check of its own workflow, as `i1` and `p1` do
+  (`ci/checks/meta/i1-issue-shape.mjs`, `ci/checks/meta/p1-pr-body.mjs`).
+- Planned: will read a package's root scripts as W1 does (`ci/checks/meta/w1-declared-vs-invoked.mjs`).
+
+Numbers:
+- How many changes were made to the code a test's file imports, and whether the test failed on one, will be
+  counted once, by the run (`ci/mutation.mjs`, §3), into its record; the verdict reads them and adds nothing.
+- The summary's counts (new tests, passed, failed, not judged, and the lines under it) will be calculated once,
+  by the verdict (`ci/checks/meta/mt1-tests-can-fail.mjs`, §4), from that record.
+- The time spent, against the budget and the limit, will be measured once, by the run, and written to the
+  record as `seconds` beside `budget`; the verdict compares them.
+
+New: the run (`ci/mutation.mjs`), the change list (`ci/checks/lib/mutants.mjs` with its vendored parser), the
+reader of the runner's output (`ci/checks/lib/runner-output.mjs`) and the verdict MT1. Searched with
+`rg -i "mutation|mutant|stryker"` and for a reader of a test run or of a `test` script's words: prose in
+`docs/testing-strategy.md`, L-04 and L-01 only, so each is new.
+
 ## Contract
 
 Verified against: 2259472 2026-10-13 — `ci/ratchet.mjs` (fails a number above its baseline; one named number
