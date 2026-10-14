@@ -594,6 +594,13 @@ pull request red on a file a reviewer never edits; what answers the stop conditi
 no to a probe run before build PR 1 is marked ready, recorded in that PR. The 0.2 review is the last but one:
 the review of 0.3 is the last whole-document review before the build (the owner, 2026-10-13).
 
+Amended 2026-10-14 (#48, the owner, on the spec's 0.4 correction). "The owner never edits the baseline by
+hand" has one exception, decided by the owner on 2026-10-13 in build PR 1 (#429): sync adds the count only to a
+`ci/baselines.json` that is absent or byte for byte what slipway's one writer writes for it. A file in any other
+form (another indent, a key twice, no final newline) is refused before anything is written, naming the file and
+the form; the owner puts it back once and syncs again. Sync never rewrites a file of the project's it did not
+write. The rule above is otherwise as decided.
+
 ## D-037 — A pull request's new tests must each fail on a change to the code; slipway's own mutator checks it, within 5 minutes *(decided 2026-10-08)*
 
 #51 asks that a product's tests be able to fail, checked on every pull request (F-13,
