@@ -59,18 +59,22 @@ function isDay(date) {
 
 // One event of §3's table, or null. Verbs are case folded; ids keep their case. `said` is the event in the table's
 // words, built from the numbers read, never from the record's text.
+// The verbs of §3's table. Maps, so a word an object inherits (`constructor`, `__proto__`) is no verb.
+const FEATURE_VERBS = new Map([['has a doc', 'doc'], ['has a feature doc', 'doc'], ['is reviewed', 'reviewed'], ['is shipped', 'shipped']]);
+const FEATURE_SAID = new Map([['doc', 'has a doc'], ['reviewed', 'is reviewed'], ['shipped', 'is shipped']]);
+const MILESTONE_VERBS = new Map([['is active', 'active'], ['is activated', 'active'], ['goes active', 'active'], ['is closed', 'closed'], ['closes', 'closed']]);
+
 export function parseEvent(part) {
   let m = part.match(/^F-(\d{1,9}) (.{1,40})$/);
   if (m) {
     const n = Number(m[1]);
-    const kind = { 'has a doc': 'doc', 'has a feature doc': 'doc', 'is reviewed': 'reviewed', 'is shipped': 'shipped' }[m[2].toLowerCase()];
-    const verb = { doc: 'has a doc', reviewed: 'is reviewed', shipped: 'is shipped' }[kind];
-    return kind ? { kind, feature: n, readable: true, said: `${fid(n)} ${verb}` } : null;
+    const kind = FEATURE_VERBS.get(m[2].toLowerCase());
+    return kind ? { kind, feature: n, readable: true, said: `${fid(n)} ${FEATURE_SAID.get(kind)}` } : null;
   }
   m = part.match(/^M(\d{1,9}) (.{1,40})$/);
   if (m) {
     const n = Number(m[1]);
-    const kind = { 'is active': 'active', 'is activated': 'active', 'goes active': 'active', 'is closed': 'closed', closes: 'closed' }[m[2].toLowerCase()];
+    const kind = MILESTONE_VERBS.get(m[2].toLowerCase());
     return kind ? { kind, milestone: n, readable: true, said: `M${n} is ${kind}` } : null;
   }
   m = part.match(/^(\d{4}-\d{2}-\d{2}) (passes|has passed)$/i);

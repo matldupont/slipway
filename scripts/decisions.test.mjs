@@ -88,7 +88,7 @@ test('Amends with any token that is not an F-id is unreadable; so is an event ou
   for (const t of ['the roadmap', 'F-07 or later', 'F-07,', '', 'f-07']) {
     assert.equal(one(`## PD-1 — t\n\nAmends: ${t}\n`).conditions[0].readable, false, t);
   }
-  for (const t of ['the page shows live state', 'F-07 has a doc or soon', 'M2 is done', '2026-02-30 passes', 'm2 is active']) {
+  for (const t of ['the page shows live state', 'F-07 has a doc or soon', 'M2 is done', '2026-02-30 passes', 'm2 is active', 'F-07 constructor', 'F-07 __proto__', 'M2 constructor', 'M2 toString', 'F-07 hasOwnProperty']) {
     assert.equal(one(`## PD-1 — t\n\nReopens when: ${t}\n`).conditions[0].readable, false, t);
   }
 });
@@ -167,11 +167,28 @@ test('a second group, a span holding *( or a wide character in a span never hide
   assert.deepEqual(one('## PD-1 — t *(decided 2026-03-01 · reopens when M2 is closed)* *(note)*\n').conditions.map((c) => [c.readable, c.events[0]?.said]), [[true, 'M2 is closed']]);
   assert.equal(one('## PD-2 — t *(decided 2026-03-01 · revisit when x)* *(see PD-4)*\n').prose, true);
   assert.deepEqual(one('## PD-3 — about `*(x)` *(decided 2026-03-01 · reopens when M2 is closed)*\n').conditions.map((c) => c.readable), [true]);
-  assert.deepEqual(one('## PD-6 — the form `*(decided 2026-03-01 · reopens when M2 is activated)*` quoted\n').conditions, []);
+  // A suffix only quoted in a code span is not read as clauses; the backstop makes the decision unreadable instead.
+  assert.deepEqual(one('## PD-6 — the form `*(decided 2026-03-01 · reopens when M2 is activated)*` quoted\n').conditions.map((c) => [c.where, c.readable]), [['heading', false]]);
   assert.equal(one('## PD-4 — `𠀀` *(decided 2026-03-01 · revisit when X)*\n').prose, true);
   // Twenty wide characters in a span: the prose window must not drift onto the unreadable clause after it.
   const wide = one(`## PD-5 — \`${"😀".repeat(20)}\` *(decided 2026-03-01 · reopens when the PRD changes)*\n`);
   assert.deepEqual([wide.prose, wide.conditions.map((c) => c.readable)], [false, [false]]);
+});
+
+test('the backstop: a clause opening a typo hid from the suffix reading makes the decision unreadable, never silent', () => {
+  const read = (h) => one(`## ${h}\n`).conditions.map((c) => [c.where, c.readable]);
+  // A stray backtick in the title masks the rest of the heading, suffix included.
+  assert.deepEqual(read('PD-1 — keep the ` key *(decided 2026-03-01 · reopens when M2 is closed)*'), [['heading', false]]);
+  assert.deepEqual(read('PD-2 — keep the ` key *(decided 2026-03-01 · provisional until the owner signs)*'), [['heading', false]]);
+  // No suffix at all, the clause written into the title.
+  assert.deepEqual(read('PD-3 — t, closes when M2 is closed'), [['heading', false]]);
+  // Read normally: nothing extra.
+  assert.deepEqual(read('PD-4 — t *(decided 2026-03-01 · reopens when M2 is closed)*'), [['heading', true]]);
+  assert.deepEqual(read('PD-5 — t *(decided 2026-03-01 — reopens when M2 is activated)*'), []);
+  assert.deepEqual(read('PD-6 — when it reopens or closes *(decided 2026-03-01)*'), []);
+  // A heading in a fence is quoted text: no clause, no backstop.
+  assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01 · reopens when M2 is closed)*\n```\n').entries.map((e) => e.conditions.length), [0, 0]);
+  tree({ 'decisions.md': '## PD-1 — keep the ` key *(decided 2026-03-01 · reopens when M2 is closed)*\n' }, (r) => assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-1', false]]));
 });
 
 test('AR-4: the heading suffix is read by the prose pattern outside every condition clause', () => {
@@ -232,6 +249,21 @@ test('is reviewed and Contents citations stay linear: many events, many reviews,
     r.owed();
     assert.ok(Date.now() - start < 3000, `took ${Date.now() - start}ms`);
   });
+});
+
+test('the Contents index stays linear: many items citing one feature, each naming another decision', () => {
+  const items = Array.from({ length: 20000 }, (_, i) => `F-01 per PD-${i + 1}`);
+  const reviews = {};
+  for (let i = 0; i < 30; i++) reviews[`docs/reviews/r${i}.md`] = review('dev/features/one.md', '0.1');
+  tree({ 'decisions.md': '## PD-1 — t\n\nAmends: F-01\nReopens when: F-01 is reviewed\n', 'dev/features/one.md': doc(1), 'docs/milestones/M2-a.md': milestone('M2', 'active', items), ...reviews }, (r) => {
+    const start = Date.now();
+    assert.deepEqual([r.owed(), r.fired('2026-03-10')], [[], []]);
+    assert.ok(Date.now() - start < 2000, `took ${Date.now() - start}ms`);
+  });
+});
+
+test('a frontmatter status that is not a string never throws, and is not shipped', () => {
+  tree({ 'decisions.md': '## PD-1 — t\n\nCloses when: F-07 is shipped\n', 'dev/features/seven.md': '---\nstatus:\n  toString: x\n---\n\n# F-07 — x\n' }, (r) => assert.deepEqual(r.fired('2026-03-10'), []));
 });
 
 test('quote removal is one pass: a line of unclosed quotes costs no more than its length', () => {

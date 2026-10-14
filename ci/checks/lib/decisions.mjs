@@ -32,6 +32,8 @@ const ENTRY = new RegExp(`${LEAD}(P?D)-(\\d{1,9})\\b`);
 const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
+// The five clause openings, anywhere in a heading: the backstop below counts each one the suffix reading did not take.
+const CLAUSE_WORD = /\b(?:reopens (?:when|if)|closes (?:when|if)|provisional until)\b/gi;
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
 const CLAUSES = [['reopens when', 'reopens'], ['reopens if', 'reopens'], ['closes when', 'closes'], ['closes if', 'closes'], ['provisional until', 'reopens']];
 const PROSE = [/\b(?:revisit(?:ed)?|reopen(?:s|ed)?)(?: it| this| them)? (?:when|if|once|after)\b/i, /\bcloses? (?:when|if|once)\b/i, /\bprovisional until\b/i];
@@ -82,6 +84,11 @@ function finish(e) {
     if (hit) conditions.push(condition(hit[0], 'heading', e.line, hit[1]));
     else proseClauses.push(e.masked.slice(at + 2 + off, at + 2 + off + raw.length));
   });
+  // The backstop (the owner's call, 2026-10-14, after three review rounds each found a typo that hid a heading clause):
+  // a clause opening in the heading outside the suffix read above, a stray backtick or a quoted suffix included, makes
+  // the decision unreadable. A typo can make a condition louder, never silent. A heading in a fence is quoted text.
+  const outside = at < 0 ? e.text : e.text.slice(0, at);
+  if (!e.fenced && [...outside.matchAll(CLAUSE_WORD)].length) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: outside, events: [], readable: false, issueOnly: false });
   const proseLines = [];
   for (const b of e.body) {
     // A label is read on the line as written, outside a fence: a stray backtick above it in the paragraph never hides
@@ -113,7 +120,7 @@ export function parseDecisions(md) {
   lines.forEach(({ line, text }, i) => {
     const m = text.match(ENTRY);
     if (m) {
-      cur = { id: `${m[1]}-${m[2]}`, key: `${m[1]}-${Number(m[2])}`, line, text, masked: masked[i], body: [] };
+      cur = { id: `${m[1]}-${m[2]}`, key: `${m[1]}-${Number(m[2])}`, line, text, masked: masked[i], fenced: fence[i], body: [] };
       entries.push(cur);
     } else if (TOP.test(text)) cur = null;
     else if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i] });
@@ -158,7 +165,8 @@ function readTree(root) {
   const quoted = new Map();
   for (const r of reviews) {
     const path = posix.normalize(r.reviewed.path);
-    quoted.set(path, [...(quoted.get(path) ?? []), r.version]);
+    if (!quoted.has(path)) quoted.set(path, []);
+    quoted.get(path).push(r.version);
   }
   const files = featureFiles(root).map((f) => {
     const lines = versionLines(f.md);
@@ -166,7 +174,7 @@ function readTree(root) {
       ...f,
       keys: keysOf(cut(f.md)),
       reviewed: (quoted.get(f.path) ?? []).some((v) => quotedVersion(f.md, v, lines) === 'current'),
-      shipped: String(docFrontmatter(f.md)?.status ?? '').toLowerCase() === 'shipped',
+      shipped: typeof docFrontmatter(f.md)?.status === 'string' && docFrontmatter(f.md).status.toLowerCase() === 'shipped',
     };
   });
   const milestones = plainFiles(root, 'docs/milestones', ['TEMPLATE.md', 'README.md'])
@@ -179,11 +187,21 @@ function readTree(root) {
     }));
   const itemKeys = new Map();
   for (const m of milestones.filter((x) => x.status !== 'killed')) {
-    for (const it of m.items) for (const n of it.features) itemKeys.set(n, new Set([...(itemKeys.get(n) ?? []), ...it.keys]));
+    for (const it of m.items) {
+      for (const n of it.features) {
+        if (!itemKeys.has(n)) itemKeys.set(n, new Set());
+        for (const k of it.keys) itemKeys.get(n).add(k);
+      }
+    }
   }
   const byFeature = (keep) => {
     const map = new Map();
-    for (const f of files.filter(keep)) for (const n of f.ns) map.set(n, [...(map.get(n) ?? []), f]);
+    for (const f of files.filter(keep)) {
+      for (const n of f.ns) {
+        if (!map.has(n)) map.set(n, []);
+        map.get(n).push(f);
+      }
+    }
     return map;
   };
   return { milestones, carrying: byFeature(() => true), docs: byFeature(isFeatureDoc), itemKeys };
