@@ -129,17 +129,22 @@ export const workflowTrigger = (text) => {
 export function runLines(rel, root) {
   const out = [];
   // `defaults.run.working-directory` of the workflow and of the job, and a step's own `working-directory`: where the
-  // line runs. Anything but one line of text is shown as `?`, so it never equals another place.
+  // line runs; the repository root is `''`, and no key at all is `undefined`, so a step set back to the root over a
+  // job default is not read as unset. Anything but one line of text is shown as `?`, and a text that holds `$` (an
+  // expression or a variable) is named for its own workflow, so neither equals another workflow's place.
   const dirOf = (node) => {
     const wd = node?.kind === 'map' ? node.entries.get('working-directory') : undefined;
-    return wd === undefined ? '' : isText(wd) ? (/^\.?\/?$/.test(wd.value.trim()) ? '' : wd.value.trim()) : '?';
+    if (wd === undefined) return undefined;
+    if (!isText(wd)) return `? @${rel}`;
+    const v = wd.value.trim();
+    return /^\.?\/?$/.test(v) ? '' : v.includes('$') ? `${v} @${rel}` : v;
   };
   const defaultDir = (node) => dirOf(node?.entries?.get('defaults')?.entries?.get('run'));
   for (const job of jobsOf(root) ?? []) {
     for (const step of job.entries.get('steps')?.items ?? []) {
       const run = step.entries.get('run');
       if (!run) continue;
-      const dir = dirOf(step) || defaultDir(job) || defaultDir(root);
+      const dir = dirOf(step) ?? defaultDir(job) ?? defaultDir(root) ?? '';
       run.value.split('\n').forEach((l, i) => {
         const cmd = stripShellComment(l.trim());
         if (cmd) out.push({ where: `${rel}:${run.line + (run.literal ? i : 0)}`, cmd, dir, step });

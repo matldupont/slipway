@@ -20,7 +20,7 @@ import { runLines, triggerOf } from './workflows.mjs';
 // `--dir`, `--filter`, `-r`, an argument such as `--plan`, an environment assignment or a redirect before or after
 // it) is named by its own command text, so it covers only a command written the same: a narrower run never stands
 // in for a broader one. The working directory (`defaults.run`, a step's `working-directory`) and a `cd` or `pushd`
-// earlier in the same step are part of the name too. Not read: a subshell or group around a command (`(cd x && pnpm
+// earlier in the same step are part of the name too. Not read: a command that continues on the next line (a trailing `||` or `\\`), a subshell or group around a command (`(cd x && pnpm
 // test)`), a shell condition (`false && pnpm verify`), a job's or step's `if:`, and which branches a workflow runs on.
 const GATE_SCRIPT = /^(?:verify|verify:fast|meta)$/;
 function commandsOf(cmd) {
@@ -51,8 +51,12 @@ function gatesOf(cmd, dir, state) {
   const out = [];
   for (const text of commandsOf(cmd)) {
     const first = text.split(' ')[0];
-    if (first === 'cd' || first === 'pushd') {
-      state.cd = text.slice(first.length).trim() || '?';
+    if (first === 'cd' || first === 'pushd' || first === 'popd') {
+      // A chain of `cd`s is one place, written out. `popd`, `cd -`, a bare `cd`, `~` and a target holding `$` are
+      // not worked out: they are named for their own workflow, so they never equal another one's place.
+      const to = text.slice(first.length).trim();
+      const unknown = !to || to === '-' || to.startsWith('~') || /[$`]/.test(to);
+      state.cd = unknown ? `? @${state.rel}` : to.startsWith('/') || !state.cd || state.cd.startsWith('?') ? to : `${state.cd}/${to}`;
       continue;
     }
     const where = [dir, state.cd && `cd ${state.cd}`].filter(Boolean).join(', ');
@@ -89,7 +93,7 @@ export function filteredGates(root) {
       continue;
     }
     const states = new Map(); // a step's lines share its `cd`
-    const gates = new Set(runLines(rel, w.root).flatMap((l) => gatesOf(l.cmd, l.dir, states.get(l.step) ?? states.set(l.step, { cd: '' }).get(l.step))));
+    const gates = new Set(runLines(rel, w.root).flatMap((l) => gatesOf(l.cmd, l.dir, states.get(l.step) ?? states.set(l.step, { cd: '', rel }).get(l.step))));
     for (const [event, e] of Object.entries(trigger.events)) {
       if (!e.on) continue;
       for (const g of gates) {
