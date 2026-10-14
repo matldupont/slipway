@@ -763,10 +763,11 @@ the run is built before the verdict, so the job is added once with the run behin
 
 **Measured** 2026-10-13, F-13 Build map step 0, by `dev/probes/tests-can-fail/measure.mjs` on a GitHub-hosted
 runner (`ubuntu-latest`, 4 cores, Node 24.21.0), 3 runs on each Vitest version. The scratch project is the one of
-2026-10-08, kept as patches under `dev/probes/tests-can-fail/scratch/`, with one test planted on top: its only
-failure is a `TypeError` on a line inside its `expect`, so the recordings of F-13 §8 hold all four kinds. The probe
-counts a test new by the Contract's rule (a changed line inside its own call); the prototype counted every test
-from a changed line to the next test, so 35 tests are new here where 38 were before.
+2026-10-08, kept as patches under `dev/probes/tests-can-fail/scratch/`, with one test planted on top whose only
+failure is a `TypeError` on a line inside its `expect`. The change of 2026-10-08 already had failures of that kind,
+and the recordings of F-13 §8 hold all four kinds from either. The probe counts a test new by the Contract's rule
+(a changed line inside its own call), where the prototype counted every test from a changed line to the next
+test: the rule leaves 4 of the 38 out, the planted test adds 1, and 35 are new here.
 
 | the scratch change, 10 source files | Vitest 5.0.3 | Vitest 4.1.11 |
 |---|---|---|
@@ -797,10 +798,10 @@ crossed**: more than a third of that project's new tests were not judged. So ste
   Actions minutes each time, which the owner will not pay. F-13 is reshaped so `/work-ticket` runs the step on the
   machine building the pull request, before it is marked ready, and no `mutation` job is added. What that gives up:
   the rule fires only where `/work-ticket` runs.
-- **F-13 is revised before any build step starts**: where it runs, a smaller cap on the changes tried per file,
-  and a support rule under which a test that reaches its code through a helper is still judged. The
-  budget, the limit, the caps and the not-judged share are set in that revision, not from this entry's figures
-  alone. Until it lands, F-13 0.3's Contract describes a job that will not be built.
+- **F-13 is revised before any build step starts** (#439): where the step runs, and the rule's caps and
+  subjects. The budget, the limit, the two caps of §3.9 and the not-judged share are set by the owner in that
+  revision, not here: this replaces step 0's acceptance clause that this entry holds them. Step 1 waits for the
+  revision. Until it lands, F-13 0.3's Contract describes a job that will not be built.
 
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
 

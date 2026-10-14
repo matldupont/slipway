@@ -34,7 +34,16 @@ git -C "$tmp" add -A && git -C "$tmp" commit -q -m change
 node dev/probes/tests-can-fail/measure.mjs "$tmp" HEAD~1 HEAD
 ```
 
-`--counts-only` prints no test name, path or commit. `--record <folder>` saves the runner outputs.
+`--counts-only` prints no test name, path or commit, and an error it did not foresee prints one fixed line.
+`failureKinds` still names the error classes the project's code throws. `--record <folder>` saves the runner
+outputs, test names and failure messages included, whatever else is passed: on a private project, point it
+outside any repository, never under this one.
+
+Where the probe departs from the Contract beyond the cut below (a reviewer's reading at the step 0 pull
+request; none moves the not-judged share, and each can move the seconds): a group of rows (`it.each`) is
+credited when any row's failure counts, not the first listed; every `body` change is tried before any other
+kind, and the pull request's own lines come first within each kind; `expect.any(…)` and the like count as
+`expect` spans; and a file is in `outsideAnyTest` only when none of its tests is new.
 `--no-setup` skips `ci/before-verify.sh`. `--call "<words>"` adds words to every runner call.
 
 ## What it applies, and what it leaves out

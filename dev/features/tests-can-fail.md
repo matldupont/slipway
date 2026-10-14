@@ -544,7 +544,8 @@ machine (decision-defaults §3); and a test written to pass this step and nothin
   merged with a newer base is not seen here; `verify` runs the merge. The step's own files, and the two
   files that take tests out (`ci/exceptions.yaml`, `ci/tests-can-fail.yaml`), are the branch's and not the
   base's, while the job's steps are the merge's: a pull request open when a project takes the step, or when
-  the base gains an entry, is judged without it until the base branch is merged in.
+  the base gains an entry, is red with the package manager's missing-script error, or judged without the
+  entry, until the base branch is merged in.
 - **A change outside every test marks none new.** A helper, a hook, a mock or an import line in a test file
   changes what every test there can notice, and none of them is judged. Such files are counted in every run.
 - **An updated snapshot marks no test new.** A snapshot file changes what a test asserts without a line of

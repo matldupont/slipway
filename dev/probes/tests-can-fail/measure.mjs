@@ -44,7 +44,10 @@ const t0 = Date.now();
 const seconds = () => Math.round((Date.now() - t0) / 100) / 10;
 const phases = {};
 const timed = (name, fn) => { const s = Date.now(); try { return fn(); } finally { phases[name] = Math.round(((phases[name] ?? 0) * 1000 + Date.now() - s) / 100) / 10; } };
-const git = (args, env) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', maxBuffer: 256 << 20, env: { ...process.env, ...env } });
+const git = (args, env) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', maxBuffer: 256 << 20, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...env } });
+// With --counts-only, an error the probe did not foresee prints a fixed line: its message would carry the
+// repository's path, file paths and commits.
+if (countsOnly) process.on('uncaughtException', () => { console.log(JSON.stringify({ stopped: 'the probe failed; run it without --counts-only on your own machine to see why' })); process.exit(2); });
 const ext = (p) => { const b = posix.basename(p); const i = b.lastIndexOf('.'); return i < 0 ? '' : b.slice(i); };
 const isSnapshot = (p) => p.split('/').includes('__snapshots__') || p.endsWith('.snap');
 const isTestName = (p) => !isSnapshot(p) && (/\.(test|spec)\.[^/]+$/.test(p) || p.split('/').includes('__tests__'));
@@ -57,9 +60,12 @@ const mergeBase = git(['merge-base', base, head]).trim();
 // §3.1 — added and changed lines per file, and the place of each hunk that only removes lines.
 const added = {}; const removedAfter = {};
 {
-  let file = null;
-  for (const l of git(['diff', '-U0', '-M', '-w', '--no-color', '--no-ext-diff', `${mergeBase}`, head]).split('\n')) {
-    if (l.startsWith('+++ ')) { file = l === '+++ /dev/null' ? null : l.slice(6); continue; }
+  let file = null; let inHeader = false;
+  for (const l of git(['-c', 'core.quotePath=false', 'diff', '-U0', '-M', '-w', '--no-color', '--no-ext-diff', mergeBase, head]).split('\n')) {
+    // A file's header runs from `diff --git` to its first hunk; a `+++ ` line anywhere else is an added line.
+    if (l.startsWith('diff --git ')) { inHeader = true; continue; }
+    if (l.startsWith('@@')) inHeader = false;
+    if (inHeader && l.startsWith('+++ ')) { file = l === '+++ /dev/null' ? null : l.slice(6); continue; }
     const m = /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/.exec(l);
     if (!m || !file) continue;
     const start = +m[1]; const n = m[2] === undefined ? 1 : +m[2];
@@ -110,6 +116,8 @@ if (!changedTestFiles.length) finish();
 const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'tests-can-fail-probe-')));
 const copy = join(tmp, 'copy');
 process.on('exit', () => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* the folder is in the temporary directory */ } });
+// Ctrl-C, or a job cancelled or out of time, removes the copy too: `exit` does not fire on a signal.
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, () => process.exit(130));
 const fail = (message, detail) => { out.stopped = message; if (detail && !countsOnly) out.detail = String(detail).split('\n').slice(-12).join('\n'); finish(2); };
 timed('copy', () => {
   const env = { GIT_INDEX_FILE: join(tmp, 'index') };
