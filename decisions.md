@@ -1043,6 +1043,38 @@ Why: a review is current while the line it quotes is in the document, so the lin
 was reviewed, the bet, has changed. The skills that edit a milestone's Contents do not yet cite this rule; that is
 a follow-up of #404.
 
+## D-045 — A decision that still owes something says so on lines status reads: what it changes, when it reopens or closes, never an item's position *(decided 2026-10-14)*
+
+Changes: F-15
+
+`pnpm status` listed only the decisions still open. One that was made but left something owed, a feature it
+changes that nothing ties it to, a "reopens when" written in prose, an item named by position, was left to the
+author's memory, which status exists to replace. The owner answered #440's five open questions on 2026-10-14:
+
+- **The form is a labelled line under the heading,** at the first column: `Changes: F-<n>` (the features it changes;
+  owed until that feature's doc or Contents line names the decision), `Reopens when: <event>` and `Closes when:
+  <event>`. Conditions projects already wrote in the heading's suffix (`*(decided … · reopens when M2 is
+  activated)*`) are read the same way, never written again. Declined: the heading suffix as the only form (headings
+  are quoted whole by tests and reviews, and grow unreadable); labelled lines only (what projects already wrote would
+  stay silent).
+- **An event is one of a closed list status reads offline:** a feature doc exists, is reviewed or is shipped; a
+  milestone is active or closed; a date passes. "An issue closes" is kept and read at the pull request whose body
+  closes it (P1, `/work-ticket`), never by status (D-022). Anything else is unreadable: counted, never fired. Advised
+  by the orchestrator session and taken.
+- **A position (`M2 item 4`) fails `pnpm meta`,** on four exact shapes, with the feature on that item's line named in
+  the finding. Declined: a warning (nothing forces the rewrite before the next reorder).
+- **A fired condition is cleared by its outcome:** the line becomes `Reopened YYYY-MM-DD: …` or `Closed YYYY-MM-DD: …`,
+  or is removed as a visible diff; a `Changes:` line clears itself once cited. Declined: a new heading status, a
+  separate `Done:` line.
+- **Slipway's `D-` and a project's `PD-` are read alike.** In slipway's own tree the citation lives in `dev/features/`.
+- **A project's first run lists what it already wrote in headings;** body prose ("revisit when …") is counted once, in a
+  sync note and the retro, never searched in status. Declined: a word search in status (fuzzy, and a false hit sits in
+  every session's hook); reading only decisions written after the sync (everything already written stays silent).
+
+Why: the owner's principle that nothing owed after a decision is left to memory (#440, reshaped 2026-10-14). Spec:
+`dev/features/owed-decisions.md` (F-15); #440. This entry carries the first `Changes:` line; F-15's doc names D-045
+in its frontmatter, so nothing is owed for it.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
