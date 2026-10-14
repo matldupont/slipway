@@ -17,7 +17,7 @@
 // is cut at 500 characters before a pattern reads it, every pattern is anchored or bounded, and free text from the
 // record is returned only in `text` fields. Callers print ids, the table's words (`said`) and paths, never `text`.
 
-import { lstatSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
 import { citedFeatures, contents } from './milestones.mjs';
@@ -201,12 +201,12 @@ export const namesDecision = (text, key) => keysOf(text).has(key);
 const cut = (md) => visible(md).map((l) => l.text.slice(0, MAX)).join('\n');
 const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$/i)?.[1] : undefined);
 
-// The `*.md` names directly in a folder of the tree, by name; none when the folder is missing, a link or not a folder.
+// The `*.md` names directly in a folder of the tree, by name; none when the folder is missing or not a folder.
 // Each file is then opened only through readPlain(), so a link, a folder named `x.md` or a file reached through a link
 // is skipped, never read and never a throw: the tree is a pull request's to shape.
 const listed = (root, dir, skip) => {
   try {
-    return lstatSync(posix.join(root, dir)).isDirectory() ? readdirSync(posix.join(root, dir)).filter((f) => f.endsWith('.md') && !skip.includes(f)).sort() : [];
+    return readdirSync(posix.join(root, dir)).filter((f) => f.endsWith('.md') && !skip.includes(f)).sort();
   } catch {
     return [];
   }
@@ -238,13 +238,8 @@ export function readDecisions(root) {
 
   const carrying = (n) => t().files.filter((f) => f.ns.includes(n));
   const docsOf = (n) => t().files.filter((f) => isFeatureDoc(f) && f.ns.includes(n));
-  // Each answer is kept, so a record of many entries asks each doc and Contents item once per decision and feature.
-  const citations = new Map();
-  const cited = (key, n) => {
-    const k = `${key} ${n}`;
-    if (!citations.has(k)) citations.set(k, carrying(n).some((f) => f.keys.has(key)) || t().milestones.some((m) => m.status !== 'killed' && m.items.some((it) => it.features.has(n) && it.keys.has(key))));
-    return citations.get(k);
-  };
+  // Each doc and Contents item holds the decision keys it names, read once, so a record of many entries stays linear.
+  const cited = (key, n) => carrying(n).some((f) => f.keys.has(key)) || t().milestones.some((m) => m.status !== 'killed' && m.items.some((it) => it.features.has(n) && it.keys.has(key)));
   const amendsOf = new Map(entries.map((e) => [e, [...new Set(e.conditions.filter((c) => c.kind === 'changes' && c.readable).flatMap((c) => c.features))]]));
   const amends = (e) => amendsOf.get(e);
 
