@@ -383,7 +383,7 @@ run, an idea or a milestone item. No file: say so, and go on.
     decision, numbered as the project numbers its own, naming what it supersedes in part; it is written on the
     doc branch, and only on a yes.
   - **Neither yet:** stop. Nothing is written, no branch is made; name the decisions the owner has to settle.
-- **Written:** a decision names the feature it changes on an `Amends: F-<n>` line, and `/log-feature` writes that line on a decision the run records and cites each touched decision where it bears on the doc, the Contract included.
+- **Written:** a decision names the feature it changes on an `Amends: F-<n>` line and what reopens or closes it on a `Reopens when:` or `Closes when:` line naming an event slipway reads, never an item's position, and `/log-feature` writes the `Amends:` line on a decision the run records and cites each touched decision where it bears on the doc, the Contract included.
 - Phase 3's output gains one line: `Decisions: {id} — {what it decides} · {how the feature touches it} … ·
   Conflicts: {A} vs {B} — {subject} | none`, or `Decisions: none`.
 
