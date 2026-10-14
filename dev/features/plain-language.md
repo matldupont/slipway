@@ -443,16 +443,16 @@ pnpm check:prose                                                 # §8: 0 errors
 
 One PR per stage, in this order; each merges on its own with `pnpm meta` green.
 
-1. `process/writing.md`, the two pointer lines, and the status rewrite (§1, §2): `process/`, `ci/status.mjs`,
+1. #456 · `process/writing.md`, the two pointer lines, and the status rewrite (§1, §2): `process/`, `ci/status.mjs`,
    `ci/checks/lib/steps.mjs`, `ci/fixtures/status/**`, S1. ~350 lines, most of them fixtures.
-2. Check failure messages (§3): `ci/checks/lib/report.mjs`, every `ci/checks/meta/*.mjs`, `issue-shape.yml`,
+2. #457 · Check failure messages (§3): `ci/checks/lib/report.mjs`, every `ci/checks/meta/*.mjs`, `issue-shape.yml`,
    `scripts/report.test.mjs`. Large; the format first, the messages after, under one issue.
-3. `README.md` and the path table (§4): the two files, `steps.test.mjs`. ~120 lines.
-4. The three skills' questions (§5): `.claude/skills/{kickoff,bootstrap,close-milestone}/SKILL.md`,
+3. #458 · `README.md` and the path table (§4): the two files, `steps.test.mjs`. ~120 lines.
+4. #459 · The three skills' questions (§5): `.claude/skills/{kickoff,bootstrap,close-milestone}/SKILL.md`,
    `scripts/skills.test.mjs`. ~150 lines.
-5. The templates (§6): two forms, `TEMPLATE.md`, `process/intake.md`, I1, `/log-feature`, `/review-doc`. ~150 lines.
-6. P1 on titles and subjects (§7): P1, `pr-body.yml`, `ci/fixtures/known-bad/p1/**`. ~200 lines.
-7. Vale (§8): `.vale.ini`, `ci/prose/**`, `ci/prose.mjs`, `package.json`, `ci.yml`, `pr-body.yml`, the fixture,
+5. #460 · The templates (§6): two forms, `TEMPLATE.md`, `process/intake.md`, I1, `/log-feature`, `/review-doc`. ~150 lines.
+6. #461 · P1 on titles and subjects (§7): P1, `pr-body.yml`, `ci/fixtures/known-bad/p1/**`. ~200 lines.
+7. #462 · Vale (§8): `.vale.ini`, `ci/prose/**`, `ci/prose.mjs`, `package.json`, `ci.yml`, `pr-body.yml`, the fixture,
    `scripts/prose.test.mjs`, `ci/baselines.json`. ~300 lines.
 
 Steps 1 to 5 change files the harness asks about (`ci/**`, `process/`, `.claude/skills/**`, the forms); every PR
@@ -482,4 +482,4 @@ none
 
 ## Changes
 
-- 2026-10-14 · ADDED · the feature, 8 sections of Contract, 7 build steps · #TBD
+- 2026-10-14 · ADDED · the feature, 8 sections of Contract, 7 build steps · #455 (steps #456 to #462)
