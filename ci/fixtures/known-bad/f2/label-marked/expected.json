@@ -1,0 +1,5 @@
+{
+  "_note": "`- Reuses:` and `**Numbers:**` in place of the labels: a label written with a list mark or emphasis is not a label.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/unfilled/reuses", "docs/features/export.md#fit/unfilled/numbers"]
+}

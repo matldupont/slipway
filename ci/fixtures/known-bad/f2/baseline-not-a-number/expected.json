@@ -1,0 +1,6 @@
+{
+  "_note": "The count is written as text, \"3\": not a whole number, so there is no count.",
+  "exit": 2,
+  "broken": "ci/baselines.json has no feature-fit count",
+  "findings": []
+}

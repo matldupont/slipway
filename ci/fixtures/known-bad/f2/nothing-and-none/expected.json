@@ -1,0 +1,5 @@
+{
+  "_note": "`Reuses:` is one `nothing` bullet and `New:` is `none`: a feature that neither reuses nor adds anything has not been described.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/unfilled/new"]
+}

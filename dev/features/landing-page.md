@@ -56,6 +56,37 @@ round), and leave only the lines about the first milestone close for after it.
 | generate "What's proven" from `SLIPWAY.md` by script | can never drift | machinery for one page (decision-defaults §10); a claims table per release is enough, a check only if drift recurs | rejected |
 | cut the page to the README's first screen | less to keep true | answers none of the reader's "why" questions; #55 exists because the README is a reference | rejected |
 
+## Fit
+
+Reuses:
+- The page that exists, edited in place: `site/index.html`, `site/css/base.css` and `site/css/manual.css`. No new
+  section, page or stylesheet.
+- The Manual direction, the steel ground and the candid first-person voice in `dev/site/design-direction.md`.
+- `SLIPWAY.md` as the one source for what is proven: "Exercised on a real project" and "Not verified here"; each
+  bullet of the page's §06 pairs with one line there.
+- `README.md`'s first screen, which mirrors the page's, and its sections as the source for the commands, the
+  prerequisites and the notes.
+- `/review-doc` and R1's `Reviewed:` line (`ci/checks/meta/r1-review-provenance.mjs`, `docs/reviews/`): the three
+  reviews of this doc, each pinned to a version.
+- The `Verified against: sha date` line of L-18 (`process/lessons/L-18-evidence-rots-reverify-and-date.md`), on
+  the Contract and on each kept "Not verified here" line.
+- A companion doc with `companion-of:` in its frontmatter (`dev/features/landing-page-claims.md`): the claims
+  table and the required facts as built.
+
+Numbers:
+- How many real syncs there were, and how many met the yardstick, missed it and were not fully scored: counted
+  once, in `SLIPWAY.md` "Real syncs", from the epic's Acceptance. §06 of the page repeats that sentence's counts.
+- The time the first real close took, on the ramp's step 6 and in §06: `SLIPWAY.md` "The first milestone close".
+- The number of steps and each step's duration on the ramp: `SLIPWAY.md`'s path table.
+- No code calculates any of the three: each is written by hand from its `SLIPWAY.md` line, and
+  `dev/features/landing-page-claims.md` holds the row that names the source.
+
+New: a claims table (one row per factual sentence, each with a source), a reader test (fresh sessions answer
+fixed questions, a separate session scores required facts, a control round on the old page first), and a
+measured fold at two viewports. Searched `ci/` for anything that reads `site/`: none, and a script that
+generates the page's proof from `SLIPWAY.md` was rejected in the Problem's options table as machinery for one
+page. `html { scrollbar-gutter: stable; }` in `site/css/base.css` is new to the site.
+
 ## Contract
 
 Verified against: 9824e8f 2026-10-06 — read in full on `main`: `site/index.html`, `site/css/base.css`,

@@ -48,6 +48,43 @@ one feature, built beside a check that must not name it).
 | one design item before the screens that follow the skeleton, a WCAG line per screen milestone, a check that reads both | the plan carries the work and the gate; a check holds presence, nothing more | one more Contents item and one more Gate line to write | **proceeds** |
 | fold #94 in | the tool ships with the plan | several sessions more; the check would be built beside a skill it must not name | rejected |
 
+## Fit
+
+Nothing here is built yet: each line says what the spec plans to reuse, checked against the tree, not what a
+build was found to use.
+
+Reuses:
+- Planned: DS1 will read every milestone through `readMilestones()`, its items through `contents()` and
+  `started()`, and its no-gos through `noGos()`, all in `ci/checks/lib/milestones.mjs`, the one reader of a
+  milestone's items and sections.
+- Planned: will call `section()` and `plain()` in `ci/checks/lib/markdown.mjs`, and `PLACEHOLDER` in
+  `ci/checks/lib/frontmatter.mjs`, the one definition of unfilled.
+- Planned: will order milestones with `milestoneNumber()` in `ci/checks/lib/risks.mjs`, the order K1 uses for the
+  PRD's deadlines.
+- Planned: MS1's `hasDecision` for `extended:` (`ci/checks/meta/ms1-milestones.mjs`) will be lifted into the lib
+  and held to an id first, so `design:` and `extended:` resolve the same way.
+- Planned: will call `loadRegistry()` and `expiryProblem()` in `ci/checks/lib/exceptions.mjs` for a dated entry in
+  `ci/exceptions.yaml`, with the day from `today()` in `ci/checks/lib/clock.mjs`.
+- Planned: will report through `report()` in `ci/checks/lib/report.mjs`, with PC1's `expected.json` and its
+  `details` (`ci/checks/meta/pc1-positive-control.mjs`) for the known-bad cases.
+- Planned: the status fixtures S1 compares by their `attention` list (`ci/fixtures/status/`,
+  `ci/checks/meta/s1-status.mjs`) will hold the new Needs attention lines.
+- Planned: `scripts/skills.test.mjs` will pin every sentence a skill or template must keep.
+
+Numbers:
+- How many units DS1 examined and how many findings it has will be printed by `report()` in
+  `ci/checks/lib/report.mjs`, from the one list DS1 builds.
+- The day in "accessibility excused until" is the entry's `expires` in `ci/exceptions.yaml`, read and not
+  calculated; whether it has passed will be decided once, by `expiryProblem()`.
+- The design item's hours are typed by the owner into the milestone's row of PRD §9. The feature adds no sum:
+  MS1's `estimate/over-appetite` (`ci/checks/meta/ms1-milestones.mjs`) already compares that row with the appetite.
+
+New: the `Front end:` line in the frame and its reader, the `Design:` item label, the `screens:` and `design:`
+fields, the accessibility line under a milestone's Gate, the registry entry that stands in for it, the check DS1,
+and one predicate ("is there a design item before this milestone") that DS1 and `ci/status.mjs` will both call.
+Searched `ci/checks/lib/` for a reader of a labelled line in the frame: `readRisks()` in `ci/checks/lib/risks.mjs`
+reads the Risks table only, and `ci/checks/lib/milestones.mjs` has no design reader, so both are new.
+
 ## Contract
 
 ### 1. The frame says where people use the product — `docs/product/FRAME.md`

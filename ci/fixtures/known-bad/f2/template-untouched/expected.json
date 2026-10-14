@@ -1,0 +1,5 @@
+{
+  "_note": "A shipped doc whose Fit is the template's section, byte for byte (scripts/f2.test.mjs compares the two): every label still holds its placeholder.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/unfilled/reuses", "docs/features/export.md#fit/unfilled/numbers", "docs/features/export.md#fit/unfilled/new"]
+}

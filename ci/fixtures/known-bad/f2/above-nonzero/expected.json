@@ -1,0 +1,5 @@
+{
+  "_note": "3 counted docs against a count of 2: a finding for each of the 3, since the check cannot tell which is the new one.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/missing", "docs/features/import.md#fit/missing", "docs/features/search.md#fit/missing"]
+}

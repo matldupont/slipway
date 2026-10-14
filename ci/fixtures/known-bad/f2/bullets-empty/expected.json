@@ -1,0 +1,5 @@
+{
+  "_note": "`Numbers:` followed by bullets with nothing after the mark.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/unfilled/numbers"]
+}

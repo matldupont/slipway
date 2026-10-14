@@ -1,0 +1,6 @@
+{
+  "_note": "`status: review`, a word the check does not know: anything but draft is held.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#fit/missing"],
+  "details": { "docs/features/export.md#fit/missing": "has the status \"review\", which is not draft" }
+}

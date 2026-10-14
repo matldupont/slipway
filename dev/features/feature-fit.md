@@ -36,9 +36,10 @@ One such drift, or short answers in more than half of the milestone's feature do
 sync count back to the owner. Reading the first real result is #423.
 
 Evidence of a neighbouring kind, from slipway's own tree: of the fifteen docs in `dev/features/` with
-frontmatter, six carry an ad hoc "what is reused" list (`deferred-checks.md`, `cli-output.md`, `next-slice.md`,
+frontmatter, seven carry an ad hoc "what is reused" list (`deferred-checks.md`, `cli-output.md`, `next-slice.md`,
 `tests-can-fail.md` and `experience-evidence.md` under "What is reused", `intake-skills.md` as "Reused, not
-rewritten"), each in its own shape; this doc is the seventh, and eight carry none. `ci/checks/lib/risks.mjs:1`
+rewritten", `design-before-screens.md` as a "Reuses (searched by behaviour)" paragraph), each in its own shape;
+this doc is the eighth, and seven carry none. `ci/checks/lib/risks.mjs:1`
 says why there is one reader of risks: "so the two can never disagree". The rule is known; it is not written
 where a check can hold it. Workaround today: a reviewer notices, or nobody does. Why now: #379's order puts #48
 before the next real project's feature docs are written, so those docs are born with the section.
@@ -397,10 +398,23 @@ as the other ratchets' are.
   file, and no skill is told to run it. While the baseline is above the count there is room: that many docs can
   become held with no Fit and the check stays green. The room grows by one for each Fit filled and not locked
   in, so it can get as large as the count sync first recorded.
+- `--update` with no count recorded writes whatever the count is: the one path with no ratchet. The check's
+  BROKEN message names the command. In a project the file is owner-only and sync records the count; a key
+  removed and written again shows in the diff, as a count raised by hand does.
 - A project that uses `status:` words beyond `draft` and `shipped` has every other word held. That is the strict
   reading (decision-defaults §5).
 - F2 reads `docs/features/` and `dev/features/`, as ID1 does. A project whose `Feature docs dir` setting names
   another folder has its docs unread by both; the claim line names the folders read.
+- A label's text, and an item under it, counts as filled only when it holds a letter or a digit, once characters
+  nobody sees are taken out. A value written as a symbol only (a dash, a tick) reads as unfilled: counted, never
+  passed. It covers characters nobody sees and bare list marks; it does not cover a numbered mark alone (it
+  holds a digit), markup a renderer shows as nothing, or a placeholder with a character nobody sees inside it.
+  Each of those is text in the diff a reviewer reads.
+- The short answers are read as written: `nothing` and `none` in another form (another list mark, emphasis, a
+  look-alike letter) are not the short answers, so a doc that gives them that way is not counted among them.
+- A line of a label's text longer than 5,000 characters reads as unfilled, and the finding says the line is not
+  filled in, not that it is too long. The cap bounds what the reader does per line; over it the reader refuses
+  rather than guesses, so such a doc is counted, never passed. Wrap the line.
 - `PLACEHOLDER` also matches the word `TBD`: a filled line that mentions it reads as unfilled. One definition of
   "unfilled" is kept over a second.
 - A doc that becomes held on the default branch between a sync's count and that sync's merge lands one above the

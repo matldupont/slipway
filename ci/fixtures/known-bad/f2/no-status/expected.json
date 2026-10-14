@@ -1,0 +1,5 @@
+{
+  "_note": "Frontmatter with no `status:` line, Fit filled: counted, and the fix is the status line.",
+  "exit": 1,
+  "findings": ["docs/features/export.md#frontmatter/unreadable"]
+}

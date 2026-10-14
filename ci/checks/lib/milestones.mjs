@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter, PLACEHOLDER } from './frontmatter.mjs';
+import { frontmatter, lineRest, PLACEHOLDER } from './frontmatter.mjs';
 import { plain, prose, section, strictSection } from './markdown.mjs';
 import { UNSAFE } from './report.mjs';
 
@@ -56,7 +56,10 @@ export function contents(md) {
   const items = [];
   let under = false;
   for (const line of (section(md, 'Contents', 2) ?? '').split(/\r?\n/)) {
-    const open = line.match(/^(\d+)\.\s+(.*)$/);
+    // `N. text`, as /^(\d+)\.\s+(.*)$/ reads it, without that pattern's retry from every space of a long line.
+    const num = line.match(/^(\d+)\.(?=\s)/);
+    const rest = num ? lineRest(line.slice(num[0].length)) : null;
+    const open = rest === null ? null : [line, num[1], rest];
     const item = items[items.length - 1];
     const indented = /^\s+\S/.test(line);
     // Status runs this in every session's hook: a line is cut before any pattern reads it.
