@@ -46,13 +46,18 @@ const blank = (s) => ' '.repeat(s.length);
 // marker lines too. A code span is backtick to backtick within a paragraph (consecutive non-blank lines, a heading
 // standing alone), so a span crosses the hard wraps decisions.md is written with; an unmatched backtick blanks to the
 // paragraph's end.
-export function mask(lines) {
-  const out = [];
+// Whether each line sits in a fenced block, its marker lines included.
+export function fenced(lines) {
   let fence = false;
-  for (const l of lines) {
-    if (FENCE.test(l)) fence = !fence;
-    out.push(fence || FENCE.test(l) ? blank(l) : l);
-  }
+  return lines.map((l) => {
+    const marker = FENCE.test(l);
+    if (marker) fence = !fence;
+    return fence || marker;
+  });
+}
+export function mask(lines) {
+  const fence = fenced(lines);
+  const out = lines.map((l, i) => (fence[i] ? blank(l) : l));
   let open = false;
   for (let i = 0; i < out.length; i++) {
     const alone = HEADING.test(out[i]);
@@ -97,7 +102,7 @@ export function parseEvent(part) {
   m = part.match(/^(\d{4}-\d{2}-\d{2}) (passes|has passed)$/i);
   if (m) return isDay(m[1]) ? { kind: 'date', date: m[1], readable: true, said: `${m[1]} passes` } : null;
   m = part.match(/^(?:([\w.-]{1,100}\/[\w.-]{1,100}))?#(\d{1,9}) (closes|lands|is closed)$/i);
-  if (m) return { kind: 'issue', repo: m[1] ?? null, issue: Number(m[2]), readable: ISSUE_READABLE, said: `#${Number(m[2])} closes` };
+  if (m) return { kind: 'issue', issue: Number(m[2]), readable: ISSUE_READABLE, said: `#${Number(m[2])} closes` };
   return null;
 }
 
@@ -159,7 +164,9 @@ function finish(e) {
   });
   const proseLines = [];
   for (const b of e.body) {
-    const label = LABELS.find(([l]) => b.masked.startsWith(l));
+    // A label is read on the line as written, outside a fence: a stray backtick above it in the paragraph never hides
+    // it (a code span is no reason to skip a label, §2; only a fence is).
+    const label = b.fenced ? null : LABELS.find(([l]) => b.text.startsWith(l));
     if (label) conditions.push(condition(label[1], 'line', b.line, b.text.slice(label[0].length)));
     else if (!OUTCOME.test(b.masked)) proseLines.push(b.masked);
   }
@@ -180,6 +187,7 @@ function finish(e) {
 export function parseDecisions(md) {
   const lines = visible(md).map(({ line, text }) => ({ line, text: text.slice(0, MAX) }));
   const masked = mask(lines.map((l) => l.text));
+  const fence = fenced(lines.map((l) => l.text));
   const entries = [];
   let cur = null;
   lines.forEach(({ line, text }, i) => {
@@ -188,7 +196,7 @@ export function parseDecisions(md) {
       cur = { id: `${m[1]}-${m[2]}`, key: `${m[1]}-${Number(m[2])}`, line, text, masked: masked[i], body: [] };
       entries.push(cur);
     } else if (TOP.test(text)) cur = null;
-    else if (cur) cur.body.push({ line, text, masked: masked[i] });
+    else if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i] });
   });
   return { entries: entries.map(finish) };
 }

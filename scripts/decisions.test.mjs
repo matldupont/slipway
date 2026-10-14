@@ -63,6 +63,13 @@ test('a lookalike label is prose, and labelled lines inside a fenced block are p
   assert.deepEqual(one('## PD-1 — t *(decided 2026-03-01)*\n\n```markdown\nAmends: F-07\nReopens when: F-07 has a doc\n```\n').conditions, []);
 });
 
+test('a stray backtick above a label in its paragraph never hides it', () => {
+  const e = one('## PD-7 — t *(decided 2026-03-01)*\n\nAmends: `F-07\nReopens when: F-07 is reviewed\nCloses when: M2 is closed\n');
+  assert.deepEqual(e.conditions.map((c) => [c.kind, c.readable]), [['changes', true], ['reopens', true], ['closes', true]]);
+  const f = one('## PD-8 — t\n\nWe chose the ` key.\nReopens when: M2 is active\n');
+  assert.deepEqual(f.conditions.map((c) => c.readable), [true]);
+});
+
 test('invisible characters before a label, or inside its word, are taken out: the line is read as a label', () => {
   for (const line of ['​Amends: F-07', '﻿Amends: F-07', 'Am​ends: F-07', '⁠Reopens when: F-07 has a doc']) {
     const e = one(`## PD-1 — t *(decided 2026-03-01)*\n\n${line}\n`);
@@ -90,7 +97,7 @@ test('events: every form of the table, case-folded verbs, ids in their case, a c
   const said = (s) => parseEvent(s)?.said ?? null;
   assert.deepEqual(['F-7 has a doc', 'F-07 HAS A FEATURE DOC', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is activated', 'M2 goes active', 'M2 closes', '2026-03-09 has passed', 'acme/app#12 lands', '#12 is closed'].map(said),
     ['F-07 has a doc', 'F-07 has a doc', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is active', 'M2 is active', 'M2 is closed', '2026-03-09 passes', '#12 closes', '#12 closes']);
-  assert.equal(parseEvent('acme/app#12 lands').repo, 'acme/app');
+  assert.deepEqual(parseEvent('acme/app#12 lands'), { kind: 'issue', issue: 12, readable: false, said: '#12 closes' });
   const c = one('## PD-1 — t\n\nReopens when: `F-07 has a doc`  or  M2 is active.\n').conditions[0];
   assert.deepEqual([c.readable, c.events.map((e) => e.kind)], [true, ['doc', 'active']]);
 });
@@ -121,6 +128,12 @@ test('positions: the five shapes in a heading clause or body; not with no milest
   assert.deepEqual(at('## PD-3 — t\n\n```\nM2 item 4\n```\n'), []);
   assert.deepEqual(at('## PD-3 — t\n\na span `that\ncrosses` a break, then M2 item 4\n'), [[4, 2, 4]]);
   assert.deepEqual(at('## PD-3 — t\n\na stray `\n\nnext paragraph M2 item 4\n'), [[5, 2, 4]]);
+});
+
+test('the heading is read masked: a position or prose in its code span is not counted, and a span never runs past it', () => {
+  assert.deepEqual(one('## PD-1 — about `M2 item 4` *(decided 2026-03-01)*\n').positions, []);
+  assert.equal(one('## PD-1 — t *(decided 2026-03-01 · see `revisit when` above)*\n').prose, false);
+  assert.deepEqual(one('## PD-1 — t `stray\nM2 item 4\n').positions.map((p) => p.line), [2]);
 });
 
 test('mask keeps every column, blanks fences whole and spans across a paragraph only', () => {
@@ -247,13 +260,14 @@ test('fired: is reviewed only on a current review; AR-1, not while the same deci
 
 test('fired: AR-2, M<n> is active on active, closed or killed and says which; M<n> is closed on closed or killed', () => {
   tree({
-    'decisions.md': '## PD-1 — a\n\nReopens when: M2 is active\n\n## PD-2 — b\n\nCloses when: M3 is closed\n\n## PD-3 — c\n\nReopens when: M4 is active\n\n## PD-4 — d\n\nReopens when: M5 is active\n\n## PD-5 — e\n\nCloses when: M2 is closed\n',
+    'decisions.md': '## PD-1 — a\n\nReopens when: M2 is active\n\n## PD-2 — b\n\nCloses when: M3 is closed\n\n## PD-3 — c\n\nReopens when: M4 is active\n\n## PD-4 — d\n\nReopens when: M5 is active\n\n## PD-5 — e\n\nCloses when: M2 is closed\n\n## PD-6 — f\n\nReopens when: M6 is active\n\n## PD-7 — g\n\nCloses when: M6 is closed\n',
     'docs/milestones/M2-a.md': milestone('M2', 'active', ['x']),
     'docs/milestones/M3-a.md': milestone('M3', 'killed', ['x']),
     'docs/milestones/M4-a.md': milestone('M4', 'shaping', ['x']),
     'docs/milestones/M5-a.md': milestone('m5', 'killed', ['x']),
+    'docs/milestones/M6-a.md': milestone('M6', 'closed', ['x']),
   }, (r) => {
-    assert.deepEqual(r.fired('2026-03-10').map((f) => [f.id, f.events.map((e) => e.said)]), [['PD-1', ['M2 is active']], ['PD-2', ['M3 is killed']], ['PD-4', ['M5 is killed']]]);
+    assert.deepEqual(r.fired('2026-03-10').map((f) => [f.id, f.events.map((e) => e.said)]), [['PD-1', ['M2 is active']], ['PD-2', ['M3 is killed']], ['PD-4', ['M5 is killed']], ['PD-6', ['M6 is closed']], ['PD-7', ['M6 is closed']]]);
   });
 });
 
@@ -274,10 +288,13 @@ test('unreadable: in file order, ids only; an issue event is unreadable until st
       '## PD-5 — c\n\nAmends: F-07 or later\nCloses when: acme/app#12 is closed',
       '## PD-6 — d\n\nReopens when: F-07 has a doc',
       '## PD-7 — e *(decided 2026-03-01 · closes when #12 lands)*\n\nReopens when: F-07 has a doc or #13 closes',
+      '## PD-8 — f\n\nCloses when: #12 lands or soon',
     ].join('\n\n'),
+    'dev/features/seven.md': doc(7),
   }, (r) => {
-    assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-3', false], ['PD-4', true], ['PD-5', false], ['PD-7', true]]);
-    assert.deepEqual(r.fired('2026-03-10'), []);
+    assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-3', false], ['PD-4', true], ['PD-5', false], ['PD-7', true], ['PD-8', false]]);
+    // F-07 has a doc, so PD-6 fires; PD-7's condition holds the same event beside an issue, and is never fired until step 5.
+    assert.deepEqual(r.fired('2026-03-10').map((f) => f.id), ['PD-6']);
   });
 });
 
