@@ -53,18 +53,18 @@ labelled line or a position. The position regex and the prose pattern of §5 and
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | D-045 itself names "M2 item 4": DC1 is red on slipway's own record from build step 1 | S1 | owner | step 1 | |
-| AR-2 | The owed line steers a decision that changes a feature to a mention that moves no `Version:`, against intake for shipped docs | S1 | owner | step 2 | |
+| AR-1 | D-045 itself names "M2 item 4": DC1 is red on slipway's own record from build step 1 | S1 | owner | step 1 | D-045 |
+| AR-2 | The owed line steers a decision that changes a feature to a mention that moves no `Version:`, against intake for shipped docs | S1 | owner | step 2 | D-045 |
 | AR-3 | Status and DC1 tell the owner to write slipway's parsed format, against D-016 | S1 | owner | steps 1, 2 | |
 | AR-4 | The prose count is not 3 on slipway's own record under either reading of "readable condition" | S2 | owner | steps 2, 3 | |
-| AR-5 | "Close a decision" is undefined, and a condition that fires but leaves the decision standing has no outcome form | S2 | owner | step 2 | |
+| AR-5 | "Close a decision" is undefined, and a condition that fires but leaves the decision standing has no outcome form | S2 | owner | step 2 | D-045 |
 | AR-6 | §10's rewrite of D-036 to `Reopens when: #49 closes` changes what D-036 says | S2 | owner | step 2 | |
 | AR-7 | An issue event that no in-repo pull request closes is silent forever, against the principle the feature exists for | S2 | owner | step 4 | |
 | AR-8 | P1 reads `decisions.md` from its working directory, coupling every P1 fixture and test to slipway's live record | S2 | owner | step 4 | |
-| AR-9 | "No release is tagged between 1 and 2" is a rule kept by memory | S2 | owner | steps 1, 2 | |
-| AR-10 | The P1 gate is passed most cheaply by deleting the condition | S2 | owner | step 4 | |
+| AR-9 | "No release is tagged between 1 and 2" is a rule kept by memory | S2 | owner | steps 1, 2 | D-045 |
+| AR-10 | The P1 gate is passed most cheaply by deleting the condition | S2 | owner | step 4 | D-045 |
 | AR-11 | Order and overlap misses #447, which edits four files steps 3 and 5 edit | S3 | owner | steps 3, 5 | |
-| AR-12 | Small contradictions: shape count, log-bug in Acceptance, two heading readers, a body that runs past `## Week 1`, a missing `decisions.md` in status | S3 | owner | — | |
+| AR-12 | Small contradictions: shape count, log-bug in Acceptance, two heading readers, a body that runs past `## Week 1`, a missing `decisions.md` in status | S3 | owner | — | D-045 |
 
 ## Findings
 

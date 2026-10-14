@@ -1043,15 +1043,15 @@ Why: a review is current while the line it quotes is in the document, so the lin
 was reviewed, the bet, has changed. The skills that edit a milestone's Contents do not yet cite this rule; that is
 a follow-up of #404.
 
-## D-045 — A decision that still owes something says so on lines status reads: what it changes, when it reopens or closes, never an item's position *(decided 2026-10-14)*
+## D-045 — A decision that still owes something says so on lines status reads: what it amends, when it reopens or closes, never an item's position *(decided 2026-10-14)*
 
-Changes: F-15
+Amends: F-15
 
 `pnpm status` listed only the decisions still open. One that was made but left something owed, a feature it
 changes that nothing ties it to, a "reopens when" written in prose, an item named by position, was left to the
 author's memory, which status exists to replace. The owner answered #440's five open questions on 2026-10-14:
 
-- **The form is a labelled line under the heading,** at the first column: `Changes: F-<n>` (the features it changes;
+- **The form is a labelled line under the heading,** at the first column: `Amends: F-<n>` (the features it changes;
   owed until that feature's doc or Contents line names the decision), `Reopens when: <event>` and `Closes when:
   <event>`. Conditions projects already wrote in the heading's suffix (`*(decided … · reopens when M2 is
   activated)*`) are read the same way, never written again. Declined: the heading suffix as the only form (headings
@@ -1061,10 +1061,10 @@ author's memory, which status exists to replace. The owner answered #440's five 
   milestone is active or closed; a date passes. "An issue closes" is kept and read at the pull request whose body
   closes it (P1, `/work-ticket`), never by status (D-022). Anything else is unreadable: counted, never fired. Advised
   by the orchestrator session and taken.
-- **A position (`M2 item 4`) fails `pnpm meta`,** on four exact shapes, with the feature on that item's line named in
+- **A position (`M2 item 4`) fails `pnpm meta`,** on five exact shapes, with the feature on that item's line named in
   the finding. Declined: a warning (nothing forces the rewrite before the next reorder).
 - **A fired condition is cleared by its outcome:** the line becomes `Reopened YYYY-MM-DD: …` or `Closed YYYY-MM-DD: …`,
-  or is removed as a visible diff; a `Changes:` line clears itself once cited. Declined: a new heading status, a
+  or is removed as a visible diff; an `Amends:` line clears itself once cited. Declined: a new heading status, a
   separate `Done:` line.
 - **Slipway's `D-` and a project's `PD-` are read alike.** In slipway's own tree the citation lives in `dev/features/`.
 - **A project's first run lists what it already wrote in headings;** body prose ("revisit when …") is counted once, in a
@@ -1072,8 +1072,22 @@ author's memory, which status exists to replace. The owner answered #440's five 
   every session's hook); reading only decisions written after the sync (everything already written stays silent).
 
 Why: the owner's principle that nothing owed after a decision is left to memory (#440, reshaped 2026-10-14). Spec:
-`dev/features/owed-decisions.md` (F-15); #440. This entry carries the first `Changes:` line; F-15's doc names D-045
+`dev/features/owed-decisions.md` (F-15); #440. This entry carries the first `Amends:` line; F-15's doc names D-045
 in its frontmatter, so nothing is owed for it.
+
+Amended 2026-10-14 (the owner's answers to the review of F-15 at 0.1, `docs/reviews/2026-10-14-owed-decisions-0.1.md`):
+
+- **The line is `Amends:`, not `Changes:`** (AR-12): a feature doc has a `## Changes` section, and one status sentence
+  named both. The label above was the shaping session's wording, not a pick; the pick is this one.
+- **A third outcome, and what closed means** (AR-5). A fired condition that leaves the decision standing is written
+  `Reviewed YYYY-MM-DD: stands — <why>`. Closed means the decision no longer constrains new work; the heading keeps
+  `decided`, and the outcome line is the record. A heading clause `provisional until <event>` reads as reopening when
+  the event comes, since the decision may change then.
+- Advised by the orchestrator session and taken, not the owner's picks: a position quoted in a code span or a fenced
+  block is not a finding, an italic heading clause naming one is (AR-1); the five build steps are ordered so that no
+  rule is kept by memory between them (AR-9); `/work-ticket` asks the owner before a condition line is removed or edited
+  in a pull request that closes its issue (AR-10); the owed line names where a change belongs and lets the doc's
+  Version move with its Contract (AR-2).
 
 ## Week 1 — decide before M1 closes
 
