@@ -72,15 +72,17 @@ Three things changed at 0.2, on the owner's answers to the review of 0.1 (`docs/
 ## Fit
 
 Reuses:
-- `section()` in `ci/checks/lib/markdown.mjs:11` and `PLACEHOLDER` in `ci/checks/lib/frontmatter.mjs:30`: the
-  section reader every document check uses, and the one definition of "still a template placeholder".
-- `frontmatter()` in `ci/checks/lib/frontmatter.mjs:9`: the one reader of `status:` and `companion-of:`.
+- `sectionLines()` in `ci/checks/lib/markdown.mjs:38`, the lines under which `section()` (line 34), the section
+  reader every document check uses, joins and trims; the Fit reader takes the lines, so a first line's indent is
+  kept. `hasPlaceholder()` in `ci/checks/lib/frontmatter.mjs:54`, which reads each line once for `PLACEHOLDER`
+  (line 48), the one definition of "still a template placeholder".
+- `frontmatter()` in `ci/checks/lib/frontmatter.mjs:27`: the one reader of `status:` and `companion-of:`.
 - ID1's reading of what a feature doc is (`ci/checks/meta/id1-ids.mjs`: the two folders, the two file names
   skipped, a regular file, an `F-<n>` heading, `companion-of:`), moved to a shared module so ID1, F2 and sync
   class a file the same way.
 - `reviewProvenance()` in `ci/checks/lib/review-header.mjs`: which document a review names, as R1 reads it.
-- `readMilestones()` and `contents()` in `ci/checks/lib/milestones.mjs`, and the `F-<n>` citation pattern F1
-  applies to a Contents item (`ci/checks/meta/f1-feature-coverage.mjs:53`), moved beside them.
+- `readMilestones()` and `contents()` in `ci/checks/lib/milestones.mjs`, and `citedFeatures()` beside them
+  (line 81), the `F-<n>` citation pattern F1 applied inline to a Contents item, moved there; F1 calls it.
 - `report()` in `ci/checks/lib/report.mjs:65`, its warnings, and PC1's `expected.json` layout: every check's
   output and its known-bad fixture shape.
 - The ratchet's rule in `ci/ratchet.mjs` (above the baseline fails, equal passes, below passes and says to lock
@@ -412,7 +414,9 @@ as the other ratchets' are.
   refused. A doc that stays `draft`, unreviewed and unscheduled, is never held.
 - The count ratchets down. At rest it names the docs behind it as warnings; it does not say which to fill first.
 - A filled Fit leaves the baseline above the count until `--update` is run on `ci/baselines.json`, an owner-only
-  file, and no skill is told to run it. While the baseline is above the count there is room: that many docs can
+  file. F2 says to run it on every run while the count is below the baseline; no skill sentence repeats it (the
+  sentences that fill a Fit in `/log-bug`, `/close-milestone` and before `/review-doc` included). While the
+  baseline is above the count there is room: that many docs can
   become held with no Fit and the check stays green. The room grows by one for each Fit filled and not locked
   in, so it can get as large as the count sync first recorded.
 - `--update` with no count recorded writes whatever the count is: the one path with no ratchet. The check's
@@ -431,6 +435,10 @@ as the other ratchets' are.
   in another form (another list mark, emphasis, a look-alike letter) are not the short answers, so a doc that
   gives them that way is not counted among them. A character nobody sees placed at a bullet's list mark hides
   `nothing` from that reading, so a doc that reuses nothing and adds `none` can pass (the owner, 2026-10-14).
+  Every other form does the same: the rule that refuses `nothing` beside `none` reads the plain form only, so
+  either answer given in another form passes. Each is text in the diff a reviewer reads.
+- "A letter" is Unicode's: a few visible marks it counts as letters (an iota subscript, isolated Arabic vowel
+  marks, halfwidth voiced kana marks) fill a label on their own.
 - The 300-line cap on a skill counts lines, not their length. A sentence appended to a long line keeps the
   count, so "≤ 300 lines" does not fail when a skill at the cap gains a sentence; a reviewer reads the diff.
 - A line of a label's text longer than 5,000 characters reads as unfilled, and the finding says the line is not
@@ -442,6 +450,15 @@ as the other ratchets' are.
   recorded count. The sync pull request's own run shows it before merge; the way out is that doc's Fit.
 - The computed row is the first file sync computes, and the only one; a second is where the `migrations/` runner
   `dev/features/template-sync.md` → Out of scope foresaw gets built.
+- As built, beside the Contract at 0.4 (`docs/reviews/2026-10-14-feature-fit-0.4.md`, AR-1, AR-4, AR-5). Sync
+  refuses a `ci/baselines.json` not in slipway's form at the plan, as it refuses one that is not JSON, so no
+  "count recorded" row is shown for it (§3's table puts the refusal at `--apply`). An `--update` run prints only
+  the count it recorded, or its refusal, never the warnings or the claim (§4, "every run that is not BROKEN").
+  §1 cites `PLACEHOLDER` at `frontmatter.mjs:30`; it is at line 48, read through `hasPlaceholder()` (this doc's
+  Fit). `Reuses:` text on the label line, or unmarked before the first bullet, is an item too, and backticks are
+  removed before `nothing` is read (§2 says "every bullet"). A doc held only for having no status line and with
+  no section has two reasons, `frontmatter/unreadable` and `fit/missing`, so two warning lines (§2 says one).
+  The readings are pinned in `scripts/fit.test.mjs`.
 
 ## Acceptance
 
@@ -593,7 +610,8 @@ A scratch project made for an owner probe (Verify) is not a project for this rul
    bullets, backticks on `nothing`, how a review's path is compared, what sync's install record holds for the
    path), each decided against the code and pinned in `scripts/fit.test.mjs` or `scripts/sync.test.mjs`.
 2. **The section and the check.** `docs/features/TEMPLATE.md` → `## Fit`; F2; `ci/fixtures/known-bad/f2/**`;
-   `scripts/f2.test.mjs`; `package.json` `meta`; `concept-audit.md` and `landing-page.md` backfilled; slipway's
+   `scripts/f2.test.mjs`; `package.json` `meta`; `concept-audit.md`, `landing-page.md` and
+   `design-before-screens.md` backfilled (`tests-can-fail.md` in step 3, after #433); slipway's
    `ci/baselines.json`; the release note line — checks, ~M. Leaves #48 open.
    Carried from the 0.2 review: AR-6, check each clause of "held" the fixtures do not reach (a closed milestone, a
    shaping or killed one, a review of another doc, a review that is not current) against the code and pin it
@@ -685,3 +703,9 @@ A scratch project made for an owner probe (Verify) is not a project for this rul
   and 4 of `docs/reviews/2026-10-13-feature-fit-0.3.md`, which its Tracker held for the first Contract edit
   (advised by the orchestrator session): who sends a stub to review, the pins counted once in §5, and what the
   300-line cap holds, with a Known limitations line · PR for #48, build step 3
+- 2026-10-14 · MODIFIED · Version stays 0.4: the seven findings of `docs/reviews/2026-10-14-feature-fit-0.4.md`
+  placed, with no change to Contract, Acceptance or Verify. Known limitations: the "as built" line (AR-1 items 1
+  and 2, AR-4's §1 citation, AR-5 items 1 and 2), the plain-form reading and Unicode's letters (AR-2), and who
+  is told to run `--update`. This doc's Fit refreshed to `main` (AR-4); Build map step 2's backfill list (AR-3).
+  The owner's: D-036's 2026-10-14 sentence scoped to `ci/baselines.json` (AR-6). AR-1 item 3 and AR-5 item 3 are
+  #430's; AR-7 is in build PR 3's `## Verification` · PR for #48, build step 3
