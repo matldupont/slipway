@@ -6,12 +6,10 @@ description: Turn something broken into an issue that names the root cause, not 
 # Log a bug
 
 Intake for **something broken**. The output is an issue that names the root cause at a file and line, every
-other site with the same mistake, the tests that would have failed before it shipped, and the written
-requirement it breaks, or a draft of that requirement when none was written. Then a short list of edits to
-existing work it changes, applied only where the owner says yes.
+other site with the same mistake, the tests that should have caught it, and the written requirement it breaks,
+or a draft of it. Then a short list of edits to existing work, applied only where the owner says yes.
 
-`/log-bug`, or `/log-bug the export skips the last day of the month`: a description in the same message is
-Phase 1's input. Otherwise ask what broke.
+`/log-bug` or `/log-bug the export skips the last day`: text after it is Phase 1's input; else ask what broke.
 
 New behaviour nobody promised: `/log-feature`. Already framed and approved elsewhere: `/log-followup`.
 
@@ -109,7 +107,7 @@ repository: `gh repo view --json nameWithOwner --jq .nameWithOwner`.
 
    Exit 1 is no match; exit 2 is a failed search, never a count. **N is sites, not hits:** read each hit, drop
    the definition and the false hits, and name what you dropped. The fix is scoped to the class, not to where
-   it was reported. One site is a claim: say why no sibling can exist; a search of one folder never shows absence.
+   it was reported. One site is a claim: say why no sibling can exist; no search of one folder shows absence.
 6. **Re-read on the default branch.** Every claim above is checked on the default branch before it is filed:
    `Verified against: <short sha> <yyyy-mm-dd>`, with what was read (L-18).
 
@@ -136,10 +134,11 @@ What test, run before this shipped, would have gone red?
 2. For each gap: the test type and path the `Testing strategy doc` gives, and the exact assertion. Where its
    layout does not fit the code (another language, no package yet), follow the nearest tests and say so. A
    fixture must differ on the axis the bug lives on (units, origin, time zone, order, owner).
-3. **Checked math** (with a `Domain invariants doc`, and the bug touches what it governs): a missing property
-   test is always a gap, and an acceptance line says which rule holds across all legal inputs. With none,
-   check against the data-integrity rules (`process/intake.md` → Configuration): a bug that lets one owner's
-   row reach another, a quantity go negative, a locked state change or a retry repeat a write names that rule.
+3. **Checked math** (with a `Domain invariants doc`, and the bug touches what it governs): a property test
+   is always a gap if none exists, and an acceptance line says which rule holds across all legal inputs.
+   With none, check the same way against the data-integrity rules (`process/intake.md` → Configuration):
+   a bug that lets one owner's row reach another, a quantity go negative, a locked state change or a retry
+   repeat a write names that rule.
 
 ```
 PHASE 3: MISSING TESTS
@@ -179,10 +178,10 @@ extend it (a Changes line, an acceptance line) instead of starting another. Any 
   states included), Verify, and the rest. A section with nothing to say says why (`none beyond baseline`,
   `none`: {why}). Everything you cannot derive from the PRD or the code is an **Open question** for the owner
   (their GitHub login), never an invented rule.
-- **Fit,** before the commit, in a doc this step writes or extends and sends to review: read from the feature's
-  code as Phase 2 traced it, never from memory (what it reuses, with paths; where each number it shows is
-  calculated; under `New:`, what only its code has). Each line names what the trace did not read; that, and a
-  `why` the code does not show, is an Open question the review asks. D-040's one block leaves Fit as it is.
+- **Fit,** before the commit, in a doc this step writes or extends and sends to review: from the code as Phase
+  2 traced it, never from memory (what it reuses, with paths; where each number it shows is calculated; under
+  `New:`, what only its code has), the short answers plain. What the trace did not read goes above `Reuses:`,
+  an Open question the review asks, as is a `why` the code does not show. D-040's block leaves Fit as it is.
 - **C also adds the PRD entry** (in slipway's own settings the F-ID goes in the doc's title, no PRD edit, no
   schedule question: `process/intake.md` → Settings in slipway itself): `### F-{nn} — {name}` in §5 (the next free number; the template's whole
   placeholder block is replaced), a one-paragraph what and the doc's path, and the `Version:` bump and Change
@@ -229,7 +228,8 @@ Review:   {PRD entry's or Feature doc version's owner message, when R1 reports i
   - `` {N} tests in Missing test exist, each fails with the fix reverted, and `pnpm verify` runs them ``;
   - the unhappy path, and the rule from Phase 3 when there is one;
   - B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``; for a confirmed block (Phase 4), instead: `` `{doc path}`'s Changes has an `owner-confirmed, not reviewed` line naming this issue, on the default branch before the fix starts ``.
-- `### Seams`, `### Seams detail`: does the fix add a person, a channel or a promise? Usually `none`, with why.
+- `### Seams`, `### Seams detail`: does the fix add a person, a channel or a promise? Usually `none`, with one
+  line of why.
 - `### Missing test`: the table from Phase 3.
 - `### Links`: `Regression of: #n` (the PR that broke it; the commit's short sha when no PR was found),
   `Breaks: #n` (the issue that promised it), `Part of: #n` for a parent, `Spec:` the doc, `Touches:` (the files the fix changes, per `process/intake.md` → Issue body), any `Decision:`,

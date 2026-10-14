@@ -91,6 +91,8 @@ Reuses:
   `.github/workflows/pr-body.yml`, and will run as a check of its own workflow, as `i1` and `p1` do
   (`ci/checks/meta/i1-issue-shape.mjs`, `ci/checks/meta/p1-pr-body.mjs`).
 - Planned: will read a package's root scripts as W1 does (`ci/checks/meta/w1-declared-vs-invoked.mjs`).
+- Planned: the vendored parser goes in `ci/checks/lib/vendor/`, recorded in its `README.md` table and held by the
+  hash test in `scripts/workflow-yaml.test.mjs`, as `js-yaml.mjs` is.
 
 Numbers:
 - How many changes were made to the code a test's file imports, and whether the test failed on one, will be
@@ -102,8 +104,9 @@ Numbers:
 
 New: the run (`ci/mutation.mjs`), the change list (`ci/checks/lib/mutants.mjs` with its vendored parser), the
 reader of the runner's output (`ci/checks/lib/runner-output.mjs`) and the verdict MT1. Searched with
-`rg -i "mutation|mutant|stryker"` and for a reader of a test run or of a `test` script's words: prose in
-`docs/testing-strategy.md`, L-04 and L-01 only, so each is new.
+`rg -i "mutation|mutant|stryker"` and for a reader of a test run or of a `test` script's words: under `ci/` and
+`scripts/`, nothing; the one code hit is step 0's probe, `dev/probes/tests-can-fail/measure.mjs` (#433), which
+builds changes and reads Vitest's output to measure, and is not shipped. So each is new.
 
 ## Contract
 

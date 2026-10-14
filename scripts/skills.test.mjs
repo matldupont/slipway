@@ -1141,11 +1141,13 @@ test('/log-feature searches for numbers and surfaces in Phase 3 and fills Fit fr
 });
 
 test('/log-bug\'s stub step fills Fit from the code Phase 2 traced, before its commit, and names what the trace did not read', () => {
-  const md = flat(read(skillPath('log-bug')));
-  const fit = md.indexOf('- **Fit,** before the commit, in a doc this step writes or extends and sends to review: read from the feature\'s code as Phase 2 traced it, never from memory');
-  assert.ok(fit > 0, 'the stub step must fill Fit from the traced code, never from memory');
-  assert.ok(fit < md.indexOf('- **Commit** on the branch'), 'Fit is filled before the stub\'s commit');
-  assert.ok(md.includes('Each line names what the trace did not read; that, and a `why` the code does not show, is an Open question the review asks. D-040\'s one block leaves Fit as it is.'), 'a stub\'s Fit must say what it did not read, as an Open question');
+  const md = flat(section(read(skillPath('log-bug')), 'Phase 4 — Was it written down?', 2));
+  const fit = md.indexOf('- **Fit,** before the commit, in a doc this step writes or extends and sends to review: from the code as Phase 2 traced it, never from memory (what it reuses, with paths; where each number it shows is calculated; under `New:`, what only its code has), the short answers plain.');
+  assert.ok(fit > 0, 'the stub step must fill Fit from the traced code, never from memory, with what it reads and the short answers plain');
+  const commit = md.indexOf('- **Commit** on the branch');
+  assert.ok(commit > 0 && fit < commit, 'Fit is filled in the stub step, before the stub\'s commit');
+  // What the trace did not read stays out of the three labels, so F2 still reads the short answers (§5).
+  assert.ok(md.includes('What the trace did not read goes above `Reuses:`, an Open question the review asks, as is a `why` the code does not show. D-040\'s block leaves Fit as it is.'), 'a stub\'s Fit must say what it did not read, above the labels, as an Open question');
 });
 
 test('/review-doc verifies Fit as a claim about the code, and stops on every finding F2 can give a doc', () => {
@@ -1154,18 +1156,19 @@ test('/review-doc verifies Fit as a claim about the code, and stops on every fin
   const stop = one.slice(one.indexOf('A feature doc with no filled Fit is not reviewed as it is either.'));
   assert.ok(stop.length > 64, '/review-doc step 1 must stop on a feature doc with no filled Fit');
   assert.match(stop, /^A feature doc with no filled Fit is not reviewed as it is either\. Run `node ci\/checks\/meta\/f2-feature-fit\.mjs \.`: a line naming the doc with `#fit\/missing`, `#fit\/unfilled\/`, `#fit\/draft` or `#frontmatter\/unreadable`, or a BROKEN run, stops here\./, 'the stop reads F2\'s own lines');
-  assert.match(stop, /the doc's author fills its Fit \(and a missing `status:` line\) first, or a session the owner opens for it when the author's is gone\. A Fit edit moves no `Version:`\./, 'the reviewer never fills Fit');
-  // Contract §2's table, case by case: every id F2 reports for a doc is one the stop names.
+  assert.match(stop, /The review would hold the doc and turn its own pull request red on a file a reviewer never edits: say that the doc's author fills its Fit \(and a missing `status:` line\) first, or a session the owner opens for it when the author's is gone\. A Fit edit moves no `Version:`\. On a BROKEN run, say the owner records the count with a sync, and run nothing else\./, 'the reviewer never fills Fit, and never records the count');
+  // Contract §2's table, case by case: every id F2 reports for a doc is one the stop names. Any quoted
+  // `word/word` in F2's sources that is not a folder is taken as an id, so a new one cannot slip past.
   const named = ['fit/missing', 'fit/unfilled/', 'fit/draft', 'frontmatter/unreadable'];
-  const ids = new Set([read('ci/checks/lib/fit.mjs'), read('ci/checks/meta/f2-feature-fit.mjs')].flatMap((s) => [...s.matchAll(/['#`]((?:fit|frontmatter)\/[a-z/]+)/g)].map((m) => m[1])));
+  const ids = new Set([read('ci/checks/lib/fit.mjs'), read('ci/checks/meta/f2-feature-fit.mjs')].flatMap((s) => [...s.matchAll(/['#`]([a-z][a-z-]*\/[a-z][a-z/-]*)['`]/g)].map((m) => m[1]).filter((id) => !/^(docs|dev|ci|scripts)\//.test(id))));
   assert.ok(ids.size >= 4, `F2's ids must be found in its source, found ${[...ids]}`);
   for (const id of ids) assert.ok(named.some((n) => (n.endsWith('/') ? id.startsWith(n) : id === n)), `/review-doc's stop must name F2's ${id}`);
-  assert.match(flat(section(md, '2 — Refute by default', 2)), /A line of a feature doc's `## Fit` is a claim about the code, so it is verified like one\./, '/review-doc must verify Fit like a claim about the code');
+  assert.match(flat(section(md, '2 — Refute by default', 2)), /A line of a feature doc's `## Fit` is a claim about the code, so it is verified like one: a path it names is read only when it resolves inside the repository, and any other is itself a finding\./, '/review-doc must verify Fit like a claim about the code, inside the repository only');
 });
 
 test('/close-milestone fills Fit before a doc is marked shipped, and the cold reviewer reads the diff against it', () => {
   assert.match(flat(section(read('.claude/skills/close-milestone/SKILL.md'), '4. Update the record', 2)), /A doc marked shipped has its `## Fit` filled first, from a search of the code as it shipped, since the check holds it from that commit/, '/close-milestone must fill Fit before marking a doc shipped');
   const cold = flat(read('process/cold-review.md'));
-  assert.match(cold, /### L-70 — Does the diff keep the Fit of the feature doc the issue embeds\? Open that doc at the pull request's head and read its `## Fit`: each `Reuses:` path is used, and each number is computed where `Numbers:` says\./, 'the cold-review checklist must read the diff against the doc\'s Fit');
+  assert.match(cold, /### L-70 — Does the diff keep the Fit of the feature doc the issue embeds\? Open that doc at the pull request's head and read its `## Fit`: each `Reuses:` path is used, and each number is computed where `Numbers:` says\. A Fit line the diff itself edits is a claim to check against the code, not the bar\./, 'the cold-review checklist must read the diff against the doc\'s Fit');
   assert.ok(existsSync(join(SRC, 'process/lessons/L-70-a-diff-keeps-its-docs-fit.md')), 'the cold-review line needs its lesson');
 });

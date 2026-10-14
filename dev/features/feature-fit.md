@@ -89,7 +89,7 @@ Reuses:
   it in, no baseline is broken), moved into a shared helper so F2 and `ci/ratchet.mjs` compare the same way.
 - `scripts/skills.test.mjs`: the pin for every sentence a skill must keep.
 - `scripts/sync.mjs`'s `add` row, and its refusal before any write for a file that is not JSON (`scriptRows()`).
-- `scripts/new-project.mjs` writing a file it does not copy (`process/anchor`, `decisions.md`).
+- `scripts/new-project.mjs` writing a file it does not copy (`process/anchor`).
 
 Numbers:
 - "feature docs held with no filled Fit" is counted once, in `ci/checks/lib/fit.mjs`. F2, `sync --plan`,
