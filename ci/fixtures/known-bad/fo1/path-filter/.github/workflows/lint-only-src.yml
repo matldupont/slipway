@@ -1,0 +1,9 @@
+name: lint-only-src
+on:
+  pull_request:
+    paths: ['src/**']
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm lint

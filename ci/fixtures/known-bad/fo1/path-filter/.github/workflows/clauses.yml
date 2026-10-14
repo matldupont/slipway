@@ -1,0 +1,15 @@
+name: clauses
+# Every shape of gate FO1 names, run only on a matching path: each is reported, so dropping one shape from the reader
+# turns this case red. The unfiltered runs beside them are narrower or elsewhere, so none of them covers.
+on:
+  pull_request:
+    paths-ignore: ['docs/**']
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm --filter web test
+      - run: pnpm meta
+      - run: turbo run lint
+      - run: node ci/verify.mjs
+      - run: pnpm -r run build

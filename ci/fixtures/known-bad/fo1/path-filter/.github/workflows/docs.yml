@@ -1,0 +1,12 @@
+name: docs
+# Trap: filtered, but it runs no gate.
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**']
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo publish
+      - run: echo "pnpm verify"
