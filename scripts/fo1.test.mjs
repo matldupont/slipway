@@ -252,6 +252,16 @@ test('each command of a line is judged on its own; cd, a workflow default direct
   assert.equal(at(['cd apps', 'cd api', 'pnpm test'], ['cd apps', 'cd api', 'pnpm test']), 0, 'the same chain is the same place');
   assert.equal(at(['pushd apps/api', 'pnpm test'], ['pnpm test']), 1, 'pushd is a cd');
   assert.equal(at(['cd ${{ matrix.pkg }}', 'pnpm test'], ['cd ${{ matrix.pkg }}', 'pnpm test']), 1, 'a target that holds an expression is its own workflows place');
+  for (const unknown of ['popd', 'cd', 'cd -', 'cd ~', 'cd $PKG', 'cd `pwd`', 'cd ${{ matrix.pkg }}']) {
+    assert.equal(at([unknown, 'pnpm test'], ['pnpm test']), 1, `${unknown} is an unknown place, not the root`);
+    assert.equal(at([unknown, 'cd sub', 'pnpm test'], ['cd sub', 'pnpm test']), 1, `${unknown} then cd sub is not cd sub`);
+    assert.equal(at([unknown, 'cd sub', 'pnpm test'], [unknown, 'cd sub', 'pnpm test']), 1, `${unknown} in two workflows is two places`);
+  }
+  assert.equal(at(['cd apps', 'cd /srv/x', 'pnpm test'], ['cd /srv/x', 'pnpm test']), 0, 'an absolute cd is the same place whatever came before');
+  const jobDefault = (job, workflow) => `name: x\non:\n  push:\n    paths: ["x/**"]\ndefaults:\n  run:\n    working-directory: ${workflow}\njobs:\n  a:\n    runs-on: ubuntu-latest\n    defaults:\n      run:\n        working-directory: ${job}\n    steps:\n      - run: pnpm test\n`;
+  assert.deepEqual(fo1Files({ 'a.yml': jobDefault('.', 'apps/api'), 'b.yml': flow('  push:', 'pnpm test') }).json.findings, [], 'a job default of the root over a workflow default is the root');
+  const listed = (on) => `name: x\non:\n${on}\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n        working-directory: [apps]\n`;
+  assert.deepEqual(fo1Files({ 'a.yml': listed('  push:\n    paths: ["x/**"]'), 'b.yml': listed('  push:') }).json.findings.map((f) => f.where), hit, 'a directory that is not text is its own workflows place');
   const matrix = (on) => `name: x\non:\n${on}\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n        working-directory: ${'$'}{{ matrix.pkg }}\n`;
   assert.deepEqual(fo1Files({ 'a.yml': matrix('  push:\n    paths: ["x/**"]'), 'b.yml': matrix('  push:') }).json.findings.map((f) => f.where), hit, 'a directory that holds an expression is its own workflows place');
   const fast = (a, b) => fo1Files({ 'a.yml': flow('  push:\n    paths: ["x/**"]', a), 'b.yml': flow('  push:', b) }).json.findings.length;

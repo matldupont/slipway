@@ -56,7 +56,7 @@ function gatesOf(cmd, dir, state) {
       // not worked out: they are named for their own workflow, so they never equal another one's place.
       const to = text.slice(first.length).trim();
       const unknown = !to || to === '-' || to.startsWith('~') || /[$`]/.test(to);
-      state.cd = unknown ? `? @${state.rel}` : to.startsWith('/') || !state.cd || state.cd.startsWith('?') ? to : `${state.cd}/${to}`;
+      state.cd = unknown ? `? @${state.rel}` : to.startsWith('/') || !state.cd ? to : `${state.cd}/${to}`;
       continue;
     }
     const where = [dir, state.cd && `cd ${state.cd}`].filter(Boolean).join(', ');
