@@ -1,0 +1,13 @@
+name: ci
+# Known-bad: the gate runs only when a matching path changes, so a change that touches none runs nothing and is green.
+on:
+  pull_request:
+    paths: ['src/**']
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**']
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm verify

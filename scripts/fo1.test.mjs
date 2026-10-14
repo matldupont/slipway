@@ -25,6 +25,22 @@ const fo1 = (workflow, registry = null) => {
     done(dir);
   }
 };
+// Several workflow files at once, for the path-filter rule (#392): { 'ci.yml': text, ... }.
+const fo1Files = (files, registry = null) => {
+  const dir = mkdtempSync(join(tmpdir(), 'fo1-'));
+  mkdirSync(join(dir, '.github', 'workflows'), { recursive: true });
+  for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, '.github', 'workflows', name), text);
+  if (registry !== null) {
+    mkdirSync(join(dir, 'ci'), { recursive: true });
+    writeFileSync(join(dir, 'ci', 'exceptions.yaml'), registry);
+  }
+  try {
+    return run('ci/checks/meta/fo1-fail-open.mjs', dir, { CHECK_TODAY: '2026-09-10' });
+  } finally {
+    done(dir);
+  }
+};
+const flow = (on, command = 'pnpm verify') => `name: x\non:\n${on}\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n      - run: ${command}\n`;
 const wrap = (steps) => `name: x\non: [pull_request]\njobs:\n  a:\n    runs-on: ubuntu-latest\n    steps:\n${steps}`;
 
 test('the flag as text is not a flag: in a run block, under env, in a quoted text', () => {
@@ -124,4 +140,56 @@ test('a name over several lines is no name; a folded block that folds to one lin
     wrap('      - name: >-\n          folded\n        run: echo\n        continue-on-error: true\n      - name: >\n          one\n\n          two\n        run: echo\n        continue-on-error: true\n')
   );
   assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/ci.yml#a/name=folded', '.github/workflows/ci.yml#a/step[1]']);
+});
+
+// The path-filter rule (#392). Its known-bad fixture is ci/fixtures/known-bad/fo1/path-filter; these are the controls.
+test('the #239 shape is green: a deploy workflow that skips documentation pushes beside a ci.yml that runs the gate on every push', () => {
+  const r = fo1Files({
+    'ci.yml': flow('  pull_request:\n  push:\n    branches: [main]'),
+    'deploy.yml': flow('  push:\n    branches: [main]\n    paths-ignore: ["docs/**"]'),
+  });
+  assert.equal(r.status, 0, r.out);
+  assert.deepEqual(r.json.findings, []);
+});
+
+test('a filter on one event is found, on the other event is not; a filtered workflow running no gate, and a gate with no filter, are green', () => {
+  const r = fo1Files({
+    'a.yml': flow('  pull_request:\n    paths: ["src/**"]\n  push:\n    branches: [main]'),
+    'docs.yml': flow('  push:\n    paths: ["docs/**"]', 'echo publish'),
+  });
+  assert.equal(r.status, 1, r.out);
+  assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/a.yml#on.pull_request']);
+});
+
+test('every workflow that runs the gate on the event is filtered: each is found, and each names the others', () => {
+  const r = fo1Files({
+    'a.yml': flow('  push:\n    paths: ["a/**"]'),
+    'b.yml': flow('  push:\n    paths-ignore: ["b/**"]'),
+  });
+  assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/a.yml#on.push', '.github/workflows/b.yml#on.push']);
+  assert.match(r.json.findings[0].detail, /and so does \.github\/workflows\/b\.yml/);
+});
+
+test('a dated entry excuses a filtered gate; an entry for a gate that is covered is stale; an expired one is found', () => {
+  const files = { 'a.yml': flow('  push:\n    paths: ["a/**"]') };
+  const entry = (id, expires) => `exceptions:\n  - id: ${id}\n    reason: r\n    owner: o\n    expires: ${expires}\n`;
+  assert.equal(fo1Files(files, entry('.github/workflows/a.yml#on.push', '2026-12-31')).status, 0);
+  const expired = fo1Files(files, entry('.github/workflows/a.yml#on.push', '2026-09-10'));
+  assert.deepEqual(expired.json.findings.map((f) => f.where).sort(), ['.github/workflows/a.yml#on.push', 'registry:.github/workflows/a.yml#on.push']);
+  const covered = fo1Files({ ...files, 'ci.yml': flow('  push:\n    branches: [main]') }, entry('.github/workflows/a.yml#on.push', '2026-12-31'));
+  assert.deepEqual(covered.json.findings.map((f) => f.where), ['registry:.github/workflows/a.yml#on.push']);
+});
+
+test('a gate a tag, a schedule or a manual run starts is not a run on a change: it does not cover a filtered one', () => {
+  const r = fo1Files({
+    'a.yml': flow('  push:\n    branches: [main]\n    paths: ["a/**"]'),
+    'release.yml': flow('  push:\n    tags: ["v*"]'),
+  });
+  assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/a.yml#on.push']);
+});
+
+test('a workflow whose trigger cannot be read is BROKEN, since a filter in it could not be seen', () => {
+  const r = fo1Files({ 'a.yml': flow('  push: {branches: [main]}') });
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.json.broken, /^\.github\/workflows\/a\.yml: its path filters were not read — /);
 });

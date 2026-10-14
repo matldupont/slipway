@@ -1,0 +1,8 @@
+name: lint-all
+# Trap: also lints with no filter, so the filtered lint in lint-only-src.yml is covered.
+on: [pull_request]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pnpm lint

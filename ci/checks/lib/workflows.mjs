@@ -4,7 +4,8 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { stripShellComment } from './commands.mjs';
+import { parseCommand, stripShellComment } from './commands.mjs';
+import { GATED } from './tasks.mjs';
 import { isNull, readWorkflow } from './workflow-yaml.mjs';
 
 // What starts a workflow, read from its top-level `on:`. `counts` is true when it runs on a pull request or on a
@@ -16,8 +17,8 @@ import { isNull, readWorkflow } from './workflow-yaml.mjs';
 // `issues` is `issues` with no `types:` or with `opened` among them, for the one kind of gate that cannot run on
 // a change: a check whose subject is an issue. W1 counts such a workflow for check files only.
 // `called` is `workflow_call` among the events: a reusable workflow, which runs when its caller does.
-// `paths` and `paths-ignore` are not read: a deploy workflow that skips documentation-only pushes still runs
-// its gates on every push that changes code (#239).
+// `paths` and `paths-ignore` do not decide whether a workflow counts: a deploy workflow that skips documentation-only
+// pushes still runs its gates on every push that changes code (#239). They are read for `filteredGates` below.
 // Three shapes are read: `on: push`, `on: [push, pull_request]`, and a block of events with a text or a list
 // under each filter. Anything else (an expression, a flow mapping, an event with an inline value, no `on:`)
 // gives `unread`, a fixed reason holding none of the file's text, and counts for nothing: fail closed. So does a
@@ -52,7 +53,7 @@ function jobsOf(root) {
 }
 
 function triggerOf(w) {
-  const unread = (reason) => ({ counts: false, issues: false, called: false, unread: reason });
+  const unread = (reason) => ({ counts: false, issues: false, called: false, events: null, unread: reason });
   if (w.unread) return unread(w.unread);
   const on = w.root.entries.get('on');
   if (on === undefined) return unread('it has no top-level on:');
@@ -111,10 +112,18 @@ function triggerOf(w) {
   const onBranch = push !== undefined && (push.has('branches') || push.has('branches-ignore') || !(push.has('tags') || push.has('tags-ignore')));
   const issues = events.get('issues');
   const onIssue = issues !== undefined && (!issues.has('types') || issues.get('types').includes('opened'));
-  return { counts: onPr || onBranch, issues: onIssue, called: events.has('workflow_call'), unread: null };
+  // `filtered`: the event carries a `paths` or `paths-ignore` key, so a change that touches no matching path never
+  // runs the workflow for it. Any such key counts, an empty list too: fail closed.
+  const filtered = (keys) => keys !== undefined && (keys.has('paths') || keys.has('paths-ignore'));
+  const byEvent = { pull_request: { on: onPr, filtered: filtered(pr) }, push: { on: onBranch, filtered: filtered(push) } };
+  return { counts: onPr || onBranch, issues: onIssue, called: events.has('workflow_call'), events: byEvent, unread: null };
 }
 
-export const workflowTrigger = (text) => triggerOf(readWorkflow(text));
+// What a workflow starts on, without the per-event filters: those are read by `filteredGates` alone.
+export const workflowTrigger = (text) => {
+  const { events, ...trigger } = triggerOf(readWorkflow(text));
+  return trigger;
+};
 
 // The commands of one read workflow: each line of each `run:` that is a step of a job. A `run:` anywhere else
 // (under `env:`, under `with:`, inside a text) is not a step and runs nothing.
@@ -190,5 +199,64 @@ export function workflowCommands(root) {
     else out.issueOnly++;
     (counts ? out.commands : out.issueCommands).push(...runLines(w.rel, w.root));
   }
+  return out;
+}
+
+// A command line that runs a gate: a package script `verify` takes or `meta` holds (`pnpm verify`, `pnpm meta`, a
+// gated script, `turbo run` of gated tasks), `node ci/verify.mjs`, or one of the checks in ci/checks/meta. Named by
+// its invocation, so two workflows running `pnpm verify` run the same gate. A script a root script calls is not
+// followed: `pnpm meta` is one gate here, not the checks inside it.
+const GATE_SCRIPT = /^(?:verify|verify:fast|meta)$/;
+const gatesOf = (cmd) =>
+  parseCommand(cmd).flatMap((c) => {
+    if (c.kind === 'pnpm-script' && (GATE_SCRIPT.test(c.script) || GATED.test(c.script))) return [`pnpm ${[...c.filters.map((f) => `--filter ${f}`), c.recursive ? '-r' : '', c.script].filter(Boolean).join(' ')}`];
+    if (c.kind === 'turbo') return c.tasks.filter((t) => GATED.test(t)).map((t) => `turbo run ${t}${c.filtered ? ' --filter' : ''}`);
+    if (c.kind === 'node' && (c.path === 'ci/verify.mjs' || /^ci\/checks\/meta\/[\w.-]+\.mjs$/.test(c.path))) return [`node ${c.path}`];
+    return [];
+  });
+
+// The workflows whose path filter keeps a gate from running on some change (L-56). For each gate command and each
+// event (`pull_request`, `push`): when every workflow that runs it on that event carries a `paths` or `paths-ignore`
+// filter for it, a change that touches no matching path runs no copy of the gate, and each of those workflows is a
+// site: `{ id: '<workflow path>#on.<event>', workflow, event, commands, with }`, `with` the other filtered workflows that run the same gate. A gate that some workflow also runs on
+// that event without a filter is covered, whatever a deploy workflow does (#239). Not followed: a gate a reusable
+// workflow runs for a caller (its caller's filter is the one that applies), and what a root script calls. `unread`
+// holds the workflows whose trigger could not be read, with a fixed reason: a filter in one could not be seen.
+export function filteredGates(root) {
+  const out = { sites: [], unread: [], files: 0 };
+  const dir = join(root, '.github', 'workflows');
+  if (!existsSync(dir)) return out;
+  const runners = new Map(); // `${event}\u0000${command}` → [{ rel, filtered }]
+  for (const f of readdirSync(dir).filter((e) => /\.ya?ml$/.test(e)).sort()) {
+    const w = readWorkflow(readFileSync(join(dir, f), 'utf8'));
+    const rel = `.github/workflows/${f}`;
+    out.files++;
+    const trigger = triggerOf(w);
+    if (trigger.unread) {
+      out.unread.push({ file: rel, reason: trigger.unread });
+      continue;
+    }
+    const gates = new Set(runLines(rel, w.root).flatMap((l) => gatesOf(l.cmd)));
+    for (const [event, e] of Object.entries(trigger.events)) {
+      if (!e.on) continue;
+      for (const g of gates) {
+        const key = `${event}\u0000${g}`;
+        runners.set(key, [...(runners.get(key) ?? []), { rel, filtered: e.filtered }]);
+      }
+    }
+  }
+  const sites = new Map();
+  for (const [key, list] of runners) {
+    if (!list.every((r) => r.filtered)) continue;
+    const [event, command] = key.split('\u0000');
+    for (const r of list) {
+      const id = `${r.rel}#on.${event}`;
+      const site = sites.get(id) ?? { id, workflow: r.rel, event, commands: [], with: [] };
+      site.commands.push(command);
+      for (const o of list) if (o.rel !== r.rel && !site.with.includes(o.rel)) site.with.push(o.rel);
+      sites.set(id, site);
+    }
+  }
+  out.sites = [...sites.values()];
   return out;
 }

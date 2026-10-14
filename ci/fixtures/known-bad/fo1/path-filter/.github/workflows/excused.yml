@@ -1,0 +1,10 @@
+name: excused
+on:
+  push:
+    branches: [main]
+    paths: ['tools/**']
+jobs:
+  tools:
+    runs-on: ubuntu-latest
+    steps:
+      - run: node ci/checks/meta/w1-declared-vs-invoked.mjs .

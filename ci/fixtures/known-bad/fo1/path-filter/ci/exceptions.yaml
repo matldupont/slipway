@@ -1,0 +1,9 @@
+exceptions:
+  - id: .github/workflows/excused.yml#on.push
+    reason: the tools check only matters when tools change
+    owner: build lead
+    expires: 2026-12-31
+  - id: .github/workflows/lint-only-src.yml#on.pull_request
+    reason: stale — lint-all.yml covers it, so nothing is excused here
+    owner: build lead
+    expires: 2026-12-31
