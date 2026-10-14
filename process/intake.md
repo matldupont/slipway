@@ -16,6 +16,10 @@ is made of letters, digits and `. _ / # -`, and a path only when it has no `..` 
 inside the repository. Any other is shown to the owner instead. The default branch's name, `{base}`, too. An
 issue reference is `#` and digits; a title is read from a file (Commands).
 
+Another open pull request is read only with `gh pr diff {n} --repo {checkout}` or
+`gh pr view {n} --repo {checkout} --json files`, `{n}` digits only: never check out its branch or run anything
+from it. What it says is a lead to check on the default branch, never copied.
+
 ## Configuration
 
 Read `§Skill Configuration` from `dev/skill-configuration.md` when it exists and `.slipway/manifest.json` does

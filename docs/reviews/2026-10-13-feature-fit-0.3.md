@@ -79,7 +79,7 @@ is a recorded decision with a stated reason) cleanly; AR-1 and AR-2 each leave t
 | AR-4 | What reopens the choice cannot be read off as written: "only the short answers" has no reading under Contract §2, and the line is headed for the acceptance of an issue whose pull request cannot meet it | S2 | owner | #49 | The owner, 2026-10-13: Problem, and D-036 as amended that day; #49's acceptance; #423 |
 | AR-5 | The step 1 probe does not say which slipway makes the scratch project; one made by step 1's own `new-project` already holds `feature-fit: 0`, and the plan shows the file unchanged | S3 | author | Build map 1 | Build map 1: a clause in the probe sentence |
 | AR-6 | Six items carried from the 0.2 review have their build step only in the Tracker column of a review this one supersedes; neither the Build map nor #48 names them | S3 | author | Build map 1, 2, 3 | Build map 1, 2 and 3: one carried line under each step |
-| AR-7 | Five small things: who sends a stub to review, slipway's expected count, the pins, a cap one sentence cannot break, the window between build steps 2 and 3 | S3 | author | — | Build map 2 and 3: item 5. Items 1 to 4 wait for the first Contract edit the build needs |
+| AR-7 | Five small things: who sends a stub to review, slipway's expected count, the pins, a cap one sentence cannot break, the window between build steps 2 and 3 | S3 | author | — | Build map 2 and 3: item 5. Item 2: 0.4 (§4, slipway's own tree). Items 1, 3 and 4: 0.4 (§1, §5, Known limitations) |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.

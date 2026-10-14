@@ -5,7 +5,7 @@ status: draft
 
 # F-12 — Fit: a feature doc says what it reuses and where its numbers live, and a check holds it to that
 
-Version: 0.3 (2026-10-13)
+Version: 0.4 (2026-10-14)
 
 ## Problem
 
@@ -72,22 +72,24 @@ Three things changed at 0.2, on the owner's answers to the review of 0.1 (`docs/
 ## Fit
 
 Reuses:
-- `section()` in `ci/checks/lib/markdown.mjs:11` and `PLACEHOLDER` in `ci/checks/lib/frontmatter.mjs:30`: the
-  section reader every document check uses, and the one definition of "still a template placeholder".
-- `frontmatter()` in `ci/checks/lib/frontmatter.mjs:9`: the one reader of `status:` and `companion-of:`.
+- `sectionLines()` in `ci/checks/lib/markdown.mjs:38`, the lines under which `section()` (line 34), the section
+  reader every document check uses, joins and trims; the Fit reader takes the lines, so a first line's indent is
+  kept. `hasPlaceholder()` in `ci/checks/lib/frontmatter.mjs:54`, which reads each line once for `PLACEHOLDER`
+  (line 48), the one definition of "still a template placeholder".
+- `frontmatter()` in `ci/checks/lib/frontmatter.mjs:27`: the one reader of `status:` and `companion-of:`.
 - ID1's reading of what a feature doc is (`ci/checks/meta/id1-ids.mjs`: the two folders, the two file names
   skipped, a regular file, an `F-<n>` heading, `companion-of:`), moved to a shared module so ID1, F2 and sync
   class a file the same way.
 - `reviewProvenance()` in `ci/checks/lib/review-header.mjs`: which document a review names, as R1 reads it.
-- `readMilestones()` and `contents()` in `ci/checks/lib/milestones.mjs`, and the `F-<n>` citation pattern F1
-  applies to a Contents item (`ci/checks/meta/f1-feature-coverage.mjs:53`), moved beside them.
+- `readMilestones()` and `contents()` in `ci/checks/lib/milestones.mjs`, and `citedFeatures()` beside them
+  (line 81), the `F-<n>` citation pattern F1 applied inline to a Contents item, moved there; F1 calls it.
 - `report()` in `ci/checks/lib/report.mjs:65`, its warnings, and PC1's `expected.json` layout: every check's
   output and its known-bad fixture shape.
 - The ratchet's rule in `ci/ratchet.mjs` (above the baseline fails, equal passes, below passes and says to lock
   it in, no baseline is broken), moved into a shared helper so F2 and `ci/ratchet.mjs` compare the same way.
 - `scripts/skills.test.mjs`: the pin for every sentence a skill must keep.
 - `scripts/sync.mjs`'s `add` row, and its refusal before any write for a file that is not JSON (`scriptRows()`).
-- `scripts/new-project.mjs` writing a file it does not copy (`process/anchor`, `decisions.md`).
+- `scripts/new-project.mjs` writing a file it does not copy (`process/anchor`).
 
 Numbers:
 - "feature docs held with no filled Fit" is counted once, in `ci/checks/lib/fit.mjs`. F2, `sync --plan`,
@@ -134,9 +136,9 @@ New: <…anything this adds that nothing existing does, and why reuse was not po
 - `New:` what the feature adds that nothing existing does, and why reuse was not possible.
 
 The guidance paragraph may stay in a filled doc: text between the heading and the first label is not read. A
-bug-fix stub `/log-bug` writes from the template is held like any doc, and in the run that writes it: the skill
-sends it to review, and schedules it when the owner places the fix in the running milestone (§2, rules 3 and
-4). `/log-bug` fills its Fit before the stub's commit (§5).
+bug-fix stub `/log-bug` writes from the template is held like any doc: from its first review, which the bug's
+acceptance asks for before the fix starts, and from its commit when the owner places the fix in the running
+milestone in that run (§2, rules 3 and 4). `/log-bug` fills its Fit before the stub's commit either way (§5).
 
 ### 2. What is held, and what lacks Fit — `ci/checks/lib/feature-docs.mjs`, `ci/checks/lib/fit.mjs`
 
@@ -174,14 +176,18 @@ separately so sync can say how many there are (§3).
 | `fit/unfilled/new` | also when `Reuses:` says nothing is reused and `New:` says `none`: a feature that neither reuses nor adds anything has not been described |
 | `frontmatter/unreadable` | the doc is held under rule 2. It counts whatever its Fit says; the fix is its `status:` line |
 
-- **A label line** starts at the first column with exactly `Reuses:`, `Numbers:` or `New:`. A label written
-  with a list mark, emphasis or another case is not a label, and reads as absent. The first line for each label
-  is the one read.
-- **A label's text** runs from after the colon to the next label line or the end of the section. It is empty
-  when nothing is left once whitespace and list marks (`-`, `*`) are removed.
-- **"Says nothing is reused"**: every bullet under `Reuses:` starts with `nothing`. **"Says `none`"**: the text
-  of `New:`, with backticks and a closing full stop removed, is `none`. **"Shows no numbers"**: the text of
-  `Numbers:`, read the same way, is `none shown`. Case is ignored in all three.
+- **A label line** starts at the first column with exactly `Reuses:`, `Numbers:` or `New:`, on the section's
+  first line too. A label written indented, with a list mark, emphasis or another case is not a label, and
+  reads as absent. The first label line for each label is the one read, so with an indented label on the
+  section's first line, a later one at the first column is the first.
+- **A label's text** runs from after the colon to the next label line or the end of the section. It is filled
+  only when it holds a letter or a digit once characters nobody sees are removed; nothing else is folded. A
+  line of it longer than 5,000 characters reads as unfilled.
+- **"Says nothing is reused"**: every bullet under `Reuses:` starts with `nothing`; a line with no letter or
+  digit is not a bullet. **"Says `none`"**: the text of `New:`, with backticks and a closing full stop removed,
+  is `none`. **"Shows no numbers"**: the text of `Numbers:`, read the same way, is `none shown`. The three
+  answers are read with characters nobody sees removed, and a list mark is looked for on the line as written.
+  Case is ignored in all three.
 - A doc counts once, however many reasons it has. A doc with a missing section has one reason; a doc with a
   section has one per unfilled label.
 
@@ -192,7 +198,8 @@ drafts not yet held that would lack Fit if held; the files that are not feature 
 ### 3. The count on arrival — `scripts/sync.mjs`, `scripts/new-project.mjs`, `dev/ownership.yaml`
 
 The owner's rule (D-036): a project that takes this release is never red on sync for docs it wrote before the
-section existed, and never edits the baseline file by hand.
+section existed, and never edits the baseline file by hand but once, when the file is in a form sync does not
+rewrite (D-036 as amended 2026-10-14).
 
 - **One writer of the file.** `ci/checks/lib/ratchet.mjs` reads `ci/baselines.json` and serialises it (two-space
   JSON and a final newline, as `ci/ratchet.mjs` writes it today). `ci/ratchet.mjs`, F2, sync and `new-project`
@@ -209,15 +216,19 @@ section existed, and never edits the baseline file by hand.
   | the project's `ci/baselines.json` | row | `--apply` |
   |---|---|---|
   | absent | `computed: count recorded` | writes `{"feature-fit": n}` |
-  | JSON object, no `feature-fit`, or one that is not a whole number ≥ 0 | `computed: count recorded` | sets the key to n; every other key is kept as it is |
+  | JSON object, no `feature-fit`, or one that is not a whole number ≥ 0, byte for byte what the one writer writes for it | `computed: count recorded` | sets the key to n; every other key is kept byte for byte |
+  | the same, in any other form (another indent, a key twice, no final newline) | `computed: count recorded` | a refusal before any write, naming the file and the form to put it back in; the owner does so once and syncs again |
   | JSON object with a whole-number `feature-fit` | `unchanged` | writes nothing |
   | not JSON, or not an object | a refusal before any write, naming the file, as a `package.json` that is not JSON is refused | — |
 
 - **What the plan says,** in the project's words (D-016), from the same pass: "3 feature docs that are shipped,
   reviewed or scheduled have no Fit section filled in yet. The count is recorded at 3 and may only go down."
-  When there are drafts not yet held: "2 feature docs still being drafted have no Fit section; each needs one
-  before it is reviewed, scheduled or shipped." When there are files that are not feature docs: "1 file in
-  docs/features/ is not a feature doc and is not counted: notes.md."
+  At 0: "No feature doc that is shipped, reviewed or scheduled is missing its Fit section. The count is recorded
+  at 0 and may not go up." When a counted doc has no status line: "Of these, 1 has no status line in its
+  header, so it is counted whatever its Fit says; give it one and it is read normally." When there are drafts
+  not yet held: "2 feature docs still being drafted have no Fit section; each needs one before it is reviewed,
+  scheduled or shipped." When there are files that are not feature docs: "1 file in docs/features/ is not a
+  feature doc, having no F-number heading, and is not counted." No file is named.
 - **`--apply` recounts** and prints the number it writes. The plan and `--apply` are two runs; a doc that became
   held between them changes the number, and the printed line is what was written.
 - The release note for the version that carries this names the row and the sentences the owner will see.
@@ -236,18 +247,22 @@ with no feature doc yet is green with the claim "no feature doc is held yet", no
 
 | count vs baseline | result |
 |---|---|
-| above | exit 1. One finding per reason for every doc that is counted, the ones the baseline already covers included, since the check cannot tell which doc is the new one. Each names the doc, what is missing, and the next action in the project's words: "`docs/features/export.md` is shipped and its Fit has no `Numbers:` line — say where each number it shows is calculated, or `none shown`" |
-| equal | exit 0. When the count is above 0, each counted doc is a warning line, so the docs behind the number are shown on every run |
+| above | exit 1. One finding per reason for every doc that is counted, the ones the baseline already covers included, since the check cannot tell which doc is the new one. Each names the doc, each reason it is held (its status, the review that names it and how many more, the milestone that cites it), what is missing, and the next action in the project's words: "`docs/features/export.md` is shipped and its Fit has no filled `Numbers:` line — say where each number it shows is calculated, or `none shown`" |
+| equal | exit 0. When the count is above 0, each counted doc gives one warning line per reason, so the docs behind the number are shown on every run |
 | below | exit 0, the same warnings, and the ratchet's line as an `F2:` line: the number improved, run F2 with `--update` to lock it in |
-| no `ci/baselines.json`, or no `feature-fit`, or one that is not a whole number ≥ 0 | exit 2 BROKEN, the message starting "ci/baselines.json has no feature-fit count" and naming `node ci/checks/meta/f2-feature-fit.mjs . --update` |
+| no `ci/baselines.json`, or no `feature-fit`, or one that is not a whole number ≥ 0 | exit 2 BROKEN, the message starting "ci/baselines.json has no feature-fit count", saying a sync records it in a project, and naming `node ci/checks/meta/f2-feature-fit.mjs . --update` |
+| `ci/baselines.json` that is not JSON, or not an object | exit 2 BROKEN, "ci/baselines.json is not a JSON object of counts", none of the file's text in it |
+| `ci/baselines.json` that is a link or a folder, or a `ci/` that is a link (to anything or nothing) or a file | exit 2 BROKEN before any read; `--update` writes nothing |
 
 `--update` writes the current count when it is at or below the baseline, or when there is no baseline, and
 refuses to raise one (exit 1, naming both numbers).
 
-**Every run also prints,** whatever the result:
+**Every run that is not BROKEN also prints,** whatever the result (a BROKEN run prints its two lines):
 
 - a warning line for each file that is not a feature doc ("`docs/features/notes.md` is not a feature doc (no
   `F-<n>` title), so its Fit is not checked");
+- a warning line for each draft not yet held that has no filled Fit, so `pnpm meta` before a review says whether
+  the doc would be counted;
 - on a green run, the claim: how many feature docs are held, how many lack Fit against which baseline, how many
   of the rest reuse nothing, show no numbers and add nothing new, and how many files are not feature docs. These
   are the ways a doc can answer without saying much, counted where every `pnpm meta` output shows them.
@@ -283,12 +298,12 @@ line's counts; `--update` at 2 against 3 writes 2; `--update` at 3 against 2 ref
 `node scripts/fit.test.mjs`, `node scripts/ratchet.test.mjs` and `node scripts/f2.test.mjs`.
 `.github/workflows/ci.yml` runs `pnpm meta` already. PC1 picks the fixture up by its folder name.
 
-**Slipway's own tree.** `dev/features/concept-audit.md` (shipped) and `dev/features/landing-page.md` (reviewed)
-each gain a filled Fit in the PR that adds F2; a Fit edit moves no `Version:` (D-041's list is Contract,
-Acceptance and Verify), so `landing-page.md`'s reviews stay current. A held doc that another open pull request
-is editing is not backfilled there: at 0eb12fc those are `tests-can-fail.md` and `design-before-screens.md`
-(both reviewed). Slipway's `ci/baselines.json` records the count F2 gives at that PR's head, and the PR names
-each doc it counts; the number is expected to be 2 and goes down as each of those lands its own Fit.
+**Slipway's own tree.** `dev/features/concept-audit.md` (shipped), `dev/features/landing-page.md` (reviewed)
+and `dev/features/design-before-screens.md` (reviewed) each gain a filled Fit in the PR that adds F2; a Fit edit
+moves no `Version:` (D-041's list is Contract, Acceptance and Verify), so their reviews stay current. A held doc
+that another open pull request is editing is not backfilled there: at that PR's head this is
+`tests-can-fail.md` (reviewed; #433 edits it). Slipway's `ci/baselines.json` records the count F2 gives at that
+PR's head, 1, and the PR names each doc it counts; the count goes to 0 when that doc lands its own Fit.
 `dev/features/landing-page-qa.md` is not a feature doc and is warned on every run.
 
 ### 5. The skills, and who reads Fit
@@ -303,15 +318,16 @@ each doc it counts; the number is expected to be 2 and goes down as each of thos
 - **`process/cold-review.md`** gains one checklist line: the diff against the Fit of the doc the issue embeds:
   each `Reuses:` path is used, and each number is computed where `Numbers:` says. That file asks for a lesson
   behind a new line; the lesson is added under `process/lessons/` with it, and says the failure it names is
-  expected, not yet seen (Problem).
+  expected, not yet seen (Problem). One new pin in `scripts/skills.test.mjs`.
 - **`.claude/skills/review-doc/SKILL.md`** step 2 gains one sentence: a Fit line is a claim about the code, so it
   is verified like one. Step 1 gains a stop, beside the one for a doc with no `Version:` line: a feature doc
   with no filled Fit (no `## Fit`, a label absent, or a placeholder left in one) is not reviewed as it is. The
   review would hold it (§2, rule 3) and turn the reviewer's own pull request red on a file a reviewer never
   edits. The skill stops and says the doc's author fills Fit first, or a session the owner opens for it when
-  the author's is gone; the reviewer never does. A Fit edit moves no `Version:`. One new pin.
+  the author's is gone; the reviewer never does. A Fit edit moves no `Version:`. Two new pins: the sentence and
+  the stop.
 - **`.claude/skills/close-milestone/SKILL.md`** §4 step 2 gains one line: a doc marked shipped has its Fit
-  filled first, from the search, since the check holds it from that commit.
+  filled first, from the search, since the check holds it from that commit. One new pin.
 
 - **`.claude/skills/log-bug/SKILL.md`**, the doc stub step, gains one sentence: a doc the step writes, or
   extends and sends to review, has its Fit filled before the step's commit. The feature is already built, so the
@@ -319,7 +335,9 @@ each doc it counts; the number is expected to be 2 and goes down as each of thos
   shows is calculated), never from memory. When the trace shows nothing shared, the stub gives the short
   answers any doc may, under the same rules (§2), and F2's claim line counts them like the rest. D-040's one
   block is not sent to review and leaves Fit as it is. The skill is 300 lines against the cap of 300; room is
-  made by rewording or trimming, the cap is not raised and no rule is dropped. One new pin.
+  made by rewording or trimming, the cap is not raised and no rule is dropped. The cap counts lines, not their
+  length: a sentence appended to a line already there keeps the count, so the cap does not show that room was
+  made. One new pin.
 
 ### What is reused
 
@@ -363,7 +381,7 @@ the `package.json` scripts derivation), `scripts/new-project.mjs` (writes `proce
 Verified against: 2259472 2026-10-13 — for what 0.3 adds, nothing else re-read: `.claude/skills/log-bug/SKILL.md`
 (300 lines; its doc stub step writes from the template, adds the Contents item, commits and runs `pnpm meta`, and
 the review follows; D-040's one block), `.claude/skills/review-doc/SKILL.md` step 1 (the stop for a doc with no
-`Version:` line; "a reviewer never edits its target"), `scripts/skills.test.mjs` (`log-bug` is under the cap of
+`Version:` line; "a reviewer never edits its target"), `scripts/skills.test.mjs` (`log-bug` is at the cap of
 300), no open pull request on this doc, its reviews or those two skills.
 
 ## Seams
@@ -373,7 +391,8 @@ slipway's own, to projects: a sync never turns a doc red for a section that did 
 
 ## Threat model
 
-none beyond baseline. F2 reads committed markdown and one JSON file and writes nothing unless `--update` is
+none beyond baseline. F2 reads committed markdown and one JSON file, a plain file or it is refused, and writes
+nothing unless `--update` is
 passed by hand; sync writes the baseline through the same `land()` path as every other row. A feature doc is
 other people's content in a PR (the trust line, D-023): a label whose text is a placeholder or empty is
 unfilled. What holds a doc is partly outside it (a review, a milestone's Contents) and partly its own word
@@ -395,7 +414,9 @@ as the other ratchets' are.
   refused. A doc that stays `draft`, unreviewed and unscheduled, is never held.
 - The count ratchets down. At rest it names the docs behind it as warnings; it does not say which to fill first.
 - A filled Fit leaves the baseline above the count until `--update` is run on `ci/baselines.json`, an owner-only
-  file, and no skill is told to run it. While the baseline is above the count there is room: that many docs can
+  file. F2 says to run it on every run while the count is below the baseline; no skill sentence repeats it (the
+  sentences that fill a Fit in `/log-bug`, `/close-milestone` and before `/review-doc` included). While the
+  baseline is above the count there is room: that many docs can
   become held with no Fit and the check stays green. The room grows by one for each Fit filled and not locked
   in, so it can get as large as the count sync first recorded.
 - `--update` with no count recorded writes whatever the count is: the one path with no ratchet. The check's
@@ -407,11 +428,19 @@ as the other ratchets' are.
   another folder has its docs unread by both; the claim line names the folders read.
 - A label's text, and an item under it, counts as filled only when it holds a letter or a digit, once characters
   nobody sees are taken out. A value written as a symbol only (a dash, a tick) reads as unfilled: counted, never
-  passed. It covers characters nobody sees and bare list marks; it does not cover a numbered mark alone (it
-  holds a digit), markup a renderer shows as nothing, or a placeholder with a character nobody sees inside it.
-  Each of those is text in the diff a reviewer reads.
-- The short answers are read as written: `nothing` and `none` in another form (another list mark, emphasis, a
-  look-alike letter) are not the short answers, so a doc that gives them that way is not counted among them.
+  passed. It covers characters nobody sees, except at a list mark (below), and bare list marks; it does not
+  cover a numbered mark alone (it holds a digit), markup a renderer shows as nothing, or a placeholder with a
+  character nobody sees inside it. Each of those is text in the diff a reviewer reads.
+- The short answers are read with characters nobody sees removed, and nothing else folded: `nothing` and `none`
+  in another form (another list mark, emphasis, a look-alike letter) are not the short answers, so a doc that
+  gives them that way is not counted among them. A character nobody sees placed at a bullet's list mark hides
+  `nothing` from that reading, so a doc that reuses nothing and adds `none` can pass (the owner, 2026-10-14).
+  Every other form does the same: the rule that refuses `nothing` beside `none` reads the plain form only, so
+  either answer given in another form passes. Each is text in the diff a reviewer reads.
+- "A letter" is Unicode's: a few visible marks it counts as letters (an iota subscript, isolated Arabic vowel
+  marks, halfwidth voiced kana marks) fill a label on their own.
+- The 300-line cap on a skill counts lines, not their length. A sentence appended to a long line keeps the
+  count, so "≤ 300 lines" does not fail when a skill at the cap gains a sentence; a reviewer reads the diff.
 - A line of a label's text longer than 5,000 characters reads as unfilled, and the finding says the line is not
   filled in, not that it is too long. The cap bounds what the reader does per line; over it the reader refuses
   rather than guesses, so such a doc is counted, never passed. Wrap the line.
@@ -421,6 +450,15 @@ as the other ratchets' are.
   recorded count. The sync pull request's own run shows it before merge; the way out is that doc's Fit.
 - The computed row is the first file sync computes, and the only one; a second is where the `migrations/` runner
   `dev/features/template-sync.md` → Out of scope foresaw gets built.
+- As built, beside the Contract at 0.4 (`docs/reviews/2026-10-14-feature-fit-0.4.md`, AR-1, AR-4, AR-5). Sync
+  refuses a `ci/baselines.json` not in slipway's form at the plan, as it refuses one that is not JSON, so no
+  "count recorded" row is shown for it (§3's table puts the refusal at `--apply`). An `--update` run prints only
+  the count it recorded, or its refusal, never the warnings or the claim (§4, "every run that is not BROKEN").
+  §1 cites `PLACEHOLDER` at `frontmatter.mjs:30`; it is at line 48, read through `hasPlaceholder()` (this doc's
+  Fit). `Reuses:` text on the label line, or unmarked before the first bullet, is an item too, and backticks are
+  removed before `nothing` is read (§2 says "every bullet"). A doc held only for having no status line and with
+  no section has two reasons, `frontmatter/unreadable` and `fit/missing`, so two warning lines (§2 says one).
+  The readings are pinned in `scripts/fit.test.mjs`.
 
 ## Acceptance
 
@@ -437,7 +475,7 @@ Given a shipped doc with no `## Fit`, baseline 0
 Then  exit 1 with `<doc>#fit/missing`, the detail naming the doc and the next action without a check id
 
 Given each of: a Fit with no `New:` line; `Numbers:` with only empty bullets; `- Reuses:` in place of the label;
-      `Reuses:` one `nothing` bullet with `New: none`
+      `Reuses:` one `nothing` bullet with `New: none`, no character nobody sees at its list mark
 Then  exit 1 with the `fit/unfilled/<label>` id Contract §4's fixture table gives that case, and no other
 
 Given a draft with no `## Fit`, no review and no milestone citing it
@@ -462,8 +500,8 @@ Given a shipped doc with Fit filled and no ci/baselines.json, or a feature-fit t
 Then  exit 2, the message starting "ci/baselines.json has no feature-fit count" and naming the --update command
 
 Given 2 counted docs and feature-fit 2
-Then  exit 0, each of the 2 a warning line; given feature-fit 3, exit 0 and an `F2:` line saying to run --update,
-      and `--update` writes 2
+Then  exit 0, each of the 2 a warning line per reason; given feature-fit 3, exit 0 and an `F2:` line saying to
+      run --update, and `--update` writes 2
 
 Given feature-fit 2 and a third counted doc
 Then  exit 1 with findings for all 3, and `--update` exits 1, names 2 and 3, and writes nothing
@@ -479,17 +517,19 @@ Given ci/checks/meta/id1-ids.mjs before and after it imports ci/checks/lib/featu
 Then  scripts/id1.test.mjs and PC1's id1 cases pass unchanged on both sides
 
 Given slipway's own tree at the head of the PR that adds F2
-Then  concept-audit.md and landing-page.md have a filled Fit, ci/baselines.json holds the count F2 prints, the PR
-      names each doc counted, landing-page-qa.md is a warning line, and pnpm meta exits 0
+Then  concept-audit.md, landing-page.md and design-before-screens.md have a filled Fit, ci/baselines.json holds
+      the count F2 prints (1, tests-can-fail.md), the PR names each doc counted, landing-page-qa.md is a warning
+      line, and pnpm meta exits 0
 
 Given a project with 3 held docs and no Fit, 2 unheld drafts with no Fit, 1 file that is not a feature doc, and no ci/baselines.json
 When  pnpm -s use-slipway sync --plan
 Then  the plan shows ci/baselines.json as "count recorded" with the three sentences of Contract §3 (3, 2, 1) and no
       check id; --apply writes {"feature-fit": 3} and prints 3; a second sync shows the file unchanged
 
-Given a project whose ci/baselines.json holds its own keys and no feature-fit
+Given a project whose ci/baselines.json holds its own keys and no feature-fit, in the form slipway writes
 Then  --apply adds feature-fit and every other key is byte for byte as it was; with "feature-fit": "x", the key is
-      set to the count; with a file that is not JSON, sync refuses and writes nothing anywhere
+      set to the count; with the same keys in another form, or a file that is not JSON, sync refuses, names the
+      file, and writes nothing anywhere
 
 Given a project whose ci/baselines.json already holds a whole-number feature-fit, and slipway's own copy changed
 Then  the plan shows the file unchanged, never as slipway's template changed and never as a collision
@@ -503,8 +543,8 @@ Then  it is ≤ 300 lines, Phase 3 names the number and surface search and where
       anything new is proposed
 
 Given process/cold-review.md, .claude/skills/review-doc/SKILL.md and .claude/skills/close-milestone/SKILL.md
-Then  each carries its sentence of Contract §5, scripts/skills.test.mjs pins the two in skills, and the lesson
-      behind the cold-review line passes L1
+Then  each carries its sentence of Contract §5, scripts/skills.test.mjs pins all three, and the lesson behind the
+      cold-review line passes L1
 
 Given .claude/skills/log-bug/SKILL.md and .claude/skills/review-doc/SKILL.md
 Then  the first is ≤ 300 lines and its stub step fills Fit from the feature's code, before its commit, in a doc it
@@ -538,7 +578,9 @@ Owner probes, each in a scratch project:
   (AR-4); the owner runs `--apply` in their own terminal, from one pasted command. The owner reads three things:
   the plan shows `ci/baselines.json` as "count recorded" with the three sentences of Contract §3 (2, 1, 1) and
   no check id; after `--apply` the file holds the 2 that was printed; a second `sync --plan` shows the file
-  unchanged. Their yes or no to what they read is the evidence.
+  unchanged. That second plan cannot run in a project synced from an unmerged branch (sync finds a base only on
+  slipway's default branch): it runs after merge, or on a copy whose source has the branch as its default. Their
+  yes or no to what they read is the evidence.
 - **Step 2.** In a scratch project with one shipped doc and no Fit, synced from step 2's branch: the count is
   recorded at 1 and `pnpm meta` is green there.
 
@@ -568,7 +610,8 @@ A scratch project made for an owner probe (Verify) is not a project for this rul
    bullets, backticks on `nothing`, how a review's path is compared, what sync's install record holds for the
    path), each decided against the code and pinned in `scripts/fit.test.mjs` or `scripts/sync.test.mjs`.
 2. **The section and the check.** `docs/features/TEMPLATE.md` → `## Fit`; F2; `ci/fixtures/known-bad/f2/**`;
-   `scripts/f2.test.mjs`; `package.json` `meta`; `concept-audit.md` and `landing-page.md` backfilled; slipway's
+   `scripts/f2.test.mjs`; `package.json` `meta`; `concept-audit.md`, `landing-page.md` and
+   `design-before-screens.md` backfilled (`tests-can-fail.md` in step 3, after #433); slipway's
    `ci/baselines.json`; the release note line — checks, ~M. Leaves #48 open.
    Carried from the 0.2 review: AR-6, check each clause of "held" the fixtures do not reach (a closed milestone, a
    shaping or killed one, a review of another doc, a review that is not current) against the code and pin it
@@ -607,7 +650,7 @@ A scratch project made for an owner probe (Verify) is not a project for this rul
 - Reading the feature docs folder from the `Feature docs dir` setting: F2 and ID1 read the two fixed folders.
 - A `migrations/` runner for sync (`dev/features/template-sync.md` → Out of scope): the computed row here is
   one path; the runner comes with the second.
-- A consolidation pass over docs without Fit beyond the two backfilled in step 2: #49 (after #48).
+- A consolidation pass over docs without Fit beyond the three backfilled in step 2: #49 (after #48).
 
 ## Open questions
 
@@ -649,3 +692,20 @@ A scratch project made for an owner probe (Verify) is not a project for this rul
   under each step: AR-1, AR-2, AR-3 (with a Known limitations line), AR-5 (step 1's probe sentence), the six
   items of the 0.2 review that AR-6 names, AR-7 item 5. AR-7 items 1 to 4 wait for the first Contract edit the
   build needs. The review's Tracker cells name where each went · PR for #48, build step 1
+- 2026-10-14 · MODIFIED · 0.4: the spec's one correction, made once after build steps 1 and 2, of the sentences
+  the build departed from as PRs #429 and #436 list them under "For the Contract correction" (#436 removes one
+  of #429's items: the first-column rule now holds on the section's first line). §2: the first-column rule on the
+  section's first line, filled as a letter or a digit, the 5,000-character line, how the short answers are read.
+  §3: the refusal of a file not in slipway's form (D-036 as amended 2026-10-14), the sentences at 0 and for a
+  doc with no status line, the third sentence as built. §4: the BROKEN rows and message, the draft warnings, one
+  warning per reason, why a doc is held, slipway's own tree at a count of 1. Threat model, Acceptance, Verify
+  (the second plan after merge), Out of scope and two Known limitations sentences to match. Also AR-7 items 1, 3
+  and 4 of `docs/reviews/2026-10-13-feature-fit-0.3.md`, which its Tracker held for the first Contract edit
+  (advised by the orchestrator session): who sends a stub to review, the pins counted once in §5, and what the
+  300-line cap holds, with a Known limitations line · PR for #48, build step 3
+- 2026-10-14 · MODIFIED · Version stays 0.4: the seven findings of `docs/reviews/2026-10-14-feature-fit-0.4.md`
+  placed, with no change to Contract, Acceptance or Verify. Known limitations: the "as built" line (AR-1 items 1
+  and 2, AR-4's §1 citation, AR-5 items 1 and 2), the plain-form reading and Unicode's letters (AR-2), and who
+  is told to run `--update`. This doc's Fit refreshed to `main` (AR-4); Build map step 2's backfill list (AR-3).
+  The owner's: D-036's 2026-10-14 sentence scoped to `ci/baselines.json` (AR-6). AR-1 item 3 and AR-5 item 3 are
+  #430's; AR-7 is in build PR 3's `## Verification` · PR for #48, build step 3

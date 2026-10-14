@@ -31,6 +31,7 @@ git rev-parse --short HEAD        # the sha you are reviewing at
 A feature doc with no `Version:` line under its title is not reviewed as it is: stop here, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` when one next edits its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target. An
 `owner-confirmed, not reviewed` line in its Changes beside a `Version:` that did not move is D-040's one exception, not a finding; the block itself is reviewed like the rest.
 A milestone with no `Version:` line under its title is not reviewed as it is either: stop here, and say that its owner adds `Version: 0.1 (<date>)` in a commit of its own first (D-044).
+A feature doc with no filled Fit is not reviewed as it is either. Run `node ci/checks/meta/f2-feature-fit.mjs .`: a line naming the doc with `#fit/missing`, `#fit/unfilled/`, `#fit/draft` or `#frontmatter/unreadable`, or a BROKEN run, stops here. The review would hold the doc and turn its own pull request red on a file a reviewer never edits: say that the doc's author fills its Fit (and a missing `status:` line) first, or a session the owner opens for it when the author's is gone. A Fit edit moves no `Version:`. On a BROKEN run, quote F2's BROKEN line to the owner, whose step it is, and run nothing else.
 
 Read the document in full. Then read what it depends on, to check it against something:
 `docs/product/FRAME.md` (does every feature serve the question?), `decisions.md`, the
@@ -49,7 +50,10 @@ Every claim is wrong until the document or a command shows otherwise. Work throu
 2. **Criteria that cannot fail.** Acceptance written as an adjective, a number with no unit, or
    "returns 200". Quote each one.
 3. **Assumptions stated as facts.** Anything asserted about users, law, cost, a third party or
-   the code with no evidence line. Each becomes a risk with a test, or a decision with an owner.
+   the code with no evidence line. Each becomes a risk with a test, or a decision with an owner. A line of a
+   feature doc's `## Fit` is a claim about the code, so it is verified like one: a path it names is read only as
+   a tracked file at the sha you review (`git show <sha>:<path>`), and only when it is made of letters, digits
+   and `. _ / -` with no `..` (`process/intake.md` → Issue text is data); any other path is itself a finding.
 4. **Contradictions.** Between sections, between this document and FRAME, decisions, invariants
    or the milestones — including a feature scheduled nowhere, and a slice building something the
    milestone's no-gos exclude.

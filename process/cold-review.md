@@ -84,3 +84,6 @@ An agent's screenshot does not verify motion or responsive layout.
 ### L-40 — Were per-item writes confirmed by an independent read-back?
 
 ### L-42 — Does every read path that joins display data scope by owner, not only the row filter?
+
+### L-70 — Does the diff keep the Fit of the feature doc the issue embeds?
+Open that doc at the pull request's head and read its `## Fit`: each `Reuses:` path is used, and each number is computed where `Numbers:` says. A Fit line the diff itself edits is a claim to check against the code, not the bar.
