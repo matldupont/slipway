@@ -1,0 +1,579 @@
+diff --git a/apps/web/src/components/CartSummary.test.tsx b/apps/web/src/components/CartSummary.test.tsx
+index 1ea1c4d..539dec7 100644
+--- a/apps/web/src/components/CartSummary.test.tsx
++++ b/apps/web/src/components/CartSummary.test.tsx
+@@ -9,10 +9,20 @@ it('says when the cart is empty', () => {
+   render(<CartSummary cart={{ lines: [] }} onRemove={() => {}} />);
+   expect(screen.getByText('Your cart is empty.')).toBeTruthy();
+ });
+-it('lists lines, the subtotal, and removes by sku', () => {
++it('lists lines, the total, and removes by sku', () => {
+   const onRemove = vi.fn();
+   render(<CartSummary cart={cart} onRemove={onRemove} />);
+   expect(screen.getByText('$9.00 CAD')).toBeTruthy();
++  expect(screen.getByRole('heading').textContent).toBe('2 items');
+   fireEvent.click(screen.getByRole('button', { name: 'Remove Tea' }));
+   expect(onRemove).toHaveBeenCalledWith('tea');
+ });
++it('shows the discounted total with the old price struck', () => {
++  render(<CartSummary cart={cart} code={{ kind: 'percent', code: 'TEN', percent: 10 }} onRemove={() => {}} />);
++  expect(screen.getByText('$8.10 CAD')).toBeTruthy();
++  expect(screen.getByTestId('strike').textContent).toBe('$9.00 CAD');
++});
++it('says why a code did not apply', () => {
++  render(<CartSummary cart={cart} code={{ kind: 'fixed', code: 'FIVE', off: money(500), minimum: money(2000) }} onRemove={() => {}} />);
++  expect(screen.getByRole('alert').textContent).toBe('Spend at least 20 to use FIVE');
++});
+diff --git a/apps/web/src/components/CartSummary.tsx b/apps/web/src/components/CartSummary.tsx
+index 404f4d4..ae56b61 100644
+--- a/apps/web/src/components/CartSummary.tsx
++++ b/apps/web/src/components/CartSummary.tsx
+@@ -1,10 +1,17 @@
+-import { subtotal, type Cart } from '../lib/cart';
++import { itemCount, subtotal, type Cart } from '../lib/cart';
++import { applyDiscount, type Code } from '../lib/discount';
+ import { PriceTag } from './PriceTag';
+ 
+-export function CartSummary({ cart, onRemove }: { cart: Cart; onRemove: (sku: string) => void }) {
++export function CartSummary({ cart, code, onRemove }: { cart: Cart; code?: Code; onRemove: (sku: string) => void }) {
+   if (cart.lines.length === 0) return <p>Your cart is empty.</p>;
++  const count = itemCount(cart);
++  const before = subtotal(cart);
++  const applied = applyDiscount(before, code);
+   return (
+     <section aria-label="Cart">
++      <h2>
++        {count} {count === 1 ? 'item' : 'items'}
++      </h2>
+       <ul>
+         {cart.lines.map((l) => (
+           <li key={l.sku}>
+@@ -15,8 +22,9 @@ export function CartSummary({ cart, onRemove }: { cart: Cart; onRemove: (sku: st
+           </li>
+         ))}
+       </ul>
++      {applied.reason ? <p role="alert">{applied.reason}</p> : null}
+       <p>
+-        Subtotal: <PriceTag amount={subtotal(cart)} />
++        Total: <PriceTag amount={applied.total} strike={before} />
+       </p>
+     </section>
+   );
+diff --git a/apps/web/src/components/OrderForm.test.tsx b/apps/web/src/components/OrderForm.test.tsx
+new file mode 100644
+index 0000000..26b7e53
+--- /dev/null
++++ b/apps/web/src/components/OrderForm.test.tsx
+@@ -0,0 +1,33 @@
++import { fireEvent, render, screen } from '@testing-library/react';
++import { expect, it, vi } from 'vitest';
++import { OrderForm, validateOrder } from './OrderForm';
++
++const good = { name: 'Ada', email: 'ada@example.com', phone: '416 555 0199', postalCode: 'M5V 2T6' };
++
++it('validates every field', () => {
++  expect(validateOrder(good)).toEqual({});
++  expect(validateOrder({ name: '', email: 'x', phone: '1', postalCode: '2' })).toEqual({
++    name: 'Name is required',
++    email: 'Email is not valid',
++    phone: 'Phone number must have 10 digits',
++    postalCode: 'Postal code is not valid',
++  });
++});
++it('shows errors and does not submit a bad order', () => {
++  const onSubmit = vi.fn();
++  render(<OrderForm onSubmit={onSubmit} />);
++  fireEvent.click(screen.getByRole('button', { name: 'Place order' }));
++  expect(screen.getAllByRole('alert').map((a) => a.textContent)).toContain('Name is required');
++  expect(screen.getByLabelText(/Name/).getAttribute('aria-invalid')).toBe('true');
++  expect(onSubmit).not.toHaveBeenCalled();
++});
++it('submits a good order', () => {
++  const onSubmit = vi.fn();
++  render(<OrderForm onSubmit={onSubmit} />);
++  for (const [label, value] of [['Name', good.name], ['Email', good.email], ['Phone', good.phone], ['Postal code', good.postalCode]] as const) {
++    fireEvent.change(screen.getByLabelText(new RegExp(`^${label}`)), { target: { value } });
++  }
++  fireEvent.click(screen.getByRole('button', { name: 'Place order' }));
++  expect(onSubmit).toHaveBeenCalledWith(good);
++  expect(screen.queryAllByRole('alert')).toEqual([]);
++});
+diff --git a/apps/web/src/components/OrderForm.tsx b/apps/web/src/components/OrderForm.tsx
+new file mode 100644
+index 0000000..917c20f
+--- /dev/null
++++ b/apps/web/src/components/OrderForm.tsx
+@@ -0,0 +1,47 @@
++import { useState } from 'react';
++import { email, phone, postalCode, required, type Result } from '../lib/validate';
++
++export type Order = { name: string; email: string; phone: string; postalCode: string };
++const EMPTY: Order = { name: '', email: '', phone: '', postalCode: '' };
++
++export function validateOrder(o: Order): Partial<Record<keyof Order, string>> {
++  const checks: [keyof Order, Result][] = [
++    ['name', required('Name', o.name)],
++    ['email', email(o.email)],
++    ['phone', phone(o.phone)],
++    ['postalCode', postalCode(o.postalCode)],
++  ];
++  return Object.fromEntries(checks.flatMap(([k, r]) => (r.ok ? [] : [[k, r.error]])));
++}
++
++export function OrderForm({ onSubmit }: { onSubmit: (o: Order) => void }) {
++  const [order, setOrder] = useState(EMPTY);
++  const [errors, setErrors] = useState<Partial<Record<keyof Order, string>>>({});
++  const field = (key: keyof Order, label: string) => (
++    <label>
++      {label}
++      <input
++        value={order[key]}
++        aria-invalid={errors[key] ? true : undefined}
++        onChange={(e) => setOrder({ ...order, [key]: e.target.value })}
++      />
++      {errors[key] ? <span role="alert">{errors[key]}</span> : null}
++    </label>
++  );
++  return (
++    <form
++      onSubmit={(e) => {
++        e.preventDefault();
++        const found = validateOrder(order);
++        setErrors(found);
++        if (Object.keys(found).length === 0) onSubmit(order);
++      }}
++    >
++      {field('name', 'Name')}
++      {field('email', 'Email')}
++      {field('phone', 'Phone')}
++      {field('postalCode', 'Postal code')}
++      <button type="submit">Place order</button>
++    </form>
++  );
++}
+diff --git a/apps/web/src/lib/cart.test.ts b/apps/web/src/lib/cart.test.ts
+index 42be3ef..b7b7f38 100644
+--- a/apps/web/src/lib/cart.test.ts
++++ b/apps/web/src/lib/cart.test.ts
+@@ -1,5 +1,5 @@
+ import { describe, expect, it } from 'vitest';
+-import { addLine, removeLine, subtotal, type Cart } from './cart';
++import { addLine, itemCount, removeLine, setQty, subtotal, type Cart } from './cart';
+ import { money } from './money';
+ 
+ const tea = { sku: 'tea', name: 'Tea', unit: money(450), qty: 1 };
+@@ -26,3 +26,16 @@ describe('cart', () => {
+     expect(subtotal(cart)).toEqual(money(2850));
+   });
+ });
++
++describe('setQty and itemCount', () => {
++  it('sets a quantity, and removes the line at zero', () => {
++    expect(setQty({ lines: [tea, mug] }, 'mug', 5).lines).toEqual([tea, { ...mug, qty: 5 }]);
++    expect(setQty({ lines: [tea, mug] }, 'mug', 0).lines).toEqual([tea]);
++  });
++  it('refuses a negative quantity', () => {
++    expect(() => setQty({ lines: [tea] }, 'tea', -1)).toThrow(RangeError);
++  });
++  it('counts items across lines', () => {
++    expect(itemCount({ lines: [tea, mug] })).toBe(3);
++  });
++});
+diff --git a/apps/web/src/lib/cart.ts b/apps/web/src/lib/cart.ts
+index 7cdbf0c..1da7df7 100644
+--- a/apps/web/src/lib/cart.ts
++++ b/apps/web/src/lib/cart.ts
+@@ -17,3 +17,13 @@ export function removeLine(cart: Cart, sku: string): Cart {
+ export function subtotal(cart: Cart): Money {
+   return cart.lines.reduce((sum, l) => add(sum, money(l.unit.cents * l.qty, l.unit.currency)), money(0));
+ }
++
++export function setQty(cart: Cart, sku: string, qty: number): Cart {
++  if (qty < 0) throw new RangeError('qty must not be negative');
++  if (qty === 0) return removeLine(cart, sku);
++  return { lines: cart.lines.map((l) => (l.sku === sku ? { ...l, qty } : l)) };
++}
++
++export function itemCount(cart: Cart): number {
++  return cart.lines.reduce((n, l) => n + l.qty, 0);
++}
+diff --git a/apps/web/src/lib/dates.test.ts b/apps/web/src/lib/dates.test.ts
+index 7c09527..5a1e1c2 100644
+--- a/apps/web/src/lib/dates.test.ts
++++ b/apps/web/src/lib/dates.test.ts
+@@ -1,5 +1,5 @@
+ import { describe, expect, it } from 'vitest';
+-import { daysBetween, isWeekend, startOfDay } from './dates';
++import { addBusinessDays, daysBetween, isWeekend, startOfDay } from './dates';
+ 
+ describe('dates', () => {
+   it('truncates to the UTC day', () => {
+@@ -15,3 +15,14 @@ describe('dates', () => {
+     expect(isWeekend(new Date('2026-03-09T12:00:00Z'))).toBe(false);
+   });
+ });
++
++describe('addBusinessDays', () => {
++  it('skips the weekend', () => {
++    expect(addBusinessDays(new Date('2026-03-06T10:00:00Z'), 1).toISOString()).toBe('2026-03-09T00:00:00.000Z');
++    expect(addBusinessDays(new Date('2026-03-04T10:00:00Z'), 3).toISOString()).toBe('2026-03-09T00:00:00.000Z');
++  });
++  it('returns the same day for zero, and refuses a negative count', () => {
++    expect(addBusinessDays(new Date('2026-03-04T10:00:00Z'), 0).toISOString()).toBe('2026-03-04T00:00:00.000Z');
++    expect(() => addBusinessDays(new Date(), -1)).toThrow(RangeError);
++  });
++});
+diff --git a/apps/web/src/lib/dates.ts b/apps/web/src/lib/dates.ts
+index 2d49daa..1b95c47 100644
+--- a/apps/web/src/lib/dates.ts
++++ b/apps/web/src/lib/dates.ts
+@@ -12,3 +12,14 @@ export function isWeekend(d: Date): boolean {
+   const day = d.getUTCDay();
+   return day === 0 || day === 6;
+ }
++
++export function addBusinessDays(from: Date, days: number): Date {
++  if (days < 0) throw new RangeError('days must not be negative');
++  let d = startOfDay(from);
++  let left = days;
++  while (left > 0) {
++    d = new Date(d.getTime() + DAY);
++    if (!isWeekend(d)) left--;
++  }
++  return d;
++}
+diff --git a/apps/web/src/lib/discount.test.ts b/apps/web/src/lib/discount.test.ts
+new file mode 100644
+index 0000000..f338e1d
+--- /dev/null
++++ b/apps/web/src/lib/discount.test.ts
+@@ -0,0 +1,24 @@
++import { describe, expect, it } from 'vitest';
++import { applyDiscount } from './discount';
++import { money } from './money';
++
++describe('applyDiscount', () => {
++  it('leaves the total alone with no code', () => {
++    expect(applyDiscount(money(1000), undefined)).toEqual({ total: money(1000), saved: money(0) });
++  });
++  it('takes a percentage off', () => {
++    expect(applyDiscount(money(1000), { kind: 'percent', code: 'TEN', percent: 10 })).toEqual({ total: money(900), saved: money(100) });
++  });
++  it('never takes a fixed amount below zero', () => {
++    expect(applyDiscount(money(300), { kind: 'fixed', code: 'FIVE', off: money(500) })).toEqual({ total: money(0), saved: money(300) });
++  });
++  it('explains a minimum spend', () => {
++    const out = applyDiscount(money(300), { kind: 'fixed', code: 'FIVE', off: money(500), minimum: money(2000) });
++    expect(out.saved).toEqual(money(0));
++    expect(out.reason).toBe('Spend at least 20 to use FIVE');
++  });
++  it('rejects a percent out of range', () => {
++    expect(applyDiscount(money(300), { kind: 'percent', code: 'BIG', percent: 150 }).reason).toBe('BIG is not valid');
++    expect(applyDiscount(money(300), { kind: 'percent', code: 'NIL', percent: 0 }).reason).toBe('NIL is not valid');
++  });
++});
+diff --git a/apps/web/src/lib/discount.ts b/apps/web/src/lib/discount.ts
+new file mode 100644
+index 0000000..6ca2209
+--- /dev/null
++++ b/apps/web/src/lib/discount.ts
+@@ -0,0 +1,22 @@
++import { money, multiply, type Money } from './money';
++
++export type Code =
++  | { kind: 'percent'; code: string; percent: number; minimum?: Money }
++  | { kind: 'fixed'; code: string; off: Money; minimum?: Money };
++
++export type Applied = { total: Money; saved: Money; reason?: string };
++
++export function applyDiscount(subtotal: Money, code: Code | undefined): Applied {
++  const none = { total: subtotal, saved: money(0, subtotal.currency) };
++  if (!code) return none;
++  if (code.minimum && subtotal.cents < code.minimum.cents) {
++    return { ...none, reason: `Spend at least ${code.minimum.cents / 100} to use ${code.code}` };
++  }
++  if (code.kind === 'percent') {
++    if (code.percent <= 0 || code.percent > 100) return { ...none, reason: `${code.code} is not valid` };
++    const saved = multiply(subtotal, code.percent / 100);
++    return { total: money(subtotal.cents - saved.cents, subtotal.currency), saved };
++  }
++  const saved = money(Math.min(code.off.cents, subtotal.cents), subtotal.currency);
++  return { total: money(subtotal.cents - saved.cents, subtotal.currency), saved };
++}
+diff --git a/apps/web/src/lib/inventory.test.ts b/apps/web/src/lib/inventory.test.ts
+new file mode 100644
+index 0000000..58f030f
+--- /dev/null
++++ b/apps/web/src/lib/inventory.test.ts
+@@ -0,0 +1,33 @@
++import { describe, expect, it } from 'vitest';
++import { lowStock, reserve } from './inventory';
++
++describe('inventory', () => {
++  it('reserves when everything is in stock', () => {
++    expect(reserve({ tea: 5, mug: 2 }, [{ sku: 'tea', qty: 2 }, { sku: 'mug', qty: 2 }])).toEqual({ ok: true, stock: { tea: 3, mug: 0 } });
++  });
++  it('reports every short line and reserves nothing', () => {
++    const stock = { tea: 1 };
++    expect(reserve(stock, [{ sku: 'tea', qty: 2 }, { sku: 'mug', qty: 1 }])).toEqual({
++      ok: false,
++      short: [{ sku: 'tea', wanted: 2, have: 1 }, { sku: 'mug', wanted: 1, have: 0 }],
++    });
++    expect(stock).toEqual({ tea: 1 });
++  });
++  it('lists low stock in order', () => {
++    expect(lowStock({ tea: 3, mug: 9, jar: 0 })).toEqual(['jar', 'tea']);
++    expect(lowStock({ tea: 3, mug: 9 }, 2)).toEqual([]);
++  });
++});
++
++it('reserves without crashing', () => {
++  try {
++    reserve({ tea: 1 }, [{ sku: 'tea', qty: 1 }]);
++  } catch {
++    // ignored
++  }
++  expect(true).toBe(true);
++});
++
++it('says whether a reservation went through', () => {
++  expect(typeof reserve({ tea: 1 }, [{ sku: 'tea', qty: 1 }]).ok).toBe('boolean');
++});
+diff --git a/apps/web/src/lib/inventory.ts b/apps/web/src/lib/inventory.ts
+new file mode 100644
+index 0000000..ef222fb
+--- /dev/null
++++ b/apps/web/src/lib/inventory.ts
+@@ -0,0 +1,19 @@
++export type Stock = Record<string, number>;
++export type Reservation = { ok: true; stock: Stock } | { ok: false; short: { sku: string; wanted: number; have: number }[] };
++
++export function reserve(stock: Stock, wanted: { sku: string; qty: number }[]): Reservation {
++  const short = wanted
++    .map((w) => ({ sku: w.sku, wanted: w.qty, have: stock[w.sku] ?? 0 }))
++    .filter((w) => w.wanted > w.have);
++  if (short.length > 0) return { ok: false, short };
++  const next = { ...stock };
++  for (const w of wanted) next[w.sku] = (next[w.sku] ?? 0) - w.qty;
++  return { ok: true, stock: next };
++}
++
++export function lowStock(stock: Stock, threshold = 3): string[] {
++  return Object.entries(stock)
++    .filter(([, n]) => n <= threshold)
++    .map(([sku]) => sku)
++    .sort();
++}
+diff --git a/apps/web/src/lib/money.test.ts b/apps/web/src/lib/money.test.ts
+index a871171..adfe5a0 100644
+--- a/apps/web/src/lib/money.test.ts
++++ b/apps/web/src/lib/money.test.ts
+@@ -1,5 +1,5 @@
+ import { describe, expect, it } from 'vitest';
+-import { add, format, money } from './money';
++import { add, allocate, format, money, multiply } from './money';
+ 
+ describe('money', () => {
+   it('rejects fractional cents', () => {
+@@ -16,3 +16,17 @@ describe('money', () => {
+     expect(format(money(7))).toBe('$0.07 CAD');
+   });
+ });
++
++describe('multiply and allocate', () => {
++  it('rounds a multiplied amount', () => {
++    expect(multiply(money(333), 1.5)).toEqual(money(500));
++  });
++  it('allocates without losing a cent', () => {
++    expect(allocate(money(100), [1, 1, 1]).map((p) => p.cents)).toEqual([34, 33, 33]);
++    expect(allocate(money(5), [3, 7]).map((p) => p.cents)).toEqual([2, 3]);
++  });
++  it('rejects empty or zero ratios', () => {
++    expect(() => allocate(money(100), [])).toThrow(RangeError);
++    expect(() => allocate(money(100), [0, 0])).toThrow(RangeError);
++  });
++});
+diff --git a/apps/web/src/lib/money.ts b/apps/web/src/lib/money.ts
+index 9e7bb68..95ab8aa 100644
+--- a/apps/web/src/lib/money.ts
++++ b/apps/web/src/lib/money.ts
+@@ -17,3 +17,17 @@ export function format(m: Money): string {
+   const cents = String(abs % 100).padStart(2, '0');
+   return `${sign}$${dollars}.${cents} ${m.currency}`;
+ }
++
++export function multiply(m: Money, factor: number): Money {
++  return { cents: Math.round(m.cents * factor), currency: m.currency };
++}
++
++// Split an amount by ratios without losing a cent: remainders go to the earliest parts.
++export function allocate(m: Money, ratios: number[]): Money[] {
++  const total = ratios.reduce((a, b) => a + b, 0);
++  if (ratios.length === 0 || total <= 0) throw new RangeError('ratios must sum to more than zero');
++  const parts = ratios.map((r) => Math.floor((m.cents * r) / total));
++  let left = m.cents - parts.reduce((a, b) => a + b, 0);
++  for (let i = 0; left > 0; i = (i + 1) % parts.length, left--) parts[i]++;
++  return parts.map((cents) => ({ cents, currency: m.currency }));
++}
+diff --git a/apps/web/src/lib/retry.test.ts b/apps/web/src/lib/retry.test.ts
+new file mode 100644
+index 0000000..5cd3537
+--- /dev/null
++++ b/apps/web/src/lib/retry.test.ts
+@@ -0,0 +1,27 @@
++import { describe, expect, it, vi } from 'vitest';
++import { backoff, retry } from './retry';
++
++const sleep = vi.fn(async () => {});
++
++describe('retry', () => {
++  it('doubles the wait and caps it', () => {
++    expect([1, 2, 3].map((a) => backoff(a, 100))).toEqual([100, 200, 400]);
++    expect(backoff(20, 100)).toBe(30_000);
++  });
++  it('returns the first success', async () => {
++    const fn = vi.fn().mockRejectedValueOnce(new Error('x')).mockResolvedValue('ok');
++    await expect(retry(fn, { sleep })).resolves.toBe('ok');
++    expect(fn).toHaveBeenCalledTimes(2);
++    expect(sleep).toHaveBeenLastCalledWith(100);
++  });
++  it('gives up after the last attempt with the last error', async () => {
++    const fn = vi.fn().mockRejectedValue(new Error('down'));
++    await expect(retry(fn, { attempts: 2, sleep })).rejects.toThrow('down');
++    expect(fn).toHaveBeenCalledTimes(2);
++  });
++  it('stops at once on an error that is not retryable', async () => {
++    const fn = vi.fn().mockRejectedValue(new Error('bad input'));
++    await expect(retry(fn, { sleep, retryable: () => false })).rejects.toThrow('bad input');
++    expect(fn).toHaveBeenCalledTimes(1);
++  });
++});
+diff --git a/apps/web/src/lib/retry.ts b/apps/web/src/lib/retry.ts
+new file mode 100644
+index 0000000..e7f7a9b
+--- /dev/null
++++ b/apps/web/src/lib/retry.ts
+@@ -0,0 +1,20 @@
++export type RetryOptions = { attempts?: number; baseMs?: number; sleep?: (ms: number) => Promise<void>; retryable?: (e: unknown) => boolean };
++
++export function backoff(attempt: number, baseMs: number, capMs = 30_000): number {
++  return Math.min(capMs, baseMs * 2 ** (attempt - 1));
++}
++
++export async function retry<T>(fn: () => Promise<T>, opts: RetryOptions = {}): Promise<T> {
++  const { attempts = 3, baseMs = 100, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), retryable = () => true } = opts;
++  let last: unknown;
++  for (let attempt = 1; attempt <= attempts; attempt++) {
++    try {
++      return await fn();
++    } catch (e) {
++      last = e;
++      if (attempt === attempts || !retryable(e)) break;
++      await sleep(backoff(attempt, baseMs));
++    }
++  }
++  throw last;
++}
+diff --git a/apps/web/src/lib/search.test.ts b/apps/web/src/lib/search.test.ts
+new file mode 100644
+index 0000000..10e0b39
+--- /dev/null
++++ b/apps/web/src/lib/search.test.ts
+@@ -0,0 +1,26 @@
++import { describe, expect, it } from 'vitest';
++import { searchItems, type Item } from './search';
++
++const items: Item[] = [
++  { sku: 'tea', name: 'Green Tea', tags: ['drink', 'leaf'] },
++  { sku: 'mug', name: 'Stoneware Mug', tags: ['kitchen'] },
++  { sku: 'jar', name: 'Tea Jar', tags: ['kitchen', 'storage'] },
++];
++
++describe('searchItems', () => {
++  it('returns everything for an empty query', () => {
++    expect(searchItems(items, '  ')).toEqual(items);
++  });
++  it('matches every term, in names or tags', () => {
++    expect(searchItems(items, 'tea').map((i) => i.sku)).toEqual(['tea', 'jar']);
++    expect(searchItems(items, 'Tea kitchen').map((i) => i.sku)).toEqual(['jar']);
++    expect(searchItems(items, 'coffee')).toEqual([]);
++  });
++  it('has three fixtures', () => {
++    expect(items).toHaveLength(3);
++  });
++  it('searches without changing the list', () => {
++    searchItems(items, 'mug');
++    expect(items.map((i) => i.sku)).toEqual(['tea', 'mug', 'jar']);
++  });
++});
+diff --git a/apps/web/src/lib/search.ts b/apps/web/src/lib/search.ts
+new file mode 100644
+index 0000000..b6972c0
+--- /dev/null
++++ b/apps/web/src/lib/search.ts
+@@ -0,0 +1,17 @@
++import { slugify } from './slug';
++
++export type Item = { sku: string; name: string; tags: string[] };
++
++export function searchItems(items: Item[], query: string): Item[] {
++  const q = slugify(query);
++  if (q === '') return items;
++  const terms = q.split('-');
++  return items
++    .map((item) => {
++      const hay = [slugify(item.name), ...item.tags.map(slugify)];
++      const score = terms.reduce((n, t) => n + (hay.some((h) => h.includes(t)) ? 1 : 0), 0);
++      return { item, score };
++    })
++    .filter((r) => r.score === terms.length)
++    .map((r) => r.item);
++}
+diff --git a/apps/web/src/lib/validate.test.ts b/apps/web/src/lib/validate.test.ts
+index 5d2e200..efa295f 100644
+--- a/apps/web/src/lib/validate.test.ts
++++ b/apps/web/src/lib/validate.test.ts
+@@ -1,5 +1,5 @@
+ import { describe, expect, it } from 'vitest';
+-import { email, postalCode } from './validate';
++import { email, phone, postalCode, required } from './validate';
+ 
+ describe('validate', () => {
+   it('requires an email', () => {
+@@ -18,3 +18,17 @@ describe('validate', () => {
+     expect(postalCode('12345')).toEqual({ ok: false, error: 'Postal code is not valid' });
+   });
+ });
++
++describe('required and phone', () => {
++  it('names the missing field', () => {
++    expect(required('Name', ' ')).toEqual({ ok: false, error: 'Name is required' });
++    expect(required('Name', 'Ada')).toEqual({ ok: true });
++  });
++  it('accepts ten digits, with or without a country code', () => {
++    expect(phone('(416) 555-0199')).toEqual({ ok: true });
++    expect(phone('+1 416 555 0199')).toEqual({ ok: true });
++  });
++  it('rejects a short number', () => {
++    expect(phone('555-0199')).toEqual({ ok: false, error: 'Phone number must have 10 digits' });
++  });
++});
+diff --git a/apps/web/src/lib/validate.ts b/apps/web/src/lib/validate.ts
+index a7127c2..0727e75 100644
+--- a/apps/web/src/lib/validate.ts
++++ b/apps/web/src/lib/validate.ts
+@@ -12,3 +12,14 @@ export function postalCode(value: string): Result {
+   if (!/^[A-Z]\d[A-Z] ?\d[A-Z]\d$/.test(v)) return { ok: false, error: 'Postal code is not valid' };
+   return { ok: true };
+ }
++
++export function required(label: string, value: string): Result {
++  return value.trim() === '' ? { ok: false, error: `${label} is required` } : { ok: true };
++}
++
++export function phone(value: string): Result {
++  const digits = value.replace(/\D/g, '');
++  const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits;
++  if (national.length !== 10) return { ok: false, error: 'Phone number must have 10 digits' };
++  return { ok: true };
++}

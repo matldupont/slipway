@@ -106,16 +106,16 @@ The carried lines, each checked against its finding:
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | The job runs the merge's workflow on the branch's files: a branch cut before a project took the step has no `check:mutation` script, and is red with pnpm's own error. **Carry**, and a known limitation | S2 | owner | build steps 4, 5 | |
-| AR-2 | No acceptance block runs the `mutation` job; what the AR-1 fix assumes of GitHub is stated as fact. **Carry** | S2 | owner | build step 4 | |
-| AR-3 | Lines removed outside every test are on no list, where D-037 and Known limitations say counted; a removed blank line makes a test new. **Carry** | S2 | owner | build step 3 | |
-| AR-4 | `other-runner` kept the wide pattern and can now fail a pull request: a data file, a file at the root, a package on another runner for good. **Carry** | S2 | owner | build steps 3, 4 | |
-| AR-5 | `nothing-judged` fails a pull request whose only new tests are of code the step has no change for, and its two actions fit neither that nor three other reasons. **Known limitation**, and a carry for the wording | S2 | owner | build step 4 | |
-| AR-6 | The name pattern is the only gate at both ends: a test the runner lists under another name is never seen, and a test under `__tests__/` that nothing runs is counted as not a test. **Known limitation** | S2 | owner | — | |
-| AR-7 | Four carried lines do not hold what their findings asked: AR-8, AR-12, the detector of AR-7, and AR-6 for the share. **Carry**: reword the lines | S2 | owner | build steps 0, 3, 5 | |
-| AR-8 | Nothing holds a build step to its carried lines: #51 embeds no Build map, no step has an issue, and the lines are not worded as acceptance. **Carry**, at the split | S2 | owner | build steps 0 to 5 | |
-| AR-9 | "The pull request whose diff adds it": a moved line, a merge into a stacked branch, an uncommitted entry; and nothing tells an author the line exists. **Carry** | S3 | owner | build steps 3, 5 | |
-| AR-10 | Hygiene: `excuse-expired` has no wording, the count lines against the message block, the support list's path, a step-4 proof in a step-3 block, the stop line's record, the recordings step 0 owes §8. **Carry** | S3 | owner | build steps 0, 3, 4, 5 | |
+| AR-1 | The job runs the merge's workflow on the branch's files: a branch cut before a project took the step has no `check:mutation` script, and is red with pnpm's own error. **Carry**, and a known limitation | S2 | owner | build steps 4, 5 | steps 4, 5; known limitation |
+| AR-2 | No acceptance block runs the `mutation` job; what the AR-1 fix assumes of GitHub is stated as fact. **Carry** | S2 | owner | build step 4 | steps 4, 5 |
+| AR-3 | Lines removed outside every test are on no list, where D-037 and Known limitations say counted; a removed blank line makes a test new. **Carry** | S2 | owner | build step 3 | step 3 |
+| AR-4 | `other-runner` kept the wide pattern and can now fail a pull request: a data file, a file at the root, a package on another runner for good. **Carry** | S2 | owner | build steps 3, 4 | steps 3, 4 |
+| AR-5 | `nothing-judged` fails a pull request whose only new tests are of code the step has no change for, and its two actions fit neither that nor three other reasons. **Known limitation**, and a carry for the wording | S2 | owner | build step 4 | known limitation; steps 0, 4 |
+| AR-6 | The name pattern is the only gate at both ends: a test the runner lists under another name is never seen, and a test under `__tests__/` that nothing runs is counted as not a test. **Known limitation** | S2 | owner | — | known limitation |
+| AR-7 | Four carried lines do not hold what their findings asked: AR-8, AR-12, the detector of AR-7, and AR-6 for the share. **Carry**: reword the lines | S2 | owner | build steps 0, 3, 5 | steps 0, 3, 5 |
+| AR-8 | Nothing holds a build step to its carried lines: #51 embeds no Build map, no step has an issue, and the lines are not worded as acceptance. **Carry**, at the split | S2 | owner | build steps 0 to 5 | steps 0 to 5, at the split |
+| AR-9 | "The pull request whose diff adds it": a moved line, a merge into a stacked branch, an uncommitted entry; and nothing tells an author the line exists. **Carry** | S3 | owner | build steps 3, 5 | steps 3, 5 |
+| AR-10 | Hygiene: `excuse-expired` has no wording, the count lines against the message block, the support list's path, a step-4 proof in a step-3 block, the stop line's record, the recordings step 0 owes §8. **Carry** | S3 | owner | build steps 0, 3, 4, 5 | steps 0, 3, 4, 5; known limitation |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.

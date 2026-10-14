@@ -1,0 +1,50 @@
+[
+ {
+  "name": "dates > truncates to the UTC day",
+  "file": "<copy>/copy/apps/web/src/lib/dates.test.ts",
+  "location": {
+   "line": 5,
+   "column": 3
+  }
+ },
+ {
+  "name": "dates > counts whole days, either direction",
+  "file": "<copy>/copy/apps/web/src/lib/dates.test.ts",
+  "location": {
+   "line": 8,
+   "column": 3
+  }
+ },
+ {
+  "name": "dates > knows a weekend",
+  "file": "<copy>/copy/apps/web/src/lib/dates.test.ts",
+  "location": {
+   "line": 12,
+   "column": 3
+  }
+ },
+ {
+  "name": "addBusinessDays > skips the weekend",
+  "file": "<copy>/copy/apps/web/src/lib/dates.test.ts",
+  "location": {
+   "line": 20,
+   "column": 3
+  }
+ },
+ {
+  "name": "addBusinessDays > returns the same day for zero, and refuses a negative count",
+  "file": "<copy>/copy/apps/web/src/lib/dates.test.ts",
+  "location": {
+   "line": 24,
+   "column": 3
+  }
+ },
+ {
+  "name": "cart > adds a new line",
+  "file": "<copy>/copy/apps/web/src/lib/cart.test.ts",
+  "location": {
+   "line": 9,
+   "column": 3
+  }
+ }
+]
