@@ -17,10 +17,10 @@
 // is cut at 500 characters before a pattern reads it, every pattern is anchored or bounded, and free text from the
 // record is returned only in `text` fields. Callers print ids, the table's words (`said`) and paths, never `text`.
 
-import { existsSync, readdirSync } from 'node:fs';
+import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
-import { citedFeatures, contents, readMilestones } from './milestones.mjs';
+import { citedFeatures, contents } from './milestones.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance } from './review-header.mjs';
 
 const MAX = 500;
@@ -32,7 +32,6 @@ const FENCE = /^ {0,3}```/;
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
 const CLAUSES = [['reopens when', 'reopens'], ['reopens if', 'reopens'], ['closes when', 'closes'], ['closes if', 'closes'], ['provisional until', 'reopens']];
-const SUFFIX = /\*\(([^)]*)\)\*[ \t]*$/;
 const PROSE = [/\b(?:revisit(?:ed)?|reopen(?:s|ed)?)(?: it| this| them)? (?:when|if|once|after)\b/i, /\bcloses? (?:when|if|once)\b/i, /\bprovisional until\b/i];
 const POSITION = /\bM(\d{1,9})(?:['’]s)? (?:Contents )?item (\d{1,9})\b|\bitem (\d{1,9}) of M(\d{1,9})\b/g;
 const DECISION_ID = /\b(P?D)-(\d{1,9})\b/g;
@@ -98,7 +97,7 @@ export function parseEvent(part) {
   m = part.match(/^(\d{4}-\d{2}-\d{2}) (passes|has passed)$/i);
   if (m) return isDay(m[1]) ? { kind: 'date', date: m[1], readable: true, said: `${m[1]} passes` } : null;
   m = part.match(/^(?:([\w.-]{1,100}\/[\w.-]{1,100}))?#(\d{1,9}) (closes|lands|is closed)$/i);
-  if (m) return { kind: 'issue', repo: m[1] ?? null, issue: Number(m[2]), readable: ISSUE_READABLE, said: `${m[1] ?? ''}#${Number(m[2])} closes` };
+  if (m) return { kind: 'issue', repo: m[1] ?? null, issue: Number(m[2]), readable: ISSUE_READABLE, said: `#${Number(m[2])} closes` };
   return null;
 }
 
@@ -120,20 +119,43 @@ const clauseCondition = (clause) => {
   return hit ? [hit[1], clause.slice(hit[0].length)] : null;
 };
 
-const proseHit = (s) => {
-  const t = s.replace(/"[^"\n]*"|“[^”\n]*”/g, ' ');
-  return PROSE.some((p) => p.test(t));
-};
+// A line with its quoted text (between straight or curly double quotes) blanked, in one pass: a quote with no close
+// after it is left as written, and once a close is known to be missing it is not looked for again.
+const QUOTE = { '"': '"', '“': '”' };
+function unquoted(s) {
+  let out = '';
+  const gone = new Set();
+  for (let i = 0; i < s.length; i++) {
+    const close = QUOTE[s[i]];
+    const end = close && !gone.has(close) ? s.indexOf(close, i + 1) : -1;
+    if (close && end < 0) gone.add(close);
+    if (end < 0) out += s[i];
+    else {
+      out += blank(s.slice(i, end + 1));
+      i = end;
+    }
+  }
+  return out;
+}
+const proseHit = (s) => PROSE.some((p) => p.test(unquoted(s)));
 
 function finish(e) {
   const conditions = [];
-  const suffix = e.text.match(SUFFIX);
-  const clauses = suffix ? suffix[1].split(' · ').map((c) => c.trim()) : [];
+  // The status suffix runs from the heading's last `*(` to its end, a closing `)*` removed: a parenthesis inside it,
+  // or text after the `)*`, never hides a clause. Each clause is read as written, and its prose from the masked
+  // heading at the same columns, so a code span in it is not prose.
+  const at = e.text.lastIndexOf('*(');
+  const parts = at < 0 ? [] : e.text.slice(at + 2).trimEnd().replace(/\)\*$/, '').split(' · ');
+  const clauses = [];
   const proseClauses = [];
-  clauses.forEach((c, i) => {
+  let off = at + 2;
+  parts.forEach((raw, i) => {
+    const c = raw.trim();
+    clauses.push({ text: c });
     const hit = i > 0 ? clauseCondition(c) : null;
     if (hit) conditions.push(condition(hit[0], 'heading', e.line, hit[1]));
-    else proseClauses.push(c.replace(/`[^`]*`/g, ' '));
+    else proseClauses.push(e.masked.slice(off, off + raw.length));
+    off += raw.length + 3;
   });
   const proseLines = [];
   for (const b of e.body) {
@@ -172,18 +194,36 @@ export function parseDecisions(md) {
 }
 
 // Whether `text` names the decision `key` as a whole word: `D-44` matches `D-044`, never `D-4`, `D-440` or `PD-44`.
-export const namesDecision = (text, key) => [...text.matchAll(DECISION_ID)].some((m) => `${m[1]}-${Number(m[2])}` === key);
+// Every decision key a text names, each once, so a doc is read once however many decisions ask about it.
+const keysOf = (text) => new Set([...text.matchAll(DECISION_ID)].map((m) => `${m[1]}-${Number(m[2])}`));
+export const namesDecision = (text, key) => keysOf(text).has(key);
 
 const cut = (md) => visible(md).map((l) => l.text.slice(0, MAX)).join('\n');
 const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$/i)?.[1] : undefined);
 
+// The `*.md` names directly in a folder of the tree, by name; none when the folder is missing, a link or not a folder.
+// Each file is then opened only through readPlain(), so a link, a folder named `x.md` or a file reached through a link
+// is skipped, never read and never a throw: the tree is a pull request's to shape.
+const listed = (root, dir, skip) => {
+  try {
+    return lstatSync(posix.join(root, dir)).isDirectory() ? readdirSync(posix.join(root, dir)).filter((f) => f.endsWith('.md') && !skip.includes(f)).sort() : [];
+  } catch {
+    return [];
+  }
+};
+const plainFiles = (root, dir, skip) => listed(root, dir, skip).map((f) => readPlain(root, `${dir}/${f}`)).filter((t) => t !== null);
+
 function readTree(root) {
-  const files = readFeatureFiles(root).filter((f) => f.regular).map((f) => ({ ...f, seen: cut(f.md) }));
-  const milestones = readMilestones(root).milestones.filter((m) => m.fm).map((m) => ({ n: Number(milestoneNumber(m.fm.id) ?? NaN), status: m.fm.status, items: contents(m.md) }));
-  const dir = 'docs/reviews';
-  const reviews = existsSync(posix.join(root, dir))
-    ? readdirSync(posix.join(root, dir)).filter((f) => f.endsWith('.md') && f !== 'TEMPLATE.md').map((f) => readPlain(root, `${dir}/${f}`)).filter((t) => t !== null).map(reviewProvenance).filter((r) => r.reviewed && r.version)
-    : [];
+  const files = readFeatureFiles(root).filter((f) => f.regular).map((f) => ({ ...f, seen: cut(f.md), keys: keysOf(cut(f.md)) }));
+  const milestones = plainFiles(root, 'docs/milestones', ['TEMPLATE.md', 'README.md'])
+    .map((md) => ({ md, fm: docFrontmatter(md) }))
+    .filter((m) => m.fm)
+    .map(({ md, fm }) => ({
+      n: Number(milestoneNumber(fm.id) ?? NaN),
+      status: fm.status,
+      items: contents(md).map((it) => ({ features: new Set(citedFeatures(it.text.slice(0, MAX))), keys: keysOf(it.text.slice(0, MAX)) })),
+    }));
+  const reviews = plainFiles(root, 'docs/reviews', ['TEMPLATE.md']).map(reviewProvenance).filter((r) => r.reviewed && r.version);
   return { files, milestones, reviews };
 }
 
@@ -198,8 +238,15 @@ export function readDecisions(root) {
 
   const carrying = (n) => t().files.filter((f) => f.ns.includes(n));
   const docsOf = (n) => t().files.filter((f) => isFeatureDoc(f) && f.ns.includes(n));
-  const cited = (key, n) => carrying(n).some((f) => namesDecision(f.seen, key)) || t().milestones.some((m) => m.status !== 'killed' && m.items.some((it) => citedFeatures(it.text).includes(n) && namesDecision(it.text.slice(0, MAX), key)));
-  const amends = (e) => [...new Set(e.conditions.filter((c) => c.kind === 'changes' && c.readable).flatMap((c) => c.features))];
+  // Each answer is kept, so a record of many entries asks each doc and Contents item once per decision and feature.
+  const citations = new Map();
+  const cited = (key, n) => {
+    const k = `${key} ${n}`;
+    if (!citations.has(k)) citations.set(k, carrying(n).some((f) => f.keys.has(key)) || t().milestones.some((m) => m.status !== 'killed' && m.items.some((it) => it.features.has(n) && it.keys.has(key))));
+    return citations.get(k);
+  };
+  const amendsOf = new Map(entries.map((e) => [e, [...new Set(e.conditions.filter((c) => c.kind === 'changes' && c.readable).flatMap((c) => c.features))]]));
+  const amends = (e) => amendsOf.get(e);
 
   // The Amends: features nothing names yet (§4): `{ id, key, feature, docs }`, `docs` the paths of the docs carrying
   // that F-id (a companion included), empty when no doc carries it yet.
@@ -212,7 +259,7 @@ export function readDecisions(root) {
       // doc that does not carry the amendment yet, so it does not fire.
       if (amends(e).includes(ev.feature) && !cited(e.key, ev.feature)) return null;
       const doc = docsOf(ev.feature).find((d) => t().reviews.some((r) => posix.normalize(r.reviewed.path) === d.path && quotedVersion(d.md, r.version) === 'current'));
-      return doc ? { ...ev, doc: doc.path, named: namesDecision(doc.seen, e.key) } : null;
+      return doc ? { ...ev, doc: doc.path, named: doc.keys.has(e.key) } : null;
     }
     if (ev.kind === 'shipped') return docsOf(ev.feature).some((d) => String(docFrontmatter(d.md)?.status ?? '').toLowerCase() === 'shipped') ? ev : null;
     if (ev.kind === 'active' || ev.kind === 'closed') {

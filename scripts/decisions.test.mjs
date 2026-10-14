@@ -89,7 +89,8 @@ test('Amends with any token that is not an F-id is unreadable; so is an event ou
 test('events: every form of the table, case-folded verbs, ids in their case, a closing stop and backticks removed', () => {
   const said = (s) => parseEvent(s)?.said ?? null;
   assert.deepEqual(['F-7 has a doc', 'F-07 HAS A FEATURE DOC', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is activated', 'M2 goes active', 'M2 closes', '2026-03-09 has passed', 'acme/app#12 lands', '#12 is closed'].map(said),
-    ['F-07 has a doc', 'F-07 has a doc', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is active', 'M2 is active', 'M2 is closed', '2026-03-09 passes', 'acme/app#12 closes', '#12 closes']);
+    ['F-07 has a doc', 'F-07 has a doc', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is active', 'M2 is active', 'M2 is closed', '2026-03-09 passes', '#12 closes', '#12 closes']);
+  assert.equal(parseEvent('acme/app#12 lands').repo, 'acme/app');
   const c = one('## PD-1 — t\n\nReopens when: `F-07 has a doc`  or  M2 is active.\n').conditions[0];
   assert.deepEqual([c.readable, c.events.map((e) => e.kind)], [true, ['doc', 'active']]);
 });
@@ -137,6 +138,17 @@ test('prose: the pattern\'s hits and misses, in an entry with no readable condit
   assert.equal(p('Revisit when CI time is a measured problem.\nAmends: F-07'), true);
 });
 
+test('a parenthesis inside the suffix, or text after its close, never hides a clause', () => {
+  const e = one('## PD-1 — t *(decided 2026-03-01 · reopens when the vendor (Acme) changes terms)*\n');
+  assert.deepEqual([e.conditions.length, e.conditions[0]?.readable], [1, false]);
+  const f = one('## PD-2 — t *(decided 2026-03-01 · reopens when M2 is activated)* see below\n');
+  assert.deepEqual(f.conditions.map((c) => c.readable), [false]);
+  assert.equal(one('## PD-3 — t *(decided 2026-03-01 · revisit when the vendor (Acme) changes)*\n').prose, true);
+  assert.deepEqual(one('## PD-4 — t *(decided 2026-03-01 · reopens when M2 is activated\n').conditions.map((c) => c.readable), [true]);
+  assert.deepEqual(one('## PD-5 — t\n').clauses, []);
+  assert.deepEqual(one('## PD-6 — t *(decided 2026-03-01 · reopens when M2 is activated)*\n').clauses, [{ text: 'decided 2026-03-01' }, { text: 'reopens when M2 is activated' }]);
+});
+
 test('AR-4: the heading suffix is read by the prose pattern outside every condition clause', () => {
   assert.equal(one('## PD-1 — t *(decided 2026-03-01 · revisit when M2 is activated)*\n').prose, true);
   assert.equal(one('## PD-1 — t *(decided 2026-03-01 — reopens when M2 is activated)*\n').prose, true);
@@ -153,6 +165,39 @@ test('no decisions.md, or one that is not a regular file: an empty record that s
     assert.deepEqual([readDecisions(dir).missing, readDecisions(dir).entries], ['is a link, not a file', []]);
   });
   tree({ 'decisions.md': '# Decisions\n' }, (r) => assert.deepEqual([r.missing, r.entries], [null, []]));
+});
+
+test('a tree a pull request shaped never makes the reader throw: a folder named x.md, a file where a folder goes, links', () => {
+  const rec = '## PD-1 — a\n\nAmends: F-07\nReopens when: F-07 is reviewed\n\n## PD-2 — b\n\nReopens when: M2 is active\n';
+  tree({ 'decisions.md': rec, 'docs/reviews': 'not a folder', 'outside.md': milestone('M2', 'active', ['F-07 per PD-1']) }, (r, dir) => {
+    mkdirSync(join(dir, 'docs/milestones/x.md'), { recursive: true });
+    symlinkSync(join(dir, 'outside.md'), join(dir, 'docs/milestones/M2-link.md'));
+    assert.deepEqual([r.owed().map((o) => o.feature), r.fired('2026-03-10')], [[7], []]);
+  });
+  tree({ 'decisions.md': rec, 'real/M2.md': milestone('M2', 'active', ['x']) }, (_, dir) => {
+    mkdirSync(join(dir, 'docs'), { recursive: true });
+    symlinkSync(join(dir, 'real'), join(dir, 'docs/milestones'));
+    assert.deepEqual(readDecisions(dir).fired('2026-03-10'), []);
+  });
+});
+
+test('owed() and fired() stay linear: many entries asking about one large doc full of ids', () => {
+  const rec = Array.from({ length: 2000 }, (_, i) => `## PD-${i + 1} — t\n\nAmends: F-01\nReopens when: F-01 is reviewed\n`).join('\n');
+  const body = Array.from({ length: 4000 }, (_, i) => `D-${i} PD-${i + 5000} D-${i}`).join('\n');
+  tree({ 'decisions.md': rec, 'dev/features/one.md': doc(1, { body }), 'docs/reviews/r.md': review('dev/features/one.md', '0.2') }, (r) => {
+    const start = Date.now();
+    assert.equal(r.owed().length, 2000);
+    assert.deepEqual(r.fired('2026-03-10'), []);
+    assert.ok(Date.now() - start < 2000, `took ${Date.now() - start}ms`);
+  });
+});
+
+test('quote removal is one pass: a line of unclosed quotes costs no more than its length', () => {
+  const start = Date.now();
+  for (let i = 0; i < 2000; i++) one(`## PD-1 — t\n\n${'“'.repeat(480)} revisit when\n`);
+  assert.ok(Date.now() - start < 2000);
+  assert.equal(one('## PD-1 — t\n\n“unclosed revisit when x\n').prose, true);
+  assert.equal(one('## PD-1 — t\n\n"a" then revisit when x "b"\n').prose, true);
 });
 
 test('owed: an Amends: feature stays owed until its doc (a companion included) or a Contents line not killed names the decision', () => {
@@ -239,7 +284,7 @@ test('unreadable: in file order, ids only; an issue event is unreadable until st
 test('the module returns record text only in text fields', () => {
   const secret = 'SECRETWORD';
   const e = one(`## PD-1 — ${secret} *(decided 2026-03-01 · reopens when ${secret})*\n\nReopens when: M2 is active or ${secret}\nAmends: ${secret}\n${secret}\n`);
-  const scrub = (v) => (Array.isArray(v) ? v.map(scrub) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== 'text' && k !== 'clauses').map(([k, x]) => [k, scrub(x)])) : v);
+  const scrub = (v) => (Array.isArray(v) ? v.map(scrub) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).filter(([k]) => k !== 'text').map(([k, x]) => [k, scrub(x)])) : v);
   assert.equal(JSON.stringify(scrub(e)).includes(secret), false);
 });
 
