@@ -1145,6 +1145,42 @@ Amended 2026-10-14 (the owner's answers to the review of F-15 at 0.1, `docs/revi
   (AR-1). The owner, 2026-10-14: the review of F-15 at 0.3 is the last whole-document review before the build; what it
   finds rides the build as lines under the step it touches.
 
+## D-046 — Slipway's own text follows a written standard; a check fails only on unambiguous junk, and the rest may only improve *(decided 2026-10-14)*
+
+Slipway's status line, check failures, guides, skill questions, titles and commit subjects were written in slipway's
+own vocabulary: an id in place of its meaning, the action after the explanation, four clauses in one sentence. The
+owner's research note of 2026-10-14 set the direction, and F-16 (`dev/features/plain-language.md`) carries it: a
+one-page standard in `process/writing.md`, the surfaces rewritten one small PR at a time, and a form behind each that
+a check can fail. The owner picked the shape on 2026-10-14, then answered the review of F-16 at 0.1
+(`docs/reviews/2026-10-14-plain-language-0.1.md`) the same day:
+
+- **A check fails only on unambiguous junk:** chatbot phrases, leftover placeholders, recap openers. Everything else
+  a prose rule finds is a warning, and the warning count may only go down (`ci/ratchet.mjs`). Declined: an AI-text
+  detector (readers and detectors score at chance and flag plain writing); a long banned-word list as a gate (it goes
+  stale and blocks on taste); a prompt rule alone (a rule with no check drifts).
+- **The ratchet counts only what a person reads cold** (AR-1): `README.md`, `SLIPWAY.md`, `BOOTSTRAP.md`, the
+  templates and `process/writing.md`. On every other file a PR's added lines are counted and printed, never failing:
+  recording a decision or filing a lesson must not turn the gate red until unrelated prose is paid down.
+- **Nothing new reaches a project until a project's text has been measured once** (AR-2): the prose job, the chatbot
+  check on PR bodies and P1's title and subject rules run in slipway's own repository only, guarded the way `verify`
+  is. Shipping them is a later decision, with a tracker filed at the step that builds them.
+- **The outcome is measured in slipway, on slipway's own PRs and status** (AR-3): the owner's edit count and reading
+  time on a fixed set, taken before step 1, after step 3 and after step 7, recorded as dated lines in the feature doc;
+  flat or worse stops the next stage. The retro question in `/close-milestone` is optional and worded for the project.
+- **Zero warnings is held on the path table and README's path section** (AR-6), not on all of `SLIPWAY.md`; the
+  gate table keeps its ids in code spans, and the rest is counted before a number is set.
+- **Two P1 rules from the note wait** (AR-11): a `## What` over about 150 words, and a body naming a file the diff
+  does not touch. Out of scope with a tracker, since nothing here measures them yet.
+- **Subjects and titles:** 72 characters or fewer, plain words, no bare check or decision id, no "review round N";
+  details go in the body. P1 holds it from F-16's step 6. Existing history is left alone.
+- **Templates only lose sections:** no template gains one without the owner's yes, and a cut never comes back; a
+  test pins the feature template's count.
+
+Why: the engineer running a project needs three things from slipway, what is next, why, and whether the last step
+worked, and today gets them in slipway's vocabulary (D-016 set the test; this records the form). The review of F-16
+at 0.2 is the last whole-document review before the build: high findings come to the owner, the rest ride the build
+as lines under the step they touch (the owner, 2026-10-14). Spec: F-16; #455.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
