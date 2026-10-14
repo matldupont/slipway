@@ -761,6 +761,47 @@ commit, so the commit diffed, copied and held to is one, and the job judges the 
 runs the merge (AR-1); `never-run` is for a file a runner could list, and a snapshot is never a test file (AR-4);
 the run is built before the verdict, so the job is added once with the run behind it (AR-11).
 
+**Measured** 2026-10-13, F-13 Build map step 0, by `dev/probes/tests-can-fail/measure.mjs` on a GitHub-hosted
+runner (`ubuntu-latest`, 4 cores, Node 24.21.0), 3 runs on each Vitest version. The scratch project is the one of
+2026-10-08, kept as patches under `dev/probes/tests-can-fail/scratch/`, with one test planted on top: its only
+failure is a `TypeError` on a line inside its `expect`, so the recordings of F-13 §8 hold all four kinds. The probe
+counts a test new by the Contract's rule (a changed line inside its own call); the prototype counted every test
+from a changed line to the next test, so 35 tests are new here where 38 were before.
+
+| the scratch change, 10 source files | Vitest 5.0.3 | Vitest 4.1.11 |
+|---|---|---|
+| wall seconds, 3 runs | 77.8, 77.7, 78.7 | 84.0, 83.9, 83.7 |
+| of the slowest: copy, install, listing, baseline, judging | 0, 0.7, 0.4, 12.4, 65.2 | 0, 0.7, 5.8, 12.3, 65.0 |
+| runs of the test runner | 65 | 65 |
+| new tests; judged; not judged | 35; 35; 0 | 35; 35; 0 |
+| judged: passes, kills-nothing, only-crashes | 32, 2, 1 | 32, 2, 1 |
+| not finished at 600 s | 0 | 0 |
+
+The three planted tests are named on both versions, with the same verdicts: the two that cannot fail are
+`kills-nothing` and the one that asserts on its own input is `only-crashes`. The install in the copy ran offline.
+The slowest run, 84.0 s, is what the 10-minute line reads.
+
+What the probe leaves out, beside each figure (its README lists the rest): it reads source with the project's
+TypeScript compiler API, not the `@babel/parser` file step 1 would vendor, so the count of changes per file, and
+with it the seconds, can differ; it does not read a `test` script, `ci/tests-can-fail.yaml` or
+`ci/exceptions.yaml`; it runs to the end rather than stopping at 600 s; and a new test red in the clean copy is
+counted apart (`red-in-copy`), not stopped on.
+
+The same probe was run on a real project built from slipway, through a draft pull request in that project's own
+repository, never merged; its figures were shown to the owner and are not recorded. **The share line was
+crossed**: more than a third of that project's new tests were not judged. So step 1 does not start.
+
+**Amended 2026-10-14**, the owner's pick with both figures in front of them:
+
+- **The step does not run as a CI job.** A job on every pull request that changes a test costs the project's
+  Actions minutes each time, which the owner will not pay. F-13 is reshaped so `/work-ticket` runs the step on the
+  machine building the pull request, before it is marked ready, and no `mutation` job is added. What that gives up:
+  the rule fires only where `/work-ticket` runs.
+- **F-13 is revised before any build step starts**: where it runs, a smaller cap on the changes tried per file,
+  and test support told apart so a real project's tests that reach their code through a helper are judged. The
+  budget, the limit, the caps and the not-judged share are set in that revision, not from this entry's figures
+  alone. Until it lands, F-13 0.3's Contract describes a job that will not be built.
+
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
 
 A deferred check's recorded run has one row per journey, and any `not run` keeps the check owed
