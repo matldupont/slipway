@@ -101,7 +101,7 @@ anyway with a decision in `decisions.md` that says why.
    the features above": name the ID that handles it. With no source document, write
    `Source: none`.
 2. **Week-1 decisions (`decisions.md`).** Walk the entries marked *(week 1)*. For each: decide
-   with the user, or defer with the event that reopens it. These are the expensive-to-reverse
+   with the user, or defer it as a `Reopens when:` line in the form status reads, or in prose when no listed event fits, said so. These are the expensive-to-reverse
    choices; do not let one slide into month three. Once D-005–D-008 are decided, rewrite the
    `Stack:` line at the top of `CLAUDE.md` to state the decided stack — agents read it first.
 3. **Story map (PRD §10).** Lay the user's journey left to right as 3–6 activities, taken from

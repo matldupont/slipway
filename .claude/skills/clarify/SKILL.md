@@ -38,7 +38,11 @@ For each question, in the order they block things (frame before PRD before evide
    "what do you want?" — the user's time is the scarce thing.
 3. Take the answer and sort it:
    - **Answered** → write it into the text, delete the marker. If it rules something out for good,
-     add a line to `decisions.md` (an ID, why, consequences).
+     add a line to `decisions.md` (an ID, why, consequences), with an `Amends: F-<n>` line for the feature it
+     changes and a `Reopens when:` or `Closes when:` line for what ends it. A heading clause no event fits is
+     removed from the heading, and the condition kept as body prose beneath, where the sync note counts it. A re-read
+     that leaves the decision open writes `open — reopened YYYY-MM-DD` as the heading's status and
+     `Reopened YYYY-MM-DD: open again` in place of the condition.
    - **Parked** → rewrite as `[PARKED: … · assume: … · if wrong: … · <ref>]`. The assumption must be
      something you would actually build on today; the cost must be concrete ("the sample is not
      strangers, so the threshold means nothing"), not "we might have to change it".
