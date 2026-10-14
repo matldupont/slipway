@@ -50,7 +50,9 @@ test('heading clauses in each accepted spelling are conditions; the first clause
     const e = one(`## PD-3 — t *(decided 2026-03-01 · ${w} M2 is activated)*\n`);
     assert.deepEqual(e.conditions.map((c) => [c.kind, c.where, c.readable, c.events[0]?.said]), [[kind, 'heading', true, 'M2 is active']], w);
   }
-  assert.deepEqual(one('## PD-3 — t *(reopens when M2 is active)*\n').conditions, []);
+  // The first clause is never read as a condition; one holding a clause opening is unreadable (the owner, #466).
+  assert.deepEqual(one('## PD-3 — t *(reopens when M2 is active)*\n').conditions.map((c) => [c.where, c.readable]), [['heading', false]]);
+  assert.deepEqual(one('## PD-3 — t *(open — week 1)*\n').conditions, []);
   const unreadable = one('## PD-3 — t *(decided 2026-03-01 · provisional until the supplier confirms in writing)*\n');
   assert.deepEqual(unreadable.conditions.map((c) => [c.kind, c.readable]), [['reopens', false]]);
 });
@@ -184,7 +186,7 @@ test('the backstop: a clause opening a typo hid from the suffix reading makes th
   assert.deepEqual(read('PD-3 — t, closes when M2 is closed'), [['heading', false]]);
   // Read normally: nothing extra.
   assert.deepEqual(read('PD-4 — t *(decided 2026-03-01 · reopens when M2 is closed)*'), [['heading', true]]);
-  assert.deepEqual(read('PD-5 — t *(decided 2026-03-01 — reopens when M2 is activated)*'), []);
+  assert.deepEqual(read('PD-5 — t *(decided 2026-03-01 — reopens when M2 is activated)*'), [['heading', false]]);
   assert.deepEqual(read('PD-6 — when it reopens or closes *(decided 2026-03-01)*'), []);
   // A heading in a fence is quoted text: no clause, no backstop.
   assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01 · reopens when M2 is closed)*\n```\n').entries.map((e) => e.conditions.length), [0, 0]);
@@ -193,7 +195,8 @@ test('the backstop: a clause opening a typo hid from the suffix reading makes th
 
 test('AR-4: the heading suffix is read by the prose pattern outside every condition clause', () => {
   assert.equal(one('## PD-1 — t *(decided 2026-03-01 · revisit when M2 is activated)*\n').prose, true);
-  assert.equal(one('## PD-1 — t *(decided 2026-03-01 — reopens when M2 is activated)*\n').prose, true);
+  // A clause opening in the first clause makes the decision unreadable, so it is counted there, not as prose too.
+  assert.equal(one('## PD-1 — t *(decided 2026-03-01 — reopens when M2 is activated)*\n').prose, false);
   assert.equal(one('## PD-1 — t *(open — week 1)*\n').prose, false);
   // Read literally, the build line would count an unreadable clause twice, here and in the Unreadable line.
   const e = one('## PD-1 — t *(decided 2026-03-01 · provisional until the supplier confirms in writing)*\n');

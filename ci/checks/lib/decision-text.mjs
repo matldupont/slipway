@@ -57,13 +57,13 @@ function isDay(date) {
   return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === date;
 }
 
-// One event of §3's table, or null. Verbs are case folded; ids keep their case. `said` is the event in the table's
-// words, built from the numbers read, never from the record's text.
 // The verbs of §3's table. Maps, so a word an object inherits (`constructor`, `__proto__`) is no verb.
 const FEATURE_VERBS = new Map([['has a doc', 'doc'], ['has a feature doc', 'doc'], ['is reviewed', 'reviewed'], ['is shipped', 'shipped']]);
 const FEATURE_SAID = new Map([['doc', 'has a doc'], ['reviewed', 'is reviewed'], ['shipped', 'is shipped']]);
 const MILESTONE_VERBS = new Map([['is active', 'active'], ['is activated', 'active'], ['goes active', 'active'], ['is closed', 'closed'], ['closes', 'closed']]);
 
+// One event of §3's table, or null. Verbs are case folded; ids keep their case. `said` is the event in the table's
+// words, built from the numbers read, never from the record's text.
 export function parseEvent(part) {
   let m = part.match(/^F-(\d{1,9}) (.{1,40})$/);
   if (m) {

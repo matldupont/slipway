@@ -51,9 +51,10 @@ const regular = (root, path) => {
 // `{ path, regular, md, ns, companionOf }`. `regular` is false for a link or anything that is not a file, which is
 // never opened (`md` null, `ns` empty). `ns` is every F-<n> a heading of the doc carries, as numbers, and
 // `companionOf` its frontmatter's `companion-of:` as written, null when it has none.
-export function readFeatureFiles(root) {
+// `dirs` narrows the folders read, so a caller can read each on its own; by default both.
+export function readFeatureFiles(root, dirs = FEATURE_DIRS) {
   const files = [];
-  for (const dir of FEATURE_DIRS) {
+  for (const dir of dirs) {
     const abs = join(root, dir);
     if (!existsSync(abs)) continue;
     for (const f of readdirSync(abs).filter((x) => x.endsWith('.md') && x !== 'TEMPLATE.md' && x !== 'README.md').sort()) {
