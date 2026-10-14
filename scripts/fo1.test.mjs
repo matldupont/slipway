@@ -193,3 +193,28 @@ test('a workflow whose trigger cannot be read is BROKEN, since a filter in it co
   assert.equal(r.status, 2, r.out);
   assert.match(r.json.broken, /^\.github\/workflows\/a\.yml: its path filters were not read — /);
 });
+
+test('a narrower or elsewhere run does not cover a filtered gate; the same line, the same place and a plain form do (#392)', () => {
+  const filtered = flow('  pull_request:\n    paths-ignore: ["docs/**"]', 'pnpm -r test');
+  const found = (other, name = 'other.yml') => fo1Files({ 'a.yml': filtered, [name]: other }).json.findings.map((f) => f.where);
+  const on = '  pull_request:';
+  for (const narrower of ['pnpm -C apps/api -r test', 'pnpm --filter api -r test', 'pnpm -r test --silent', 'pnpm test']) {
+    assert.deepEqual(found(flow(on, narrower)), ['.github/workflows/a.yml#on.pull_request'], narrower);
+  }
+  const elsewhere = `name: x\non:\n${on}\njobs:\n  a:\n    runs-on: ubuntu-latest\n    defaults:\n      run:\n        working-directory: apps/api\n    steps:\n      - run: pnpm -r test\n`;
+  assert.deepEqual(found(elsewhere), ['.github/workflows/a.yml#on.pull_request'], 'defaults.run.working-directory');
+  assert.deepEqual(found(elsewhere.replace('    defaults:\n      run:\n        working-directory: apps/api\n', '').replace('- run:', '- working-directory: apps/api\n        run:')), ['.github/workflows/a.yml#on.pull_request'], 'a step working-directory');
+  assert.deepEqual(found(flow(on, 'pnpm -r test')), [], 'the same line');
+  const plain = (a, b) => fo1Files({ 'a.yml': flow('  push:\n    paths: ["x/**"]', a), 'b.yml': flow('  push:', b) }).json.findings.map((f) => f.where);
+  assert.deepEqual(plain('pnpm verify', 'pnpm run verify'), [], 'pnpm run <script> is the plain form');
+  assert.deepEqual(plain('node ci/verify.mjs', 'node ./ci/verify.mjs'), []);
+  assert.deepEqual(plain('node ci/verify.mjs', 'node ci/verify.mjs --plan'), ['.github/workflows/a.yml#on.push'], 'a verify that only plans runs no gate');
+  assert.deepEqual(plain('turbo run test --filter=web', 'turbo run test --filter=api'), ['.github/workflows/a.yml#on.push']);
+});
+
+test('a finding names the filter key: paths, paths-ignore, or both', () => {
+  const detail = (keys) => fo1Files({ 'a.yml': flow(`  push:\n${keys}`) }).json.findings[0].detail;
+  assert.match(detail('    paths: ["a/**"]'), /with a paths filter/);
+  assert.match(detail('    paths-ignore: ["a/**"]'), /with a paths-ignore filter/);
+  assert.match(detail('    paths: ["a/**"]\n    paths-ignore: ["b/**"]'), /with a paths and paths-ignore filter/);
+});

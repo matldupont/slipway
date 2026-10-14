@@ -293,4 +293,5 @@ test('a package that declares test and holds no test file fails verify, naming i
   assert.match(bad.stdout, /package:bare: declares `test` and has no test file.*add a test, or remove the `test` script/);
   assert.doesNotMatch(bad.stdout, /package:app/);
   const good = check({ 'packages/app/package.json': pkg('app'), 'packages/app/test/h.ts': 'export {};\n', 'packages/lib/package.json': pkg('lib', { check: 'x' }) });
-  assert.equal(good.status, 0, good.stdout);});
+  assert.equal(good.status, 0, good.stdout);
+});

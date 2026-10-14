@@ -16,8 +16,9 @@
 // `paths-ignore` filter for it. A gate some workflow also runs on that event unfiltered is covered, so a deploy
 // workflow that skips documentation-only pushes is no finding while ci.yml runs the same gate on every push (#239),
 // and a filtered workflow that runs no gate is none either. A finding is keyed `<workflow path>#on.<event>` (a job
-// id cannot hold a dot, so it never collides with a job's id) and is excused like a flag, by a dated entry. Not
-// followed: a gate a reusable workflow runs for a caller, whose caller's filter applies; what a root script calls.
+// id that holds a dot is not one GitHub runs, so it does not collide with a job's id in a workflow that runs) and is excused like a flag, by a dated entry. A gate is named by what it runs and where (lib/workflows.mjs
+// gatesOf): a narrower run (`-C`, `--filter`, `--plan`, another working directory) never covers a broader one. Not
+// followed: a gate a reusable workflow runs for a caller, whose caller's filter applies; what a root script calls; a shell condition, a job's `if:`, and the branches a covering workflow runs on, which are not read.
 //
 // WHY IT READS STRUCTURE, NOT LINES — two defects a naive version has:
 //  1. An unanchored grep counts commented-out flags as fail-open steps. Any line match also counts the flag's
@@ -182,7 +183,7 @@ for (const s of filterSites.values()) {
   const others = s.with.length ? `, and so ${s.with.length === 1 ? 'does' : 'do'} ${s.with.join(', ')}` : '';
   findings.push({
     where: s.id,
-    detail: `${s.workflow} runs ${s.commands.join(', ')} on ${s.event} with a paths or paths-ignore filter${others}, and no workflow runs ${s.commands.length === 1 ? 'it' : 'them'} on ${s.event} without one: a change that touches no matching path runs no copy of the gate and still goes green — remove the filter from ${s.event}, or have a workflow run the gate on every ${s.event} with no filter, or add a dated entry with id: ${s.id}`,
+    detail: `${s.workflow} runs ${s.commands.join(', ')} on ${s.event} with a ${s.filter} filter${others}, and no workflow runs ${s.commands.length === 1 ? 'it' : 'them'} on ${s.event} without one: a change that touches no matching path runs no copy of the gate and still goes green — remove the filter from ${s.event}, or have a workflow run the gate on every ${s.event} with no filter, or add a dated entry with id: ${s.id}`,
   });
 }
 

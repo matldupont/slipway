@@ -78,7 +78,7 @@ for (const p of packages.filter((p) => p.scripts.test !== undefined)) {
   if (scan.files === 0) {
     findings.push({
       where: `package:${escapeControl(p.name)}`,
-      detail: `declares \`test\` and has no test file, so \`test\` proves nothing — add a test, or remove the \`test\` script from its package.json (a test file is named \`*.test.*\` or \`*.spec.*\`, or sits under a \`test\` or \`__tests__\` folder; if yours are named otherwise, rename them)${scan.unread.length ? '; some paths were not read, see SK1' : ''}`,
+      detail: `declares \`test\` and has no test file, so \`test\` proves nothing — add a test, or remove the \`test\` script from its package.json (a package script is owner-only, so ask first; a JavaScript or TypeScript test file is named \`*.test.*\` or \`*.spec.*\`, or sits under a \`test\` or \`__tests__\` folder; if yours are named otherwise, rename them)${scan.unread.length ? '; some paths were not read, see SK1' : ''}`,
     });
   }
 }

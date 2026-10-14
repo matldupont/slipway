@@ -1,0 +1,14 @@
+name: narrower
+# Trap: unfiltered, but each run is narrower than the filtered one in clauses.yml, or elsewhere: none covers it.
+on: [pull_request]
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - run: pnpm meta
+      - run: node ci/verify.mjs --plan
+      - run: pnpm --filter api test
+      - run: turbo run lint --filter=api

@@ -114,7 +114,7 @@ function triggerOf(w) {
   const onIssue = issues !== undefined && (!issues.has('types') || issues.get('types').includes('opened'));
   // `filtered`: the event carries a `paths` or `paths-ignore` key, so a change that touches no matching path never
   // runs the workflow for it. Any such key counts, an empty list too: fail closed.
-  const filtered = (keys) => keys !== undefined && (keys.has('paths') || keys.has('paths-ignore'));
+  const filtered = (keys) => (keys === undefined ? [] : ['paths', 'paths-ignore'].filter((k) => keys.has(k)));
   const byEvent = { pull_request: { on: onPr, filtered: filtered(pr) }, push: { on: onBranch, filtered: filtered(push) } };
   return { counts: onPr || onBranch, issues: onIssue, called: events.has('workflow_call'), events: byEvent, unread: null };
 }
@@ -129,13 +129,21 @@ export const workflowTrigger = (text) => {
 // (under `env:`, under `with:`, inside a text) is not a step and runs nothing.
 function runLines(rel, root) {
   const out = [];
+  // `defaults.run.working-directory` of the workflow and of the job, and a step's own `working-directory`: where the
+  // line runs. Anything but one line of text is shown as `?`, so it never equals another place.
+  const dirOf = (node) => {
+    const wd = node?.kind === 'map' ? node.entries.get('working-directory') : undefined;
+    return wd === undefined ? '' : isText(wd) ? wd.value : '?';
+  };
+  const defaultDir = (node) => dirOf(node?.entries?.get('defaults')?.entries?.get('run'));
   for (const job of jobsOf(root) ?? []) {
     for (const step of job.entries.get('steps')?.items ?? []) {
       const run = step.entries.get('run');
       if (!run) continue;
+      const dir = dirOf(step) || defaultDir(job) || defaultDir(root);
       run.value.split('\n').forEach((l, i) => {
         const cmd = stripShellComment(l.trim());
-        if (cmd) out.push({ where: `${rel}:${run.line + (run.literal ? i : 0)}`, cmd });
+        if (cmd) out.push({ where: `${rel}:${run.line + (run.literal ? i : 0)}`, cmd, dir });
       });
     }
   }
@@ -197,28 +205,39 @@ export function workflowCommands(root) {
     if (!counts && !w.trigger.issues) continue;
     if (counts) out.counted++;
     else out.issueOnly++;
-    (counts ? out.commands : out.issueCommands).push(...runLines(w.rel, w.root));
+    (counts ? out.commands : out.issueCommands).push(...runLines(w.rel, w.root).map(({ where, cmd }) => ({ where, cmd })));
   }
   return out;
 }
 
 // A command line that runs a gate: a package script `verify` takes or `meta` holds (`pnpm verify`, `pnpm meta`, a
-// gated script, `turbo run` of gated tasks), `node ci/verify.mjs`, or one of the checks in ci/checks/meta. Named by
-// its invocation, so two workflows running `pnpm verify` run the same gate. A script a root script calls is not
-// followed: `pnpm meta` is one gate here, not the checks inside it.
+// gated script, `turbo run` of gated tasks), `node ci/verify.mjs`, or one of the checks in ci/checks/meta. A
+// script a root script calls is not followed: `pnpm meta` is one gate here, not the checks inside it.
+//
+// A gate is named by what it runs and where. The plain form (`pnpm <script>`, `pnpm run <script>`, `turbo run
+// <task>`, `node <path>`, alone between separators) is named by that form, so two workflows running `pnpm verify`
+// run the same gate. Any other form (`-C` or `--dir`, `--filter`, `-r`, an argument such as `--plan`) is named by its
+// whole line, so it covers only a line written the same: a narrower run never stands in for a broader one. The
+// working directory (`defaults.run`, a step's `working-directory`) is part of the name too. Not read: a shell
+// condition (`false && pnpm verify`), a job's or step's `if:`, and which branches a workflow runs on.
 const GATE_SCRIPT = /^(?:verify|verify:fast|meta)$/;
-const gatesOf = (cmd) =>
-  parseCommand(cmd).flatMap((c) => {
-    if (c.kind === 'pnpm-script' && (GATE_SCRIPT.test(c.script) || GATED.test(c.script))) return [`pnpm ${[...c.filters.map((f) => `--filter ${f}`), c.recursive ? '-r' : '', c.script].filter(Boolean).join(' ')}`];
-    if (c.kind === 'turbo') return c.tasks.filter((t) => GATED.test(t)).map((t) => `turbo run ${t}${c.filtered ? ' --filter' : ''}`);
-    if (c.kind === 'node' && (c.path === 'ci/verify.mjs' || /^ci\/checks\/meta\/[\w.-]+\.mjs$/.test(c.path))) return [`node ${c.path}`];
+const SEPARATORS = /\s*(?:&&|\|\||;|\|)\s*/;
+function gatesOf(cmd, dir) {
+  const parts = cmd.split(SEPARATORS).map((x) => x.trim().split(/\s+/).join(' '));
+  const at = dir ? ` [in ${dir}]` : '';
+  const named = (name, plain) => (parts.some((x) => plain.includes(x)) ? name : cmd) + at;
+  return parseCommand(cmd).flatMap((c) => {
+    if (c.kind === 'pnpm-script' && (GATE_SCRIPT.test(c.script) || GATED.test(c.script))) return [named(`pnpm ${c.script}`, [`pnpm ${c.script}`, `pnpm run ${c.script}`])];
+    if (c.kind === 'turbo') return c.tasks.filter((t) => GATED.test(t)).map((t) => named(`turbo run ${t}`, [`turbo run ${t}`]));
+    if (c.kind === 'node' && (c.path === 'ci/verify.mjs' || /^ci\/checks\/meta\/[\w.-]+\.mjs$/.test(c.path))) return [named(`node ${c.path}`, [`node ${c.path}`, `node ./${c.path}`])];
     return [];
   });
+}
 
 // The workflows whose path filter keeps a gate from running on some change (L-56). For each gate command and each
 // event (`pull_request`, `push`): when every workflow that runs it on that event carries a `paths` or `paths-ignore`
 // filter for it, a change that touches no matching path runs no copy of the gate, and each of those workflows is a
-// site: `{ id: '<workflow path>#on.<event>', workflow, event, commands, with }`, `with` the other filtered workflows that run the same gate. A gate that some workflow also runs on
+// site: `{ id: '<workflow path>#on.<event>', workflow, event, filter, commands, with }`, `with` the other filtered workflows that run the same gate. A gate that some workflow also runs on
 // that event without a filter is covered, whatever a deploy workflow does (#239). Not followed: a gate a reusable
 // workflow runs for a caller (its caller's filter is the one that applies), and what a root script calls. `unread`
 // holds the workflows whose trigger could not be read, with a fixed reason: a filter in one could not be seen.
@@ -236,12 +255,12 @@ export function filteredGates(root) {
       out.unread.push({ file: rel, reason: trigger.unread });
       continue;
     }
-    const gates = new Set(runLines(rel, w.root).flatMap((l) => gatesOf(l.cmd)));
+    const gates = new Set(runLines(rel, w.root).flatMap((l) => gatesOf(l.cmd, l.dir)));
     for (const [event, e] of Object.entries(trigger.events)) {
       if (!e.on) continue;
       for (const g of gates) {
         const key = `${event}\u0000${g}`;
-        runners.set(key, [...(runners.get(key) ?? []), { rel, filtered: e.filtered }]);
+        runners.set(key, [...(runners.get(key) ?? []), { rel, filtered: e.filtered.length > 0, keys: e.filtered }]);
       }
     }
   }
@@ -251,7 +270,7 @@ export function filteredGates(root) {
     const [event, command] = key.split('\u0000');
     for (const r of list) {
       const id = `${r.rel}#on.${event}`;
-      const site = sites.get(id) ?? { id, workflow: r.rel, event, commands: [], with: [] };
+      const site = sites.get(id) ?? { id, workflow: r.rel, event, filter: r.keys.join(' and '), commands: [], with: [] };
       site.commands.push(command);
       for (const o of list) if (o.rel !== r.rel && !site.with.includes(o.rel)) site.with.push(o.rel);
       sites.set(id, site);
