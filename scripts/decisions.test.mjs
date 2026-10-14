@@ -167,6 +167,7 @@ test('a second group, a span holding *( or a wide character in a span never hide
   assert.deepEqual(one('## PD-1 — t *(decided 2026-03-01 · reopens when M2 is closed)* *(note)*\n').conditions.map((c) => [c.readable, c.events[0]?.said]), [[true, 'M2 is closed']]);
   assert.equal(one('## PD-2 — t *(decided 2026-03-01 · revisit when x)* *(see PD-4)*\n').prose, true);
   assert.deepEqual(one('## PD-3 — about `*(x)` *(decided 2026-03-01 · reopens when M2 is closed)*\n').conditions.map((c) => c.readable), [true]);
+  assert.deepEqual(one('## PD-6 — the form `*(decided 2026-03-01 · reopens when M2 is activated)*` quoted\n').conditions, []);
   assert.equal(one('## PD-4 — `𠀀` *(decided 2026-03-01 · revisit when X)*\n').prose, true);
   // Twenty wide characters in a span: the prose window must not drift onto the unreadable clause after it.
   const wide = one(`## PD-5 — \`${"😀".repeat(20)}\` *(decided 2026-03-01 · reopens when the PRD changes)*\n`);
