@@ -598,8 +598,8 @@ Amended 2026-10-14 (#48, the owner, on the spec's 0.4 correction). "The owner ne
 hand" has one exception, decided by the owner on 2026-10-13 in build PR 1 (#429): sync adds the count only to a
 `ci/baselines.json` that is absent or byte for byte what slipway's one writer writes for it. A file in any other
 form (another indent, a key twice, no final newline) is refused before anything is written, naming the file and
-the form; the owner puts it back once and syncs again. Sync never rewrites a file of the project's it did not
-write. The rule above is otherwise as decided.
+the form; the owner puts it back once and syncs again. Sync never rewrites a `ci/baselines.json` it did not write
+in that form. The rule above is otherwise as decided.
 
 ## D-037 — A pull request's new tests must each fail on a change to the code; slipway's own mutator checks it, within 5 minutes *(decided 2026-10-08)*
 
