@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { readRisks, settled } from '../ci/checks/lib/risks.mjs';
 import { STATES, STEPS, stepLines, stepStates } from '../ci/checks/lib/steps.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -81,8 +82,9 @@ test('step 5 is in hand while a bet is active, waiting while none is and a value
   assert.equal(states({ milestones: [{ status: 'active', kind: 'bet' }], valueRisks: 1 })[5], 'in hand');
   assert.equal(states({ milestones: [{ status: 'closed', kind: 'skeleton' }], valueRisks: 1, settled: 0 })[5], 'waiting');
   assert.equal(states({ milestones: [{ status: 'closed', kind: 'skeleton' }], valueRisks: 1, settled: 1 })[5], 'not started');
-  // The skeleton is underway, not a bet: step 5 is not in hand, and nothing waits while a milestone is active.
-  assert.equal(states({ milestones: [{ status: 'active', kind: 'skeleton' }], valueRisks: 1 })[5], 'not started');
+  // The skeleton is underway, not a bet: step 5 is not in hand, and it still waits on the open value risk.
+  assert.equal(states({ milestones: [{ status: 'active', kind: 'skeleton' }], valueRisks: 1 })[5], 'waiting');
+  assert.equal(states({ milestones: [{ status: 'active', kind: 'skeleton' }], valueRisks: 1, settled: 1 })[5], 'not started');
 });
 
 test('a closed skeleton with a value risk still open reads step 4 done, step 2 not done and step 5 waiting', () => {
@@ -92,6 +94,24 @@ test('a closed skeleton with a value risk still open reads step 4 done, step 2 n
 
 test('a step line carries the number, the name and the state', () => {
   assert.equal(stepLines(base)[6], '- Step 6 · Close the milestone: each milestone');
+});
+
+test('a risk is settled exactly when K1 raises no finding on its Result', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'steps-k1-'));
+  try {
+    cpSync(join(SRC, 'ci', 'fixtures', 'status', 'experience-settled'), dir, { recursive: true });
+    const file = join(dir, 'docs', 'product', 'FRAME.md');
+    // A measured Result with no Threshold: K1's no-threshold rule, which `settled` must share.
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/^(\| RISK-5 .*)$/m, '$1\n| RISK-7 | Imports finish | value | slow | spike | | 0.4 s | |'));
+    const k1 = spawnSync(process.execPath, [join(SRC, 'ci', 'checks', 'meta', 'k1-frame.mjs'), dir], { encoding: 'utf8' });
+    const flagged = new Set([...(k1.stdout + k1.stderr).matchAll(/(RISK-\d+)#risk\/(?:experience-rationale|no-refutation|no-threshold)/g)].map((m) => m[1]));
+    const rows = readRisks(dir, readFileSync(file, 'utf8')).rows;
+    assert.ok(flagged.has('RISK-7') && flagged.has('RISK-3') && flagged.has('RISK-6'));
+    for (const r of rows) assert.equal(settled(r), r.tested && !flagged.has(r.id), r.id);
+    assert.ok(rows.some((r) => settled(r)) && rows.some((r) => !settled(r)));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('S1 fails a case whose step lines differ from steps', () => {

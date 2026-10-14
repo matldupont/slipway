@@ -38,7 +38,7 @@ export function stepStates(f) {
   s[2] = f.valueRisks === 0 ? (f.frame === 'framed' ? 'done' : 'not started') : unsettled === 0 ? 'done' : f.scheduled > 0 ? 'in hand' : 'not started';
   s[3] = f.prdStatus === 'missing' ? 'not started' : f.prdStatus !== 'draft' ? 'done' : f.prdTouched ? 'in hand' : 'not started';
   s[4] = f.milestones.some((m) => skeleton(m) && m.status === 'closed') ? 'done' : underway(skeleton) ? 'in hand' : 'not started';
-  s[5] = underway((m) => !skeleton(m)) ? 'in hand' : !f.milestones.some((m) => m.status === 'active') && unsettled > 0 ? 'waiting' : 'not started';
+  s[5] = underway((m) => !skeleton(m)) ? 'in hand' : unsettled > 0 ? 'waiting' : 'not started';
   s[6] = 'each milestone';
   s[7] = 'each milestone';
   return s;
