@@ -53,3 +53,15 @@ test('number', { skip: 1 }, () => {});
 test('zero', { skip: 0 }, () => {});
 it.skip.each< [number] >([[1]])('spaced type arguments', () => {});
 it.skip('a', f); test('b', { only: true }, f); // #4
+it.only.each < [number] >([[1]])('spaced on both sides', () => {});
+fit < T >(x);
+while (fit < best) { best -= 1; }
+test('method', { skip() { return true } }, f);
+test('getter', { get skip() { return true } }, f);
+test('ternary', { skip: false ? 0 : 1 }, f);
+test('fraction', { skip: 0.5 }, f);
+test('hex', { skip: 0x1 }, f);
+const near = fit< best;
+if (xit< 3) { n = 1; }
+test('multi-line zero', { skip: 0
+test('multi-line false', { skip: false

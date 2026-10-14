@@ -79,7 +79,9 @@ Copy `docs/reviews/TEMPLATE.md` to `docs/reviews/<YYYY-MM-DD>-<target>-<version>
   doc is the `Version:` line under its title, which moves whenever its Contract, Acceptance or Verify changes
   (D-041; `process/intake.md` → Feature doc version). The version line of a milestone is the `Version:` line under its title, which moves whenever its appetite or its extension (`extended:`), Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria change, and not for a started marker, an `Owed:` or `Ran:` line, `status:`, `summary:` or the Retro (D-044).
 - `Supersedes: docs/reviews/<file>` — one line for each earlier review in `docs/reviews/` whose `Reviewed:` line
-  names the same path, every one of them, not only the latest; with none, write no such line.
+  names the same path, every one of them, not only the latest; with none, write no such line. When the document
+  was moved or renamed, also write one `Supersedes:` line for each review in `docs/reviews/` whose `Reviewed:` path
+  no longer exists and was this document's; when you cannot tell whether it was, ask the owner.
 - The register, then one section per finding: where (by ID, never by heading alone; in a document with fewer IDs than sections, its ID, the section and the line range at the reviewed commit), what is wrong with
   the passage quoted, and a proposed resolution to argue with.
 
