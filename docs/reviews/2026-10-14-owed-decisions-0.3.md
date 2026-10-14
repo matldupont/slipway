@@ -60,13 +60,13 @@ close-milestone 86, clarify 67. #447 is open and also edits `process/intake.md`;
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | On a green tree every reviewed doc has a current review (R1), so `Amends: F-07` with `Reopens when: F-07 is reviewed` fires the run after it is written, before the amendment is in the doc, and the line says the review "already covers it" | S1 | owner | steps 1, 3 | |
-| AR-2 | `M<n> is active` does not fire on a killed milestone, and `/close-milestone` kills the active one: a fired condition goes silent with no outcome | S2 | owner | step 1 | |
-| AR-3 | A decision the re-read reopens but does not re-decide has no form: its heading keeps `decided`, the outcome line silences status, and the open question is listed nowhere | S2 | owner | steps 2, 3 | |
-| AR-4 | A condition in a heading written another way ("revisit when", or after ` — `) is neither read nor counted, while Known limitations says it is "prose and counted" | S2 | owner | — (build line, steps 1 and 4) | |
-| AR-5 | Fixtures that cannot hold what they say: `decisions-owed` counts two lines and names one; `decisions-fired-reviewed` needs two review sets in one root; the killed-milestone case has no fixture; the first-run chain's review quotes a line earlier than 0.1 | S3 | owner | — (build line, step 3) | |
-| AR-6 | Wiring the steps leave out: PC1 passes no root (step 5), `/close-milestone` has no command for its count (step 4), the issue count before step 5 (step 4), #447 also edits `process/intake.md` (step 2) | S3 | owner | — (build lines, steps 2, 4, 5) | |
-| AR-7 | A file path is text a pull request carries: print one only in a plain shape | S3 | owner | — (build line, step 3) | |
+| AR-1 | On a green tree every reviewed doc has a current review (R1), so `Amends: F-07` with `Reopens when: F-07 is reviewed` fires the run after it is written, before the amendment is in the doc, and the line says the review "already covers it" | S1 | owner | steps 1, 3 | build line, owner's yes 2026-10-14; Contract at 0.4 in step 5 |
+| AR-2 | `M<n> is active` does not fire on a killed milestone, and `/close-milestone` kills the active one: a fired condition goes silent with no outcome | S2 | owner | step 1 | build line, owner's yes 2026-10-14; Contract at 0.4 in step 5 |
+| AR-3 | A decision the re-read reopens but does not re-decide has no form: its heading keeps `decided`, the outcome line silences status, and the open question is listed nowhere | S2 | owner | steps 2, 3 | build line, owner's yes 2026-10-14; Contract at 0.4 in step 5 |
+| AR-4 | A condition in a heading written another way ("revisit when", or after ` — `) is neither read nor counted, while Known limitations says it is "prose and counted" | S2 | owner | — (build line, steps 1 and 4) | build line, steps 1 and 4 |
+| AR-5 | Fixtures that cannot hold what they say: `decisions-owed` counts two lines and names one; `decisions-fired-reviewed` needs two review sets in one root; the killed-milestone case has no fixture; the first-run chain's review quotes a line earlier than 0.1 | S3 | owner | — (build line, step 3) | build line, step 3 |
+| AR-6 | Wiring the steps leave out: PC1 passes no root (step 5), `/close-milestone` has no command for its count (step 4), the issue count before step 5 (step 4), #447 also edits `process/intake.md` (step 2) | S3 | owner | — (build lines, steps 2, 4, 5) | build lines, steps 2, 4, 5 |
+| AR-7 | A file path is text a pull request carries: print one only in a plain shape | S3 | owner | — (build line, step 3) | build line, step 3 |
 
 AR-1 is S1, escalated from the S2 the 0.2 review gave the same mechanism, for a stated reason: then it was a past,
 stale review; now it is the current review R1 guarantees on every green tree, and the status line tells the owner
