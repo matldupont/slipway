@@ -94,6 +94,10 @@ function readEvidence(root) {
   return out;
 }
 
+// Whether K1 would pass a value risk past the skeleton: a Result, and when the Result says experience, one of the three
+// rationales with its `Wrong if:` line. `pnpm status` reads step 2 through this, so the two cannot disagree.
+export const settled = (r) => r.tested && (!r.claimsExperience || (!!r.experience && !!r.refutation));
+
 // `rows`: one entry per `| RISK-n |` row. Its `tracker` is FRAME's Tracker cell, or the evidence file's
 // `Tracked:` line when the cell names none; `window` and `refutation` (its `Wrong if:` line) come from the
 // evidence file only. `experience` is `{ rationale }` when the Result is settled by experience with one of

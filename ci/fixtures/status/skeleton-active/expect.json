@@ -3,5 +3,15 @@
   "today": "2026-03-11",
   "now": "2026-03-10T22:00:00-04:00",
   "next": "Step 4 (agent) — Walking skeleton: Walking skeleton. Next slice from its Contents; pick the lane (process/slipway-rules.md#Lanes). Meanwhile (yours): RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation. File the issue that runs each untested one and name it in FRAME's Tracker column.",
-  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation"
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "steps": [
+    "Step 0 · Bootstrap: done",
+    "Step 1 · Frame: done",
+    "Step 2 · Test the risk: in hand",
+    "Step 3 · Shape: not started",
+    "Step 4 · Walking skeleton: in hand",
+    "Step 5 · Build loop: not started",
+    "Step 6 · Close the milestone: each milestone",
+    "Step 7 · Learn: each milestone"
+  ]
 }

@@ -1,0 +1,16 @@
+{
+  "_note": "#385. The skeleton milestone has closed while RISK-2 is scheduled and RISK-3 has no tracker: Next still names step 2, step 4 reads done, step 2 in hand, and step 5 waits on the risk. One case pins the three together.",
+  "today": "2026-03-10",
+  "next": "Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation. An agent can prepare the materials; running the test with real people is yours. File the issue that runs each untested one and name it in FRAME's Tracker column. Thresholds and results go in docs/product/evidence/ — or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the risk's Result.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "steps": [
+    "Step 0 · Bootstrap: done",
+    "Step 1 · Frame: done",
+    "Step 2 · Test the risk: in hand",
+    "Step 3 · Shape: not started",
+    "Step 4 · Walking skeleton: done",
+    "Step 5 · Build loop: waiting",
+    "Step 6 · Close the milestone: each milestone",
+    "Step 7 · Learn: each milestone"
+  ]
+}
