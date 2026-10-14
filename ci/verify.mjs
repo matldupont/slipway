@@ -9,8 +9,8 @@
 // measured problem, not before.
 //
 // Refuses to report green when it could not have proven anything: zero workspace packages
-// is BROKEN, and a workspace where no package declares `check` or `test` fails before
-// anything runs.
+// is BROKEN, a workspace where no package declares `check` or `test` fails before
+// anything runs, and so does a package that declares `test` and has no test file.
 //
 //   node ci/verify.mjs [root]          run
 //   node ci/verify.mjs --plan [root]   print what would run, run nothing
@@ -68,9 +68,19 @@ for (const task of TASKS) {
 
 // L-56: a package that declares `test` says how many skipped-test markers its test files hold, zero included, so a
 // package with no test files is not silent. These are markers in the text, not tests that did not run, and SK1
-// (ci/checks/meta/sk1-skipped-tests.mjs) is what fails on one with no issue; verify only prints.
+// (ci/checks/meta/sk1-skipped-tests.mjs) is what fails on one with no issue; verify prints them.
+// A package that declares `test` and holds no test file is a finding: its `test` script runs nothing the scan can
+// find, so a green run would prove nothing (L-56). The scan reads names (lib/skips.mjs), so a package whose runner
+// uses other names is told to rename its test files or drop the script: that fails closed.
 for (const p of packages.filter((p) => p.scripts.test !== undefined)) {
-  process.stdout.write(`VERIFY: skipped-test markers — ${escapeControl(p.name)}: ${summary(scanPackage(root, p, packages))}\n`);
+  const scan = scanPackage(root, p, packages);
+  process.stdout.write(`VERIFY: skipped-test markers — ${escapeControl(p.name)}: ${summary(scan)}\n`);
+  if (scan.files === 0) {
+    findings.push({
+      where: `package:${escapeControl(p.name)}`,
+      detail: `declares \`test\` and has no test file, so \`test\` proves nothing — add a test, or remove the \`test\` script from its package.json (a package script is owner-only, so ask first; a JavaScript or TypeScript test file is named \`*.test.*\` or \`*.spec.*\`, or sits under a \`test\` or \`__tests__\` folder; if yours are named otherwise, rename them)${scan.unread.length ? '; some paths were not read, see SK1' : ''}`,
+    });
+  }
 }
 
 const ran = [];

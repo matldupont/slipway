@@ -284,3 +284,14 @@ test('fit< and xit< say the name may not be a test; the option messages say this
   assert.match(r.stdout, /hides them from this check/);
   assert.doesNotMatch(r.stdout, /from SK1/);
 });
+
+test('a package that declares test and holds no test file fails verify, naming it and the next action; one with a test file, a test folder or no test script is green (L-56)', () => {
+  const pkg = (name, scripts = { check: "x", test: "x" }) => JSON.stringify({ name, scripts });
+  const check = (files) => { const root = workspace(files); const r = run('ci/verify.mjs', root, '--plan'); rmSync(root, { recursive: true }); return r; };
+  const bad = check({ 'packages/bare/package.json': pkg('bare'), 'packages/app/package.json': pkg('app'), 'packages/app/a.test.ts': "it('x');\n" });
+  assert.equal(bad.status, 1, bad.stdout);
+  assert.match(bad.stdout, /package:bare: declares `test` and has no test file.*add a test, or remove the `test` script/);
+  assert.doesNotMatch(bad.stdout, /package:app/);
+  const good = check({ 'packages/app/package.json': pkg('app'), 'packages/app/test/h.ts': 'export {};\n', 'packages/lib/package.json': pkg('lib', { check: 'x' }) });
+  assert.equal(good.status, 0, good.stdout);
+});

@@ -44,6 +44,12 @@ Object.assign(process.env, {
   GIT_COMMITTER_NAME: 'slipway test',
   GIT_COMMITTER_EMAIL: 'test@example.invalid',
   TMPDIR: root,
+  // Git starts maintenance detached after a commit, clone or fetch; it can land inside a tree hash (#449).
+  GIT_CONFIG_COUNT: '2',
+  GIT_CONFIG_KEY_0: 'maintenance.auto',
+  GIT_CONFIG_VALUE_0: 'false',
+  GIT_CONFIG_KEY_1: 'gc.auto',
+  GIT_CONFIG_VALUE_1: '0',
 });
 delete process.env.CLAUDECODE; // --apply refuses under an agent; one case sets it back
 // What a runner sets must not colour or link the output the cases read: each case that wants either passes its own.
@@ -206,21 +212,46 @@ const sync = (dir, ...args) =>
 const rows = (stdout) => Object.fromEntries([...stdout.matchAll(/^ {2}(\S.*?) {2,}(\S+(?: scripts\.\S+)?)$/gm)].map((m) => [m[2], m[1]]));
 const normalise = (stdout) => stdout.replaceAll(slip, '<slipway>').replaceAll(A, '<A>').replaceAll(B, '<B>').replaceAll(B.slice(0, 12), '<B>').replaceAll(A.slice(0, 7), '<A>').replaceAll(B.slice(0, 7), '<B>');
 
-// Every file under `dir`, .git included, with its bytes: what "nothing was written" means.
+// Every file under `dir`, .git included, with its mode and a digest of its bytes, one line per path relative to the
+// project: what "nothing was written" means. A string, not a bare hash, so a mismatch fails with the lines that
+// differ (assert prints a line diff), and a failure that happens by chance says which path changed (#449).
 function treeHash(dir) {
-  const h = createHash('sha256');
+  const lines = [];
   const walk = (d) => {
     for (const e of readdirSync(d).sort()) {
       const p = join(d, e);
       const st = lstatSync(p);
-      h.update(`${p.slice(dir.length)}\0${st.mode}\0`);
-      if (st.isDirectory()) walk(p);
-      else h.update(readFileSync(p));
+      if (st.isDirectory()) {
+        lines.push(`${p.slice(dir.length)}/ ${st.mode}`);
+        walk(p);
+      } else lines.push(`${p.slice(dir.length)} ${st.mode} ${createHash('sha256').update(readFileSync(p)).digest('hex').slice(0, 12)}`);
     }
   };
   walk(dir);
-  return h.digest('hex');
+  return lines.join('\n');
 }
+
+test('sync starts no detached git maintenance, even where the project allows it (#449)', () => {
+  const dir = project();
+  const env = { ...process.env, GIT_TRACE: join(root, `trace-${n}.txt`) };
+  for (const k of ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0', 'GIT_CONFIG_KEY_1', 'GIT_CONFIG_VALUE_1']) delete env[k];
+  const r = spawnBin(process.execPath, [join(slip, 'scripts', 'new-project.mjs'), 'sync', '--verbose'], { cwd: dir, encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stderr);
+  const trace = readFileSync(env.GIT_TRACE, 'utf8');
+  assert.match(trace, /git fetch -q --no-write-fetch-head origin/, 'the run reached the fetch');
+  assert.doesNotMatch(trace, /maintenance run/);
+});
+
+test('a tree-hash mismatch names each changed path, relative to the project', () => {
+  const dir = project();
+  const before = treeHash(dir);
+  writeFileSync(join(dir, '.git', 'planted'), 'x');
+  writeFileSync(join(dir, 'process/same.md'), 'changed\n');
+  assert.throws(
+    () => assert.equal(treeHash(dir), before, 'sync wrote to the project'),
+    (e) => /^ *\+ +'\/\.git\/planted /m.test(e.message) && /^ *\+ +'\/process\/same\.md /m.test(e.message) && /^ *- +'\/process\/same\.md /m.test(e.message) && !e.message.includes(dir),
+  );
+});
 
 test('the plan from base A to target B equals the checked-in plan, and writes nothing', () => {
   const dir = project();

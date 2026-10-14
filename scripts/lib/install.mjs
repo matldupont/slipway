@@ -119,13 +119,15 @@ export const blobSha = (buf) => createHash('sha1').update(`blob ${buf.length}\0`
 
 // The one git helper: new-project calls it on the local checkout only, and sync (F-01 steps 3–4) fetches
 // through it. No prompt of any kind (the terminal, an askpass helper, Git Credential Manager), and a
-// timeout. ssh gets BatchMode only when the owner has configured no ssh of their own (GIT_SSH_COMMAND,
-// GIT_SSH, a global or system core.sshCommand), which the variable would otherwise override. A
+// timeout. Nothing it runs writes behind the caller's back (#449): GIT_OPTIONAL_LOCKS=0 stops a read from
+// refreshing the index, and maintenance and gc are off for the call, since git starts them detached after a
+// commit, clone or fetch and they can finish later, while a caller is reading the tree. ssh gets BatchMode
+// only when the owner has configured no ssh of their own (GIT_SSH_COMMAND, GIT_SSH, a global or system core.sshCommand), which the variable would otherwise override. A
 // repository's own core.sshCommand is not read: the fetches run in sync's clone, which never sets one.
 let quiet;
 function quietEnv() {
   if (!quiet) {
-    quiet = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS: '', GCM_INTERACTIVE: 'never' };
+    quiet = { ...process.env, GIT_OPTIONAL_LOCKS: '0', GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: '', SSH_ASKPASS: '', GCM_INTERACTIVE: 'never' };
     // Transports only: never `ext::` (runs a command) or another helper a `source` could name.
     quiet.GIT_ALLOW_PROTOCOL = 'file:git:http:https:ssh';
     if (!ownSsh()) quiet.GIT_SSH_COMMAND = 'ssh -o BatchMode=yes';
@@ -133,7 +135,7 @@ function quietEnv() {
   return quiet;
 }
 export const git = (args, o = {}) =>
-  execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: quietEnv(), timeout: 60_000, ...o });
+  execFileSync('git', ['-c', 'maintenance.auto=false', '-c', 'gc.auto=0', ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], env: quietEnv(), timeout: 60_000, ...o });
 function ownSsh() {
   if (process.env.GIT_SSH_COMMAND || process.env.GIT_SSH) return true;
   return ['--global', '--system'].some((scope) => {
