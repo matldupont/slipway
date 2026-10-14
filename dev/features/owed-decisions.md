@@ -638,22 +638,53 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    ~M. Leaves #440 open. The reader parses a
    file a pull request carries and its output will reach every session: case 5, the trust line ·
    mode: `plan` · model: `Opus 5.5` · effort: `medium`.
+   Carried from the 0.3 review (`docs/reviews/2026-10-14-owed-decisions-0.3.md`), the owner's yes 2026-10-14, for the
+   Contract correction in step 5: AR-1, `F-<n> is reviewed` does not fire while the same decision's `Amends: F-<n>` is
+   owed (§4); once the doc names the decision a current review fires it. AR-2, `M<n> is active` fires on `active`,
+   `closed` or `killed`, and the line says which. Both pinned in `scripts/decisions.test.mjs`.
+   Carried from the 0.3 review: AR-4, the prose pattern also reads the heading's status suffix outside any readable
+   clause, for an entry with no readable condition (`revisit when …`, a clause after ` — `); a green case for each.
 2. **The rules and the skills.** `process/slipway-rules.md`, `process/intake.md`, `/kickoff`, `/clarify`,
    `/close-milestone` (the form of an extension decision), `/log-feature`, `decisions.md`'s header,
    `scripts/skills.test.mjs` pins; after PR #447 lands — rules and skills, ~S. Leaves #440 open. The form is described
    before anything asks for it. Case 3 · mode: `regular` · model: `Sonnet 5.5` · effort: `medium`.
+   Carried from the 0.3 review, the owner's yes 2026-10-14, for the Contract correction in step 5: AR-3, a re-read that
+   leaves the decision open writes `open — reopened YYYY-MM-DD` as the heading's status and `Reopened YYYY-MM-DD: open
+   again` in place of the condition, so status's Open decision line carries it; `/clarify` and the rules say so.
+   Carried from the 0.3 review: AR-6, #447 also edits `process/intake.md`; re-read it after #447 merges.
 3. **The check and the status lines.** DC1, `ci/fixtures/known-bad/dc1/**`, `package.json` `meta`; `ci/status.mjs`,
    the thirteen `ci/fixtures/status/decisions-*` cases (the issue event unreadable, §3), slipway's own `Amends:` lines
    (§10), the first-run chain in a scratch project; re-verified against `main` first, with a fresh `Verified against:`
    (L-18; AR-7 of the 0.2 review) — checks and status, ~M. Leaves #440 open. Case 5 (a line that steers
    every session) · mode: `plan` · model: `Opus 5.5` · effort: `medium`.
+   Carried from the 0.3 review, the owner's yes 2026-10-14, for the Contract correction in step 5: AR-1, the
+   `decisions-fired-reviewed` fixture gains the gated case (`Amends: F-07`, `Reopens when: F-07 is reviewed`, a current
+   review, the doc not naming the decision: the Owed citation line and no reopens line), the first-run chain gives
+   F-07's doc a current review before PD-3 is rewritten, and "already covers it" is printed only for a doc that names
+   the decision. AR-2, `decisions-fired-milestone` gains the killed case for `is active`. AR-3, §6's reopens
+   instruction offers the open-again outcome, and one fixture holds it (the Open decision line only).
+   Carried from the 0.3 review: AR-5, `decisions-owed` expects one line; `decisions-fired-reviewed` splits its
+   decisions across two features (F-07 with a stale review only, F-08 with a current one); `decisions-owed` gains an
+   `Amends:` whose only Contents line is in a killed milestone (one more line); the chain's doc is at 0.2 with a review
+   of 0.1, or at 0.1 with a current review; the case count and Verify's "thirteen" move with any split. AR-7, a doc's
+   path is printed only when it matches `^(docs|dev)/features/[A-Za-z0-9._-]{1,80}\.md$`, else the F-id and "a feature
+   doc"; one status case with an odd file name.
 4. **The counts.** Sync's note (`scripts/sync.mjs`, `scripts/sync.test.mjs`), `new-project`'s test,
    `/close-milestone` §3's bullet (after PR #447) — sync and skills, ~S. Leaves #440 open. Case 4 · mode: `regular` ·
    model: `Sonnet 5.5` · effort: `medium`.
+   Carried from the 0.3 review: AR-4, the sync note counts heading-suffix prose as body prose. AR-6, DC1 prints the
+   two counts with their ids as an info line (ids only), the retro bullet names `node ci/checks/meta/dc1-decisions.mjs .`
+   as its command, and the issue count counts conditions whose events include an issue, readable or not, from this
+   step on, so its meaning does not change at step 5.
 5. **The issue event at the pull request.** P1's root argument, finding and sidecar key, `pr-body.yml`,
    `ci/fixtures/known-bad/p1/closes-awaited*`, `scripts/p1.test.mjs` (`package.json` `meta`), `/work-ticket`'s ready
    sentences within 300 lines; the reader's issue event becomes readable here, with the two status fixtures' final
    `expect.json` and the sync note's issue count now counting readable ones — checks and a skill, ~S. Closes #440. Case 4, gate files · mode: `regular` · model: `Sonnet 5.5` · effort: `medium`.
+   Carried from the 0.3 review: AR-6, PC1 passes a second argument (the fixture folder as root) to P1 only, so no other
+   check reads a stray argument; `ci/checks/meta/pc1-positive-control.mjs` is a gate file this step changes.
+   **The Contract correction.** This step's PR writes 0.4 from the lines marked "for the Contract correction" under
+   steps 1, 2 and 3 (AR-1, AR-2 and AR-3 of the 0.3 review, the owner's yes 2026-10-14), moving the `Version:` and
+   getting one review, whose `Supersedes:` names the 0.3 review. No other whole-document review is owed.
 
 Machinery before surface: the reader (1) before anything that shows it (3); the words that tell people the form (2)
 before the line that asks for it (3); the counts (4) and the pull-request reader (5) once the lines exist to count.
@@ -718,3 +749,9 @@ before the line that asks for it (3); the counts (4) and the pull-request reader
   re-verified against 9d2ef31 with #442 merged (AR-7); labels in a fence are prose, the reopens line gives the owner
   the question and an agent the syntax (AR-8). The owner, 2026-10-14: the review of 0.3 is the last whole-document
   review · PR for #440
+- 2026-10-14 · MODIFIED · Version stays 0.3: the seven findings of `docs/reviews/2026-10-14-owed-decisions-0.3.md`
+  placed as lines under the Build map step each names, with no change to Contract, Acceptance or Verify. AR-1, AR-2
+  and AR-3 change a guarantee and are carried with the owner's yes (2026-10-14) as the Contract correction step 5 writes
+  at 0.4 (`is reviewed` gated by an owed `Amends:`; `is active` on a killed milestone; a re-read that leaves the
+  decision open). AR-4 to AR-7 are reader, fixture, wiring and printing corrections. The review's Tracker cells name
+  where each went · PR for #440
