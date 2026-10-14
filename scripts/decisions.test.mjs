@@ -141,6 +141,7 @@ test('mask keeps every column, blanks fences whole and spans across a paragraph 
   const m = mask(lines);
   assert.deepEqual(m.map((l) => l.length), lines.map((l) => l.length));
   assert.deepEqual(m, ['a   ', '   d', '', '   ', ' ', '   ', 'f']);
+  assert.deepEqual(mask(['x `😀` y']), ['x      y']);
 });
 
 test('prose: the pattern\'s hits and misses, in an entry with no readable condition', () => {
@@ -160,6 +161,16 @@ test('a parenthesis inside the suffix, or text after its close, never hides a cl
   assert.deepEqual(one('## PD-4 — t *(decided 2026-03-01 · reopens when M2 is activated\n').conditions.map((c) => c.readable), [true]);
   assert.deepEqual(one('## PD-5 — t\n').clauses, []);
   assert.deepEqual(one('## PD-6 — t *(decided 2026-03-01 · reopens when M2 is activated)*\n').clauses, [{ text: 'decided 2026-03-01' }, { text: 'reopens when M2 is activated' }]);
+});
+
+test('a second group, a span holding *( or a wide character in a span never hides a heading clause', () => {
+  assert.deepEqual(one('## PD-1 — t *(decided 2026-03-01 · reopens when M2 is closed)* *(note)*\n').conditions.map((c) => [c.readable, c.events[0]?.said]), [[true, 'M2 is closed']]);
+  assert.equal(one('## PD-2 — t *(decided 2026-03-01 · revisit when x)* *(see PD-4)*\n').prose, true);
+  assert.deepEqual(one('## PD-3 — about `*(x)` *(decided 2026-03-01 · reopens when M2 is closed)*\n').conditions.map((c) => c.readable), [true]);
+  assert.equal(one('## PD-4 — `𠀀` *(decided 2026-03-01 · revisit when X)*\n').prose, true);
+  // Twenty wide characters in a span: the prose window must not drift onto the unreadable clause after it.
+  const wide = one(`## PD-5 — \`${"😀".repeat(20)}\` *(decided 2026-03-01 · reopens when the PRD changes)*\n`);
+  assert.deepEqual([wide.prose, wide.conditions.map((c) => c.readable)], [false, [false]]);
 });
 
 test('AR-4: the heading suffix is read by the prose pattern outside every condition clause', () => {
@@ -187,6 +198,9 @@ test('a tree a pull request shaped never makes the reader throw: a folder named 
     symlinkSync(join(dir, 'outside.md'), join(dir, 'docs/milestones/M2-link.md'));
     assert.deepEqual([r.owed().map((o) => o.feature), r.fired('2026-03-10')], [[7], []]);
   });
+  for (const folder of ['docs/features', 'dev/features']) {
+    tree({ 'decisions.md': rec, [folder]: 'a file' }, (r) => assert.deepEqual([r.owed().map((o) => o.feature), r.fired('2026-03-10')], [[7], []]));
+  }
   tree({ 'decisions.md': rec, 'real/M2.md': milestone('M2', 'active', ['x']) }, (_, dir) => {
     mkdirSync(join(dir, 'docs'), { recursive: true });
     symlinkSync(join(dir, 'real'), join(dir, 'docs/milestones'));
@@ -202,6 +216,20 @@ test('owed() and fired() stay linear: many entries asking about one large doc fu
     assert.equal(r.owed().length, 2000);
     assert.deepEqual(r.fired('2026-03-10'), []);
     assert.ok(Date.now() - start < 2000, `took ${Date.now() - start}ms`);
+  });
+});
+
+test('is reviewed and Contents citations stay linear: many events, many reviews, many items', () => {
+  const rec = Array.from({ length: 200 }, (_, i) => `## PD-${i + 1} — t\n\nAmends: ${Array.from({ length: 40 }, (_, k) => `F-${k + 1}`).join(', ')}\n${Array.from({ length: 20 }, () => 'Reopens when: F-01 is reviewed').join('\n')}\n`).join('\n');
+  const files = { 'decisions.md': rec, 'dev/features/one.md': doc(1, { body: 'Per PD-1.\n' + 'x '.repeat(200000) }) };
+  for (let i = 0; i < 50; i++) files[`docs/reviews/r${i}.md`] = review('dev/features/one.md', '0.2');
+  files['docs/milestones/M2-a.md'] = milestone('M2', 'active', Array.from({ length: 5000 }, (_, i) => `F-${(i % 40) + 1} per PD-${i}`));
+  tree(files, (r) => {
+    const start = Date.now();
+    // F-01 is cited for PD-1 by its doc and for every 40th decision by a Contents item, so those fire (AR-1).
+    assert.deepEqual([...new Set(r.fired('2026-03-10').map((f) => f.id))], ['PD-1', 'PD-40', 'PD-80', 'PD-120', 'PD-160', 'PD-200']);
+    r.owed();
+    assert.ok(Date.now() - start < 3000, `took ${Date.now() - start}ms`);
   });
 });
 

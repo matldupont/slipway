@@ -6,7 +6,7 @@
 // Three labelled lines may sit under a decision's heading, at column 0, with no list mark and no emphasis:
 //
 //   Amends: F-07                    the features it changes; owed until that feature's doc or Contents line names it
-//   Reopens when: F-07 is reviewed  one event, or several joined by ` or `, from the closed list in EVENTS below
+//   Reopens when: F-07 is reviewed  one event, or several joined by ` or `, from §3's closed list (parseEvent)
 //   Closes when: M2 is closed
 //
 // A heading's status suffix is read too: each clause after the first, split on ` · `, that starts `reopens when`,
@@ -21,90 +21,22 @@ import { readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
 import { citedFeatures, contents } from './milestones.mjs';
-import { notPlainFile, quotedVersion, readPlain, reviewProvenance } from './review-header.mjs';
+import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
+import { fenced, fid, ISSUE_READABLE, mask, parseEvent, squash, unquoted } from './decision-text.mjs';
+
+export { fenced, fid, ISSUE_READABLE, mask, parseEvent };
 
 const MAX = 500;
 const ENTRY = new RegExp(`${LEAD}(P?D)-(\\d{1,9})\\b`);
-const HEADING = new RegExp(LEAD);
 // A heading of level 1 or 2, a decision's or not, ends the entry above it (`## Week 1 — decide before M1 closes`).
 const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
-const FENCE = /^ {0,3}```/;
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
+const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
 const CLAUSES = [['reopens when', 'reopens'], ['reopens if', 'reopens'], ['closes when', 'closes'], ['closes if', 'closes'], ['provisional until', 'reopens']];
 const PROSE = [/\b(?:revisit(?:ed)?|reopen(?:s|ed)?)(?: it| this| them)? (?:when|if|once|after)\b/i, /\bcloses? (?:when|if|once)\b/i, /\bprovisional until\b/i];
 const POSITION = /\bM(\d{1,9})(?:['’]s)? (?:Contents )?item (\d{1,9})\b|\bitem (\d{1,9}) of M(\d{1,9})\b/g;
 const DECISION_ID = /\b(P?D)-(\d{1,9})\b/g;
-// `#<n> closes` is read at the pull request that closes the issue (§8), and that reader ships in build step 5. Until
-// then the event is unreadable, flagged so status can say what reads it (§6).
-export const ISSUE_READABLE = false;
-
-export const fid = (n) => `F-${String(n).padStart(2, '0')}`;
-const blank = (s) => ' '.repeat(s.length);
-
-// Each line with fenced blocks and code spans blanked, columns kept. A fence (``` to ```) is blanked whole, its
-// marker lines too. A code span is backtick to backtick within a paragraph (consecutive non-blank lines, a heading
-// standing alone), so a span crosses the hard wraps decisions.md is written with; an unmatched backtick blanks to the
-// paragraph's end.
-// Whether each line sits in a fenced block, its marker lines included.
-export function fenced(lines) {
-  let fence = false;
-  return lines.map((l) => {
-    const marker = FENCE.test(l);
-    if (marker) fence = !fence;
-    return fence || marker;
-  });
-}
-export function mask(lines) {
-  const fence = fenced(lines);
-  const out = lines.map((l, i) => (fence[i] ? blank(l) : l));
-  let open = false;
-  for (let i = 0; i < out.length; i++) {
-    const alone = HEADING.test(out[i]);
-    if (out[i].trim() === '' || alone) open = false;
-    let s = '';
-    for (const ch of out[i]) {
-      if (ch === '`') {
-        open = !open;
-        s += ' ';
-      } else s += open ? ' ' : ch;
-    }
-    out[i] = s;
-    if (alone) open = false;
-  }
-  return out;
-}
-
-// What a condition's text reads as: backticks and a closing full stop removed, whitespace squashed.
-const squash = (s) => s.replace(/`/g, '').replace(/\s+/g, ' ').trim().replace(/\.$/, '');
-
-function isDay(date) {
-  const day = new Date(`${date}T00:00:00Z`);
-  return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === date;
-}
-
-// One event of §3's table, or null. Verbs are case folded; ids keep their case. `said` is the event in the table's
-// words, built from the numbers read, never from the record's text.
-export function parseEvent(part) {
-  let m = part.match(/^F-(\d{1,9}) (.{1,40})$/);
-  if (m) {
-    const n = Number(m[1]);
-    const kind = { 'has a doc': 'doc', 'has a feature doc': 'doc', 'is reviewed': 'reviewed', 'is shipped': 'shipped' }[m[2].toLowerCase()];
-    const verb = { doc: 'has a doc', reviewed: 'is reviewed', shipped: 'is shipped' }[kind];
-    return kind ? { kind, feature: n, readable: true, said: `${fid(n)} ${verb}` } : null;
-  }
-  m = part.match(/^M(\d{1,9}) (.{1,40})$/);
-  if (m) {
-    const n = Number(m[1]);
-    const kind = { 'is active': 'active', 'is activated': 'active', 'goes active': 'active', 'is closed': 'closed', closes: 'closed' }[m[2].toLowerCase()];
-    return kind ? { kind, milestone: n, readable: true, said: `M${n} is ${kind}` } : null;
-  }
-  m = part.match(/^(\d{4}-\d{2}-\d{2}) (passes|has passed)$/i);
-  if (m) return isDay(m[1]) ? { kind: 'date', date: m[1], readable: true, said: `${m[1]} passes` } : null;
-  m = part.match(/^(?:([\w.-]{1,100}\/[\w.-]{1,100}))?#(\d{1,9}) (closes|lands|is closed)$/i);
-  if (m) return { kind: 'issue', issue: Number(m[2]), readable: ISSUE_READABLE, said: `#${Number(m[2])} closes` };
-  return null;
-}
 
 function condition(kind, where, line, raw) {
   const text = squash(raw);
@@ -124,43 +56,31 @@ const clauseCondition = (clause) => {
   return hit ? [hit[1], clause.slice(hit[0].length)] : null;
 };
 
-// A line with its quoted text (between straight or curly double quotes) blanked, in one pass: a quote with no close
-// after it is left as written, and once a close is known to be missing it is not looked for again.
-const QUOTE = { '"': '"', '“': '”' };
-function unquoted(s) {
-  let out = '';
-  const gone = new Set();
-  for (let i = 0; i < s.length; i++) {
-    const close = QUOTE[s[i]];
-    const end = close && !gone.has(close) ? s.indexOf(close, i + 1) : -1;
-    if (close && end < 0) gone.add(close);
-    if (end < 0) out += s[i];
-    else {
-      out += blank(s.slice(i, end + 1));
-      i = end;
-    }
-  }
-  return out;
-}
 const proseHit = (s) => PROSE.some((p) => p.test(unquoted(s)));
 
 function finish(e) {
   const conditions = [];
-  // The status suffix runs from the heading's last `*(` to its end, a closing `)*` removed: a parenthesis inside it,
-  // or text after the `)*`, never hides a clause. Each clause is read as written, and its prose from the masked
-  // heading at the same columns, so a code span in it is not prose.
-  const at = e.text.lastIndexOf('*(');
-  const parts = at < 0 ? [] : e.text.slice(at + 2).trimEnd().replace(/\)\*$/, '').split(' · ');
+  // The status suffix runs from the heading's first `*(` outside a code span to its end. Its clauses are split on ` · `
+  // and on a `)* *(` between two groups, and a closing `)*` is removed: a parenthesis inside it, a second group, or
+  // text after it never hides a clause. Each clause is read as written, and its prose from the masked heading at the
+  // same columns, so a code span in it is not prose.
+  const at = e.masked.indexOf('*(');
+  const suffix = at < 0 ? '' : e.text.slice(at + 2);
+  const parts = [];
+  let from = 0;
+  for (const m of suffix.matchAll(GROUPS)) {
+    parts.push([from, suffix.slice(from, m.index)]);
+    from = m.index + m[0].length;
+  }
+  if (at >= 0) parts.push([from, suffix.slice(from).trimEnd().replace(/\)\*$/, '')]);
   const clauses = [];
   const proseClauses = [];
-  let off = at + 2;
-  parts.forEach((raw, i) => {
+  parts.forEach(([off, raw], i) => {
     const c = raw.trim();
     clauses.push({ text: c });
     const hit = i > 0 ? clauseCondition(c) : null;
     if (hit) conditions.push(condition(hit[0], 'heading', e.line, hit[1]));
-    else proseClauses.push(e.masked.slice(off, off + raw.length));
-    off += raw.length + 3;
+    else proseClauses.push(e.masked.slice(at + 2 + off, at + 2 + off + raw.length));
   });
   const proseLines = [];
   for (const b of e.body) {
@@ -221,18 +141,52 @@ const listed = (root, dir, skip) => {
 };
 const plainFiles = (root, dir, skip) => listed(root, dir, skip).map((f) => readPlain(root, `${dir}/${f}`)).filter((t) => t !== null);
 
+// The feature docs, never a throw: a docs/features or dev/features that is a file is read as no docs.
+const featureFiles = (root) => {
+  try {
+    return readFeatureFiles(root).filter((f) => f.regular);
+  } catch {
+    return [];
+  }
+};
+
+// Everything the events and citations read, once: each doc's decision keys, whether a review of it is current and
+// whether it is shipped; the docs carrying each F-id; and for each F-id, the decision keys the Contents items citing it
+// name in milestones not killed. Every call after reads only these.
 function readTree(root) {
-  const files = readFeatureFiles(root).filter((f) => f.regular).map((f) => ({ ...f, seen: cut(f.md), keys: keysOf(cut(f.md)) }));
+  const reviews = plainFiles(root, 'docs/reviews', ['TEMPLATE.md']).map(reviewProvenance).filter((r) => r.reviewed && r.version);
+  const quoted = new Map();
+  for (const r of reviews) {
+    const path = posix.normalize(r.reviewed.path);
+    quoted.set(path, [...(quoted.get(path) ?? []), r.version]);
+  }
+  const files = featureFiles(root).map((f) => {
+    const lines = versionLines(f.md);
+    return {
+      ...f,
+      keys: keysOf(cut(f.md)),
+      reviewed: (quoted.get(f.path) ?? []).some((v) => quotedVersion(f.md, v, lines) === 'current'),
+      shipped: String(docFrontmatter(f.md)?.status ?? '').toLowerCase() === 'shipped',
+    };
+  });
   const milestones = plainFiles(root, 'docs/milestones', ['TEMPLATE.md', 'README.md'])
     .map((md) => ({ md, fm: docFrontmatter(md) }))
     .filter((m) => m.fm)
     .map(({ md, fm }) => ({
       n: Number(milestoneNumber(fm.id) ?? NaN),
       status: fm.status,
-      items: contents(md).map((it) => ({ features: new Set(citedFeatures(it.text.slice(0, MAX))), keys: keysOf(it.text.slice(0, MAX)) })),
+      items: contents(md).map((it) => ({ features: citedFeatures(it.text.slice(0, MAX)), keys: keysOf(it.text.slice(0, MAX)) })),
     }));
-  const reviews = plainFiles(root, 'docs/reviews', ['TEMPLATE.md']).map(reviewProvenance).filter((r) => r.reviewed && r.version);
-  return { files, milestones, reviews };
+  const itemKeys = new Map();
+  for (const m of milestones.filter((x) => x.status !== 'killed')) {
+    for (const it of m.items) for (const n of it.features) itemKeys.set(n, new Set([...(itemKeys.get(n) ?? []), ...it.keys]));
+  }
+  const byFeature = (keep) => {
+    const map = new Map();
+    for (const f of files.filter(keep)) for (const n of f.ns) map.set(n, [...(map.get(n) ?? []), f]);
+    return map;
+  };
+  return { milestones, carrying: byFeature(() => true), docs: byFeature(isFeatureDoc), itemKeys };
 }
 
 // `{ missing, entries, owed(), fired(today), unreadable(), proseCount() }` for the decisions.md at `root`. `missing` is
@@ -244,10 +198,9 @@ export function readDecisions(root) {
   let tree;
   const t = () => (tree ??= readTree(root));
 
-  const carrying = (n) => t().files.filter((f) => f.ns.includes(n));
-  const docsOf = (n) => t().files.filter((f) => isFeatureDoc(f) && f.ns.includes(n));
-  // Each doc and Contents item holds the decision keys it names, read once, so a record of many entries stays linear.
-  const cited = (key, n) => carrying(n).some((f) => f.keys.has(key)) || t().milestones.some((m) => m.status !== 'killed' && m.items.some((it) => it.features.has(n) && it.keys.has(key)));
+  const carrying = (n) => t().carrying.get(n) ?? [];
+  const docsOf = (n) => t().docs.get(n) ?? [];
+  const cited = (key, n) => carrying(n).some((f) => f.keys.has(key)) || Boolean(t().itemKeys.get(n)?.has(key));
   const amendsOf = new Map(entries.map((e) => [e, [...new Set(e.conditions.filter((c) => c.kind === 'changes' && c.readable).flatMap((c) => c.features))]]));
   const amends = (e) => amendsOf.get(e);
 
@@ -261,10 +214,10 @@ export function readDecisions(root) {
       // AR-1 of the 0.3 review: while the same decision's Amends: for this feature is owed, a current review is of a
       // doc that does not carry the amendment yet, so it does not fire.
       if (amends(e).includes(ev.feature) && !cited(e.key, ev.feature)) return null;
-      const doc = docsOf(ev.feature).find((d) => t().reviews.some((r) => posix.normalize(r.reviewed.path) === d.path && quotedVersion(d.md, r.version) === 'current'));
+      const doc = docsOf(ev.feature).find((d) => d.reviewed);
       return doc ? { ...ev, doc: doc.path, named: doc.keys.has(e.key) } : null;
     }
-    if (ev.kind === 'shipped') return docsOf(ev.feature).some((d) => String(docFrontmatter(d.md)?.status ?? '').toLowerCase() === 'shipped') ? ev : null;
+    if (ev.kind === 'shipped') return docsOf(ev.feature).some((d) => d.shipped) ? ev : null;
     if (ev.kind === 'active' || ev.kind === 'closed') {
       // AR-2 of the 0.3 review: a killed milestone came through active as a closed one did; the words say which.
       const states = ev.kind === 'active' ? ['active', 'closed', 'killed'] : ['closed', 'killed'];

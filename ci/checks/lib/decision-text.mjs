@@ -1,0 +1,100 @@
+// Line-level reading for the decisions reader (ci/checks/lib/decisions.mjs, F-15 §2 and §3): which lines sit in a
+// fence, the mask that blanks fences and code spans, quoted text, a condition's text and §3's events. Split from that
+// module only for its size; it is the one reader callers import, and this file has no other reader.
+
+import { LEAD } from './feature-docs.mjs';
+
+const HEADING = new RegExp(LEAD);
+const FENCE = /^ {0,3}```/;
+
+// `#<n> closes` is read at the pull request that closes the issue (§8), and that reader ships in build step 5. Until
+// then the event is unreadable, flagged so status can say what reads it (§6).
+export const ISSUE_READABLE = false;
+
+export const fid = (n) => `F-${String(n).padStart(2, '0')}`;
+const blank = (s) => ' '.repeat(s.length);
+
+// Whether each line sits in a fenced block, its marker lines included.
+export function fenced(lines) {
+  let fence = false;
+  return lines.map((l) => {
+    const marker = FENCE.test(l);
+    if (marker) fence = !fence;
+    return fence || marker;
+  });
+}
+// Each line with fenced blocks and code spans blanked, columns kept. A fence (``` to ```) is blanked whole, its
+// marker lines too. A code span is backtick to backtick within a paragraph (consecutive non-blank lines, a heading
+// standing alone), so a span crosses the hard wraps decisions.md is written with; an unmatched backtick blanks to the
+// paragraph's end.
+export function mask(lines) {
+  const fence = fenced(lines);
+  const out = lines.map((l, i) => (fence[i] ? blank(l) : l));
+  let open = false;
+  for (let i = 0; i < out.length; i++) {
+    const alone = HEADING.test(out[i]);
+    if (out[i].trim() === '' || alone) open = false;
+    // By UTF-16 unit, as `length` and `slice` count: a character of two units inside a span is two spaces.
+    let s = '';
+    for (let j = 0; j < out[i].length; j++) {
+      const ch = out[i][j];
+      if (ch === '`') {
+        open = !open;
+        s += ' ';
+      } else s += open ? ' ' : ch;
+    }
+    out[i] = s;
+    if (alone) open = false;
+  }
+  return out;
+}
+
+// What a condition's text reads as: backticks and a closing full stop removed, whitespace squashed.
+export const squash = (s) => s.replace(/`/g, '').replace(/\s+/g, ' ').trim().replace(/\.$/, '');
+
+function isDay(date) {
+  const day = new Date(`${date}T00:00:00Z`);
+  return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === date;
+}
+
+// One event of §3's table, or null. Verbs are case folded; ids keep their case. `said` is the event in the table's
+// words, built from the numbers read, never from the record's text.
+export function parseEvent(part) {
+  let m = part.match(/^F-(\d{1,9}) (.{1,40})$/);
+  if (m) {
+    const n = Number(m[1]);
+    const kind = { 'has a doc': 'doc', 'has a feature doc': 'doc', 'is reviewed': 'reviewed', 'is shipped': 'shipped' }[m[2].toLowerCase()];
+    const verb = { doc: 'has a doc', reviewed: 'is reviewed', shipped: 'is shipped' }[kind];
+    return kind ? { kind, feature: n, readable: true, said: `${fid(n)} ${verb}` } : null;
+  }
+  m = part.match(/^M(\d{1,9}) (.{1,40})$/);
+  if (m) {
+    const n = Number(m[1]);
+    const kind = { 'is active': 'active', 'is activated': 'active', 'goes active': 'active', 'is closed': 'closed', closes: 'closed' }[m[2].toLowerCase()];
+    return kind ? { kind, milestone: n, readable: true, said: `M${n} is ${kind}` } : null;
+  }
+  m = part.match(/^(\d{4}-\d{2}-\d{2}) (passes|has passed)$/i);
+  if (m) return isDay(m[1]) ? { kind: 'date', date: m[1], readable: true, said: `${m[1]} passes` } : null;
+  m = part.match(/^(?:([\w.-]{1,100}\/[\w.-]{1,100}))?#(\d{1,9}) (closes|lands|is closed)$/i);
+  if (m) return { kind: 'issue', issue: Number(m[2]), readable: ISSUE_READABLE, said: `#${Number(m[2])} closes` };
+  return null;
+}
+
+// A line with its quoted text (between straight or curly double quotes) blanked, in one pass: a quote with no close
+// after it is left as written, and once a close is known to be missing it is not looked for again.
+const QUOTE = { '"': '"', '“': '”' };
+export function unquoted(s) {
+  let out = '';
+  const gone = new Set();
+  for (let i = 0; i < s.length; i++) {
+    const close = QUOTE[s[i]];
+    const end = close && !gone.has(close) ? s.indexOf(close, i + 1) : -1;
+    if (close && end < 0) gone.add(close);
+    if (end < 0) out += s[i];
+    else {
+      out += blank(s.slice(i, end + 1));
+      i = end;
+    }
+  }
+  return out;
+}
