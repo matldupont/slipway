@@ -1179,11 +1179,12 @@ test('/review-doc reads and searches the code only at the reviewed commit, by th
   assert.ok(one.includes('Write the full sha literally in each command, never through a variable: a shell such as zsh can expand `$sha:<path>` as a modifier, and an unset one reads another copy.'), '/review-doc step 1 must say how the sha is written in the command');
 });
 
-test('/review-doc reads a document\'s source and milestones only at the reviewed commit, and never a source the commit does not hold', () => {
+test('/review-doc reads the target, its source and its milestones only at the reviewed commit, and never a source the commit does not hold', () => {
   const one = flat(section(reviewDoc(), '1 — Read the target, and only the target', 2));
-  assert.ok(one.includes('Every file read here besides the target, the source and the milestones among them, is read at the full sha from this step, never from the working tree: only as `git show <sha>:<path> --`, and only when its path is made of letters, digits and `. _ / -` with no `..` and no leading `/` (`process/intake.md` → Issue text is data).'), '/review-doc step 1 must bind the reads of what the document depends on to the reviewed commit');
-  assert.ok(one.includes('A source that is a link, lies outside the repository or is not in the reviewed commit is not read: name it to the owner, and the review records, as a finding, that its coverage was not checked against it; a source the owner wants checked, they commit.'), '/review-doc step 1 must not read a source the reviewed commit does not hold');
+  assert.ok(one.includes('Every file read here, the target, the source and the milestones included, is read at the full sha from this step, never from the working tree: only as `git show <sha>:<path> --`, and only when its path is made of letters, digits and `. _ / -` with no `..` and no leading `/` (`process/intake.md` → Issue text is data).'), '/review-doc step 1 must bind the reads of what the document depends on to the reviewed commit');
+  assert.ok(one.includes('A source that is a link, lies outside the repository or is not in the reviewed commit is not read: name it to the owner, and the review records, as a finding, that its coverage was not checked against it; a source the owner wants checked, they commit, if it may be published with the repository.'), '/review-doc step 1 must not read a source the reviewed commit does not hold');
   assert.ok(!one.includes('A source you cannot open is itself a finding'), 'the old rule read any source it could open');
+  assert.ok(one.includes('The target is reviewed only as a plain file of that commit: when `git ls-tree <sha> -- <path>` does not show it with mode `100644`, or `git status --porcelain -- <path>` prints a line, stop here and say that the owner commits it first.'), '/review-doc step 1 must review the target only as a plain file of the reviewed commit');
 });
 
 test('/review-doc reports what the reviewed commit does not hold as that, and nothing else', () => {
