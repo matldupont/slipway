@@ -7,9 +7,8 @@
 // alias (`const maybe = it.skip`), a computed member (`it['skip']`), a skip a runner's config applies (`exclude`,
 // `testPathIgnorePatterns`, a tag filter), an options object whose key is on a later line than the call, and a marker
 // split across two lines. Also unseen: a comment between the tokens (`it/**/.skip(`), `(it.skip)(`, `it.skip?.(`,
-// an escaped name, an option written as `{ skip: false || true }` or `{ skip: false ? 0 : 1 }`, a method or getter option
-// (`{ skip() {…} }`), type arguments with a space on both sides of `<` (`it.only.each < [number] >(…)`), and a pending
-// test with no callback. The last three shapes are tracked in #398. A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
+// an escaped name, a pending test with no callback, a generator method option (`{ *skip() {} }`), and spaced type arguments that hold
+// `<`, `(`, `)` or `;` or run past 80 characters (`it.only.each < Array<number> >(…)`). A bare `fit(` or `fdescribe(` is read as a focused test (Jasmine, Jest).
 //
 // Every pattern here is built from fixed words, bounded repetition and whitespace runs that cannot be split two ways, and
 // the issue reference is looked for in the first LINE_CAP characters of a line. scripts/sk1.test.mjs times 2 MB lines of
@@ -35,7 +34,9 @@ const LINE_CAP = 4096;
 const BLOCK = '(?:it|test|describe|suite|context|specify|bench)';
 const MODIFIER = '(?:concurrent|sequential|shuffle|parallel|serial|each|for|describe|skip|only|todo|fixme|fails|failing|skipIf|runIf)';
 const CHAIN = `(?:\\s*\\??\\.\\s*${MODIFIER}){0,6}`;
-const CALLED = `${CHAIN}(?=\\s*[(\`]|<(?![=/])|\\s+<(?![\\s=/]))`;
+// Type arguments: `<` right after the name, or ` <` when the next character is not a space, `=` or `/` (a comparison, `<=`, a
+// closing tag), or ` < … >` spaced on both sides when a `>` closes within 80 characters (no `<`, `(`, `)`, `;`, `&&` or `||` between: those make a comparison or a shape not read) and a call or template follows it.
+const CALLED = `${CHAIN}(?=\\s*[(\`]|<(?![=/])|\\s+<(?![\\s=/])|\\s+<(?=\\s(?:[^<>();&|]|&(?!&)|\\|(?!\\|)){0,80}>\\s*[(\`]))`;
 const START = '(?<![\\w$.])';
 const SKIP = new RegExp(
   `${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*(?:skip|skipIf|runIf|todo|fixme)\\b${CALLED}` +
@@ -45,11 +46,12 @@ const SKIP = new RegExp(
 const ONLY = new RegExp(`${START}${BLOCK}${CHAIN}\\s*\\??\\.\\s*only\\b${CALLED}|${START}(?:fit|fdescribe)${CALLED}`);
 // A test call whose options skip or focus it: `test('x', { skip: true }, fn)`, `t.test('x', { 'only': true })`,
 // `test({ skip }, fn)`. One rule on the whole line, with nothing to backtrack: if a test call opens on the line, a
-// `skip`, `only` or `todo` key that is not set to `false` or `0` counts (a number skips a test in node:test, so
-// `skip: 10` counts too). So `pick({ only: 'a' })` or `db.find({ skip: 10 })` inside a one-line test body is a false
+// `skip`, `only` or `todo` key that is not set to the bare value `false` (before `,`, `}` or the end of the line) or `0` (before `,` or `}`) counts (a number skips a test in node:test, so
+// `skip: 10` counts too, and so do `false ? 0 : 1` and `0.5`; a method or getter key counts as well: `{ skip() {…} }`). So `pick({ only: 'a' })` or `db.find({ skip: 10 })` inside a one-line test body is a false
 // alarm, and its message says how to clear it. A focus option wins over a skip on the same line. Not seen: an options object whose key is on a later line than the call.
+const MAYBE = new RegExp(`${START}(?:fit|fdescribe|xit|xtest|xdescribe|xcontext|xspecify)\\s*<`);
 const CALL = new RegExp(`${START}(?:${BLOCK}${CHAIN}|(?:t|ctx|context)\\.test)\\s*\\(`);
-const KEY = /[{,]\s*['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\b|0\s*[,}])\S|(?=[,}]))/g;
+const KEY = /[{,]\s*(?:(?:get|async)\s+)?['"]?(skip|only|todo)['"]?\s*(?::\s*(?!false\s*(?:[,}]|$)|0\s*[,}])\S|(?=[,}(]))/g;
 
 // An issue reference: `#14`, or `owner/repo#14` (the tracker pattern in risks.mjs, whose `#n` this is; a decision id
 // such as D-7 is not an issue). Searched in the first LINE_CAP characters with a pattern that cannot backtrack.
@@ -62,9 +64,9 @@ export function markersIn(text) {
   const out = [];
   text.split(LINE_BREAK).forEach((line, i) => {
     const keys = CALL.test(line) ? [...line.matchAll(KEY)].map((m) => m[1]) : [];
-    if (ONLY.test(line)) out.push({ line: i + 1, kind: 'only', linked: linked(line) });
+    if (ONLY.test(line)) out.push({ line: i + 1, kind: 'only', linked: linked(line), ...(MAYBE.test(line) && { maybe: true }) });
     else if (keys.includes('only')) out.push({ line: i + 1, kind: 'only', linked: linked(line), option: true });
-    else if (SKIP.test(line)) out.push({ line: i + 1, kind: 'skip', linked: linked(line) });
+    else if (SKIP.test(line)) out.push({ line: i + 1, kind: 'skip', linked: linked(line), ...(MAYBE.test(line) && { maybe: true }) });
     else if (keys.length) out.push({ line: i + 1, kind: 'skip', linked: linked(line), option: true });
   });
   return out;
