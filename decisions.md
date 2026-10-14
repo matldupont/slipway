@@ -1088,6 +1088,12 @@ Amended 2026-10-14 (the owner's answers to the review of F-15 at 0.1, `docs/revi
   rule is kept by memory between them (AR-9); `/work-ticket` asks the owner before a condition line is removed or edited
   in a pull request that closes its issue (AR-10); the owed line names where a change belongs and lets the doc's
   Version move with its Contract (AR-2).
+- Advised by the orchestrator session and taken on the review of F-15 at 0.2 (`docs/reviews/2026-10-14-owed-decisions-0.2.md`),
+  the owner informed: "a feature doc is reviewed" means a review that is current, the one R1 counts, so a decision that
+  moves the doc's Version waits for the fresh review (AR-2); "an issue closes" is unreadable until the pull-request
+  reader ships, and status says so beside the id (AR-5); a heading clause is cleared by removing it from the suffix
+  (AR-1). The owner, 2026-10-14: the review of F-15 at 0.3 is the last whole-document review before the build; what it
+  finds rides the build as lines under the step it touches.
 
 ## Week 1 — decide before M1 closes
 

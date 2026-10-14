@@ -52,11 +52,11 @@ skill sizes are work-ticket 300, log-feature 297, kickoff 164, close-milestone 8
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | A fired or unreadable heading clause has no way to clear: the outcome line status asks for leaves the clause in the heading, still read | S2 | owner | steps 2, 3 | |
-| AR-2 | `F-<n> is reviewed` fires on any past review, so the doc's own example pairing is born fired and its outcome discards the review it waited for | S2 | owner | step 3 | |
+| AR-1 | A fired or unreadable heading clause has no way to clear: the outcome line status asks for leaves the clause in the heading, still read | S2 | owner | steps 2, 3 | D-045 |
+| AR-2 | `F-<n> is reviewed` fires on any past review, so the doc's own example pairing is born fired and its outcome discards the review it waited for | S2 | owner | step 3 | D-045 |
 | AR-3 | Acceptance still says to cite in "the Problem or Changes section", against §6 as 0.2 fixed it; §9's `/log-feature` keeps the reason | S2 | owner | steps 2, 3 | |
 | AR-4 | Code spans in a hard-wrapped record: read line by line, the prose count on slipway's own record is 4, not 3, and DC1's exemption rests on the same unstated rule | S2 | owner | steps 1, 3, 4 | |
-| AR-5 | The issue event is readable and silent from step 3 until step 5, while the Build map says a release may follow any step | S2 | owner | steps 2–5 | |
+| AR-5 | The issue event is readable and silent from step 3 until step 5, while the Build map says a release may follow any step | S2 | owner | steps 2–5 | D-045 |
 | AR-6 | The five-step order left references behind: DC1 at "step 1's PR", decisions.test.mjs running DC1 in step 1, `package.json` missing from steps 1 and 5, §10's D-045 line | S3 | owner | — (build line) | |
 | AR-7 | Verified against 8e8ad79, before #442 merged: the `ci/status.mjs` line numbers and the #442 wait in Order and overlap are stale | S3 | owner | — (build line) | |
 | AR-8 | Small: labelled lines inside a fence count while positions there do not; the Decision reopens line gives the owner the outcome syntax | S3 | owner | — (build line) | |
