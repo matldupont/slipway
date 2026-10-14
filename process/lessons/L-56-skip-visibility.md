@@ -9,6 +9,6 @@ enforcement:
 ---
 
 A suite with skips prints what it skipped. SK1 fails a skip with no issue on its line and any focused test
-(`.only`), and `pnpm verify` prints the skipped-test markers per package, zero test files included. Not enforced:
-"zero tests run is never green", which verify only prints, and a job skipped by a path filter, which nothing prints
-yet.
+(`.only`), and `pnpm verify` prints the skipped-test markers per package and fails a package that declares `test`
+and holds no test file. FO1 fails a gate that a `paths` or `paths-ignore` filter keeps from running on some change,
+because a job a trigger filter skips never runs and cannot print that it did not.

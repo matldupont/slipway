@@ -2,11 +2,23 @@
 // FO1 — fail-open lint.
 //
 // Reports every `continue-on-error` in the workflow corpus that is not excused
-// by an unexpired entry in ci/exceptions.yaml, and every registry entry that is
-// itself unsound.
+// by an unexpired entry in ci/exceptions.yaml, every gate a path filter can keep from running (below), and every
+// registry entry that is itself unsound.
 //
 // WHY: `continue-on-error` lets a job report success while it proves nothing — a test
-// matrix can go silently blind behind it.
+// matrix can go silently blind behind it. A path filter does the same without a flag: a change that touches no
+// matching path runs no copy of the gate, and the pull request is green having proved nothing (L-56). A job a
+// trigger filter skips never runs, so it cannot print that it was skipped: the filter is what is reported.
+//
+// THE PATH-FILTER RULE (lib/path-filters.mjs filteredGates): for each gate command (a package's gated script,
+// `pnpm verify`, `pnpm meta`, `node ci/verify.mjs`, a check under ci/checks/meta) and each of `pull_request` and
+// `push`, it is a finding when EVERY workflow that runs the command on that event carries a `paths` or
+// `paths-ignore` filter for it. A gate some workflow also runs on that event unfiltered is covered, so a deploy
+// workflow that skips documentation-only pushes is no finding while ci.yml runs the same gate on every push (#239),
+// and a filtered workflow that runs no gate is none either. A finding is keyed `<workflow path>#on.<event>` (a job
+// id that holds a dot is not one GitHub runs, so it does not collide with a job's id in a workflow that runs) and is excused like a flag, by a dated entry. A gate is named by what it runs and where (lib/path-filters.mjs
+// gatesOf): a narrower run (`-C`, `--filter`, `--plan`, another working directory or `cd`) never covers a broader one. Not
+// followed: a gate a reusable workflow runs for a caller, whose caller's filter applies; what a root script calls; a subshell around a command, a shell condition, a job's `if:`, and the branches a covering workflow runs on, which are not read.
 //
 // WHY IT READS STRUCTURE, NOT LINES — two defects a naive version has:
 //  1. An unanchored grep counts commented-out flags as fail-open steps. Any line match also counts the flag's
@@ -36,6 +48,7 @@ import { today as localToday } from '../lib/clock.mjs';
 import { expiryProblem, loadRegistry } from '../lib/exceptions.mjs';
 import { ID_PREFIX } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
+import { filteredGates } from '../lib/path-filters.mjs';
 import { readWorkflow } from '../lib/workflow-yaml.mjs';
 
 // A flag is closed only when it is written as plain `false` (any letter case) or left empty. A quoted `"false"`
@@ -111,6 +124,13 @@ for (const f of files) {
   }
 }
 
+const filtered = filteredGates(root);
+if (filtered.unread.length && !broken) {
+  const u = filtered.unread[0];
+  broken = `${u.file}: its path filters were not read — ${u.reason}`;
+}
+const filterSites = new Map(filtered.sites.map((s) => [s.id, s]));
+
 // Two steps sharing a name share an id; neither can be excused until one gets an `id:`.
 const counts = new Map();
 for (const s of sites) counts.set(s.id, (counts.get(s.id) ?? 0) + 1);
@@ -127,7 +147,7 @@ for (const s of sites) {
 const findings = [];
 const exempted = [];
 const live = new Set();
-const siteIds = new Set(sites.map((s) => s.id));
+const siteIds = new Set([...sites.map((s) => s.id), ...filterSites.keys()]);
 
 let registry = [];
 try {
@@ -144,7 +164,7 @@ for (const e of registry) {
   else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a real day written yyyy-mm-dd, which cannot be compared as ending — set it to a real future day, e.g. 2099-12-31' });
   else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'the entry names its step by position, which moves on any edit — give the step an id: and key the entry to it' });
   else if (date === 'expired') findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} (today or earlier ends an excuse) — fix the job or step, or set expires: to a real future day with a reason` });
-  else if (!siteIds.has(e.id)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml matches no continue-on-error step or job — remove it' });
+  else if (!siteIds.has(e.id)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml matches no continue-on-error step or job, and no workflow event whose path filter keeps a gate from running — remove it' });
   else live.add(e.id);
 }
 
@@ -158,10 +178,19 @@ for (const s of sites) {
   findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}${s.line === null ? '' : `; currently line ${s.line}`}) — ${s.writtenFalse ? 'write it as plain false, or ' : ''}remove it, or ${next}` });
 }
 
+for (const s of filterSites.values()) {
+  if (live.has(s.id)) { exempted.push(s.id); continue; }
+  const others = s.with.length ? `, and so ${s.with.length === 1 ? 'does' : 'do'} ${s.with.join(', ')}` : '';
+  findings.push({
+    where: s.id,
+    detail: `${s.workflow} runs ${s.commands.join(', ')} on ${s.event} with a ${s.filter} filter${others}, and no workflow runs ${s.commands.length === 1 ? 'it' : 'them'} on ${s.event} without one: a change that touches no matching path runs no copy of the gate and still goes green — remove the filter from ${s.event}, or have a workflow run the gate on every ${s.event} with no filter, or add a dated entry with id: ${s.id}`,
+  });
+}
+
 process.exit(
   report({
     id: 'FO1',
-    claim: 'every continue-on-error job and step is excused by a dated entry in ci/exceptions.yaml keyed to its id, and no entry is stale, expired, positional, undated or dated by anything but a real day',
+    claim: 'no gate command is kept from running by a path filter on every workflow that runs it, unless excused, and every continue-on-error job and step is excused by a dated entry in ci/exceptions.yaml keyed to its id, and no entry is stale, expired, positional, undated or dated by anything but a real day',
     scanned: files.length,
     unit: 'workflow files',
     findings,

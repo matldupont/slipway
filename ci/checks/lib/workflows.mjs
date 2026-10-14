@@ -16,8 +16,8 @@ import { isNull, readWorkflow } from './workflow-yaml.mjs';
 // `issues` is `issues` with no `types:` or with `opened` among them, for the one kind of gate that cannot run on
 // a change: a check whose subject is an issue. W1 counts such a workflow for check files only.
 // `called` is `workflow_call` among the events: a reusable workflow, which runs when its caller does.
-// `paths` and `paths-ignore` are not read: a deploy workflow that skips documentation-only pushes still runs
-// its gates on every push that changes code (#239).
+// `paths` and `paths-ignore` do not decide whether a workflow counts: a deploy workflow that skips documentation-only
+// pushes still runs its gates on every push that changes code (#239). They are read by lib/path-filters.mjs.
 // Three shapes are read: `on: push`, `on: [push, pull_request]`, and a block of events with a text or a list
 // under each filter. Anything else (an expression, a flow mapping, an event with an inline value, no `on:`)
 // gives `unread`, a fixed reason holding none of the file's text, and counts for nothing: fail closed. So does a
@@ -51,8 +51,8 @@ function jobsOf(root) {
   return out;
 }
 
-function triggerOf(w) {
-  const unread = (reason) => ({ counts: false, issues: false, called: false, unread: reason });
+export function triggerOf(w) {
+  const unread = (reason) => ({ counts: false, issues: false, called: false, events: null, unread: reason });
   if (w.unread) return unread(w.unread);
   const on = w.root.entries.get('on');
   if (on === undefined) return unread('it has no top-level on:');
@@ -111,22 +111,43 @@ function triggerOf(w) {
   const onBranch = push !== undefined && (push.has('branches') || push.has('branches-ignore') || !(push.has('tags') || push.has('tags-ignore')));
   const issues = events.get('issues');
   const onIssue = issues !== undefined && (!issues.has('types') || issues.get('types').includes('opened'));
-  return { counts: onPr || onBranch, issues: onIssue, called: events.has('workflow_call'), unread: null };
+  // `filtered`: the event carries a `paths` or `paths-ignore` key, so a change that touches no matching path never
+  // runs the workflow for it. Any such key counts, an empty list too: fail closed.
+  const filtered = (keys) => (keys === undefined ? [] : ['paths', 'paths-ignore'].filter((k) => keys.has(k)));
+  const byEvent = { pull_request: { on: onPr, filtered: filtered(pr) }, push: { on: onBranch, filtered: filtered(push) } };
+  return { counts: onPr || onBranch, issues: onIssue, called: events.has('workflow_call'), events: byEvent, unread: null };
 }
 
-export const workflowTrigger = (text) => triggerOf(readWorkflow(text));
+// What a workflow starts on, without the per-event filters: those are read by lib/path-filters.mjs alone.
+export const workflowTrigger = (text) => {
+  const { events, ...trigger } = triggerOf(readWorkflow(text));
+  return trigger;
+};
 
 // The commands of one read workflow: each line of each `run:` that is a step of a job. A `run:` anywhere else
 // (under `env:`, under `with:`, inside a text) is not a step and runs nothing.
-function runLines(rel, root) {
+export function runLines(rel, root) {
   const out = [];
+  // `defaults.run.working-directory` of the workflow and of the job, and a step's own `working-directory`: where the
+  // line runs; the repository root is `''`, and no key at all is `undefined`, so a step set back to the root over a
+  // job default is not read as unset. Anything but one line of text is shown as `?`, and a text that holds `$` (an
+  // expression or a variable) is named for its own workflow, so neither equals another workflow's place.
+  const dirOf = (node) => {
+    const wd = node?.kind === 'map' ? node.entries.get('working-directory') : undefined;
+    if (wd === undefined) return undefined;
+    if (!isText(wd)) return `? @${rel}`;
+    const v = wd.value.trim();
+    return /^\.?\/?$/.test(v) ? '' : v.includes('$') ? `${v} @${rel}` : v;
+  };
+  const defaultDir = (node) => dirOf(node?.entries?.get('defaults')?.entries?.get('run'));
   for (const job of jobsOf(root) ?? []) {
     for (const step of job.entries.get('steps')?.items ?? []) {
       const run = step.entries.get('run');
       if (!run) continue;
+      const dir = dirOf(step) ?? defaultDir(job) ?? defaultDir(root) ?? '';
       run.value.split('\n').forEach((l, i) => {
         const cmd = stripShellComment(l.trim());
-        if (cmd) out.push({ where: `${rel}:${run.line + (run.literal ? i : 0)}`, cmd });
+        if (cmd) out.push({ where: `${rel}:${run.line + (run.literal ? i : 0)}`, cmd, dir, step });
       });
     }
   }
@@ -188,7 +209,7 @@ export function workflowCommands(root) {
     if (!counts && !w.trigger.issues) continue;
     if (counts) out.counted++;
     else out.issueOnly++;
-    (counts ? out.commands : out.issueCommands).push(...runLines(w.rel, w.root));
+    (counts ? out.commands : out.issueCommands).push(...runLines(w.rel, w.root).map(({ where, cmd }) => ({ where, cmd })));
   }
   return out;
 }

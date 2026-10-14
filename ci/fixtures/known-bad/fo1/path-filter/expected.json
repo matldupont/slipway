@@ -1,0 +1,20 @@
+{
+  "_note": "#392. A gate command that, on an event, runs only in workflows that carry a paths or paths-ignore filter for it is a finding per workflow and event. ci.yml filters pull_request and push, so both are found. lint-only-src.yml is a trap: lint-all.yml runs the same lint on pull_request with no filter, so it is covered, and the registry entry that excuses it is stale. docs.yml is filtered and runs no gate (a printed `pnpm verify` is not a run). excused.yml is excused by a dated entry. clauses.yml runs one gate of each shape (a filtered gated script, pnpm meta, turbo run, node ci/verify.mjs, pnpm -r run) on pull_request with paths-ignore: all five are named in one finding, so a reader that drops a shape goes red. narrower.yml is unfiltered but runs them in another working directory, with --plan, with another filter: none covers, so the finding stays.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-10"
+  },
+  "findings": [
+    ".github/workflows/ci.yml#on.pull_request",
+    ".github/workflows/ci.yml#on.push",
+    ".github/workflows/clauses.yml#on.pull_request",
+    "registry:.github/workflows/lint-only-src.yml#on.pull_request"
+  ],
+  "exempted": [
+    ".github/workflows/excused.yml#on.push"
+  ],
+  "details": {
+    ".github/workflows/ci.yml#on.pull_request": "runs pnpm verify on pull_request with a paths filter",
+    ".github/workflows/clauses.yml#on.pull_request": "runs pnpm --filter web test, pnpm meta, turbo run lint, node ci/verify.mjs, pnpm -r run build on pull_request with a paths-ignore filter"
+  }
+}
