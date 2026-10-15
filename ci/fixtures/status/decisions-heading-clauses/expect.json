@@ -1,0 +1,11 @@
+{
+  "_note": "Heading clauses: PD-1 reopens when M2 is activated (M2 active) and PD-3 provisional until F-07 is reviewed (a current review) fire, each saying to remove the clause from the heading. PD-2 (a person's act) and PD-4 (an issue, until step 5) are unreadable.",
+  "today": "2026-03-10",
+  "next": "Step 5 (agent) — Build loop: M2 — invented. Every Contents item has an issue: finish them, then run /close-milestone once its Gate is green.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "(you) Decision reopens: PD-1 — M2 is active: re-read PD-1; does it still hold? An agent or /clarify removes the clause from PD-1's heading and writes the outcome beneath it: \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\"; or, when it is open again, \"open — reopened 2026-03-10\" as its heading status and \"Reopened 2026-03-10: open again\"; or the decision that supersedes it — before anything new is built on PD-1; waits on nothing",
+    "(you) Decision reopens: PD-3 — F-07 is reviewed: re-read PD-3; does it still hold? An agent or /clarify removes the clause from PD-3's heading and writes the outcome beneath it: \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\"; or, when it is open again, \"open — reopened 2026-03-10\" as its heading status and \"Reopened 2026-03-10: open again\"; or the decision that supersedes it — before anything new is built on PD-3; waits on nothing",
+    "(you or an agent) Unreadable condition: 2 decisions say what brings them back in words status cannot read: PD-2, PD-4 (waits on an issue: read at the pull request that closes it, once that reader ships) — for each, say what should bring it back (a feature doc written, reviewed or shipped; a milestone starting or closing; a date; an issue closing) or which feature it changes, and /clarify writes it in the form status reads, or moves a condition no event fits out of the heading into the entry's prose — blocks nothing: nothing reads these until then; waits on nothing"
+  ]
+}

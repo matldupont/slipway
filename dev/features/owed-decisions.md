@@ -502,6 +502,14 @@ other people's text: one it cannot read is counted as unreadable, never passed a
   record keeps each on one line however long (the owner, 2026-10-15, #466).
 - The shared `readMilestones()` (`ci/checks/lib/milestones.mjs`), which status and other checks use, keeps one review
   item of #454 open; the owner handed it to #430 item 2 (2026-10-14, #466). This reader does not use it.
+- DC1 reads a position on one line as written: `M2` and `item 4` split by a hard wrap, a doubled space or emphasis
+  (`**M2** item 4`) is not counted, an unmatched backtick masks the rest of its paragraph, and a level-1 or level-2
+  heading in a fence ends the entry, so a position after it is not read (its condition lines are strays). Slipway's
+  own record has none; a quoted shape is not counted on purpose.
+- A pull request that adds a condition to a decided entry (`Closes when: <a past date> passes`) makes status ask to
+  write its outcome. The added line is a diff a reviewer sees, as a deleted one is, and until #440 step 5 only the
+  reviewer's eye covers it: §8 has `/work-ticket` ask the owner before a condition line is removed or edited, and step
+  5 extends that question to a line added to an already decided entry (the owner, 2026-10-15).
 
 ## Acceptance
 
@@ -687,6 +695,16 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    it expects that decision in the Unreadable line, and Verify says the same (§2 as #466 left the reader).
    Carried from #466: status prints each folder `unreadFolders()` names (a fixed path, never record text), so a folder
    the reader could not read is never silent; one status case holds it.
+   Carried from #466's review, the owner's call 2026-10-14: status prints a stray condition line for a condition line
+   (`Amends:`, `Reopens when:`, `Closes when:`) under a heading whose id it cannot read, so the line is never silent;
+   one status case holds it. A level-1 or level-2 heading inside a fence (a `# comment` in a shell block, `## Example`
+   in a markdown block) also ends the entry, so the condition lines after it are strays too; this needs no typo, and
+   one status case holds it as well.
+   Carried from the owner, 2026-10-15, via the orchestrator session, for the Contract correction in step 5 ("skip
+   closed and killed milestones; an item with no feature is named by its words"): DC1 skips a position in a closed or
+   killed milestone, whose items never move, and for an item that cites no F-id its detail says to quote the item's
+   words in place of `M<n> item <k>`; still a fail. A heading with no id it can read that holds a clause opening is a
+   stray wherever it sits, in an entry or not, as a labelled line in no entry is (the cold reviews of #475).
    Carried from the 0.3 review: AR-5, `decisions-owed` expects one line; `decisions-fired-reviewed` splits its
    decisions across two features (F-07 with a stale review only, F-08 with a current one); `decisions-owed` gains an
    `Amends:` whose only Contents line is in a killed milestone (one more line); the chain's doc is at 0.2 with a review

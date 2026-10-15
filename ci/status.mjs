@@ -20,6 +20,8 @@ import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, wr
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
+import { decisionLines } from './checks/lib/decision-lines.mjs';
+import { readDecisions } from './checks/lib/decisions.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { section } from './checks/lib/markdown.mjs';
@@ -117,6 +119,8 @@ const registers = prdReviews.map((f) => {
 });
 const decisions = read('decisions.md') ?? '';
 const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*\((open[^)]*)\)\*/gm)].map((m) => `${m[1]} ${m[2]} (${m[3]})`);
+// What a decision still owes, which condition fired and what cannot be read (F-15 §6): ids, event words and paths only.
+const owedDecisions = decisionLines(readDecisions(root), today);
 
 const { milestones } = readMilestones(root);
 const ms = milestones.filter((m) => m.fm?.id).map((m) => ({ ...m.fm, file: m.file, md: m.md, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));
@@ -364,6 +368,7 @@ const attention = [
   ...registerLines,
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions.map((d) => `Open decision: ${d}`),
+  ...owedDecisions,
   ...open_.map((c) => `Open question: ${c}`),
   ...owed_,
   ...parked_.map((c) => `Parked: ${c}`),

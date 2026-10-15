@@ -1,0 +1,9 @@
+{
+  "_note": "## PD3 has no hyphen, so the reader finds no id in it: it ends PD-1's entry, and line 11's Reopens when: sits in no entry. ## Notes is another heading with no id, so line 15's Amends: is a stray too. ## PD4, also with no id, holds a heading clause (line 17): a stray, never silent (#466's line under step 3, and the cold review of #475).",
+  "today": "2026-03-10",
+  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "(you or an agent) Stray condition line: decisions.md lines 11, 15, 17 hold conditions under no decision heading status can read, or in a heading whose id it cannot read — move each condition line under its decision's heading (one that starts with the decision's id), correct a heading's id, or close the fence or end the heading that cut it off — blocks nothing: nothing reads them until then; waits on nothing"
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "_note": "M2 active fires PD-1. M3 killed fires PD-2 (closed), said as M3 is killed. M4 shaping fires nothing. M5 killed fires PD-4 (is activated): a killed milestone came through active (AR-2 of the 0.3 review).",
+  "today": "2026-03-10",
+  "next": "Step 5 (agent) — Build loop: M2 — invented. Every Contents item has an issue: finish them, then run /close-milestone once its Gate is green.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "(you) Decision reopens: PD-1 — M2 is active: re-read PD-1; does it still hold? An agent or /clarify writes the outcome in its place: \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\"; or, when it is open again, \"open — reopened 2026-03-10\" as its heading status and \"Reopened 2026-03-10: open again\"; or the decision that supersedes it — before anything new is built on PD-1; waits on nothing",
+    "(you or an agent) Decision closes: PD-2 — M3 is killed: PD-2 no longer constrains new work; replace its condition with \"Closed 2026-03-10: <outcome>\" — blocks nothing; waits on nothing",
+    "(you) Decision reopens: PD-4 — M5 is killed: re-read PD-4; does it still hold? An agent or /clarify writes the outcome in its place: \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\"; or, when it is open again, \"open — reopened 2026-03-10\" as its heading status and \"Reopened 2026-03-10: open again\"; or the decision that supersedes it — before anything new is built on PD-4; waits on nothing"
+  ]
+}
