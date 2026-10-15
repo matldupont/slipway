@@ -1,9 +1,9 @@
 {
   "_note": "dev/features is a file: the reader cannot read it, so status names it (a fixed path, never record text).",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you or an agent) Unread folder: dev/features cannot be read (a link, a file or no access in its place, or a link above it), so the decisions that read it are not checked — make it, and each folder above it, a plain folder — blocks every Owed citation and Decision line that reads it; waits on nothing"
+    "(you or an agent) Make dev/features, and each folder above it, a plain folder. It cannot be read (a link, a file or no access in its place, or a link above it), so the decisions that read it are not checked. It blocks every owed citation and decision line that reads it. It waits on nothing."
   ]
 }
