@@ -75,7 +75,7 @@ test('DC1 reads the item a position names from the milestone: its F-ids, or that
     assert.match(dc1(dir).details[0], /M2 item 2 builds F-07, F-09 today \(docs\/milestones\/M2-a\.md\): write `Amends: F-07, F-09` under PD-3$/);
   });
   inTree({ 'decisions.md': md, 'docs/milestones/M2-a.md': milestone('M2', 'shaping', ['x (F-01)', 'y, no feature']) }, (dir) => {
-    assert.match(dc1(dir).details[0], /There is no M2 item 2 to read a feature from \(it cites no F-id\)/);
+    assert.match(dc1(dir).details[0], /Items move when a milestone is reshaped: name the feature instead\. M2 item 2 cites no F-id, so there is no item to read a feature from: write `Amends: F-<n>`/);
   });
   inTree({ 'decisions.md': md, 'docs/milestones/M2-a.md': milestone('M2', 'shaping', ['x (F-01)']) }, (dir) => {
     assert.match(dc1(dir).details[0], /There is no M2 item 2 to read a feature from: write `Amends: F-<n>`/);

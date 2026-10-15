@@ -47,7 +47,7 @@ for (const e of record.entries) {
   const found = item(p.milestone, p.item);
   const detail = found?.features.length
     ? `${lead} ${at} builds ${found.features.map(fid).join(', ')} today (docs/milestones/${found.file}): write \`Amends: ${found.features.map(fid).join(', ')}\` under ${e.id}`
-    : `${lead} There is no ${at} to read a feature from${found ? ' (it cites no F-id)' : ''}: write \`Amends: F-<n>\` for the feature the item builds`;
+    : `${lead} ${found ? `${at} cites no F-id, so there is no item to read a feature from` : `There is no ${at} to read a feature from`}: write \`Amends: F-<n>\` for the feature the item builds`;
   findings.push({ where: `decisions.md#decision/position/${e.id}`, detail });
 }
 
