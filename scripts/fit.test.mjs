@@ -589,19 +589,33 @@ test('a Fit GitHub hides, a heading or label made only by taking a comment out, 
 });
 
 // Item 13: a heading is folded in time linear in its line, whatever marks it holds.
-test('visible() reads a long line of combining marks of mixed classes quickly, and still folds a look-alike id', () => {
-  const marks = Array.from({ length: 200_000 }, (_, i) => ['́', '̣', '̴'][i % 3]).join('');
-  const started = Date.now();
-  visible(`## F‑1 ${marks}`);
-  assert.ok(Date.now() - started < 1_000, `took ${Date.now() - started} ms`);
-  assert.equal(visible('## F－１ é')[0].text, '## F-1 é');
+// How a reader's cost grows, not how long it takes, so a loaded machine cannot fail it (#488): the CPU time this
+// process spends on the input at size n and 4n, best of 3 each. A linear reader grows about 4 times, a quadratic one
+// about 16; above 8 fails. A run under a millisecond counts as one.
+const cpuMs = (fn) => {
+  const from = process.cpuUsage();
+  fn();
+  const used = process.cpuUsage(from);
+  return (used.user + used.system) / 1000;
+};
+const best = (fn) => Math.min(cpuMs(fn), cpuMs(fn), cpuMs(fn));
+const growth = (make, read, n) => {
+  const [small, large] = [make(n), make(4 * n)];
+  return best(() => read(large)) / Math.max(1, best(() => read(small)));
+};
+
+test('visible() and a milestone citation fold a long line of combining marks of mixed classes in time that grows with its length, and still fold a look-alike id', () => {
+  const marks = (n) => Array.from({ length: n }, (_, i) => ['\u0301', '\u0323', '\u0334'][i % 3]).join('');
+  const r = growth(marks, (m) => visible(`## F\u20111 ${m}`), 20_000);
+  assert.ok(r < 8, `a run of marks: grew ${r.toFixed(1)} times`);
+  assert.equal(visible('## F\uff0d\uff11 e\u0301')[0].text, '## F-1 \u00e9');
   // The halfwidth voiced marks are not marks until NFKC makes them so: one after every 32 marks does not make a run
   // read whole, in a heading or in a milestone's citation.
-  const kana = `${marks.slice(0, 32)}\uff9e`.repeat(2_500);
-  const again = Date.now();
-  visible(`## F-1 ${kana}`);
-  citedFeatures(`x (F-1) ${kana}`);
-  assert.ok(Date.now() - again < 1_000, `took ${Date.now() - again} ms`);
+  const kana = (n) => `${marks(32)}\uff9e`.repeat(Math.ceil(n / 33));
+  for (const [name, read] of [['a heading', (k) => visible(`## F-1 ${k}`)], ['a citation', (k) => citedFeatures(`x (F-1) ${k}`)]]) {
+    const g = growth(kana, read, 20_000);
+    assert.ok(g < 8, `${name} with halfwidth voiced marks: grew ${g.toFixed(1)} times`);
+  }
 });
 
 test('a docs/reviews/ that is a link is listed unread, so no doc is held or dropped by what it holds', () => {

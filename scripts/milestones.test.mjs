@@ -260,43 +260,63 @@ test('readMilestones refuses a linked file, a folder named *.md and a linked fol
   }
 });
 
-// Item 8: the readers outside the Fit path read a line once, as #436 made the Fit path's do.
-test('MS1, the No-gos, the evidence files and K1 read a long line of placeholders, spaces or comment openers quickly', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ms-'));
-  const long = (s, n) => s.repeat(n);
-  try {
+// Item 8: the readers outside the Fit path read a line once, as #436 made the Fit path's do. Measured by how the cost
+// grows, not how long it takes, so a loaded machine cannot fail it (#488): the CPU time at size n and 4n, best of 3
+// each, this process's for a reader and the child's for a check. Linear grows about 4 times, quadratic about 16;
+// above 8 fails. A run under a millisecond counts as one.
+const cpuMs = (fn) => {
+  const from = process.cpuUsage();
+  fn();
+  const used = process.cpuUsage(from);
+  return (used.user + used.system) / 1000;
+};
+const CHILD_CPU = `data:text/javascript,process.on('exit',()=>{const u=process.cpuUsage();process.stderr.write('@@cpu '+(u.user+u.system)/1000+'\\n')})`;
+const checkMs = (check, dir) => {
+  const r = spawnSync(process.execPath, ['--import', CHILD_CPU, join(SRC, 'ci/checks/meta', check), dir], { encoding: 'utf8' });
+  return Number(r.stderr.match(/@@cpu ([\d.]+)/)[1]);
+};
+const best = (fn) => Math.min(fn(), fn(), fn());
+const grows = (ms) => best(ms(4)) / Math.max(1, best(ms(1)));
+
+// A tree under a temporary folder, written by `write(dir, scale)`, for each of the two sizes.
+function inTree(write, measure) {
+  const dirs = [1, 4].map((scale) => {
+    const dir = mkdtempSync(join(tmpdir(), 'ms-'));
     mkdirSync(join(dir, 'docs/milestones'), { recursive: true });
     mkdirSync(join(dir, 'docs/product/evidence'), { recursive: true });
-    const gate = long('<…', 60_000);
-    writeFileSync(join(dir, 'docs/milestones/m1.md'), `---\nid: M1\nstatus: active\nkind: skeleton\nappetite: 2026-01-01..2099-01-01\n---\n\n# M1 — x\n\n## No-gos\n\n-${long(' ', 100_000)}x \n\n## Gate\n\n${gate}\n\n## Kill criteria\n\nx\n`);
-    writeFileSync(join(dir, 'docs/product/evidence/RISK-1-x.md'), `#${long(' ', 100_000)}x \nTracked:${long(' ', 100_000)}x \n${long('<!--', 60_000)}\n`);
-    writeFileSync(join(dir, 'docs/product/FRAME.md'), `---\nstatus: draft\n---\n\n${long('<!--', 60_000)}\n${gate}\n`);
-    let started = Date.now();
-    assert.deepEqual(readMilestoneModel(dir, '2026-06-01')[0].noGos, []);
-    readRisks(dir, '');
-    assert.ok(Date.now() - started < 1_500, `the readers took ${Date.now() - started} ms`);
-    for (const check of ['ms1-milestones.mjs', 'k1-frame.mjs']) {
-      started = Date.now();
-      spawnSync(process.execPath, [join(SRC, 'ci/checks/meta', check), dir], { encoding: 'utf8' });
-      assert.ok(Date.now() - started < 3_000, `${check} took ${Date.now() - started} ms`);
-    }
+    write(dir, scale);
+    return dir;
+  });
+  try {
+    return grows((scale) => () => measure(dirs[scale === 1 ? 0 : 1]));
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    for (const dir of dirs) rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+const N = 20_000;
+const milestone = (gate, noGo = 'x') => `---\nid: M1\nstatus: active\nkind: skeleton\nappetite: 2026-01-01..2099-01-01\n---\n\n# M1 — x\n\n## No-gos\n\n${noGo}\n\n## Gate\n\n${gate}\n\n## Kill criteria\n\nx\n`;
+test('MS1, the No-gos, the evidence files and K1 read a long line of placeholders, spaces or comment openers in time that grows with its length', () => {
+  const cases = [
+    ['MS1 on a Gate of placeholder openers', (d, s) => writeFileSync(join(d, 'docs/milestones/m1.md'), milestone('<…'.repeat(N * s))), (d) => checkMs('ms1-milestones.mjs', d)],
+    ['the No-gos on a line of spaces', (d, s) => writeFileSync(join(d, 'docs/milestones/m1.md'), milestone('x', `-${' '.repeat(N * s)}x\u2028`)), (d) => cpuMs(() => readMilestoneModel(d, '2026-06-01')[0].noGos)],
+    ['an evidence heading of spaces', (d, s) => writeFileSync(join(d, 'docs/product/evidence/RISK-1-x.md'), `#${' '.repeat(N * s)}x\u2028\n`), (d) => cpuMs(() => readRisks(d, ''))],
+    ['an evidence Tracked: line of spaces', (d, s) => writeFileSync(join(d, 'docs/product/evidence/RISK-1-x.md'), `# RISK-1\nTracked:${' '.repeat(N * s)}x\u2028\n`), (d) => cpuMs(() => readRisks(d, ''))],
+    ['evidence comment openers', (d, s) => writeFileSync(join(d, 'docs/product/evidence/RISK-1-x.md'), `# RISK-1\n${'<!--'.repeat(N * s)}\n`), (d) => cpuMs(() => readRisks(d, ''))],
+    ['K1 on comment openers and placeholder openers', (d, s) => writeFileSync(join(d, 'docs/product/FRAME.md'), `---\nstatus: draft\n---\n\n${'<!--'.repeat(N * s)}\n${'<…'.repeat(N * s)}\n`), (d) => checkMs('k1-frame.mjs', d)],
+  ];
+  for (const [name, write, measure] of cases) {
+    const g = inTree(write, measure);
+    assert.ok(g < 8, `${name}: grew ${g.toFixed(1)} times`);
   }
 });
 
-test('the milestone model and the PRD deadline table read a long line of placeholders or comment openers quickly', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'ms-'));
-  try {
-    mkdirSync(join(dir, 'docs/milestones'), { recursive: true });
-    writeFileSync(join(dir, 'docs/milestones/m1.md'), `---\nid: M1\nstatus: shaping\nsummary: ${'<…'.repeat(100_000)}\n---\n\n# M1 — x\n`);
-    let started = Date.now();
-    assert.equal(readMilestoneModel(dir, '2026-06-01')[0].summary.length, 200_000, 'an opener no `>` closes is no placeholder');
-    assert.ok(Date.now() - started < 1_500, `the model took ${Date.now() - started} ms`);
-    started = Date.now();
-    assert.equal(readDeadlines(`${'<!--'.repeat(100_000)}\n`), null);
-    assert.ok(Date.now() - started < 1_500, `the deadlines took ${Date.now() - started} ms`);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+test('the milestone model and the PRD deadline table read a long line of placeholders or comment openers in time that grows with its length', () => {
+  const model = inTree((d, s) => writeFileSync(join(d, 'docs/milestones/m1.md'), `---\nid: M1\nstatus: shaping\nsummary: ${'<…'.repeat(N * s)}\n---\n\n# M1 — x\n`), (d) => cpuMs(() => readMilestoneModel(d, '2026-06-01')));
+  assert.ok(model < 8, `the model: grew ${model.toFixed(1)} times`);
+  const prd = (s) => `${'<!--'.repeat(N * s)}\n`;
+  const [small, large] = [prd(1), prd(4)];
+  const deadlines = best(() => cpuMs(() => readDeadlines(large))) / Math.max(1, best(() => cpuMs(() => readDeadlines(small))));
+  assert.ok(deadlines < 8, `the deadlines: grew ${deadlines.toFixed(1)} times`);
+  assert.equal(readDeadlines(small), null);
 });

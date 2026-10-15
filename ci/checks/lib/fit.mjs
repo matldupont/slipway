@@ -60,7 +60,7 @@ function unclosedOpensLine(md) {
 // one is read.
 function fitTexts(md, by = (c) => ` ${commentLines(c)}`) {
   // The lines as written: section() trims its text, and an indented `Reuses:` on the first line is not a label.
-  const shownMd = replaceComments(md, by, { unclosed: unclosedOpensLine(md) });
+  const shownMd = md.includes('<!--') ? replaceComments(md, by, { unclosed: unclosedOpensLine(md) }) : md;
   const body = sectionLines(shownMd, 'Fit', 2);
   if (body === null) return null;
   const texts = {};
@@ -119,12 +119,13 @@ const placeholder = (text) => text.split('\n').some((line) => line.length > LINE
 
 // How a doc's Fit reads: `reasons` it lacks Fit (none: filled), and for a filled one which short answers it gave.
 function readFit(md) {
-  if (commentCrossesHeading(md)) return { reasons: ['fit/unfilled/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
+  const comments = md.includes('<!--');
+  if (comments && commentCrossesHeading(md)) return { reasons: ['fit/unfilled/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
   const texts = fitTexts(md);
   if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
   // A comment inside a placeholder shows as nothing, not a space, even across lines: the placeholder is also looked
   // for with each comment taken out whole, its line breaks too.
-  const joined = md.includes('<!--') ? (fitTexts(md, () => '') ?? {}) : texts;
+  const joined = comments ? (fitTexts(md, () => '') ?? {}) : texts;
   // The placeholder test and its length cap come first, so a line nobody reads is never read further.
   const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || (joined[k] !== undefined && placeholder(joined[k])) || !says(texts[k]));
   const reusesNothing = !unfilled.includes('reuses') && items(texts.reuses).every((i) => word(i).startsWith('nothing'));
