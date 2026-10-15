@@ -507,8 +507,8 @@ other people's text: one it cannot read is counted as unreadable, never passed a
   heading in a fence ends the entry, so a position after it is not read (its condition lines are strays). Slipway's
   own record has none; a quoted shape is not counted on purpose.
 - A pull request that adds a condition to a decided entry (`Closes when: <a past date> passes`) makes status ask to
-  write its outcome. The added line is a diff a reviewer sees, as a deleted one is; `/work-ticket` asking the owner
-  before touching a condition line (§8) covers adding one too.
+  write its outcome. The added line is a diff a reviewer sees, as a deleted one is, and only the reviewer's eye
+  covers it: §8 has `/work-ticket` ask the owner before a condition line is removed or edited, not added.
 
 ## Acceptance
 
@@ -703,7 +703,7 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    closed and killed milestones; an item with no feature is named by its words"): DC1 skips a position in a closed or
    killed milestone, whose items never move, and for an item that cites no F-id its detail says to quote the item's
    words in place of `M<n> item <k>`; still a fail. A heading with no id it can read that holds a clause opening is a
-   stray, as a labelled line is (the cold review of #475).
+   stray wherever it sits, in an entry or not, as a labelled line in no entry is (the cold reviews of #475).
    Carried from the 0.3 review: AR-5, `decisions-owed` expects one line; `decisions-fired-reviewed` splits its
    decisions across two features (F-07 with a stale review only, F-08 with a current one); `decisions-owed` gains an
    `Amends:` whose only Contents line is in a killed milestone (one more line); the chain's doc is at 0.2 with a review

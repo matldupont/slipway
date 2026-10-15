@@ -120,6 +120,11 @@ test('strays: a labelled line in no entry, fenced too once an entry has begun; a
   // A heading with no id it can read that holds a clause opening is a stray too, at any level; one with none is not.
   assert.deepEqual(strays('## PD-1 — t\n\n## PD3 — u *(decided 2026-03-01 · reopens when M2 is active)*\n\n### PD4 — v, provisional until the vendor signs\n\n## Week 1 — decide before M1 closes\n'), [3, 5]);
   assert.deepEqual(strays('# Decisions\n\n```\n## PD3 — u *(decided 2026-03-01 · reopens when M2 is active)*\n```\n\n## PD-1 — t\n'), []);
+  // Inside an entry too (the cold review of #475, round 2): a typo'd `### PD3` is read as PD-1's body and is a stray.
+  const inEntry = parseDecisions('## PD-1 — t\n\nReopens when: M2 is active\n\n### PD3 — u *(decided 2026-03-01 · reopens when M3 is active)*\n\n### Notes\n');
+  assert.deepEqual([inEntry.strays, inEntry.entries.length, inEntry.entries[0].conditions.length], [[5], 1, 1]);
+  // The clause opening is read on the whole line, past the cut at 500 characters.
+  assert.deepEqual(strays(`## PD-1 — t\n\n## Notes ${'x'.repeat(600)} reopens when M2 is active\n`), [3]);
 });
 
 test('a folder above a folder the reader reads (docs, dev) that is a link is named unread, never read through', () => {
@@ -142,8 +147,8 @@ test('status lines: none without a record; the Unreadable and stray lines cap at
   assert.equal(u.includes('PD-21'), false);
   const strays = Array.from({ length: 22 }, () => 'Amends: F-07').join('\n');
   const [s] = lines({ 'decisions.md': `# Decisions\n\n${strays}\n` });
-  assert.match(s, /^\(you or an agent\) Stray condition line: decisions\.md lines 3, 4, .*, 22 and 2 more hold condition lines /);
-  assert.match(lines({ 'decisions.md': '# Decisions\n\nAmends: F-07\n' })[0], /decisions\.md line 3 holds a condition line .* move it under .* nothing reads it until then; waits on nothing$/);
+  assert.match(s, /^\(you or an agent\) Stray condition line: decisions\.md lines 3, 4, .*, 22 and 2 more hold conditions under no decision heading /);
+  assert.match(lines({ 'decisions.md': '# Decisions\n\nAmends: F-07\n' })[0], /decisions\.md line 3 holds a condition under no decision heading .* correct a heading's id, .* nothing reads it until then; waits on nothing$/);
 });
 
 test('status lines: every line says who acts, what it blocks and what it waits on, and prints no record text', () => {

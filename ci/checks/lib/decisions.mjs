@@ -117,8 +117,8 @@ function finish(e) {
 
 // The record as data, from decisions.md's text: `{ entries, strays }`, in file order. An entry is a heading `LEAD` finds
 // with a decision id, a heading in a fence included (ID1's reading: nothing is skipped). `id` is as written, `key` the id
-// compared by prefix and number (`D-044` and `D-44` are `D-44`). `strays`: the lines of labelled lines, and of headings with
-// no id holding a clause opening, in no entry (one in a fence too), but a fenced example above the first entry.
+// compared by prefix and number (`D-044` and `D-44` are `D-44`). `strays`: labelled lines in no entry, and headings with no
+// id holding a clause opening, in an entry or not (in a fence too), but a fenced example above the first entry.
 export function parseDecisions(md) {
   const whole = visible(md);
   const lines = whole.map(({ line, text }) => ({ line, text: text.slice(0, MAX) }));
@@ -137,10 +137,11 @@ export function parseDecisions(md) {
       entries.push(cur);
     } else {
       if (TOP.test(text)) cur = null;
-      // In no entry, a labelled line, or a heading with no id that holds a clause opening, is a stray: never silent.
-      const owes = LABELS.some(([l]) => text.startsWith(l)) || (HEADING.test(text) && hasClause(whole[i].text));
+      // A labelled line in no entry, or a heading with no id holding a clause opening anywhere (a typo'd `### PD3` inside
+      // an entry included), is a stray: never silent.
+      const label = !cur && LABELS.some(([l]) => text.startsWith(l));
       if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX });
-      else if (owes && (entries.length || !fence[i])) strays.push(line);
+      if ((label || (HEADING.test(text) && hasClause(whole[i].text))) && (entries.length || !fence[i])) strays.push(line);
     }
   });
   return { entries: entries.map(finish), strays };

@@ -52,10 +52,10 @@ function unreadableLine(entries) {
 
 function strayLine(lines) {
   const one = lines.length === 1;
-  return `${AGENT} Stray condition line: decisions.md ${one ? 'line' : 'lines'} ${capped(lines.map(String))} ${one ? 'holds a condition line' : 'hold condition lines'} under no decision heading status can read — move ${one ? 'it' : 'each'} under its decision's heading (one that starts with the decision's id), or close the fence or end the heading that cut it off — blocks nothing: nothing reads ${one ? 'it' : 'them'} until then; waits on nothing`;
+  return `${AGENT} Stray condition line: decisions.md ${one ? 'line' : 'lines'} ${capped(lines.map(String))} ${one ? 'holds a condition' : 'hold conditions'} under no decision heading status can read, or in a heading whose id it cannot read — move each condition line under its decision's heading (one that starts with the decision's id), correct a heading's id, or close the fence or end the heading that cut it off — blocks nothing: nothing reads ${one ? 'it' : 'them'} until then; waits on nothing`;
 }
 
-const folderLine = (dir) => `${AGENT} Unread folder: ${dir} cannot be read (a link, a file or no access in its place), so the decisions that read it are not checked — make it a plain folder — blocks every Owed citation and Decision line that reads it; waits on nothing`;
+const folderLine = (dir) => `${AGENT} Unread folder: ${dir} cannot be read (a link, a file or no access in its place, or a link above it), so the decisions that read it are not checked — make it, and each folder above it, a plain folder — blocks every Owed citation and Decision line that reads it; waits on nothing`;
 
 // The lines for the record readDecisions(root) returned, in §6's order; none when there is no decisions.md.
 export function decisionLines(record, today) {
