@@ -66,6 +66,8 @@ test('DC1 prints the two counts as one info line: ids only, never red, none when
   const info = (md) => record(md).out.split('\n').find((l) => l.startsWith('DC1: info'));
   assert.equal(info('## PD-1 — t\n\nWe revisit this when the vendor moves.\n\n## PD-2 — u\n\nCloses when: #12 lands\n\n## PD-3 — v\n\nReopens when: F-07 has a doc\n'), 'DC1: info — in prose only: PD-1 (1); waiting on an issue: PD-2 (1)');
   assert.equal(info('## PD-1 — t\n\nBody.\n'), 'DC1: info — in prose only: none; waiting on an issue: none');
+  const crowd = record(Array.from({ length: 25 }, (_, i) => `## PD-${i + 1} — t\n\nWe revisit this when it hurts.\n`).join('\n')).out;
+  assert.match(crowd, /^DC1: info — in prose only: PD-1, .*PD-20 and 5 more \(25\); waiting on an issue: none$/m);
   const r = record('## PD-1 — t\n\nWe revisit this when `a\u001b[31mhostile` text.\n\nCloses when: #12 lands\n');
   assert.deepEqual([r.exit, r.out.includes('\u001b')], [0, false]);
 });

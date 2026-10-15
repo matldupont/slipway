@@ -94,11 +94,12 @@ const idList = (ids) => {
   return safe.length > CAP ? `${safe.slice(0, CAP).join(', ')} and ${safe.length - CAP} more` : safe.join(', ');
 };
 export function decisionNote({ prose = [], issues = [] }) {
+  const [p, i] = [prose, issues].map((ids) => ids.filter((id) => DECISION_IDS.test(id)));
   const parts = [];
-  if (prose.length) parts.push(`${plural(prose.length, 'decision')} say${prose.length === 1 ? 's' : ''} when ${prose.length === 1 ? 'it reopens' : 'they reopen'} or ${prose.length === 1 ? 'closes' : 'close'} in prose only (${idList(prose)})`);
-  if (issues.length) parts.push(`${issues.length} ${issues.length === 1 ? 'waits' : 'wait'} on an issue status cannot see (${idList(issues)})`);
+  if (p.length) parts.push(`${plural(p.length, 'decision')} say${p.length === 1 ? 's' : ''} when ${p.length === 1 ? 'it reopens' : 'they reopen'} or ${p.length === 1 ? 'closes' : 'close'} in prose only (${idList(p)})`);
+  if (i.length) parts.push(`${p.length ? i.length : plural(i.length, 'decision')} ${i.length === 1 ? 'waits' : 'wait'} on an issue status cannot see (${idList(i)})`);
   if (!parts.length) return [];
-  const why = [prose.length && 'nothing reads a prose condition until it is written as an event', issues.length && 'check the issue by hand'].filter(Boolean).join('; ');
+  const why = [p.length && 'nothing reads a prose condition until it is written as an event', i.length && 'check the issue by hand'].filter(Boolean).join('; ');
   return [`${parts.join(', and ')}: ${why}`];
 }
 // An error's code for a refusal, as ` (ENOENT)`, only when it is capitals, digits and underscores; else nothing.

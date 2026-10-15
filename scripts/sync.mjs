@@ -299,12 +299,6 @@ function preflight(cwd) {
   const targetSha = found.sha;
   const targetVersion = found.release ? version : null;
   const notes = [];
-  // The decisions status cannot see (F-15 §7): counted from the project's decisions.md, which sync never writes; a
-  // record that cannot be read adds no note, since nothing here depends on it.
-  try {
-    const record = readDecisions(root);
-    notes.push(...decisionNote({ prose: record.proseCount(), issues: record.awaitingIssue() }));
-  } catch { /* a note, never a refusal */ }
   // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk. Without
   // that commit the target's copy is unknown, and the plan says so rather than compare a stand-in.
   if (!existsSync(join(SRC, '.gitignore'))) {
@@ -339,6 +333,12 @@ function preflight(cwd) {
     }
   }
 
+  // The decisions status cannot see (F-15 §7), last so the notes about the plan itself come first: counted from the
+  // project's decisions.md, which sync never writes; a record that cannot be read adds no note.
+  try {
+    const record = readDecisions(root);
+    notes.push(...decisionNote({ prose: record.proseCount(), issues: record.awaitingIssue() }));
+  } catch { /* a note, never a refusal */ }
   return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha, targetVersion, past, absent };
 }
 

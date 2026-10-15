@@ -70,7 +70,7 @@ const warnings = record.unreadable().map((u) => ({
 }));
 
 // The two counts /close-milestone's retro reads, ids only: a prose condition nothing reads, and an issue closed by hand.
-const ids = (xs) => (xs.length ? `${xs.join(', ')} (${xs.length})` : 'none');
+const ids = (xs) => (xs.length ? `${xs.length > 20 ? `${xs.slice(0, 20).join(', ')} and ${xs.length - 20} more` : xs.join(', ')} (${xs.length})` : 'none');
 console.log(`DC1: info — in prose only: ${ids(record.proseCount())}; waiting on an issue: ${ids(record.awaitingIssue())}`);
 
 process.exit(

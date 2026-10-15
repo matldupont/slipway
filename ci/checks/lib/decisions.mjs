@@ -88,7 +88,8 @@ function finish(e) {
     clauses.push({ text: c });
     const hit = i > 0 ? clauseCondition(c) : null;
     whole.push(hit ? hit[1] : raw);
-    if (hit) conditions.push(condition(hit[0], 'heading', e.line, hit[1]));
+    // A heading the cut at MAX shortened may have lost an event: its clauses are never issue-only, as a cut labelled line's.
+    if (hit) conditions.push({ ...condition(hit[0], 'heading', e.line, hit[1]), ...(e.cut ? { issueOnly: false } : {}) });
     // A part holding a clause opening is a condition clause, if an unreadable one: never prose too (AR-4).
     else if (hasClause(raw)) hidden = true;
     else proseClauses.push(e.masked.slice(at + 2 + off, at + 2 + off + raw.length));
@@ -110,8 +111,7 @@ function finish(e) {
     for (const m of masked.matchAll(POSITION)) positions.push({ line, milestone: Number(m[1] ?? m[4]), item: Number(m[2] ?? m[3]) });
   }
   const readable = conditions.some((c) => c.kind !== 'changes' && c.readable);
-  // A condition clause, readable or not, is never read as prose: one unreadable clause is counted once, in the
-  // Unreadable line, as a labelled line is (AR-4 of the 0.3 review, the orchestrator session's advice).
+  // A condition clause, readable or not, is never read as prose: counted once, in the Unreadable line (AR-4 of the 0.3 review).
   const prose = !readable && (proseClauses.some(proseHit) || proseLines.some(proseHit));
   return { id: e.id, key: e.key, line: e.line, text: e.text, clauses, conditions, positions, prose, body: e.body.map(({ line, text }) => ({ line, text })) };
 }
@@ -294,7 +294,7 @@ export function readDecisions(root) {
       return bad.length ? [{ id: e.id, key: e.key, line: e.line, issueOnly: bad.every((c) => c.issueOnly) }] : [];
     });
 
-  // The decisions with a condition naming an issue and nothing else unreadable (`issueOnly` until it is read): never counted twice.
-  const awaitingIssue = () => entries.filter((e) => e.conditions.some((c) => c.kind !== 'changes' && (c.readable || c.issueOnly) && c.events.some((ev) => ev.kind === 'issue'))).map((e) => e.id);
-  return { missing, entries, strays, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose).map((e) => e.id), awaitingIssue, unreadFolders: () => [...t().unread] };
+  // A condition naming an issue, otherwise readable (`issueOnly` until it is read): waiting, never also prose only.
+  const waits = (e) => e.conditions.some((c) => c.kind !== 'changes' && (c.readable || c.issueOnly) && c.events.some((ev) => ev.kind === 'issue'));
+  return { missing, entries, strays, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose && !waits(e)).map((e) => e.id), awaitingIssue: () => entries.filter(waits).map((e) => e.id), unreadFolders: () => [...t().unread] };
 }

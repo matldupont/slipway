@@ -210,6 +210,13 @@ test('the decisions waiting on an issue: a condition naming one, readable or not
   tree({}, (r) => assert.deepEqual(r.awaitingIssue(), []));
 });
 
+test('a decision waiting on an issue is not also prose only; a heading cut at 500 characters never counts as waiting (review round 1, build step 4)', () => {
+  tree({ 'decisions.md': '## PD-1 — t\n\nCloses when: #12 lands\n\nWe revisit this when the vendor moves.\n\n## PD-2 — u\n\nWe revisit this when it hurts.\n' }, (r) => assert.deepEqual([r.proseCount(), r.awaitingIssue()], [['PD-2'], ['PD-1']]));
+  const head = (pad) => `## PD-1 — ${'x'.repeat(pad)} *(decided 2026-03-01 · closes when #12 lands or the vendor moves)*\n`;
+  tree({ 'decisions.md': head(10) }, (r) => assert.deepEqual([r.awaitingIssue(), r.unreadable().length], [[], 1]));
+  tree({ 'decisions.md': head(445) }, (r) => assert.deepEqual([r.awaitingIssue(), r.unreadable().length], [[], 1]), 'cut after "#12 lands"');
+});
+
 test('AR-4: the heading suffix is read by the prose pattern outside every condition clause', () => {
   assert.equal(one('## PD-1 — t *(decided 2026-03-01 · revisit when M2 is activated)*\n').prose, true);
   // A clause opening in the first clause makes the decision unreadable, so it is counted there, not as prose too.

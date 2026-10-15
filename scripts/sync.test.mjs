@@ -2606,9 +2606,10 @@ test('a project whose decisions.md has 3 prose-only conditions and 1 waiting on 
 test('the decisions note names ids and nothing of the record; with none to count there is no note; each part reads alone', () => {
   const only = (md) => JSON.parse(sync(counted({ 'decisions.md': md }), '--json').stdout).notes;
   assert.deepEqual(only('## PD-1 — a\n\nBody `\u001b]0;x\u0007 hostile` text, revisit when it hurts.\n\nOne reopens when `x`.\n'), ['1 decision says when it reopens or closes in prose only (PD-1): nothing reads a prose condition until it is written as an event']);
-  assert.deepEqual(only('## PD-1 — a\n\nCloses when: #12 lands\n'), ['1 waits on an issue status cannot see (PD-1): check the issue by hand']);
+  assert.deepEqual(only('## PD-1 — a\n\nCloses when: #12 lands\n'), ['1 decision waits on an issue status cannot see (PD-1): check the issue by hand']);
   assert.deepEqual(only('## PD-1 — a\n\nClosed 2026-03-10: done\n\n## PD-2 — b\n\nReopens when: M2 is closed\n'), []);
   const many = Array.from({ length: 22 }, (_, i) => `## PD-${i + 1} — a\n\nWe revisit this when it changes.\n`).join('\n');
+  assert.deepEqual(only('## PD-1 — a\n\nCloses when: #12 lands\n\nWe revisit this when the vendor moves.\n'), ['1 decision waits on an issue status cannot see (PD-1): check the issue by hand'], 'waiting on an issue is not also prose only');
   assert.match(only(many)[0], /^22 decisions say when they reopen or close in prose only \(PD-1, PD-2, .*PD-20 and 2 more\): /);
 });
 
