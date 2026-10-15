@@ -12,9 +12,9 @@ import { posix } from 'node:path';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
 
 // What marks a path as a feature doc: the folder name, not a setting, so the sidecar writer needs no config.
-// TEMPLATE.md and README.md, in exactly that case, are not feature docs (feature-docs.mjs skips only those two names; a
+// TEMPLATE.md and README.md, named in exactly that case, are not feature docs (feature-docs.mjs skips only those two names; a
 // `readme.md` is a feature doc and is held); the folder name is read in any letter case, since a case-insensitive disk writes `Features/x.md` into `features/`.
-export const SPEC_PATH = /(^|\/)features\/(?!(?-i:TEMPLATE|README)\.md$)[^/]+\.md$/i;
+export const SPEC_PATH = /(^|\/)features\/(?!(?-i:TEMPLATE|README)\.md$)[^/]*\.md$/i;
 
 // The findings for one sidecar `c` read against the tree at `root`: [{ id, detail }], ids as P1 prints them after
 // `#`. A draft is not held. A `draft` that is absent or not `true` is a ready pull request (the strict side).

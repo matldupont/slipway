@@ -385,6 +385,11 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
   assert.deepEqual(changes(f3, t3, repo).specs, [{ path: 'docs/features/x.md', versions: ['Version: 0.2'] }]);
   const [f4, t4] = step('a review of a doc already there', () => put('docs/reviews/2026-10-14-x-0.2.md', '# R\n\nReviewed: docs/features/x.md @ abc\nVersion line: `Version: 0.2`\n'));
   assert.deepEqual(changes(f4, t4, repo).specs, []);
+  const [f7, t7] = step('the Version line is indented', () => put('docs/features/x.md', `# F\n\n  Version: 0.2\n\nb\n`));
+  assert.deepEqual(changes(f7, t7, repo).specs, [{ path: 'docs/features/x.md', versions: [] }], 'a doc that lost its version line is listed, not skipped');
+  put('docs/features/x.md', doc('0.2', 'b'));
+  git('add', '-A');
+  git('commit', '-q', '-m', 'restore');
   const [f5, t5] = step('a doc deleted', () => git('rm', '-q', 'docs/features/x.md'));
   assert.deepEqual(changes(f5, t5, repo).specs, []);
   const [f6, t6] = step('a fixture holds a feature doc', () => put('ci/fixtures/known-bad/p1/y.tree/docs/features/x.md', doc('0.1', 'a')));
@@ -442,6 +447,7 @@ test('unreviewedSpecs holds a ready PR whose spec has no current review of that 
     // The template and README are no feature docs, and the folder name is read in any case.
     assert.ok(!SPEC_PATH.test('docs/features/TEMPLATE.md') && !SPEC_PATH.test('dev/features/README.md'));
     assert.ok(SPEC_PATH.test('docs/Features/x.md') && SPEC_PATH.test('dev/features/x.md'));
+    assert.ok(SPEC_PATH.test('docs/features/.md'), 'a doc named only .md is a feature doc to feature-docs.mjs, so it is held');
     assert.ok(SPEC_PATH.test('docs/features/readme.md') && SPEC_PATH.test('dev/features/Template.md'), 'only the exact names TEMPLATE.md and README.md are skipped, as feature-docs.mjs skips them');
     // A doc whose Version line was indented or removed has no version line, so a review quoting the old line is not current.
     w('docs/features/c.md', `# C\n\n  ${V}\n`);

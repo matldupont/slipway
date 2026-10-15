@@ -1219,6 +1219,7 @@ test('/log-feature opens the doc pull request as a draft and says it stays one u
   const lf = flat(section(read(skillPath('log-feature')), 'Phase 7 — Open the doc PR', 2));
   assert.match(lf, /gh pr create --draft --repo \{checkout\}/, '/log-feature Phase 7 must open the doc pull request with --draft');
   assert.match(lf, /It is opened as a draft, and its `## What` says it stays a draft until a current review of the spec \(`\/review-doc`\) is merged into its branch/, '/log-feature Phase 7 must have the body say it stays a draft until a current review is merged in');
+  assert.match(flat(section(reviewDoc(), '4 — Hand back', 2)), /--json number,headRefOid,files .*\.path == "\{doc path\}".*git show <headRefOid>:\{doc path\}`\) has the `Version:` line this review quotes/, '/review-doc must find the draft PR by the doc\'s path and check the version it carries');
   assert.match(flat(section(reviewDoc(), '4 — Hand back', 2)), /open draft pull request .*end by saying that the pull request can be marked ready once this review is merged into its branch/, '/review-doc step 4 must say the pull request can be marked ready once the review is merged in');
 });
 
