@@ -52,7 +52,7 @@ function unreadableLine(entries) {
 
 function strayLine(lines) {
   const one = lines.length === 1;
-  return `${AGENT} Stray condition line: decisions.md ${one ? 'line' : 'lines'} ${capped(lines.map(String))} ${one ? 'holds a condition line' : 'hold condition lines'} under no decision heading status can read — move ${one ? 'it' : 'each'} under its decision's heading (## PD-<n> — …), or close the fence or end the heading that cut it off — blocks nothing: nothing reads ${one ? 'it' : 'them'} until then; waits on nothing`;
+  return `${AGENT} Stray condition line: decisions.md ${one ? 'line' : 'lines'} ${capped(lines.map(String))} ${one ? 'holds a condition line' : 'hold condition lines'} under no decision heading status can read — move ${one ? 'it' : 'each'} under its decision's heading (one that starts with the decision's id), or close the fence or end the heading that cut it off — blocks nothing: nothing reads ${one ? 'it' : 'them'} until then; waits on nothing`;
 }
 
 const folderLine = (dir) => `${AGENT} Unread folder: ${dir} cannot be read (a link, a file or no access in its place), so the decisions that read it are not checked — make it a plain folder — blocks every Owed citation and Decision line that reads it; waits on nothing`;

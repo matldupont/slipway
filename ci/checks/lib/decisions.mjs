@@ -31,6 +31,7 @@ const MAX = 500;
 const ENTRY = new RegExp(`${LEAD}(P?D)-(\\d{1,9})\\b`);
 // A heading of level 1 or 2, a decision's or not, ends the entry above it (`## Week 1 — decide before M1 closes`).
 const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
+const HEADING = new RegExp(LEAD);
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
@@ -116,8 +117,8 @@ function finish(e) {
 
 // The record as data, from decisions.md's text: `{ entries, strays }`, in file order. An entry is a heading `LEAD` finds
 // with a decision id, a heading in a fence included (ID1's reading: nothing is skipped). `id` is as written, `key` the id
-// compared by prefix and number (`D-044` and `D-44` are `D-44`). `strays`: the lines of labelled lines in no entry (a
-// heading whose id it cannot read, a level-1 or 2 heading above, one in a fence too), but a fenced example above the first.
+// compared by prefix and number (`D-044` and `D-44` are `D-44`). `strays`: the lines of labelled lines, and of headings with
+// no id holding a clause opening, in no entry (one in a fence too), but a fenced example above the first entry.
 export function parseDecisions(md) {
   const whole = visible(md);
   const lines = whole.map(({ line, text }) => ({ line, text: text.slice(0, MAX) }));
@@ -134,9 +135,13 @@ export function parseDecisions(md) {
       const cut = whole[i].text.length > MAX && (whole[i].text.includes('*(') || hasClause(whole[i].text));
       cur = { id: `${m[1]}-${m[2]}`, key: `${m[1]}-${Number(m[2])}`, line, text, masked: masked[i], fenced: fence[i], cut, body: [] };
       entries.push(cur);
-    } else if (TOP.test(text)) cur = null;
-    else if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX });
-    else if (LABELS.some(([l]) => text.startsWith(l)) && (entries.length || !fence[i])) strays.push(line);
+    } else {
+      if (TOP.test(text)) cur = null;
+      // In no entry, a labelled line, or a heading with no id that holds a clause opening, is a stray: never silent.
+      const owes = LABELS.some(([l]) => text.startsWith(l)) || (HEADING.test(text) && hasClause(whole[i].text));
+      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX });
+      else if (owes && (entries.length || !fence[i])) strays.push(line);
+    }
   });
   return { entries: entries.map(finish), strays };
 }
@@ -149,26 +154,25 @@ export const namesDecision = (text, key) => keysOf(text).has(key);
 const cut = (md) => visible(md).map((l) => l.text.slice(0, MAX)).join('\n');
 const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$/i)?.[1] : undefined);
 
-// Whether a folder of the tree is a link, a dangling one included: such a folder is not read, and is named unread.
-const isLink = (root, dir) => {
-  try { return lstatSync(posix.join(root, dir)).isSymbolicLink(); } catch { return false; }
-};
+// Whether a folder of the tree, or a folder above it (`docs`, `dev`), is a link, a dangling one included: such a folder
+// is not read, and is named unread.
+const isLink = (root, dir) =>
+  dir.split('/').some((_, i, parts) => {
+    try { return lstatSync(posix.join(root, ...parts.slice(0, i + 1))).isSymbolicLink(); } catch { return false; }
+  });
 
 // The `*.md` names directly in a folder of the tree, by name; none when the folder is missing or not a folder, and a
 // folder that is there but cannot be read (a file or a link in its place) is added to `unread`. Each file is then opened only
 // through readPlain(), so a link, a folder named `x.md` or a file reached through a link is skipped, never read and
 // never a throw: the tree is a pull request's to shape.
 const listed = (root, dir, skip, unread) => {
-  if (isLink(root, dir)) {
-    unread.push(dir);
-    return [];
-  }
   try {
-    return readdirSync(posix.join(root, dir)).filter((f) => f.endsWith('.md') && !skip.includes(f)).sort();
+    if (!isLink(root, dir)) return readdirSync(posix.join(root, dir)).filter((f) => f.endsWith('.md') && !skip.includes(f)).sort();
+    unread.push(dir);
   } catch (err) {
     if (err?.code !== 'ENOENT') unread.push(dir);
-    return [];
   }
+  return [];
 };
 const plainFiles = (root, dir, skip, unread) => listed(root, dir, skip, unread).map((f) => readPlain(root, `${dir}/${f}`)).filter((t) => t !== null);
 
@@ -176,16 +180,11 @@ const plainFiles = (root, dir, skip, unread) => listed(root, dir, skip, unread).
 // or is a link, is added to `unread`, and the other folder's docs are still read.
 const featureFiles = (root, unread) =>
   FEATURE_DIRS.flatMap((dir) => {
-    if (isLink(root, dir)) {
-      unread.push(dir);
-      return [];
-    }
     try {
-      return readFeatureFiles(root, [dir]).filter((f) => f.regular);
-    } catch {
-      unread.push(dir);
-      return [];
-    }
+      if (!isLink(root, dir)) return readFeatureFiles(root, [dir]).filter((f) => f.regular);
+    } catch { /* named unread below */ }
+    unread.push(dir);
+    return [];
   });
 
 // Each item under every key `keys(item)` names, in a Map of lists built in place, so the cost is linear in the adds: the

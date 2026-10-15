@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -117,6 +117,20 @@ test('strays: a labelled line in no entry, fenced too once an entry has begun; a
   // Under a level-3 heading the entry goes on; a lookalike label is prose wherever it sits.
   assert.deepEqual(strays('## PD-1 — t\n\n### Notes\n\nAmends: F-07\n\n## Notes\n\n- Amends: F-07\n**Closes when:** M2 is closed\n'), []);
   inTree({ 'decisions.md': '## PD1 — t\n\nReopens when: M2 is active\n' }, (dir) => assert.deepEqual(readDecisions(dir).strays, [3]));
+  // A heading with no id it can read that holds a clause opening is a stray too, at any level; one with none is not.
+  assert.deepEqual(strays('## PD-1 — t\n\n## PD3 — u *(decided 2026-03-01 · reopens when M2 is active)*\n\n### PD4 — v, provisional until the vendor signs\n\n## Week 1 — decide before M1 closes\n'), [3, 5]);
+  assert.deepEqual(strays('# Decisions\n\n```\n## PD3 — u *(decided 2026-03-01 · reopens when M2 is active)*\n```\n\n## PD-1 — t\n'), []);
+});
+
+test('a folder above a folder the reader reads (docs, dev) that is a link is named unread, never read through', () => {
+  inTree({ 'decisions.md': '## PD-1 — t\n\nAmends: F-06\nReopens when: M2 is active\n', 'elsewhere/features/six.md': '# F-06 — x\n', 'elsewhere/milestones/M2-a.md': milestone('M2', 'active', ['x (F-06)']) }, (dir) => {
+    symlinkSync(join(dir, 'elsewhere'), join(dir, 'dev'));
+    symlinkSync(join(dir, 'elsewhere'), join(dir, 'docs'));
+    const r = readDecisions(dir);
+    assert.deepEqual(r.owed().map((o) => o.docs), [[]]);
+    assert.deepEqual(r.fired('2026-03-10'), []);
+    assert.deepEqual(r.unreadFolders(), ['dev/features', 'docs/features', 'docs/milestones', 'docs/reviews']);
+  });
 });
 
 test('status lines: none without a record; the Unreadable and stray lines cap at 20, then say how many more', () => {

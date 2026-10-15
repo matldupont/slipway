@@ -13,3 +13,5 @@ Reopens when: M2 is active
 ## Notes
 
 Amends: F-07
+
+## PD4 — Walks are an hour long *(decided 2026-03-01 · reopens when M2 is active)*
