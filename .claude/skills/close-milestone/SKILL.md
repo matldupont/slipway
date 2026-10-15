@@ -55,6 +55,9 @@ Fill `## Retro` in the milestone file:
 - **Code health.** Each ratchet in `ci/baselines.json` (dead code, duplication) at the start and end
   of the milestone, from `git log -p ci/baselines.json`. A number that went up means a baseline was
   raised: name the decision that did it. Consolidation work goes in the cool-down, not the next bet.
+- **Decisions status cannot see.** Run `node ci/checks/meta/dc1-decisions.mjs .` and list the ids on its `info` line for the owner
+  to check by hand: the decisions that say when they reopen or close in prose only, and those waiting on an issue (an issue
+  closed by hand is never seen).
 - **Lessons.** Anything that cost real time and could recur becomes a file in
   `process/lessons/` with an honest enforcement status and a project id, `PL-<n>` (L1 checks it). Search existing lessons
   first; extend one rather than duplicating it.
