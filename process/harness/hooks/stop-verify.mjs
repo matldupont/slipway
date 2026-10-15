@@ -17,6 +17,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { discoverWorkspace } from '../../../ci/checks/lib/workspace.mjs';
 
+// The guard (base-guard.sh) sets CLAUDE_PROJECT_DIR to the session's own tree: its worktree, when it runs in one (#481).
 const root = process.env.CLAUDE_PROJECT_DIR ?? process.cwd();
 const say = (o) => process.stdout.write(JSON.stringify(o) + '\n');
 let input = {};

@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -109,13 +109,14 @@ export const reset = () => {
   git('clone', '-q', origin, work);
 }
 
-// `sid` is the session id Claude Code puts in a hook's environment; null leaves it unset. `env` replaces a variable (PATH).
-export function run(hook, input = '{}', sid = SID, env = {}) {
+// `sid` is the session id Claude Code puts in a hook's environment; null leaves it unset. `env` replaces a variable (PATH);
+// `cwd` is the folder the session works in (#481), the project folder unless a test says otherwise.
+export function run(hook, input = '{}', sid = SID, env = {}, cwd = work) {
   const cmd = commands.get(hook) ?? commands.get('lessons-first.sh').replace(/lessons-first\.sh$/, hook);
   const r = spawnSync('/bin/sh', ['-c', cmd], {
     input,
     encoding: 'utf8',
-    cwd: work,
+    cwd,
     env: { PATH: '/usr/bin:/bin', HOME: T, CLAUDE_PROJECT_DIR: work, ...(sid === null ? {} : { CLAUDE_CODE_SESSION_ID: sid }), ...env },
   });
   return { status: r.status, out: `${r.stdout}${r.stderr}` };
@@ -123,6 +124,12 @@ export function run(hook, input = '{}', sid = SID, env = {}) {
 export const BASE = git('-C', work, 'rev-parse', 'origin/HEAD');
 export const start = (sid = SID, source = 'startup') => run('session-state.sh', JSON.stringify({ session_id: sid, hook_event_name: 'SessionStart', source }), sid);
 export const pinOf = (sid = SID) => join(STATE, sid, 'base');
+// A session pinned to `commit`, as its SessionStart would leave it: the base, and the tree it started in (#481).
+export const pinTo = (commit, tree = work) => {
+  mkdirSync(join(STATE, SID), { recursive: true });
+  writeFileSync(join(STATE, SID, 'tree'), `${realpathSync(tree)}\n`);
+  writeFileSync(join(STATE, SID, 'base'), `${commit}\n`);
+};
 export const unpin = () => rmSync(join(T, '.claude'), { recursive: true, force: true });
 // A clean checkout of main, in a session pinned to it.
 export const clean = () => {

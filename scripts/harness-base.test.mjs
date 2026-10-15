@@ -8,7 +8,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change, stopJson } from './harness-fixture.mjs';
@@ -203,4 +203,24 @@ test('the guard itself refuses a bad session id, a pin that is a link or no comm
   clean(); // and with a good pin it runs the hook, so the cases above stopped for their reason
   guard('stop-verify.sh', '{}');
   assert.deepEqual(marks(), ['stop-verify.sh']);
+});
+
+// #481: a git older than 2.31 prints `--path-format=absolute` back instead of refusing it, so every main checkout's
+// common dir would read the same relative `.git`. A stub git that does the same: another repository is never pinned as
+// the session's tree, and a session in the main checkout still runs its hooks.
+test('on a git that prints --path-format back, another repository is not pinned as the tree, and the main checkout runs', () => {
+  const bin = join(T, 'old-git');
+  const real = spawnSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } }).stdout.trim();
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\nfor a; do shift; if [ "$a" = --path-format=absolute ]; then printf '%s\\n' "$a"; else set -- "$@" "$a"; fi; done\nexec '${real}' "$@"\n`, { mode: 0o755 });
+  const env = { PATH: `${bin}:/usr/bin:/bin` };
+  const other = join(T, 'old-git-other');
+  git('init', '-q', other);
+  clean();
+  unpin();
+  run('session-state.sh', JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' }), SID, env, other);
+  assert.equal(readFileSync(join(T, '.claude/slipway/sessions', SID, 'tree'), 'utf8'), `${realpathSync(work)}\n`, 'another repository was pinned as the tree');
+  reset();
+  run('stop-verify.sh', '{}', SID, env);
+  assert.deepEqual(marks(), ['stop-verify.sh'], 'a main checkout session on that git ran no hook');
 });
