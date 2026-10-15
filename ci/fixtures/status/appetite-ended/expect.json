@@ -1,0 +1,19 @@
+{
+  "_note": "The active skeleton's appetite ended 2026-03-14 and nothing extends it: Next is the circuit breaker.",
+  "today": "2026-03-20",
+  "next": "Close M1 with /close-milestone, kill it, or record an extension. Its appetite ended 2026-03-14. You.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "steps": [
+    "Step 0 · Bootstrap: done",
+    "Step 1 · Frame: done",
+    "Step 2 · Test the risk: in hand",
+    "Step 3 · Shape: not started",
+    "Step 4 · Walking skeleton: in hand",
+    "Step 5 · Build loop: waiting",
+    "Step 6 · Close the milestone: each milestone",
+    "Step 7 · Learn: each milestone"
+  ],
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}
