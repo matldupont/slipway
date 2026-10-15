@@ -67,25 +67,29 @@ const redReason = (status, tail, note = '') =>
 let red = null;
 try { red = fp && redCache ? JSON.parse(readFileSync(redCache, 'utf8')) : null; } catch { /* none, or unreadable: run verify */ }
 const age = red ? Date.now() - red.at : NaN;
-if (red?.fp === fp && typeof red.tail === 'string' && age >= 0 && age < RED_TTL_MS) {
+// No process.exit after a block: exit cuts a pipe write off at 64 KB, and a cut JSON is no block at all.
+if (red?.fp === fp && typeof red.tail === 'string' && Number.isFinite(red.at) && age >= 0 && age < RED_TTL_MS) {
   const when = new Date(red.at).toISOString().slice(11, 19);
   say({ decision: 'block', reason: redReason(red.status, red.tail, ` Cached from ${when} UTC: the tree has not changed since, so verify did not run again. Any change to the tree, or ${RED_TTL_MS / 60000} minutes, runs it again.`) });
-  process.exit(0);
+} else {
+  verifyNow();
 }
 
-if (spawnSync('pnpm', ['-v']).error) {
-  say({ systemMessage: 'stop-verify: pnpm is not on the hook PATH, so the gate did not run. Run pnpm verify:fast yourself.' });
-  process.exit(0);
+function verifyNow() {
+  if (spawnSync('pnpm', ['-v']).error) {
+    say({ systemMessage: 'stop-verify: pnpm is not on the hook PATH, so the gate did not run. Run pnpm verify:fast yourself.' });
+    return;
+  }
+  const r = spawnSync(process.execPath, [join(root, 'ci', 'verify.mjs'), '--fast', root], { cwd: root, encoding: 'utf8' });
+  const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
+  if (r.status === 2 && /no workspace packages/.test(out)) return;
+  if (r.status === 0) {
+    if (fp && cache) writeFileSync(cache, fp);
+    try { if (redCache) rmSync(redCache, { force: true }); } catch { /* a path it cannot remove: the fingerprint no longer matches it */ }
+    return;
+  }
+  const tail = out.trim().split('\n').slice(-30).join('\n');
+  // A cache that cannot be written must never cost the block: a throw here would end the hook non-zero, unblocked.
+  try { if (fp && redCache && r.status !== null) writeFileSync(redCache, JSON.stringify({ fp, at: Date.now(), status: r.status, tail }), { mode: 0o600 }); } catch { /* run again next stop */ }
+  say({ decision: 'block', reason: redReason(r.status, tail) });
 }
-
-const r = spawnSync(process.execPath, [join(root, 'ci', 'verify.mjs'), '--fast', root], { cwd: root, encoding: 'utf8' });
-const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-if (r.status === 2 && /no workspace packages/.test(out)) process.exit(0);
-if (r.status === 0) {
-  if (fp && cache) writeFileSync(cache, fp);
-  if (redCache) rmSync(redCache, { force: true });
-  process.exit(0);
-}
-const tail = out.trim().split('\n').slice(-30).join('\n');
-if (fp && redCache && r.status !== null) writeFileSync(redCache, JSON.stringify({ fp, at: Date.now(), status: r.status, tail }));
-say({ decision: 'block', reason: redReason(r.status, tail) });

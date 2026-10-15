@@ -124,3 +124,37 @@ test('a second stop in one turn still ends the turn, and writes nothing', () => 
   assert.equal(count(), 0);
   assert.ok(!existsSync(red));
 });
+
+test('a red cache that cannot be written, or one with a forged time, still blocks', () => {
+  fresh(1);
+  mkdirSync(red); // a directory where the cache goes: writing it throws
+  assert.equal(stop().decision, 'block', 'an unwritable red cache let a red stop through');
+  rmSync(red, { recursive: true, force: true });
+  stop();
+  const c = JSON.parse(readFileSync(red, 'utf8'));
+  writeFileSync(red, JSON.stringify({ ...c, at: String(Date.now()) }));
+  const out = stop();
+  assert.equal(out.decision, 'block', 'a string time let a red stop through');
+  assert.doesNotMatch(out.reason, /Cached from/, 'a string time was trusted');
+  // A green run over a directory it cannot remove still ends the turn unblocked.
+  writeFileSync(exitCode, '0');
+  rmSync(red, { force: true });
+  mkdirSync(red);
+  put('src/green.ts', 'export {};\n');
+  assert.equal(stop(), null);
+  rmSync(red, { recursive: true, force: true });
+});
+
+test('a cached block with a 100 KB tail reaches Claude Code whole, and a cache with no string tail runs verify', () => {
+  fresh(1);
+  stop();
+  const c = JSON.parse(readFileSync(red, 'utf8'));
+  writeFileSync(red, JSON.stringify({ ...c, tail: 'x'.repeat(100_000) }));
+  const out = stop(); // JSON.parse throws on a cut write
+  assert.equal(out.decision, 'block');
+  assert.ok(out.reason.includes('x'.repeat(100_000)), 'the cached tail was cut');
+  assert.equal(count(), 1);
+  writeFileSync(red, JSON.stringify({ ...c, tail: 42 }));
+  stop();
+  assert.equal(count(), 2, 'a cache with no string tail was trusted');
+});
