@@ -1,5 +1,6 @@
 // Line-level reading for the decisions reader (ci/checks/lib/decisions.mjs, F-15 §2 and §3): which lines sit in a
-// fence, the mask that blanks fences and code spans, quoted text, a condition's text and §3's events. Split from that
+// fence, the mask that blanks fences and code spans, the clause openings and the prose pattern, quoted text, a
+// condition's text and §3's events. Split from that
 // module only for its size; it is the one reader callers import, and this file has no other reader.
 
 import { LEAD } from './feature-docs.mjs';
@@ -14,14 +15,19 @@ export const ISSUE_READABLE = false;
 export const fid = (n) => `F-${String(n).padStart(2, '0')}`;
 const blank = (s) => ' '.repeat(s.length);
 
-// Whether each line sits in a fenced block, its marker lines included.
+// Whether each line sits in a fenced block, its marker lines included. A fence still open at the end of the text is
+// a typo, not a block: its lines are read as written, so a stray marker never hides the decisions below it.
 export function fenced(lines) {
   let fence = false;
-  return lines.map((l) => {
+  let openedAt = -1;
+  const out = lines.map((l, i) => {
     const marker = FENCE.test(l);
     if (marker) fence = !fence;
+    if (marker && fence) openedAt = i;
     return fence || marker;
   });
+  if (fence) out.fill(false, openedAt);
+  return out;
 }
 // Each line with fenced blocks and code spans blanked, columns kept. A fence (``` to ```) is blanked whole, its
 // marker lines too. A code span is backtick to backtick within a paragraph (consecutive non-blank lines, a heading
@@ -48,6 +54,27 @@ export function mask(lines) {
   }
   return out;
 }
+
+// The space between two words of a clause opening or the prose pattern: a run of spaces or tabs, bounded, so a doubled
+// space or a tab never makes a clause a typo hides.
+const WS = '[ \\t]{1,20}';
+// The five clause openings, anywhere in a heading: the backstop below finds each one the suffix reading did not take.
+const CLAUSE_WORD = new RegExp(`\\b(?:reopens${WS}(?:when|if)|closes${WS}(?:when|if)|provisional${WS}until)\\b`, 'i');
+// Whether a text holds a clause opening once its marks are taken out, read both ways: each mark dropped (`re`opens`
+// when) and each mark a space ('reopens' when, [reopens] when), whitespace squashed, so no mark or run of spaces hides
+// one. The text is a line cut at MAX: both passes are linear.
+const MARK = /[\p{P}\p{S}]/gu;
+export const hasClause = (s) => {
+  const bare = s.replace(/\s+/g, ' ');
+  return CLAUSE_WORD.test(bare.replace(MARK, '')) || CLAUSE_WORD.test(bare.replace(MARK, ' ').replace(/ +/g, ' '));
+};
+// A clause that opens with one of them, at its start and followed by a space or its end: `[kind, rest]`.
+export const CLAUSE_START = new RegExp(`^(?:(reopens|closes)${WS}(?:when|if)|provisional${WS}until)(?=\\s|$)`, 'i');
+export const PROSE = [
+  new RegExp(`\\b(?:revisit(?:ed)?|reopen(?:s|ed)?)(?:${WS}(?:it|this|them))?${WS}(?:when|if|once|after)\\b`, 'i'),
+  new RegExp(`\\bcloses?${WS}(?:when|if|once)\\b`, 'i'),
+  new RegExp(`\\bprovisional${WS}until\\b`, 'i'),
+];
 
 // What a condition's text reads as: backticks and a closing full stop removed, whitespace squashed.
 export const squash = (s) => s.replace(/`/g, '').replace(/\s+/g, ' ').trim().replace(/\.$/, '');

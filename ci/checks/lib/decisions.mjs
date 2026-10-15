@@ -17,12 +17,12 @@
 // is cut at 500 characters before a pattern reads it, every pattern is anchored or bounded, and free text from the
 // record is returned only in `text` fields. Callers print ids, the table's words (`said`) and paths, never `text`.
 
-import { readdirSync } from 'node:fs';
+import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
 import { citedFeatures, contents } from './milestones.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
-import { fenced, fid, ISSUE_READABLE, mask, parseEvent, squash, unquoted } from './decision-text.mjs';
+import { CLAUSE_START, fenced, fid, hasClause, ISSUE_READABLE, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
 
 export { fenced, fid, ISSUE_READABLE, mask, parseEvent };
 
@@ -32,23 +32,10 @@ const ENTRY = new RegExp(`${LEAD}(P?D)-(\\d{1,9})\\b`);
 const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
-// The space between two words of a clause opening or the prose pattern: a run of spaces or tabs, bounded, so a doubled
-// space or a tab never makes a clause a typo hides.
-const WS = '[ \\t]{1,20}';
-// The five clause openings, anywhere in a heading: the backstop below finds each one the suffix reading did not take.
-const CLAUSE_WORD = new RegExp(`\\b(?:reopens${WS}(?:when|if)|closes${WS}(?:when|if)|provisional${WS}until)\\b`, 'i');
-// Whether a text holds a clause opening once its marks are taken out, so a mark inside one (`reopens` when) hides none.
-const hasClause = (s) => CLAUSE_WORD.test(s.replace(/[`*_"“”]/g, ''));
-// A clause that opens with one of them, at its start and followed by a space or its end: `[kind, rest]`.
-const CLAUSE_START = new RegExp(`^(?:(reopens|closes)${WS}(?:when|if)|provisional${WS}until)(?=\\s|$)`, 'i');
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
-const PROSE = [
-  new RegExp(`\\b(?:revisit(?:ed)?|reopen(?:s|ed)?)(?:${WS}(?:it|this|them))?${WS}(?:when|if|once|after)\\b`, 'i'),
-  new RegExp(`\\bcloses?${WS}(?:when|if|once)\\b`, 'i'),
-  new RegExp(`\\bprovisional${WS}until\\b`, 'i'),
-];
-// Words that, in the part of a heading a cut at MAX dropped, may hide a suffix or a clause.
-const CUT_WORDS = ['*(', 'reopens', 'closes', 'provisional'];
+// Words that, in the part of a heading a cut at MAX dropped, may hide a clause. A cut heading that holds a suffix
+// anywhere may have lost a clause or an event of one, so it is unreadable too.
+const CUT_WORDS = ['reopens', 'closes', 'provisional'];
 const POSITION = /\bM(\d{1,9})(?:['’]s)? (?:Contents )?item (\d{1,9})\b|\bitem (\d{1,9}) of M(\d{1,9})\b/g;
 const DECISION_ID = /\b(P?D)-(\d{1,9})\b/g;
 
@@ -109,7 +96,8 @@ function finish(e) {
     // A label is read on the line as written, outside a fence: a stray backtick above it in the paragraph never hides
     // it (a code span is no reason to skip a label, §2; only a fence is).
     const label = b.fenced ? null : LABELS.find(([l]) => b.text.startsWith(l));
-    if (label) conditions.push(condition(label[1], 'line', b.line, b.text.slice(label[0].length)));
+    // A labelled line the cut at MAX shortened may have lost an event: it is unreadable, never read short.
+    if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut ? { readable: false, issueOnly: false } : {}) });
     else if (!OUTCOME.test(b.masked)) proseLines.push(b.masked);
   }
   const positions = [];
@@ -137,11 +125,11 @@ export function parseDecisions(md) {
     const m = text.match(ENTRY);
     if (m) {
       const dropped = whole[i].text.slice(MAX - 20).toLowerCase();
-      const cut = whole[i].text.length > MAX && CUT_WORDS.some((w) => dropped.includes(w));
+      const cut = whole[i].text.length > MAX && (whole[i].text.includes('*(') || CUT_WORDS.some((w) => dropped.includes(w)));
       cur = { id: `${m[1]}-${m[2]}`, key: `${m[1]}-${Number(m[2])}`, line, text, masked: masked[i], fenced: fence[i], cut, body: [] };
       entries.push(cur);
     } else if (TOP.test(text)) cur = null;
-    else if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i] });
+    else if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX });
   });
   return { entries: entries.map(finish) };
 }
@@ -154,11 +142,24 @@ export const namesDecision = (text, key) => keysOf(text).has(key);
 const cut = (md) => visible(md).map((l) => l.text.slice(0, MAX)).join('\n');
 const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$/i)?.[1] : undefined);
 
+// Whether a folder of the tree is a link, a dangling one included: such a folder is not read, and is named unread.
+const isLink = (root, dir) => {
+  try {
+    return lstatSync(posix.join(root, dir)).isSymbolicLink();
+  } catch {
+    return false;
+  }
+};
+
 // The `*.md` names directly in a folder of the tree, by name; none when the folder is missing or not a folder, and a
-// folder that is there but cannot be read (a file in its place) is added to `unread`. Each file is then opened only
+// folder that is there but cannot be read (a file or a link in its place) is added to `unread`. Each file is then opened only
 // through readPlain(), so a link, a folder named `x.md` or a file reached through a link is skipped, never read and
 // never a throw: the tree is a pull request's to shape.
 const listed = (root, dir, skip, unread) => {
+  if (isLink(root, dir)) {
+    unread.push(dir);
+    return [];
+  }
   try {
     return readdirSync(posix.join(root, dir)).filter((f) => f.endsWith('.md') && !skip.includes(f)).sort();
   } catch (err) {
@@ -168,10 +169,14 @@ const listed = (root, dir, skip, unread) => {
 };
 const plainFiles = (root, dir, skip, unread) => listed(root, dir, skip, unread).map((f) => readPlain(root, `${dir}/${f}`)).filter((t) => t !== null);
 
-// The feature docs, each folder read on its own and never a throw: a docs/features or dev/features that cannot be read
-// is added to `unread`, and the other folder's docs are still read.
+// The feature docs, each folder read on its own and never a throw: a docs/features or dev/features that cannot be read,
+// or is a link, is added to `unread`, and the other folder's docs are still read.
 const featureFiles = (root, unread) =>
   FEATURE_DIRS.flatMap((dir) => {
+    if (isLink(root, dir)) {
+      unread.push(dir);
+      return [];
+    }
     try {
       return readFeatureFiles(root, [dir]).filter((f) => f.regular);
     } catch {
