@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -145,14 +145,16 @@ test('a red cache that cannot be written, or one with a forged time, still block
   rmSync(red, { recursive: true, force: true });
 });
 
-test('a cached block with a 100 KB tail reaches Claude Code whole, and a cache with no string tail runs verify', () => {
+test('a cached block over 64 KB reaches Claude Code whole, and a cache with no string tail runs verify', () => {
   fresh(1);
   stop();
   const c = JSON.parse(readFileSync(red, 'utf8'));
-  writeFileSync(red, JSON.stringify({ ...c, tail: 'x'.repeat(100_000) }));
+  const tail = 'x'.repeat(65_300); // the file stays under the 64 KB cap; the block printed is over 65,536 bytes
+  writeFileSync(red, JSON.stringify({ ...c, tail }));
   const out = stop(); // JSON.parse throws on a cut write
   assert.equal(out.decision, 'block');
-  assert.ok(out.reason.includes('x'.repeat(100_000)), 'the cached tail was cut');
+  assert.ok(out.reason.includes(tail), 'the cached tail was cut');
+  assert.ok(Buffer.byteLength(JSON.stringify(out)) > 65_536);
   assert.equal(count(), 1);
   writeFileSync(red, JSON.stringify({ ...c, tail: 42 }));
   stop();
@@ -179,5 +181,46 @@ test('a planted red cache with an object, null or wrong-typed field runs verify 
     const out = stop(); // a crash fails here: stop() asserts exit 0
     assert.equal(out?.decision, 'block', `${JSON.stringify(p)} let a red stop through`);
     assert.equal(count(), ++runs, `${JSON.stringify(p)} was trusted`);
+  }
+});
+
+test('a link, an oversized file, a stray key or a short fingerprint is no cache: verify runs and the turn blocks', () => {
+  fresh(1);
+  stop();
+  const c = JSON.parse(readFileSync(red, 'utf8'));
+  const elsewhere = join(T, 'elsewhere.json');
+  writeFileSync(elsewhere, JSON.stringify(c));
+  let runs = count();
+  const cases = [
+    ['a link to a valid cache', () => { rmSync(red, { force: true }); symlinkSync(elsewhere, red); }],
+    ['a file over 64 KB', () => writeFileSync(red, JSON.stringify({ ...c, tail: 'x'.repeat(70_000) }))],
+    ['a stray key', () => writeFileSync(red, JSON.stringify({ ...c, extra: 1 }))],
+    ['a short fingerprint', () => writeFileSync(red, JSON.stringify({ ...c, fp: c.fp.slice(0, 10) }))],
+    ['invalid JSON', () => writeFileSync(red, '{"fp":')],
+  ];
+  for (const [why, plant] of cases) {
+    rmSync(red, { recursive: true, force: true });
+    plant();
+    const out = stop();
+    assert.equal(out?.decision, 'block', `${why} let a red stop through`);
+    assert.doesNotMatch(out.reason, /Cached from/, `${why} was trusted`);
+    assert.equal(count(), ++runs, `${why} did not run verify`);
+  }
+  assert.equal(readFileSync(elsewhere, 'utf8'), JSON.stringify(c), 'a write followed the link');
+});
+
+test('an error inside the hook blocks the turn with its class, and never its text', () => {
+  fresh(0);
+  const lib = join(root, 'ci/checks/lib/workspace.mjs');
+  const body = readFileSync(lib, 'utf8');
+  writeFileSync(lib, 'throw new TypeError("SECRET-IN-MESSAGE");\n');
+  try {
+    const out = stop();
+    assert.equal(out?.decision, 'block', 'a thrown error let the turn end');
+    assert.match(out.reason, /^stop-verify could not run: TypeError; the tree was not checked\./);
+    assert.doesNotMatch(out.reason, /SECRET-IN-MESSAGE/);
+    assert.equal(count(), 0);
+  } finally {
+    writeFileSync(lib, body);
   }
 });
