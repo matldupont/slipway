@@ -4,7 +4,8 @@
 #   sh -c "$(git -C "$CLAUDE_PROJECT_DIR" --no-replace-objects cat-file blob <pin>:process/harness/hooks/base-guard.sh)" base-guard <hook>
 # The pin (#145) is origin/HEAD's commit as the session's first SessionStart found it, kept outside the repository in
 # ~/.claude/slipway/sessions/<session id>/base. It is written once, never on a compaction or a resume, and a session
-# with none runs no hook. No command writes it but this file's SessionStart path.
+# with none runs no hook. No command writes it, or the session's `tree` file beside it (#481, below), but this file's
+# SessionStart path.
 # It runs the working tree's <hook> only when the checkout's gate files are the pinned commit's, or the owner's own
 # message has said yes to exactly these gate files (below). Otherwise that hook does not run: the Stop hook blocks
 # once to say so, SessionStart says so, the advisory hooks stay quiet.
@@ -27,9 +28,10 @@
 # The session's tree (#481): in a session that runs in a git worktree, CLAUDE_PROJECT_DIR names the main checkout. So
 # the SessionStart that pins the base also pins, in the session's `tree` file, the top of the folder it started in when
 # that is a worktree of the same repository (the same git common dir), and the project folder otherwise. Every hook then
-# checks that tree and runs its hooks with CLAUDE_PROJECT_DIR set to it. A session with no `tree` file (pinned before
-# this) keeps the project folder. A `tree` file that cannot be read, or names a folder that is no longer the top of a
-# worktree of this repository, runs no hook: never another tree in its place.
+# checks that tree and runs its hooks with CLAUDE_PROJECT_DIR set to it. The tree is written before the base, so a
+# session this file pinned always has one (a session pinned earlier runs its own, older guard). A `tree` file that is
+# missing, cannot be read, or names a folder that is no longer the project folder or the top of a worktree of this
+# repository runs no hook: never another tree in its place.
 # POSIX sh with git, sed, grep, awk, sort, head, tr, cat, rm, mkdir and printf: hooks run under /bin/sh without your PATH (L-34).
 
 set -f # the globs below are git's, never the shell's
@@ -37,9 +39,13 @@ hook=$1
 p=${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}
 d=$p
 g() { git -C "$d" --no-replace-objects -c core.quotepath=on "$@"; }
-# A folder's top and its repository's common dir, as absolute paths git has resolved; empty when git cannot say.
+# A folder's top and its repository's common dir, as absolute paths git has resolved; empty when git cannot say. A git
+# older than 2.31 prints `--path-format=absolute` back instead of refusing it: only one absolute line is a common dir.
 top() { git -C "$1" --no-replace-objects rev-parse --show-toplevel 2>/dev/null; }
-common() { git -C "$1" --no-replace-objects rev-parse --path-format=absolute --git-common-dir 2>/dev/null; }
+common() {
+  c=$(git -C "$1" --no-replace-objects rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 0
+  case "$c" in *"$nl"*) ;; /*) printf '%s\n' "$c" ;; esac
+}
 nl='
 '
 
@@ -111,17 +117,15 @@ held() {
   exit 0
 }
 
-# The session's tree (#481). No `tree` file: the project folder, as before it was pinned. One that is there is used or
-# nothing runs: a link, not one absolute line, or a folder that is no longer the top of a worktree of this repository.
-if [ -e "$state/tree" ] || [ -L "$state/tree" ]; then
-  t=
-  [ -f "$state/tree" ] && [ ! -L "$state/tree" ] && [ "$(sed -n '$=' "$state/tree")" = 1 ] && IFS= read -r t <"$state/tree"
-  lost='the folder this session started in is gone or is no longer a worktree of this repository, so its gate cannot run. Start a new session in the folder you are working in'
-  case "$t" in /*) ;; *) held "$lost" ;; esac
-  pc=$(common "$p")
-  [ -n "$pc" ] && [ -d "$t" ] && [ "$(top "$t")" = "$t" ] && [ "$(common "$t")" = "$pc" ] || held "$lost"
-  d=$t
-fi
+# The session's tree (#481), used or nothing runs: missing, a link, not one absolute line, or a folder that is neither
+# the project folder's top nor the top of a worktree with the project's common dir.
+t=
+[ -f "$state/tree" ] && [ ! -L "$state/tree" ] && [ "$(sed -n '$=' "$state/tree")" = 1 ] && IFS= read -r t <"$state/tree"
+lost='the folder this session started in is gone, unreadable or no longer a worktree of this repository, so its gate cannot run. Start a new session in the folder you are working in'
+case "$t" in /*) ;; *) held "$lost" ;; esac
+pc=$(common "$p")
+[ -d "$t" ] && [ "$(top "$t")" = "$t" ] && { [ "$t" = "$(top "$p")" ] || { [ -n "$pc" ] && [ "$(common "$t")" = "$pc" ]; }; } || held "$lost"
+d=$t
 
 # The working tree's hook, with the input this file read put back.
 run() {

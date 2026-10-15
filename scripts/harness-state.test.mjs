@@ -268,14 +268,9 @@ test('a session started outside a worktree of the project pins the project folde
   assert.equal(`${stopIn(work).out}`, '', 'a main checkout session was blocked by a worktree');
   writeFileSync(join(work, 'RED'), '');
   assert.equal(decision(stopIn(work)).decision, 'block', 'a red main checkout ended its turn');
-  // A session pinned before #481 has no tree file: the project folder, as then, wherever its shell is.
-  rmSync(PIN);
-  assert.equal(decision(stopIn(wt)).decision, 'block', 'no tree file did not fall back to the project folder');
-  rmSync(join(work, 'RED'));
-  assert.equal(`${stopIn(wt).out}`, '', 'no tree file did not fall back to the project folder');
 });
 
-test('a pinned tree that is gone, no longer a worktree top, or an unreadable pin blocks once and never falls back', () => {
+test('a pinned tree that is gone, no longer a worktree top, or a missing or unreadable pin blocks once and never falls back', () => {
   worktree();
   const top = realpathSync(work);
   for (const [why, write] of [
@@ -285,13 +280,14 @@ test('a pinned tree that is gone, no longer a worktree top, or an unreadable pin
     ['a relative path', () => writeFileSync(PIN, 'work\n')],
     ['two lines', () => writeFileSync(PIN, `${top}\n${top}\n`)],
     ['an empty file', () => writeFileSync(PIN, '')],
-    ['a link', () => { rmSync(PIN); writeFileSync(join(T, 'elsewhere'), `${top}\n`); symlinkSync(join(T, 'elsewhere'), PIN); }],
+    ['no file, its base still pinned', () => rmSync(PIN)],
+    ['a link', () => { writeFileSync(join(T, 'elsewhere'), `${top}\n`); symlinkSync(join(T, 'elsewhere'), PIN); }],
   ]) {
     write();
     reset();
     const r = decision(stopIn(work));
     assert.equal(r.decision, 'block', why);
-    assert.match(r.reason, /folder this session started in is gone or is no longer a worktree/, why);
+    assert.match(r.reason, /folder this session started in is gone, unreadable or no longer a worktree/, why);
     assert.equal(`${stopIn(work, '{"stop_hook_active":true}').out}`, '', `${why}: blocked twice in one stop`);
     assert.match(run('session-state.sh', '{"source":"resume"}', SID, { PATH }).out, /session-state did not run/, why);
     run('lessons-first.sh', '{}', SID, { PATH });
