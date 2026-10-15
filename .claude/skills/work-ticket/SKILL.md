@@ -269,8 +269,7 @@ Only after CLEAN, with nothing committed since (Rounds 2 and 3, step 4). Rewrite
 - `## What`: the lane, and what changed.
 - `## Verification`: the final gate and the issue's Verify block (`none` in a bounded lane), in a code block;
   the `Verified against:` line; then what was not verified (real devices, motion, production data). "Not verified" alone never covers an acceptance line: it is run, or deferred (`process/intake.md` → Deferred check).
-- `## Gate changes`, when the diff touches a gate file or a `package.json` `scripts` key (`process/intake.md` →
-  Pull request): compare each new config with the one it was copied from; the draft carries it from the start.
+- `## Gate changes`, when the diff touches a gate file or a `package.json` `scripts` key (`process/intake.md` → Pull request): compare each new config with the one it was copied from; the draft carries it from the start.
 - `## Reuse`, `## Tests`, `## Manual testing`: Phase 2's list; the layers added; the journey, or N/A and why.
 - `## Cold review`: who reviewed, the head each round saw, each finding with `file:line` and what became of it (a
   security finding not fixed here: its count and tracker only), and the verdict (`process/cold-review.md` → How). Its last line names the last reviewed head and the PR's head: `Last reviewed head {sha} is the pull request's head: nothing lies between.`, or `Last reviewed head {sha}; head {sha}. Between them: {each merge sha}, a merge of {base}; in conflict: {file, what was kept, and for a rule file the owner's yes and its verify | nothing}.`
@@ -279,10 +278,9 @@ Only after CLEAN, with nothing committed since (Rounds 2 and 3, step 4). Rewrite
 
 ```bash
 git status --porcelain            # prints nothing
-gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"
-gh pr ready {pr} --repo {checkout}
+d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}
 ```
-Report the PR's URL. Do not wait on CI, and do not merge.
+P1 is the `pr-body` check, run here on the final body, and the chain stops at it: on a finding, fix `{prdir}/pr.md` and run the block again, so the body checked is the body posted; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which. It is 1 local run, no wait: do not wait on CI, and do not merge. Report the PR's URL.
 
 ## Follow-ups
 

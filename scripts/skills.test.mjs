@@ -268,6 +268,18 @@ test('work-ticket\'s Links line says a closing word before an issue number close
   assert.ok(md.trimEnd().split('\n').length <= 300, 'work-ticket must fit in 300 lines');
 });
 
+// #437: a PR was marked ready with the pr-body check red; Phase 6 runs P1 on the final body first, intake says the same for a hand-made PR.
+test('work-ticket Phase 6 runs P1 on the final body before `gh pr ready`, and intake.md says the same for a PR made by hand', () => {
+  const phase = (section(read(skillPath('work-ticket')), 'Phase 6 — Ready', 2) ?? '').replace(/\s+/g, ' ');
+  assert.equal(phase.split('gh pr ready').length - 1, 1, 'Phase 6 must have exactly one `gh pr ready`, the last link of the chain');
+  assert.equal(phase.split('gh pr edit').length - 1, 1, 'Phase 6 must have exactly one `gh pr edit`, inside the chain');
+  assert.ok(phase.includes('d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}'), 'Phase 6 must chain the changed-files list, P1, the body edit and `gh pr ready` with &&, so a finding stops it');
+  assert.match(phase, /on a finding, fix `\{prdir\}\/pr\.md` and run the block again, so the body checked is the body posted; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which\./, 'Phase 6 must say what a finding leads to');
+  assert.match(phase, /It is 1 local run, no wait: do not wait on CI, and do not merge\./, 'Phase 6 must keep "do not wait on CI"');
+  const pr = flat(section(intake, 'Pull request', 2));
+  assert.match(pr, /\*\*Before ready,\*\* a PR opened ready or marked ready by hand has the `pr-body` check run on its final body .*node ci\/checks\/lib\/gate-files\.mjs "\$\(git rev-parse origin\/\{base\}\)" "\$\(git rev-parse HEAD\)" > "\{dir\}\/body\.changes\.json"` and `node ci\/checks\/meta\/p1-pr-body\.mjs "\{dir\}"`, and is not marked ready while that reports a finding\./, 'intake.md → Pull request must say P1 runs before ready, with both commands and the sidecar name');
+});
+
 test('work-ticket\'s rule files name the settings file, the manifest and slipway\'s markers', () => {
   const rules = read(skillPath('work-ticket')).match(/\*\*The rules the run is judged by:\*\*([\s\S]*?)\n\n/)?.[1] ?? '';
   for (const p of [SETTINGS, '.slipway/**', 'dev/ownership.yaml', 'scripts/new-project.mjs']) assert.ok(rules.includes(`\`${p}\``), `work-ticket's rule files do not name ${p}`);
