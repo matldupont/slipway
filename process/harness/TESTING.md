@@ -26,6 +26,11 @@ In a worktree without `node_modules` (move `apps/web/node_modules` aside, or use
 second must print `"decision":"block"` naming the package and `pnpm install --frozen-lockfile`, and must
 not write `.git/stop-verify-ok`.
 
+With a test failing, run the Stop hook twice without changing anything (#484). The first must run the gate and print
+`"decision":"block"`. The second must print `"decision":"block"` at once, with the same failure lines and
+`Cached from`, and must not run the gate. Change a file, or wait 10 minutes, and it must run the gate again.
+`scripts/stop-verify-cache.test.mjs` holds the same cases.
+
 The base guard, in a session Claude Code started here (it needs that session's pin, so run it from the session's
 own terminal, where `CLAUDE_CODE_SESSION_ID` is set). With a gate file changed (add a line to `ci/verify.mjs`) it
 must print `"decision":"block"` naming the file and run nothing; restored, it must run the Stop hook as above:
