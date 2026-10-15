@@ -10,7 +10,7 @@
 // the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
 // gate paths the base branch's harness asked about and the documents AGENT.md names (at the base, as checked out and at the base branch's tip), and each symlink or submodule link added, removed or changed.
 // `specs` is each feature doc whose `Version:` lines this pull request moves, `{path, versions}`; `draft` is the optional
-// third argument, left out of the output when not given (spec-review.mjs reads both). pr-body.yml writes it beside the PR body. `gate` is the gate files among them (gateTouched), the list P1 wants a
+// fourth argument, left out of the output when not given (spec-review.mjs reads both). pr-body.yml writes it beside the PR body. `gate` is the gate files among them (gateTouched), the list P1 wants a
 // `## Gate changes` line for, with each path P1 refuses as a lookalike of one (gateListed): what `/work-ticket` reviews on
 // the strongest tier. `null` when the harness's rules cannot be read.
 //

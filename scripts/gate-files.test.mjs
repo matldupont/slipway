@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { SPEC_PATH, unreviewedSpecs } from '../ci/checks/lib/spec-review.mjs';
 import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateListed, gateMatcher, gateTouched, GUARD_GLOBS, SETTINGS, writeRules } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -399,8 +400,51 @@ test('pr-body.yml re-runs when a pull request leaves or returns to draft, and wr
   const wf = readFileSync(join(SRC, '.github/workflows/pr-body.yml'), 'utf8');
   assert.match(wf, /types: \[[^\]]*\bready_for_review\b[^\]]*\]/, 'marking a pull request ready would not re-run P1');
   assert.match(wf, /types: \[[^\]]*\bconverted_to_draft\b[^\]]*\]/);
-  assert.match(wf, /DRAFT: \$\{\{ github\.event\.pull_request\.draft \}\}/);
+  assert.match(wf, /DRAFT: \$\{\{ github\.run_attempt == 1 && github\.event\.pull_request\.draft \}\}/, 'a re-run of a draft-era run would keep saying draft');
   assert.match(wf, /gate-files\.mjs "\$BASE_SHA" "\$HEAD_SHA" "\$DRAFT" >/);
+});
+
+// #464: each clause of the rule P1 reads, against a tree built here.
+test('unreviewedSpecs holds a ready PR whose spec has no current review of that very doc, and fails closed on what it cannot read', () => {
+  const root = mkdtempSync(join(tmpdir(), 'spec-review-'));
+  try {
+    const V = 'Version: 0.1 (2026-10-14)';
+    const w = (p, t) => {
+      mkdirSync(dirname(join(root, p)), { recursive: true });
+      writeFileSync(join(root, p), t);
+    };
+    const review = (name, doc, line = V) => w(`docs/reviews/${name}.md`, `# R\n\nReviewed: ${doc} @ abc\nVersion line: \`${line}\`\n`);
+    w('docs/features/a.md', `# A\n\n${V}\n`);
+    w('docs/features/b.md', `# B\n\n${V}\n`);
+    w('docs/features/two.md', `# T\n\n${V}\nVersion: 0.2\n`);
+    symlinkSync('a.md', join(root, 'docs/features/link.md'));
+    const ids = (c) => unreviewedSpecs({ files: [], ...c }, root).map((f) => f.id);
+    const spec = (p) => ({ path: p, versions: [V] });
+    // A review of another doc, quoting the same line, does not count for this one.
+    review('b', 'docs/features/b.md');
+    assert.deepEqual(ids({ specs: [spec('docs/features/a.md')] }), ['spec/unreviewed:docs/features/a.md']);
+    assert.deepEqual(ids({ specs: [spec('docs/features/b.md')] }), []);
+    const [held] = unreviewedSpecs({ files: [], specs: [spec('docs/features/a.md')] }, root);
+    assert.ok(held.detail.includes('docs/features/a.md') && held.detail.includes(V), 'the finding names the doc and the version');
+    // A draft holds nothing; an absent or odd draft flag reads as ready.
+    assert.deepEqual(ids({ draft: true, specs: [spec('docs/features/a.md')] }), []);
+    for (const draft of [undefined, false, 'true', 1, null]) assert.equal(ids({ draft, specs: [spec('docs/features/a.md')] }).length, 1, `draft ${String(draft)} is ready`);
+    // A doc with two Version lines has no current review, whatever a review quotes.
+    review('two', 'docs/features/two.md');
+    assert.deepEqual(ids({ specs: [spec('docs/features/two.md')] }), ['spec/unreviewed:docs/features/two.md']);
+    // No `specs` list: unreadable when a feature doc changed, silent otherwise.
+    assert.deepEqual(ids({ files: ['docs/features/a.md'] }), ['specs/unreadable']);
+    assert.deepEqual(ids({ files: ['src/a.ts'] }), []);
+    // A link, a missing doc, and a path that is no feature doc are findings, never a read.
+    assert.deepEqual(ids({ specs: [spec('docs/features/link.md')] }), ['spec/unreadable:docs/features/link.md']);
+    assert.deepEqual(ids({ specs: [spec('docs/features/none.md')] }), ['spec/unreadable:docs/features/none.md']);
+    assert.deepEqual(ids({ specs: [spec('../outside/features/a.md'), spec('src/a.md'), null] }), ['specs/unreadable', 'specs/unreadable', 'specs/unreadable']);
+    // The template and README are no feature docs, and the folder name is read in any case.
+    assert.ok(!SPEC_PATH.test('docs/features/TEMPLATE.md') && !SPEC_PATH.test('dev/features/README.md'));
+    assert.ok(SPEC_PATH.test('docs/Features/x.md') && SPEC_PATH.test('dev/features/x.md'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));

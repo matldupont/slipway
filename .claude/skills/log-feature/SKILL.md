@@ -261,7 +261,7 @@ The PR's title and body go in a fresh folder of their own, `{prdir}`, never the 
 stays green. Title: `docs({scope}): spec {feature name}`. Body, under the never-in-a-body rule of an issue
 (`process/intake.md` → Issue body): `## What` (`Lane: feature`, spec only, the verdict in one line),
 `## Verification` (the issue check and `pnpm meta` as run, in a code block), `## Links` (`Part of #{issue}`, or
-`Part of {repo}#{issue}` when the repositories differ; the issue closes with its last build step, not this PR, so the body says it "leaves #{issue} open": the PR check asks for that). It is opened as a draft, and its `## What` says it stays a draft until a current review of the spec (`/review-doc`) is merged into its branch: P1 holds a ready pull request that moves a feature doc's `Version:` with no such review.
+`Part of {repo}#{issue}` when the repositories differ; the issue closes with its last build step, not this PR, so the body says it "leaves #{issue} open": the PR check asks for that). It is opened as a draft, and its `## What` says it stays a draft until a current review of the spec (`/review-doc`) is merged into its branch: P1 holds a ready pull request that moves a feature doc's `Version:` with no such review. The body also carries `Owed: review of {version} (owner, fresh session)`, and the session ends its turn with a `Yours:` block naming that review and the prompt `/review-doc {doc path}` for the new version (`process/intake.md` → Feature doc version, Owed review).
 It goes to `{checkout}` (`process/intake.md` → Pull request); its number is `{pr}`.
 
 ```bash

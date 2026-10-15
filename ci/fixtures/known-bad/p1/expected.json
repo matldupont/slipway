@@ -3,7 +3,8 @@
   "exit": 1,
   "details": {
     "part-of-closes-and-leaves.md#links/closes-and-leaves-open:252": "the body closes #252 (\" second step of the booking page. No third sub-issue was filed; #271 closes #252\") and also says it leaves #252 open (\"Part of #252 · none: trivial. This PR leaves #252 open\"): GitHub closes #252 when this merges, whoever the first sentence is about. Write the number before the verb, or name the pull request that finishes it with no closing word",
-    "part-of-open-unsaid.md#links/open-unsaid": "closes nothing. If this PR finishes an issue, close it: `Closes #n`. If it leaves a check for after merge, add `## Owed after merge` and say which issue it leaves open. Only if it finishes nothing, say it `leaves #31 open`, and why"
+    "part-of-open-unsaid.md#links/open-unsaid": "closes nothing. If this PR finishes an issue, close it: `Closes #n`. If it leaves a check for after merge, add `## Owed after merge` and say which issue it leaves open. Only if it finishes nothing, say it `leaves #31 open`, and why",
+    "spec-unreviewed.md#spec/unreviewed:docs/features/x.md": "Version: 0.1 (2026-10-14)"
   },
   "findings": [
     "followup-denial-then-deferral.md#followups/none-contradicted",

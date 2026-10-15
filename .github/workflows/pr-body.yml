@@ -24,12 +24,14 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+      # A re-run carries the stored event, so a draft-era run re-run after the pull request was marked ready would still
+      # say draft: only a first attempt may read the draft flag, and a re-run is judged as ready.
       - name: Check the PR body
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          DRAFT: ${{ github.event.pull_request.draft }}
+          DRAFT: ${{ github.run_attempt == 1 && github.event.pull_request.draft }}
         run: |
           mkdir -p "$RUNNER_TEMP/pr"
           printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr/body.md"

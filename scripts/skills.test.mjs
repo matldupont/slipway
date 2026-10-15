@@ -1221,3 +1221,10 @@ test('/log-feature opens the doc pull request as a draft and says it stays one u
   assert.match(lf, /It is opened as a draft, and its `## What` says it stays a draft until a current review of the spec \(`\/review-doc`\) is merged into its branch/, '/log-feature Phase 7 must have the body say it stays a draft until a current review is merged in');
   assert.match(flat(section(reviewDoc(), '4 — Hand back', 2)), /open draft pull request .*end by saying that the pull request can be marked ready once this review is merged into its branch/, '/review-doc step 4 must say the pull request can be marked ready once the review is merged in');
 });
+
+// #464, added 2026-10-15 on the owner's word: whoever moves a spec's Version hands the owed review to the owner.
+test('the session that moves a spec\'s Version ends with a Yours: block naming the owed review, and the doc PR body carries the Owed line', () => {
+  const lf = flat(section(read(skillPath('log-feature')), 'Phase 7 — Open the doc PR', 2));
+  assert.match(lf, /The body also carries `Owed: review of \{version\} \(owner, fresh session\)`, and the session ends its turn with a `Yours:` block naming that review and the prompt `\/review-doc \{doc path\}` for the new version/, '/log-feature Phase 7 must carry the Owed line and the Yours: block');
+  assert.match(flat(section(read('process/intake.md'), 'Feature doc version', 2)), /\*\*Owed review\.\*\* The session that moves the line \(`\/log-feature`, or a revision after a review\) ends its turn with a `Yours:` block that names the owed review and gives the prompt `\/review-doc \{doc path\}` for the new version, and the doc pull request's body carries `Owed: review of \{version\} \(owner, fresh session\)`/, 'intake.md → Feature doc version must say who hands the owed review over, and how');
+});
