@@ -1,11 +1,13 @@
 // Milestone documents: docs/milestones/*.md. Shared by MS1, K1, F1 and `pnpm status`, so they
 // can never disagree about which milestone is active or what its Contents are.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter, lineRest, PLACEHOLDER } from './frontmatter.mjs';
+import { fold } from './feature-docs.mjs';
+import { frontmatter, hasPlaceholder, lineRest } from './frontmatter.mjs';
 import { plain, prose, section, strictSection } from './markdown.mjs';
 import { UNSAFE } from './report.mjs';
+import { MISSING, notPlainFile, notPlainFolder } from './review-header.mjs';
 
 export const MILESTONE_STATUSES = ['shaping', 'active', 'closed', 'killed'];
 export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet'];
@@ -25,18 +27,26 @@ export function appetiteClock(appetite, today) {
 }
 
 // Every milestone document, TEMPLATE.md and README.md excluded. `fm` is null when the
-// document has no frontmatter.
+// document has no frontmatter. `files` names every `*.md` in the folder that is a regular file reached through no
+// link; `refused` names each one that is not (a link, a folder, a device) and is never opened, or the folder itself
+// when it is a link, sits under one or is not a folder: then nothing in it is read. MS1 reports each refusal.
+const MILESTONES = 'docs/milestones';
 export function readMilestones(root) {
-  const dir = join(root, 'docs', 'milestones');
-  if (!existsSync(dir)) return { dir, files: [], milestones: [] };
-  const files = readdirSync(dir).filter((f) => f.endsWith('.md')).sort();
+  const dir = join(root, MILESTONES);
+  const why = notPlainFolder(root, MILESTONES);
+  if (why !== null) return { dir, files: [], milestones: [], refused: why === MISSING ? [] : [MILESTONES] };
+  const refused = [];
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith('.md'))
+    .sort()
+    .filter((f) => notPlainFile(root, `${MILESTONES}/${f}`) === null || !refused.push(`${MILESTONES}/${f}`));
   const milestones = files
     .filter((f) => f !== 'TEMPLATE.md' && f !== 'README.md')
     .map((f) => {
       const md = readFileSync(join(dir, f), 'utf8');
       return { file: f, md, fm: frontmatter(md) };
     });
-  return { dir, files, milestones };
+  return { dir, files, milestones, refused };
 }
 
 // Contents items: a line starting `N.` opens an item; indented lines continue it. `n` is the number
@@ -77,8 +87,10 @@ export function contents(md) {
 }
 
 // The features a Contents item cites: every `F-<n>` in its text, as numbers, so F-2 and F-02 are one feature.
-// Shared by F1 (is each feature scheduled) and the Fit count (is this doc scheduled).
-export const citedFeatures = (text) => [...text.matchAll(/\bF-(\d+)\b/g)].map((m) => Number(m[1]));
+// Shared by F1 (is each feature scheduled) and the Fit count (is this doc scheduled). The text is folded as a
+// heading is (lib/feature-docs.mjs fold()), so a citation written with a look-alike hyphen or digit, or a character
+// nobody sees inside it, is the citation a person reads.
+export const citedFeatures = (text) => [...fold(text).matchAll(/\bF-(\d+)\b/g)].map((m) => Number(m[1]));
 
 // One check line, already trimmed and cut, under an item whose marker is `at`. Exactly one of
 //   Owed: {check} — {environment}
@@ -152,8 +164,9 @@ export function marker(text) {
 export function noGos(md) {
   const items = [];
   for (const line of (strictSection(prose(md), 'No-gos', 2) ?? '').split(/\r?\n/)) {
-    const open = line.match(/^[-*]\s+(.*)$/);
-    if (open) items.push(open[1]);
+    // `- text`, as /^[-*]\s+(.*)$/ reads it, without that pattern's retry from every space of a long line.
+    const rest = /^[-*]\s/.test(line) ? lineRest(line.slice(1)) : null;
+    if (rest !== null) items.push(rest);
     else if (items.length && /^\s+\S/.test(line)) items[items.length - 1] += ' ' + line.trim();
   }
   return items;
@@ -181,7 +194,7 @@ export function readMilestoneModel(root, today) {
   const text = (v) => {
     if (typeof v !== 'string') return null;
     const t = plain(v.replace(/\s+/g, ' '));
-    return t && !PLACEHOLDER.test(t) ? t : null;
+    return t && !hasPlaceholder(t) ? t : null;
   };
   return readMilestones(root)
     .milestones.filter((m) => m.fm?.id && MILESTONE_STATUSES.includes(m.fm.status))

@@ -279,11 +279,11 @@ test('parseBaselines and serialiseBaselines: an object of names comes back in th
   assert.equal(serialiseBaselines(parseBaselines('{"dup":12,\t"feature-fit":0}')), '{\n  "dup": 12,\n  "feature-fit": 0\n}\n');
   assert.throws(() => parseBaselines('[1]'), /^Error: ci\/baselines\.json is not a JSON object of name → number$/);
   assert.throws(() => parseBaselines('null'), /not a JSON object/);
-  assert.throws(() => parseBaselines('{'), /^Error: ci\/baselines\.json is not valid JSON: /);
+  assert.throws(() => parseBaselines('{'), /^Error: ci\/baselines\.json is not valid JSON$/); // never the parser's words: they quote the file
 });
 
 test('the ratchet command on a ci/baselines.json it cannot read: BROKEN, exit 2, naming the file — never a stack trace, never green, and --update writes nothing', () => {
-  for (const [bytes, why] of [['[]\n', /BROKEN — ci\/baselines\.json is not a JSON object of name → number/], ['{ not json', /BROKEN — ci\/baselines\.json is not valid JSON: /]]) {
+  for (const [bytes, why] of [['[]\n', /BROKEN — ci\/baselines\.json is not a JSON object of name → number/], ['{ not json', /BROKEN — ci\/baselines\.json is not valid JSON\n/]]) {
     for (const flags of [[], ['--update']]) {
       const dir = mkdtempSync(join(tmpdir(), 'fit-'));
       try {

@@ -151,7 +151,7 @@ function updateIn(make) {
     mkdirSync(join(dir, 'ci'));
     make(dir);
     const r = spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), 'dup', 'report.json', 'stats.total', '--update'], { cwd: dir, encoding: 'utf8' });
-    return { status: r.status, err: r.stderr, bytes: readFileSync(join(dir, BASELINES)), elsewhere: existsSync(join(dir, 'elsewhere.json')) ? readFileSync(join(dir, 'elsewhere.json'), 'utf8') : null };
+    return { status: r.status, out: r.stdout, err: r.stderr, bytes: readFileSync(join(dir, BASELINES)), elsewhere: existsSync(join(dir, 'elsewhere.json')) ? readFileSync(join(dir, 'elsewhere.json'), 'utf8') : null };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -165,12 +165,12 @@ test('--update refuses a baselines file whose bytes are not UTF-8, and writes no
   assert.ok(r.bytes.equals(bytes));
 });
 
-test('--update refuses a ci/baselines.json that is a link, and writes nothing through it', () => {
+test('--update refuses a ci/baselines.json that is a link, reading and writing nothing through it: BROKEN before the read', () => {
   const r = updateIn((dir) => {
     writeFileSync(join(dir, 'elsewhere.json'), '{"dup":3}');
     symlinkSync(join(dir, 'elsewhere.json'), join(dir, BASELINES));
   });
-  assert.equal(r.status, 1);
-  assert.match(r.err, /ci\/baselines\.json is a link or not a plain file, so it is not rewritten; nothing was written — make it a plain file/);
+  assert.equal(r.status, 2);
+  assert.match(r.out, /ci\/baselines\.json is a link, not a file, so it is not read — make it a plain file in a plain folder/);
   assert.equal(r.elsewhere, '{"dup":3}');
 });
