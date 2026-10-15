@@ -278,15 +278,19 @@ for (const f of bodies) {
   // The closing sentence meets a decision (F-15 §8): a readable condition naming the issue it closes, with no outcome line
   // in its place, is a decision whose moment has come in this pull request. The record is the one passed, never the working
   // directory's when a root was not given; a sidecar's own record serves its body alone.
+  // Its trigger is read as the open-unsaid rule's is (#241): from what GitHub shows, so no indented line, nested bullet, leading
+  // `---` block or `<!--` written as text hides a closing word it acts on. Fences, inline code and closed comments are not read.
   if (root !== undefined) {
+    const closingSeen = [...prose(md, { frontmatter: false, unclosed: false }).replace(/`[^`\n]*`/g, ' ').matchAll(CLOSES_N)].map(issueOf);
     const record = recordOf.has(f) ? readDecisions(dir, recordOf.get(f)) : readDecisions(root);
     const waiting = new Set();
     for (const ev of record.issueEvents()) {
-      const ref = closing.map(issueOf).find((c) => Number(c.n) === ev.issue && (!c.repo || !ev.repo || c.repo === ev.repo));
+      const ref = closingSeen.find((c) => Number(c.n) === ev.issue && (!c.repo || !ev.repo || c.repo === ev.repo));
       if (!ref || waiting.has(ev.id)) continue;
       waiting.add(ev.id);
       const write = ev.kind === 'closes' ? `\`Closed <date>: <outcome>\`` : `\`Reopened <date>: <what changed>\` or \`Reviewed <date>: stands — <why>\``;
-      findings.push({ where: `${f}#decision/awaits-outcome:${ev.id}`, detail: `this pull request closes #${ev.issue}, and ${ev.id} says it ${ev.kind} when #${ev.issue} lands: in this pull request, replace ${ev.id}'s condition with ${write}, or change the condition` });
+      const fix = ev.where === 'heading' ? `remove the clause from ${ev.id}'s heading and write ${write} beneath it` : `replace ${ev.id}'s condition with ${write}`;
+      findings.push({ where: `${f}#decision/awaits-outcome:${ev.id}`, detail: `this pull request closes #${ev.issue}, and ${ev.id} says it ${ev.kind} when #${ev.issue} lands: in this pull request, ${fix}, or, with the owner's yes, change the condition` });
     }
   }
   const fu = followUps(md);

@@ -385,7 +385,7 @@ test('unreadable: in file order, ids only; an issue event is readable (build ste
     // F-07 has a doc, so PD-6 fires, and PD-7's condition fires on it beside an issue; an issue event alone never fires in status.
     assert.deepEqual(r.fired('2026-03-10').map((f) => [f.id, f.events.map((e) => e.kind)]), [['PD-6', ['doc']], ['PD-7', ['doc']]]);
     // The readable issue events, for P1 (§8): one per decision and event, the condition's kind, the repository as written.
-    assert.deepEqual(r.issueEvents(), [{ id: 'PD-4', kind: 'closes', issue: 12, repo: '' }, { id: 'PD-5', kind: 'closes', issue: 12, repo: 'acme/app' }, { id: 'PD-7', kind: 'closes', issue: 12, repo: '' }, { id: 'PD-7', kind: 'reopens', issue: 13, repo: '' }]);
+    assert.deepEqual(r.issueEvents(), [{ id: 'PD-4', kind: 'closes', where: 'line', issue: 12, repo: '' }, { id: 'PD-5', kind: 'closes', where: 'line', issue: 12, repo: 'acme/app' }, { id: 'PD-7', kind: 'closes', where: 'heading', issue: 12, repo: '' }, { id: 'PD-7', kind: 'reopens', where: 'line', issue: 13, repo: '' }]);
   });
 });
 

@@ -31,7 +31,7 @@ function p1({ md, files = {}, rootArg = true, sidecar }) {
       mkdirSync(dirname(join(root, name)), { recursive: true });
       writeFileSync(join(root, name), text);
     }
-    const r = spawnSync(process.execPath, [P1, bodies, ...(rootArg ? [root] : [])], { encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1' } });
+    const r = spawnSync(process.execPath, [P1, bodies, ...(rootArg ? [root] : [])], { cwd: root, encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1' } });
     const json = JSON.parse((r.stdout ?? '').split('\n').findLast((l) => l.startsWith('@@json ')).slice('@@json '.length));
     return { exit: r.status, findings: json.findings.map((f) => f.where), details: json.findings.map((f) => f.detail), scanned: json.scanned };
   } finally {
@@ -76,6 +76,17 @@ test('the repository is compared as P1 compares a closing word and "leaves open"
   assert.deepEqual(awaits(p1({ md: body('Closes #12'), files })), ['body.md#decision/awaits-outcome:PD-1']);
   assert.deepEqual(awaits(p1({ md: body('Closes other/app#12'), files })), []);
   assert.deepEqual(awaits(p1({ md: body('Closes https://github.com/acme/app/issues/13'), files })), ['body.md#decision/awaits-outcome:PD-2']);
+});
+
+test('a closing word GitHub acts on is read wherever it shows: a nested bullet, a tab, a leading --- block, beside a `<!--` written as text (record: PD-7 closes when #12 lands)', () => {
+  const files = { 'decisions.md': record(CLOSES) };
+  for (const md of [body('- Issue\n    - Closes #12'), body('This finishes the page\n    Closes #12'), body('- Issue\n\t- Closes #12'), `---\nCloses #12\n---\n${body('Part of #31')}`,
+    body('Part of #31').replace('## What\n', '## What\nP1 reads a `<!--` mark written in inline code.\n').replace('Part of #31', 'Closes #12')]) {
+    assert.deepEqual(awaits(p1({ md, files })), ['body.md#decision/awaits-outcome:PD-7'], md);
+  }
+  assert.deepEqual(awaits(p1({ md: body('Part of #12\n\n```\nCloses #12\n```\n`Closes #12` and <!-- Closes #12 -->'), files })), [], 'code and closed comments close nothing');
+  const heading = p1({ md: body('Closes #12'), files: { 'decisions.md': record('## PD-7 — a *(decided 2026-03-01 · closes when #12 lands)*') } });
+  assert.match(heading.details[0], /remove the clause from PD-7's heading and write `Closed <date>: <outcome>` beneath it, or, with the owner's yes, change the condition/);
 });
 
 test('a condition P1 cannot read, or one quoted in a fence, is no condition; nor is a closing word in code (record: PD-1 unreadable, PD-2 in a fence)', () => {

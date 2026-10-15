@@ -291,13 +291,13 @@ export function readDecisions(root, file = 'decisions.md') {
   // A condition naming an issue: waiting, never also prose only. Status cannot see it happen (§3); P1 reads it at the
   // pull request that closes the issue (§8).
   const waits = (e) => e.conditions.some((c) => c.kind !== 'changes' && c.readable && c.events.some((ev) => ev.kind === 'issue'));
-  // The readable issue events, in file order: `{ id, kind, issue, repo }`, `kind` the condition's (reopens or closes) and
+  // The readable issue events, in file order: `{ id, kind, where, issue, repo }`, `kind` the condition's (reopens or closes), `where` heading or line, and
   // `repo` as written, lower case, '' for the pull request's own repository.
   const issueEvents = () =>
     entries.flatMap((e) =>
       e.conditions
         .filter((c) => c.kind !== 'changes' && c.readable)
-        .flatMap((c) => c.events.filter((ev) => ev.kind === 'issue').map((ev) => ({ id: e.id, kind: c.kind, issue: ev.issue, repo: ev.repo })))
+        .flatMap((c) => c.events.filter((ev) => ev.kind === 'issue').map((ev) => ({ id: e.id, kind: c.kind, where: c.where, issue: ev.issue, repo: ev.repo })))
     );
   return { missing, entries, strays, owed, fired, unreadable, issueEvents, proseCount: () => entries.filter((e) => e.prose && !waits(e)).map((e) => e.id), awaitingIssue: () => entries.filter(waits).map((e) => e.id), unreadFolders: () => [...t().unread] };
 }
