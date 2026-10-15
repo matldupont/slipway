@@ -61,10 +61,12 @@ const WS = '[ \\t]{1,20}';
 // Whether a text holds one of the five clause openings, read on its letters alone, case folded: no mark, space, tab or
 // run of them between or inside the words hides one (the owner's call on #466, after two review rounds each found a
 // typo shape a pattern missed). It is louder by design: a title whose letters happen to run `closesif` is unreadable.
-// One linear pass and a substring search, so it may read a whole line, past the cut at MAX too.
+// One loop over the characters and a substring search, no pattern, so it may read a whole line past the cut at MAX.
 const CLAUSE_LETTERS = ['reopenswhen', 'reopensif', 'closeswhen', 'closesif', 'provisionaluntil'];
 export const hasClause = (s) => {
-  const letters = s.toLowerCase().replace(/[^a-z]/g, '');
+  const lower = s.toLowerCase();
+  let letters = '';
+  for (const ch of lower) if (ch >= 'a' && ch <= 'z') letters += ch;
   return CLAUSE_LETTERS.some((w) => letters.includes(w));
 };
 // A clause that opens with one of them, at its start and followed by a space or its end: `[kind, rest]`.

@@ -124,7 +124,7 @@ test('the fail-safe holds, case 8 of 10', () => {
 });
 
 test('the fail-safe holds, case 9 of 10', () => {
-  for (const word of ['"reopens"', '“reopens”', '*reopens*', '_reopens_', "'reopens'", '‘reopens’', '[reopens]', '~~reopens~~', '**reopens**', 're`opens`', `re\`opens${' *'.repeat(25)}`, 're-opens']) {
+  for (const word of ['"reopens"', '“reopens”', '*reopens*', '_reopens_', "'reopens'", '‘reopens’', '[reopens]', '~~reopens~~', '**reopens**', 're`opens`', `re\`opens${' *'.repeat(25)}`, 're-opens', '·re`opens`', 'x/re*opens']) {
     assert.deepEqual(read(`PD-1 — t *(decided 2026-03-01 · ${word} when M2 is closed)*`), [['heading', false]], word);
   }
   assert.deepEqual(read(`PD-2 — t *(decided 2026-03-01 · reopens${' \t'.repeat(15)}when M2 is closed)*`), [['heading', false]]);
@@ -139,6 +139,9 @@ test('the fail-safe holds, case 9 of 10', () => {
   // A labelled line whose cut lands right after an event: the spaces fill it to column 500, and squash drops them.
   const line = one(`## PD-4 — t\n\nReopens when: M1 is closed${' '.repeat(474)} or M2 is closed\n`);
   assert.deepEqual(line.conditions.map((c) => c.readable), [false]);
+  // Cut short, an issue event alone is no reason to call it only the issue's.
+  const issue = one(`## PD-5 — t\n\nReopens when: #12 closes${' '.repeat(480)} or M2 is closed\n`);
+  assert.deepEqual(issue.conditions.map((c) => [c.readable, c.issueOnly]), [[false, false]]);
 });
 
 test('the fail-safe holds, case 10 of 10', () => {

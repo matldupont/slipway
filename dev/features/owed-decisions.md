@@ -492,6 +492,11 @@ other people's text: one it cannot read is counted as unreadable, never passed a
 - Status lists one Owed citation line per decision and feature and one line per fired condition, uncapped; a record
   that owes a great deal fills Needs attention, as many `Owed:` checks would. The unreadable ids are capped at 20.
 - Ids compare by number and prefix, so `PD-7` and `D-7` are two decisions, as they are for ID1.
+- A typo can make a condition louder, never silent (the owner, 2026-10-14, #466), so the reader is loud on purpose: a
+  heading whose letters, marks and spaces taken out, run `reopenswhen`, `reopensif`, `closeswhen`, `closesif` or
+  `provisionaluntil` outside a readable clause is unreadable ("The trial closes, if unpaid…" included), and so is a
+  labelled line inside a fence under a decision, a quoted example included. The fix is to reword the title or move the
+  example above the first decision.
 - The shared `readMilestones()` (`ci/checks/lib/milestones.mjs`), which status and other checks use, keeps one review
   item of #454 open; the owner handed it to #430 item 2 (2026-10-14, #466). This reader does not use it.
 
