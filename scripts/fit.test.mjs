@@ -571,11 +571,11 @@ test('a milestone citation written with a look-alike hyphen or digit, or a chara
 test('a Fit GitHub hides, a heading or label made only by taking a comment out, and markup that shows nothing are not a filled Fit', () => {
   const filled = fit('Reuses: x in lib/x', 'Numbers: none shown', 'New: a thing');
   assert.deepEqual(reasons({ [A]: doc('shipped', `<!-- an open comment\n\n${filled}`) }), ['fit/missing'], 'after a <!-- with no -->');
-  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/unreadable'], 'inside a comment, across its heading');
+  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/unfilled/unreadable'], 'inside a comment, across its heading');
   // A `<!--` GitHub shows as text (in code, in an attribute) and a `-->` under the next heading: the reader cannot tell
   // which headings show, so the doc is counted, never passed.
   for (const [open, close] of [['`<!--`', 'The `-->` export is slow.'], ['<span title="<!--"></span>', '<span title="-->"></span>']]) {
-    assert.deepEqual(reasons({ [A]: `---\nstatus: shipped\n---\n\n# F-1 — x\n\n## Fit\n\nReuses: x in lib/x\n\nNumbers: none shown\n\nNew: ${open}\n\n## Problem\n\n${close}\n` }), ['fit/unreadable'], open);
+    assert.deepEqual(reasons({ [A]: `---\nstatus: shipped\n---\n\n# F-1 — x\n\n## Fit\n\nReuses: x in lib/x\n\nNumbers: none shown\n\nNew: ${open}\n\n## Problem\n\n${close}\n` }), ['fit/unfilled/unreadable'], open);
   }
   assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('## Fit', '#<!-- --># Fit')) }), ['fit/missing'], 'a heading only once the comment is out');
   assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('Reuses:', 'Reu<!-- -->ses:')) }), ['fit/unfilled/reuses'], 'a label only once the comment is out');

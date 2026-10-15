@@ -488,7 +488,7 @@ as the other ratchets' are.
   without a line of their own; MS1, run by every `pnpm meta`, is where it shows. `ci/ratchet.mjs` still reads the
   tool's report through a link: the report is the tool's own output, at a path the project's script names.
   Fit is read as GitHub shows it only in part: a comment, and a `<!--` with no `-->` to the end, is a space; a doc in
-  which a `<!--` and a `-->` sit on either side of a heading line is counted as `fit/unreadable`, since the reader
+  which a `<!--` and a `-->` sit on either side of a heading line is counted as `fit/unfilled/unreadable`, since the reader
   cannot tell a comment from a `<!--` GitHub shows as text (a fenced example of one included); a heading
   ends a label's text; a character reference, an HTML tag, a link with no text and a link reference definition say
   nothing. A label line with a setext underline under it is still a label, a lone `-` under a line is still an empty

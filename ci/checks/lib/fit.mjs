@@ -14,8 +14,8 @@
 //
 // Lacks Fit, each reason a finding id:
 //   fit/missing             no `## Fit` heading; the first one in the file is the one read, as section() finds it
-//   fit/unreadable          a `<!--` and a `-->` sit on either side of a heading line: the reader cannot tell a comment
-//                           from a `<!--` GitHub shows as text, so it cannot tell which headings, labels and text show
+//   fit/unfilled/unreadable  a `<!--` and a `-->` sit on either side of a heading line: the reader cannot tell a
+//                           comment from a `<!--` GitHub shows as text, so it cannot tell which labels and text show
 //   fit/unfilled/<label>    that label is absent, or its text is empty, or its text holds a placeholder
 //   fit/unfilled/new        also when `Reuses:` says nothing is reused and `New:` says `none`
 //   frontmatter/unreadable  the doc is held as `unreadable`
@@ -105,7 +105,7 @@ const placeholder = (text) => text.split('\n').some((line) => line.length > LINE
 
 // How a doc's Fit reads: `reasons` it lacks Fit (none: filled), and for a filled one which short answers it gave.
 function readFit(md) {
-  if (commentCrossesHeading(md)) return { reasons: ['fit/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
+  if (commentCrossesHeading(md)) return { reasons: ['fit/unfilled/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
   const texts = fitTexts(md);
   if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
   // The placeholder test and its length cap come first, so a line nobody reads is never read further.
