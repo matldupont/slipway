@@ -130,7 +130,8 @@ test('the fail-safe holds, case 9 of 10', () => {
   assert.deepEqual(read(`${pre(', and it reop')}ens when M2 is closed`), [['heading', false]]);
   const list = read(`${pre(' *(decided 2026-03-01 · reopens when M2 is closed')} or F-09 is shipped)*`);
   assert.equal(list.some(([, ok]) => ok === false), true);
-  const line = one(`## PD-4 — t\n\nReopens when: ${Array.from({ length: 40 }, (_, i) => `M${i + 1} is closed`).join(' or ')}\n`);
+  // A labelled line whose cut lands right after an event: the spaces fill it to column 500, and squash drops them.
+  const line = one(`## PD-4 — t\n\nReopens when: M1 is closed${' '.repeat(474)} or M2 is closed\n`);
   assert.deepEqual(line.conditions.map((c) => c.readable), [false]);
 });
 
