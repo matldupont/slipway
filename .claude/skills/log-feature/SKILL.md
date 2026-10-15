@@ -111,7 +111,7 @@ A feature that ignores the codebase gets grafted on; one that reuses what is the
 
 ```
 PHASE 3: WHAT EXISTS
-Prior art: {file:line — what it does, how it relates} · Reuse: | capability | from | net-new? |
+Prior art: {file:line — what it does, how it relates} · Reuse: | capability/number/surface | from | net-new? |
 Touches:   {layer: paths} · Rules: {file: the rule that applies} · Related: {docs, PRD ids | none}
 Decisions: {id — what it decides · how this touches it} · Conflicts: {A vs B — subject, answered} | none
 ```

@@ -458,7 +458,27 @@ as the other ratchets' are.
   Fit). `Reuses:` text on the label line, or unmarked before the first bullet, is an item too, and backticks are
   removed before `nothing` is read (§2 says "every bullet"). A doc held only for having no status line and with
   no section has two reasons, `frontmatter/unreadable` and `fit/missing`, so two warning lines (§2 says one).
-  The readings are pinned in `scripts/fit.test.mjs`.
+  The readings are pinned in `scripts/fit.test.mjs`. Three of §3's sentences are worded to be true of every doc
+  they count (#430 item 4): a `*.md` in either folder that is a link or a folder (or another entry that is not a
+  file) gets a sentence of its own, "1 entry named `*.md` in docs/features/ is a link or a folder, not a file, so it
+  is not read and not counted.", not "having no F-number heading", which is true only of a file; a draft "has no
+  Fit section filled in yet", since one may have the section with nothing in it; and a doc counted for its header
+  "has no readable status line", since one may have the line with nothing after it.
+- `/log-bug`'s stub sentence says the Fit is filled "from the code as Phase 2 traced it"; the Acceptance line says
+  "from the feature's code". Both name the same code, since the stub step's first line makes the doc the feature's;
+  the skill is at the 300-line cap, so its wording stays (#430 item 16).
+- Node 23 and 24's `JSON.parse` (seen on v23.10.0 and v24.12.0, not on v20.17.0 or v20.19.6) reads a one-character
+  name written as an escape (`"\n"`, `"\u0001"`) as `"\\"` once the process has parsed an object with a `"\\"`
+  name at the same place, and one `ci/baselines.json` can hold both. Sync compares bytes, so it refuses such a file
+  as not in slipway's form, though it is. The two `--update` commands refuse to rewrite it, and refuse any file
+  whose rewrite would lose or change an entry: a name given twice, bytes that are not UTF-8, a number JSON does not
+  write back as read (`1e400`, a whole number past 2^53), a link (#430 item 7 and its review). F2's refusal is its
+  BROKEN line; `ci/ratchet.mjs`'s prints a stack trace under the message. The way out is fixing the entry by hand.
+  A fraction is written back as the number it reads as: one with more digits than a number holds is rounded, and
+  one too small to hold (`1e-400`) becomes 0. The writer checks the file by
+  reading it again, not the caller's own earlier read: the bug depends on what the process parsed before, so the
+  two reads could differ. Neither command has been seen to (thousands of generated files, #430's review), and
+  checking the caller's object would refuse `new-project`, which writes a fresh file over slipway's copy.
 
 ## Acceptance
 

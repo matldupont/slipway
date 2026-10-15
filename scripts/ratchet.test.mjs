@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -99,4 +99,78 @@ test('a number that cannot be read is BROKEN, never green: a missing report, a p
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// Node 23 and 24's JSON.parse reads a one-character escaped name as `\` once the process has parsed an object with a
+// `\` name at that place; this file does both. Rewriting it would replace the name and lose its entry (#430).
+const MISREAD = `${JSON.stringify({ a: { o: 1, '\\': 2 }, b: { o: 1, '\n': 3 } }, null, 2)}\n`;
+const misreads = !('\n' in JSON.parse(MISREAD).b);
+const REFUSED = /ci\/baselines\.json holds an entry a rewrite would lose or change \(a name given twice, a name or number Node v\d+\.\d+\.\d+ does not read as written, or bytes that are not UTF-8\); nothing was written — fix the entry by hand/;
+test('--update refuses a baselines file whose names this Node misreads, and writes nothing', { skip: misreads ? false : `JSON.parse on Node ${process.version} reads these names right` }, () => {
+  const r = ratchet(1, MISREAD, '--update');
+  assert.equal(r.status, 1);
+  assert.match(r.err, REFUSED);
+  assert.equal(r.file, MISREAD);
+});
+
+test('--update refuses a baselines file that gives a name twice, and writes nothing', () => {
+  const twice = '{\n  "dup": 3,\n  "dup": 4\n}\n';
+  const r = ratchet(1, twice, '--update');
+  assert.equal(r.status, 1);
+  assert.match(r.err, REFUSED);
+  assert.equal(r.file, twice);
+});
+
+test('namesIn reads every name as written, at any depth, and no string that is a value', async () => {
+  const { namesIn } = await import('../ci/checks/lib/ratchet.mjs');
+  assert.deepEqual(namesIn(MISREAD), ['a', 'o', '\\', 'b', 'o', '\n']);
+  assert.deepEqual(namesIn('{"k": "v:", "q\\"": ["x", {"in" : 1}], "e": "\\\\"}'), ['k', 'q"', 'in', 'e']);
+});
+
+// #430, round 1 of its review: an entry other than a name is lost or changed by a rewrite too.
+test('--update refuses a baselines file holding a number JSON does not write back as read, and writes nothing', () => {
+  for (const text of ['{\n  "dup": 3,\n  "huge": 1e400\n}\n', '{\n  "dup": 3,\n  "big": 9007199254740993\n}\n', '{\n  "dup": 3,\n  "big": [12345678901234567890]\n}\n']) {
+    const r = ratchet(1, text, '--update');
+    assert.equal(r.status, 1, JSON.stringify(text));
+    assert.match(r.err, REFUSED);
+    assert.equal(r.file, text);
+  }
+});
+
+test('--update keeps a file of arrays, nested objects and a fraction whose entries it can write back: no refusal', () => {
+  const r = ratchet(1, { dup: 3, list: [1, { inner: 2 }], nested: { a: { b: 9007199254740991 } }, ratio: 0.25 }, '--update');
+  assert.equal(r.status, 0, r.err);
+  assert.deepEqual(JSON.parse(r.file), { dup: 1, list: [1, { inner: 2 }], nested: { a: { b: 9007199254740991 } }, ratio: 0.25 });
+});
+
+// A folder with a report and ci/, the baselines made by `make`, and the command run with --update.
+function updateIn(make) {
+  const dir = mkdtempSync(join(tmpdir(), 'ratchet-'));
+  try {
+    writeFileSync(join(dir, 'report.json'), JSON.stringify({ stats: { total: 1 } }));
+    mkdirSync(join(dir, 'ci'));
+    make(dir);
+    const r = spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), 'dup', 'report.json', 'stats.total', '--update'], { cwd: dir, encoding: 'utf8' });
+    return { status: r.status, err: r.stderr, bytes: readFileSync(join(dir, BASELINES)), elsewhere: existsSync(join(dir, 'elsewhere.json')) ? readFileSync(join(dir, 'elsewhere.json'), 'utf8') : null };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+test('--update refuses a baselines file whose bytes are not UTF-8, and writes nothing', () => {
+  const bytes = Buffer.concat([Buffer.from('{\n  "dup": 3,\n  "caf'), Buffer.from([0xff]), Buffer.from('": 1\n}\n')]);
+  const r = updateIn((dir) => writeFileSync(join(dir, BASELINES), bytes));
+  assert.equal(r.status, 1);
+  assert.match(r.err, REFUSED);
+  assert.ok(r.bytes.equals(bytes));
+});
+
+test('--update refuses a ci/baselines.json that is a link, and writes nothing through it', () => {
+  const r = updateIn((dir) => {
+    writeFileSync(join(dir, 'elsewhere.json'), '{"dup":3}');
+    symlinkSync(join(dir, 'elsewhere.json'), join(dir, BASELINES));
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.err, /ci\/baselines\.json is a link or not a plain file, so it is not rewritten; nothing was written — make it a plain file/);
+  assert.equal(r.elsewhere, '{"dup":3}');
 });

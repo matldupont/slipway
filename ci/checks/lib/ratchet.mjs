@@ -3,7 +3,7 @@
 // the same way, and the one reader and writer of that file: the checks, sync and new-project all go through it.
 // It never exits, so a program that is not a check can import it.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 export const BASELINES = 'ci/baselines.json';
@@ -29,7 +29,45 @@ export const serialiseBaselines = (baselines) => `${JSON.stringify(baselines, nu
 // The baselines under `root`; none when the file is absent.
 export const readBaselines = (root = '.') => (existsSync(join(root, BASELINES)) ? parseBaselines(readFileSync(join(root, BASELINES), 'utf8')) : {});
 
+// Every name in a JSON text, at any depth, as written: each string followed by a `:`, read as a lone string.
+// JSON.parse on Node 23 and 24 can read a one-character escaped name as `\` once the process has parsed an object
+// with a `\` name at that place; a lone string is not a name, so it is read right.
+export function namesIn(text) {
+  const names = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '"') continue;
+    let j = i + 1;
+    while (j < text.length && text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+    let k = j + 1;
+    while (/\s/.test(text[k] ?? '')) k++;
+    if (text[k] === ':') names.push(JSON.parse(text.slice(i, j + 1)));
+    i = j;
+  }
+  return names;
+}
+const namesOf = (value) => (value !== null && typeof value === 'object' ? Object.entries(value).flatMap(([k, v]) => [...(Array.isArray(value) ? [] : [k]), ...namesOf(v)]) : []);
+// A number JSON does not write back as it was read: none at all (`1e400` reads as Infinity, written as null), or
+// a whole number too large to be held exactly. A fraction is written back as the number it reads as, so one past a
+// number's digits is rounded and `1e-400` becomes 0 (F-12, Known limitations).
+const changedNumber = (value) => (typeof value === 'number' ? !Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)) : value !== null && typeof value === 'object' && Object.values(value).some(changedNumber));
+
+// Writes `baselines` over the file under `root`. Throws, writing nothing, when that file holds an entry a rewrite
+// would lose or change: a link or anything but a plain file there; bytes that are not UTF-8; a name the parser does
+// not read as written (a name given twice, or the Node bug above); a number that is not written back as read. The
+// file is read again here, so a caller's own earlier read is not what is checked (F-12, Known limitations).
 export function writeBaselines(root, baselines) {
+  const file = join(root, BASELINES);
+  const stat = lstatSync(file, { throwIfNoEntry: false });
+  if (stat) {
+    if (!stat.isFile()) throw new Error(`${BASELINES} is a link or not a plain file, so it is not rewritten; nothing was written — make it a plain file`);
+    const bytes = readFileSync(file);
+    const text = bytes.toString('utf8');
+    const parsed = parseBaselines(text);
+    const sorted = (names) => JSON.stringify([...names].sort());
+    if (!Buffer.from(text, 'utf8').equals(bytes) || sorted(namesIn(text)) !== sorted(namesOf(parsed)) || changedNumber(parsed)) {
+      throw new Error(`${BASELINES} holds an entry a rewrite would lose or change (a name given twice, a name or number Node ${process.version} does not read as written, or bytes that are not UTF-8); nothing was written — fix the entry by hand`);
+    }
+  }
   mkdirSync(dirname(join(root, BASELINES)), { recursive: true });
   writeFileSync(join(root, BASELINES), serialiseBaselines(baselines));
 }

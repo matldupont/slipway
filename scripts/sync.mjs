@@ -41,7 +41,7 @@ import { BASELINES, FIT_KEY, isCount, parseBaselines, serialiseBaselines } from 
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
-import { alreadyLine, alreadyText, appliedText, CONVENTIONAL, countLines, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
+import { alreadyLine, alreadyText, appliedText, codeNote, CONVENTIONAL, countLines, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
@@ -466,6 +466,9 @@ function projectBaselines(root, { bytes = false } = {}) {
   }
 }
 
+// How many of the count's other files sit in each feature-doc folder, for its sentences (`countLines`).
+const inFolders = (others) => Object.fromEntries(FEATURE_DIRS.map((d) => [`${d}/`, others.filter((o) => o.path.startsWith(`${d}/`)).length]));
+
 // package.json `scripts`, key by key (F-01 `merged`): a key slipway changed between base and target is
 // `updated` when the project still has the base value, else `reported`. Both sides go through the same
 // derivation new-project uses, so a key that calls an internal path never counts.
@@ -801,8 +804,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
         fit = fitCount(root);
       } catch (e) {
         // The error's text names a path of the project's, so only its code is shown.
-        const code = /^[A-Z][A-Z0-9_]{1,30}$/.test(e?.code ?? '') ? ` (${e.code})` : '';
-        throw new Refusal(`could not read the project's feature docs, reviews or milestones to count the feature docs with no Fit section${code} — look in docs/features/, dev/features/, docs/reviews/ and docs/milestones/ for an entry that is not a regular file, such as a folder or a link to nothing; nothing was written`);
+        throw new Refusal(`could not read the project's feature docs, reviews or milestones to count the feature docs with no Fit section${codeNote(e)} — look in docs/features/, dev/features/, docs/reviews/ and docs/milestones/ for an entry that is not a regular file, such as a folder or a link to nothing; nothing was written`);
       }
       const bytes = serialiseBaselines({ ...was?.json, [FIT_KEY]: fit.count });
       todo.writes.set(p, { bytes: Buffer.from(bytes) });
@@ -811,7 +813,8 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
         n: fit.count,
         noStatus: fit.docs.filter((d) => d.reasons.includes('frontmatter/unreadable')).length,
         drafts: fit.drafts.length,
-        others: Object.fromEntries(FEATURE_DIRS.map((d) => [`${d}/`, fit.others.filter((o) => o.path.startsWith(`${d}/`)).length])),
+        others: inFolders(fit.others.filter((o) => o.why === 'no-id')),
+        notFiles: inFolders(fit.others.filter((o) => o.why !== 'no-id')),
       };
     }
   }
