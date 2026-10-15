@@ -32,6 +32,11 @@ test('it holds eight numbered rules, in order, each with a Pair: that names a fi
   });
 });
 
+test("the eight rules carry the Contract's titles, in the Contract's order", () => {
+  const titles = read('process/writing.md').split('\n').flatMap((l) => (RULES.test(l) ? [l.match(/^\d\. \*\*(.+?)\.\*\*/)?.[1]] : []));
+  assert.deepEqual(titles, ['Action first', "The project's words", 'One idea per sentence', 'Something concrete behind every claim', 'Say what was not done or checked', "Keep the owner's words", 'Length matches the need', 'Subjects and titles']);
+});
+
 test('process/intake.md and process/slipway-rules.md each point to it', () => {
   assert.ok(read('process/intake.md').includes('The form follows `process/writing.md`.'));
   assert.ok(read('process/slipway-rules.md').includes("What a person reads follows `process/writing.md`: action first, the project's words, one idea per sentence."));

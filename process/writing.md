@@ -17,6 +17,6 @@ For text a person reads or edits: what an agent shows or posts (status, check me
 7. **Length matches the need.** No recap endings, no throat-clearing, no epigrams.
    Pair: `README.md` says "a rule exists only where something fires." The row in `SLIPWAY.md`'s status table says it with a count: "`check` | 12 | a check or harness rule fires on violation".
 8. **Subjects and titles.** A commit subject, a PR title and an issue title are 72 characters or fewer, in plain words, saying what changed for the reader. Review rounds and ids go in the body.
-   Pair: commit `3d74d36`, which touched `ci/checks/lib/ratchet.mjs`, has a 149-character subject starting "fix(checks): review round 2 — the id scan's comment says what it takes". It should be "fix(checks): say what the id scan takes (#430)".
+   Pair: commit `3d74d36`, which touched `ci/checks/lib/ratchet.mjs`, has a 147-character subject starting "fix(checks): review round 2 — the id scan's comment says what it takes". It should be "fix(checks): say what the id scan takes (#430)".
 
 No template gains a section without the owner's yes, and a section cut never comes back. The feature template, `docs/features/TEMPLATE.md`, has 12 sections today.

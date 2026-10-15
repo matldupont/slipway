@@ -41,7 +41,7 @@ function firedLine({ id, kind, where, events }, today) {
     return `${AGENT} Close the decision (${id}). ${write}. Its closing condition has happened (${happened}), so it no longer constrains new work. It blocks nothing. It waits on nothing.`;
   }
   const place = where === 'heading' ? "removes the clause from the decision's heading and writes the outcome beneath it" : 'writes the outcome in place of the condition';
-  return `(you) Re-read the decision (${id}) and say whether it still holds. Its condition has happened (${happened}). An agent or /clarify then ${place}, as "Reopened ${today}: <what changed>", "Closed ${today}: <outcome>" or "Reviewed ${today}: stands — <why>". When it is open again, it writes "open — reopened ${today}" as the heading status and "Reopened ${today}: open again" beneath it. A decision that supersedes it settles it too. It blocks anything new built on the decision. It waits on nothing.`;
+  return `(you) Re-read the decision (${id}) and say whether it still holds. Its condition has happened (${happened}). An agent or /clarify then ${place}, as "Reopened ${today}: <what changed>", "Closed ${today}: <outcome>" or "Reviewed ${today}: stands — <why>". When it is open again, it writes "open — reopened ${today}" as the heading status and "Reopened ${today}: open again" ${where === 'heading' ? 'beneath it' : 'in place of the condition'}. A decision that supersedes it settles it too. It blocks anything new built on the decision. It waits on nothing.`;
 }
 
 function unreadableLine(entries) {
