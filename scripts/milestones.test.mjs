@@ -12,7 +12,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { contents, marker, owing, readMilestoneModel, readMilestones, started } from '../ci/checks/lib/milestones.mjs';
-import { readRisks } from '../ci/checks/lib/risks.mjs';
+import { readDeadlines, readRisks } from '../ci/checks/lib/risks.mjs';
 import { excerpt } from '../ci/checks/lib/report.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -280,6 +280,22 @@ test('MS1, the No-gos, the evidence files and K1 read a long line of placeholder
       spawnSync(process.execPath, [join(SRC, 'ci/checks/meta', check), dir], { encoding: 'utf8' });
       assert.ok(Date.now() - started < 3_000, `${check} took ${Date.now() - started} ms`);
     }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the milestone model and the PRD deadline table read a long line of placeholders or comment openers quickly', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ms-'));
+  try {
+    mkdirSync(join(dir, 'docs/milestones'), { recursive: true });
+    writeFileSync(join(dir, 'docs/milestones/m1.md'), `---\nid: M1\nstatus: shaping\nsummary: ${'<…'.repeat(100_000)}\n---\n\n# M1 — x\n`);
+    let started = Date.now();
+    assert.equal(readMilestoneModel(dir, '2026-06-01')[0].summary.length, 200_000, 'an opener no `>` closes is no placeholder');
+    assert.ok(Date.now() - started < 1_500, `the model took ${Date.now() - started} ms`);
+    started = Date.now();
+    assert.equal(readDeadlines(`${'<!--'.repeat(100_000)}\n`), null);
+    assert.ok(Date.now() - started < 1_500, `the deadlines took ${Date.now() - started} ms`);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

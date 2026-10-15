@@ -617,3 +617,33 @@ test('a docs/reviews/ that is a link is listed unread, so no doc is held or drop
     rmSync(outside, { recursive: true, force: true });
   }
 });
+
+// Round 1 of #482's review: a comment inside a placeholder shows as nothing, so the placeholder is still one; a `<!--`
+// mid-line with no `-->` shows as text, so it hides nothing; markup in a code span shows; a list or quote line above
+// `---` is not a heading.
+test('a placeholder with a comment inside it is unfilled, a mid-line unclosed <!-- hides nothing, code shows its markup, and a list above --- is no heading', () => {
+  const rest = { numbers: 'Numbers: none shown', fresh: 'New: a thing' };
+  for (const reuses of ['Reuses: T<!-- -->BD', 'Reuses:\n- <<!-- -->…a pattern…>', 'Reuses: [NEEDS<!-- --> CLARIFICATION: x]', 'Reuses:\n- <…a pattern…<!--\n-->>']) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, rest.numbers, rest.fresh)) }), ['fit/unfilled/reuses'], reuses);
+  }
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', rest.numbers, 'New: the export, see <!-- <…anything this adds…>')) }), ['fit/unfilled/new'], 'a mid-line <!-- hides nothing');
+  assert.deepEqual(reasons({ [A]: doc('shipped', `See \`<!--\` in code.\n\n${fit('Reuses: x in lib/x', rest.numbers, rest.fresh)}`) }), [], 'a <!-- in code above the section hides nothing');
+  for (const fresh of ['New: `<ExportButton />`', 'New: `&nbsp;`']) assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: `<Sheet>` in ui/sheet.tsx', rest.numbers, fresh)) }), [], fresh);
+  for (const reuses of ['Reuses:\n1. `total()` in lib/money.ts\n---', 'Reuses:\n> `total()` in lib/money.ts\n---']) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, rest.numbers, rest.fresh)) }), [], reuses);
+  }
+});
+
+test('a linked docs/milestones/TEMPLATE.md or README.md feeds no count, so the count lists neither unread', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'fit-outside-'));
+  try {
+    writeFileSync(join(outside, 't.md'), '# t\n');
+    const r = count({ 'docs/milestones/keep.md': '# kept\n' }, (d) => {
+      symlinkSync(join(outside, 't.md'), join(d, 'docs/milestones/TEMPLATE.md'));
+      symlinkSync(join(outside, 't.md'), join(d, 'docs/milestones/README.md'));
+    });
+    assert.deepEqual(r.unread, []);
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});

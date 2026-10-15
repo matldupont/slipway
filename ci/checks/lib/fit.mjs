@@ -28,7 +28,7 @@ import { readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
 import { hasPlaceholder } from './frontmatter.mjs';
-import { commentCrossesHeading, commentLines, replaceComments, sectionLines } from './markdown.mjs';
+import { commentCrossesHeading, commentLines, commentSpans, replaceComments, sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
 import { MISSING, notPlainFolder, readPlain, reviewProvenance } from './review-header.mjs';
 
@@ -41,15 +41,27 @@ const REVIEWS = 'docs/reviews';
 const ATX = /^ {0,3}#{1,6}(?:[ \t]|$)/;
 const UNDERLINE = /^ {0,3}(?:=+|-{2,})[ \t]*$/;
 const isLabel = (line) => Object.values(LABELS).some((l) => line.startsWith(l));
+// A list item or a quote line above a `---` is a list or a quote and a rule, not a heading.
+const NOT_TEXT = /^\s*(?:[-*+]\s|\d{1,9}[.)]\s|>)/;
 const headingAt = (lines, i) =>
-  ATX.test(lines[i]) || (i + 1 < lines.length && lines[i].trim() !== '' && !isLabel(lines[i]) && !/^\s*[-*+]\s/.test(lines[i]) && !UNDERLINE.test(lines[i]) && UNDERLINE.test(lines[i + 1]));
+  ATX.test(lines[i]) || (i + 1 < lines.length && lines[i].trim() !== '' && !isLabel(lines[i]) && !NOT_TEXT.test(lines[i]) && !UNDERLINE.test(lines[i]) && UNDERLINE.test(lines[i + 1]));
+
+// Whether a `<!--` with no `-->` after it opens a line (up to three spaces before it), the one place GitHub takes it
+// for a comment that hides the rest of the doc; anywhere else it shows as text.
+function unclosedOpensLine(md) {
+  const spans = commentSpans(md);
+  const at = md.indexOf('<!--', spans.length ? spans.at(-1)[1] : 0);
+  return at >= 0 && /^ {0,3}$/.test(md.slice(md.lastIndexOf('\n', at - 1) + 1, at));
+}
 
 // The text of each label of a doc's Fit section, absent labels left out; null when the doc has no section. Read as
-// GitHub shows the doc: every comment, and a `<!--` with no `-->` to the end of the doc, is a space (its line breaks
-// kept), so no heading, label or text exists only once a comment is taken out, and none hidden in one is read.
-function fitTexts(md) {
+// GitHub shows the doc: every comment, and a `<!--` with no `-->` that opens a line to the end of the doc, is what
+// `by` gives (by default a space and its line breaks), so no heading, label or text exists only once a comment is taken out, and none hidden in
+// one is read.
+function fitTexts(md, by = (c) => ` ${commentLines(c)}`) {
   // The lines as written: section() trims its text, and an indented `Reuses:` on the first line is not a label.
-  const body = sectionLines(replaceComments(md, (c) => ` ${commentLines(c)}`, { unclosed: true }), 'Fit', 2);
+  const shownMd = replaceComments(md, by, { unclosed: unclosedOpensLine(md) });
+  const body = sectionLines(shownMd, 'Fit', 2);
   if (body === null) return null;
   const texts = {};
   let cur = null;
@@ -77,7 +89,9 @@ function fitTexts(md) {
 // and a line that is a link reference definition (`[x]: url`). Each pattern stops at the next `<`, `(` or line end.
 const MARKUP = /&(?:#\d{1,7}|#[xX][\da-fA-F]{1,6}|[A-Za-z][A-Za-z\d]{0,31});|<\/?[A-Za-z][\w-]*(?:\s[^<>\n]*)?\/?>|\[\]\([^()\n]*\)/g;
 const REFERENCE = /^ {0,3}\[[^\]\n]{1,999}\]:/;
-const shown = (s) => unseen(s).split('\n').filter((l) => !REFERENCE.test(l)).join('\n').replace(MARKUP, '');
+// Inside a code span markup is shown as written, so its `<`, `&` and `[` are taken out of the way first.
+const CODE = /`[^`\n]*`/g;
+const shown = (s) => unseen(s).split('\n').filter((l) => !REFERENCE.test(l)).join('\n').replace(CODE, (c) => c.replace(/[<&[]/g, ' ')).replace(MARKUP, '');
 const says = (s) => /[\p{L}\p{N}]/u.test(shown(s));
 const word = (s) => unseen(s).replace(/`/g, '').trim().toLowerCase();
 // A label's text as one short answer: its list mark, backticks and closing full stop removed, case ignored.
@@ -108,8 +122,11 @@ function readFit(md) {
   if (commentCrossesHeading(md)) return { reasons: ['fit/unfilled/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
   const texts = fitTexts(md);
   if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
+  // A comment inside a placeholder shows as nothing, not a space, even across lines: the placeholder is also looked
+  // for with each comment taken out whole, its line breaks too.
+  const joined = md.includes('<!--') ? (fitTexts(md, () => '') ?? {}) : texts;
   // The placeholder test and its length cap come first, so a line nobody reads is never read further.
-  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || !says(texts[k]));
+  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || (joined[k] !== undefined && placeholder(joined[k])) || !says(texts[k]));
   const reusesNothing = !unfilled.includes('reuses') && items(texts.reuses).every((i) => word(i).startsWith('nothing'));
   const nothingNew = !unfilled.includes('new') && answer(texts.new) === 'none';
   // A feature that neither reuses nor adds anything has not been described.
@@ -148,7 +165,8 @@ function scheduledFeatures(root) {
     if (fm?.status !== 'active' && fm?.status !== 'closed') continue;
     for (const n of new Set(contents(md).flatMap((item) => citedFeatures(item.text)))) cited.set(n, [...(cited.get(n) ?? []), `docs/milestones/${file}`]);
   }
-  return { cited, refused };
+  // TEMPLATE.md and README.md feed no count: MS1 names them when refused, and the count does not.
+  return { cited, refused: refused.filter((p) => !/\/(?:TEMPLATE|README)\.md$/.test(p)) };
 }
 
 /**

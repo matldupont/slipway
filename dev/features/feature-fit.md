@@ -72,18 +72,18 @@ Three things changed at 0.2, on the owner's answers to the review of 0.1 (`docs/
 ## Fit
 
 Reuses:
-- `sectionLines()` in `ci/checks/lib/markdown.mjs:38`, the lines under which `section()` (line 34), the section
+- `sectionLines()` in `ci/checks/lib/markdown.mjs:47`, the lines under which `section()` (line 43), the section
   reader every document check uses, joins and trims; the Fit reader takes the lines, so a first line's indent is
-  kept. `hasPlaceholder()` in `ci/checks/lib/frontmatter.mjs:54`, which reads each line once for `PLACEHOLDER`
-  (line 48), the one definition of "still a template placeholder".
-- `frontmatter()` in `ci/checks/lib/frontmatter.mjs:27`: the one reader of `status:` and `companion-of:`.
+  kept. `hasPlaceholder()` in `ci/checks/lib/frontmatter.mjs:57`, which reads each line once for `PLACEHOLDER`
+  (line 51), the one definition of "still a template placeholder".
+- `frontmatter()` in `ci/checks/lib/frontmatter.mjs:30`: the one reader of `status:` and `companion-of:`.
 - ID1's reading of what a feature doc is (`ci/checks/meta/id1-ids.mjs`: the two folders, the two file names
   skipped, a regular file, an `F-<n>` heading, `companion-of:`), moved to a shared module so ID1, F2 and sync
   class a file the same way.
 - `reviewProvenance()` in `ci/checks/lib/review-header.mjs`: which document a review names, as R1 reads it.
 - `readMilestones()` and `contents()` in `ci/checks/lib/milestones.mjs`, and `citedFeatures()` beside them
-  (line 81), the `F-<n>` citation pattern F1 applied inline to a Contents item, moved there; F1 calls it.
-- `report()` in `ci/checks/lib/report.mjs:65`, its warnings, and PC1's `expected.json` layout: every check's
+  (line 93), the `F-<n>` citation pattern F1 applied inline to a Contents item, moved there; F1 calls it.
+- `report()` in `ci/checks/lib/report.mjs:74`, its warnings, and PC1's `expected.json` layout: every check's
   output and its known-bad fixture shape.
 - The ratchet's rule in `ci/ratchet.mjs` (above the baseline fails, equal passes, below passes and says to lock
   it in, no baseline is broken), moved into a shared helper so F2 and `ci/ratchet.mjs` compare the same way.
@@ -484,15 +484,17 @@ as the other ratchets' are.
   is a folder reached through none. A feature folder, `docs/reviews/` or `docs/milestones/` that is not, or a
   milestone file that is not, is never read: F2 is BROKEN naming it, sync refuses naming the folder, MS1 and ID1 name it. A single `*.md` in
   a feature folder that is a link stays a warning (§2: named, not counted), and a review file that is a link is left
-  out of the count (R1 names it). `pnpm status`, F1, DC1, K1 and the roadmap page leave a refused milestone file out
+  out of the count (R1 names it). `pnpm status`, F1, DC1, K1, the work-order page and the roadmap page leave a refused milestone file out
   without a line of their own; MS1, run by every `pnpm meta`, is where it shows. `ci/ratchet.mjs` still reads the
   tool's report through a link: the report is the tool's own output, at a path the project's script names.
-  Fit is read as GitHub shows it only in part: a comment, and a `<!--` with no `-->` to the end, is a space; a doc in
+  Fit is read as GitHub shows it only in part: a comment, and a `<!--` with no `-->` that opens a line to the end, is
+  a space, and a placeholder is also looked for with each comment taken out whole; a doc in
   which a `<!--` and a `-->` sit on either side of a heading line is counted as `fit/unfilled/unreadable`, since the reader
   cannot tell a comment from a `<!--` GitHub shows as text (a fenced example of one included); a heading
   ends a label's text; a character reference, an HTML tag, a link with no text and a link reference definition say
   nothing. A label line with a setext underline under it is still a label, a lone `-` under a line is still an empty
-  list mark, and a character reference that shows a character (`&amp;`) says nothing: each is read the strict way,
+  list mark, a label after a comment on its line (`<!-- x -->Reuses:`) is not a label, and a character reference
+  that shows a character (`&amp;`) says nothing: each is read the strict way,
   counted rather than passed. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
   HTML block) are read as text. A heading or citation holding a run of more than 32 combining marks (the halfwidth
   voiced marks counted as marks) is folded a piece at a time, the run reordered within each piece only, which no id
