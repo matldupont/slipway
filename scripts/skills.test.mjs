@@ -271,7 +271,9 @@ test('work-ticket\'s Links line says a closing word before an issue number close
 // #437: a PR was marked ready with the pr-body check red; Phase 6 runs P1 on the final body first, intake says the same for a hand-made PR.
 test('work-ticket Phase 6 runs P1 on the final body before `gh pr ready`, and intake.md says the same for a PR made by hand', () => {
   const phase = (section(read(skillPath('work-ticket')), 'Phase 6 — Ready', 2) ?? '').replace(/\s+/g, ' ');
-  assert.ok(phase.includes('node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}'), 'Phase 6 must chain the changed-files list, P1, the body edit and `gh pr ready` with &&, so a finding stops it');
+  assert.equal(phase.split('gh pr ready').length - 1, 1, 'Phase 6 must have exactly one `gh pr ready`, the last link of the chain');
+  assert.equal(phase.split('gh pr edit').length - 1, 1, 'Phase 6 must have exactly one `gh pr edit`, inside the chain');
+  assert.ok(phase.includes('d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}'), 'Phase 6 must chain the changed-files list, P1, the body edit and `gh pr ready` with &&, so a finding stops it');
   assert.match(phase, /on a finding, fix `\{prdir\}\/pr\.md` and run the block again, so the body checked is the body posted; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which\./, 'Phase 6 must say what a finding leads to');
   assert.match(phase, /It is 1 local run, no wait: do not wait on CI, and do not merge\./, 'Phase 6 must keep "do not wait on CI"');
   const pr = flat(section(intake, 'Pull request', 2));
