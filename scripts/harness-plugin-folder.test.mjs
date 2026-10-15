@@ -6,10 +6,10 @@
 // runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
-import { mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { HOOKS, STATE, SID, work, git, put, marks, reset, run, clean, commit, commitAll, unpin } from './harness-fixture.mjs';
+import { HOOKS, work, git, put, marks, reset, run, clean, commit, commitAll, unpin, pinTo } from './harness-fixture.mjs';
 
 const INERT = '{}\n';
 // The Stop hook ran no working-tree script, and its block names the file.
@@ -51,8 +51,7 @@ test('every file in a skill folder that holds a .claude-plugin entry stops the h
       commitAll('with-plugin', 'a plugin folder');
       const pinned = git('-C', work, 'rev-parse', 'HEAD');
       unpin();
-      mkdirSync(join(STATE, SID), { recursive: true });
-      writeFileSync(join(STATE, SID, 'base'), `${pinned}\n`);
+      pinTo(pinned);
       reset();
       ran(`${root}: a plugin folder that is the pin's stopped the Stop hook`);
       reset();
@@ -103,8 +102,7 @@ test('a .claude-plugin entry that is a link or a plain file counts as one: the g
     commitAll('quoted-entry', 'a plugin folder whose entry has a quoted name');
     const pinned = git('-C', work, 'rev-parse', 'HEAD');
     unpin();
-    mkdirSync(join(STATE, SID), { recursive: true });
-    writeFileSync(join(STATE, SID, 'base'), `${pinned}\n`);
+    pinTo(pinned);
     put(`${root}/hooks/hooks.json`, '{ "inert": 1 }\n');
     reset();
     stopped(`${root}/hooks/hooks.json`, `${root}/hooks/hooks.json beside a pinned entry with a quoted name`);

@@ -281,7 +281,8 @@ test('a pinned tree that is gone, no longer a worktree top, or a missing or unre
     ['two lines', () => writeFileSync(PIN, `${top}\n${top}\n`)],
     ['an empty file', () => writeFileSync(PIN, '')],
     ['no file, its base still pinned', () => rmSync(PIN)],
-    ['a link', () => { writeFileSync(join(T, 'elsewhere'), `${top}\n`); symlinkSync(join(T, 'elsewhere'), PIN); }],
+    ['a clone of the project, its own repository', () => { git('clone', '-q', work, join(T, 'clone')); writeFileSync(PIN, `${realpathSync(join(T, 'clone'))}\n`); }],
+    ['a link', () => { rmSync(PIN); writeFileSync(join(T, 'elsewhere'), `${top}\n`); symlinkSync(join(T, 'elsewhere'), PIN); }],
   ]) {
     write();
     reset();

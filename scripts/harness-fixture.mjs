@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -124,6 +124,12 @@ export function run(hook, input = '{}', sid = SID, env = {}, cwd = work) {
 export const BASE = git('-C', work, 'rev-parse', 'origin/HEAD');
 export const start = (sid = SID, source = 'startup') => run('session-state.sh', JSON.stringify({ session_id: sid, hook_event_name: 'SessionStart', source }), sid);
 export const pinOf = (sid = SID) => join(STATE, sid, 'base');
+// A session pinned to `commit`, as its SessionStart would leave it: the base, and the tree it started in (#481).
+export const pinTo = (commit, tree = work) => {
+  mkdirSync(join(STATE, SID), { recursive: true });
+  writeFileSync(join(STATE, SID, 'tree'), `${realpathSync(tree)}\n`);
+  writeFileSync(join(STATE, SID, 'base'), `${commit}\n`);
+};
 export const unpin = () => rmSync(join(T, '.claude'), { recursive: true, force: true });
 // A clean checkout of main, in a session pinned to it.
 export const clean = () => {
