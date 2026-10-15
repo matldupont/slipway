@@ -34,7 +34,11 @@ milestone at a time → `/close-milestone`.
 - Before building on a code-state claim in an issue or doc, re-verify it against `main` and record
   `Verified against: <sha> <date>` (L-18).
 - Record decisions in `decisions.md` when they are made, not afterwards. Answer D-001–D-014 in place; number
-  the decisions you add `PD-1`, `PD-2`…, so a slipway update never collides with them.
+  the decisions you add `PD-1`, `PD-2`…, so a slipway update never collides with them. A decision that changes a
+  feature says so on an `Amends: F-<n>` line, and that feature's doc or Contents line names the decision; what
+  reopens or closes it is a `Reopens when:` or `Closes when:` line naming an event slipway reads (status, or the
+  pull request that closes an issue), never an item's position. A re-read that leaves the decision open writes
+  `open — reopened YYYY-MM-DD` as its heading status and `Reopened YYYY-MM-DD: open again` in place of the condition.
 - A session taking a new decision or feature id reads `main`, the open pull requests and the remote's branches first,
   makes the entry that carries the id its first commit, and pushes the branch before any further work (ID1 holds two
   of one id apart).

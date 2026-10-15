@@ -5,6 +5,9 @@ A ruling that lives only in a closing comment or a chat transcript gets re-litig
 Each entry: ID · status · decision · why · consequences · supersedes. Superseded entries stay, struck through.
 Slipway's decisions are `D-<n>`; add this project's own as `PD-<n>` (`PD-1`, `PD-2`…), so a slipway sync
 never collides with them (D-015).
+A decision that changes a feature says so on an `Amends: F-<n>` line, and what reopens or closes it goes on a
+`Reopens when:` or `Closes when:` line; when one fires, the owner replaces it with `Reopened YYYY-MM-DD:`,
+`Closed YYYY-MM-DD:` or `Reviewed YYYY-MM-DD: stands —` and the reason.
 
 ## D-001 — Can `main` be protected on this plan? *(open — owner, BOOTSTRAP §0)*
 

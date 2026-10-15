@@ -143,7 +143,7 @@ cases). Fill every section:
 - **Contract:** decisions, not questions: data shapes, states and transitions, error cases, the files,
   endpoints and components touched, what is reused (Phase 3). Every claim about current code is re-read on the
   default branch: `Verified against: <sha> <date>` (L-18). A decision it rests on is stated in words, its id
-  in brackets, so the copy in the issue reads without the log.
+  in brackets, so the copy in the issue reads without the log. Each decision Phase 3 listed is cited where it bears on the doc, the Contract included (a decision that changes the Contract later moves the `Version:`, D-041); one the run records gets an `Amends: F-{nn}` line.
 - **Seams:** person, channel, promise, answered; `none` with one line of why.
 - **Threat model:** required when the feature adds a network call, a cache, a subprocess, stored secrets,
   user-supplied input or a deletion; otherwise `none beyond baseline`.
