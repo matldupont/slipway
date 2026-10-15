@@ -214,7 +214,7 @@ if (prd) {
 
 // Numbers run in time order (#476): readMilestones() gives the milestones in id order, so two neighbours whose
 // appetites start the other way round were numbered out of order. A warning, never red: the dates may be the slip.
-const dated = milestones.filter((m) => milestoneKey(m.fm?.id) && parseAppetite(m.fm.appetite));
+const dated = milestones.filter((m) => milestoneKey(m.fm?.id) && MILESTONE_STATUSES.includes(m.fm.status) && parseAppetite(m.fm.appetite));
 for (const [a, b] of dated.slice(1).map((m, i) => [dated[i], m])) {
   const [x, y] = [parseAppetite(a.fm.appetite).start, parseAppetite(b.fm.appetite).start];
   if (y < x) {
