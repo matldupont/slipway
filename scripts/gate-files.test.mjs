@@ -299,7 +299,7 @@ test('the script refuses anything but commit ids', () => {
   assert.match(r.stderr, /commit ids/);
   const ok = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), base, head], { cwd: repo, encoding: 'utf8' });
   assert.equal(ok.status, 0, ok.stderr);
-  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts', 'globs', 'links', 'gate']);
+  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts', 'globs', 'links', 'specs', 'gate']);
 });
 
 // #362: `/work-ticket` reviews a diff on the strongest tier when the script's `gate` names a file.
@@ -362,6 +362,35 @@ test('a review under docs/reviews/ is a gate file: P1 asks for its Gate changes 
   // Known limitation: a file in the folder that is not Markdown is not a gate file (no check reads one).
   const [f2, t2] = step('a non-Markdown file in the folder', () => put('docs/reviews/notes.txt', 'x\n'));
   assert.equal(runP1(f2, t2, '').status, 0);
+});
+
+// #464: `specs` lists the feature docs whose `Version:` lines a pull request moves, and the optional fourth argument
+// is the draft flag P1 reads beside it.
+test('changes() lists a feature doc whose Version line moved, and the script passes the draft flag on', () => {
+  git('switch', '-q', '-c', 'specs', head);
+  const step = (what, edit) => {
+    const from = git('rev-parse', 'HEAD');
+    edit();
+    git('add', '-A');
+    git('commit', '-q', '-m', what);
+    return [from, git('rev-parse', 'HEAD')];
+  };
+  const doc = (v, text) => `# F\n\nVersion: ${v}\n\n${text}\n`;
+  const [f1, t1] = step('a feature doc added', () => put('docs/features/x.md', doc('0.1', 'a')));
+  assert.deepEqual(changes(f1, t1, repo).specs, [{ path: 'docs/features/x.md', versions: ['Version: 0.1'] }]);
+  const [f2, t2] = step('text moves, version does not', () => put('docs/features/x.md', doc('0.1', 'b')));
+  assert.deepEqual(changes(f2, t2, repo).specs, []);
+  const [f3, t3] = step('version moves', () => put('docs/features/x.md', doc('0.2', 'b')));
+  assert.deepEqual(changes(f3, t3, repo).specs, [{ path: 'docs/features/x.md', versions: ['Version: 0.2'] }]);
+  const [f4, t4] = step('a review of a doc already there', () => put('docs/reviews/2026-10-14-x-0.2.md', '# R\n\nReviewed: docs/features/x.md @ abc\nVersion line: `Version: 0.2`\n'));
+  assert.deepEqual(changes(f4, t4, repo).specs, []);
+  const [f5, t5] = step('a doc deleted', () => git('rm', '-q', 'docs/features/x.md'));
+  assert.deepEqual(changes(f5, t5, repo).specs, []);
+  const run = (...flag) => spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), f3, t3, ...flag], { cwd: repo, encoding: 'utf8' });
+  assert.equal('draft' in JSON.parse(run().stdout), false, 'no argument, no key: P1 reads that as ready');
+  assert.equal(JSON.parse(run('true').stdout).draft, true);
+  assert.equal(JSON.parse(run('false').stdout).draft, false);
+  assert.equal(run('maybe').status, 2);
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));

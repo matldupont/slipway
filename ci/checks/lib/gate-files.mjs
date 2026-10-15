@@ -6,10 +6,11 @@
 // Two owner-only documents have no fixed path: AGENT.md names them (NAMED_ROWS), and its rows at the base commit, in
 // the checked-out tree and at the base branch's tip (the first parent of the merge checked out) add them. A row the check cannot read fails it; a project fixes the row in a PR, which is then held to its own.
 //
-// As a script, `node gate-files.mjs <base> <head>` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…],"gate":[…]}` for
+// As a script, `node gate-files.mjs <base> <head> [true|false]` prints `{"files":[…],"scripts":[…],"globs":[…],"links":[…],"specs":[…],"draft":…,"gate":[…]}` for
 // the pull request's diff (base...head): every changed path, each package.json whose run keys (RUN_KEYS) differ, the
 // gate paths the base branch's harness asked about and the documents AGENT.md names (at the base, as checked out and at the base branch's tip), and each symlink or submodule link added, removed or changed.
-// pr-body.yml writes it beside the PR body. `gate` is the gate files among them (gateTouched), the list P1 wants a
+// `specs` is each feature doc whose `Version:` lines this pull request moves, `{path, versions}`; `draft` is the optional
+// third argument, left out of the output when not given (spec-review.mjs reads both). pr-body.yml writes it beside the PR body. `gate` is the gate files among them (gateTouched), the list P1 wants a
 // `## Gate changes` line for, with each path P1 refuses as a lookalike of one (gateListed): what `/work-ticket` reviews on
 // the strongest tier. `null` when the harness's rules cannot be read.
 //
@@ -20,6 +21,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rowValue } from './clock.mjs';
+import { versionLines } from './review-header.mjs';
+import { SPEC_PATH } from './spec-review.mjs';
 
 export const SETTINGS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'process', 'harness', 'settings.json');
 
@@ -277,11 +280,35 @@ export function changes(base, head, cwd = process.cwd()) {
   }
   globs = [...new Set([...globs, ...named, ...namedDocs(tree, ' as checked out'), ...atTip])];
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
-  return { files, scripts, globs, links };
+  // The feature docs whose `Version:` lines this pull request moves, for P1's spec-review rule (#464): a doc that is
+  // gone at the head is not listed, and one the base lacks moves from no lines.
+  const versionsAt = (rev, path) => {
+    try {
+      return versionLines(git('show', `${rev}:${path}`));
+    } catch {
+      return null; // absent at that revision
+    }
+  };
+  const specs = files.flatMap((path) => {
+    if (!SPEC_PATH.test(path)) return [];
+    const now = versionsAt(head, path);
+    const was = versionsAt(from, path) ?? [];
+    return now && JSON.stringify(now) !== JSON.stringify(was) ? [{ path, versions: now }] : [];
+  });
+  return { files, scripts, globs, links, specs };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const c = changes(process.argv[2], process.argv[3]);
+  // The optional fourth argument is whether the pull request is a draft: `true` or `false`. CI passes the event's
+  // value; a run before `gh pr ready` passes `false`, so the pull request is judged as it will be once ready. Left
+  // out, the key is left out, and P1 reads a sidecar without it as a pull request that is ready.
+  const draft = process.argv[4];
+  if (draft !== undefined && draft !== 'true' && draft !== 'false') {
+    process.stderr.write('gate-files: the draft argument is `true` or `false`\n');
+    process.exit(2);
+  }
+  if (draft !== undefined) c.draft = draft === 'true';
   let settings = null;
   try {
     settings = readFileSync(SETTINGS, 'utf8');

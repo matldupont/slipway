@@ -1213,3 +1213,11 @@ test('the rules, intake and the skills that write a decision describe the Amends
   assert.match(flat(read('.claude/skills/log-feature/SKILL.md')), /Each decision Phase 3 listed is cited where it bears on the doc, the Contract included \(a decision that changes the Contract later moves the `Version:`, D-041\); one the run records gets an `Amends: F-\{nn\}` line\./, '/log-feature must cite each touched decision in the doc and write Amends on one it records');
   assert.match(flat(read('decisions.md')), /A decision that changes a feature says so on an `Amends: F-<n>` line, and what reopens or closes it goes on a `Reopens when:` or `Closes when:` line; when one fires, the owner replaces it with `Reopened YYYY-MM-DD:`, `Closed YYYY-MM-DD:` or `Reviewed YYYY-MM-DD: stands —` and the reason\./, 'the decisions header must name the three lines and the outcome form');
 });
+
+// #464: a spec's pull request opens as a draft and stays one until its review is merged in; P1 holds a ready one.
+test('/log-feature opens the doc pull request as a draft and says it stays one until a review is merged in; /review-doc says when it can be marked ready', () => {
+  const lf = flat(section(read(skillPath('log-feature')), 'Phase 7 — Open the doc PR', 2));
+  assert.match(lf, /gh pr create --draft --repo \{checkout\}/, '/log-feature Phase 7 must open the doc pull request with --draft');
+  assert.match(lf, /It is opened as a draft, and its `## What` says it stays a draft until a current review of the spec \(`\/review-doc`\) is merged into its branch/, '/log-feature Phase 7 must have the body say it stays a draft until a current review is merged in');
+  assert.match(flat(section(reviewDoc(), '4 — Hand back', 2)), /open draft pull request .*end by saying that the pull request can be marked ready once this review is merged into its branch/, '/review-doc step 4 must say the pull request can be marked ready once the review is merged in');
+});
