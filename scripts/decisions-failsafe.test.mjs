@@ -81,6 +81,8 @@ test('the fail-safe holds, case 5 of 10', () => {
   const title = 'x'.repeat(490);
   assert.deepEqual(read(`PD-1 — ${title} *(decided 2026-03-01 · reopens when M2 is closed)*`), [['heading', false]]);
   assert.deepEqual(read(`PD-1 — ${title} and then it closes when M2 is closed`), [['heading', false]]);
+  assert.deepEqual(read(`PD-1 — ${title}, provisional until M2 is closed`), [['heading', false]]);
+  assert.deepEqual(read(`PD-1 — ${title}, and it Reopens when M2 is closed`), [['heading', false]]);
   assert.deepEqual(read(`PD-1 — ${title}${'y'.repeat(100)}`), []);
   // A heading under the cut is read as before.
   assert.deepEqual(read(`PD-1 — ${'x'.repeat(400)} *(decided 2026-03-01 · reopens when M2 is closed)*`), [['heading', true]]);
@@ -93,6 +95,8 @@ test('the fail-safe holds, case 6 of 10', () => {
   assert.equal(Object.getPrototypeOf(fm), Object.prototype);
   assert.deepEqual([fm.id, fm.__proto__.status], ['M2', 'shipped']);
   assert.deepEqual(frontmatter('---\nconstructor: x\nstatus: draft\n---\n'), { constructor: 'x', status: 'draft' });
+  // A child key is its own too.
+  assert.equal(Object.hasOwn(frontmatter('---\nmeta:\n  __proto__: x\n---\n').meta, '__proto__'), true);
   const doc = '---\n__proto__:\n  status: shipped\n---\n\n# F-01 — x\n\nVersion: 0.1\n';
   tree({ 'decisions.md': '## PD-1 — t\n\nReopens when: F-01 is shipped\n', 'dev/features/one.md': doc }, (r) => assert.deepEqual(r.fired('2026-03-10'), []));
 });

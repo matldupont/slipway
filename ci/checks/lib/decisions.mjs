@@ -14,7 +14,8 @@
 // `Reopened YYYY-MM-DD:`, `Closed YYYY-MM-DD:` and `Reviewed YYYY-MM-DD:` lines are outcomes, read as nothing.
 //
 // The record is a file a pull request carries and what is read here reaches every session through the hook: every line
-// is cut at 500 characters before a pattern reads it, every pattern is anchored or bounded, and free text from the
+// is cut at 500 characters before a pattern reads it (only a plain substring search looks past the cut, to make a cut
+// heading or line unreadable), every pattern is anchored or bounded, and free text from the
 // record is returned only in `text` fields. Callers print ids, the table's words (`said`) and paths, never `text`.
 
 import { lstatSync, readdirSync } from 'node:fs';

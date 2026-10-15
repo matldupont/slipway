@@ -492,6 +492,8 @@ other people's text: one it cannot read is counted as unreadable, never passed a
 - Status lists one Owed citation line per decision and feature and one line per fired condition, uncapped; a record
   that owes a great deal fills Needs attention, as many `Owed:` checks would. The unreadable ids are capped at 20.
 - Ids compare by number and prefix, so `PD-7` and `D-7` are two decisions, as they are for ID1.
+- The shared `readMilestones()` (`ci/checks/lib/milestones.mjs`), which status and other checks use, keeps one review
+  item of #454 open; the owner handed it to #430 item 2 (2026-10-14, #466). This reader does not use it.
 
 ## Acceptance
 
@@ -649,6 +651,8 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    decision unreadable, so it is counted there and never as prose; a typo can make a condition louder, never silent.
    AR-4's green cases without a clause opening (`revisit when …`, `*(open — week 1)*`) stay as they are. §2, the
    reader names each folder of the tree that is there but cannot be read (`unreadFolders()`), and still reads the other.
+   §3, the milestone events are read through the reader's own plain-file read of `docs/milestones/`, not
+   `readMilestones()`; the "read from" cells and Fit's reuse line say so.
 2. **The rules and the skills.** `process/slipway-rules.md`, `process/intake.md`, `/kickoff`, `/clarify`,
    `/close-milestone` (the form of an extension decision), `/log-feature`, `decisions.md`'s header,
    `scripts/skills.test.mjs` pins; after PR #447 lands — rules and skills, ~S. Leaves #440 open. The form is described
