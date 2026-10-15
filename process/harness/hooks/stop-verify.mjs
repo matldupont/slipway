@@ -6,6 +6,9 @@
 //   the hook stays quiet so planning sessions are not nagged.
 // - A tree already verified green is not re-verified: the fingerprint of HEAD, the diff and
 //   untracked files is cached in .git/stop-verify-ok.
+// - A tree verified red is not re-verified while it is unchanged (#484): the fingerprint, the time and the failure
+//   lines go to .git/stop-verify-red, and the hook blocks at once with those lines. It still blocks: a red turn does
+//   not end silently. The cache expires after RED_TTL_MS, so a load-sensitive failure is run again, not held.
 // - Anything that stops the gate from running (no pnpm) is reported, never swallowed (L-34).
 // - A package that declares dependencies but has no node_modules (a fresh worktree) blocks
 //   with the install command, not the raw `tsc: command not found` it would produce. It is
@@ -13,7 +16,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { discoverWorkspace } from '../../../ci/checks/lib/workspace.mjs';
 
@@ -54,8 +57,21 @@ function fingerprint() {
 }
 const gitDir = git('rev-parse', '--absolute-git-dir').stdout?.trim();
 const cache = gitDir ? join(gitDir, 'stop-verify-ok') : null;
+const redCache = gitDir ? join(gitDir, 'stop-verify-red') : null;
+const RED_TTL_MS = 10 * 60 * 1000;
 const fp = fingerprint();
 if (fp && cache && existsSync(cache) && readFileSync(cache, 'utf8') === fp) process.exit(0);
+
+const redReason = (status, tail, note = '') =>
+  `stop-verify: \`pnpm verify:fast\` is red (exit ${status}).${note}\n${tail}\n\nFix it before finishing. If it is out of scope for this turn, say exactly what is failing and why.`;
+let red = null;
+try { red = fp && redCache ? JSON.parse(readFileSync(redCache, 'utf8')) : null; } catch { /* none, or unreadable: run verify */ }
+const age = red ? Date.now() - red.at : NaN;
+if (red?.fp === fp && typeof red.tail === 'string' && age >= 0 && age < RED_TTL_MS) {
+  const when = new Date(red.at).toISOString().slice(11, 19);
+  say({ decision: 'block', reason: redReason(red.status, red.tail, ` Cached from ${when} UTC: the tree has not changed since, so verify did not run again. Any change to the tree, or ${RED_TTL_MS / 60000} minutes, runs it again.`) });
+  process.exit(0);
+}
 
 if (spawnSync('pnpm', ['-v']).error) {
   say({ systemMessage: 'stop-verify: pnpm is not on the hook PATH, so the gate did not run. Run pnpm verify:fast yourself.' });
@@ -67,10 +83,9 @@ const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
 if (r.status === 2 && /no workspace packages/.test(out)) process.exit(0);
 if (r.status === 0) {
   if (fp && cache) writeFileSync(cache, fp);
+  if (redCache) rmSync(redCache, { force: true });
   process.exit(0);
 }
 const tail = out.trim().split('\n').slice(-30).join('\n');
-say({
-  decision: 'block',
-  reason: `stop-verify: \`pnpm verify:fast\` is red (exit ${r.status}).\n${tail}\n\nFix it before finishing. If it is out of scope for this turn, say exactly what is failing and why.`,
-});
+if (fp && redCache && r.status !== null) writeFileSync(redCache, JSON.stringify({ fp, at: Date.now(), status: r.status, tail }));
+say({ decision: 'block', reason: redReason(r.status, tail) });
