@@ -19,6 +19,7 @@
 //
 // Findings, per case:
 //   <case>#next  <case>#frame   the line differs from the expected text, or status printed none
+//   <case>#next-form            the Next line breaks the form process/writing.md gives it (nextFormBreaks below)
 //   <case>#today                the date status stamps in its heading is not `today`
 //   <case>#attention            the Needs attention list differs from `attention`
 //   <case>#steps                the step lines under Where things stand differ from `steps`
@@ -26,6 +27,11 @@
 //                               yyyy-mm-dd today — without a fixed clock, overran depends on the run date
 //   <case>#run                  status exited non-zero
 //   <case>#raw                  status printed a control, bidi or separator character raw (lib/raw-output.mjs)
+//
+// The Next line's form (F-16 §2), held on every case with its quoted spans (`"…"`: a risk's assumption, a Contents item,
+// project text the rules cannot govern) removed: 2 to 4 sentences, the first of 14 words or fewer, none holding `;` or
+// ` — `, "Step n", a check id or a decision id, the last naming who, and the whole line 260 characters or fewer, the
+// quoted spans included. A sentence ends at `.`, `?` or `!` followed by white space or the end of the line.
 //
 // Only the risk-bearing lines are compared, not the whole output: a snapshot of everything turns red
 // on every wording change and gets regenerated without being read.
@@ -53,6 +59,29 @@ if (!dir || !existsSync(dir)) {
 const cases = readdirSync(dir)
   .sort()
   .filter((d) => statSync(join(dir, d)).isDirectory());
+
+// A check's id is the upper-cased prefix of its file name under ci/checks/meta/ (`k1-frame.mjs` is K1).
+const metaDir = dirname(fileURLToPath(import.meta.url));
+const CHECK_IDS = readdirSync(metaDir).filter((f) => f.endsWith('.mjs')).map((f) => f.split('-')[0].toUpperCase());
+const WHO = /^(?:You|Yours|Agent|A fresh session)\b/;
+
+// What a Next line breaks, as a list of short phrases; empty when it holds the form.
+function nextFormBreaks(line) {
+  const text = line.replace(/"[^"]*"/g, '');
+  const sentences = text.split(/(?<=[.?!])(?:\s+|$)/).map((x) => x.trim()).filter((x) => /[\p{L}\p{N}]/u.test(x));
+  const breaks = [];
+  if (sentences.length < 2 || sentences.length > 4) breaks.push(`${sentences.length} sentences, not 2 to 4`);
+  if (sentences[0] && sentences[0].split(/\s+/).length > 14) breaks.push('a first sentence over 14 words');
+  if (text.includes(';')) breaks.push('a semicolon');
+  if (text.includes(' — ')) breaks.push('a dash between clauses');
+  if (/\bStep \d/.test(text)) breaks.push('a step number');
+  const ids = CHECK_IDS.filter((id) => new RegExp(`\\b${id}\\b`).test(text));
+  if (ids.length) breaks.push(`a check id (${ids.join(', ')})`);
+  if (/\b(?:P?D)-\d+\b/.test(text)) breaks.push('a decision id');
+  if (line.length > 260) breaks.push(`${line.length} characters, over 260`);
+  if (sentences.length && !WHO.test(sentences.at(-1))) breaks.push('a last sentence that does not say who');
+  return breaks;
+}
 
 const LINES = [
   ['next', '**Next:** '],
@@ -105,6 +134,11 @@ for (const name of cases) {
     const got = out.find((l) => l.startsWith(prefix))?.slice(prefix.length);
     if (got === undefined) findings.push({ where: `${name}#${key}`, detail: `status printed no "${prefix.trim()}" line` });
     else if (got !== expect[key]) findings.push({ where: `${name}#${key}`, detail: `expected "${expect[key]}" · got "${got}"` });
+  }
+  const nextLine = out.find((l) => l.startsWith('**Next:** '))?.slice('**Next:** '.length);
+  if (nextLine !== undefined) {
+    const broken = nextFormBreaks(nextLine);
+    if (broken.length) findings.push({ where: `${name}#next-form`, detail: `the Next line has ${broken.join(', ')}` });
   }
   const stamped = out[0]?.match(/on (\d{4}-\d{2}-\d{2})\./)?.[1];
   if (stamped !== expect.today) findings.push({ where: `${name}#today`, detail: `status stamped ${stamped ?? 'no date'}, expected ${expect.today}` });

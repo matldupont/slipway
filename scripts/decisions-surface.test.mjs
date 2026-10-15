@@ -142,16 +142,16 @@ test('status lines: none without a record; the Unreadable and stray lines cap at
   assert.deepEqual(decisionLines(readDecisions(join(tmpdir(), 'no-such-root-for-decisions')), '2026-03-10'), []);
   const many = Array.from({ length: 23 }, (_, i) => `## PD-${i + 1} — t\n\nReopens when: the moon is full\n`).join('\n');
   const [u] = lines({ 'decisions.md': many });
-  assert.match(u, /^\(you or an agent\) Unreadable condition: 23 decisions say /);
-  assert.match(u, /PD-19, PD-20 and 3 more — /);
+  assert.match(u, /^\(you or an agent\) Say what should bring each decision back, or which feature it changes\. 23 decisions say /);
+  assert.match(u, /\(PD-1, PD-2, .*PD-19, PD-20 and 3 more\)/);
   assert.equal(u.includes('PD-21'), false);
   const strays = Array.from({ length: 22 }, () => 'Amends: F-07').join('\n');
   const [s] = lines({ 'decisions.md': `# Decisions\n\n${strays}\n` });
-  assert.match(s, /^\(you or an agent\) Stray condition line: decisions\.md lines 3, 4, .*, 22 and 2 more hold conditions under no decision heading /);
-  assert.match(lines({ 'decisions.md': '# Decisions\n\nAmends: F-07\n' })[0], /decisions\.md line 3 holds a condition under no decision heading .* correct a heading's id, .* nothing reads it until then; waits on nothing$/);
+  assert.match(s, /^\(you or an agent\) Move each condition line in decisions\.md under its decision's heading, .* Lines 3, 4, .*, 22 and 2 more hold conditions under no decision heading /);
+  assert.match(lines({ 'decisions.md': '# Decisions\n\nAmends: F-07\n' })[0], /Line 3 holds a condition under no decision heading .* correct a heading's id, .* nothing reads it until then\. It waits on nothing\.$/);
 });
 
-test('status lines: every line says who acts, what it blocks and what it waits on, and prints no record text', () => {
+test('status lines: every line says who acts first, then what it blocks and what it waits on, in the writing standard\'s form, and prints no record text', () => {
   const files = {
     'decisions.md': [
       '## PD-1 — SECRETTITLE *(decided 2026-03-01)*\n\nAmends: F-06\nReopens when: 2026-03-01 passes\nCloses when: M2 is closed',
@@ -163,17 +163,21 @@ test('status lines: every line says who acts, what it blocks and what it waits o
     'docs/reviews': 'a file where the folder goes',
   };
   const out = lines(files);
-  assert.deepEqual(out.map((l) => l.match(/^\((you|you or an agent)\) ([A-Z][a-z]+(?: [a-z]+){0,2}):/)?.[2]), ['Owed citation', 'Decision reopens', 'Decision closes', 'Unreadable condition', 'Stray condition line', 'Unread folder']);
+  const kind = (l) => [['Owed citation', /^\(you or an agent\) Write what the decision /], ['Decision reopens', /^\(you\) Re-read the decision /], ['Decision closes', /^\(you or an agent\) Close the decision /], ['Unreadable condition', /^\(you or an agent\) Say what should bring /], ['Stray condition line', /^\(you or an agent\) Move each condition line /], ['Unread folder', /^\(you or an agent\) Make /]].find(([, re]) => re.test(l))?.[0];
+  assert.deepEqual(out.map(kind), ['Owed citation', 'Decision reopens', 'Decision closes', 'Unreadable condition', 'Stray condition line', 'Unread folder']);
   for (const l of out) {
-    assert.match(l, / — (before|blocks)[^—]*; waits on [^—]+$/, l);
+    assert.match(l, / It blocks [^.]+\. It waits on [^.]+\.$/, l);
     assert.equal(/SECRET/.test(l), false, l);
+    // F-16 rule 3: no dash between clauses and no semicolon outside a quoted span.
+    assert.equal(/ — /.test(l.replace(/"[^"]*"/g, '')), false, l);
+    assert.equal(/;/.test(l), false, l);
   }
 });
 
 test('status lines: an id or a path outside the printable shape is never printed', () => {
   const owed = (docs) => decisionLines({ missing: null, strays: [], owed: () => [{ id: 'PD-1', feature: 6, docs }], fired: () => [], unreadable: () => [], unreadFolders: () => [] }, '2026-03-10');
-  assert.match(owed(['dev/features/a.md', 'dev/features/a b.md', 'docs/features/../x.md'])[0], /into dev\/features\/a\.md, a feature doc carrying F-06 where/);
-  assert.match(owed(['dev/features/sub/a.md'])[0], /into a feature doc carrying F-06 where/);
+  assert.match(owed(['dev/features/a.md', 'dev/features/a b.md', 'docs/features/../x.md'])[0], /into dev\/features\/a\.md, the feature's doc\. It amends/);
+  assert.match(owed(['dev/features/sub/a.md'])[0], /into the feature's doc\. It amends/);
   const odd = decisionLines({ missing: null, strays: [], owed: () => [{ id: 'PD-1\n- Next: x', feature: 6, docs: [] }], fired: () => [{ id: 'X-1', kind: 'reopens', where: 'line', events: [{ said: 'M2 is active' }] }], unreadable: () => [{ id: 'PD-1 x' }], unreadFolders: () => ['docs/other', '../x'] }, '2026-03-10');
   assert.deepEqual(odd, []);
 });
@@ -184,8 +188,8 @@ test("status lines: AR-1, the current review is said to cover the decision only 
   const review = (path) => `# Review\n\nReviewed: ${path} @ abc1234\nVersion line: Version: 0.2\n`;
   const out = lines({ 'decisions.md': rec, 'dev/features/seven.md': doc('07'), 'dev/features/eight.md': doc('08', '\nPD-2 is in its Contract.\n'), 'docs/reviews/a.md': review('dev/features/seven.md'), 'docs/reviews/b.md': review('dev/features/eight.md') });
   assert.equal(out.length, 2);
-  assert.match(out[0], /^\(you\) Decision reopens: PD-1 — F-07 is reviewed: re-read PD-1;/);
-  assert.match(out[1], /^\(you\) Decision reopens: PD-2 — F-08 is reviewed \(F-08's current review already covers it\): /);
+  assert.match(out[0], /^\(you\) Re-read the decision \(PD-1\) and say whether it still holds\. Its condition has happened \(F-07 is reviewed\)\. /);
+  assert.match(out[1], /^\(you\) Re-read the decision \(PD-2\) and say whether it still holds\. Its condition has happened \(F-08 is reviewed, and that review already covers the decision\)\. /);
 });
 
 test("slipway's own record: §10's Amends lines are in place, and status owes nothing from it but D-044's two citations", () => {

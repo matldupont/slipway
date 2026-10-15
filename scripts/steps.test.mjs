@@ -15,14 +15,23 @@ import { STATES, STEPS, stepLines, stepStates } from '../ci/checks/lib/steps.mjs
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-test('the path table in SLIPWAY.md names each step as the list does', () => {
-  const rows = [...readFileSync(join(SRC, 'SLIPWAY.md'), 'utf8').matchAll(/^\|\s*\*\*(\d) · ([^*]+?)\*\*/gm)].map((m) => ({ n: Number(m[1]), name: m[2] }));
+test('the path table in SLIPWAY.md says each step as the list does: number, name, who and how long', () => {
+  const rows = [...readFileSync(join(SRC, 'SLIPWAY.md'), 'utf8').matchAll(/^\|\s*\*\*(\d) · ([^*]+?)\*\*\s*\|([^|]*)\|([^|]*)\|/gm)].map((m) => ({ n: Number(m[1]), name: m[2], who: m[3].trim(), time: m[4].trim() }));
   assert.deepEqual(rows, STEPS);
+});
+
+test('the who and how-long cells are plain text: no markup, no digits written as a range with a dash', () => {
+  for (const { who, time } of STEPS) for (const cell of [who, time]) assert.match(cell, /^[a-z0-9][a-z0-9 ]*$/, cell);
 });
 
 test('status prints no step name of its own', () => {
   const src = readFileSync(join(SRC, 'ci', 'status.mjs'), 'utf8');
   for (const { name } of STEPS) assert.ok(!src.includes(`— ${name}`), `ci/status.mjs spells "${name}" instead of reading it from the list`);
+});
+
+test('status spells no who or how-long of its own: the last sentence of a Next line comes from the list', () => {
+  const src = readFileSync(join(SRC, 'ci', 'status.mjs'), 'utf8');
+  for (const { who, time } of STEPS) assert.ok(!src.toLowerCase().includes(`${who}, ${time}`), `ci/status.mjs spells "${who}, ${time}" instead of reading it from the list`);
 });
 
 // A project that is bootstrapped and has no frame, no PRD and no milestone yet.

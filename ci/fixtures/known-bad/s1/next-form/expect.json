@@ -1,0 +1,10 @@
+{
+  "_note": "Two milestones active, one with an id that holds a semicolon and a check id: every other line is right, and the Next line breaks the form.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Set every milestone but one to shaping or closed. K1;D1, M2 are all active, and the checks stay red until one is. You.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · M2 underway with it untested — pnpm meta is red until it has a Result",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}
