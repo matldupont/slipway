@@ -809,7 +809,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       if (fit.unread.length) {
         // By folder only: a file's name is the project's text.
         const where = [...new Set(fit.unread.map((u) => `${u.endsWith('.md') ? u.slice(0, u.lastIndexOf('/')) : u}/`))].join(' and ');
-        throw new Refusal(`${where} holds, or is, a link, an entry under a link, or an entry that is not a plain folder or file, so the feature docs and milestones cannot all be read to count the feature docs with no Fit section — make each a plain folder or file, commit, then sync again; nothing was written`);
+        throw new Refusal(`${oneLine(where)} holds, or is, a link, an entry under a link, or an entry that is not a plain folder or file, so the feature docs and milestones cannot all be read to count the feature docs with no Fit section — make each a plain folder or file, commit, then sync again; nothing was written`);
       }
       const bytes = serialiseBaselines({ ...was?.json, [FIT_KEY]: fit.count });
       todo.writes.set(p, { bytes: Buffer.from(bytes) });
