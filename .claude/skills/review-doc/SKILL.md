@@ -111,6 +111,6 @@ because the version line moves — **a substantive revision needs a fresh review
 `Supersedes:`. The build goes red when the PRD leaves draft with no review naming its current version.
 
 When the document is a feature doc and its branch has an open draft pull request
-(`gh pr list --repo {checkout} --head "$(git branch --show-current)" --state open --draft`, run on the branch that holds the doc), end by saying that the pull request can be
+(`gh pr list --repo {checkout} --state open --draft --json number,files --jq '.[] | select(any(.files[]; .path == "{doc path}")) | .number'`, found by the doc's path, since this session is rarely on the doc's branch), end by saying that the pull request can be
 marked ready once this review is merged into its branch: a ready pull request that moves the doc's `Version:` with no
 review of it in its tree goes red in P1.

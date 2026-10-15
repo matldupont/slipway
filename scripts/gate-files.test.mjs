@@ -442,6 +442,11 @@ test('unreviewedSpecs holds a ready PR whose spec has no current review of that 
     // The template and README are no feature docs, and the folder name is read in any case.
     assert.ok(!SPEC_PATH.test('docs/features/TEMPLATE.md') && !SPEC_PATH.test('dev/features/README.md'));
     assert.ok(SPEC_PATH.test('docs/Features/x.md') && SPEC_PATH.test('dev/features/x.md'));
+    assert.ok(SPEC_PATH.test('docs/features/readme.md') && SPEC_PATH.test('dev/features/Template.md'), 'only the exact names TEMPLATE.md and README.md are skipped, as feature-docs.mjs skips them');
+    // A doc whose Version line was indented or removed has no version line, so a review quoting the old line is not current.
+    w('docs/features/c.md', `# C\n\n  ${V}\n`);
+    review('c', 'docs/features/c.md');
+    assert.deepEqual(ids({ specs: [{ path: 'docs/features/c.md', versions: [] }] }), ['spec/unreviewed:docs/features/c.md']);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
