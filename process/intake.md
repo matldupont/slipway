@@ -239,6 +239,7 @@ repository `git remote get-url origin` names, say so and ask before the first pu
 
   `--draft` when a review runs before the PR is ready (`/work-ticket`). Every later change is a new commit on the PR: never amend or force-push, so each reviewed head stays
   addressable. With no remote, stop before the push and tell the owner the branch is ready.
+- **Before ready,** a PR opened or marked ready by hand has the `pr-body` check run on its final body (saved as `{dir}/body.md`) with `node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "{dir}/body.changes.json"` and `node ci/checks/meta/p1-pr-body.mjs "{dir}"`, and is not marked ready while that reports a finding.
 
 ## Deferred check
 
