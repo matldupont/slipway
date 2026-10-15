@@ -157,8 +157,8 @@ anyway with a decision in `decisions.md` that says why.
 
    Do not run it yourself: this session wrote the PRD, and a reviewer must not share the author's
    context.
-3. Run `pnpm meta` and `pnpm status`; paste both. `status` should now say to activate the skeleton milestone or to
-   test a risk.
+3. Run `pnpm meta` and `pnpm status`; paste both. `status` should now say to test a risk, or to resolve the review's
+   findings and approve the PRD.
 4. Commit on a branch and open a PR whose `## Verification` shows those two outputs.
 
 Stop there. Starting M1 is the user's call: they set its appetite dates and `status: active`.
