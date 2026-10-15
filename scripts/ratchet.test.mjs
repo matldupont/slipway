@@ -128,7 +128,7 @@ test('namesIn reads every name as written, at any depth, and no string that is a
 });
 
 // #430, round 1 of its review: an entry other than a name is lost or changed by a rewrite too.
-test('--update refuses a baselines file holding a number JSON does not write back as read, or bytes that are not UTF-8, and writes nothing', () => {
+test('--update refuses a baselines file holding a number JSON does not write back as read, and writes nothing', () => {
   for (const text of ['{\n  "dup": 3,\n  "huge": 1e400\n}\n', '{\n  "dup": 3,\n  "big": 9007199254740993\n}\n', '{\n  "dup": 3,\n  "big": [12345678901234567890]\n}\n']) {
     const r = ratchet(1, text, '--update');
     assert.equal(r.status, 1, JSON.stringify(text));
