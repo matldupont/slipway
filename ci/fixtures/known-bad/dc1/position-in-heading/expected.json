@@ -1,0 +1,10 @@
+{
+  "_note": "An invented PD-4 whose only position is in its italic heading suffix: emphasis is not code, so it counts. Its Amends: line is readable, so nothing is warned.",
+  "exit": 1,
+  "findings": [
+    "decisions.md#decision/position/PD-4"
+  ],
+  "details": {
+    "decisions.md#decision/position/PD-4": "line 5"
+  }
+}

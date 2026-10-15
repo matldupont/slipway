@@ -1,0 +1,13 @@
+{
+  "_note": "An invented PD-3 names M2 item 4 in its heading clause and its body; M2's item 4 cites F-07, so the detail names F-07 and the Amends: line to write. The heading clause is no event, so PD-3 is warned unreadable too.",
+  "exit": 1,
+  "findings": [
+    "decisions.md#decision/position/PD-3"
+  ],
+  "warnings": [
+    "decisions.md#decision/unreadable/PD-3"
+  ],
+  "details": {
+    "decisions.md#decision/position/PD-3": "M2 item 4 builds F-07 today (docs/milestones/M2-booking.md): write `Amends: F-07` under PD-3"
+  }
+}

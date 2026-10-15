@@ -114,15 +114,17 @@ function finish(e) {
   return { id: e.id, key: e.key, line: e.line, text: e.text, clauses, conditions, positions, prose, body: e.body.map(({ line, text }) => ({ line, text })) };
 }
 
-// The record as data, from decisions.md's text: `{ entries }`, in file order. An entry is a heading `LEAD` finds with
-// a decision id, a heading in a fence included (ID1's reading: nothing is skipped). `id` is as written, `key` the id
-// compared by prefix and number (`D-044` and `D-44` are `D-44`).
+// The record as data, from decisions.md's text: `{ entries, strays }`, in file order. An entry is a heading `LEAD` finds
+// with a decision id, a heading in a fence included (ID1's reading: nothing is skipped). `id` is as written, `key` the id
+// compared by prefix and number (`D-044` and `D-44` are `D-44`). `strays`: the lines of labelled lines in no entry (a
+// heading whose id it cannot read, a level-1 or 2 heading above, one in a fence too), but a fenced example above the first.
 export function parseDecisions(md) {
   const whole = visible(md);
   const lines = whole.map(({ line, text }) => ({ line, text: text.slice(0, MAX) }));
   const masked = mask(lines.map((l) => l.text));
   const fence = fenced(lines.map((l) => l.text));
   const entries = [];
+  const strays = [];
   let cur = null;
   lines.forEach(({ line, text }, i) => {
     const m = text.match(ENTRY);
@@ -134,8 +136,9 @@ export function parseDecisions(md) {
       entries.push(cur);
     } else if (TOP.test(text)) cur = null;
     else if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX });
+    else if (LABELS.some(([l]) => text.startsWith(l)) && (entries.length || !fence[i])) strays.push(line);
   });
-  return { entries: entries.map(finish) };
+  return { entries: entries.map(finish), strays };
 }
 
 // Whether `text` names the decision `key` as a whole word: `D-44` matches `D-044`, never `D-4`, `D-440` or `PD-44`.
@@ -148,11 +151,7 @@ const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$
 
 // Whether a folder of the tree is a link, a dangling one included: such a folder is not read, and is named unread.
 const isLink = (root, dir) => {
-  try {
-    return lstatSync(posix.join(root, dir)).isSymbolicLink();
-  } catch {
-    return false;
-  }
+  try { return lstatSync(posix.join(root, dir)).isSymbolicLink(); } catch { return false; }
 };
 
 // The `*.md` names directly in a folder of the tree, by name; none when the folder is missing or not a folder, and a
@@ -240,13 +239,13 @@ function readTree(root) {
   return { milestones, carrying: indexBy(files, ns), docs: indexBy(files.filter(isFeatureDoc), ns), itemKeys, unread: unread.sort() };
 }
 
-// `{ missing, entries, owed(), fired(today), unreadable(), proseCount(), unreadFolders() }` for the decisions.md at
+// `{ missing, entries, strays, owed(), fired(today), unreadable(), proseCount(), unreadFolders() }` for the decisions.md at
 // `root`. `missing` is null, or why decisions.md cannot be read ('does not exist', 'is a link, not a file', …), and the
 // record is then empty. The tree (feature docs, milestones, reviews) is read once, on the first call that needs it;
 // `unreadFolders()` names, sorted, each of its folders that is there but could not be read, so nothing it hid is silent.
 export function readDecisions(root) {
   const missing = notPlainFile(root, 'decisions.md');
-  const { entries } = missing ? { entries: [] } : parseDecisions(readPlain(root, 'decisions.md') ?? '');
+  const { entries, strays } = missing ? { entries: [], strays: [] } : parseDecisions(readPlain(root, 'decisions.md') ?? '');
   let tree;
   const t = () => (tree ??= readTree(root));
 
@@ -296,5 +295,5 @@ export function readDecisions(root) {
       return bad.length ? [{ id: e.id, key: e.key, line: e.line, issueOnly: bad.every((c) => c.issueOnly) }] : [];
     });
 
-  return { missing, entries, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose).map((e) => e.id), unreadFolders: () => [...t().unread] };
+  return { missing, entries, strays, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose).map((e) => e.id), unreadFolders: () => [...t().unread] };
 }
