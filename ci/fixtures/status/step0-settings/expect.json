@@ -1,0 +1,19 @@
+{
+  "_note": "AGENT.md still holds placeholder rows, and there is an app: Next sends the project to bootstrap and names the 3 settings.",
+  "today": "2026-03-10",
+  "next": "Run /bootstrap. It fills the 3 settings AGENT.md still needs (Product name, Issue repo, Timezone) and sets up the app. You and an agent, 1 to 2 hours.",
+  "frame": "draft · risks: RISK-1 untested (no tracker) · blocks every milestone past the skeleton",
+  "steps": [
+    "Step 0 · Bootstrap: in hand",
+    "Step 1 · Frame: in hand",
+    "Step 2 · Test the risk: not started",
+    "Step 3 · Shape: in hand",
+    "Step 4 · Walking skeleton: not started",
+    "Step 5 · Build loop: waiting",
+    "Step 6 · Close the milestone: each milestone",
+    "Step 7 · Learn: each milestone"
+  ],
+  "attention": [
+    "nothing"
+  ]
+}
