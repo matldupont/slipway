@@ -80,11 +80,11 @@ const redReason = (status, tail, note = '') =>
   `stop-verify: \`pnpm verify:fast\` is red (exit ${status}).${note}\n${tail}\n\nFix it before finishing. If it is out of scope for this turn, say exactly what is failing and why.`;
 // The one reader of the red cache: a file anyone with the git dir can write. It hands on plain checked fields or null,
 // and null runs verify. Only a regular file (no link followed), under RED_MAX_BYTES, that is JSON of exactly the shape
-// the hook writes is used; nothing of a rejected file is printed.
+// the hook writes is used; nothing of a rejected file is printed. O_NONBLOCK: a FIFO there opens at once, then fails isFile.
 function readRed() {
   let fd;
   try {
-    fd = openSync(redCache, constants.O_RDONLY | constants.O_NOFOLLOW);
+    fd = openSync(redCache, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
     const st = fstatSync(fd);
     if (!st.isFile() || st.size > RED_MAX_BYTES) return null;
     const v = JSON.parse(readFileSync(fd, 'utf8'));

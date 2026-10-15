@@ -197,6 +197,7 @@ test('a link, an oversized file, a stray key or a short fingerprint is no cache:
     ['a stray key', () => writeFileSync(red, JSON.stringify({ ...c, extra: 1 }))],
     ['a short fingerprint', () => writeFileSync(red, JSON.stringify({ ...c, fp: c.fp.slice(0, 10) }))],
     ['invalid JSON', () => writeFileSync(red, '{"fp":')],
+    ['a FIFO, which would hang a plain open', () => execFileSync('mkfifo', [red])],
   ];
   for (const [why, plant] of cases) {
     rmSync(red, { recursive: true, force: true });
