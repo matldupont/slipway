@@ -7,12 +7,17 @@
   "attention": [
     "Run /review-doc docs/PRD.md in a fresh session. PRD 0.2.0 has no adversarial review, and it needs one before it leaves draft.",
     "Existential risk: RISK-3 is existential and untested, and resolves \"before first live charge\", which names no milestone: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-3's Result",
-    "Existential risk: RISK-4 is existential and untested, and resolves before M4, after M2 starts: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-4's Result",
+    "Existential risk: RISK-4 is existential and untested, and resolves \"before M4\", after M2 starts: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-4's Result",
     "Existential risk: RISK-7 is existential and untested, and has no row in the PRD risk table: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-7's Result",
-    "Decide \"Deposits are refundable\" (PD-1, open)",
+    "(you) Decide \"Deposits are refundable\" (PD-1, open)",
     "Open question: docs/product/FRAME.md:32 — \"escaped backticks are not code\"",
     "Open question: docs/product/FRAME.md:34 — \"which store?\"",
     "Parked: docs/product/FRAME.md:30 — \"which region first?\" (#12)",
     "Parked: docs/product/FRAME.md:36 — \"which one?\" (#3)"
+  ],
+  "also": [
+    "(you) Test the untested value risks (RISK-2). It blocks M2, M4 activation.",
+    "(fresh session) Run /review-doc docs/PRD.md. The PRD at 0.2.0 has no adversarial review, and it needs one before Status: approved.",
+    "(you) Answer the 2 open question(s) below, or park each with an assumption, the cost if wrong, and a tracker."
   ]
 }

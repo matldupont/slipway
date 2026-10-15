@@ -11,5 +11,8 @@
     "Owed check: M2 item 4 (#15) — 2 check(s) moved to after merge with no run recorded (the Owed: lines under it in docs/milestones/M2-booking.md): run each, post the result as a comment on #15, then change the Owed line to Ran with that comment's link; #15 stays open until then (reopen it if it was closed)",
     "Unreadable check line: M2 item 5 — 1 line(s) under it start owed: or ran: and cannot be read, so each counts as owed: write it as Owed: or Ran: (docs/milestones/M2-booking.md)",
     "Parked: docs/milestones/M2-booking.md:13 — \"reminders by text or email\" (#9)"
+  ],
+  "also": [
+    "(you) Answer the 1 open question(s) below, or park each with an assumption, the cost if wrong, and a tracker."
   ]
 }

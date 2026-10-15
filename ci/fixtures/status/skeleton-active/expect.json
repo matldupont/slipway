@@ -13,5 +13,8 @@
     "Step 5 · Build loop: waiting",
     "Step 6 · Close the milestone: each milestone",
     "Step 7 · Learn: each milestone"
+  ],
+  "also": [
+    "(you) Test the untested value risks (RISK-2, RISK-3). It blocks M2 activation."
   ]
 }

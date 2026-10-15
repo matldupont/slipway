@@ -16,5 +16,8 @@
   ],
   "attention": [
     "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ],
+  "also": [
+    "(you) Test the untested value risks (RISK-2, RISK-3). M2 is underway with it untested, so the checks stay red until it has a result."
   ]
 }
