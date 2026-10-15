@@ -22,6 +22,9 @@ const pair = (line, lead) => {
 };
 const TOP = /^([\w-]+):/;
 const CHILD = /^\s+([\w-]+):/;
+// Every key is an own property, as written: `__proto__:` is a key like any other, never the object's prototype, so no
+// key a document writes can make another read as inherited.
+const own = (obj, key, value) => Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });
 
 // null when the document has no frontmatter block.
 export function frontmatter(md) {
@@ -34,11 +37,11 @@ export function frontmatter(md) {
     const top = pair(line, TOP);
     if (top) {
       parent = top[1].trim() === '' ? top[0] : null;
-      out[top[0]] = parent ? {} : unquote(top[1]);
+      own(out, top[0], parent ? {} : unquote(top[1]));
       continue;
     }
     const child = pair(line, CHILD);
-    if (child && parent) out[parent][child[0]] = unquote(child[1]);
+    if (child && parent) own(out[parent], child[0], unquote(child[1]));
   }
   return out;
 }

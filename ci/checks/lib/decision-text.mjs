@@ -1,5 +1,6 @@
 // Line-level reading for the decisions reader (ci/checks/lib/decisions.mjs, F-15 §2 and §3): which lines sit in a
-// fence, the mask that blanks fences and code spans, quoted text, a condition's text and §3's events. Split from that
+// fence, the mask that blanks fences and code spans, the clause openings and the prose pattern, quoted text, a
+// condition's text and §3's events. Split from that
 // module only for its size; it is the one reader callers import, and this file has no other reader.
 
 import { LEAD } from './feature-docs.mjs';
@@ -14,14 +15,19 @@ export const ISSUE_READABLE = false;
 export const fid = (n) => `F-${String(n).padStart(2, '0')}`;
 const blank = (s) => ' '.repeat(s.length);
 
-// Whether each line sits in a fenced block, its marker lines included.
+// Whether each line sits in a fenced block, its marker lines included. A fence still open at the end of the text is
+// a typo, not a block: its lines are read as written, so a stray marker never hides the decisions below it.
 export function fenced(lines) {
   let fence = false;
-  return lines.map((l) => {
+  let openedAt = -1;
+  const out = lines.map((l, i) => {
     const marker = FENCE.test(l);
     if (marker) fence = !fence;
+    if (marker && fence) openedAt = i;
     return fence || marker;
   });
+  if (fence) out.fill(false, openedAt);
+  return out;
 }
 // Each line with fenced blocks and code spans blanked, columns kept. A fence (``` to ```) is blanked whole, its
 // marker lines too. A code span is backtick to backtick within a paragraph (consecutive non-blank lines, a heading
@@ -49,6 +55,28 @@ export function mask(lines) {
   return out;
 }
 
+// The space between two words of a clause opening or the prose pattern: a run of spaces or tabs, bounded, so a doubled
+// space or a tab never makes a clause a typo hides.
+const WS = '[ \\t]{1,20}';
+// Whether a text holds one of the five clause openings, read on its letters alone, case folded: no mark, space, tab or
+// run of them between or inside the words hides one (the owner's call on #466, after two review rounds each found a
+// typo shape a pattern missed). It is louder by design: a title whose letters happen to run `closesif` is unreadable.
+// One loop over the characters and a substring search, no pattern, so it may read a whole line past the cut at MAX.
+const CLAUSE_LETTERS = ['reopenswhen', 'reopensif', 'closeswhen', 'closesif', 'provisionaluntil'];
+export const hasClause = (s) => {
+  const lower = s.toLowerCase();
+  let letters = '';
+  for (const ch of lower) if (ch >= 'a' && ch <= 'z') letters += ch;
+  return CLAUSE_LETTERS.some((w) => letters.includes(w));
+};
+// A clause that opens with one of them, at its start and followed by a space or its end: `[kind, rest]`.
+export const CLAUSE_START = new RegExp(`^(?:(reopens|closes)${WS}(?:when|if)|provisional${WS}until)(?=\\s|$)`, 'i');
+export const PROSE = [
+  new RegExp(`\\b(?:revisit(?:ed)?|reopen(?:s|ed)?)(?:${WS}(?:it|this|them))?${WS}(?:when|if|once|after)\\b`, 'i'),
+  new RegExp(`\\bcloses?${WS}(?:when|if|once)\\b`, 'i'),
+  new RegExp(`\\bprovisional${WS}until\\b`, 'i'),
+];
+
 // What a condition's text reads as: backticks and a closing full stop removed, whitespace squashed.
 export const squash = (s) => s.replace(/`/g, '').replace(/\s+/g, ' ').trim().replace(/\.$/, '');
 
@@ -57,13 +85,13 @@ function isDay(date) {
   return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === date;
 }
 
-// One event of §3's table, or null. Verbs are case folded; ids keep their case. `said` is the event in the table's
-// words, built from the numbers read, never from the record's text.
 // The verbs of §3's table. Maps, so a word an object inherits (`constructor`, `__proto__`) is no verb.
 const FEATURE_VERBS = new Map([['has a doc', 'doc'], ['has a feature doc', 'doc'], ['is reviewed', 'reviewed'], ['is shipped', 'shipped']]);
 const FEATURE_SAID = new Map([['doc', 'has a doc'], ['reviewed', 'is reviewed'], ['shipped', 'is shipped']]);
 const MILESTONE_VERBS = new Map([['is active', 'active'], ['is activated', 'active'], ['goes active', 'active'], ['is closed', 'closed'], ['closes', 'closed']]);
 
+// One event of §3's table, or null. Verbs are case folded; ids keep their case. `said` is the event in the table's
+// words, built from the numbers read, never from the record's text.
 export function parseEvent(part) {
   let m = part.match(/^F-(\d{1,9}) (.{1,40})$/);
   if (m) {
