@@ -39,6 +39,13 @@ must print `"decision":"block"` naming the file and run nothing; restored, it mu
 printf '{}' | env -i HOME="$HOME" PATH=/usr/bin:/bin CLAUDE_PROJECT_DIR="$PWD" CLAUDE_CODE_SESSION_ID="$CLAUDE_CODE_SESSION_ID" sh -c "$(git cat-file blob "$(cat ~/.claude/slipway/sessions/$CLAUDE_CODE_SESSION_ID/base)":process/harness/hooks/base-guard.sh)" base-guard stop-verify.sh
 ```
 
+In a worktree (#481): start a new Claude Code session in a git worktree of the project (`git worktree add`). Its
+session folder must hold a `tree` file naming the worktree, not the main checkout:
+`cat ~/.claude/slipway/sessions/$CLAUDE_CODE_SESSION_ID/tree`. Make a test fail in the main checkout only: the
+session's turn must end unblocked. Make one fail in the worktree only: its turn must block, and the failure shown must
+be the worktree's. Remove the worktree before a turn ends: the Stop hook must block once, saying the folder is gone.
+`scripts/harness-state.test.mjs` holds the same cases.
+
 With the gate file still changed, send `trust gates` as a message of its own: Claude Code must show which files
 the yes covers, and the Stop hook must run again until you change the file once more.
 
