@@ -88,8 +88,8 @@ function finish(e) {
     clauses.push({ text: c });
     const hit = i > 0 ? clauseCondition(c) : null;
     whole.push(hit ? hit[1] : raw);
-    // A heading the cut at MAX shortened may have lost an event: its clauses are never issue-only, as a cut labelled line's.
-    if (hit) conditions.push({ ...condition(hit[0], 'heading', e.line, hit[1]), ...(e.cut ? { issueOnly: false } : {}) });
+    // A heading the cut at MAX shortened may have lost an event: its clauses are never read, as a cut labelled line's.
+    if (hit) conditions.push({ ...condition(hit[0], 'heading', e.line, hit[1]), ...(e.cut ? { readable: false, issueOnly: false } : {}) });
     // A part holding a clause opening is a condition clause, if an unreadable one: never prose too (AR-4).
     else if (hasClause(raw)) hidden = true;
     else proseClauses.push(e.masked.slice(at + 2 + off, at + 2 + off + raw.length));
