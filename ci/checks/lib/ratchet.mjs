@@ -3,7 +3,7 @@
 // the same way, and the one reader and writer of that file: the checks, sync and new-project all go through it.
 // It never exits, so a program that is not a check can import it.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 export const BASELINES = 'ci/baselines.json';
@@ -46,17 +46,29 @@ export function namesIn(text) {
   return names;
 }
 const namesOf = (value) => (value !== null && typeof value === 'object' ? Object.entries(value).flatMap(([k, v]) => [...(Array.isArray(value) ? [] : [k]), ...namesOf(v)]) : []);
-const sameNames = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+// A number JSON does not write back as it was read: none at all (`1e400` reads as Infinity, written as null), or
+// a whole number too large to be held exactly.
+const changedNumber = (value) => (typeof value === 'number' ? !Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)) : value !== null && typeof value === 'object' && Object.values(value).some(changedNumber));
 
-// Writes the baselines over the file under `root`. Throws, writing nothing, when the file there holds a name the
-// parser does not read as written (a name given twice, or the Node bug above): rewriting it would drop an entry.
+// Writes `baselines` over the file under `root`: what the caller read there, with a top-level name set or added.
+// Throws, writing nothing, when the rewrite would lose or change an entry the file holds: a link or anything but
+// a plain file there; bytes that are not UTF-8; a name in the text that `baselines` does not hold as written (a
+// name given twice, or the Node bug above), or a name it holds that is neither in the text nor at its top; a
+// number that is not written back as read.
 export function writeBaselines(root, baselines) {
   const file = join(root, BASELINES);
-  if (existsSync(file)) {
-    const text = readFileSync(file, 'utf8');
-    const parsed = parseBaselines(text);
-    if (!sameNames(namesIn(text), namesOf(parsed))) {
-      throw new Error(`${BASELINES} holds a name that is given twice, or that Node ${process.version} misreads, so rewriting it would lose an entry; nothing was written — fix the name by hand`);
+  const stat = lstatSync(file, { throwIfNoEntry: false });
+  if (stat) {
+    if (!stat.isFile()) throw new Error(`${BASELINES} is a link or not a plain file, so it is not rewritten; nothing was written — make it a plain file`);
+    const bytes = readFileSync(file);
+    const text = bytes.toString('utf8');
+    parseBaselines(text);
+    const left = new Map();
+    for (const n of namesOf(baselines)) left.set(n, (left.get(n) ?? 0) + 1);
+    const lost = namesIn(text).filter((n) => (left.get(n) ? (left.set(n, left.get(n) - 1), false) : true));
+    const added = [...left].filter(([n, c]) => c > 0 && !Object.hasOwn(baselines, n));
+    if (!Buffer.from(text, 'utf8').equals(bytes) || lost.length || added.length || changedNumber(baselines)) {
+      throw new Error(`${BASELINES} holds an entry a rewrite would lose or change (a name given twice, a name or number Node ${process.version} does not read as written, or bytes that are not UTF-8); nothing was written — fix the entry by hand`);
     }
   }
   mkdirSync(dirname(join(root, BASELINES)), { recursive: true });

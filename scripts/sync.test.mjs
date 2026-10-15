@@ -2524,7 +2524,7 @@ const FIT_DOCS = {
 };
 const SENTENCES = [
   '3 feature docs that are shipped, reviewed or scheduled have no Fit section filled in yet. The count is recorded at 3 and may only go down.',
-  '2 feature docs still being drafted have no Fit section; each needs one before it is reviewed, scheduled or shipped.',
+  '2 feature docs still being drafted have no Fit section filled in yet; each needs one before it is reviewed, scheduled or shipped.',
   '1 file in docs/features/ is not a feature doc, having no F-number heading, and is not counted.',
 ];
 const NOT_IN_FORM = /^sync: ci\/baselines\.json is not in the form slipway writes it in \(two-space JSON, each entry once and as slipway would write it, one final newline\), and sync does not rewrite a file of yours to record a count in it — put the file back in that form \(if a formatter changed it, keep the formatter off this file\), commit, then sync again; nothing was written\n$/;
@@ -2586,7 +2586,7 @@ test('--apply recounts: a doc that became held after the plan changes the number
   assert.equal(applied.status, 0, applied.stdout + applied.stderr);
   assert.match(applied.stdout, /^◇ {2}ci\/baselines\.json — count recorded at 4$/m);
   assert.match(applied.stdout, /^│ {2}4 feature docs that are shipped, reviewed or scheduled have no Fit section filled in yet\. The count is recorded at 4 and may only go down\.$/m);
-  assert.match(applied.stdout, /^│ {2}1 feature doc still being drafted has no Fit section; it needs one before it is reviewed, scheduled or shipped\.$/m);
+  assert.match(applied.stdout, /^│ {2}1 feature doc still being drafted has no Fit section filled in yet; it needs one before it is reviewed, scheduled or shipped\.$/m);
   assert.equal(baselinesOf(dir), '{\n  "feature-fit": 4\n}\n');
 });
 
@@ -2752,11 +2752,11 @@ test('countLines: 0, 1 and many; the status clause only when a counted doc has n
   assert.deepEqual(countLines({ n: 0 }), ['No feature doc that is shipped, reviewed or scheduled is missing its Fit section. The count is recorded at 0 and may not go up.']);
   assert.deepEqual(countLines({ n: 1, drafts: 1, others: { 'dev/features/': 1 } }), [
     '1 feature doc that is shipped, reviewed or scheduled has no Fit section filled in yet. The count is recorded at 1 and may only go down.',
-    '1 feature doc still being drafted has no Fit section; it needs one before it is reviewed, scheduled or shipped.',
+    '1 feature doc still being drafted has no Fit section filled in yet; it needs one before it is reviewed, scheduled or shipped.',
     '1 file in dev/features/ is not a feature doc, having no F-number heading, and is not counted.',
   ]);
-  assert.deepEqual(countLines({ n: 2, noStatus: 1 })[1], 'Of these, 1 has no status line in its header, so it is counted whatever its Fit says; give it one and it is read normally.');
-  assert.deepEqual(countLines({ n: 3, noStatus: 2 })[1], 'Of these, 2 have no status line in their header, so they are counted whatever their Fit says; give each one and it is read normally.');
+  assert.deepEqual(countLines({ n: 2, noStatus: 1 })[1], 'Of these, 1 has no readable status line in its header, so it is counted whatever its Fit says; give it one and it is read normally.');
+  assert.deepEqual(countLines({ n: 3, noStatus: 2 })[1], 'Of these, 2 have no readable status line in their header, so they are counted whatever their Fit says; give each one and it is read normally.');
   assert.deepEqual(countLines({ n: 0, others: { 'docs/features/': 2, 'dev/features/': 1 } })[1], '3 files in docs/features/ and dev/features/ are not feature docs, having no F-number heading, and are not counted.');
   // Only the two folders this file names are ever printed, and only whole numbers of files: each value here is
   // above 0, so only the whole-number test keeps it out.
@@ -2802,7 +2802,7 @@ test('file names, folder names and link targets that carry words: none appears i
   const doc = JSON.parse(sync(dir, '--json').stdout);
   assert.deepEqual(doc.notes, [
     '1 feature doc that is shipped, reviewed or scheduled has no Fit section filled in yet. The count is recorded at 1 and may only go down.',
-    '1 feature doc still being drafted has no Fit section; it needs one before it is reviewed, scheduled or shipped.',
+    '1 feature doc still being drafted has no Fit section filled in yet; it needs one before it is reviewed, scheduled or shipped.',
     '3 files in docs/features/ are not feature docs, having no F-number heading, and are not counted.',
     '1 entry named `*.md` in docs/features/ is a link or a folder, not a file, so it is not read and not counted.',
   ]);
@@ -2835,7 +2835,23 @@ test('a counted doc with a filled Fit and no status line: the plan says why it i
   const dir = counted({ 'docs/features/shipped.md': fitDoc('shipped', 1), 'docs/features/no-status.md': filled, [BASELINES_FILE]: null });
   assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).notes, [
     '2 feature docs that are shipped, reviewed or scheduled have no Fit section filled in yet. The count is recorded at 2 and may only go down.',
-    'Of these, 1 has no status line in its header, so it is counted whatever its Fit says; give it one and it is read normally.',
+    'Of these, 1 has no readable status line in its header, so it is counted whatever its Fit says; give it one and it is read normally.',
+  ]);
+});
+
+// #430 item 4: each sentence is true of every doc it counts. A draft can have a Fit section with nothing filled in,
+// and a doc can have a status line with nothing after it.
+test('the count\'s sentences hold for a draft whose Fit is there but unfilled, and a status line that is there but empty', () => {
+  const filled = '## Fit\n\nReuses:\n- a helper in lib/x\n\nNumbers:\n- none shown\n\nNew: a thing nothing else does.\n';
+  const dir = counted({
+    'docs/features/unfilled-draft.md': `${fitDoc('draft', 1)}\n## Fit\n\nReuses:\n\nNumbers:\n\nNew:\n`,
+    'docs/features/empty-status.md': `---\nstatus:\n---\n\n# F-2 — x\n\n${filled}`,
+    [BASELINES_FILE]: null,
+  });
+  assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).notes, [
+    '1 feature doc that is shipped, reviewed or scheduled has no Fit section filled in yet. The count is recorded at 1 and may only go down.',
+    'Of these, 1 has no readable status line in its header, so it is counted whatever its Fit says; give it one and it is read normally.',
+    '1 feature doc still being drafted has no Fit section filled in yet; it needs one before it is reviewed, scheduled or shipped.',
   ]);
 });
 

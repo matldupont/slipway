@@ -72,8 +72,8 @@ export function countLines({ n, noStatus = 0, drafts = 0, others = {}, notFiles 
       ? 'No feature doc that is shipped, reviewed or scheduled is missing its Fit section. The count is recorded at 0 and may not go up.'
       : `${plural(n, 'feature doc')} that ${n === 1 ? 'is' : 'are'} shipped, reviewed or scheduled ${n === 1 ? 'has' : 'have'} no Fit section filled in yet. The count is recorded at ${n} and may only go down.`,
   ];
-  if (noStatus) lines.push(`Of these, ${noStatus} ${noStatus === 1 ? 'has' : 'have'} no status line in ${noStatus === 1 ? 'its' : 'their'} header, so ${noStatus === 1 ? 'it is' : 'they are'} counted whatever ${noStatus === 1 ? 'its' : 'their'} Fit says; give ${noStatus === 1 ? 'it' : 'each'} one and it is read normally.`);
-  if (drafts) lines.push(`${plural(drafts, 'feature doc')} still being drafted ${drafts === 1 ? 'has' : 'have'} no Fit section; ${drafts === 1 ? 'it' : 'each'} needs one before it is reviewed, scheduled or shipped.`);
+  if (noStatus) lines.push(`Of these, ${noStatus} ${noStatus === 1 ? 'has' : 'have'} no readable status line in ${noStatus === 1 ? 'its' : 'their'} header, so ${noStatus === 1 ? 'it is' : 'they are'} counted whatever ${noStatus === 1 ? 'its' : 'their'} Fit says; give ${noStatus === 1 ? 'it' : 'each'} one and it is read normally.`);
+  if (drafts) lines.push(`${plural(drafts, 'feature doc')} still being drafted ${drafts === 1 ? 'has' : 'have'} no Fit section filled in yet; ${drafts === 1 ? 'it' : 'each'} needs one before it is reviewed, scheduled or shipped.`);
   const byFolder = (counts) => {
     const folders = FEATURE_FOLDERS.filter((d) => Number.isInteger(counts[d]) && counts[d] > 0);
     return { folders, n: folders.reduce((sum, d) => sum + counts[d], 0) };
