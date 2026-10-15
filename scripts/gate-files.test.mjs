@@ -393,4 +393,12 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
   assert.equal(run('maybe').status, 2);
 });
 
+test('pr-body.yml re-runs when a pull request leaves or returns to draft, and writes the draft flag into the sidecar (#464)', () => {
+  const wf = readFileSync(join(SRC, '.github/workflows/pr-body.yml'), 'utf8');
+  assert.match(wf, /types: \[[^\]]*\bready_for_review\b[^\]]*\]/, 'marking a pull request ready would not re-run P1');
+  assert.match(wf, /types: \[[^\]]*\bconverted_to_draft\b[^\]]*\]/);
+  assert.match(wf, /DRAFT: \$\{\{ github\.event\.pull_request\.draft \}\}/);
+  assert.match(wf, /gate-files\.mjs "\$BASE_SHA" "\$HEAD_SHA" "\$DRAFT" >/);
+});
+
 test.after(() => rmSync(repo, { recursive: true, force: true }));
