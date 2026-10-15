@@ -34,6 +34,8 @@ broken by a dependency. Cost: YAML is read as a declared subset, and anything ou
 
 ## D-015 — Projects take slipway updates by a locked, declared sync *(decided 2026-09-23)*
 
+Amends: F-01
+
 A project must be able to take a newer slipway without losing anything, and without a merge that needs
 judgment on every file. Most of what slipway ships is prose, where a three-way merge is least reliable.
 
@@ -88,6 +90,8 @@ before it helps is one more complex thing to learn.
 
 ## D-017 — Project state for non-technical readers is a generated page, not a board *(decided 2026-09-24)*
 
+Amends: F-02
+
 A project's non-technical members need to see where things stand without reading issues or `STATE.md`.
 
 - **Generated, read-only.** A static page built from `docs/milestones/` by the same lib `pnpm status`, MS1
@@ -109,6 +113,8 @@ the body's first line. Three review rounds each found a markdown shape that let 
 section reader; reading no body section removes the class. Owner-only views may still read the body.
 
 ## D-018 — Slipway ships its intake and ticket skills *(decided 2026-09-25)*
+
+Amends: F-04
 
 The build loop (step 5) and the feature lane name `/log-feature`, `/log-bug`, `/log-followup` and
 `/work-ticket`. Until now they were the author's personal skills: slipway named them as "user-level" and had
@@ -133,6 +139,8 @@ template. Spec: `dev/features/intake-skills.md`; #46.
 
 ## D-019 — Experience settles a value risk when it says what would prove it wrong *(decided 2026-09-28)*
 
+Amends: F-05
+
 K1 let nothing past the walking skeleton until every value risk had a Result from a test with a bar written
 first. Two honest cases have no test: a feature that is **table stakes** in its domain (a product without it
 is not usable, so there is nothing to ask), and a risk the **creator, as the user**, or a **domain expert**
@@ -155,6 +163,8 @@ can refute) and putting the refutation in the Threshold cell (prose in a table, 
 nothing there). Spec: `dev/features/experience-evidence.md`; #47.
 
 ## D-020 — A milestone's next slice starts from its Contents line, and intake reads the decisions record *(decided 2026-09-29)*
+
+Amends: F-06
 
 Starting a Contents item the milestone already bet on had no path: `pnpm status` said "pick the lane", and
 `/log-feature` argued against the bet again. No intake skill read `decisions.md`: on a project's first
@@ -191,6 +201,8 @@ Declined: exiting 0 whenever rows need the owner (the exit code is how the skill
 `dev/features/template-sync.md`; #135.
 
 ## D-022 — The owner's work order is a local page over the milestone and live GitHub state *(decided 2026-09-30)*
+
+Amends: F-07
 
 An owner running several agent sessions needs to know which issues on the active milestone are ready, which
 can run side by side, and what starts each. `pnpm status` names one step and stays offline; the roadmap page
@@ -231,6 +243,8 @@ stops nobody who means it. Declined: guarding the local `.git` directory and han
 keys, which a reviewer sees in the diff. Written up as §3 of `process/decision-defaults.md`; #152.
 
 ## D-024 — A check deferred to after merge is written on its Contents item until its result is recorded *(decided 2026-09-30)*
+
+Amends: F-09
 
 A PR that can only prove part of its issue once `main` deploys closed the issue on merge, and the check it
 moved to after merge was never run: twice in a row on a real project's first milestone.
@@ -278,6 +292,8 @@ excuses, or the check dropped), a separate owner-written list of hosts (a second
 `.npmrc`), and trusting any `https` host. #147.
 
 ## D-027 — Slipway is released from version tags, staged by CI and approved by the owner at npm *(decided 2026-10-05)*
+
+Amends: F-10
 
 Slipway is published to npm as `use-slipway`, under the MIT licence. A release is a pull request that sets
 `package.json`'s `version`, merged to `main`; then the tag `v<version>`, pushed by the owner on that merge commit;
@@ -527,6 +543,8 @@ script over the diff's paths is deferred until a real run shows a listed surface
 
 ## D-036 — A section added to the feature-doc template never turns a shipped doc red on sync; the count is recorded by sync and may only go down *(decided 2026-10-08)*
 
+Amends: F-12
+
 `docs/features/TEMPLATE.md` gains a `## Fit` section (F-12, `dev/features/feature-fit.md`, #48) and a check, F2,
 that a doc past `draft` has it filled. Projects that take that release have docs shipped before the section
 existed. The owner chose what they meet:
@@ -605,6 +623,8 @@ the form; the owner puts it back once and syncs again. Sync never rewrites a `ci
 in that form. The rule above is otherwise as decided.
 
 ## D-037 — A pull request's new tests must each fail on a change to the code; slipway's own mutator checks it, within 5 minutes *(decided 2026-10-08)*
+
+Amends: F-13
 
 #51 asks that a product's tests be able to fail, checked on every pull request (F-13,
 `dev/features/tests-can-fail.md`). The owner picked each of these on 2026-10-08, with the measurements below in
@@ -951,6 +971,8 @@ R1's side. #268.
 
 ## D-042 — A project with a front end plans a design item before its first screen, and accessibility is a gate line, not a late audit *(decided 2026-10-12)*
 
+Amends: F-14
+
 Slipway planned a web app with one engineer and never asked who designs it or when: no milestone held a design
 item, the skeleton's no-go excluded styling and named no later place, and accessibility appeared once, as an outside
 audit in the last milestone, which can only discover. The owner's word: "WCAG shouldn't be a nice to have and any
@@ -1073,6 +1095,8 @@ telling a move from a deletion by reading git history.
 
 ## D-044 — A milestone carries a `Version:` line, and it moves when its plan changes, not its bookkeeping *(decided 2026-10-13)*
 
+Amends: F-04 and F-06
+
 `/review-doc` takes "the PRD, a feature doc, a milestone". D-041 gave a feature doc a `Version:` line for a review to
 quote; a milestone had none, so its reviewer picked a line, as happened with feature docs before D-041. Which line
 it is follows from D-041 (reuse, no pick); when it moves, the extension, the M1 skeleton and the stop are the
@@ -1149,6 +1173,8 @@ Amended 2026-10-14 (the owner's answers to the review of F-15 at 0.1, `docs/revi
   finds rides the build as lines under the step it touches.
 
 ## D-046 — Slipway's own text follows a written standard; a check fails only on unambiguous junk, and the rest may only improve *(decided 2026-10-14)*
+
+Amends: F-16
 
 Slipway's status line, check failures, guides, skill questions, titles and commit subjects were written in slipway's
 own vocabulary: an id in place of its meaning, the action after the explanation, four clauses in one sentence. The
