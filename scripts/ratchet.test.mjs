@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -173,4 +173,71 @@ test('--update refuses a ci/baselines.json that is a link, reading and writing n
   assert.equal(r.status, 2);
   assert.match(r.out, /ci\/baselines\.json is a link, not a file, so it is not read — make it a plain file in a plain folder/);
   assert.equal(r.elsewhere, '{"dup":3}');
+});
+
+// #430's second pull request (items 19, 20): the file is read and written only as a plain file in a plain ci/, in check
+// mode too. A link is never followed, a pipe or a device never opened, and no parser's words about it are printed.
+test('check mode refuses a ci/baselines.json that is a link, before any read: BROKEN, and nothing of the target printed', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ratchet-'));
+  try {
+    writeFileSync(join(dir, 'report.json'), JSON.stringify({ stats: { total: 1 } }));
+    mkdirSync(join(dir, 'ci'));
+    writeFileSync(join(dir, 'secret.txt'), 'TOKEN=abcdef0123456789 not json');
+    symlinkSync(join(dir, 'secret.txt'), join(dir, BASELINES));
+    const r = spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), 'dup', 'report.json', 'stats.total'], { cwd: dir, encoding: 'utf8' });
+    assert.equal(r.status, 2);
+    assert.equal(lines(r.stdout).at(-1), 'RATCHET: BROKEN — ci/baselines.json is a link, not a file, so it is not read — make it a plain file in a plain folder');
+    assert.doesNotMatch(r.stdout + r.stderr, /TOKEN|abcdef/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a pipe at ci/baselines.json is refused, never opened: the command ends, BROKEN', { skip: spawnSync('mkfifo', ['--version']).error ? 'no mkfifo' : false }, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ratchet-'));
+  try {
+    writeFileSync(join(dir, 'report.json'), JSON.stringify({ stats: { total: 1 } }));
+    mkdirSync(join(dir, 'ci'));
+    assert.equal(spawnSync('mkfifo', [join(dir, BASELINES)]).status, 0);
+    const r = spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), 'dup', 'report.json', 'stats.total'], { cwd: dir, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(r.signal, null, 'it hung on the pipe');
+    assert.equal(r.status, 2);
+    assert.match(lines(r.stdout).at(-1), /^RATCHET: BROKEN — ci\/baselines\.json is not a regular file, so it is not read/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('a ci/ that is a link: neither command reads or writes through it, and nothing lands in its target', () => {
+  for (const flags of [[], ['--update']]) {
+    const dir = mkdtempSync(join(tmpdir(), 'ratchet-'));
+    try {
+      writeFileSync(join(dir, 'report.json'), JSON.stringify({ stats: { total: 1 } }));
+      mkdirSync(join(dir, 'elsewhere'));
+      writeFileSync(join(dir, 'elsewhere/baselines.json'), '{\n  "dup": 3\n}\n');
+      symlinkSync(join(dir, 'elsewhere'), join(dir, 'ci'));
+      const r = spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), 'dup', 'report.json', 'stats.total', ...flags], { cwd: dir, encoding: 'utf8' });
+      assert.equal(r.status, 2, String(flags));
+      assert.equal(lines(r.stdout).at(-1), 'RATCHET: BROKEN — ci/ is a link, not a folder, so it is not read — make it a plain file in a plain folder');
+      assert.equal(readFileSync(join(dir, 'elsewhere/baselines.json'), 'utf8'), '{\n  "dup": 3\n}\n');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+});
+
+test('writeBaselines refuses a ci/ that is a link, writing nothing through it; with no ci/ it makes one', async () => {
+  const { writeBaselines } = await import('../ci/checks/lib/ratchet.mjs');
+  const dir = mkdtempSync(join(tmpdir(), 'ratchet-'));
+  try {
+    mkdirSync(join(dir, 'elsewhere'));
+    symlinkSync(join(dir, 'elsewhere'), join(dir, 'ci'));
+    assert.throws(() => writeBaselines(dir, { dup: 1 }), /^Error: ci\/ is a link, not a folder, so it is not rewritten; nothing was written/);
+    assert.equal(existsSync(join(dir, 'elsewhere/baselines.json')), false);
+    unlinkSync(join(dir, 'ci'));
+    writeBaselines(dir, { dup: 1 });
+    assert.equal(readFileSync(join(dir, BASELINES), 'utf8'), '{\n  "dup": 1\n}\n');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

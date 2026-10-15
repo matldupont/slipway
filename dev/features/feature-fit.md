@@ -479,6 +479,22 @@ as the other ratchets' are.
   reading it again, not the caller's own earlier read: the bug depends on what the process parsed before, so the
   two reads could differ. Neither command has been seen to (thousands of generated files, #430's review), and
   checking the caller's object would refuse `new-project`, which writes a fresh file over slipway's copy.
+- What #430's second pull request decided and left (items 2, 3, 8–13, 19, 20). Each reader the count goes through
+  opens a file only when it is a regular file reached through no link at any depth, and reads a folder only when it
+  is a folder reached through none. A feature folder or `docs/milestones/` that is not, or a milestone file that is
+  not, is never read: F2 is BROKEN naming it, sync refuses naming the folder, MS1 and ID1 name it. A single `*.md` in
+  a feature folder that is a link stays a warning (§2: named, not counted), and a review file that is a link is left
+  out of the count (R1 names it). `pnpm status`, F1, DC1, K1 and the roadmap page leave a refused milestone file out
+  without a line of their own; MS1, run by every `pnpm meta`, is where it shows. `ci/ratchet.mjs` still reads the
+  tool's report through a link: the report is the tool's own output, at a path the project's script names.
+  Fit is read as GitHub shows it only in part: a comment, and a `<!--` with no `-->` to the end, is a space; a heading
+  ends a label's text; a character reference, an HTML tag, a link with no text and a link reference definition say
+  nothing. A label line with a setext underline under it is still a label, a lone `-` under a line is still an empty
+  list mark, and a character reference that shows a character (`&amp;`) says nothing: each is read the strict way,
+  counted rather than passed. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
+  HTML block) are read as text. A heading is folded a piece at a time: a run of more than 32 combining marks is
+  reordered within each piece only, which no id or heading mark depends on. `ci/checks/lib/yaml-list.mjs`'s line
+  patterns are left as they are: it refuses a line with a line break inside before matching, so each reads a line once.
 
 ## Acceptance
 

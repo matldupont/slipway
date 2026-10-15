@@ -3,15 +3,15 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PLACEHOLDER } from './frontmatter.mjs';
-import { cells, plain, section } from './markdown.mjs';
+import { hasPlaceholder, lineRest } from './frontmatter.mjs';
+import { cells, plain, replaceComments, section } from './markdown.mjs';
 import { parseAppetite } from './milestones.mjs';
 
 // Where the real answer is being chased: an issue (#14, owner/repo#14), a PRD open decision (OD-3)
 // or a decision — slipway's (D-7) or the project's own (PD-7, D-015).
 export const TRACKER = /(?:[\w.-]+\/[\w.-]+)?#\d+|\b(?:OD|PD|D)-\d+\b/;
 
-export const filled = (c) => !!c && !PLACEHOLDER.test(c);
+export const filled = (c) => !!c && !hasPlaceholder(c);
 
 // Columns are found by their header, so a FRAME written before a column existed still parses. The
 // order here is the template's: a column whose header was renamed takes its template position, unless
@@ -69,22 +69,29 @@ function readEvidence(root) {
     const fileId = f.match(/^(RISK-\d+)\b/i)?.[1].toUpperCase() ?? null;
     let id = fileId;
     let level = 0; // 0: opened by the file name, so no heading closes it
-    const lines = readFileSync(join(dir, f), 'utf8').replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+    const lines = replaceComments(readFileSync(join(dir, f), 'utf8'), () => '').split(/\r?\n/);
     for (const raw of lines) {
       const line = raw.replace(/\*\*/g, '');
-      const heading = line.match(/^(#{1,6})\s+(.*)$/);
-      if (heading) {
-        const risk = heading[2].match(/^(RISK-\d+)\b/i);
-        if (risk) [id, level] = [risk[1].toUpperCase(), heading[1].length];
-        else if (heading[1].length <= level) [id, level] = [fileId, 0];
+      // Each `label` then the line's rest, as /^…\s*(.*)$/ reads it: the mark is matched, then lineRest() takes the
+      // rest in one pass, without the pattern's retry from every space of a long line.
+      const hashes = line.match(/^(#{1,6})\s/);
+      const title = hashes ? lineRest(line.slice(hashes[1].length)) : null;
+      if (title !== null) {
+        const risk = title.match(/^(RISK-\d+)\b/i);
+        if (risk) [id, level] = [risk[1].toUpperCase(), hashes[1].length];
+        else if (hashes[1].length <= level) [id, level] = [fileId, 0];
         continue;
       }
       if (!id) continue;
       const e = (out[id] ??= {});
-      const tracked = line.match(/^[\s>*_-]*Tracked:\s*(.*)$/i);
-      if (tracked && !e.tracker) e.tracker = tracked[1].match(TRACKER)?.[0] ?? null;
-      const window = line.match(/^[\s>*_-]*Window:\s*(.*)$/i);
-      if (window && !e.window) e.window = parseAppetite(window[1].trim()) ?? 'unreadable';
+      const after = (re) => {
+        const m = line.match(re);
+        return m ? lineRest(line.slice(m[0].length)) : null;
+      };
+      const tracked = after(/^[\s>*_-]*Tracked:/i);
+      if (tracked !== null && !e.tracker) e.tracker = tracked.match(TRACKER)?.[0] ?? null;
+      const window = after(/^[\s>*_-]*Window:/i);
+      if (window !== null && !e.window) e.window = parseAppetite(window.trim()) ?? 'unreadable';
       // `**Wrong if:** x`, `**Wrong if**: x` and `_Wrong if:_ *x*` read as `Wrong if: x`.
       const label = line.match(/^[\s>*_-]*Wrong if[*_]*:/i);
       const wrong = label && trimWith(line.slice(label[0].length), (c) => /[\s*_]/.test(c));
@@ -155,7 +162,7 @@ export function readRisks(root, frameMd) {
 // text and names no milestone. Rows share FRAME's RISK-n ids. Returns null when no table has the column, so
 // a PRD written before the column existed is not read at all.
 export function readDeadlines(prdMd) {
-  const lines = prdMd.replace(/<!--[\s\S]*?-->/g, '').split(/\r?\n/);
+  const lines = replaceComments(prdMd, () => '').split(/\r?\n/);
   const isSep = (l) => /^\|[\s:|-]+\|$/.test((l ?? '').trim());
   const h = lines.findIndex((l, i) => l.trim().startsWith('|') && isSep(lines[i + 1]) && cells(l).some((c) => /^resolves by/i.test(plain(c))));
   if (h < 0) return null;

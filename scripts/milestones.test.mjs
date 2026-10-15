@@ -6,12 +6,13 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { contents, marker, owing, started } from '../ci/checks/lib/milestones.mjs';
+import { contents, marker, owing, readMilestoneModel, readMilestones, started } from '../ci/checks/lib/milestones.mjs';
+import { readRisks } from '../ci/checks/lib/risks.mjs';
 import { excerpt } from '../ci/checks/lib/report.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -227,4 +228,59 @@ test('excerpt(): one line, 60 characters at a word boundary, control and format 
   const long = excerpt('word '.repeat(40));
   assert.ok(long.length <= 60 && long.endsWith('…') && !long.includes('  '));
   assert.equal(excerpt('abcdef', 4), 'abc…');
+});
+
+// #430's second pull request (item 2): a milestone file is opened only when it is a regular file reached through no
+// link; anything else, and a folder that is a link or not a folder, is refused, never read, and MS1 names it.
+test('readMilestones refuses a linked file, a folder named *.md and a linked folder, reading none of them; MS1 names each', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ms-'));
+  const outside = mkdtempSync(join(tmpdir(), 'ms-outside-'));
+  try {
+    mkdirSync(join(dir, 'docs/milestones'), { recursive: true });
+    writeFileSync(join(outside, 'm.md'), '---\nid: M9\nstatus: active\n---\n\n# M9 — a-private-word\n');
+    writeFileSync(join(dir, 'docs/milestones/m1.md'), '---\nid: M1\nstatus: shaping\n---\n\n# M1 — x\n');
+    symlinkSync(join(outside, 'm.md'), join(dir, 'docs/milestones/m2.md'));
+    mkdirSync(join(dir, 'docs/milestones/m3.md'));
+    symlinkSync(join(outside, 'm.md'), join(dir, 'docs/milestones/TEMPLATE.md'));
+    const read = readMilestones(dir);
+    assert.deepEqual([read.files, read.milestones.map((m) => m.file), read.refused], [['m1.md'], ['m1.md'], ['docs/milestones/TEMPLATE.md', 'docs/milestones/m2.md', 'docs/milestones/m3.md']]);
+    const r = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/ms1-milestones.mjs'), dir], { encoding: 'utf8' });
+    assert.equal(r.status, 1, r.stdout);
+    for (const f of ['TEMPLATE.md', 'm2.md', 'm3.md']) assert.ok(r.stdout.includes(`docs/milestones/${f}#file/unreadable: docs/milestones/${f} is a link, is reached through one or is not a regular file, so it is not read as a milestone: make it a regular file`), r.stdout);
+    assert.doesNotMatch(r.stdout, /a-private-word|M9/);
+
+    rmSync(join(dir, 'docs/milestones'), { recursive: true });
+    symlinkSync(outside, join(dir, 'docs/milestones'));
+    assert.deepEqual(readMilestones(dir).refused, ['docs/milestones']);
+    const linked = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/ms1-milestones.mjs'), dir], { encoding: 'utf8' });
+    assert.ok(linked.stdout.includes('docs/milestones#file/unreadable: docs/milestones is a link, sits under one or is not a folder, so no milestone in it is read: make it a plain folder'), linked.stdout);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+// Item 8: the readers outside the Fit path read a line once, as #436 made the Fit path's do.
+test('MS1, the No-gos, the evidence files and K1 read a long line of placeholders, spaces or comment openers quickly', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ms-'));
+  const long = (s, n) => s.repeat(n);
+  try {
+    mkdirSync(join(dir, 'docs/milestones'), { recursive: true });
+    mkdirSync(join(dir, 'docs/product/evidence'), { recursive: true });
+    const gate = long('<…', 60_000);
+    writeFileSync(join(dir, 'docs/milestones/m1.md'), `---\nid: M1\nstatus: active\nkind: skeleton\nappetite: 2026-01-01..2099-01-01\n---\n\n# M1 — x\n\n## No-gos\n\n-${long(' ', 100_000)}x \n\n## Gate\n\n${gate}\n\n## Kill criteria\n\nx\n`);
+    writeFileSync(join(dir, 'docs/product/evidence/RISK-1-x.md'), `#${long(' ', 100_000)}x \nTracked:${long(' ', 100_000)}x \n${long('<!--', 60_000)}\n`);
+    writeFileSync(join(dir, 'docs/product/FRAME.md'), `---\nstatus: draft\n---\n\n${long('<!--', 60_000)}\n${gate}\n`);
+    let started = Date.now();
+    assert.deepEqual(readMilestoneModel(dir, '2026-06-01')[0].noGos, []);
+    readRisks(dir, '');
+    assert.ok(Date.now() - started < 1_500, `the readers took ${Date.now() - started} ms`);
+    for (const check of ['ms1-milestones.mjs', 'k1-frame.mjs']) {
+      started = Date.now();
+      spawnSync(process.execPath, [join(SRC, 'ci/checks/meta', check), dir], { encoding: 'utf8' });
+      assert.ok(Date.now() - started < 3_000, `${check} took ${Date.now() - started} ms`);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

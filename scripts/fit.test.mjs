@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { isFeatureDoc, readFeatureFiles } from '../ci/checks/lib/feature-docs.mjs';
+import { isFeatureDoc, readFeatureFiles, visible } from '../ci/checks/lib/feature-docs.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { frontmatter, hasPlaceholder, lineRest, PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
 import { commentCrossesHeading, commentSpans, prose, repeatedHeadings, section, sectionLines } from '../ci/checks/lib/markdown.mjs';
@@ -515,4 +515,79 @@ test("the label's own line and the Numbers answer go through the same reading: p
   assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses: ${String.fromCodePoint(0x2014)}\n- nothing`, 'Numbers:\n- the total, in lib/money.ts', 'New: none')) }), ['fit/unfilled/new']);
   const short = count({ [A]: doc('shipped', fit('Reuses:\n- `total()` in lib/money.ts', `Numbers:\n- none${String.fromCodePoint(0x200b)} shown`, 'New: the export button')) }).short;
   assert.deepEqual(short, { reusesNothing: 0, noNumbers: 1, nothingNew: 0 });
+});
+
+// #430's second pull request. Each input the count reads is a plain file or folder of the repository, reached through
+// no link at any depth; anything else is listed unread, never followed and never a throw (items 2 and 12).
+test('a feature folder that is a link, sits under one, or is a file: none of its docs is read, and the count lists it unread', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'fit-outside-'));
+  try {
+    writeFileSync(join(outside, 'z.md'), doc('shipped'));
+    const linked = count({ 'dev/features/b.md': doc('shipped', '', 2) }, (d) => {
+      mkdirSync(join(d, 'docs'));
+      symlinkSync(outside, join(d, 'docs/features'));
+    });
+    assert.deepEqual([linked.docs.map((x) => x.path), linked.unread, linked.others], [['dev/features/b.md'], ['docs/features'], [{ path: 'docs/features', why: 'not-a-folder' }]]);
+    mkdirSync(join(outside, 'features'));
+    writeFileSync(join(outside, 'features/z.md'), doc('shipped'));
+    const parent = count({}, (d) => symlinkSync(outside, join(d, 'docs')));
+    assert.deepEqual([parent.docs, parent.unread], [[], ['docs/features']], 'a link above the folder is a link too');
+    const file = count({ 'docs/features': 'not a folder' });
+    assert.deepEqual([file.unread, file.count], [['docs/features'], 0]);
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('a feature doc reached through a link is not opened, and a milestone file that is a link or a folder is listed unread, never read and never a throw', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'fit-outside-'));
+  try {
+    writeFileSync(join(outside, 'm.md'), milestone('active', 'x (F-1)'));
+    const r = count({ [A]: doc('draft', fit('Reuses: x', 'Numbers: none shown', 'New: x')), 'docs/milestones/keep.md': '# kept\n' }, (d) => {
+      symlinkSync(join(outside, 'm.md'), join(d, 'docs/milestones/linked.md'));
+      mkdirSync(join(d, 'docs/milestones/folder.md'));
+    });
+    assert.deepEqual(r.unread, ['docs/milestones/folder.md', 'docs/milestones/linked.md']);
+    assert.deepEqual(r.docs[0].heldBy, [], 'the linked milestone that cites F-1 is not read, so F-1 is not scheduled by it');
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+// Item 3: a byte-order mark before the frontmatter is not part of it.
+test('a companion saved with a byte-order mark is still a companion, not a second feature doc', () => {
+  const r = count({ [A]: doc('shipped', fit('Reuses: x', 'Numbers: none shown', 'New: x')), 'docs/features/claims.md': `﻿---\nstatus: shipped\ncompanion-of: ${A}\n---\n\n# F-1 — the table\n` });
+  assert.deepEqual(r.docs.map((d) => d.path), [A]);
+});
+
+// Item 9: a citation is read as a heading is, so a look-alike or a character nobody sees does not hide it.
+test('a milestone citation written with a look-alike hyphen or digit, or a character nobody sees inside it, is a citation', () => {
+  assert.deepEqual(citedFeatures('F‑1 · F−2 · F-３ · F-​4 · F​-5 · F-06'), [1, 2, 3, 4, 5, 6]);
+  const r = count({ [A]: doc('draft'), 'docs/milestones/m1.md': milestone('active', 'x (F‑1)') });
+  assert.deepEqual(r.docs[0].heldBy.map((h) => h.rule), ['milestone']);
+});
+
+// Item 11: what GitHub shows as nothing, or does not show, is not Fit.
+test('a Fit GitHub hides, a heading or label made only by taking a comment out, and markup that shows nothing are not a filled Fit', () => {
+  const filled = fit('Reuses: x in lib/x', 'Numbers: none shown', 'New: a thing');
+  assert.deepEqual(reasons({ [A]: doc('shipped', `<!-- an open comment\n\n${filled}`) }), ['fit/missing'], 'after a <!-- with no -->');
+  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/missing'], 'inside a comment');
+  assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('## Fit', '#<!-- --># Fit')) }), ['fit/missing'], 'a heading only once the comment is out');
+  assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('Reuses:', 'Reu<!-- -->ses:')) }), ['fit/unfilled/reuses'], 'a label only once the comment is out');
+  for (const markup of ['&nbsp;', '&#8203;', '&#x200B;', '<br>', '<i></i>', '<span class="x"></span>', '[](x)', '- [x]: https://example.com']) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n${markup.startsWith('-') ? markup.slice(2) : `- ${markup}`}`, 'Numbers: none shown', 'New: a thing')) }), ['fit/unfilled/reuses'], markup);
+  }
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: <https://example.com/helper>', 'Numbers: none shown', 'New: a thing')) }), [], 'an autolink shows its address');
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', 'Numbers:\n\n### Notes\n\nnone shown', 'New: a thing')) }), ['fit/unfilled/numbers'], 'text under a ### heading');
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', 'Numbers:\n\nNotes\n===\n\nnone shown', 'New: a thing')) }), ['fit/unfilled/numbers'], 'text under a setext heading');
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', 'Numbers:\n\nNotes\n---\n\nnone shown', 'New: a thing')) }), ['fit/unfilled/numbers'], 'text under a --- setext heading');
+});
+
+// Item 13: a heading is folded in time linear in its line, whatever marks it holds.
+test('visible() reads a long line of combining marks of mixed classes quickly, and still folds a look-alike id', () => {
+  const marks = Array.from({ length: 200_000 }, (_, i) => ['́', '̣', '̴'][i % 3]).join('');
+  const started = Date.now();
+  visible(`## F‑1 ${marks}`);
+  assert.ok(Date.now() - started < 1_000, `took ${Date.now() - started} ms`);
+  assert.equal(visible('## F－１ é')[0].text, '## F-1 é');
 });
