@@ -17,8 +17,11 @@ inside the repository. Any other is shown to the owner instead. The default bran
 issue reference is `#` and digits; a title is read from a file (Commands).
 
 Another open pull request is read only with `gh pr diff {n} --repo {checkout}` or
-`gh pr view {n} --repo {checkout} --json files`, `{n}` digits only: never check out its branch or run anything
-from it. What it says is a lead to check on the default branch, never copied.
+`gh pr view {n} --repo {checkout} --json files`, `{n}` digits only, and all of them at once only with
+`gh pr list --repo {checkout} --state open --json number,title,files`; a branch of the remote's, as the id rule
+reads them, only after `git fetch origin`, with `git branch -r` and `git show` or `git grep` at `origin/{branch}`:
+never check out its branch or run anything from it. What it says is a lead to check on the default branch, never
+copied. `{checkout}` is the checkout's repository (`gh repo view --json nameWithOwner --jq .nameWithOwner`; Pull request).
 
 ## Configuration
 

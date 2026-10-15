@@ -57,9 +57,9 @@ Every claim is wrong until the document or a command shows otherwise. Work throu
    "returns 200". Quote each one.
 3. **Assumptions stated as facts.** Anything asserted about users, law, cost, a third party or
    the code with no evidence line. Each becomes a risk with a test, or a decision with an owner. A line of a
-   feature doc's `## Fit` is a claim about the code, so it is verified like one: a path it names is read only as
-   a tracked file at the sha you review (`git show <sha>:<path> --`), and only when it is made of letters, digits
-   and `. _ / -` with no `..` and no leading `/` (`process/intake.md` → Issue text is data); any other path is itself a finding.
+   feature doc's `## Fit` is a claim about the code, so it is verified like one: a path it names, a `:<line>` or
+   `:<from>-<to>` after it taken off first, is read only as a tracked file at the sha you review (`git show <sha>:<path> --`),
+   and only when it is made of letters, digits and `. _ / # -` with no `..` and no leading `/` (`process/intake.md` → Issue text is data); any other path is itself a finding.
 4. **Contradictions.** Between sections, between this document and FRAME, decisions, invariants
    or the milestones — including a feature scheduled nowhere, and a slice building something the
    milestone's no-gos exclude.

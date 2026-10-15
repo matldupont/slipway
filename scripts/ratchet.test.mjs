@@ -100,3 +100,28 @@ test('a number that cannot be read is BROKEN, never green: a missing report, a p
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+// Node 23 and 24's JSON.parse reads a one-character escaped name as `\` once the process has parsed an object with a
+// `\` name at that place; this file does both. Rewriting it would replace the name and lose its entry (#430).
+const MISREAD = `${JSON.stringify({ a: { o: 1, '\\': 2 }, b: { o: 1, '\n': 3 } }, null, 2)}\n`;
+const misreads = !('\n' in JSON.parse(MISREAD).b);
+test('--update refuses a baselines file whose names this Node misreads, and writes nothing', { skip: misreads ? false : `JSON.parse on Node ${process.version} reads these names right` }, () => {
+  const r = ratchet(1, MISREAD, '--update');
+  assert.equal(r.status, 1);
+  assert.match(r.err, /ci\/baselines\.json holds a name that is given twice, or that Node v\d+\.\d+\.\d+ misreads, so rewriting it would lose an entry; nothing was written — fix the name by hand/);
+  assert.equal(r.file, MISREAD);
+});
+
+test('--update refuses a baselines file that gives a name twice, and writes nothing', () => {
+  const twice = '{\n  "dup": 3,\n  "dup": 4\n}\n';
+  const r = ratchet(1, twice, '--update');
+  assert.equal(r.status, 1);
+  assert.match(r.err, /holds a name that is given twice/);
+  assert.equal(r.file, twice);
+});
+
+test('namesIn reads every name as written, at any depth, and no string that is a value', async () => {
+  const { namesIn } = await import('../ci/checks/lib/ratchet.mjs');
+  assert.deepEqual(namesIn(MISREAD), ['a', 'o', '\\', 'b', 'o', '\n']);
+  assert.deepEqual(namesIn('{"k": "v:", "q\\"": ["x", {"in" : 1}], "e": "\\\\"}'), ['k', 'q"', 'in', 'e']);
+});

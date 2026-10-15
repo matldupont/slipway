@@ -29,7 +29,36 @@ export const serialiseBaselines = (baselines) => `${JSON.stringify(baselines, nu
 // The baselines under `root`; none when the file is absent.
 export const readBaselines = (root = '.') => (existsSync(join(root, BASELINES)) ? parseBaselines(readFileSync(join(root, BASELINES), 'utf8')) : {});
 
+// Every name in a JSON text, at any depth, as written: each string followed by a `:`, read as a lone string.
+// JSON.parse on Node 23 and 24 can read a one-character escaped name as `\` once the process has parsed an object
+// with a `\` name at that place; a lone string is not a name, so it is read right.
+export function namesIn(text) {
+  const names = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '"') continue;
+    let j = i + 1;
+    while (j < text.length && text[j] !== '"') j += text[j] === '\\' ? 2 : 1;
+    let k = j + 1;
+    while (/\s/.test(text[k] ?? '')) k++;
+    if (text[k] === ':') names.push(JSON.parse(text.slice(i, j + 1)));
+    i = j;
+  }
+  return names;
+}
+const namesOf = (value) => (value !== null && typeof value === 'object' ? Object.entries(value).flatMap(([k, v]) => [...(Array.isArray(value) ? [] : [k]), ...namesOf(v)]) : []);
+const sameNames = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+
+// Writes the baselines over the file under `root`. Throws, writing nothing, when the file there holds a name the
+// parser does not read as written (a name given twice, or the Node bug above): rewriting it would drop an entry.
 export function writeBaselines(root, baselines) {
+  const file = join(root, BASELINES);
+  if (existsSync(file)) {
+    const text = readFileSync(file, 'utf8');
+    const parsed = parseBaselines(text);
+    if (!sameNames(namesIn(text), namesOf(parsed))) {
+      throw new Error(`${BASELINES} holds a name that is given twice, or that Node ${process.version} misreads, so rewriting it would lose an entry; nothing was written — fix the name by hand`);
+    }
+  }
   mkdirSync(dirname(join(root, BASELINES)), { recursive: true });
   writeFileSync(join(root, BASELINES), serialiseBaselines(baselines));
 }

@@ -458,7 +458,18 @@ as the other ratchets' are.
   Fit). `Reuses:` text on the label line, or unmarked before the first bullet, is an item too, and backticks are
   removed before `nothing` is read (§2 says "every bullet"). A doc held only for having no status line and with
   no section has two reasons, `frontmatter/unreadable` and `fit/missing`, so two warning lines (§2 says one).
-  The readings are pinned in `scripts/fit.test.mjs`.
+  The readings are pinned in `scripts/fit.test.mjs`. A `*.md` in either folder that is a link or a folder gets a
+  sentence of its own, "1 entry named `*.md` in docs/features/ is a link or a folder, not a file, so it is not read
+  and not counted.", not §3's "having no F-number heading", which is true only of a file (#430 item 4).
+- `/log-bug`'s stub sentence says the Fit is filled "from the code as Phase 2 traced it"; the Acceptance line says
+  "from the feature's code". Both name the same code, since the stub step's first line makes the doc the feature's;
+  the skill is at the 300-line cap, so its wording stays (#430 item 16).
+- Node 23 and 24's `JSON.parse` (seen on v23.10.0 and v24.12.0, not on v20.17.0 or v20.19.6) reads a one-character
+  name written as an escape (`"\n"`, `"\u0001"`) as `"\\"` once the process has parsed an object with a `"\\"`
+  name at the same place, and one `ci/baselines.json` can hold both. Sync compares bytes, so it refuses such a file
+  as not in slipway's form, though it is; the two `--update` commands refuse it, and a file that gives a name
+  twice, rather than rewrite it and lose the entry, with a stack trace under the message (#430 item 7). The way
+  out is renaming the entry by hand.
 
 ## Acceptance
 
