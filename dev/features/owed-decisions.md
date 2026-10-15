@@ -497,6 +497,9 @@ other people's text: one it cannot read is counted as unreadable, never passed a
   `closeswhen`, `closesif` or `provisionaluntil` outside a readable clause is unreadable ("The trial closes, if
   unpaid…" included), and so is a labelled line inside a fence under a decision, a quoted example included. The fix is to reword the title or move the
   example above the first decision; an example heading in a fence takes a placeholder id (`D-0NN`), which is no entry.
+- A decision heading is read as one line: a clause opening broken across two lines (`reopens` at the end of one, `when`
+  at the start of the next) is not found, and the decision is silent. A heading is one line in markdown, and the
+  record keeps each on one line however long (the owner, 2026-10-15, #466).
 - The shared `readMilestones()` (`ci/checks/lib/milestones.mjs`), which status and other checks use, keeps one review
   item of #454 open; the owner handed it to #430 item 2 (2026-10-14, #466). This reader does not use it.
 
