@@ -11,8 +11,7 @@
 //
 // Free text a document carries (a risk's assumption and a decision's title in a line, a Contents item, a [NEEDS CLARIFICATION] or
 // [PARKED] marker) is quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double
-// quotes the text cannot close. Identifiers and names read from a file (the Active milestone line's title, risk and
-// milestone ids, a decision title, a lesson id, file names) print as read, each line passed through escapeControl at
+// quotes the text cannot close. Identifiers read from a file that no check shapes (a risk or milestone id, a file name) print only in their plain shape, else in words. The few that print as read (the Active milestone line's title, a lesson id, the PRD version), each line passed through escapeControl at
 // the end. Anything a session must act on (a command, an id) is built from validated values, never from the text.
 
 import { spawnSync } from 'node:child_process';
@@ -52,6 +51,17 @@ try {
   process.exit(2);
 }
 const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
+// A file name printed in a line: only in the plain shape, else in words (a name a pull request carries is project text).
+const named = (f) => (/^[A-Za-z0-9._\/-]{1,100}$/.test(String(f)) ? f : 'a file with an unusual name');
+// Ids read from files no check shapes: printed only as M<n> or RISK-n (at most 9 digits), else counted in words.
+const MID = /^M\d{1,9}$/;
+const RID = /^RISK-\d{1,9}$/i;
+const idList = (list, ref, more) => {
+  const ok = list.filter((x) => ref.test(String(x.id))).map((x) => x.id);
+  const odd = list.length - ok.length;
+  const shown = ok.length > 3 ? `${ok.slice(0, 3).join(', ')} and ${ok.length - 3 + odd} more` : ok.join(', ');
+  return ok.length ? (odd && ok.length <= 3 ? `${shown} and ${odd} more` : shown) : more;
+};
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
 
 // ---- facts
@@ -128,7 +138,7 @@ const openSince = (status) => {
   const m = status.match(/^open — (week \d+|reopened \d{4}-\d{2}-\d{2})$/);
   return m ? (m[1].startsWith('week') ? `open since ${m[1]}` : `open, ${m[1]}`) : 'open';
 };
-const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*\((open[^)\n]*)\)\*/gm)].map((m) => `${m[2].endsWith('?') ? 'Answer' : 'Decide'} ${quoted(m[2]) || 'the open decision'} (${m[1]}, ${openSince(m[3])})`);
+const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*\((open[^)\n]*)\)\*/gm)].map((m) => `(you) ${m[2].endsWith('?') ? 'Answer' : 'Decide'} ${quoted(m[2]) || 'the open decision'} (${m[1]}, ${openSince(m[3])})`);
 // What a decision still owes, which condition fired and what cannot be read (F-15 §6): ids, event words and paths only.
 const owedDecisions = decisionLines(readDecisions(root), today);
 
@@ -144,13 +154,11 @@ const riskBlocks = pastSkeletonUnderway.length
   ? `${pastSkeletonUnderway.map((m) => m.id).join(', ')} underway with it untested — pnpm meta is red until it has a Result`
   : `blocks ${blockedByRisk.length ? `${blockedByRisk.join(', ')} activation` : 'every milestone past the skeleton'}`;
 // A milestone id is printed only in the shape the skills accept; any other is said in words.
-const milestoneRef = (m, fallback) => (/^M\d+$/.test(String(m.id)) ? m.id : fallback);
+const milestoneRef = (m, fallback) => (MID.test(String(m.id)) ? m.id : fallback);
 // What an untested value risk holds back, as a sentence; a milestone id is printed only in the shape the skills accept.
-const msIds = (list) => list.map((m) => milestoneRef(m, 'a milestone')).join(', ');
 const riskBlocksSentence = pastSkeletonUnderway.length
-  ? `${msIds(pastSkeletonUnderway)} is underway with it untested, so the checks stay red until it has a result.`
-  : `It blocks ${blockedByRisk.length ? `${msIds(ms.filter((m) => blockedByRisk.includes(m.id)))} activation` : 'every milestone past the skeleton'}.`;
-const riskLine = untestedValue.length ? `${untestedValue.map(riskState).join(', ')} · ${riskBlocks}` : '';
+  ? `${idList(pastSkeletonUnderway, MID, 'A milestone')} ${pastSkeletonUnderway.length > 1 ? 'are' : 'is'} underway with it untested, so the checks stay red until it has a result.`
+  : `It blocks ${blockedByRisk.length ? `${idList(ms.filter((m) => blockedByRisk.includes(m.id)), MID, 'a milestone')} activation` : 'every milestone past the skeleton'}.`;
 // An existential risk — any category, so K1's value gate may not cover it — whose test the PRD schedules
 // after the first milestone past the skeleton starts, or at no milestone at all. A warning, not a K1
 // finding: "existential" is the owner's word, and building ahead of it on purpose is a recorded decision.
@@ -164,8 +172,9 @@ const existential = deadlines && firstBet !== null
   ? risks.filter((r) => !r.tested && /^\W*existential\b/i.test(r.impact ?? '')).flatMap((r) => {
       const d = deadlines.get((r.id ?? '').toUpperCase());
       if (d?.before && milestoneNumber(d.before) <= firstBet) return [];
-      const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${d.cell}, after M${firstBet} starts` : `resolves "${d.cell || 'blank'}", which names no milestone`;
-      return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${r.id}'s Result`];
+      const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${quoted(d.cell) || 'in a cell that cannot be shown'}, after M${firstBet} starts` : `resolves ${quoted(d.cell || 'blank')}, which names no milestone`;
+      const who = RID.test(String(r.id)) ? r.id : 'A value risk with an unusual id';
+      return [`${who} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${RID.test(String(r.id)) ? `${r.id}'s` : 'its'} Result`];
     })
   : [];
 
@@ -181,11 +190,11 @@ let registerUnlisted = 0;
 let registerHot = 0;
 const say = (line) => (registerLeft > 0 ? (registerLeft--, registerLines.push(line)) : registerUnlisted++);
 for (const r of registers) {
-  if (r.state === 'unparsed') say(`Review register in ${r.file} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`);
+  if (r.state === 'unparsed') say(`Review register in ${named(r.file)} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`);
   if (r.state !== 'ok') continue;
-  if (r.skipped) say(`Review register in ${r.file} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`);
+  if (r.skipped) say(`Review register in ${named(r.file)} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`);
   if (!r.hasTracker) {
-    say(`Review register in ${r.file} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`);
+    say(`Review register in ${named(r.file)} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`);
     continue;
   }
   const untracked = r.rows
@@ -199,7 +208,7 @@ for (const r of registers) {
     }))
     .sort((x, y) => (y.held.length > 0) - (x.held.length > 0) || x.f.sev.localeCompare(y.f.sev));
   const shown = untracked.slice(0, Math.max(registerLeft, 0));
-  for (const { f, held } of shown) say(`Review finding "${excerpt(f.id)}" (${f.sev}) in ${r.file} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`);
+  for (const { f, held } of shown) say(`Review finding "${excerpt(f.id)}" (${f.sev}) in ${named(r.file)} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`);
   const rest = untracked.slice(shown.length);
   if (rest.length) {
     const hot = rest.filter(({ f, held }) => f.sev === 'S0' || held.length).length;
@@ -211,7 +220,7 @@ if (registerUnlisted) registerLines.push(`Review registers: ${registerUnlisted} 
 // Per severity, how many findings of the register have a tracker and how many do not.
 const registerStanding = (r) => {
   const sevs = ['S0', 'S1', 'S2', 'S3'].filter((s) => r.rows.some((f) => f.sev === s));
-  return `${r.file}: ${sevs.map((s) => `${s} ${r.rows.filter((f) => f.sev === s && f.tracked).length} with a tracker, ${r.rows.filter((f) => f.sev === s && !f.tracked).length} without`).join(' · ')}`;
+  return `${named(r.file)}: ${sevs.map((s) => `${s} ${r.rows.filter((f) => f.sev === s && f.tracked).length} with a tracker, ${r.rows.filter((f) => f.sev === s && !f.tracked).length} without`).join(' · ')}`;
 };
 
 function walk(dir, out = []) {
@@ -229,7 +238,7 @@ function walk(dir, out = []) {
 const open_ = [];
 const parked_ = [];
 for (const file of walk(join(root, 'docs'))) {
-  const rel_ = relative(root, file);
+  const rel_ = named(relative(root, file));
   // Comments are blanked, not removed, so line numbers hold. A marker sitting whole inside inline code is the
   // template explaining the syntax, not a question; an escaped backtick is not code. Every span is matched so
   // that the gap between two spans is never read as one.
@@ -253,7 +262,7 @@ for (const item of cur ? contents(cur.md) : []) {
   const owes = owing(item);
   const issue = marker(item.text)?.issue;
   const where = `${/^M\d+$/.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${item.n}`;
-  const file = `docs/milestones/${cur.file}`;
+  const file = `docs/milestones/${named(cur.file)}`;
   const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
   if (owed.length) owed_.push(`Owed check: ${where} (#${issue}) — ${owed.length} check(s) moved to after merge with no run recorded (the Owed: lines under it in ${file}): run each, post the result as a comment on #${issue}, then change the Owed line to Ran with that comment's link; #${issue} stays open until then (reopen it if it was closed)`);
   if (failed.length) owed_.push(`Failed check: ${where} (#${issue}) — ${failed.length} run(s) failed on ${[...new Set(failed.map((c) => c.date))].join(', ')} (the Ran: lines under it in ${file}): fix and run it again, file the bug and name it on the line, or, when the owner accepts the result, remove its line in a pull request that records that decision`);
@@ -289,7 +298,7 @@ const step0 = packages === 0 || (!bootstrapped && !ms.some((m) => m.status === '
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 // The first untested value risk, named for the person who tests it, and how many more wait behind it.
 // A risk's id is read from the frame's ID column, which no check shapes: it is printed only as RISK-n, else as words.
-const riskRef = (r) => (/^RISK-\d+$/i.test(String(r.id)) ? r.id : 'the first untested value risk');
+const riskRef = (r) => (RID.test(String(r.id)) ? r.id : 'a value risk with an unusual id');
 const firstRisk = () => {
   const r = untestedValue[0];
   const more = untestedValue.length - 1;
@@ -319,7 +328,7 @@ function next() {
       ? `Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdVersion} has its review, and a milestone can go active once the PRD is approved. ${whoLine(3)}`
       : `Finish /kickoff, then run /review-doc docs/PRD.md in a new session. The PRD needs a review before it is approved, or the checks go red. ${whoLine(3)}`;
   }
-  if (active.length > 1) return `Set every milestone but one to shaping or closed. ${active.map((m) => milestoneRef(m, 'a milestone')).join(', ')} are all active, and the checks stay red until one is. You.`;
+  if (active.length > 1) return `Set every milestone but one to shaping or closed. ${idList(active, MID, 'Several milestones')} are all active, and the checks stay red until one is. You.`;
   if (cur && curAppetite && curAppetite.end < today && !cur.extended) {
     return `Close ${milestoneRef(cur, 'the active milestone')} with /close-milestone, kill it, or record an extension. Its appetite ended ${curAppetite.end}. You.`;
   }
@@ -328,7 +337,7 @@ function next() {
     // The command is built from the id and the item's number, never from its text, and only for an id the
     // skill accepts (process/intake.md → Milestone item): this line enters every session through the hook.
     const items = contents(cur.md).filter((i) => !i.text.trim().startsWith('<'));
-    if (items.length && /^M\d+$/.test(String(cur.id))) {
+    if (items.length && MID.test(String(cur.id))) {
       const item = items.find((i) => !started(i.text));
       if (!item) return `Finish ${cur.id}'s open issues, then run /close-milestone once its gate is green. Every item has an issue. ${whoLine(stepN)}`;
       return `Start item ${item.n} of ${cur.id} in a fresh session with /log-feature ${cur.id}#${item.n}. It reads "${excerpt(item.text)}". ${whoLine(stepN)}`;
@@ -337,10 +346,10 @@ function next() {
   }
   const shaping = ms.filter((m) => m.status === 'shaping');
   const skeleton = shaping.find((m) => m.kind === 'skeleton');
-  if (skeleton) return `Activate ${milestoneRef(skeleton, 'the skeleton milestone')}: set real appetite dates and status: active, then build its first slice. ${whoLine(4)}`;
+  if (skeleton) return `Activate ${milestoneRef(skeleton, 'the skeleton milestone')} with real appetite dates and status active. Then build its first slice. ${whoLine(4)}`;
   if (untestedValue.length) return testTheRisk();
   return shaping.length
-    ? `Activate one of ${shaping.map((m) => milestoneRef(m, 'the shaping milestones')).join(', ')}, or shape a new bet. Set its appetite dates when it goes active. ${whoLine(6)}`
+    ? `Activate one of ${idList(shaping, MID, 'the shaping milestones')}, or shape a new bet. Set its appetite dates when it goes active. ${whoLine(6)}`
     : `Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. ${whoLine(7)}`;
 }
 
@@ -353,11 +362,11 @@ const also = [];
 if (frame === 'framed' && !cur) {
   const skel = ms.find((m) => m.kind === 'skeleton' && m.status === 'shaping');
   if (skel && untestedValue.length) {
-    const first = untracked.length ? ` Then name where ${untracked.map(riskRef).join(', ')} is being tested, in the Tracker column of docs/product/FRAME.md.` : '';
+    const first = untracked.length ? ` Then name where ${idList(untracked, RID, 'each risk')} is being tested, in the Tracker column of docs/product/FRAME.md.` : '';
     also.push(`(agent) Activate the walking skeleton (${milestoneRef(skel, 'the skeleton milestone')}) and build it in parallel. An untested value risk does not block it.${first}`);
   }
 }
-if (cur && untestedValue.length) also.push(`(you) Test the untested value risks (${untestedValue.map(riskRef).join(', ')}). ${riskBlocksSentence}`);
+if (cur && untestedValue.length) also.push(`(you) Test the untested value risks (${idList(untestedValue, RID, 'the risks')}). ${riskBlocksSentence}`);
 if (prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft')) {
   also.push(`(fresh session) Run /review-doc docs/PRD.md. The PRD at ${prdVersion ?? '?'} has no adversarial review, and it needs one before Status: approved.`);
 }
@@ -381,7 +390,7 @@ L.push(...stepLines({
 }), '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
 L.push(`- Frame: ${frame}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · ${riskBlocks}` : ''}` : ''}`);
-L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
+L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.map(named).join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
 for (const r of registers) if (r.state === 'ok' && r.hasTracker && r.rows.length) L.push(`- Review register: ${registerStanding(r)}`);
 if (cur) {
   const c = curAppetite && appetiteClock(curAppetite, today);
@@ -391,13 +400,13 @@ if (cur) {
 L.push('');
 if (ms.length) {
   L.push('## Milestones', '', '| id | status | kind | appetite | file |', '|---|---|---|---|---|');
-  for (const m of ms) L.push(`| ${m.id} | ${m.status} | ${m.kind ?? ''} | ${m.appetite ?? ''} | docs/milestones/${m.file} |`);
+  for (const m of ms) L.push(`| ${m.id} | ${m.status} | ${m.kind ?? ''} | ${m.appetite ?? ''} | docs/milestones/${named(m.file)} |`);
   L.push('');
 }
 const attention = [
   ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`Run /review-doc docs/PRD.md in a fresh session. PRD ${prdVersion ?? ''} has no adversarial review, and it needs one before it leaves draft.`] : []),
   // While no milestone is active or closed the step 3 line is the Next line (next() above); with one, the approval is still owed.
-  ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdVersion} is reviewed (${prdReviews.join(', ')}) and still a draft.`] : []),
+  ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdVersion} is reviewed (${prdReviews.map(named).join(', ')}) and still a draft.`] : []),
   ...(!bootstrapped && !step0 ? [`Fill each unfilled AGENT.md row: ${placeholders.join(', ')}. The skills read them${placeholders.includes('Timezone') ? ', and Timezone also sets when a deadline day ends' : ''}.`] : []),
   ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result.`] : []),
   ...((riskNamed || (cur && untestedValue.length)) && untracked.length ? ['File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.'] : []),

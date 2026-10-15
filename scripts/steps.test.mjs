@@ -44,7 +44,8 @@ test('the Next-line form: a good line passes, and each clause trips alone', () =
   const good = 'Run /kickoff to finish docs/product/FRAME.md. Its open questions need an answer. You, an afternoon.';
   assert.deepEqual(nextFormBreaks(good), []);
   const trips = {
-    'sentences': ['Run /kickoff now.', /sentences/],
+    'too few sentences': ['Run /kickoff now.', /sentences/],
+    'too many sentences': ['Run /kickoff. Its questions wait. Nothing else waits. The frame is next. You, an afternoon.', /5 sentences/],
     'first sentence': [`Run the kickoff and then finish every part of the frame document with real people today please. Its open questions wait. You, an afternoon.`, /first sentence/],
     'semicolon': ['Run /kickoff; it finishes the frame. Its questions wait. You, an afternoon.', /semicolon/],
     'dash': ['Run /kickoff — it finishes the frame. Its questions wait. You, an afternoon.', /dash/],
@@ -58,6 +59,8 @@ test('the Next-line form: a good line passes, and each clause trips alone', () =
     const broken = nextFormBreaks(line);
     assert.ok(broken.some((b) => re.test(b)), `${clause}: ${JSON.stringify(broken)}`);
   }
+  // The 260 counts the quoted spans; the other rules do not.
+  assert.ok(nextFormBreaks(`Test RISK-1, "${'a'.repeat(250)}" now. Nothing waits. You, an afternoon.`).some((b) => /over 260/.test(b)));
   // A quoted span is project text the rules cannot govern.
   assert.deepEqual(nextFormBreaks('Test RISK-1, "a; b — K1 D-005 Step 1" with real people. Nothing waits. Yours, days to weeks.'), []);
 });

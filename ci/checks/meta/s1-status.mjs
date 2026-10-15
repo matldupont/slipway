@@ -8,20 +8,22 @@
 //
 //   { "today": "yyyy-mm-dd", "next": "<text after **Next:**>", "frame": "<text after - Frame:>",
 //     "now": "<ISO instant, optional>", "attention": ["<a Needs attention bullet>", …] (optional),
+//     "also": ["<an Also unblocked bullet>", …] (optional),
 //     "steps": ["<a step line under Where things stand>", …] (optional) }
 //
 // Without `now`, the clock is fixed to `today` (CHECK_TODAY). With `now`, the instant is fixed instead
 // (CHECK_NOW) and status must work out `today` itself in the case's AGENT.md Timezone — so a case at
-// 23:30 in Toronto, 03:30 UTC the next day, proves the zone is read. `attention`, when given, is the whole
-// Needs attention list, in order; `steps`, the eight `- Step n · name: state` lines, in order.
+// 23:30 in Toronto, 03:30 UTC the next day, proves the zone is read. `attention` and `also`, when given, are the whole
+// Needs attention and Also unblocked lists, in order; `steps`, the eight `- Step n · name: state` lines, in order.
 //
 //   node ci/checks/meta/s1-status.mjs <dir>    every subdirectory of <dir> is a case
 //
 // Findings, per case:
 //   <case>#next  <case>#frame   the line differs from the expected text, or status printed none
-//   <case>#next-form            the Next line breaks the form process/writing.md gives it (nextFormBreaks below)
+//   <case>#next-form            the Next line breaks the form process/writing.md gives it (ci/checks/lib/next-form.mjs)
 //   <case>#today                the date status stamps in its heading is not `today`
 //   <case>#attention            the Needs attention list differs from `attention`
+//   <case>#also                 the Also unblocked list differs from `also`
 //   <case>#steps                the step lines under Where things stand differ from `steps`
 //   <case>#expect               expect.json is missing, unreadable, lacks next or frame, or has no
 //                               yyyy-mm-dd today — without a fixed clock, overran depends on the run date
@@ -89,6 +91,7 @@ for (const name of cases) {
     ...LINES.map(([key]) => key).filter((k) => typeof expect[k] !== 'string'),
     ...(expect.now === undefined || (typeof expect.now === 'string' && !Number.isNaN(Date.parse(expect.now))) ? [] : ['ISO instant now']),
     ...(expect.steps === undefined || (Array.isArray(expect.steps) && expect.steps.every((a) => typeof a === 'string')) ? [] : ['list of strings steps']),
+    ...(expect.also === undefined || (Array.isArray(expect.also) && expect.also.every((a) => typeof a === 'string')) ? [] : ['list of strings also']),
     ...(expect.attention === undefined || (Array.isArray(expect.attention) && expect.attention.every((a) => typeof a === 'string')) ? [] : ['list of strings attention']),
   ];
   if (absent.length) {
@@ -126,6 +129,13 @@ for (const name of cases) {
     const got = from < 0 ? [] : out.slice(from + 1, end < 0 ? undefined : end).filter((l) => l.startsWith('- Step ')).map((l) => l.slice(2));
     if (JSON.stringify(got) !== JSON.stringify(expect.steps)) {
       findings.push({ where: `${name}#steps`, detail: `expected ${JSON.stringify(expect.steps)} · got ${JSON.stringify(got)}` });
+    }
+  }
+  if (expect.also) {
+    const from = out.indexOf('**Also unblocked:**');
+    const got = from < 0 ? [] : out.slice(from + 1).filter((l, i, rest) => rest.slice(0, i).every((x) => x.startsWith('- ')) && l.startsWith('- ')).map((l) => l.slice(2));
+    if (JSON.stringify(got) !== JSON.stringify(expect.also)) {
+      findings.push({ where: `${name}#also`, detail: `expected ${JSON.stringify(expect.also)} · got ${JSON.stringify(got)}` });
     }
   }
   if (expect.attention) {

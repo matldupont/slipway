@@ -23,7 +23,7 @@ export function nextFormBreaks(line) {
   if (text.includes(';')) breaks.push('a semicolon');
   if (text.includes(' — ')) breaks.push('a dash between clauses');
   if (/\bStep \d/.test(text)) breaks.push('a step number');
-  const ids = CHECK_IDS.filter((id) => new RegExp(`\\b${id}\\b`).test(text));
+  const ids = CHECK_IDS.filter((id) => new RegExp(`\\b${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(text));
   if (ids.length) breaks.push(`a check id (${ids.join(', ')})`);
   if (/\b(?:P?D)-\d+\b/.test(text)) breaks.push('a decision id');
   if (line.length > 260) breaks.push(`${line.length} characters, over 260`);
