@@ -358,6 +358,10 @@ This section applies in slipway itself too.
 - **Tell the owner,** in the skill's output, when R1 reports it: "{doc path} moved to Version {new}; its review of
   {old} no longer matches. Run `/review-doc {doc path}` from a fresh session before it is built from." With no
   review of the doc on file, R1 says nothing and neither does the skill.
+- **Owed review.** The session that moves the line (`/log-feature`, or a revision after a review) ends its turn with a
+  `Yours:` block that names the owed review and gives the prompt `/review-doc {doc path}` for the new version, and the
+  doc pull request's body carries `Owed: review of {version} (owner, fresh session)`; until the review is merged in,
+  the pull request stays a draft (P1 holds a ready one).
 - **How it ends.** As for the PRD (PRD entry): the earlier review stays as it was written, and R1 stops reporting
   it once the fresh review names it in a `Supersedes:` line.
 

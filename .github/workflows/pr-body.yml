@@ -4,14 +4,15 @@ name: pr-body
 # fixing the body is how this check is made green. The job name is the required status context.
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, synchronize, reopened, ready_for_review, converted_to_draft]
 
 permissions:
   contents: read
 
 concurrency:
   group: pr-body-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # Runs wait their turn and none is cancelled: a cancelled run is shown as a failing check beside the one that passed.
+  cancel-in-progress: false
 
 jobs:
   pr-body:
@@ -24,13 +25,16 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+      # A re-run carries the stored event, so a draft-era run re-run after the pull request was marked ready would still
+      # say draft: only a first attempt may read the draft flag, and a re-run is judged as ready.
       - name: Check the PR body
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          DRAFT: ${{ github.run_attempt == 1 && github.event.pull_request.draft }}
         run: |
           mkdir -p "$RUNNER_TEMP/pr"
           printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr/body.md"
-          node ci/checks/lib/gate-files.mjs "$BASE_SHA" "$HEAD_SHA" > "$RUNNER_TEMP/pr/body.changes.json"
+          node ci/checks/lib/gate-files.mjs "$BASE_SHA" "$HEAD_SHA" "$DRAFT" > "$RUNNER_TEMP/pr/body.changes.json"
           node ci/checks/meta/p1-pr-body.mjs "$RUNNER_TEMP/pr"

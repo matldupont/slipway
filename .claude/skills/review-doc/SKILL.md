@@ -109,3 +109,8 @@ review loses its link back. The owner resolves each one in the document, bumps i
 because the version line moves — **a substantive revision needs a fresh review**. The earlier review stays in
 `docs/reviews/` as it was written, and stops being reported as stale once the fresh review names it in
 `Supersedes:`. The build goes red when the PRD leaves draft with no review naming its current version.
+
+When the document is a feature doc and its branch has an open draft pull request
+(`gh pr list --repo {checkout} --state open --draft --limit 200 --json number,headRefOid,files --jq '.[] | select(any(.files[]; .path == "{doc path}")) | "\(.number) \(.headRefOid)"'`, found by the doc's path, since this session is rarely on the doc's branch; use only the doc path that passed step 1), and that pull request's copy of the doc (`git show <headRefOid>:{doc path}`) has the `Version:` line this review quotes, end by saying that the pull request can be
+marked ready once this review is merged into its branch: a ready pull request that moves the doc's `Version:` with no
+review of it in its tree goes red in P1.

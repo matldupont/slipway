@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { SPEC_PATH, unreviewedSpecs } from '../ci/checks/lib/spec-review.mjs';
 import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateListed, gateMatcher, gateTouched, GUARD_GLOBS, SETTINGS, writeRules } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -299,7 +300,7 @@ test('the script refuses anything but commit ids', () => {
   assert.match(r.stderr, /commit ids/);
   const ok = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), base, head], { cwd: repo, encoding: 'utf8' });
   assert.equal(ok.status, 0, ok.stderr);
-  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts', 'globs', 'links', 'gate']);
+  assert.deepEqual(Object.keys(JSON.parse(ok.stdout)), ['files', 'scripts', 'globs', 'links', 'specs', 'gate']);
 });
 
 // #362: `/work-ticket` reviews a diff on the strongest tier when the script's `gate` names a file.
@@ -362,6 +363,99 @@ test('a review under docs/reviews/ is a gate file: P1 asks for its Gate changes 
   // Known limitation: a file in the folder that is not Markdown is not a gate file (no check reads one).
   const [f2, t2] = step('a non-Markdown file in the folder', () => put('docs/reviews/notes.txt', 'x\n'));
   assert.equal(runP1(f2, t2, '').status, 0);
+});
+
+// #464: `specs` lists the feature docs whose `Version:` lines a pull request moves, and the optional fourth argument
+// is the draft flag P1 reads beside it.
+test('changes() lists a feature doc whose Version line moved, and the script passes the draft flag on', () => {
+  git('switch', '-q', '-c', 'specs', head);
+  const step = (what, edit) => {
+    const from = git('rev-parse', 'HEAD');
+    edit();
+    git('add', '-A');
+    git('commit', '-q', '-m', what);
+    return [from, git('rev-parse', 'HEAD')];
+  };
+  const doc = (v, text) => `# F\n\nVersion: ${v}\n\n${text}\n`;
+  const [f1, t1] = step('a feature doc added', () => put('docs/features/x.md', doc('0.1', 'a')));
+  assert.deepEqual(changes(f1, t1, repo).specs, [{ path: 'docs/features/x.md', versions: ['Version: 0.1'] }]);
+  const [f2, t2] = step('text moves, version does not', () => put('docs/features/x.md', doc('0.1', 'b')));
+  assert.deepEqual(changes(f2, t2, repo).specs, []);
+  const [f3, t3] = step('version moves', () => put('docs/features/x.md', doc('0.2', 'b')));
+  assert.deepEqual(changes(f3, t3, repo).specs, [{ path: 'docs/features/x.md', versions: ['Version: 0.2'] }]);
+  const [f4, t4] = step('a review of a doc already there', () => put('docs/reviews/2026-10-14-x-0.2.md', '# R\n\nReviewed: docs/features/x.md @ abc\nVersion line: `Version: 0.2`\n'));
+  assert.deepEqual(changes(f4, t4, repo).specs, []);
+  const [f7, t7] = step('the Version line is indented', () => put('docs/features/x.md', `# F\n\n  Version: 0.2\n\nb\n`));
+  assert.deepEqual(changes(f7, t7, repo).specs, [{ path: 'docs/features/x.md', versions: [] }], 'a doc that lost its version line is listed, not skipped');
+  put('docs/features/x.md', doc('0.2', 'b'));
+  git('add', '-A');
+  git('commit', '-q', '-m', 'restore');
+  const [f5, t5] = step('a doc deleted', () => git('rm', '-q', 'docs/features/x.md'));
+  assert.deepEqual(changes(f5, t5, repo).specs, []);
+  const [f6, t6] = step('a fixture holds a feature doc', () => put('ci/fixtures/known-bad/p1/y.tree/docs/features/x.md', doc('0.1', 'a')));
+  assert.deepEqual(changes(f6, t6, repo).specs, [], 'a fixture\'s doc is test data, not a spec');
+  const run = (...flag) => spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), f3, t3, ...flag], { cwd: repo, encoding: 'utf8' });
+  assert.equal('draft' in JSON.parse(run().stdout), false, 'no argument, no key: P1 reads that as ready');
+  assert.equal(JSON.parse(run('true').stdout).draft, true);
+  assert.equal(JSON.parse(run('false').stdout).draft, false);
+  assert.equal(run('maybe').status, 2);
+});
+
+test('pr-body.yml re-runs when a pull request leaves or returns to draft, and writes the draft flag into the sidecar (#464)', () => {
+  const wf = readFileSync(join(SRC, '.github/workflows/pr-body.yml'), 'utf8');
+  assert.match(wf, /types: \[[^\]]*\bready_for_review\b[^\]]*\]/, 'marking a pull request ready would not re-run P1');
+  assert.match(wf, /types: \[[^\]]*\bconverted_to_draft\b[^\]]*\]/);
+  assert.match(wf, /DRAFT: \$\{\{ github\.run_attempt == 1 && github\.event\.pull_request\.draft \}\}/, 'a re-run of a draft-era run would keep saying draft');
+  assert.match(wf, /gate-files\.mjs "\$BASE_SHA" "\$HEAD_SHA" "\$DRAFT" >/);
+});
+
+// #464: each clause of the rule P1 reads, against a tree built here.
+test('unreviewedSpecs holds a ready PR whose spec has no current review of that very doc, and fails closed on what it cannot read', () => {
+  const root = mkdtempSync(join(tmpdir(), 'spec-review-'));
+  try {
+    const V = 'Version: 0.1 (2026-10-14)';
+    const w = (p, t) => {
+      mkdirSync(dirname(join(root, p)), { recursive: true });
+      writeFileSync(join(root, p), t);
+    };
+    const review = (name, doc, line = V) => w(`docs/reviews/${name}.md`, `# R\n\nReviewed: ${doc} @ abc\nVersion line: \`${line}\`\n`);
+    w('docs/features/a.md', `# A\n\n${V}\n`);
+    w('docs/features/b.md', `# B\n\n${V}\n`);
+    w('docs/features/two.md', `# T\n\n${V}\nVersion: 0.2\n`);
+    symlinkSync('a.md', join(root, 'docs/features/link.md'));
+    const ids = (c) => unreviewedSpecs({ files: [], ...c }, root).map((f) => f.id);
+    const spec = (p) => ({ path: p, versions: [V] });
+    // A review of another doc, quoting the same line, does not count for this one.
+    review('b', 'docs/features/b.md');
+    assert.deepEqual(ids({ specs: [spec('docs/features/a.md')] }), ['spec/unreviewed:docs/features/a.md']);
+    assert.deepEqual(ids({ specs: [spec('docs/features/b.md')] }), []);
+    const [held] = unreviewedSpecs({ files: [], specs: [spec('docs/features/a.md')] }, root);
+    assert.ok(held.detail.includes('docs/features/a.md') && held.detail.includes(V), 'the finding names the doc and the version');
+    // A draft holds nothing; an absent or odd draft flag reads as ready.
+    assert.deepEqual(ids({ draft: true, specs: [spec('docs/features/a.md')] }), []);
+    for (const draft of [undefined, false, 'true', 1, null]) assert.equal(ids({ draft, specs: [spec('docs/features/a.md')] }).length, 1, `draft ${String(draft)} is ready`);
+    // A doc with two Version lines has no current review, whatever a review quotes.
+    review('two', 'docs/features/two.md');
+    assert.deepEqual(ids({ specs: [spec('docs/features/two.md')] }), ['spec/unreviewed:docs/features/two.md']);
+    // No `specs` list: unreadable when a feature doc changed, silent otherwise.
+    assert.deepEqual(ids({ files: ['docs/features/a.md'] }), ['specs/unreadable']);
+    assert.deepEqual(ids({ files: ['src/a.ts'] }), []);
+    // A link, a missing doc, and a path that is no feature doc are findings, never a read.
+    assert.deepEqual(ids({ specs: [spec('docs/features/link.md')] }), ['spec/unreadable:docs/features/link.md']);
+    assert.deepEqual(ids({ specs: [spec('docs/features/none.md')] }), ['spec/unreadable:docs/features/none.md']);
+    assert.deepEqual(ids({ specs: [spec('../outside/features/a.md'), spec('src/a.md'), null] }), ['specs/unreadable', 'specs/unreadable', 'specs/unreadable']);
+    // The template and README are no feature docs, and the folder name is read in any case.
+    assert.ok(!SPEC_PATH.test('docs/features/TEMPLATE.md') && !SPEC_PATH.test('dev/features/README.md'));
+    assert.ok(SPEC_PATH.test('docs/Features/x.md') && SPEC_PATH.test('dev/features/x.md'));
+    assert.ok(SPEC_PATH.test('docs/features/.md'), 'a doc named only .md is a feature doc to feature-docs.mjs, so it is held');
+    assert.ok(SPEC_PATH.test('docs/features/readme.md') && SPEC_PATH.test('dev/features/Template.md'), 'only the exact names TEMPLATE.md and README.md are skipped, as feature-docs.mjs skips them');
+    // A doc whose Version line was indented or removed has no version line, so a review quoting the old line is not current.
+    w('docs/features/c.md', `# C\n\n  ${V}\n`);
+    review('c', 'docs/features/c.md');
+    assert.deepEqual(ids({ specs: [{ path: 'docs/features/c.md', versions: [] }] }), ['spec/unreviewed:docs/features/c.md']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test.after(() => rmSync(repo, { recursive: true, force: true }));

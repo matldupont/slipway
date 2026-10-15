@@ -43,8 +43,15 @@
 //   gate-changes/loosens-uncited:<path>  it loosens the gate and cites no decision or exception
 //   gate-changes/lookalike:<path>    a path that reads as a gate path in canonical form (`.NPMRC`) but is not
 //                            spelled as one: refused, whatever the section says
+//   spec/unreviewed:<path>   the pull request is not a draft and moves a feature doc's `Version:` line (the sidecar's
+//                            `specs`) with no review in docs/reviews/ of the tree that names the doc and quotes that
+//                            line (#464): the spec would merge and be built from unreviewed. A `draft` of `true` in
+//                            the sidecar holds nothing; absent or anything else is a ready pull request. A pull
+//                            request that only adds a review of a doc already on the base moves no version
+//   spec/unreadable:<path>, specs/unreadable  the doc cannot be read as a plain file, or the sidecar has no
+//                            `specs` list and the PR changes a `features/*.md` file
 //
-// A body's changed files come from a sidecar, `<name>.changes.json` ({files, scripts, globs, links}, written by
+// A body's changed files come from a sidecar, `<name>.changes.json` ({files, scripts, globs, links, specs, draft}, written by
 // ci/checks/lib/gate-files.mjs; `globs` holds the base commit's gate paths, the two named documents among them; its `gate` key is never read here: the list is computed again, by the same function). Without one, the gate-changes rules do not run. The check cannot tell
 // whether the sentence is true, only that one exists and that loosening is justified.
 //
@@ -53,10 +60,11 @@
 // untouched template fails — its example `#123` is not a link.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { gateGlobs, gateMatcher, gateTouched, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
 import { commentCrossesHeading, prose, repeatedHeadings, section, strictSection } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
+import { unreviewedSpecs } from '../lib/spec-review.mjs';
 
 const EVIDENCE = /`[^`]+`|```|\b[MPIR]\d+\b|https:\/\/github\.com\/\S+\/actions\/runs\/\d+/;
 
@@ -182,6 +190,11 @@ for (const f of bodies) {
       c = { files: [], scripts: [], globs: [], links: [] };
       findings.push({ where: `${f}#gate-changes/unreadable`, detail: `the changed-files list beside the body is unreadable (${String(e.message).split('\n')[0]}); the workflow must write it` });
     }
+    // The tree a spec's review is looked for in: the repository this check runs in (in CI, the pull request merged into
+    // its base), or `<name>.tree/` beside the body when a fixture brings its own.
+    const tree = join(dir, f.replace(/\.md$/, '.tree'));
+    const root = existsSync(tree) ? tree : join(dirname(SETTINGS), '..', '..');
+    for (const u of unreviewedSpecs(c, root)) findings.push({ where: `${f}#${shown(u.id)}`, detail: shown(u.detail) });
     if (rules === 0) {
       broken = 'process/harness/settings.json is missing or lists no Edit(...) gate paths, so no gate file can be recognised';
       continue;
