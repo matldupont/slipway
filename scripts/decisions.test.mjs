@@ -99,7 +99,8 @@ test('events: every form of the table, case-folded verbs, ids in their case, a c
   const said = (s) => parseEvent(s)?.said ?? null;
   assert.deepEqual(['F-7 has a doc', 'F-07 HAS A FEATURE DOC', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is activated', 'M2 goes active', 'M2 closes', '2026-03-09 has passed', 'acme/app#12 lands', '#12 is closed'].map(said),
     ['F-07 has a doc', 'F-07 has a doc', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is active', 'M2 is active', 'M2 is closed', '2026-03-09 passes', '#12 closes', '#12 closes']);
-  assert.deepEqual(parseEvent('acme/app#12 lands'), { kind: 'issue', issue: 12, readable: false, said: '#12 closes' });
+  assert.deepEqual(parseEvent('Acme/App#12 lands'), { kind: 'issue', issue: 12, repo: 'acme/app', readable: true, said: '#12 closes' });
+  assert.deepEqual(parseEvent('#12 closes'), { kind: 'issue', issue: 12, repo: '', readable: true, said: '#12 closes' });
   const c = one('## PD-1 — t\n\nReopens when: `F-07 has a doc`  or  M2 is active.\n').conditions[0];
   assert.deepEqual([c.readable, c.events.map((e) => e.kind)], [true, ['doc', 'active']]);
 });
@@ -191,7 +192,7 @@ test('the backstop: a clause opening a typo hid from the suffix reading makes th
   // A heading in a fence is an entry, its suffix is not read, and a clause opening in it is unreadable (the owner, #466).
   assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01 · reopens when M2 is closed)*\n```\n').entries.map((e) => e.conditions.map((c) => c.readable)), [[], [false]]);
   assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01)*\n```\n').entries.map((e) => e.conditions.length), [0, 0]);
-  tree({ 'decisions.md': '## PD-1 — keep the ` key *(decided 2026-03-01 · reopens when M2 is closed)*\n' }, (r) => assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-1', false]]));
+  tree({ 'decisions.md': '## PD-1 — keep the ` key *(decided 2026-03-01 · reopens when M2 is closed)*\n' }, (r) => assert.deepEqual(r.unreadable().map((u) => u.id), ['PD-1']));
 });
 
 test('a stray heading inside an entry is counted once, as a stray: its words never make the entry prose too (build step 4)', () => {
@@ -368,7 +369,7 @@ test('heading conditions fire like labelled lines; several events fire on any on
   });
 });
 
-test('unreadable: in file order, ids only; an issue event is unreadable until step 5, flagged when it is the only reason', () => {
+test('unreadable: in file order, ids only; an issue event is readable (build step 5) and never fires in status', () => {
   tree({
     'decisions.md': [
       '## PD-3 — a *(decided 2026-03-01 · provisional until the supplier confirms in writing)*',
@@ -380,9 +381,11 @@ test('unreadable: in file order, ids only; an issue event is unreadable until st
     ].join('\n\n'),
     'dev/features/seven.md': doc(7),
   }, (r) => {
-    assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-3', false], ['PD-4', true], ['PD-5', false], ['PD-7', true], ['PD-8', false]]);
-    // F-07 has a doc, so PD-6 fires; PD-7's condition holds the same event beside an issue, and is never fired until step 5.
-    assert.deepEqual(r.fired('2026-03-10').map((f) => f.id), ['PD-6']);
+    assert.deepEqual(r.unreadable().map((u) => u.id), ['PD-3', 'PD-5', 'PD-8']);
+    // F-07 has a doc, so PD-6 fires, and PD-7's condition fires on it beside an issue; an issue event alone never fires in status.
+    assert.deepEqual(r.fired('2026-03-10').map((f) => [f.id, f.events.map((e) => e.kind)]), [['PD-6', ['doc']], ['PD-7', ['doc']]]);
+    // The readable issue events, for P1 (§8): one per decision and event, the condition's kind, the repository as written.
+    assert.deepEqual(r.issueEvents(), [{ id: 'PD-4', kind: 'closes', issue: 12, repo: '' }, { id: 'PD-5', kind: 'closes', issue: 12, repo: 'acme/app' }, { id: 'PD-7', kind: 'closes', issue: 12, repo: '' }, { id: 'PD-7', kind: 'reopens', issue: 13, repo: '' }]);
   });
 });
 

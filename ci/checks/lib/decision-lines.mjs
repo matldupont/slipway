@@ -9,7 +9,7 @@
 // path only when it matches DOC, a folder from the reader's fixed list, line numbers and status's date: never a title,
 // a condition's text or a line of the record. Status escapes each line as it escapes every other.
 
-import { fid, ISSUE_READABLE } from './decisions.mjs';
+import { fid } from './decisions.mjs';
 
 const ID = /^P?D-\d{1,9}$/;
 const DOC = /^(docs|dev)\/features\/[A-Za-z0-9._-]{1,80}\.md$/;
@@ -45,7 +45,7 @@ function firedLine({ id, kind, where, events }, today) {
 }
 
 function unreadableLine(entries) {
-  const ids = entries.map((u) => (u.issueOnly && !ISSUE_READABLE ? `${u.id} (waits on an issue: read at the pull request that closes it, once that reader ships)` : u.id));
+  const ids = entries.map((u) => u.id);
   const n = entries.length;
   return `${AGENT} Unreadable condition: ${n} ${n === 1 ? 'decision says' : 'decisions say'} what brings ${n === 1 ? 'it' : 'them'} back in words status cannot read: ${capped(ids)} — for ${n === 1 ? 'it' : 'each'}, say what should bring it back (a feature doc written, reviewed or shipped; a milestone starting or closing; a date; an issue closing) or which feature it changes, and /clarify writes it in the form status reads, or moves a condition no event fits out of the heading into the entry's prose — blocks nothing: nothing reads these until then; waits on nothing`;
 }
@@ -55,7 +55,7 @@ function strayLine(lines) {
   return `${AGENT} Stray condition line: decisions.md ${one ? 'line' : 'lines'} ${capped(lines.map(String))} ${one ? 'holds a condition' : 'hold conditions'} under no decision heading status can read, or in a heading whose id it cannot read — move each condition line under its decision's heading (one that starts with the decision's id), correct a heading's id, or close the fence or end the heading that cut it off — blocks nothing: nothing reads ${one ? 'it' : 'them'} until then; waits on nothing`;
 }
 
-const folderLine = (dir) => `${AGENT} Unread folder: ${dir} cannot be read (a link, a file or no access in its place, or a link above it), so the decisions that read it are not checked — make it, and each folder above it, a plain folder — blocks every Owed citation and Decision line that reads it; waits on nothing`;
+const folderLine = (dir) => `${AGENT} Unread folder: ${dir} cannot be read (a link, a file or no access in its place, or a link above it), so the decisions that read it are not checked — make it, and each folder above it, a plain folder inside the repository, restored from git, never by copying what a link points to — blocks every Owed citation and Decision line that reads it; waits on nothing`;
 
 // The lines for the record readDecisions(root) returned, in §6's order; none when there is no decisions.md.
 export function decisionLines(record, today) {
