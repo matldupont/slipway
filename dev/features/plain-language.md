@@ -601,3 +601,4 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
 
 - 2026-10-14 · ADDED · the feature, 8 sections of Contract, 7 build steps · #455 (steps #456 to #462)
 - 2026-10-14 · MODIFIED · Version 0.2: the owner's five answers to the 0.1 review (`docs/reviews/2026-10-14-plain-language-0.1.md`, AR-1, AR-2, AR-3, AR-6, AR-11, recorded as D-046); the other eighteen findings taken as spec corrections (AR-4, AR-5, AR-7 to AR-10, AR-12 to AR-23); merged PR bodies are not read for §6 (the owner, 2026-10-14) · #455
+- 2026-10-15 · REVIEWED · 0.2 review (`docs/reviews/2026-10-15-plain-language-0.2.md`), 13 findings, the last whole-document review. AR-1 (the placeholder rule read code spans) decided by the owner as a build line in #462: the rule skips code spans and fenced blocks, as the decisions reader does. AR-2 to AR-13 ride #456, #457, #461 and #462 as build lines; the Contract's wording is corrected at the end of the build, in #462's PR · #455

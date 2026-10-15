@@ -58,19 +58,19 @@ D-046 and the job the doc states.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | The Placeholder error reads code spans, so a PR that writes a format like `<sha>` into a decision or feature doc fails | S1 | owner | #462 | |
-| AR-2 | PC1 checks finding text too: 22 fixtures pin 62 texts that §3's rewrite breaks | S2 | owner | #457 | |
-| AR-3 | §2's step 2 row fails §2's own last-sentence rule | S2 | owner | #456 | |
-| AR-4 | The "Who, and how long" header labels the activities column; the who and time sit beside the step name | S2 | owner | #456 | |
-| AR-5 | §3 leaves out `ci/verify.mjs` and `ci/ratchet.mjs`, which print findings through `report()` | S2 | owner | #457 | |
-| AR-6 | §2 drops the step 2 line's `riskFile` tail and its "already underway" variant | S2 | owner | #456 | |
-| AR-7 | §9's stop rule has nothing that fires: a flat reading stops nothing by itself | S2 | owner | #456 | |
-| AR-8 | No row says which step's time fills `{time}` | S3 | owner | #456 | |
-| AR-9 | One Next row keeps "lane", a word the source names as internal | S3 | owner | #456 | |
-| AR-10 | The Next-form test does not say how it splits sentences | S3 | owner | #456 | |
-| AR-11 | The 113 push sites are 114 on `main` | S3 | owner | #457 | |
-| AR-12 | The source table misses three of the note's items | S3 | owner | — | |
-| AR-13 | One acceptance says "When it is read": no command | S3 | owner | #461 | |
+| AR-1 | The Placeholder error reads code spans, so a PR that writes a format like `<sha>` into a decision or feature doc fails | S1 | owner | #462 | #462 |
+| AR-2 | PC1 checks finding text too: 22 fixtures pin 62 texts that §3's rewrite breaks | S2 | owner | #457 | #457 |
+| AR-3 | §2's step 2 row fails §2's own last-sentence rule | S2 | owner | #456 | #456 |
+| AR-4 | The "Who, and how long" header labels the activities column; the who and time sit beside the step name | S2 | owner | #456 | #456 |
+| AR-5 | §3 leaves out `ci/verify.mjs` and `ci/ratchet.mjs`, which print findings through `report()` | S2 | owner | #457 | #457 |
+| AR-6 | §2 drops the step 2 line's `riskFile` tail and its "already underway" variant | S2 | owner | #456 | #456 |
+| AR-7 | §9's stop rule has nothing that fires: a flat reading stops nothing by itself | S2 | owner | #456 | #456 |
+| AR-8 | No row says which step's time fills `{time}` | S3 | owner | #456 | #456 |
+| AR-9 | One Next row keeps "lane", a word the source names as internal | S3 | owner | #456 | #456 |
+| AR-10 | The Next-form test does not say how it splits sentences | S3 | owner | #456 | #456 |
+| AR-11 | The 113 push sites are 114 on `main` | S3 | owner | #457 | #457 |
+| AR-12 | The source table misses three of the note's items | S3 | owner | — | #462 |
+| AR-13 | One acceptance says "When it is read": no command | S3 | owner | #461 | #461 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
