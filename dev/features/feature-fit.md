@@ -474,7 +474,8 @@ as the other ratchets' are.
   whose rewrite would lose or change an entry: a name given twice, bytes that are not UTF-8, a number JSON does not
   write back as read (`1e400`, a whole number past 2^53), a link (#430 item 7 and its review). F2's refusal is its
   BROKEN line; `ci/ratchet.mjs`'s prints a stack trace under the message. The way out is fixing the entry by hand.
-  A fraction with more digits than a number holds is still written back rounded. The writer checks the file by
+  A fraction is written back as the number it reads as: one with more digits than a number holds is rounded, and
+  one too small to hold (`1e-400`) becomes 0. The writer checks the file by
   reading it again, not the caller's own earlier read: the bug depends on what the process parsed before, so the
   two reads could differ. Neither command has been seen to (thousands of generated files, #430's review), and
   checking the caller's object would refuse `new-project`, which writes a fresh file over slipway's copy.

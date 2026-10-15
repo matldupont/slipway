@@ -298,3 +298,13 @@ test('a status word is quoted cut to 30 characters, and a folder or a link among
   assert.ok(r.json.findings[0].detail.startsWith(`\`${A}\` has the status "${excerpt(long, 30)}", which is not draft and has no`), r.json.findings[0].detail);
   assert.deepEqual(r.json.warnings, [{ where: 'docs/features/folder.md#not-a-feature-doc', detail: '`docs/features/folder.md` is a link or a folder, not a file, so it is not read and its Fit is not checked' }]);
 });
+
+// #430: F2's --update goes through the one writer, and refuses a file whose rewrite would lose an entry with its
+// own BROKEN line, writing nothing.
+test('--update on a baselines file that gives a name twice: BROKEN, and the file is as it was', () => {
+  const twice = '{\n  "feature-fit": 3,\n  "other": 1,\n  "other": 2\n}\n';
+  const r = f2({ [BASELINES]: twice }, '--update');
+  assert.equal(r.status, 2, r.out + r.err);
+  assert.match(r.out, /BROKEN — .*ci\/baselines\.json holds an entry a rewrite would lose or change/);
+  assert.equal(r.file, twice);
+});

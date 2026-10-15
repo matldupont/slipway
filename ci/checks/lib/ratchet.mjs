@@ -47,7 +47,8 @@ export function namesIn(text) {
 }
 const namesOf = (value) => (value !== null && typeof value === 'object' ? Object.entries(value).flatMap(([k, v]) => [...(Array.isArray(value) ? [] : [k]), ...namesOf(v)]) : []);
 // A number JSON does not write back as it was read: none at all (`1e400` reads as Infinity, written as null), or
-// a whole number too large to be held exactly.
+// a whole number too large to be held exactly. A fraction is written back as the number it reads as, so one past a
+// number's digits is rounded and `1e-400` becomes 0 (F-12, Known limitations).
 const changedNumber = (value) => (typeof value === 'number' ? !Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)) : value !== null && typeof value === 'object' && Object.values(value).some(changedNumber));
 
 // Writes `baselines` over the file under `root`. Throws, writing nothing, when that file holds an entry a rewrite

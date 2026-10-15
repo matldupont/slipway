@@ -1178,9 +1178,10 @@ test('/review-doc verifies Fit as a claim about the code, and stops on every fin
   assert.ok(stop.length > 64, '/review-doc step 1 must stop on a feature doc with no filled Fit');
   assert.match(stop, /^A feature doc with no filled Fit is not reviewed as it is either\. Run `node ci\/checks\/meta\/f2-feature-fit\.mjs \.`: a line naming the doc with `#fit\/missing`, `#fit\/unfilled\/`, `#fit\/draft` or `#frontmatter\/unreadable`, or a BROKEN run, stops here\./, 'the stop reads F2\'s own lines');
   assert.match(stop, /The review would hold the doc and turn its own pull request red on a file a reviewer never edits: say that the doc's author fills its Fit \(and a missing `status:` line\) first, or a session the owner opens for it when the author's is gone\. A Fit edit moves no `Version:`\. On a BROKEN run, quote F2's BROKEN line to the owner, whose step it is, and run nothing else\./, 'the reviewer never fills Fit, and never records the count');
-  // Contract §2's table, case by case: each id the scan finds in F2's sources is one the stop names. It takes a
-  // `word/` and what follows it up to a quote ', " or `, a #'s end or a template's `${`, outside the four top
-  // folders, so `fit/${k}` is taken as `fit/` and `fit/unfilled/${k}` as `fit/unfilled/` (#430 item 15).
+  // Contract §2's table, case by case: each id the scan finds in F2's sources is one the stop names. Right after a
+  // quote ', " or ` or a #, it takes a lowercase `word/` and the lowercase letters, `-` and `/` after it, when a
+  // quote or a template's `${` comes next, outside the four top folders: `fit/${k}` is taken as `fit/` and
+  // `fit/unfilled/${k}` as `fit/unfilled/`. An id holding a digit, a capital or a `.` is not taken (#430 item 15).
   const named = ['fit/missing', 'fit/unfilled/', 'fit/draft', 'frontmatter/unreadable'];
   const idsIn = (s) => [...s.matchAll(/['"#`]([a-z][a-z-]*\/(?:[a-z][a-z/-]*)?)(?=['"`]|\$\{)/g)].map((m) => m[1]).filter((id) => !/^(docs|dev|ci|scripts)\//.test(id));
   assert.deepEqual(idsIn(`'fit/a' "fit/b" \`fit/c\` \`x#fit/d\` \`fit/e/\${k}\` \`fit/\${k}\` 'docs/x'`), ['fit/a', 'fit/b', 'fit/c', 'fit/d', 'fit/e/', 'fit/'], 'the id scan must take each way F2 could write an id');

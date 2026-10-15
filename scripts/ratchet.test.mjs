@@ -137,10 +137,10 @@ test('--update refuses a baselines file holding a number JSON does not write bac
   }
 });
 
-test('--update keeps a file of arrays and nested objects whose entries it can write back: no refusal', () => {
-  const r = ratchet(1, { dup: 3, list: [1, { inner: 2 }], nested: { a: { b: 9007199254740991 } } }, '--update');
+test('--update keeps a file of arrays, nested objects and a fraction whose entries it can write back: no refusal', () => {
+  const r = ratchet(1, { dup: 3, list: [1, { inner: 2 }], nested: { a: { b: 9007199254740991 } }, ratio: 0.25 }, '--update');
   assert.equal(r.status, 0, r.err);
-  assert.deepEqual(JSON.parse(r.file), { dup: 1, list: [1, { inner: 2 }], nested: { a: { b: 9007199254740991 } } });
+  assert.deepEqual(JSON.parse(r.file), { dup: 1, list: [1, { inner: 2 }], nested: { a: { b: 9007199254740991 } }, ratio: 0.25 });
 });
 
 // A folder with a report and ci/, the baselines made by `make`, and the command run with --update.
