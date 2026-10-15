@@ -123,13 +123,14 @@ test('the fail-safe holds, case 9 of 10', () => {
   for (const word of ['"reopens"', '“reopens”', '*reopens*', '_reopens_', "'reopens'", '‘reopens’', '[reopens]', '~~reopens~~', '**reopens**', 're`opens`']) {
     assert.deepEqual(read(`PD-1 — t *(decided 2026-03-01 · ${word} when M2 is closed)*`), [['heading', false]], word);
   }
-  assert.deepEqual(read(`PD-2 — t *(decided 2026-03-01 · reopens${' '.repeat(30)}when M2 is closed)*`), [['heading', false]]);
+  assert.deepEqual(read(`PD-2 — t *(decided 2026-03-01 · reopens${' \t'.repeat(15)}when M2 is closed)*`), [['heading', false]]);
   // A cut at 500: a clause split across it, or an event list it shortened, is never read short.
   const pre = (s) => `PD-3 — ${'x'.repeat(500 - 'PD-3 — '.length - 3 - s.length)}${s}`;
   assert.deepEqual(read(`${pre(' *(decided 2026-03-01 · reop')}ens when M2 is closed)*`), [['heading', false]]);
+  assert.deepEqual(read(`${pre(', and it reop')}ens when M2 is closed`), [['heading', false]]);
   const list = read(`${pre(' *(decided 2026-03-01 · reopens when M2 is closed')} or F-09 is shipped)*`);
   assert.equal(list.some(([, ok]) => ok === false), true);
-  const line = one(`## PD-4 — t\n\nReopens when: ${Array.from({ length: 30 }, (_, i) => `M${i + 1} is closed`).join(' or ')}\n`);
+  const line = one(`## PD-4 — t\n\nReopens when: ${Array.from({ length: 40 }, (_, i) => `M${i + 1} is closed`).join(' or ')}\n`);
   assert.deepEqual(line.conditions.map((c) => c.readable), [false]);
 });
 
