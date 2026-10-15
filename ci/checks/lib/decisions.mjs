@@ -102,7 +102,8 @@ function finish(e) {
     // shortened may have lost an event: it is unreadable too, never read short.
     const label = LABELS.find(([l]) => b.text.startsWith(l));
     if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut || b.fenced ? { readable: false, issueOnly: false } : {}) });
-    else if (!OUTCOME.test(b.masked)) proseLines.push(b.masked);
+    // A stray heading is counted once, as a stray, never as prose too.
+    else if (!OUTCOME.test(b.masked) && !b.stray) proseLines.push(b.masked);
   }
   const positions = [];
   for (const { line, masked } of [{ line: e.line, masked: e.masked }, ...e.body]) {
@@ -140,23 +141,22 @@ export function parseDecisions(md) {
       // A labelled line in no entry, or a heading with no id holding a clause opening anywhere (a typo'd `### PD3` inside
       // an entry included), is a stray: never silent.
       const label = !cur && LABELS.some(([l]) => text.startsWith(l));
-      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX });
-      if ((label || (HEADING.test(text) && hasClause(whole[i].text))) && (entries.length || !fence[i])) strays.push(line);
+      const stray = (label || (HEADING.test(text) && hasClause(whole[i].text))) && (entries.length || !fence[i]);
+      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX, stray });
+      if (stray) strays.push(line);
     }
   });
   return { entries: entries.map(finish), strays };
 }
 
-// Whether `text` names the decision `key` as a whole word: `D-44` matches `D-044`, never `D-4`, `D-440` or `PD-44`.
-// Every decision key a text names, each once, so a doc is read once however many decisions ask about it.
+// Every decision key a text names, once: `D-44` matches `D-044`, never `D-4`, `D-440` or `PD-44`, and a doc is read once.
 const keysOf = (text) => new Set([...text.matchAll(DECISION_ID)].map((m) => `${m[1]}-${Number(m[2])}`));
 export const namesDecision = (text, key) => keysOf(text).has(key);
 
 const cut = (md) => visible(md).map((l) => l.text.slice(0, MAX)).join('\n');
 const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$/i)?.[1] : undefined);
 
-// Whether a folder of the tree, or a folder above it (`docs`, `dev`), is a link, a dangling one included: such a folder
-// is not read, and is named unread.
+// Whether a folder of the tree, or one above it (`docs`, `dev`), is a link, a dangling one included: named unread.
 const isLink = (root, dir) =>
   dir.split('/').some((_, i, parts) => {
     try { return lstatSync(posix.join(root, ...parts.slice(0, i + 1))).isSymbolicLink(); } catch { return false; }
@@ -239,7 +239,7 @@ function readTree(root) {
   return { milestones, carrying: indexBy(files, ns), docs: indexBy(files.filter(isFeatureDoc), ns), itemKeys, unread: unread.sort() };
 }
 
-// `{ missing, entries, strays, owed(), fired(today), unreadable(), proseCount(), unreadFolders() }` for the decisions.md at
+// `{ missing, entries, strays, owed(), fired(today), unreadable(), proseCount(), awaitingIssue(), unreadFolders() }` for the decisions.md at
 // `root`. `missing` is null, or why decisions.md cannot be read ('does not exist', 'is a link, not a file', …), and the
 // record is then empty. The tree (feature docs, milestones, reviews) is read once, on the first call that needs it;
 // `unreadFolders()` names, sorted, each of its folders that is there but could not be read, so nothing it hid is silent.
@@ -255,8 +255,7 @@ export function readDecisions(root) {
   const amendsOf = new Map(entries.map((e) => [e, [...new Set(e.conditions.filter((c) => c.kind === 'changes' && c.readable).flatMap((c) => c.features))]]));
   const amends = (e) => amendsOf.get(e);
 
-  // The Amends: features nothing names yet (§4): `{ id, key, feature, docs }`, `docs` the paths of the docs carrying
-  // that F-id (a companion included), empty when no doc carries it yet.
+  // The Amends: features nothing names yet (§4): `{ id, key, feature, docs }`, `docs` the paths carrying that F-id.
   const owed = () => entries.flatMap((e) => amends(e).filter((n) => !cited(e.key, n)).map((n) => ({ id: e.id, key: e.key, feature: n, docs: carrying(n).map((f) => f.path) })));
 
   const fires = (e, ev, today) => {
@@ -295,5 +294,7 @@ export function readDecisions(root) {
       return bad.length ? [{ id: e.id, key: e.key, line: e.line, issueOnly: bad.every((c) => c.issueOnly) }] : [];
     });
 
-  return { missing, entries, strays, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose).map((e) => e.id), unreadFolders: () => [...t().unread] };
+  // The decisions with a condition naming an issue and nothing else unreadable (`issueOnly` until it is read): never counted twice.
+  const awaitingIssue = () => entries.filter((e) => e.conditions.some((c) => c.kind !== 'changes' && (c.readable || c.issueOnly) && c.events.some((ev) => ev.kind === 'issue'))).map((e) => e.id);
+  return { missing, entries, strays, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose).map((e) => e.id), awaitingIssue, unreadFolders: () => [...t().unread] };
 }

@@ -35,13 +35,14 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { FEATURE_DIRS } from '../ci/checks/lib/feature-docs.mjs';
+import { readDecisions } from '../ci/checks/lib/decisions.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { BASELINES, FIT_KEY, isCount, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
-import { alreadyLine, alreadyText, appliedText, codeNote, CONVENTIONAL, countLines, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
+import { alreadyLine, alreadyText, appliedText, codeNote, CONVENTIONAL, countLines, decisionNote, pastLine, pastText, planText, targetName } from './lib/sync-text.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
@@ -297,9 +298,15 @@ function preflight(cwd) {
   const found = head ? { sha: head, release: read(() => releaseTag(gitDir, version)) === head } : read(() => resolveTarget(gitDir, targetManaged, { version, same: (tree) => sameShipped(tree, t) }));
   const targetSha = found.sha;
   const targetVersion = found.release ? version : null;
+  const notes = [];
+  // The decisions status cannot see (F-15 §7): counted from the project's decisions.md, which sync never writes; a
+  // record that cannot be read adds no note, since nothing here depends on it.
+  try {
+    const record = readDecisions(root);
+    notes.push(...decisionNote({ prose: record.proseCount(), issues: record.awaitingIssue() }));
+  } catch { /* a note, never a refusal */ }
   // npm never packs .gitignore: under npx, slipway's own is in the target commit, not on disk. Without
   // that commit the target's copy is unknown, and the plan says so rather than compare a stand-in.
-  const notes = [];
   if (!existsSync(join(SRC, '.gitignore'))) {
     const id = targetSha && read(() => commitFiles(gitDir, targetSha).tree.get('.gitignore'));
     if (id) target.set('.gitignore', read(() => readBlob(gitDir, id)));

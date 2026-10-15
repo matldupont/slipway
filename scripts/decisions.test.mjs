@@ -194,6 +194,22 @@ test('the backstop: a clause opening a typo hid from the suffix reading makes th
   tree({ 'decisions.md': '## PD-1 — keep the ` key *(decided 2026-03-01 · reopens when M2 is closed)*\n' }, (r) => assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-1', false]]));
 });
 
+test('a stray heading inside an entry is counted once, as a stray: its words never make the entry prose too (build step 4)', () => {
+  const md = '## PD-1 — t *(decided 2026-03-01)*\n\n### PD3 — u *(decided 2026-03-01 · reopens when M2 is activated)*\n';
+  const r = parseDecisions(md);
+  assert.deepEqual([r.strays, r.entries[0].prose], [[3], false]);
+  // The same words in the body of the entry still count as prose, once.
+  assert.equal(one('## PD-1 — t *(decided 2026-03-01)*\n\nIt reopens when M2 is activated.\n').prose, true);
+});
+
+test('the decisions waiting on an issue: a condition naming one, readable or not, in a line or a heading clause; an outcome or Amends: line is not one (build step 4)', () => {
+  const ids = (md) => tree({ 'decisions.md': md }, (r) => r.awaitingIssue());
+  assert.deepEqual(ids('## PD-1 — t\n\nCloses when: #12 lands\n\n## PD-2 — u *(decided 2026-03-01 · closes when owner/repo#7 is closed)*\n\n## PD-3 — v\n\nReopens when: F-07 has a doc or #9 closes\n'), ['PD-1', 'PD-2', 'PD-3']);
+  assert.deepEqual(ids('## PD-1 — t\n\nClosed 2026-03-10: done\n\n## PD-2 — u\n\nAmends: F-07\n\n## PD-3 — v\n\nReopens when: F-07 has a doc\n\n## PD-4 — w\n\n- Closes when: #12 lands\n'), []);
+  assert.deepEqual(ids('## PD-1 — t\n\n```\nCloses when: #12 lands\n```\n'), [], 'a fenced condition is unreadable and names no issue');
+  tree({}, (r) => assert.deepEqual(r.awaitingIssue(), []));
+});
+
 test('AR-4: the heading suffix is read by the prose pattern outside every condition clause', () => {
   assert.equal(one('## PD-1 — t *(decided 2026-03-01 · revisit when M2 is activated)*\n').prose, true);
   // A clause opening in the first clause makes the decision unreadable, so it is counted there, not as prose too.

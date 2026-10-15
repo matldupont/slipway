@@ -697,6 +697,12 @@ test('a fail line naming a closed bug owes again: the rule says so, /close-miles
 
 // #258: `Issue milestone` defaults to `none`, so a project can reach its first close with no GitHub milestone, and
 // `gh issue list --milestone` then reads nothing. These pin the fallback in both places the list is used.
+// F-15 §7 (#440 step 4): the retro lists the decisions status cannot see, from DC1's info line, for the owner to check by hand.
+test('/close-milestone\'s retro lists the decisions in prose only and those waiting on an issue, from DC1\'s info line', () => {
+  const retro = (section(read('.claude/skills/close-milestone/SKILL.md'), '3. Write the retro — from the record, not memory', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(retro, /Run `node ci\/checks\/meta\/dc1-decisions\.mjs \.` and list the ids on its `info` line for the owner to check by hand: the decisions that say when they reopen or close in prose only, and those waiting on an issue/);
+});
+
 test('/close-milestone with no GitHub milestone says so in 1 line and reads every open issue; an empty list is never "nothing left"', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const head = flat(read('.claude/skills/close-milestone/SKILL.md').split('## 1. Decide which ending')[0]);

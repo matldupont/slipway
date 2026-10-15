@@ -84,6 +84,23 @@ export function countLines({ n, noStatus = 0, drafts = 0, others = {}, notFiles 
   if (entries.n) lines.push(`${plural(entries.n, 'entry', 'entries')} named \`*.md\` in ${entries.folders.join(' and ')} ${entries.n === 1 ? 'is a link or a folder, not a file, so it is' : 'are links or folders, not files, so they are'} not read and not counted.`);
   return lines;
 }
+// What the owner reads of the decisions whose conditions status cannot see (F-15 §7): ids only, from `readDecisions`, never
+// a decision's own words. `prose` are the decisions that say when they reopen or close in prose alone, `issues` those
+// waiting on an issue; one sentence, or none when both are empty.
+const DECISION_IDS = /^P?D-\d{1,9}$/;
+const CAP = 20;
+const idList = (ids) => {
+  const safe = ids.filter((id) => DECISION_IDS.test(id));
+  return safe.length > CAP ? `${safe.slice(0, CAP).join(', ')} and ${safe.length - CAP} more` : safe.join(', ');
+};
+export function decisionNote({ prose = [], issues = [] }) {
+  const parts = [];
+  if (prose.length) parts.push(`${plural(prose.length, 'decision')} say${prose.length === 1 ? 's' : ''} when ${prose.length === 1 ? 'it reopens' : 'they reopen'} or ${prose.length === 1 ? 'closes' : 'close'} in prose only (${idList(prose)})`);
+  if (issues.length) parts.push(`${issues.length} ${issues.length === 1 ? 'waits' : 'wait'} on an issue status cannot see (${idList(issues)})`);
+  if (!parts.length) return [];
+  const why = [prose.length && 'nothing reads a prose condition until it is written as an event', issues.length && 'check the issue by hand'].filter(Boolean).join('; ');
+  return [`${parts.join(', and ')}: ${why}`];
+}
 // An error's code for a refusal, as ` (ENOENT)`, only when it is capitals, digits and underscores; else nothing.
 export const codeNote = (e) => (/^[A-Z][A-Z0-9_]{1,30}$/.test(e?.code ?? '') ? ` (${e.code})` : '');
 const countSection = (u, count, applied) => [u.section('◇', `${count.file} — count recorded${applied ? ` at ${count.n}` : ''}`), ...countLines(count).map((l) => u.line(l)), gap(u)];

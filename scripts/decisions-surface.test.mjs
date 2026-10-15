@@ -62,6 +62,14 @@ test('DC1 is green on every shape the reader reads without a position (§5\'s gr
   }
 });
 
+test('DC1 prints the two counts as one info line: ids only, never red, none when empty (build step 4)', () => {
+  const info = (md) => record(md).out.split('\n').find((l) => l.startsWith('DC1: info'));
+  assert.equal(info('## PD-1 — t\n\nWe revisit this when the vendor moves.\n\n## PD-2 — u\n\nCloses when: #12 lands\n\n## PD-3 — v\n\nReopens when: F-07 has a doc\n'), 'DC1: info — in prose only: PD-1 (1); waiting on an issue: PD-2 (1)');
+  assert.equal(info('## PD-1 — t\n\nBody.\n'), 'DC1: info — in prose only: none; waiting on an issue: none');
+  const r = record('## PD-1 — t\n\nWe revisit this when `a\u001b[31mhostile` text.\n\nCloses when: #12 lands\n');
+  assert.deepEqual([r.exit, r.out.includes('\u001b')], [0, false]);
+});
+
 test('DC1 fails a position after a span that crossed a line break and closed; it names the first match only', () => {
   const r = record('## PD-3 — t\n\na span `that\ncrosses` a break, then M2 item 4, and item 5 of M2\n');
   assert.deepEqual([r.exit, r.findings], [1, ['decisions.md#decision/position/PD-3']]);
