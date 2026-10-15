@@ -155,3 +155,13 @@ test("status lines: AR-1, the current review is said to cover the decision only 
   assert.match(out[0], /^\(you\) Decision reopens: PD-1 — F-07 is reviewed: re-read PD-1;/);
   assert.match(out[1], /^\(you\) Decision reopens: PD-2 — F-08 is reviewed \(F-08's current review already covers it\): /);
 });
+
+test("slipway's own record: §10's Amends lines are in place, and status owes nothing from it but D-044's two citations", () => {
+  const r = readDecisions(SRC);
+  const amends = Object.fromEntries(r.entries.map((e) => [e.id, e.conditions.filter((c) => c.kind === 'changes').flatMap((c) => c.features)]));
+  const want = { 'D-015': [1], 'D-017': [2], 'D-018': [4], 'D-019': [5], 'D-020': [6], 'D-022': [7], 'D-024': [9], 'D-027': [10], 'D-036': [12], 'D-037': [13], 'D-042': [14], 'D-044': [4, 6], 'D-045': [15], 'D-046': [16] };
+  for (const [id, fs] of Object.entries(want)) assert.deepEqual(amends[id], fs, id);
+  assert.deepEqual([r.strays, r.unreadable(), r.fired('2999-01-01').map((f) => f.id), r.unreadFolders()], [[], [], [], []]);
+  // D-044's citations are the honest debt its prose records; one in each doc clears them, and nothing else may be owed.
+  assert.deepEqual([...new Set(r.owed().map((o) => o.id))].filter((id) => id !== 'D-044'), []);
+});
