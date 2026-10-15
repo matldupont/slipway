@@ -271,14 +271,11 @@ test('work-ticket\'s Links line says a closing word before an issue number close
 // #437: a PR was marked ready with the pr-body check red; Phase 6 runs P1 on the final body first, intake says the same for a hand-made PR.
 test('work-ticket Phase 6 runs P1 on the final body before `gh pr ready`, and intake.md says the same for a PR made by hand', () => {
   const phase = (section(read(skillPath('work-ticket')), 'Phase 6 — Ready', 2) ?? '').replace(/\s+/g, ' ');
-  const ready = phase.indexOf('gh pr ready');
-  const p1 = phase.indexOf('node ci/checks/meta/p1-pr-body.mjs');
-  assert.ok(p1 > 0 && ready > p1, 'Phase 6 must run P1 before `gh pr ready`');
-  assert.ok(phase.indexOf('node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)"') > 0, 'Phase 6 must write the changed-files list for P1');
-  assert.match(phase, /on a finding, fix the body and run it again; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which\./, 'Phase 6 must say what a finding leads to');
+  assert.ok(phase.includes('node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}'), 'Phase 6 must chain the changed-files list, P1, the body edit and `gh pr ready` with &&, so a finding stops it');
+  assert.match(phase, /on a finding, fix `\{prdir\}\/pr\.md` and run the block again, so the body checked is the body posted; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which\./, 'Phase 6 must say what a finding leads to');
   assert.match(phase, /It is 1 local run, no wait: do not wait on CI, and do not merge\./, 'Phase 6 must keep "do not wait on CI"');
   const pr = flat(section(intake, 'Pull request', 2));
-  assert.match(pr, /\*\*Before ready,\*\* a PR opened or marked ready by hand has the `pr-body` check run on its final body .*node ci\/checks\/lib\/gate-files\.mjs .*node ci\/checks\/meta\/p1-pr-body\.mjs "\{dir\}"`, and is not marked ready while that reports a finding\./, 'intake.md → Pull request must say P1 runs before ready, with both commands');
+  assert.match(pr, /\*\*Before ready,\*\* a PR opened ready or marked ready by hand has the `pr-body` check run on its final body .*node ci\/checks\/lib\/gate-files\.mjs "\$\(git rev-parse origin\/\{base\}\)" "\$\(git rev-parse HEAD\)" > "\{dir\}\/body\.changes\.json"` and `node ci\/checks\/meta\/p1-pr-body\.mjs "\{dir\}"`, and is not marked ready while that reports a finding\./, 'intake.md → Pull request must say P1 runs before ready, with both commands and the sidecar name');
 });
 
 test('work-ticket\'s rule files name the settings file, the manifest and slipway\'s markers', () => {

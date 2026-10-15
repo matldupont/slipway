@@ -278,11 +278,9 @@ Only after CLEAN, with nothing committed since (Rounds 2 and 3, step 4). Rewrite
 
 ```bash
 git status --porcelain            # prints nothing
-gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"
-d="$(mktemp -d)"; cp "{prdir}/pr.md" "$d/body.md"; node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json"; node ci/checks/meta/p1-pr-body.mjs "$d"   # exits 0
-gh pr ready {pr} --repo {checkout}
+d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}
 ```
-P1 is the `pr-body` check, run here on the final body before `gh pr ready`: on a finding, fix the body and run it again; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which. It is 1 local run, no wait: do not wait on CI, and do not merge. Report the PR's URL.
+P1 is the `pr-body` check, run here on the final body, and the chain stops at it: on a finding, fix `{prdir}/pr.md` and run the block again, so the body checked is the body posted; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which. It is 1 local run, no wait: do not wait on CI, and do not merge. Report the PR's URL.
 
 ## Follow-ups
 
