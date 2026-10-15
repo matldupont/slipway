@@ -64,11 +64,21 @@ if (fp && cache && existsSync(cache) && readFileSync(cache, 'utf8') === fp) proc
 
 const redReason = (status, tail, note = '') =>
   `stop-verify: \`pnpm verify:fast\` is red (exit ${status}).${note}\n${tail}\n\nFix it before finishing. If it is out of scope for this turn, say exactly what is failing and why.`;
-let red = null;
-try { red = fp && redCache ? JSON.parse(readFileSync(redCache, 'utf8')) : null; } catch { /* none, or unreadable: run verify */ }
+// The one reader of the red cache: a file anyone with the git dir can write. It hands on plain checked fields or null,
+// and null runs verify. No field of the file is used before it is checked here.
+function readRed() {
+  try {
+    const v = JSON.parse(readFileSync(redCache, 'utf8'));
+    if (typeof v.fp === 'string' && Number.isFinite(v.at) && Number.isInteger(v.status) && typeof v.tail === 'string') {
+      return { fp: v.fp, at: v.at, status: v.status, tail: v.tail };
+    }
+  } catch { /* none, or unreadable */ }
+  return null;
+}
+const red = fp && redCache ? readRed() : null;
 const age = red ? Date.now() - red.at : NaN;
 // No process.exit after a block: exit cuts a pipe write off at 64 KB, and a cut JSON is no block at all.
-if (red?.fp === fp && typeof red.tail === 'string' && Number.isFinite(red.at) && age >= 0 && age < RED_TTL_MS) {
+if (red?.fp === fp && age >= 0 && age < RED_TTL_MS) {
   const when = new Date(red.at).toISOString().slice(11, 19);
   say({ decision: 'block', reason: redReason(red.status, red.tail, ` Cached from ${when} UTC: the tree has not changed since, so verify did not run again. Any change to the tree, or ${RED_TTL_MS / 60000} minutes, runs it again.`) });
 } else {

@@ -59,7 +59,7 @@ function stop(input = '{}') {
 const fresh = (code) => {
   writeFileSync(exitCode, String(code));
   rmSync(runs, { force: true });
-  rmSync(red, { force: true });
+  rmSync(red, { recursive: true, force: true });
   rmSync(ok, { force: true });
   git('checkout', '-q', '--', '.');
   git('clean', '-q', '-fd');
@@ -157,4 +157,27 @@ test('a cached block with a 100 KB tail reaches Claude Code whole, and a cache w
   writeFileSync(red, JSON.stringify({ ...c, tail: 42 }));
   stop();
   assert.equal(count(), 2, 'a cache with no string tail was trusted');
+});
+
+test('a planted red cache with an object, null or wrong-typed field runs verify and blocks, whatever its fingerprint', () => {
+  fresh(1);
+  stop();
+  const c = JSON.parse(readFileSync(red, 'utf8'));
+  const odd = { valueOf: 0, toString: 0 }; // JSON for a value that cannot become a primitive
+  const planted = [
+    { fp: 'other', at: odd },
+    { ...c, at: odd },
+    { ...c, status: odd },
+    { ...c, status: '1' },
+    { ...c, fp: odd },
+    null,
+    [],
+  ];
+  let runs = count();
+  for (const p of planted) {
+    writeFileSync(red, JSON.stringify(p));
+    const out = stop(); // a crash fails here: stop() asserts exit 0
+    assert.equal(out?.decision, 'block', `${JSON.stringify(p)} let a red stop through`);
+    assert.equal(count(), ++runs, `${JSON.stringify(p)} was trusted`);
+  }
 });
