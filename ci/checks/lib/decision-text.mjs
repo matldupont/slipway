@@ -58,15 +58,14 @@ export function mask(lines) {
 // The space between two words of a clause opening or the prose pattern: a run of spaces or tabs, bounded, so a doubled
 // space or a tab never makes a clause a typo hides.
 const WS = '[ \\t]{1,20}';
-// The five clause openings, anywhere in a heading: the backstop below finds each one the suffix reading did not take.
-const CLAUSE_WORD = new RegExp(`\\b(?:reopens${WS}(?:when|if)|closes${WS}(?:when|if)|provisional${WS}until)\\b`, 'i');
-// Whether a text holds a clause opening once its marks are taken out, read both ways: each mark dropped (`re`opens`
-// when) and each mark a space ('reopens' when, [reopens] when), whitespace squashed, so no mark or run of spaces hides
-// one. The text is a line cut at MAX: both passes are linear.
-const MARK = /[\p{P}\p{S}]/gu;
+// Whether a text holds one of the five clause openings, read on its letters alone, case folded: no mark, space, tab or
+// run of them between or inside the words hides one (the owner's call on #466, after two review rounds each found a
+// typo shape a pattern missed). It is louder by design: a title whose letters happen to run `closesif` is unreadable.
+// One linear pass and a substring search, so it may read a whole line, past the cut at MAX too.
+const CLAUSE_LETTERS = ['reopenswhen', 'reopensif', 'closeswhen', 'closesif', 'provisionaluntil'];
 export const hasClause = (s) => {
-  const bare = s.replace(/\s+/g, ' ');
-  return CLAUSE_WORD.test(bare.replace(MARK, '')) || CLAUSE_WORD.test(bare.replace(MARK, ' ').replace(/ +/g, ' '));
+  const letters = s.toLowerCase().replace(/[^a-z]/g, '');
+  return CLAUSE_LETTERS.some((w) => letters.includes(w));
 };
 // A clause that opens with one of them, at its start and followed by a space or its end: `[kind, rest]`.
 export const CLAUSE_START = new RegExp(`^(?:(reopens|closes)${WS}(?:when|if)|provisional${WS}until)(?=\\s|$)`, 'i');

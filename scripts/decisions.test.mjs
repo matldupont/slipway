@@ -57,12 +57,12 @@ test('heading clauses in each accepted spelling are conditions; the first clause
   assert.deepEqual(unreadable.conditions.map((c) => [c.kind, c.readable]), [['reopens', false]]);
 });
 
-test('a lookalike label is prose, and labelled lines inside a fenced block are prose, not conditions', () => {
+test('a lookalike label is prose; a labelled line inside a fenced block under a decision is unreadable (the owner, #466)', () => {
   for (const line of ['- Reopens when: F-07 has a doc', '**Amends:** F-07', ' Amends: F-07', 'amends: F-07']) {
     assert.deepEqual(one(`## PD-1 — t *(decided 2026-03-01)*\n\n${line}\n`).conditions, [], line);
   }
   assert.equal(one('## PD-1 — t *(decided 2026-03-01)*\n\n- Reopens when: F-07 has a doc\n').prose, true);
-  assert.deepEqual(one('## PD-1 — t *(decided 2026-03-01)*\n\n```markdown\nAmends: F-07\nReopens when: F-07 has a doc\n```\n').conditions, []);
+  assert.deepEqual(one('## PD-1 — t *(decided 2026-03-01)*\n\n```markdown\nAmends: F-07\nReopens when: F-07 has a doc\n```\n').conditions.map((c) => [c.kind, c.readable]), [['changes', false], ['reopens', false]]);
 });
 
 test('a stray backtick above a label in its paragraph never hides it', () => {
@@ -188,8 +188,9 @@ test('the backstop: a clause opening a typo hid from the suffix reading makes th
   assert.deepEqual(read('PD-4 — t *(decided 2026-03-01 · reopens when M2 is closed)*'), [['heading', true]]);
   assert.deepEqual(read('PD-5 — t *(decided 2026-03-01 — reopens when M2 is activated)*'), [['heading', false]]);
   assert.deepEqual(read('PD-6 — when it reopens or closes *(decided 2026-03-01)*'), []);
-  // A heading in a fence is quoted text: no clause, no backstop.
-  assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01 · reopens when M2 is closed)*\n```\n').entries.map((e) => e.conditions.length), [0, 0]);
+  // A heading in a fence is an entry, its suffix is not read, and a clause opening in it is unreadable (the owner, #466).
+  assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01 · reopens when M2 is closed)*\n```\n').entries.map((e) => e.conditions.map((c) => c.readable)), [[], [false]]);
+  assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01)*\n```\n').entries.map((e) => e.conditions.length), [0, 0]);
   tree({ 'decisions.md': '## PD-1 — keep the ` key *(decided 2026-03-01 · reopens when M2 is closed)*\n' }, (r) => assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-1', false]]));
 });
 

@@ -34,9 +34,6 @@ const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
-// Words that, in the part of a heading a cut at MAX dropped, may hide a clause. A cut heading that holds a suffix
-// anywhere may have lost a clause or an event of one, so it is unreadable too.
-const CUT_WORDS = ['reopens', 'closes', 'provisional'];
 const POSITION = /\bM(\d{1,9})(?:['’]s)? (?:Contents )?item (\d{1,9})\b|\bitem (\d{1,9}) of M(\d{1,9})\b/g;
 const DECISION_ID = /\b(P?D)-(\d{1,9})\b/g;
 
@@ -80,8 +77,9 @@ function finish(e) {
   // and again on #466): a typo can make a condition louder, never silent. A clause opening the suffix reading did not
   // take makes the decision unreadable: in the heading before the suffix (a stray backtick or a quoted suffix
   // included), in a part of the suffix that is not read as a clause (the first, the status, or one that opens with a
-  // backtick, a quote or a mark), or in what a cut at MAX dropped. A heading in a fence is quoted text.
-  let hidden = !e.fenced && (e.cut || hasClause(at < 0 ? e.text : e.text.slice(0, at)));
+  // backtick, a quote or a mark), or in what a cut at MAX dropped. A heading in a fence is an entry (ID1), so a clause
+  // opening in it is unreadable too: a stray fence marker never hides one (the owner, #466).
+  let hidden = e.cut || hasClause(at < 0 ? e.text : e.text.slice(0, at));
   parts.forEach(([off, raw], i) => {
     const c = raw.trim();
     clauses.push({ text: c });
@@ -94,11 +92,12 @@ function finish(e) {
   if (hidden) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false, issueOnly: false });
   const proseLines = [];
   for (const b of e.body) {
-    // A label is read on the line as written, outside a fence: a stray backtick above it in the paragraph never hides
-    // it (a code span is no reason to skip a label, §2; only a fence is).
-    const label = b.fenced ? null : LABELS.find(([l]) => b.text.startsWith(l));
-    // A labelled line the cut at MAX shortened may have lost an event: it is unreadable, never read short.
-    if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut ? { readable: false, issueOnly: false } : {}) });
+    // A label is read on the line as written: a stray backtick above it in the paragraph never hides it (a code span is
+    // no reason to skip a label, §2). One inside a fence under a decision is unreadable, never read and never skipped:
+    // a stray fence marker can pair with a later fence and hide it (the owner, #466). A labelled line the cut at MAX
+    // shortened may have lost an event: it is unreadable too, never read short.
+    const label = LABELS.find(([l]) => b.text.startsWith(l));
+    if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut || b.fenced ? { readable: false, issueOnly: false } : {}) });
     else if (!OUTCOME.test(b.masked)) proseLines.push(b.masked);
   }
   const positions = [];
@@ -125,8 +124,9 @@ export function parseDecisions(md) {
   lines.forEach(({ line, text }, i) => {
     const m = text.match(ENTRY);
     if (m) {
-      const dropped = whole[i].text.slice(MAX - 20).toLowerCase();
-      const cut = whole[i].text.length > MAX && (whole[i].text.includes('*(') || CUT_WORDS.some((w) => dropped.includes(w)));
+      // A heading the cut at MAX shortened is unreadable when the whole line holds a suffix, which may have lost a clause
+      // or an event of one, or a clause opening anywhere (hasClause reads past the cut, linearly).
+      const cut = whole[i].text.length > MAX && (whole[i].text.includes('*(') || hasClause(whole[i].text));
       cur = { id: `${m[1]}-${m[2]}`, key: `${m[1]}-${Number(m[2])}`, line, text, masked: masked[i], fenced: fence[i], cut, body: [] };
       entries.push(cur);
     } else if (TOP.test(text)) cur = null;

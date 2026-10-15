@@ -124,7 +124,7 @@ test('the fail-safe holds, case 8 of 10', () => {
 });
 
 test('the fail-safe holds, case 9 of 10', () => {
-  for (const word of ['"reopens"', '“reopens”', '*reopens*', '_reopens_', "'reopens'", '‘reopens’', '[reopens]', '~~reopens~~', '**reopens**', 're`opens`']) {
+  for (const word of ['"reopens"', '“reopens”', '*reopens*', '_reopens_', "'reopens'", '‘reopens’', '[reopens]', '~~reopens~~', '**reopens**', 're`opens`', `re\`opens${' *'.repeat(25)}`, 're-opens']) {
     assert.deepEqual(read(`PD-1 — t *(decided 2026-03-01 · ${word} when M2 is closed)*`), [['heading', false]], word);
   }
   assert.deepEqual(read(`PD-2 — t *(decided 2026-03-01 · reopens${' \t'.repeat(15)}when M2 is closed)*`), [['heading', false]]);
@@ -132,6 +132,8 @@ test('the fail-safe holds, case 9 of 10', () => {
   const pre = (s) => `PD-3 — ${'x'.repeat(500 - 'PD-3 — '.length - 3 - s.length)}${s}`;
   assert.deepEqual(read(`${pre(' *(decided 2026-03-01 · reop')}ens when M2 is closed)*`), [['heading', false]]);
   assert.deepEqual(read(`${pre(', and it reop')}ens when M2 is closed`), [['heading', false]]);
+  assert.deepEqual(read(`${pre(', and it reopens')}${' '.repeat(30)}when M2 is closed`), [['heading', false]]);
+  assert.deepEqual(read(`${pre(', and it re-op')}ens when M2 is closed`), [['heading', false]]);
   const list = read(`${pre(' *(decided 2026-03-01 · reopens when M2 is closed')} or F-09 is shipped)*`);
   assert.equal(list.some(([, ok]) => ok === false), true);
   // A labelled line whose cut lands right after an event: the spaces fill it to column 500, and squash drops them.
@@ -143,8 +145,12 @@ test('the fail-safe holds, case 10 of 10', () => {
   // A fence opened and never closed is a typo: the decisions below it are read.
   const e = parseDecisions('## PD-1 — t\n\n```\nstray\n\n## PD-2 — u *(decided 2026-03-01 · reopens when M2 is closed)*\n\nCloses when: M3 is closed\n').entries;
   assert.deepEqual(e[1].conditions.map((c) => [c.kind, c.readable]), [['reopens', true], ['closes', true]]);
-  // A closed fence still hides what it quotes.
-  assert.deepEqual(parseDecisions('## PD-1 — t\n\n```\nCloses when: M3 is closed\n```\n').entries[0].conditions, []);
+  // A labelled line in a fence under a decision is unreadable, never read: a stray marker can pair with a later fence.
+  const paired = parseDecisions('## PD-1 — t\n\n```\nstray\n\n## PD-2 — u\n\nReopens when: M2 is closed\n\n```js\nx\n```\n').entries;
+  assert.deepEqual(paired.map((x) => x.conditions.map((c) => c.readable)), [[], [false]]);
+  // Only a fence still open at the end is a typo: a closed fence before it stays a fence.
+  const before = parseDecisions('## PD-1 — t\n\n```\nCloses when: M3 is closed\n```\n\n```\nstray\nReopens when: M2 is closed\n').entries[0];
+  assert.deepEqual(before.conditions.map((c) => [c.kind, c.readable]), [['closes', false], ['reopens', true]]);
   // A folder of the tree that is a link, a dangling one included, is named and not read.
   const rec = '## PD-1 — t\n\nReopens when: M2 is closed\n';
   const ms = '---\nid: M2\nstatus: closed\n---\n\n# M2 — x\n\n## Contents\n\n1. x\n';
