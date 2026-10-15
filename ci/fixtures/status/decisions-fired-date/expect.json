@@ -4,6 +4,6 @@
   "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you) Re-read the decision (PD-1) and say whether it still holds. Its condition has happened (2026-03-09 passes). An agent or /clarify then writes the outcome in place of the condition, as \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\". When it is open again, it writes \"open — reopened 2026-03-10\" as the heading status and \"Reopened 2026-03-10: open again\" beneath it. A decision that supersedes it settles it too. It blocks anything new built on the decision. It waits on nothing."
+    "(you) Re-read the decision (PD-1) and say whether it still holds. Its condition has happened (2026-03-09 passes). An agent or /clarify then writes the outcome in place of the condition, as \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\". When it is open again, it writes \"open — reopened 2026-03-10\" as the heading status and \"Reopened 2026-03-10: open again\" in place of the condition. A decision that supersedes it settles it too. It blocks anything new built on the decision. It waits on nothing."
   ]
 }

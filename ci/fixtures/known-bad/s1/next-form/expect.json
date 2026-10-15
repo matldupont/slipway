@@ -1,10 +1,9 @@
 {
-  "_note": "Two milestones active, one with an id that holds a semicolon and a check id: every other line is right, and the Next line breaks the form.",
-  "today": "2026-03-11",
-  "now": "2026-03-10T22:00:00-04:00",
-  "next": "Set every milestone but one to shaping or closed. K1;D1, M2 are all active, and the checks stay red until one is. You.",
-  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · M2 underway with it untested — pnpm meta is red until it has a Result",
+  "_note": "Every line is right except the Next line, which holds a semicolon and a check id outside any quoted span. The PRD's Version line is printed as read (a known, older exposure; when it is shaped, this case needs another route to a bad Next line).",
+  "today": "2026-03-10",
+  "next": "Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0; K1 has its review, and a milestone can go active once the PRD is approved. You, 1 to 2 days.",
+  "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+    "nothing"
   ]
 }

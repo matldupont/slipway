@@ -1,5 +1,5 @@
 {
-  "_note": "The expected text is what status printed reading the clock in UTC, Timezone ignored: 03:30 UTC is 2026-03-11, so the heading date is a day ahead and RISK-2 window reads as overran on both lines.",
+  "_note": "The expected text is what status printed reading the clock in UTC, Timezone ignored: 03:30 UTC is 2026-03-11, so the heading date is a day ahead and RISK-2 window reads as overran on the Frame line; the Next line no longer carries a window.",
   "today": "2026-03-11",
   "now": "2026-03-10T23:30:00-04:00",
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
