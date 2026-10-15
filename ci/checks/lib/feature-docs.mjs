@@ -29,11 +29,13 @@ const INVISIBLE = new RegExp(`[${UNSAFE.source}\\u200d\\ufe0e\\ufe0f]`, 'gv');
 // A text with those characters taken out and nothing else changed: no folding, no line split.
 export const unseen = (s) => s.replace(INVISIBLE, '');
 // A text as a heading is matched: those characters taken out, look-alikes folded (NFKC) and every dash a hyphen.
-// NFKC reorders a run of combining marks in time the square of its length, so the text is folded a piece at a time,
-// each piece at most 32 marks after its other characters: a longer run is reordered within each piece only, which no
-// id, heading mark or hyphen depends on.
+// NFKC reorders a run of combining marks in time the square of its length, so a text holding a run of more than 32 is
+// folded a piece at a time, each piece at most 32 marks after its other characters: the run is reordered within each
+// piece only, which no id, heading mark or hyphen depends on.
 const PIECE = /[^\p{M}]*\p{M}{0,32}/gu;
-export const fold = (s) => unseen(s).match(PIECE).map((p) => p.normalize('NFKC')).join('').replace(/[\p{Pd}\u2212]/gu, '-');
+const LONG_RUN = /\p{M}{33}/u;
+const nfkc = (s) => (LONG_RUN.test(s) ? s.match(PIECE).map((p) => p.normalize('NFKC')).join('') : s.normalize('NFKC'));
+export const fold = (s) => nfkc(unseen(s)).replace(/[\p{Pd}\u2212]/gu, '-');
 export function visible(md) {
   return md
     .replace(/^\uFEFF/, '')
