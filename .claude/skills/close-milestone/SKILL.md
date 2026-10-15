@@ -1,6 +1,6 @@
 ---
 name: close-milestone
-description: Close (or kill) the active milestone — verify its gate with evidence, write an evidence-based retro, close the GitHub milestone, mark shipped feature docs, file lessons, and set up the next bet. Use at step 6 of SLIPWAY.md, when a milestone's gate is green, when its appetite has ended (`pnpm status` says "circuit breaker"), or when the user says "close M2", "wrap up the milestone", "kill this milestone".
+description: Close (or kill) the active milestone — verify its gate with evidence, write an evidence-based retro, close the GitHub milestone, mark shipped feature docs, file lessons, and set up the next bet. Use at step 6 of SLIPWAY.md, when a milestone's gate is green, when its appetite has ended (`pnpm status` says to close the milestone with /close-milestone, kill it, or record an extension), or when the user says "close M2", "wrap up the milestone", "kill this milestone".
 ---
 
 # Close milestone
