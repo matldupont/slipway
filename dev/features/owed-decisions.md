@@ -507,8 +507,9 @@ other people's text: one it cannot read is counted as unreadable, never passed a
   heading in a fence ends the entry, so a position after it is not read (its condition lines are strays). Slipway's
   own record has none; a quoted shape is not counted on purpose.
 - A pull request that adds a condition to a decided entry (`Closes when: <a past date> passes`) makes status ask to
-  write its outcome. The added line is a diff a reviewer sees, as a deleted one is, and only the reviewer's eye
-  covers it: §8 has `/work-ticket` ask the owner before a condition line is removed or edited, not added.
+  write its outcome. The added line is a diff a reviewer sees, as a deleted one is, and until #440 step 5 only the
+  reviewer's eye covers it: §8 has `/work-ticket` ask the owner before a condition line is removed or edited, and step
+  5 extends that question to a line added to an already decided entry (the owner, 2026-10-15).
 
 ## Acceptance
 
