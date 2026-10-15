@@ -37,4 +37,4 @@ jobs:
           mkdir -p "$RUNNER_TEMP/pr"
           printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr/body.md"
           node ci/checks/lib/gate-files.mjs "$BASE_SHA" "$HEAD_SHA" "$DRAFT" > "$RUNNER_TEMP/pr/body.changes.json"
-          node ci/checks/meta/p1-pr-body.mjs "$RUNNER_TEMP/pr"
+          node ci/checks/meta/p1-pr-body.mjs "$RUNNER_TEMP/pr" .

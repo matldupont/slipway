@@ -4,6 +4,13 @@
 // Reads every *.md in the given directory as a pull-request body. In CI the directory
 // holds one file, written from the pull_request event.
 //
+//   node ci/checks/meta/p1-pr-body.mjs <bodies> [<root>]
+//
+// With a <root> (CI passes `.`, the checkout at the pull request's merge ref) the decisions record at <root>/decisions.md
+// is read too, for the one finding below that needs it (F-15 §8); without one no record is read and that finding never
+// fires. A body's sidecar may name a `decisions` file in the bodies folder as the record for that body alone (fixtures
+// use it); such a file is never read as a body.
+//
 //   body/comment-mark-crosses-heading  a `<!--` is closed by a `-->` beyond a heading: the check cannot tell
 //                            a comment from two marks written as text, nor where a section ends, so it reads
 //                            nothing else in that body
@@ -28,6 +35,11 @@
 //                            as number; a sentence with no repository may name the pull request's own, so it matches any. One
 //                            finding per closing sentence, named `<n>` or `<owner/repo>#<n>`, with both lines quoted; code
 //                            spans, fences and comments do not count, as for open-unsaid
+//   decision/awaits-outcome:<id>  the prose closes `#n` (bare, or `owner/repo#n`) and the decisions record has a readable
+//                            `Reopens when:` or `Closes when:` condition (a heading clause too) naming that issue with no
+//                            outcome line in its place (F-15 §8): the decision's moment has come, and the pull request that
+//                            closes the issue is where its outcome is written. `Part of #n` closes nothing. One finding per
+//                            decision, naming ids and numbers only
 //   followups/none-contradicted  `## Follow-ups` says none, and another section calls something a follow-up (#242):
 //                            work deferred in a sentence that no issue holds. Code spans and fences do not count, so
 //                            a quoted issue title cannot set it off; the check cannot tell a follow-up from the
@@ -61,6 +73,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { readDecisions } from '../lib/decisions.mjs';
 import { gateGlobs, gateMatcher, gateTouched, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
 import { commentCrossesHeading, prose, repeatedHeadings, section, strictSection } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
@@ -156,7 +169,18 @@ const followUps = (md) => {
 };
 
 const dir = process.argv[2] ?? '.';
-const bodies = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
+const root = process.argv[3];
+const markdown = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
+// A sidecar's `decisions` is a plain file name in this folder: the record for that body alone, used only with a root.
+// Such a file is read as a record, never as a body.
+const recordOf = new Map();
+for (const f of markdown) {
+  try {
+    const named = JSON.parse(readFileSync(join(dir, f.replace(/\.md$/, '.changes.json')), 'utf8')).decisions;
+    if (typeof named === 'string' && /^[\w.-]{1,100}\.md$/.test(named) && named !== f && markdown.includes(named)) recordOf.set(f, named);
+  } catch {}
+}
+const bodies = markdown.filter((f) => ![...recordOf.values()].includes(f));
 const findings = [];
 let broken = null;
 // The harness's own rules are the list of gate paths: none read means every gate file would pass unseen.
@@ -250,6 +274,24 @@ for (const f of bodies) {
     const named = issueOf(closes).repo || left.repo;
     const id = named ? `${named}#${left.n}` : left.n;
     findings.push({ where: `${f}#links/closes-and-leaves-open:${id}`, detail: `the body closes #${left.n} ("${quote(closes)}") and also says it leaves #${left.n} open ("${quote(stay)}"): GitHub closes #${left.n} when this merges, whoever the first sentence is about. Write the number before the verb, or name the pull request that finishes it with no closing word` });
+  }
+  // The closing sentence meets a decision (F-15 §8): a readable condition naming the issue it closes, with no outcome line
+  // in its place, is a decision whose moment has come in this pull request. The record is the one passed, never the working
+  // directory's when a root was not given; a sidecar's own record serves its body alone.
+  // Its trigger is read as the open-unsaid rule's is (#241): from what GitHub shows, so no indented line, nested bullet, leading
+  // `---` block or `<!--` written as text hides a closing word it acts on. Fences, inline code and closed comments are not read.
+  if (root !== undefined) {
+    const closingSeen = [...prose(md, { frontmatter: false, unclosed: false }).replace(/`[^`\n]*`/g, ' ').matchAll(CLOSES_N)].map(issueOf);
+    const record = recordOf.has(f) ? readDecisions(dir, recordOf.get(f)) : readDecisions(root);
+    const waiting = new Set();
+    for (const ev of record.issueEvents()) {
+      const ref = closingSeen.find((c) => Number(c.n) === ev.issue && (!c.repo || !ev.repo || c.repo === ev.repo));
+      if (!ref || waiting.has(ev.id)) continue;
+      waiting.add(ev.id);
+      const write = ev.kind === 'closes' ? `\`Closed <date>: <outcome>\`` : `\`Reopened <date>: <what changed>\` or \`Reviewed <date>: stands — <why>\``;
+      const fix = ev.where === 'heading' ? `remove the clause from ${ev.id}'s heading and write ${write} beneath it` : `replace ${ev.id}'s condition with ${write}`;
+      findings.push({ where: `${f}#decision/awaits-outcome:${ev.id}`, detail: `this pull request closes #${ev.issue}, and ${ev.id} says it ${ev.kind} when #${ev.issue} lands: in this pull request, ${fix}, or, with the owner's yes, change the condition` });
+    }
   }
   const fu = followUps(md);
   if (fu) {

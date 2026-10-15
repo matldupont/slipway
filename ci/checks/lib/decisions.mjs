@@ -23,15 +23,14 @@ import { posix } from 'node:path';
 import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
 import { citedFeatures, contents } from './milestones.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
-import { CLAUSE_START, fenced, fid, hasClause, ISSUE_READABLE, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
+import { CLAUSE_START, fenced, fid, HEADING, hasClause, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
 
-export { fenced, fid, ISSUE_READABLE, mask, parseEvent };
+export { fenced, fid, mask, parseEvent };
 
 const MAX = 500;
 const ENTRY = new RegExp(`${LEAD}(P?D)-(\\d{1,9})\\b`);
 // A heading of level 1 or 2, a decision's or not, ends the entry above it (`## Week 1 — decide before M1 closes`).
 const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
-const HEADING = new RegExp(LEAD);
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
@@ -43,11 +42,11 @@ function condition(kind, where, line, raw) {
   if (kind === 'changes') {
     const tokens = text.split(/ ?, ?| and /i);
     const features = [...new Set(tokens.map((t) => t.match(/^F-(\d{1,9})$/)?.[1]).filter(Boolean).map(Number))];
-    return { kind, where, line, text, features, readable: text !== '' && tokens.every((t) => /^F-\d{1,9}$/.test(t)), issueOnly: false };
+    return { kind, where, line, text, features, readable: text !== '' && tokens.every((t) => /^F-\d{1,9}$/.test(t)) };
   }
   const events = text === '' ? [null] : text.split(/ or /i).map(parseEvent);
   const readable = events.every((e) => e?.readable);
-  return { kind, where, line, text, events: events.filter(Boolean), readable, issueOnly: !readable && events.every((e) => e && (e.readable || e.kind === 'issue')) };
+  return { kind, where, line, text, events: events.filter(Boolean), readable };
 }
 
 const clauseCondition = (clause) => {
@@ -89,12 +88,12 @@ function finish(e) {
     const hit = i > 0 ? clauseCondition(c) : null;
     whole.push(hit ? hit[1] : raw);
     // A heading the cut at MAX shortened may have lost an event: its clauses are never read, as a cut labelled line's.
-    if (hit) conditions.push({ ...condition(hit[0], 'heading', e.line, hit[1]), ...(e.cut ? { readable: false, issueOnly: false } : {}) });
+    if (hit) conditions.push({ ...condition(hit[0], 'heading', e.line, hit[1]), ...(e.cut ? { readable: false } : {}) });
     // A part holding a clause opening is a condition clause, if an unreadable one: never prose too (AR-4).
     else if (hasClause(raw)) hidden = true;
     else proseClauses.push(e.masked.slice(at + 2 + off, at + 2 + off + raw.length));
   });
-  if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false, issueOnly: false });
+  if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false });
   const proseLines = [];
   for (const b of e.body) {
     // A label is read on the line as written: a stray backtick above it in the paragraph never hides it (a code span is
@@ -102,7 +101,7 @@ function finish(e) {
     // a stray fence marker can pair with a later fence and hide it (the owner, #466). A labelled line the cut at MAX
     // shortened may have lost an event: it is unreadable too, never read short.
     const label = LABELS.find(([l]) => b.text.startsWith(l));
-    if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut || b.fenced ? { readable: false, issueOnly: false } : {}) });
+    if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut || b.fenced ? { readable: false } : {}) });
     // A stray heading is counted once, as a stray, never as prose too.
     else if (!OUTCOME.test(b.masked) && !b.stray) proseLines.push(b.masked);
   }
@@ -243,9 +242,9 @@ function readTree(root) {
 // `root`. `missing` is null, or why decisions.md cannot be read ('does not exist', 'is a link, not a file', …), and the
 // record is then empty. The tree (feature docs, milestones, reviews) is read once, on the first call that needs it;
 // `unreadFolders()` names, sorted, each of its folders that is there but could not be read, so nothing it hid is silent.
-export function readDecisions(root) {
-  const missing = notPlainFile(root, 'decisions.md');
-  const { entries, strays } = missing ? { entries: [], strays: [] } : parseDecisions(readPlain(root, 'decisions.md') ?? '');
+export function readDecisions(root, file = 'decisions.md') {
+  const missing = notPlainFile(root, file);
+  const { entries, strays } = missing ? { entries: [], strays: [] } : parseDecisions(readPlain(root, file) ?? '');
   let tree;
   const t = () => (tree ??= readTree(root));
 
@@ -286,15 +285,19 @@ export function readDecisions(root) {
         .filter((c) => c.events.length)
     );
 
-  // The entries with a condition or Amends: line that cannot be read, in file order. `issueOnly` when every one of
-  // them is unreadable only for an issue event, which the pull-request reader will read (§6's parenthesis).
-  const unreadable = () =>
-    entries.flatMap((e) => {
-      const bad = e.conditions.filter((c) => !c.readable);
-      return bad.length ? [{ id: e.id, key: e.key, line: e.line, issueOnly: bad.every((c) => c.issueOnly) }] : [];
-    });
+  // The entries with a condition or Amends: line that cannot be read, in file order.
+  const unreadable = () => entries.flatMap((e) => (e.conditions.some((c) => !c.readable) ? [{ id: e.id, key: e.key, line: e.line }] : []));
 
-  // A condition naming an issue, otherwise readable (`issueOnly` until it is read): waiting, never also prose only.
-  const waits = (e) => e.conditions.some((c) => c.kind !== 'changes' && (c.readable || c.issueOnly) && c.events.some((ev) => ev.kind === 'issue'));
-  return { missing, entries, strays, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose && !waits(e)).map((e) => e.id), awaitingIssue: () => entries.filter(waits).map((e) => e.id), unreadFolders: () => [...t().unread] };
+  // A condition naming an issue: waiting, never also prose only. Status cannot see it happen (§3); P1 reads it at the
+  // pull request that closes the issue (§8).
+  const waits = (e) => e.conditions.some((c) => c.kind !== 'changes' && c.readable && c.events.some((ev) => ev.kind === 'issue'));
+  // The readable issue events, in file order: `{ id, kind, where, issue, repo }`, `kind` the condition's (reopens or closes), `where` heading or line, and
+  // `repo` as written, lower case, '' for the pull request's own repository.
+  const issueEvents = () =>
+    entries.flatMap((e) =>
+      e.conditions
+        .filter((c) => c.kind !== 'changes' && c.readable)
+        .flatMap((c) => c.events.filter((ev) => ev.kind === 'issue').map((ev) => ({ id: e.id, kind: c.kind, where: c.where, issue: ev.issue, repo: ev.repo })))
+    );
+  return { missing, entries, strays, owed, fired, unreadable, issueEvents, proseCount: () => entries.filter((e) => e.prose && !waits(e)).map((e) => e.id), awaitingIssue: () => entries.filter(waits).map((e) => e.id), unreadFolders: () => [...t().unread] };
 }

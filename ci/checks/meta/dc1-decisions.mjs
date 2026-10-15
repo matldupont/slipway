@@ -24,7 +24,7 @@
 //
 //   node ci/checks/meta/dc1-decisions.mjs <root>
 
-import { fid, ISSUE_READABLE, readDecisions } from '../lib/decisions.mjs';
+import { fid, readDecisions } from '../lib/decisions.mjs';
 import { citedFeatures, contents, readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
 
@@ -66,7 +66,7 @@ for (const e of record.entries) {
 
 const warnings = record.unreadable().map((u) => ({
   where: `decisions.md#decision/unreadable/${u.id}`,
-  detail: `${u.id} (line ${u.line}) has a condition or Amends: line status cannot read${u.issueOnly && !ISSUE_READABLE ? ' (it waits on an issue, read at the pull request that closes it once that reader ships)' : ''}: say what brings it back in the form status reads (/clarify), or move a condition no event fits into the entry's prose`,
+  detail: `${u.id} (line ${u.line}) has a condition or Amends: line status cannot read: say what brings it back in the form status reads (/clarify), or move a condition no event fits into the entry's prose`,
 }));
 
 // The two counts /close-milestone's retro reads, ids only: a prose condition nothing reads, and an issue closed by hand.

@@ -4,6 +4,6 @@
   "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you or an agent) Unread folder: dev/features cannot be read (a link, a file or no access in its place, or a link above it), so the decisions that read it are not checked — make it, and each folder above it, a plain folder — blocks every Owed citation and Decision line that reads it; waits on nothing"
+    "(you or an agent) Unread folder: dev/features cannot be read (a link, a file or no access in its place, or a link above it), so the decisions that read it are not checked — make it, and each folder above it, a plain folder inside the repository, restored from git, never by copying what a link points to — blocks every Owed citation and Decision line that reads it; waits on nothing"
   ]
 }
