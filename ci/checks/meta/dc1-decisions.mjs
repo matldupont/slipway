@@ -14,6 +14,8 @@
 //                                           cites none, or says there is no such item
 //   decisions.md#decision/unreadable/<id>   a warning, never red: a condition or Amends: line status cannot read, the
 //                                           entries status groups in its Unreadable line
+//   info line                               never red: the decisions that say when they reopen or close in prose only, and those
+//                                           waiting on an issue status cannot see, by id and nothing else (build step 4)
 //   broken                                  exit 2: no decisions.md, or one that is not a regular file. A project is
 //                                           seeded with it, and a check that cannot see passes nothing
 //
@@ -66,6 +68,10 @@ const warnings = record.unreadable().map((u) => ({
   where: `decisions.md#decision/unreadable/${u.id}`,
   detail: `${u.id} (line ${u.line}) has a condition or Amends: line status cannot read${u.issueOnly && !ISSUE_READABLE ? ' (it waits on an issue, read at the pull request that closes it once that reader ships)' : ''}: say what brings it back in the form status reads (/clarify), or move a condition no event fits into the entry's prose`,
 }));
+
+// The two counts /close-milestone's retro reads, ids only: a prose condition nothing reads, and an issue closed by hand.
+const ids = (xs) => (xs.length ? `${xs.length > 20 ? `${xs.slice(0, 20).join(', ')} and ${xs.length - 20} more` : xs.join(', ')} (${xs.length})` : 'none');
+console.log(`DC1: info — in prose only: ${ids(record.proseCount())}; waiting on an issue: ${ids(record.awaitingIssue())}`);
 
 process.exit(
   report({
