@@ -50,11 +50,10 @@ const namesOf = (value) => (value !== null && typeof value === 'object' ? Object
 // a whole number too large to be held exactly.
 const changedNumber = (value) => (typeof value === 'number' ? !Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)) : value !== null && typeof value === 'object' && Object.values(value).some(changedNumber));
 
-// Writes `baselines` over the file under `root`: what the caller read there, with a top-level name set or added.
-// Throws, writing nothing, when the rewrite would lose or change an entry the file holds: a link or anything but
-// a plain file there; bytes that are not UTF-8; a name in the text that `baselines` does not hold as written (a
-// name given twice, or the Node bug above), or a name it holds that is neither in the text nor at its top; a
-// number that is not written back as read.
+// Writes `baselines` over the file under `root`. Throws, writing nothing, when that file holds an entry a rewrite
+// would lose or change: a link or anything but a plain file there; bytes that are not UTF-8; a name the parser does
+// not read as written (a name given twice, or the Node bug above); a number that is not written back as read. The
+// file is read again here, so a caller's own earlier read is not what is checked (F-12, Known limitations).
 export function writeBaselines(root, baselines) {
   const file = join(root, BASELINES);
   const stat = lstatSync(file, { throwIfNoEntry: false });
@@ -62,12 +61,9 @@ export function writeBaselines(root, baselines) {
     if (!stat.isFile()) throw new Error(`${BASELINES} is a link or not a plain file, so it is not rewritten; nothing was written — make it a plain file`);
     const bytes = readFileSync(file);
     const text = bytes.toString('utf8');
-    parseBaselines(text);
-    const left = new Map();
-    for (const n of namesOf(baselines)) left.set(n, (left.get(n) ?? 0) + 1);
-    const lost = namesIn(text).filter((n) => (left.get(n) ? (left.set(n, left.get(n) - 1), false) : true));
-    const added = [...left].filter(([n, c]) => c > 0 && !Object.hasOwn(baselines, n));
-    if (!Buffer.from(text, 'utf8').equals(bytes) || lost.length || added.length || changedNumber(baselines)) {
+    const parsed = parseBaselines(text);
+    const sorted = (names) => JSON.stringify([...names].sort());
+    if (!Buffer.from(text, 'utf8').equals(bytes) || sorted(namesIn(text)) !== sorted(namesOf(parsed)) || changedNumber(parsed)) {
       throw new Error(`${BASELINES} holds an entry a rewrite would lose or change (a name given twice, a name or number Node ${process.version} does not read as written, or bytes that are not UTF-8); nothing was written — fix the entry by hand`);
     }
   }
