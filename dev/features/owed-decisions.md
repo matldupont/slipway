@@ -797,3 +797,4 @@ before the line that asks for it (3); the counts (4) and the pull-request reader
   at 0.4 (`is reviewed` gated by an owed `Amends:`; `is active` on a killed milestone; a re-read that leaves the
   decision open). AR-4 to AR-7 are reader, fixture, wiring and printing corrections. The review's Tracker cells name
   where each went · PR for #440
+- 2026-10-15 · MODIFIED · the wording of the status lines in §6 follows `process/writing.md` (F-16): who acts first, then the action, each id after its meaning in brackets, and the last two sentences say what it blocks and what it waits on. The forms quoted in §6 are the earlier wording; what each line says is unchanged · #456

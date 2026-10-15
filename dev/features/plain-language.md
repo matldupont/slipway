@@ -594,7 +594,7 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
 - **`sync`'s output:** its own doc, F-08 (`dev/features/cli-output.md`).
 - **The site's copy** (`site/index.html`): #355 cut its catch-phrases; #287's run by an outside engineer is the test.
 - **`pnpm status` as a parallel plan** (#445): its lines take the §2 form when it is shaped; it follows stage 1.
-- **F-15's status lines** (#440): reviewed at their wording; §9 measures them, nothing rewrites them here.
+- **F-15's status lines** (#440): reworded by #456 at the owner's ask of 2026-10-15, to this standard. Ids, who acts, what each blocks and what it waits on are unchanged; §9 measures them with the rest.
 - **Existing history, open issue titles, `docs/reviews/`:** left alone.
 
 ## Changes
@@ -602,3 +602,4 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
 - 2026-10-14 · ADDED · the feature, 8 sections of Contract, 7 build steps · #455 (steps #456 to #462)
 - 2026-10-14 · MODIFIED · Version 0.2: the owner's five answers to the 0.1 review (`docs/reviews/2026-10-14-plain-language-0.1.md`, AR-1, AR-2, AR-3, AR-6, AR-11, recorded as D-046); the other eighteen findings taken as spec corrections (AR-4, AR-5, AR-7 to AR-10, AR-12 to AR-23); merged PR bodies are not read for §6 (the owner, 2026-10-14) · #455
 - 2026-10-15 · REVIEWED · 0.2 review (`docs/reviews/2026-10-15-plain-language-0.2.md`), 13 findings, the last whole-document review. AR-1 (the placeholder rule read code spans) decided by the owner as a build line in #462: the rule skips code spans and fenced blocks, as the decisions reader does. AR-2 to AR-13 ride #456, #457, #461 and #462 as build lines; the Contract's wording is corrected at the end of the build, in #462's PR · #455
+- 2026-10-15 · MODIFIED · the owner's ask for #456: the decision lines `pnpm status` prints since PR #475 (`ci/checks/lib/decision-lines.mjs`) are status text too, so the standard applies to them; only their wording changes. Out of scope below is corrected here; §2's sentence that leaves them as written is corrected with the rest of the Contract at the end of the build, in #462's PR · #456
