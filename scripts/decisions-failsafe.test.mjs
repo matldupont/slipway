@@ -128,6 +128,11 @@ test('the fail-safe holds, case 9 of 10', () => {
     assert.deepEqual(read(`PD-1 — t *(decided 2026-03-01 · ${word} when M2 is closed)*`), [['heading', false]], word);
   }
   assert.deepEqual(read(`PD-2 — t *(decided 2026-03-01 · reopens${' \t'.repeat(15)}when M2 is closed)*`), [['heading', false]]);
+  // A separator between the words of an opening never hides it, and a readable clause beside it stays readable.
+  for (const h of ['PD-6 — t *(decided 2026-03-01 · reopens · when M2 is closed)*', 'PD-6 — t *(decided 2026-03-01 · re · opens when M2 is closed)*', 'PD-6 — t *(decided 2026-03-01 · reopens)* *(when M2 is closed)*', 'PD-6 — t reopens *(when M2 is closed)*']) {
+    assert.deepEqual(read(h), [['heading', false]], h);
+  }
+  assert.deepEqual(read('PD-7 — t *(decided 2026-03-01 · reopens when M2 is closed · closes when M3 is closed)*'), [['heading', true], ['heading', true]]);
   // A cut at 500: a clause split across it, or an event list it shortened, is never read short.
   const pre = (s) => `PD-3 — ${'x'.repeat(500 - 'PD-3 — '.length - 3 - s.length)}${s}`;
   assert.deepEqual(read(`${pre(' *(decided 2026-03-01 · reop')}ens when M2 is closed)*`), [['heading', false]]);

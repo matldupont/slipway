@@ -656,6 +656,8 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    decision unreadable, so it is counted there and never as prose; a typo can make a condition louder, never silent.
    AR-4's green cases without a clause opening (`revisit when …`, `*(open — week 1)*`) stay as they are. §2, the
    reader names each folder of the tree that is there but cannot be read (`unreadFolders()`), and still reads the other.
+   §2, a labelled line inside a fenced block under a decision is unreadable, not prose (AR-8 is narrowed: a stray
+   fence marker can pair with a later fence and hide a real line); a quoted example sits above the first decision.
    §3, the milestone events are read through the reader's own plain-file read of `docs/milestones/`, not
    `readMilestones()`; the "read from" cells and Fit's reuse line say so.
 2. **The rules and the skills.** `process/slipway-rules.md`, `process/intake.md`, `/kickoff`, `/clarify`,
@@ -677,6 +679,8 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    F-07's doc a current review before PD-3 is rewritten, and "already covers it" is printed only for a doc that names
    the decision. AR-2, `decisions-fired-milestone` gains the killed case for `is active`. AR-3, §6's reopens
    instruction offers the open-again outcome, and one fixture holds it (the Open decision line only).
+   Carried from #466: the `decisions-outcome` case's fenced block of labelled lines sits above the first decision, or
+   it expects that decision in the Unreadable line, and Verify says the same (§2 as #466 left the reader).
    Carried from #466: status prints each folder `unreadFolders()` names (a fixed path, never record text), so a folder
    the reader could not read is never silent; one status case holds it.
    Carried from the 0.3 review: AR-5, `decisions-owed` expects one line; `decisions-fired-reviewed` splits its

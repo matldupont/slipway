@@ -14,10 +14,9 @@
 // `Reopened YYYY-MM-DD:`, `Closed YYYY-MM-DD:` and `Reviewed YYYY-MM-DD:` lines are outcomes, read as nothing.
 //
 // The record is a file a pull request carries and what is read here reaches every session through the hook: every line
-// is cut at 500 characters before a pattern reads it (past the cut, only a length, a substring search and hasClause's
-// character loop, none a pattern, read a heading to make it unreadable), every pattern is anchored or bounded, and free
-// text from the
-// record is returned only in `text` fields. Callers print ids, the table's words (`said`) and paths, never `text`.
+// is cut at 500 characters before a pattern reads it (past the cut, only visible()'s linear normalising, a length, a
+// substring search and hasClause's character loop, none a pattern, read a heading to make it unreadable), every pattern
+// is anchored or bounded, and free text from the record is returned only in `text` fields. Callers print ids, the table's words (`said`) and paths, never `text`.
 
 import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
@@ -79,18 +78,21 @@ function finish(e) {
   // take makes the decision unreadable: in the heading before the suffix (a stray backtick or a quoted suffix
   // included), in a part of the suffix that is not read as a clause (the first, the status, or one that opens with a
   // backtick, a quote or a mark), or in what a cut at MAX dropped. A heading in a fence is an entry (ID1), so a clause
-  // opening in it is unreadable too: a stray fence marker never hides one (the owner, #466).
-  let hidden = e.cut || hasClause(at < 0 ? e.text : e.text.slice(0, at));
+  // opening in it is unreadable too (the owner, #466). Last, the heading is read whole, each clause read above as its
+  // text after the opening, so a ` · `, `)* *(` or `*(` between the words of an opening never hides it.
+  const whole = [at < 0 ? e.text : e.text.slice(0, at)];
+  let hidden = e.cut || hasClause(whole[0]);
   parts.forEach(([off, raw], i) => {
     const c = raw.trim();
     clauses.push({ text: c });
     const hit = i > 0 ? clauseCondition(c) : null;
+    whole.push(hit ? hit[1] : raw);
     if (hit) conditions.push(condition(hit[0], 'heading', e.line, hit[1]));
     // A part holding a clause opening is a condition clause, if an unreadable one: never prose too (AR-4).
     else if (hasClause(raw)) hidden = true;
     else proseClauses.push(e.masked.slice(at + 2 + off, at + 2 + off + raw.length));
   });
-  if (hidden) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false, issueOnly: false });
+  if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false, issueOnly: false });
   const proseLines = [];
   for (const b of e.body) {
     // A label is read on the line as written: a stray backtick above it in the paragraph never hides it (a code span is
