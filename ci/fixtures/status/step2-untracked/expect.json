@@ -1,0 +1,10 @@
+{
+  "_note": "Framed, one value risk with no Result and no tracker, and no milestone: Next says \"Test\", not \"Finish testing\", and Needs attention says how to build ahead and to file the issue.",
+  "today": "2026-03-10",
+  "next": "Test RISK-5, \"Walkers want invoices\" with real people. Nothing past the skeleton can start until every value risk has a result in docs/product/evidence/. An agent prepares the materials. Yours, days to weeks.",
+  "frame": "framed · risks: RISK-1 tested, RISK-5 untested (no tracker) · blocks every milestone past the skeleton",
+  "attention": [
+    "To build ahead of the risk (RISK-5), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result.",
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}
