@@ -14,15 +14,16 @@
 // `Reopened YYYY-MM-DD:`, `Closed YYYY-MM-DD:` and `Reviewed YYYY-MM-DD:` lines are outcomes, read as nothing.
 //
 // The record is a file a pull request carries and what is read here reaches every session through the hook: every line
-// is cut at 500 characters before a pattern reads it, every pattern is anchored or bounded, and free text from the
-// record is returned only in `text` fields. Callers print ids, the table's words (`said`) and paths, never `text`.
+// is cut at 500 characters before a pattern reads it (past the cut, only visible()'s linear normalising, a length, a
+// substring search and hasClause's character loop, none a pattern, read a heading to make it unreadable), every pattern
+// is anchored or bounded, and free text from the record is returned only in `text` fields. Callers print ids, the table's words (`said`) and paths, never `text`.
 
-import { readdirSync } from 'node:fs';
+import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
-import { docFrontmatter, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
+import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
 import { citedFeatures, contents } from './milestones.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
-import { fenced, fid, ISSUE_READABLE, mask, parseEvent, squash, unquoted } from './decision-text.mjs';
+import { CLAUSE_START, fenced, fid, hasClause, ISSUE_READABLE, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
 
 export { fenced, fid, ISSUE_READABLE, mask, parseEvent };
 
@@ -32,11 +33,7 @@ const ENTRY = new RegExp(`${LEAD}(P?D)-(\\d{1,9})\\b`);
 const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
-// The five clause openings, anywhere in a heading: the backstop below counts each one the suffix reading did not take.
-const CLAUSE_WORD = /\b(?:reopens (?:when|if)|closes (?:when|if)|provisional until)\b/gi;
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
-const CLAUSES = [['reopens when', 'reopens'], ['reopens if', 'reopens'], ['closes when', 'closes'], ['closes if', 'closes'], ['provisional until', 'reopens']];
-const PROSE = [/\b(?:revisit(?:ed)?|reopen(?:s|ed)?)(?: it| this| them)? (?:when|if|once|after)\b/i, /\bcloses? (?:when|if|once)\b/i, /\bprovisional until\b/i];
 const POSITION = /\bM(\d{1,9})(?:['’]s)? (?:Contents )?item (\d{1,9})\b|\bitem (\d{1,9}) of M(\d{1,9})\b/g;
 const DECISION_ID = /\b(P?D)-(\d{1,9})\b/g;
 
@@ -53,9 +50,8 @@ function condition(kind, where, line, raw) {
 }
 
 const clauseCondition = (clause) => {
-  const lower = clause.toLowerCase();
-  const hit = CLAUSES.find(([w]) => lower.startsWith(w) && (lower.length === w.length || /\s/.test(lower[w.length])));
-  return hit ? [hit[1], clause.slice(hit[0].length)] : null;
+  const m = clause.match(CLAUSE_START);
+  return m ? [m[1]?.toLowerCase() === 'closes' ? 'closes' : 'reopens', clause.slice(m[0].length)] : null;
 };
 
 const proseHit = (s) => PROSE.some((p) => p.test(unquoted(s)));
@@ -77,24 +73,34 @@ function finish(e) {
   if (at >= 0) parts.push([from, suffix.slice(from).trimEnd().replace(/\)\*$/, '')]);
   const clauses = [];
   const proseClauses = [];
+  // The backstop (the owner's calls, 2026-10-14, after three review rounds each found a typo that hid a heading clause,
+  // and again on #466): a typo can make a condition louder, never silent. A clause opening the suffix reading did not
+  // take makes the decision unreadable: in the heading before the suffix (a stray backtick or a quoted suffix
+  // included), in a part of the suffix that is not read as a clause (the first, the status, or one that opens with a
+  // backtick, a quote or a mark), or in what a cut at MAX dropped. A heading in a fence is an entry (ID1), so a clause
+  // opening in it is unreadable too (the owner, #466). Last, the heading is read whole, each clause read above as its
+  // text after the opening, so a ` · `, `)* *(` or `*(` between the words of an opening never hides it.
+  const whole = [at < 0 ? e.text : e.text.slice(0, at)];
+  let hidden = e.cut || hasClause(whole[0]);
   parts.forEach(([off, raw], i) => {
     const c = raw.trim();
     clauses.push({ text: c });
     const hit = i > 0 ? clauseCondition(c) : null;
+    whole.push(hit ? hit[1] : raw);
     if (hit) conditions.push(condition(hit[0], 'heading', e.line, hit[1]));
+    // A part holding a clause opening is a condition clause, if an unreadable one: never prose too (AR-4).
+    else if (hasClause(raw)) hidden = true;
     else proseClauses.push(e.masked.slice(at + 2 + off, at + 2 + off + raw.length));
   });
-  // The backstop (the owner's call, 2026-10-14, after three review rounds each found a typo that hid a heading clause):
-  // a clause opening in the heading outside the suffix read above, a stray backtick or a quoted suffix included, makes
-  // the decision unreadable. A typo can make a condition louder, never silent. A heading in a fence is quoted text.
-  const outside = at < 0 ? e.text : e.text.slice(0, at);
-  if (!e.fenced && [...outside.matchAll(CLAUSE_WORD)].length) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: outside, events: [], readable: false, issueOnly: false });
+  if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false, issueOnly: false });
   const proseLines = [];
   for (const b of e.body) {
-    // A label is read on the line as written, outside a fence: a stray backtick above it in the paragraph never hides
-    // it (a code span is no reason to skip a label, §2; only a fence is).
-    const label = b.fenced ? null : LABELS.find(([l]) => b.text.startsWith(l));
-    if (label) conditions.push(condition(label[1], 'line', b.line, b.text.slice(label[0].length)));
+    // A label is read on the line as written: a stray backtick above it in the paragraph never hides it (a code span is
+    // no reason to skip a label, §2). One inside a fence under a decision is unreadable, never read and never skipped:
+    // a stray fence marker can pair with a later fence and hide it (the owner, #466). A labelled line the cut at MAX
+    // shortened may have lost an event: it is unreadable too, never read short.
+    const label = LABELS.find(([l]) => b.text.startsWith(l));
+    if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut || b.fenced ? { readable: false, issueOnly: false } : {}) });
     else if (!OUTCOME.test(b.masked)) proseLines.push(b.masked);
   }
   const positions = [];
@@ -112,7 +118,8 @@ function finish(e) {
 // a decision id, a heading in a fence included (ID1's reading: nothing is skipped). `id` is as written, `key` the id
 // compared by prefix and number (`D-044` and `D-44` are `D-44`).
 export function parseDecisions(md) {
-  const lines = visible(md).map(({ line, text }) => ({ line, text: text.slice(0, MAX) }));
+  const whole = visible(md);
+  const lines = whole.map(({ line, text }) => ({ line, text: text.slice(0, MAX) }));
   const masked = mask(lines.map((l) => l.text));
   const fence = fenced(lines.map((l) => l.text));
   const entries = [];
@@ -120,10 +127,13 @@ export function parseDecisions(md) {
   lines.forEach(({ line, text }, i) => {
     const m = text.match(ENTRY);
     if (m) {
-      cur = { id: `${m[1]}-${m[2]}`, key: `${m[1]}-${Number(m[2])}`, line, text, masked: masked[i], fenced: fence[i], body: [] };
+      // A heading the cut at MAX shortened is unreadable when the whole line holds a suffix, which may have lost a clause
+      // or an event of one, or a clause opening anywhere (hasClause reads past the cut, linearly).
+      const cut = whole[i].text.length > MAX && (whole[i].text.includes('*(') || hasClause(whole[i].text));
+      cur = { id: `${m[1]}-${m[2]}`, key: `${m[1]}-${Number(m[2])}`, line, text, masked: masked[i], fenced: fence[i], cut, body: [] };
       entries.push(cur);
     } else if (TOP.test(text)) cur = null;
-    else if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i] });
+    else if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX });
   });
   return { entries: entries.map(finish) };
 }
@@ -136,48 +146,80 @@ export const namesDecision = (text, key) => keysOf(text).has(key);
 const cut = (md) => visible(md).map((l) => l.text.slice(0, MAX)).join('\n');
 const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$/i)?.[1] : undefined);
 
-// The `*.md` names directly in a folder of the tree, by name; none when the folder is missing or not a folder.
-// Each file is then opened only through readPlain(), so a link, a folder named `x.md` or a file reached through a link
-// is skipped, never read and never a throw: the tree is a pull request's to shape.
-const listed = (root, dir, skip) => {
+// Whether a folder of the tree is a link, a dangling one included: such a folder is not read, and is named unread.
+const isLink = (root, dir) => {
+  try {
+    return lstatSync(posix.join(root, dir)).isSymbolicLink();
+  } catch {
+    return false;
+  }
+};
+
+// The `*.md` names directly in a folder of the tree, by name; none when the folder is missing or not a folder, and a
+// folder that is there but cannot be read (a file or a link in its place) is added to `unread`. Each file is then opened only
+// through readPlain(), so a link, a folder named `x.md` or a file reached through a link is skipped, never read and
+// never a throw: the tree is a pull request's to shape.
+const listed = (root, dir, skip, unread) => {
+  if (isLink(root, dir)) {
+    unread.push(dir);
+    return [];
+  }
   try {
     return readdirSync(posix.join(root, dir)).filter((f) => f.endsWith('.md') && !skip.includes(f)).sort();
-  } catch {
+  } catch (err) {
+    if (err?.code !== 'ENOENT') unread.push(dir);
     return [];
   }
 };
-const plainFiles = (root, dir, skip) => listed(root, dir, skip).map((f) => readPlain(root, `${dir}/${f}`)).filter((t) => t !== null);
+const plainFiles = (root, dir, skip, unread) => listed(root, dir, skip, unread).map((f) => readPlain(root, `${dir}/${f}`)).filter((t) => t !== null);
 
-// The feature docs, never a throw: a docs/features or dev/features that is a file is read as no docs.
-const featureFiles = (root) => {
-  try {
-    return readFeatureFiles(root).filter((f) => f.regular);
-  } catch {
-    return [];
+// The feature docs, each folder read on its own and never a throw: a docs/features or dev/features that cannot be read,
+// or is a link, is added to `unread`, and the other folder's docs are still read.
+const featureFiles = (root, unread) =>
+  FEATURE_DIRS.flatMap((dir) => {
+    if (isLink(root, dir)) {
+      unread.push(dir);
+      return [];
+    }
+    try {
+      return readFeatureFiles(root, [dir]).filter((f) => f.regular);
+    } catch {
+      unread.push(dir);
+      return [];
+    }
+  });
+
+// Each item under every key `keys(item)` names, in a Map of lists built in place, so the cost is linear in the adds: the
+// one grouping the reviews by path and the docs by F-id share.
+export const indexBy = (items, keys) => {
+  const map = new Map();
+  for (const item of items) {
+    for (const k of keys(item)) {
+      const list = map.get(k);
+      if (list) list.push(item);
+      else map.set(k, [item]);
+    }
   }
+  return map;
 };
 
 // Everything the events and citations read, once: each doc's decision keys, whether a review of it is current and
 // whether it is shipped; the docs carrying each F-id; and for each F-id, the decision keys the Contents items citing it
 // name in milestones not killed. Every call after reads only these.
 function readTree(root) {
-  const reviews = plainFiles(root, 'docs/reviews', ['TEMPLATE.md']).map(reviewProvenance).filter((r) => r.reviewed && r.version);
-  const quoted = new Map();
-  for (const r of reviews) {
-    const path = posix.normalize(r.reviewed.path);
-    if (!quoted.has(path)) quoted.set(path, []);
-    quoted.get(path).push(r.version);
-  }
-  const files = featureFiles(root).map((f) => {
+  const unread = [];
+  const reviews = plainFiles(root, 'docs/reviews', ['TEMPLATE.md'], unread).map(reviewProvenance).filter((r) => r.reviewed && r.version);
+  const quoted = indexBy(reviews, (r) => [posix.normalize(r.reviewed.path)]);
+  const files = featureFiles(root, unread).map((f) => {
     const lines = versionLines(f.md);
     return {
       ...f,
       keys: keysOf(cut(f.md)),
-      reviewed: (quoted.get(f.path) ?? []).some((v) => quotedVersion(f.md, v, lines) === 'current'),
+      reviewed: (quoted.get(f.path) ?? []).some((r) => quotedVersion(f.md, r.version, lines) === 'current'),
       shipped: typeof docFrontmatter(f.md)?.status === 'string' && docFrontmatter(f.md).status.toLowerCase() === 'shipped',
     };
   });
-  const milestones = plainFiles(root, 'docs/milestones', ['TEMPLATE.md', 'README.md'])
+  const milestones = plainFiles(root, 'docs/milestones', ['TEMPLATE.md', 'README.md'], unread)
     .map((md) => ({ md, fm: docFrontmatter(md) }))
     .filter((m) => m.fm)
     .map(({ md, fm }) => ({
@@ -194,22 +236,14 @@ function readTree(root) {
       }
     }
   }
-  const byFeature = (keep) => {
-    const map = new Map();
-    for (const f of files.filter(keep)) {
-      for (const n of f.ns) {
-        if (!map.has(n)) map.set(n, []);
-        map.get(n).push(f);
-      }
-    }
-    return map;
-  };
-  return { milestones, carrying: byFeature(() => true), docs: byFeature(isFeatureDoc), itemKeys };
+  const ns = (f) => f.ns;
+  return { milestones, carrying: indexBy(files, ns), docs: indexBy(files.filter(isFeatureDoc), ns), itemKeys, unread: unread.sort() };
 }
 
-// `{ missing, entries, owed(), fired(today), unreadable(), proseCount() }` for the decisions.md at `root`. `missing` is
-// null, or why decisions.md cannot be read ('does not exist', 'is a link, not a file', …), and the record is then
-// empty. The tree (feature docs, milestones, reviews) is read once, on the first call that needs it.
+// `{ missing, entries, owed(), fired(today), unreadable(), proseCount(), unreadFolders() }` for the decisions.md at
+// `root`. `missing` is null, or why decisions.md cannot be read ('does not exist', 'is a link, not a file', …), and the
+// record is then empty. The tree (feature docs, milestones, reviews) is read once, on the first call that needs it;
+// `unreadFolders()` names, sorted, each of its folders that is there but could not be read, so nothing it hid is silent.
 export function readDecisions(root) {
   const missing = notPlainFile(root, 'decisions.md');
   const { entries } = missing ? { entries: [] } : parseDecisions(readPlain(root, 'decisions.md') ?? '');
@@ -262,5 +296,5 @@ export function readDecisions(root) {
       return bad.length ? [{ id: e.id, key: e.key, line: e.line, issueOnly: bad.every((c) => c.issueOnly) }] : [];
     });
 
-  return { missing, entries, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose).map((e) => e.id) };
+  return { missing, entries, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose).map((e) => e.id), unreadFolders: () => [...t().unread] };
 }

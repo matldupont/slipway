@@ -492,6 +492,16 @@ other people's text: one it cannot read is counted as unreadable, never passed a
 - Status lists one Owed citation line per decision and feature and one line per fired condition, uncapped; a record
   that owes a great deal fills Needs attention, as many `Owed:` checks would. The unreadable ids are capped at 20.
 - Ids compare by number and prefix, so `PD-7` and `D-7` are two decisions, as they are for ID1.
+- A typo can make a condition louder, never silent (the owner, 2026-10-14, #466), so the reader is loud on purpose: a
+  heading whose letters alone (marks, spaces, digits and other letters taken out) run `reopenswhen`, `reopensif`,
+  `closeswhen`, `closesif` or `provisionaluntil` outside a readable clause is unreadable ("The trial closes, if
+  unpaid…" included), and so is a labelled line inside a fence under a decision, a quoted example included. The fix is to reword the title or move the
+  example above the first decision; an example heading in a fence takes a placeholder id (`D-0NN`), which is no entry.
+- A decision heading is read as one line: a clause opening broken across two lines (`reopens` at the end of one, `when`
+  at the start of the next) is not found, and the decision is silent. A heading is one line in markdown, and the
+  record keeps each on one line however long (the owner, 2026-10-15, #466).
+- The shared `readMilestones()` (`ci/checks/lib/milestones.mjs`), which status and other checks use, keeps one review
+  item of #454 open; the owner handed it to #430 item 2 (2026-10-14, #466). This reader does not use it.
 
 ## Acceptance
 
@@ -644,6 +654,16 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    `closed` or `killed`, and the line says which. Both pinned in `scripts/decisions.test.mjs`.
    Carried from the 0.3 review: AR-4, the prose pattern also reads the heading's status suffix outside any readable
    clause, for an entry with no readable condition (`revisit when …`, a clause after ` — `); a green case for each.
+   Carried from #466, the owner's yes 2026-10-14, for the Contract correction in step 5: §1, a part of a heading's
+   status suffix not read as a clause (the first clause, the status, included) that holds a clause opening makes the
+   decision unreadable, so it is counted there and never as prose; a typo can make a condition louder, never silent.
+   AR-4's green cases without a clause opening (`revisit when …`, `*(open — week 1)*`) stay as they are. §2, the
+   reader names each folder of the tree that is there but cannot be read (`unreadFolders()`), and still reads the other.
+   §2, a labelled line inside a fenced block under a decision is unreadable, not prose (AR-8 is narrowed: a stray
+   fence marker can pair with a later fence and hide a real line); a quoted example sits above the first decision. §6's
+   green case for fenced labelled lines and the Acceptance line that nothing is printed for them move with it.
+   §3, the milestone events are read through the reader's own plain-file read of `docs/milestones/`, not
+   `readMilestones()`; the "read from" cells and Fit's reuse line say so.
 2. **The rules and the skills.** `process/slipway-rules.md`, `process/intake.md`, `/kickoff`, `/clarify`,
    `/close-milestone` (the form of an extension decision), `/log-feature`, `decisions.md`'s header,
    `scripts/skills.test.mjs` pins; after PR #447 lands — rules and skills, ~S. Leaves #440 open. The form is described
@@ -663,6 +683,10 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    F-07's doc a current review before PD-3 is rewritten, and "already covers it" is printed only for a doc that names
    the decision. AR-2, `decisions-fired-milestone` gains the killed case for `is active`. AR-3, §6's reopens
    instruction offers the open-again outcome, and one fixture holds it (the Open decision line only).
+   Carried from #466: the `decisions-outcome` case's fenced block of labelled lines sits above the first decision, or
+   it expects that decision in the Unreadable line, and Verify says the same (§2 as #466 left the reader).
+   Carried from #466: status prints each folder `unreadFolders()` names (a fixed path, never record text), so a folder
+   the reader could not read is never silent; one status case holds it.
    Carried from the 0.3 review: AR-5, `decisions-owed` expects one line; `decisions-fired-reviewed` splits its
    decisions across two features (F-07 with a stale review only, F-08 with a current one); `decisions-owed` gains an
    `Amends:` whose only Contents line is in a killed milestone (one more line); the chain's doc is at 0.2 with a review
@@ -683,7 +707,7 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    Carried from the 0.3 review: AR-6, PC1 passes a second argument (the fixture folder as root) to P1 only, so no other
    check reads a stray argument; `ci/checks/meta/pc1-positive-control.mjs` is a gate file this step changes.
    **The Contract correction.** This step's PR writes 0.4 from the lines marked "for the Contract correction" under
-   steps 1, 2 and 3 (AR-1, AR-2 and AR-3 of the 0.3 review, the owner's yes 2026-10-14), moving the `Version:` and
+   steps 1, 2 and 3 (AR-1, AR-2 and AR-3 of the 0.3 review, and #466's line under step 1, the owner's yes 2026-10-14), moving the `Version:` and
    getting one review, whose `Supersedes:` names the 0.3 review. No other whole-document review is owed.
 
 Machinery before surface: the reader (1) before anything that shows it (3); the words that tell people the form (2)
