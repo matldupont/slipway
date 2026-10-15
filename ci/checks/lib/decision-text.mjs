@@ -5,13 +5,10 @@
 
 import { LEAD } from './feature-docs.mjs';
 
-const HEADING = new RegExp(LEAD);
 const FENCE = /^ {0,3}```/;
 
-// `#<n> closes` is read at the pull request that closes the issue (§8), and that reader ships in build step 5. Until
-// then the event is unreadable, flagged so status can say what reads it (§6).
-export const ISSUE_READABLE = false;
-
+// The heading line the decisions reader and the line scans share (ID1's reading).
+export const HEADING = new RegExp(LEAD);
 export const fid = (n) => `F-${String(n).padStart(2, '0')}`;
 const blank = (s) => ' '.repeat(s.length);
 
@@ -108,7 +105,9 @@ export function parseEvent(part) {
   m = part.match(/^(\d{4}-\d{2}-\d{2}) (passes|has passed)$/i);
   if (m) return isDay(m[1]) ? { kind: 'date', date: m[1], readable: true, said: `${m[1]} passes` } : null;
   m = part.match(/^(?:([\w.-]{1,100}\/[\w.-]{1,100}))?#(\d{1,9}) (closes|lands|is closed)$/i);
-  if (m) return { kind: 'issue', issue: Number(m[2]), readable: ISSUE_READABLE, said: `#${Number(m[2])} closes` };
+  // Readable here, fired nowhere in status: P1 reads it at the pull request whose body closes the issue (§8). `repo` is
+  // the repository as written, lower case, or '' for this one.
+  if (m) return { kind: 'issue', issue: Number(m[2]), repo: (m[1] ?? '').toLowerCase(), readable: true, said: `#${Number(m[2])} closes` };
   return null;
 }
 

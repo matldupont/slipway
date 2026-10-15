@@ -107,9 +107,9 @@ test('DC1 skips a position in a closed or killed milestone, whose items never mo
 
 test('DC1 warns on an unreadable condition and stays green; it prints no record text', () => {
   const r = record('## PD-1 — SECRETTITLE *(decided 2026-03-01)*\n\nReopens when: SECRETWORD happens\n\n## PD-2 — t\n\nCloses when: #12 lands\n');
-  assert.deepEqual([r.exit, r.findings, r.warnings], [0, [], ['decisions.md#decision/unreadable/PD-1', 'decisions.md#decision/unreadable/PD-2']]);
+  assert.deepEqual([r.exit, r.findings, r.warnings], [0, [], ['decisions.md#decision/unreadable/PD-1']]);
   assert.equal(/SECRET/.test(r.out), false);
-  assert.match(r.out, /PD-2 \(line 5\) has a condition or Amends: line status cannot read \(it waits on an issue/);
+  assert.match(r.out, /PD-1 \(line 1\) has a condition or Amends: line status cannot read: say what brings it back/);
 });
 
 test("DC1 is green on slipway's own record", () => {

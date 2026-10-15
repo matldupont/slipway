@@ -5,7 +5,7 @@ status: draft
 
 # F-15 — Owed decisions: a decision that still owes something stays in `pnpm status` until it is done
 
-Version: 0.3 (2026-10-14)
+Version: 0.4 (2026-10-15)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner
@@ -66,8 +66,10 @@ Reuses:
   with its invisible characters removed, as ID1 reads `decisions.md` today (`ci/checks/meta/id1-ids.mjs:48`, `:57`).
 - `readFeatureFiles()` in `ci/checks/lib/feature-docs.mjs`: which files carry an `F-<n>` heading, the one definition
   of a feature doc (ID1, F2).
-- `readMilestones()`, `contents()` and `citedFeatures()` in `ci/checks/lib/milestones.mjs`: milestone ids and
-  statuses, Contents items and the F-ids each cites (F1, MS1, status).
+- `contents()` and `citedFeatures()` in `ci/checks/lib/milestones.mjs`: Contents items and the F-ids each cites (F1,
+  MS1, status). The milestone ids and statuses the events read come from the reader's own plain-file read of
+  `docs/milestones/`, not `readMilestones()`, whose open review items are #430's (the owner, 2026-10-14, #466); DC1
+  still reads milestones through `readMilestones()`.
 - `reviewProvenance()`, `quotedVersion()` and `readPlain()` in `ci/checks/lib/review-header.mjs`: which document a
   review names and whether it is current, as R1 and the Fit count read them.
 - `frontmatter()` in `ci/checks/lib/frontmatter.mjs`: a doc's `status:`.
@@ -121,8 +123,11 @@ Closes when: M2 is closed
   `Reviewed YYYY-MM-DD: stands — <why>` when the decision holds as written (the owner, 2026-10-14, on AR-5 of the 0.1
   review). **Closed** means the decision no longer constrains new work; its heading keeps `decided`, and the outcome
   line is the record (a new heading status was declined, D-045). Outcome lines are read as nothing, so status
-  stops. Removing the line also clears it: a diff a reviewer sees. A `Amends:` line clears itself the moment the
-  feature's doc or Contents line names the decision; nothing is edited.
+  stops. Removing the line also clears it: a diff a reviewer sees. A re-read that leaves the decision **open** again
+  writes `open — reopened YYYY-MM-DD` as the heading's status and `Reopened YYYY-MM-DD: open again` in place of the
+  condition, so status's `Open decision:` line carries it (AR-3 of the 0.3 review, the owner's yes 2026-10-14); `/clarify`
+  and the rules say so (§9). A `Amends:` line clears itself the moment the feature's doc or Contents line names the
+  decision; nothing is edited.
 - **Heading clauses are read, never written.** In the heading's status suffix, each clause after the first,
   separated by ` · `, that begins `reopens when`, `reopens if`, `closes when`, `closes if` or `provisional until`
   (case folded) is a condition, read exactly as a labelled line: `*(decided 2026-03-01 · reopens when M2 is
@@ -135,7 +140,9 @@ Closes when: M2 is closed
   when it is rewritten as an event, or body prose when no event fits (a person's act), where the sync note counts it
   (§7). The clause is the only thing a condition reader finds in a heading, so removing it is the one edit that
   clears it (AR-1 of the 0.2 review). The tests that pin a heading whole pin slipway's own record, and a review that
-  quoted a heading reviewed a document, not the record.
+  quoted a heading reviewed a document, not the record. **A typo can make a condition louder, never silent** (the
+  owner, #466): a part of the suffix not read as a clause (the first, the status, included) that holds a clause
+  opening, in any spelling the letters alone make, makes the decision unreadable, counted there and never as prose.
 - **Ids compare by number** with their prefix: `D-44` and `D-044` are one decision, `F-7` and `F-07` one feature,
   as ID1 and F1 compare them. Slipway's `D-` and a project's `PD-` are read alike (the owner, Q4).
 
@@ -160,16 +167,23 @@ record as data, and every reader below (DC1, status, P1, sync, `/close-milestone
 - **A code span** is backtick to backtick within a paragraph (consecutive non-blank lines), defined here once for the
   position shapes (§5) and the prose pattern (§7): `decisions.md` is hard-wrapped, so a span crosses line breaks, and
   a per-line reading pairs backticks wrongly (AR-4 of the 0.2 review). An unmatched backtick masks to the end of its
-  paragraph. A fenced block (``` to ```) is masked whole for both readers. Labelled lines inside a fenced block are
-  prose, not conditions (a quoted label is not a decision's condition, AR-8); a heading in a fence still counts as an
-  entry, for ID1's reason.
+  paragraph. A fenced block (``` to ```) is masked whole for both readers. A labelled line inside a fenced block under
+  a decision is **unreadable**, never read and never skipped: a stray fence marker can pair with a later fence and hide
+  a real line (AR-8 of the 0.2 review, narrowed by the owner on #466). A quoted example of the form sits above the
+  first decision, where it is no entry's. A heading in a fence still counts as an entry, for ID1's reason.
 - **Conditions.** From the heading's clauses (rule above) and from the body's labelled lines: `{ kind: reopens |
   closes | changes, where: heading | line, line, text, events | features, readable }`. Outcome lines (`Reopened
   YYYY-MM-DD:`, `Closed YYYY-MM-DD:`) are not conditions.
 - **Events** (§3), parsed from each ` or `-separated part of a condition's text; a part that is not an event makes
   the condition unreadable as a whole.
 - **What is owed, fired and unreadable** against the tree: `owed()` (the `Amends:` features nothing names, §4),
-  `fired(today)` (the conditions whose event has happened, §3), `unreadable()`.
+  `fired(today)` (the conditions whose event has happened, §3), `unreadable()`, and `unreadFolders()`: each folder of
+  the tree (`docs/features`, `dev/features`, `docs/milestones`, `docs/reviews`) that is there but cannot be read (a link,
+  a file or no access in its place), by its fixed path, so nothing it hid is silent; the other folders are still read.
+  The milestones are read through the reader's own plain-file read of `docs/milestones/`, not `readMilestones()`.
+- **A labelled line or heading outside any entry** is a stray, and status says so (§6): a condition line in no entry
+  or under a heading whose id cannot be read, and a heading with no readable id holding a clause opening, in an
+  entry or not.
 - **Positions** (§5): every match of the position shapes in an entry's heading or body, with the line.
 - **The prose count** (§7): entries with no readable condition whose body matches the prose pattern.
 
@@ -185,12 +199,12 @@ The closed list. Words are case folded; ids keep their case; a trailing full sto
 | form (verbs accepted) | fires when | read from |
 |---|---|---|
 | `F-<n> has a doc` (`has a feature doc`) | a feature doc, as ID1 and F2 define one, carries the heading `F-<n>` | `readFeatureFiles()` |
-| `F-<n> is reviewed` | a file in `docs/reviews/` other than `TEMPLATE.md` names such a doc on its `Reviewed:` line **and is current**: the version line it quotes is the doc's `Version:` line, R1's own test (`quotedVersion()`, `ci/checks/lib/review-header.mjs`). A review of an earlier version does not fire it, so a decision that amends the Contract (its `Version:` moves, D-041) waits for the fresh review; one that moved no `Version:` fires at once, and the line says why ("F-07's current review already covers it"). (b) of AR-2 of the 0.2 review, the orchestrator session's advice taken | `reviewProvenance()`, `quotedVersion()` |
+| `F-<n> is reviewed` | a file in `docs/reviews/` other than `TEMPLATE.md` names such a doc on its `Reviewed:` line **and is current**: the version line it quotes is the doc's `Version:` line, R1's own test (`quotedVersion()`, `ci/checks/lib/review-header.mjs`). A review of an earlier version does not fire it, so a decision that amends the Contract (its `Version:` moves, D-041) waits for the fresh review; one that moved no `Version:` fires at once, and the line says why ("F-07's current review already covers it") **only for a doc that names the decision**. **It does not fire while the same decision's `Amends: F-<n>` is owed (§4):** a current review is then of a doc that does not carry the amendment, and once the doc names the decision a current review fires it (AR-1 of the 0.3 review). (b) of AR-2 of the 0.2 review, the orchestrator session's advice taken | `reviewProvenance()`, `quotedVersion()` |
 | `F-<n> is shipped` | that doc's frontmatter `status:`, lower-cased, is `shipped` | `frontmatter()` |
-| `M<n> is active` (`is activated`, `goes active`) | a milestone whose `id:` is `M<n>` (case folded) has `status: active` or `closed` (closed came through active) | `readMilestones()` |
-| `M<n> is closed` (`closes`) | that milestone's status is `closed` or `killed`; the status line says which | `readMilestones()` |
+| `M<n> is active` (`is activated`, `goes active`) | a milestone whose `id:` is `M<n>` (case folded) has `status: active`, `closed` or `killed` (each came through active); the line says which (AR-2 of the 0.3 review) | the reader's own read of `docs/milestones/` |
+| `M<n> is closed` (`closes`) | that milestone's status is `closed` or `killed`; the status line says which | the reader's own read of `docs/milestones/` |
 | `<yyyy-mm-dd> passes` (`has passed`) | today, as status reads it in the project's Timezone, is after that calendar day; an invalid day is unreadable | `today()` |
-| `#<n> closes` (`lands`, `is closed`; also `owner/repo#<n>`) | never in status: read at the pull request whose body closes `#<n>` (§8). **Unreadable until Build map step 5 ships that reader**: until then it sits in the Unreadable line with the parenthesis that says so (§6), never silent ((b) of AR-5 of the 0.2 review) | P1 |
+| `#<n> closes` (`lands`, `is closed`; also `owner/repo#<n>`) | never in status: read at the pull request whose body closes `#<n>` (§8). It is readable and prints nothing in status; the decisions waiting on one are counted by id in the sync note, DC1's info line and the retro (§7). Build map step 5 shipped that reader | P1 |
 
 Anything else is unreadable. A fired date stays fired until the outcome line replaces the condition. A condition
 with several events fires on any one; the status line names the ones that fired. An event can be true the day the
@@ -214,7 +228,8 @@ A feature with no doc and no Contents line yet is owed, and the line says so (§
 ### 5. Position is refused — DC1, `ci/checks/meta/dc1-decisions.mjs`
 
 A new check, beside ID1 in `pnpm meta`; ID1 stays about ids. It reads `decisions.md` through §2 and the milestones
-through `readMilestones()`.
+through `readMilestones()`. It skips a position in a closed or killed milestone, whose items never move (the owner,
+2026-10-15, via the orchestrator session).
 
 | id | result | when |
 |---|---|---|
@@ -224,8 +239,9 @@ through `readMilestones()`.
 
 The position finding, in the project's words: "PD-3 names M2 item 4 (line 212). Items move when a milestone is
 reshaped: name the feature instead. M2 item 4 builds F-07 today (`docs/milestones/M2-booking.md`): write
-`Amends: F-07` under PD-3". With no such milestone, or no such item, or an item citing no F-id: "… no M2 item 4 to
-read a feature from: write `Amends: F-<n>` for the feature the item builds". Fail, not warn (the owner, Q2).
+`Amends: F-07` under PD-3". With no such milestone, or no such item: "… no M2 item 4 to
+read a feature from: write `Amends: F-<n>` for the feature the item builds". With an item that cites no F-id: "… M2 item 4
+cites no F-id: in place of "M2 item 4", quote the item's words, or cite its feature once it has one". Fail, not warn (the owner, Q2).
 
 **Known-bad fixtures** `ci/fixtures/known-bad/dc1/`, each with `expected.json`:
 
@@ -273,23 +289,26 @@ already walks what only the owner can answer (§9).
   when it is written, or on the Contents line that builds F-06 — before F-06 is shaped; waits on its doc`.
 - **A fired condition**, one line per condition line that fired:
   `(you) Decision reopens: D-17 — F-02 is shipped: re-read D-17; does it still hold? An agent or /clarify writes the
-  outcome (reopened, closed or stands) in its place, or the decision that supersedes it — before anything new is
+  outcome (reopened, closed or stands) in its place, or, when it is open again, "open — reopened <date>" as its heading
+  status and "Reopened <date>: open again", or the decision that supersedes it — before anything new is
   built on D-17; waits on nothing` and
   `(you or an agent) Decision closes: PD-3 — M2 is closed: PD-3 no longer constrains new work; replace its condition
   with "Closed 2026-11-02: <outcome>" — blocks nothing; waits on nothing`.
-  The event is printed in the table's words with its ids (`M2 is killed` when that is what happened); the date is
+  "Already covers it" is printed only for a doc that names the decision (§3). The event is printed in the table's words with its ids (`M2 is killed` when that is what happened); the date is
   status's own `today`. A heading clause that fired reads the same, and its instruction says to remove the clause from
   the heading and write the outcome line beneath. The re-read is the owner's; an agent or `/clarify` writes the
   outcome line (D-016).
 - **Unreadable**, one grouped line for all:
   `(you or an agent) Unreadable condition: 3 decisions say what brings them back in words status cannot read: PD-3,
-  PD-7 (waits on an issue: read at the pull request that closes it, once that reader ships), PD-9 — for each, say
+  PD-7, PD-9 — for each, say
   what should bring it back (a feature doc written, reviewed or shipped; a milestone starting or closing; a date; an
   issue closing) or which feature it changes, and /clarify writes it in the form status reads, or moves a condition no
   event fits out of the heading into the entry's prose — blocks nothing: nothing reads these until then; waits on
-  nothing`. Ids in file order, at most 20, then `and N more`; the parenthesis follows each id whose only unreadable
-  event is an issue (§3), so nobody rewrites a correct condition. The grammar (labels, verbs) is named nowhere in a
-  status line.
+  nothing`. Ids in file order, at most 20, then `and N more`. The grammar (labels, verbs) is named nowhere in a
+  status line. An issue event is readable (§3), so no decision is listed for waiting on one.
+- **Unread folder** (a fixed path, never record text) and **Stray condition line** (line numbers) each have one line
+  (`ci/checks/lib/decision-lines.mjs`); the Unread folder line says the folder is a plain folder inside the repository,
+  restored from git, never by copying what a link points to.
 
 What is printed: decision ids (only when they match `^P?D-\d{1,9}$`), `F-` and `M` ids as read, event words from §3's
 table, file paths from the tree, the date. Never a decision's title, a condition's text or a line of the record: the
@@ -304,19 +323,21 @@ each the smallest copy of an existing fixture root plus a `decisions.md`:
 | `decisions-owed` | `Amends: F-06` with no doc naming it; `Amends: F-07` whose doc names the id in its Changes section; `Amends: F-08` with no doc at all and a Contents line that cites F-08 and names the id | two Owed citation lines (F-06 with the path; F-08's line is absent: the Contents line names it); nothing for F-07 |
 | `decisions-owed-no-doc` | `Amends: F-09`, no doc, no Contents line | the "no feature doc carries F-09 yet" line |
 | `decisions-fired-doc` | `Reopens when: F-07 has a doc`; a doc with `# F-07` | one Decision reopens line |
-| `decisions-fired-reviewed` | `Reopens when: F-07 is reviewed` on two decisions: F-07's doc at `Version: 0.2`, one review quoting 0.1 (stale) and, for the second decision's root, one quoting 0.2 | nothing for the first (an old review does not fire it); one line for the second, saying the current review already covers it |
+| `decisions-fired-reviewed` | `Reopens when: F-07 is reviewed` on two decisions: F-07's doc at `Version: 0.2`, one review quoting 0.1 (stale) and, for the second decision's root, one quoting 0.2 | nothing for the first (an old review does not fire it); one line for the second, saying the current review already covers it. A decision that also `Amends:` the feature it waits on, with a current review and a doc that does not name it, gives the Owed citation line and no reopens line |
 | `decisions-fired-shipped` | `Closes when: F-07 is shipped`; `status: shipped` | one Decision closes line |
-| `decisions-fired-milestone` | `Reopens when: M2 is active` (M2 active), `Closes when: M3 is closed` (M3 killed), `Reopens when: M4 is active` (M4 shaping) | two lines, the second saying `M3 is killed`; nothing for M4 |
+| `decisions-fired-milestone` | `Reopens when: M2 is active` (M2 active), `Closes when: M3 is closed` (M3 killed), `Reopens when: M4 is active` (M4 shaping) | two lines, the second saying `M3 is killed`; nothing for M4; `Reopens when: M5 is activated` with M5 killed gives one line saying `M5 is killed` |
 | `decisions-fired-date` | `Reopens when: 2026-03-09 passes` and `Reopens when: 2026-03-10 passes`, today 2026-03-10 | one line, for the 9th |
-| `decisions-issue-event` | `Closes when: #12 lands` | until step 5: the Unreadable line with the issue parenthesis after its id; from step 5: nothing |
-| `decisions-heading-clauses` | `*(decided … · reopens when M2 is activated)*` with M2 active; `*(decided … · provisional until the supplier confirms in writing)*`; `*(decided … · provisional until F-07 is reviewed)*` with a current review; `*(decided … · closes when #12 lands)*` | two Decision reopens lines (the first and the third); one Unreadable line naming the second decision and, until step 5, the fourth with its issue parenthesis |
+| `decisions-issue-event` | `Closes when: #12 lands` | nothing: a readable condition that fires nothing in status |
+| `decisions-heading-clauses` | `*(decided … · reopens when M2 is activated)*` with M2 active; `*(decided … · provisional until the supplier confirms in writing)*`; `*(decided … · provisional until F-07 is reviewed)*` with a current review; `*(decided … · closes when #12 lands)*` | two Decision reopens lines (the first and the third); one Unreadable line naming the second decision only (the fourth is an issue event, readable) |
 | `decisions-heading-cleared` | `*(decided 2026-03-01)*` whose clause was removed, `Reopened 2026-03-05: …` beneath, M2 active; a second heading whose clause was moved into body prose beneath | nothing from this feature |
 | `decisions-unreadable` | `Reopens when: the page shows live state`, `Amends: the roadmap`, `Amends: F-07 or later`, and one readable entry | one grouped line with the three ids, in file order |
 | `decisions-outcome` | `Reopened 2026-03-01: …`, `Closed 2026-03-02: …`, `Reviewed 2026-03-03: stands — …`, a lookalike `- Reopens when: F-07 has a doc` (F-07 has a doc), and a fenced block holding `Amends: F-07` and `Reopens when: F-07 has a doc` | nothing from this feature |
 | `decisions-control` | readable lines, nothing owed or fired, an `open` decision | the Open decision line only |
 
-Thirteen cases, two of them with a step-5 variant of their `expect.json` (`decisions-issue-event`,
-`decisions-heading-clauses`): step 3 commits the until-step-5 list, step 5 the final one.
+Nineteen cases as built, the thirteen above and the ones the reviews of the build added (an open-again outcome whose
+`Open decision:` line is the only line, an odd file name, an unread folder, a stray condition line, a stray fenced
+heading, a heading backstop). Two carried a step-5 variant of their `expect.json` (`decisions-issue-event`,
+`decisions-heading-clauses`): step 5 wrote the final one.
 
 Where the `attention` list of an existing fixture already pins other lines, these cases carry theirs in the same
 order status prints them.
@@ -342,15 +363,17 @@ order status prints them.
 - **A readable issue condition is counted beside them** (AR-7 of the 0.1 review): `#<n> closes` is read only at a
   pull request (§8), so status cannot see whether it has happened. The same note and bullet say how many decisions
   wait on an issue, by id, so an issue closed by hand, or before the condition was written, surfaces without the
-  network (D-022). Until step 5 ships that reader the event is unreadable (§3), so a release before it shows such a
-  decision in the Unreadable line, with the parenthesis that says what reads it (§6): never silent.
+  network (D-022). The counts count every condition whose events include an issue, readable or not, so their meaning did not
+  change when step 5 made the event readable.
   - `sync --plan` and `--apply` print one note, not a row and never red: "3 decisions say when they reopen or close
     in prose only (D-003, D-015, D-017), and 1 waits on an issue status cannot see (PD-7): nothing reads a prose
     condition until it is written as an event; check the issue by hand". Nothing is stored; the counts are recomputed
     each sync. `/sync-slipway` relays notes already.
   - `/close-milestone` §3 (the retro) gains one bullet, from the same counts: the decisions still in prose, and those
     waiting on an issue, by id, for the owner to check by hand.
-  - `scripts/new-project.mjs` writes nothing new: a fresh project's count is 0 (D-001–D-014 match nothing).
+  - `scripts/new-project.mjs` writes nothing new: a fresh project's count is **1**, not 0: D-003's "Revisit when CI
+    time is a measured problem" matches the prose pattern in every seeded record (found by step 3's review). The count
+    is what the project holds, so it is the number the test and Acceptance state; none of it is red.
 - **Nothing in a project's `decisions.md` is edited by sync**: the file is seeded. The form reaches a project through
   the skills that write decisions (§9), the status lines and the sync note.
 
@@ -377,11 +400,11 @@ finding, PC1 passing the fixture folder as the root too); its controls, the same
 the same body with no root, in `scripts/p1.test.mjs` (new; P1 has no test file today), each naming its record.
 
 `/work-ticket`'s ready step runs the same read before marking the pull request ready, and names the decision. It
-also asks the owner before any condition line is removed or edited in the pull request it is shipping, and names the
-line in the body (the owner's Q3 lets a deletion clear a condition as a visible diff; at a gate, the cheapest green is
+also asks the owner before any condition line is removed, edited **or added to an entry that is already decided** in
+the pull request it is shipping (the owner's yes, 2026-10-15, on step 3's security review), and names the line in the body (the owner's Q3 lets a deletion clear a condition as a visible diff; at a gate, the cheapest green is
 that deletion, so the moment is made a prompt, never a memory: AR-10 of the 0.1 review, the orchestrator session's
-advice taken). P1 cannot tell a deletion from an outcome write (Known limitations). The skill is at 300 lines against
-the cap of 300 (`scripts/skills.test.mjs:29`), so room is made by rewording, no rule dropped. An issue closed by hand,
+advice taken). P1 cannot tell a deletion from an outcome write (Known limitations). The skill stays within the cap of 300
+lines (`scripts/skills.test.mjs:29`; 296 at step 5), room made by rewording, no rule dropped. An issue closed by hand,
 with no pull request, is never seen here; §7 counts it.
 
 ### 9. The skills and the rules, written once
@@ -507,9 +530,17 @@ other people's text: one it cannot read is counted as unreadable, never passed a
   heading in a fence ends the entry, so a position after it is not read (its condition lines are strays). Slipway's
   own record has none; a quoted shape is not counted on purpose.
 - A pull request that adds a condition to a decided entry (`Closes when: <a past date> passes`) makes status ask to
-  write its outcome. The added line is a diff a reviewer sees, as a deleted one is, and until #440 step 5 only the
-  reviewer's eye covers it: §8 has `/work-ticket` ask the owner before a condition line is removed or edited, and step
-  5 extends that question to a line added to an already decided entry (the owner, 2026-10-15).
+  write its outcome. The added line is a diff a reviewer sees, as a deleted one is: §8 has `/work-ticket` ask the owner
+  before a condition line is removed, edited or added to an already decided entry (the owner, 2026-10-15); a pull
+  request opened by hand has only the reviewer's eye.
+- A heading with no readable id that holds a clause opening is a stray, and has no fix when it is a fenced example heading
+  after the first decision: move the example above the first decision, or give it a placeholder id. An ordinary
+  sub-heading whose words open like a clause (`### Closes when the trial ends`) is also a stray: correct or reword it.
+- Heading detection reads a line cut at 500 characters (as every line is); a heading whose id or clause lies past the cut is
+  read as unreadable when its suffix may have lost one, never short. This is older than step 3.
+- P1 compares a closing word's repository as it compares "leaves open": a sentence with no repository may name the pull
+  request's own, so a bare `#12` condition meets `Closes other/app#12` too. The finding is cleared by writing the outcome,
+  or by naming the repository in the condition (`acme/app#12 lands`).
 
 ## Acceptance
 
@@ -539,13 +570,25 @@ Given the same events with the tree not in that state (M4 shaping; today the dat
       quotes an earlier Version: line of the doc)
 Then  nothing is printed for them
 
-Given `Reopens when: F-07 is reviewed`, F-07's doc at Version: 0.2 and a review quoting that line, written by a
-      decision that moved no Version:
+Given `Reopens when: F-07 is reviewed`, F-07's doc at Version: 0.2 naming the decision and a review quoting that line,
+      written by a decision that moved no Version:
 Then  one Decision reopens line saying F-07's current review already covers it
 
-Given `Closes when: #12 lands` at build step 3
-Then  the decision is in the Unreadable line, its id followed by the parenthesis saying it waits on an issue read at
-      the pull request that closes it; given the same at step 5, nothing is printed and it is not in that line
+Given the same decision also reading `Amends: F-07`, with the doc not naming it
+Then  one Owed citation line and no Decision reopens line; once the doc names the decision, the reopens line
+
+Given `Reopens when: M5 is activated` and M5 killed
+Then  one Decision reopens line saying `M5 is killed`
+
+Given `Closes when: #12 lands`
+Then  nothing is printed and the decision is not in the Unreadable line
+
+Given a re-read that leaves a decision open: the heading status `open — reopened 2026-03-05` and `Reopened 2026-03-05:
+      open again` where the condition was
+Then  status's Open decision line for it and nothing else from this feature
+
+Given a position `M2 item 4` in a closed or killed milestone's decision; given an item citing no F-id
+Then  nothing from DC1 for the first; for the second exit 1, the detail saying to quote the item's words
 
 Given a heading `*(decided 2026-03-01 · reopens when M2 is activated)*` and M2 active
 Then  one Decision reopens line, whose instruction says to remove the clause from the heading and write the outcome
@@ -564,7 +607,8 @@ Then  exactly one line starting "(you or an agent) Unreadable condition: 3 decis
       of the record
 
 Given `Reopened 2026-03-01: …`, `Closed 2026-03-02: …`, `Reviewed 2026-03-03: stands — …`, `- Reopens when: F-07 has a doc`
-      with F-07's doc present, and a fenced block holding `Amends: F-07` and `Reopens when: F-07 has a doc`
+      with F-07's doc present, and a fenced block above the first decision holding `Amends: F-07` and `Reopens when: F-07 has a
+      doc` (the same block under a decision is unreadable, §2)
 Then  nothing is printed for them
 
 Given every status fixture of Contract §6, and the fixtures that exist today
@@ -597,13 +641,14 @@ Then  node ci/checks/meta/pc1-positive-control.mjs is green and every other expe
 
 Given an invented PD-3 whose heading says `reopens when M2 item 4's feature doc is written` and whose body names
       "M2 item 4", in a project root where M2's item 4 cites F-07 and F-07 has a doc at Version: 0.1, not naming PD-3,
-      with one review quoting an earlier line of it and none quoting 0.1
+      with one review quoting 0.1, the doc's current Version: line, so that the doc has a current review before PD-3 is
+      rewritten
 When  the first node ci/status.mjs and node ci/checks/meta/dc1-decisions.mjs after the sync
 Then  status's Unreadable line names PD-3 and DC1 reports decision/position/PD-3 naming F-07; and once PD-3's clause is
       removed from its heading and it reads `Amends: F-07` and `Reopens when: F-07 is reviewed` beneath, status prints
-      the Owed citation line for F-07 and nothing for the condition (no current review), and DC1 is green; and once
-      F-07's doc names PD-3 where the change belongs, nothing is printed for PD-3 until a review quotes the doc's
-      current Version: line
+      the Owed citation line for F-07 and nothing for the condition (the current review is of a doc that does not name
+      PD-3), and DC1 is green; and once F-07's doc names PD-3 where the change belongs, the current review fires the
+      condition and status prints one Decision reopens line saying it already covers it
 
 Given slipway's own decisions.md at the head of Build map step 3's PR
 Then  node ci/status.mjs . lists Owed citation lines for D-044 (F-04 and F-06) and nothing else from this feature,
@@ -611,10 +656,10 @@ Then  node ci/status.mjs . lists Owed citation lines for D-044 (F-04 and F-06) a
 
 Given a root whose decisions.md has 3 entries with a prose condition and no readable line, and 1 with a readable line
 Then  the reader's prose count is 3, pnpm -s use-slipway sync --plan prints one note naming the 3 ids and no row for
-      decisions.md, --apply prints the same note and writes nothing to decisions.md, and a fresh new-project's count is 0
+      decisions.md, --apply prints the same note and writes nothing to decisions.md, and a fresh new-project's count is 1 (D-003)
 
 Given a pull-request body whose prose says "Closes #12" and a record with `Closes when: #12 lands` and no outcome line
-When  node ci/checks/meta/p1-pr-body.mjs <dir>
+When  node ci/checks/meta/p1-pr-body.mjs <dir> <root>
 Then  exit 1 with <body>#decision/awaits-outcome:<id>; with the condition replaced by `Closed 2026-03-10: …`, exit 0;
       with the body saying `Part of #12`, exit 0
 
@@ -630,10 +675,10 @@ Then  each carries its sentence of Contract §9 or §8, scripts/skills.test.mjs 
 node scripts/decisions.test.mjs                             # the reader: headings, labels, clauses, events, owed, fired, unreadable, positions, prose count; DC1's green runs
 node ci/checks/meta/dc1-decisions.mjs .                     # exit 0 on slipway's own record
 node ci/checks/meta/pc1-positive-control.mjs               # green, the four dc1 cases and the p1 case listed
-node ci/checks/meta/s1-status.mjs ci/fixtures/status       # green, the thirteen decisions-* cases among the fixtures
+node ci/checks/meta/s1-status.mjs ci/fixtures/status       # green, the nineteen decisions-* cases among the fixtures
 node ci/status.mjs . | sed -n '/Needs attention/,$p'       # step 3: the D-044 Owed citation lines, nothing else new
 node scripts/sync.test.mjs                                 # the note, its count, no row and no write for decisions.md
-node scripts/new-project.test.mjs                          # a fresh project's count is 0
+node scripts/new-project.test.mjs                          # a fresh project's count is 1 (D-003) and none waits on an issue
 node scripts/p1.test.mjs                                   # decision/awaits-outcome, and its two green cases
 node scripts/skills.test.mjs                               # the sentences pinned; work-ticket ≤ 300
 git diff --stat main -- 'ci/fixtures/**/expected.json' 'ci/fixtures/status/*/expect.json'   # only files under dc1/, p1/ and decisions-* added or extended
@@ -718,15 +763,24 @@ on its own, a release may be tagged after any of them, and nothing is owed betwe
    two counts with their ids as an info line (ids only), the retro bullet names `node ci/checks/meta/dc1-decisions.mjs .`
    as its command, and the issue count counts conditions whose events include an issue, readable or not, from this
    step on, so its meaning does not change at step 5.
+   Found by step 3's review (2026-10-15), for the Contract correction in step 5: "a fresh project's count is 0
+   (D-001–D-014 match nothing)" did not hold: D-003's "Revisit when CI time is a measured problem" matches the prose
+   pattern, so the count is 1; step 4 settled it, and §7 and Acceptance say the number.
 5. **The issue event at the pull request.** P1's root argument, finding and sidecar key, `pr-body.yml`,
    `ci/fixtures/known-bad/p1/closes-awaited*`, `scripts/p1.test.mjs` (`package.json` `meta`), `/work-ticket`'s ready
    sentences within 300 lines; the reader's issue event becomes readable here, with the two status fixtures' final
    `expect.json` and the sync note's issue count now counting readable ones — checks and a skill, ~S. Closes #440. Case 4, gate files · mode: `regular` · model: `Sonnet 5.5` · effort: `medium`.
    Carried from the 0.3 review: AR-6, PC1 passes a second argument (the fixture folder as root) to P1 only, so no other
    check reads a stray argument; `ci/checks/meta/pc1-positive-control.mjs` is a gate file this step changes.
+   Found by step 3's security review, the owner's yes 2026-10-15, for the Contract correction in step 5: `/work-ticket`'s
+   question to the owner before a condition line is touched also covers a condition line added to an entry that is
+   already decided; done in this step, and §8 says so.
    **The Contract correction.** This step's PR writes 0.4 from the lines marked "for the Contract correction" under
-   steps 1, 2 and 3 (AR-1, AR-2 and AR-3 of the 0.3 review, and #466's line under step 1, the owner's yes 2026-10-14), moving the `Version:` and
-   getting one review, whose `Supersedes:` names the 0.3 review. No other whole-document review is owed.
+   steps 1, 2, 3, 4 and 5 (AR-1, AR-2 and AR-3 of the 0.3 review, #466's lines under step 1, the owner's 2026-10-15 line
+   under step 3, step 3's review's count under step 4 and its security review's ask under step 5), moving the `Version:`
+   and getting one review, whose `Supersedes:` names the 0.3 review. No other whole-document review is owed. Written
+   2026-10-15: the issue's Build map carried the step 4 and 5 lines and not #466's two, the doc the reverse; 0.4 takes
+   the union.
 
 Machinery before surface: the reader (1) before anything that shows it (3); the words that tell people the form (2)
 before the line that asks for it (3); the counts (4) and the pull-request reader (5) once the lines exist to count.
@@ -797,4 +851,14 @@ before the line that asks for it (3); the counts (4) and the pull-request reader
   at 0.4 (`is reviewed` gated by an owed `Amends:`; `is active` on a killed milestone; a re-read that leaves the
   decision open). AR-4 to AR-7 are reader, fixture, wiring and printing corrections. The review's Tracker cells name
   where each went · PR for #440
+- 2026-10-15 · MODIFIED · 0.4: the Contract correction, from every line the Build map marked for it, each built and
+  merged before it was written. §1 and §3: a re-read that leaves a decision open (AR-3); `is reviewed` does not fire
+  while the same decision's `Amends:` is owed, and "already covers it" is for a doc that names the decision (AR-1);
+  `is active` fires on a killed milestone (AR-2); a typo makes a condition louder, never silent; a labelled line in a
+  fence under a decision is unreadable; the folders the reader cannot read and the stray condition lines are named
+  (#466, the owner, 2026-10-14); DC1 skips closed and killed milestones and says to quote an item with no F-id (the
+  owner, 2026-10-15). §7: a fresh project's count is 1, D-003 (step 3's review). §8: the issue event is readable and
+  P1 reads it at the pull request; `/work-ticket` also asks before a condition line is added to a decided entry (the
+  owner's yes, 2026-10-15). Known limitations gain the stray heading, the 500-character cut and the repository
+  comparison · PR for #440 step 5
 - 2026-10-15 · MODIFIED · the wording of the status lines in §6 follows `process/writing.md` (F-16): who acts first, then the action, each id after its meaning in brackets, and the last two sentences say what it blocks and what it waits on. The forms quoted in §6 are the earlier wording; what each line says is unchanged · #456

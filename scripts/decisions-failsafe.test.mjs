@@ -146,7 +146,7 @@ test('the fail-safe holds, case 9 of 10', () => {
   assert.deepEqual(line.conditions.map((c) => c.readable), [false]);
   // Cut short, an issue event alone is no reason to call it only the issue's.
   const issue = one(`## PD-5 — t\n\nReopens when: #12 closes${' '.repeat(480)} or M2 is closed\n`);
-  assert.deepEqual(issue.conditions.map((c) => [c.readable, c.issueOnly]), [[false, false]]);
+  assert.deepEqual(issue.conditions.map((c) => c.readable), [false]);
 });
 
 test('the fail-safe holds, case 10 of 10', () => {
