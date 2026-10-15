@@ -55,6 +55,12 @@ test('a Blocks cell names a milestone only as an M<n> token', () => {
   assert.deepEqual(milestonesNamed(''), []);
 });
 
+// #476: an inserted milestone is a token too; a full stop ends a sentence, and M1.1.1 names none.
+test('a Blocks cell names M1.1 and M10 as it names M2', () => {
+  assert.deepEqual(milestonesNamed('M1.1 and M10; blocks M2.'), ['M1.1', 'M10', 'M2']);
+  assert.deepEqual(milestonesNamed('M1.1.1, m1.1, AM1.1'), []);
+});
+
 test('a severity written with more than the level is read; one that reads none is counted, not dropped', () => {
   const r = readRegister(doc(...FULL, '| AR-1 | a | S0 (blocker) | o | | |', '| AR-2 | b | S1 / money | o | | |', '| AR-3 | c | high | o | | |', '| AR-4 | d | S12 | o | | |'));
   assert.deepEqual(r.rows.map((f) => f.sev), ['S0', 'S1']);

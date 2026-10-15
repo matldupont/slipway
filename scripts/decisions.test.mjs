@@ -121,15 +121,29 @@ test('a line is cut at 500 characters before any pattern reads it', () => {
 test('positions: the five shapes in a heading clause or body; not with no milestone id, nor in a code span or fence', () => {
   const at = (md) => one(md).positions.map((p) => [p.line, p.milestone, p.item]);
   for (const s of ['M2 item 4', "M2's item 4", 'M2 Contents item 4', "M2's Contents item 4", 'item 4 of M2', 'M2’s item 4']) {
-    assert.deepEqual(at(`## PD-3 — t\n\nThis was ${s}.\n`), [[3, 2, 4]], s);
+    assert.deepEqual(at(`## PD-3 — t\n\nThis was ${s}.\n`), [[3, 'M2', 4]], s);
   }
-  assert.deepEqual(at("## PD-4 — t *(decided 2026-03-01 · reopens when M2 item 4's feature doc is written)*\n\nClean.\n"), [[1, 2, 4]]);
+  assert.deepEqual(at("## PD-4 — t *(decided 2026-03-01 · reopens when M2 item 4's feature doc is written)*\n\nClean.\n"), [[1, 'M2', 4]]);
   for (const s of ['item 4 alone', 'm2 item 4', 'M2  item 4', 'an id `D-044` in a span', '`M2 item 4`', 'a span `that\ncrosses M2 item 4` a break', 'a stray ` that never closes M2 item 4']) {
     assert.deepEqual(at(`## PD-3 — t\n\n${s}\n`), [], s);
   }
   assert.deepEqual(at('## PD-3 — t\n\n```\nM2 item 4\n```\n'), []);
-  assert.deepEqual(at('## PD-3 — t\n\na span `that\ncrosses` a break, then M2 item 4\n'), [[4, 2, 4]]);
-  assert.deepEqual(at('## PD-3 — t\n\na stray `\n\nnext paragraph M2 item 4\n'), [[5, 2, 4]]);
+  assert.deepEqual(at('## PD-3 — t\n\na span `that\ncrosses` a break, then M2 item 4\n'), [[4, 'M2', 4]]);
+  assert.deepEqual(at('## PD-3 — t\n\na stray `\n\nnext paragraph M2 item 4\n'), [[5, 'M2', 4]]);
+});
+
+// #476: a position in an inserted milestone is one, and M10 is not M1.
+test('positions in M1.1 and M10 are read as in M2; M1.1.1 and a bare M1.1 name no item', () => {
+  const at = (md) => one(md).positions.map((p) => [p.line, p.milestone, p.item]);
+  for (const s of ['M1.1 item 2', "M1.1's Contents item 2", 'item 2 of M1.1', 'item 2 of M01.1']) assert.deepEqual(at(`## PD-3 — t\n\nThis was ${s}.\n`), [[3, 'M1.1', 2]], s);
+  assert.deepEqual(at('## PD-3 — t\n\nM10 item 2, then item 3 of M10.\n'), [[3, 'M10', 2], [3, 'M10', 3]]);
+  for (const s of ['M1.1.1 item 2', 'M1.1 alone', 'm1.1 item 2']) assert.deepEqual(at(`## PD-3 — t\n\n${s}\n`), [], s);
+});
+
+test('M1.1 is active and M10 is closed are events, said with the id as written by number', () => {
+  const said = (s) => parseEvent(s)?.said ?? null;
+  assert.deepEqual(['M1.1 is active', 'M01.1 closes', 'M10 is closed', 'M1.1.1 is active', 'm1.1 is active'].map(said), ['M1.1 is active', 'M1.1 is closed', 'M10 is closed', null, null]);
+  assert.deepEqual(parseEvent('M1.1 goes active'), { kind: 'active', milestone: 'M1.1', readable: true, said: 'M1.1 is active' });
 });
 
 test('the heading is read masked: a position or prose in its code span is not counted, and a span never runs past it', () => {

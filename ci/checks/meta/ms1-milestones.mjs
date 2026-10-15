@@ -48,6 +48,8 @@
 //   estimate/unreadable/<id> an Hours cell that is not empty, not a placeholder, and not `n`,
 //                          `n–m` or `n to m`
 //   estimate/unknown/<id>  a §9 row names no milestone file (a Total row excepted)
+//   order/appetite         two milestones next to each other in id order (M1, M1.1, M2, M10) whose
+//                          appetites start the other way round: numbers run in time order (#476)
 //
 // A PRD with no §9 table compares nothing and says nothing: the table is optional. §9 and §10
 // are found by number, so `## 9. Estimates` and `## 10. Milestones` still read.
@@ -64,7 +66,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section, table } from '../lib/markdown.mjs';
-import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
+import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneKey, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
 import { excerpt, report } from '../lib/report.mjs';
 
@@ -207,6 +209,19 @@ if (prd) {
         });
       }
     }
+  }
+}
+
+// Numbers run in time order (#476): readMilestones() gives the milestones in id order, so two neighbours whose
+// appetites start the other way round were numbered out of order. A warning, never red: the dates may be the slip.
+const dated = milestones.filter((m) => milestoneKey(m.fm?.id) && parseAppetite(m.fm.appetite));
+for (const [a, b] of dated.slice(1).map((m, i) => [dated[i], m])) {
+  const [x, y] = [parseAppetite(a.fm.appetite).start, parseAppetite(b.fm.appetite).start];
+  if (y < x) {
+    warnings.push({
+      where: `${b.file}#order/appetite`,
+      detail: `${b.fm.id} starts ${y}, before ${a.fm.id} (${a.file}) starts ${x}: numbers run in time order, so correct the appetite that is wrong, or give a milestone inserted between two others the id M<n>.<k> (process/slipway-rules.md)`,
+    });
   }
 }
 
