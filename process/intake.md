@@ -107,6 +107,7 @@ The body reads as the repository's issue form would render it, so the checks tha
   in Links. A file that comes from slipway reads: "`ci/verify.mjs` comes from slipway: change it in slipway,
   or keep a local change with a written reason." A question to the owner says what it asks, never the skill's
   own step names: "Is this part of what you are building now?", not "Schedule: now or later?" or "Phase 4".
+  The form follows `process/writing.md`.
 - **A claim about the code** (a file does X, a check misses Y) is re-read on the default branch before it goes
   in, and the body says so: `Verified against: <short sha> <yyyy-mm-dd>`, with what was read (L-18). A claim
   that does not survive the re-read is not filed.
