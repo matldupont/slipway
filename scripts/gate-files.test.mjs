@@ -386,6 +386,8 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
   assert.deepEqual(changes(f4, t4, repo).specs, []);
   const [f5, t5] = step('a doc deleted', () => git('rm', '-q', 'docs/features/x.md'));
   assert.deepEqual(changes(f5, t5, repo).specs, []);
+  const [f6, t6] = step('a fixture holds a feature doc', () => put('ci/fixtures/known-bad/p1/y.tree/docs/features/x.md', doc('0.1', 'a')));
+  assert.deepEqual(changes(f6, t6, repo).specs, [], 'a fixture\'s doc is test data, not a spec');
   const run = (...flag) => spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), f3, t3, ...flag], { cwd: repo, encoding: 'utf8' });
   assert.equal('draft' in JSON.parse(run().stdout), false, 'no argument, no key: P1 reads that as ready');
   assert.equal(JSON.parse(run('true').stdout).draft, true);

@@ -290,7 +290,7 @@ export function changes(base, head, cwd = process.cwd()) {
     }
   };
   const specs = files.flatMap((path) => {
-    if (!SPEC_PATH.test(path)) return [];
+    if (!SPEC_PATH.test(path) || path.startsWith('ci/fixtures/')) return []; // a fixture's doc is test data, not a spec
     const now = versionsAt(head, path);
     const was = versionsAt(from, path) ?? [];
     return now && JSON.stringify(now) !== JSON.stringify(was) ? [{ path, versions: now }] : [];
