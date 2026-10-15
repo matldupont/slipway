@@ -1,6 +1,6 @@
 # Decisions
 
-An invented record for S1: every id here is made up.
+An invented record for PC1: every id here is made up.
 
 ## PD-4 — Walks start on the hour *(decided 2026-03-01 · see M2's item 4)*
 

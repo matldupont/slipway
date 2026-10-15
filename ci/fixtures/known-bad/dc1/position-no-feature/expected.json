@@ -1,0 +1,10 @@
+{
+  "_note": "An invented PD-7 names M2 item 2, an item of active M2 that cites no F-id: there is no feature to write, so the detail says to name the item by its words (the owner, 2026-10-15). Still a finding.",
+  "exit": 1,
+  "findings": [
+    "decisions.md#decision/position/PD-7"
+  ],
+  "details": {
+    "decisions.md#decision/position/PD-7": "M2 item 2 cites no F-id (docs/milestones/M2-booking.md): in place of \"M2 item 2\", quote the item's words, or cite its feature once it has one"
+  }
+}

@@ -75,11 +75,24 @@ test('DC1 reads the item a position names from the milestone: its F-ids, or that
     assert.match(dc1(dir).details[0], /M2 item 2 builds F-07, F-09 today \(docs\/milestones\/M2-a\.md\): write `Amends: F-07, F-09` under PD-3$/);
   });
   inTree({ 'decisions.md': md, 'docs/milestones/M2-a.md': milestone('M2', 'shaping', ['x (F-01)', 'y, no feature']) }, (dir) => {
-    assert.match(dc1(dir).details[0], /Items move when a milestone is reshaped: name the feature instead\. M2 item 2 cites no F-id, so there is no item to read a feature from: write `Amends: F-<n>`/);
+    assert.match(dc1(dir).details[0], /name the feature instead\. M2 item 2 cites no F-id \(docs\/milestones\/M2-a\.md\): in place of "M2 item 2", quote the item's words, or cite its feature once it has one$/);
   });
   inTree({ 'decisions.md': md, 'docs/milestones/M2-a.md': milestone('M2', 'shaping', ['x (F-01)']) }, (dir) => {
     assert.match(dc1(dir).details[0], /There is no M2 item 2 to read a feature from: write `Amends: F-<n>`/);
   });
+});
+
+test('DC1 skips a position in a closed or killed milestone, whose items never move; it fails the first one elsewhere', () => {
+  const ms = { 'docs/milestones/M1-a.md': milestone('M1', 'closed', ['x (F-01)']), 'docs/milestones/M3-c.md': milestone('M3', 'killed', ['z (F-03)']) };
+  inTree({ 'decisions.md': '## PD-1 — t\n\nAs M1 item 1 and item 1 of M3 said.\n', ...ms }, (dir) => assert.deepEqual([dc1(dir).exit, dc1(dir).findings], [0, []]));
+  const open = { ...ms, 'docs/milestones/M2-b.md': milestone('M2', 'shaping', ['y (F-02)']) };
+  inTree({ 'decisions.md': '## PD-1 — t\n\nAs M1 item 1 said, and M2 item 1.\n', ...open }, (dir) => {
+    const r = dc1(dir);
+    assert.deepEqual([r.exit, r.findings], [1, ['decisions.md#decision/position/PD-1']]);
+    assert.match(r.details[0], /^PD-1 names M2 item 1 \(line 3\)\..* M2 item 1 builds F-02 today/);
+  });
+  // A milestone with no file is not settled: the position still fails.
+  inTree({ 'decisions.md': '## PD-1 — t\n\nAs M9 item 1 said.\n', ...ms }, (dir) => assert.equal(dc1(dir).exit, 1));
 });
 
 test('DC1 warns on an unreadable condition and stays green; it prints no record text', () => {
