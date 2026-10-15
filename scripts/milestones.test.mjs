@@ -246,14 +246,14 @@ test('readMilestones refuses a linked file, a folder named *.md and a linked fol
     assert.deepEqual([read.files, read.milestones.map((m) => m.file), read.refused], [['m1.md'], ['m1.md'], ['docs/milestones/TEMPLATE.md', 'docs/milestones/m2.md', 'docs/milestones/m3.md']]);
     const r = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/ms1-milestones.mjs'), dir], { encoding: 'utf8' });
     assert.equal(r.status, 1, r.stdout);
-    for (const f of ['TEMPLATE.md', 'm2.md', 'm3.md']) assert.ok(r.stdout.includes(`docs/milestones/${f}#file/unreadable: docs/milestones/${f} is a link, is reached through one or is not a regular file, so it is not read as a milestone: make it a regular file`), r.stdout);
+    for (const f of ['TEMPLATE.md', 'm2.md', 'm3.md']) assert.ok(r.stdout.includes(`docs/milestones/${f}#file/unreadable: \`docs/milestones/${f}\` is a link, is reached through one or is not a regular file, so it is not read as a milestone: make it a regular file`), r.stdout);
     assert.doesNotMatch(r.stdout, /a-private-word|M9/);
 
     rmSync(join(dir, 'docs/milestones'), { recursive: true });
     symlinkSync(outside, join(dir, 'docs/milestones'));
     assert.deepEqual(readMilestones(dir).refused, ['docs/milestones']);
     const linked = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/ms1-milestones.mjs'), dir], { encoding: 'utf8' });
-    assert.ok(linked.stdout.includes('docs/milestones#file/unreadable: docs/milestones is a link, sits under one or is not a folder, so no milestone in it is read: make it a plain folder'), linked.stdout);
+    assert.ok(linked.stdout.includes('docs/milestones#file/unreadable: `docs/milestones` is a link, sits under one or is not a folder, so no milestone in it is read: make it a plain folder'), linked.stdout);
   } finally {
     rmSync(dir, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });

@@ -31,9 +31,10 @@ export const unseen = (s) => s.replace(INVISIBLE, '');
 // A text as a heading is matched: those characters taken out, look-alikes folded (NFKC) and every dash a hyphen.
 // NFKC reorders a run of combining marks in time the square of its length, so a text holding a run of more than 32 is
 // folded a piece at a time, each piece at most 32 marks after its other characters: the run is reordered within each
-// piece only, which no id, heading mark or hyphen depends on.
-const PIECE = /[^\p{M}]*\p{M}{0,32}/gu;
-const LONG_RUN = /\p{M}{33}/u;
+// piece only, which no id, heading mark or hyphen depends on. The halfwidth voiced marks U+FF9E and U+FF9F count as
+// marks here: NFKC turns each into a combining mark, and no other character that is not a mark does.
+const PIECE = /[^\p{M}\uFF9E\uFF9F]*[\p{M}\uFF9E\uFF9F]{0,32}/gu;
+const LONG_RUN = /[\p{M}\uFF9E\uFF9F]{33}/u;
 const nfkc = (s) => (LONG_RUN.test(s) ? s.match(PIECE).map((p) => p.normalize('NFKC')).join('') : s.normalize('NFKC'));
 export const fold = (s) => nfkc(unseen(s)).replace(/[\p{Pd}\u2212]/gu, '-');
 export function visible(md) {

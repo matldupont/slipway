@@ -571,7 +571,12 @@ test('a milestone citation written with a look-alike hyphen or digit, or a chara
 test('a Fit GitHub hides, a heading or label made only by taking a comment out, and markup that shows nothing are not a filled Fit', () => {
   const filled = fit('Reuses: x in lib/x', 'Numbers: none shown', 'New: a thing');
   assert.deepEqual(reasons({ [A]: doc('shipped', `<!-- an open comment\n\n${filled}`) }), ['fit/missing'], 'after a <!-- with no -->');
-  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/missing'], 'inside a comment');
+  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/unreadable'], 'inside a comment, across its heading');
+  // A `<!--` GitHub shows as text (in code, in an attribute) and a `-->` under the next heading: the reader cannot tell
+  // which headings show, so the doc is counted, never passed.
+  for (const [open, close] of [['`<!--`', 'The `-->` export is slow.'], ['<span title="<!--"></span>', '<span title="-->"></span>']]) {
+    assert.deepEqual(reasons({ [A]: `---\nstatus: shipped\n---\n\n# F-1 — x\n\n## Fit\n\nReuses: x in lib/x\n\nNumbers: none shown\n\nNew: ${open}\n\n## Problem\n\n${close}\n` }), ['fit/unreadable'], open);
+  }
   assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('## Fit', '#<!-- --># Fit')) }), ['fit/missing'], 'a heading only once the comment is out');
   assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('Reuses:', 'Reu<!-- -->ses:')) }), ['fit/unfilled/reuses'], 'a label only once the comment is out');
   for (const markup of ['&nbsp;', '&#8203;', '&#x200B;', '<br>', '<i></i>', '<span class="x"></span>', '[](x)', '- [x]: https://example.com']) {
@@ -590,4 +595,25 @@ test('visible() reads a long line of combining marks of mixed classes quickly, a
   visible(`## F‑1 ${marks}`);
   assert.ok(Date.now() - started < 1_000, `took ${Date.now() - started} ms`);
   assert.equal(visible('## F－１ é')[0].text, '## F-1 é');
+  // The halfwidth voiced marks are not marks until NFKC makes them so: one after every 32 marks does not make a run
+  // read whole, in a heading or in a milestone's citation.
+  const kana = `${marks.slice(0, 32)}\uff9e`.repeat(2_500);
+  const again = Date.now();
+  visible(`## F-1 ${kana}`);
+  citedFeatures(`x (F-1) ${kana}`);
+  assert.ok(Date.now() - again < 1_000, `took ${Date.now() - again} ms`);
+});
+
+test('a docs/reviews/ that is a link is listed unread, so no doc is held or dropped by what it holds', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'fit-outside-'));
+  try {
+    writeFileSync(join(outside, 'r.md'), review(A));
+    const r = count({ [A]: doc('draft') }, (d) => {
+      mkdirSync(join(d, 'docs'), { recursive: true });
+      symlinkSync(outside, join(d, 'docs/reviews'));
+    });
+    assert.deepEqual([r.unread, r.docs[0].heldBy], [['docs/reviews'], []]);
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
 });

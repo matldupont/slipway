@@ -14,6 +14,8 @@
 //
 // Lacks Fit, each reason a finding id:
 //   fit/missing             no `## Fit` heading; the first one in the file is the one read, as section() finds it
+//   fit/unreadable          a `<!--` and a `-->` sit on either side of a heading line: the reader cannot tell a comment
+//                           from a `<!--` GitHub shows as text, so it cannot tell which headings, labels and text show
 //   fit/unfilled/<label>    that label is absent, or its text is empty, or its text holds a placeholder
 //   fit/unfilled/new        also when `Reuses:` says nothing is reused and `New:` says `none`
 //   frontmatter/unreadable  the doc is held as `unreadable`
@@ -22,13 +24,13 @@
 // mark, emphasis or another case is not a label. The first line for each label is the one read, and its text runs
 // to the next label line or the end of the section.
 
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
 import { hasPlaceholder } from './frontmatter.mjs';
-import { commentLines, replaceComments, sectionLines } from './markdown.mjs';
+import { commentCrossesHeading, commentLines, replaceComments, sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
-import { readPlain, reviewProvenance } from './review-header.mjs';
+import { MISSING, notPlainFolder, readPlain, reviewProvenance } from './review-header.mjs';
 
 const LABELS = { reuses: 'Reuses:', numbers: 'Numbers:', new: 'New:' };
 const REVIEWS = 'docs/reviews';
@@ -103,6 +105,7 @@ const placeholder = (text) => text.split('\n').some((line) => line.length > LINE
 
 // How a doc's Fit reads: `reasons` it lacks Fit (none: filled), and for a filled one which short answers it gave.
 function readFit(md) {
+  if (commentCrossesHeading(md)) return { reasons: ['fit/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
   const texts = fitTexts(md);
   if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
   // The placeholder test and its length cap come first, so a line nobody reads is never read further.
@@ -120,10 +123,12 @@ function readFit(md) {
   };
 }
 
-// Each reviewed path, normalised → the review files that name it.
+// Each reviewed path, normalised → the review files that name it, and docs/reviews/ in `refused` when it is a link,
+// sits under one or is not a folder: then none of it is read.
 function reviewedPaths(root) {
   const named = new Map();
-  if (!existsSync(join(root, REVIEWS))) return named;
+  const why = notPlainFolder(root, REVIEWS);
+  if (why !== null) return { named, refused: why === MISSING ? [] : [REVIEWS] };
   for (const f of readdirSync(join(root, REVIEWS)).filter((x) => x.endsWith('.md') && x !== 'TEMPLATE.md').sort()) {
     const text = readPlain(root, `${REVIEWS}/${f}`);
     const path = text === null ? null : reviewProvenance(text).reviewed?.path;
@@ -131,7 +136,7 @@ function reviewedPaths(root) {
     const key = posix.normalize(path);
     named.set(key, [...(named.get(key) ?? []), `${REVIEWS}/${f}`]);
   }
-  return named;
+  return { named, refused: [] };
 }
 
 // Each F-<n> a running or finished milestone schedules → the milestone files that cite it, and the milestone
@@ -161,12 +166,13 @@ function scheduledFeatures(root) {
  *             folder, `why` being `not-a-folder`: none of its docs is read
  *   files     how many `*.md` files were looked at
  *   unread    each input that is not read because it is a link, sits under one or is not what it should be: a
- *             feature folder (also in `others`), a milestone file or docs/milestones/ (MS1 reports these too).
+ *             feature folder (also in `others`), docs/reviews/, a milestone file or docs/milestones/ (MS1 reports
+ *             these too). A review file that is a link is not in it: it is left out, and R1 names it.
  *             The count leaves out what they hold, so a caller that records or compares it refuses first
  */
 export function fitCount(root) {
   const files = readFeatureFiles(root);
-  const reviewed = reviewedPaths(root);
+  const { named: reviewed, refused: reviewsRefused } = reviewedPaths(root);
   const { cited: scheduled, refused } = scheduledFeatures(root);
   const docs = [];
   const drafts = [];
@@ -196,6 +202,6 @@ export function fitCount(root) {
     drafts,
     others: files.filter((f) => !f.regular || f.ns.length === 0).map((f) => ({ path: f.path, why: f.folder ? 'not-a-folder' : f.regular ? 'no-id' : 'not-a-file' })),
     files: files.length,
-    unread: [...files.filter((f) => f.folder).map((f) => f.path), ...refused],
+    unread: [...files.filter((f) => f.folder).map((f) => f.path), ...reviewsRefused, ...refused],
   };
 }

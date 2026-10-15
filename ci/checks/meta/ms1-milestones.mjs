@@ -69,7 +69,7 @@ import { frontmatter, hasPlaceholder } from '../lib/frontmatter.mjs';
 import { plain, section, table } from '../lib/markdown.mjs';
 import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
-import { excerpt, report } from '../lib/report.mjs';
+import { codeSpan, excerpt, report } from '../lib/report.mjs';
 
 const REQUIRED_SECTIONS = ['No-gos', 'Gate', 'Kill criteria'];
 const TEMPLATE_KEYS = ['id', 'status', 'kind', 'appetite'];
@@ -84,7 +84,7 @@ const written = (s) => s !== null && s.trim() !== '' && !hasPlaceholder(s);
 
 const findings = refused.map((path) => ({
   where: `${path}#file/unreadable`,
-  detail: path.endsWith('.md') ? `${path} is a link, is reached through one or is not a regular file, so it is not read as a milestone: make it a regular file` : `${path} is a link, sits under one or is not a folder, so no milestone in it is read: make it a plain folder`,
+  detail: path.endsWith('.md') ? `${codeSpan(path)} is a link, is reached through one or is not a regular file, so it is not read as a milestone: make it a regular file` : `${codeSpan(path)} is a link, sits under one or is not a folder, so no milestone in it is read: make it a plain folder`,
 }));
 const seen = new Map();
 const active = [];
