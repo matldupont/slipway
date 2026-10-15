@@ -422,6 +422,7 @@ Not defended: a sentence written to pass the rules while saying nothing. §9's r
 - The Next-line form is tested on fixtures; project text inside the quoted spans is excluded from the rules, so a
   milestone title with a semicolon is printed as written.
 - Only the Next line has a form test; the other status lines are held by the PR's before/after list and §9.
+- §9's stop rule rests on the owner: nothing in slipway fires when a reading is due or flat (AR-7 of the 0.2 review; the owner, 2026-10-15, takes the third resolution by default until a reading shows a need for a check).
 - This branch's own subjects were written before P1 holds them: one is 77 code points, and history is not rewritten.
 - Existing history, issue titles and docs in `docs/reviews/` are never rewritten.
 
