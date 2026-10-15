@@ -24,12 +24,24 @@
 # A prompt the session arranges for itself reaches UserPromptSubmit as a typed one does (#213), and nothing here can
 # tell them apart. So the refusal is not in this file (#222): a PreToolUse command in settings.json, which needs no
 # pin, denies a scheduling, messaging, terminal or typing tool call that carries the phrase as a whole value.
+# The session's tree (#481): in a session that runs in a git worktree, CLAUDE_PROJECT_DIR names the main checkout. So
+# the SessionStart that pins the base also pins, in the session's `tree` file, the top of the folder it started in when
+# that is a worktree of the same repository (the same git common dir), and the project folder otherwise. Every hook then
+# checks that tree and runs its hooks with CLAUDE_PROJECT_DIR set to it. A session with no `tree` file (pinned before
+# this) keeps the project folder. A `tree` file that cannot be read, or names a folder that is no longer the top of a
+# worktree of this repository, runs no hook: never another tree in its place.
 # POSIX sh with git, sed, grep, awk, sort, head, tr, cat, rm, mkdir and printf: hooks run under /bin/sh without your PATH (L-34).
 
 set -f # the globs below are git's, never the shell's
 hook=$1
-d=${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}
+p=${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}
+d=$p
 g() { git -C "$d" --no-replace-objects -c core.quotepath=on "$@"; }
+# A folder's top and its repository's common dir, as absolute paths git has resolved; empty when git cannot say.
+top() { git -C "$1" --no-replace-objects rev-parse --show-toplevel 2>/dev/null; }
+common() { git -C "$1" --no-replace-objects rev-parse --path-format=absolute --git-common-dir 2>/dev/null; }
+nl='
+'
 
 # Broken state: the Stop and SessionStart hooks say so where the owner sees it; the advisory hooks stay quiet.
 fail() {
@@ -71,7 +83,12 @@ if [ "$hook" = session-state.sh ] && [ ! -e "$state/base" ] && [ ! -L "$state/ba
   case "$input" in
     *'"source":"startup"'*|*'"source": "startup"'*|*'"source":"clear"'*|*'"source": "clear"'*|*'"source":"fork"'*|*'"source": "fork"'*)
       base=$(g rev-parse -q --verify 'refs/remotes/origin/HEAD^{commit}') || fail 'no origin/HEAD (git remote set-head origin --auto)'
-      (umask 077 && mkdir -p "$state" && set -C && printf '%s\n' "$base" >"$state/base") 2>/dev/null || fail 'the base could not be pinned for this session' ;;
+      # The tree first: a session whose tree could not be written gets no base either, so it runs no hook.
+      t=$(top .) && pc=$(common "$p") && [ -n "$pc" ] && [ "$(common "$t")" = "$pc" ] || t=$(top "$p")
+      case "$t" in /*) ;; *) fail 'the folder this session started in could not be pinned' ;; esac
+      case "$t" in *"$nl"*) fail 'the folder this session started in could not be pinned' ;; esac
+      (umask 077 && mkdir -p "$state" && set -C && printf '%s\n' "$t" >"$state/tree") 2>/dev/null || fail 'the folder this session started in could not be pinned'
+      (umask 077 && set -C && printf '%s\n' "$base" >"$state/base") 2>/dev/null || fail 'the base could not be pinned for this session' ;;
   esac
 fi
 base=
@@ -80,8 +97,35 @@ case "$base" in *[!0-9a-f]*) base= ;; esac
 case "${#base}" in 40|64) ;; *) base= ;; esac
 [ -n "$base" ] && g cat-file -e "$base^{commit}" 2>/dev/null || fail 'no base is pinned for this session (start a new session)'
 
+# A hook held back: the Stop hook blocks once a stop, SessionStart says why, the yes says so, the advisory hooks stay quiet.
+held() {
+  case "$hook" in
+    stop-verify.sh)
+      input=$(cat)
+      case "$input" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exit 0 ;; esac
+      printf '{"decision":"block","reason":"stop-verify did not run: %s. Until then, say plainly that the gate did not run."}\n' "$1" ;;
+    session-state.sh)
+      printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"session-state did not run: %s."}}\n' "$1" ;;
+    trust-gates) printf '{"systemMessage":"base-guard: %s, so no yes was recorded."}\n' "$1" ;;
+  esac
+  exit 0
+}
+
+# The session's tree (#481). No `tree` file: the project folder, as before it was pinned. One that is there is used or
+# nothing runs: a link, not one absolute line, or a folder that is no longer the top of a worktree of this repository.
+if [ -e "$state/tree" ] || [ -L "$state/tree" ]; then
+  t=
+  [ -f "$state/tree" ] && [ ! -L "$state/tree" ] && [ "$(sed -n '$=' "$state/tree")" = 1 ] && IFS= read -r t <"$state/tree"
+  lost='the folder this session started in is gone or is no longer a worktree of this repository, so its gate cannot run. Start a new session in the folder you are working in'
+  case "$t" in /*) ;; *) held "$lost" ;; esac
+  pc=$(common "$p")
+  [ -n "$pc" ] && [ -d "$t" ] && [ "$(top "$t")" = "$t" ] && [ "$(common "$t")" = "$pc" ] || held "$lost"
+  d=$t
+fi
+
 # The working tree's hook, with the input this file read put back.
 run() {
+  CLAUDE_PROJECT_DIR=$d; export CLAUDE_PROJECT_DIR # the session's tree, for the hook and what it runs
   case "$hook" in
     session-state.sh) printf '%s' "$input" | sh "$d/process/harness/hooks/$hook"; exit ;;
     stop-verify.sh|intake-reminder.sh|lessons-first.sh|absence-search.sh) exec sh "$d/process/harness/hooks/$hook" ;;
@@ -203,12 +247,4 @@ if [ -n "$never" ]; then
 else
   why="$why. Ask the owner about them; to say yes the owner sends trust gates as a whole message, and the hooks run again in this session. You cannot record it. A session started after they are merged pins the new base"
 fi
-case "$hook" in
-  stop-verify.sh)
-    input=$(cat)
-    case "$input" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exit 0 ;; esac
-    printf '{"decision":"block","reason":"stop-verify did not run: %s. Until then, say plainly that the gate did not run."}\n' "$why" ;;
-  session-state.sh)
-    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"session-state did not run: %s."}}\n' "$why" ;;
-esac
-exit 0
+held "$why"
