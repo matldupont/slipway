@@ -62,6 +62,16 @@ test('DC1 is green on every shape the reader reads without a position (§5\'s gr
   }
 });
 
+test('DC1 prints the two counts as one info line: ids only, never red, none when empty (build step 4)', () => {
+  const info = (md) => record(md).out.split('\n').find((l) => l.startsWith('DC1: info'));
+  assert.equal(info('## PD-1 — t\n\nWe revisit this when the vendor moves.\n\n## PD-2 — u\n\nCloses when: #12 lands\n\n## PD-3 — v\n\nReopens when: F-07 has a doc\n'), 'DC1: info — in prose only: PD-1 (1); waiting on an issue: PD-2 (1)');
+  assert.equal(info('## PD-1 — t\n\nBody.\n'), 'DC1: info — in prose only: none; waiting on an issue: none');
+  const crowd = record(Array.from({ length: 25 }, (_, i) => `## PD-${i + 1} — t\n\nWe revisit this when it hurts.\n`).join('\n')).out;
+  assert.match(crowd, /^DC1: info — in prose only: PD-1, .*PD-20 and 5 more \(25\); waiting on an issue: none$/m);
+  const r = record('## PD-1 — t\n\nWe revisit this when `a\u001b[31mhostile` text.\n\nCloses when: #12 lands\n');
+  assert.deepEqual([r.exit, r.out.includes('\u001b')], [0, false]);
+});
+
 test('DC1 fails a position after a span that crossed a line break and closed; it names the first match only', () => {
   const r = record('## PD-3 — t\n\na span `that\ncrosses` a break, then M2 item 4, and item 5 of M2\n');
   assert.deepEqual([r.exit, r.findings], [1, ['decisions.md#decision/position/PD-3']]);
@@ -119,9 +129,9 @@ test('status fires M1.1 is active from M1.1, never from M1', () => {
 
 test('DC1 warns on an unreadable condition and stays green; it prints no record text', () => {
   const r = record('## PD-1 — SECRETTITLE *(decided 2026-03-01)*\n\nReopens when: SECRETWORD happens\n\n## PD-2 — t\n\nCloses when: #12 lands\n');
-  assert.deepEqual([r.exit, r.findings, r.warnings], [0, [], ['decisions.md#decision/unreadable/PD-1', 'decisions.md#decision/unreadable/PD-2']]);
+  assert.deepEqual([r.exit, r.findings, r.warnings], [0, [], ['decisions.md#decision/unreadable/PD-1']]);
   assert.equal(/SECRET/.test(r.out), false);
-  assert.match(r.out, /PD-2 \(line 5\) has a condition or Amends: line status cannot read \(it waits on an issue/);
+  assert.match(r.out, /PD-1 \(line 1\) has a condition or Amends: line status cannot read: say what brings it back/);
 });
 
 test("DC1 is green on slipway's own record", () => {

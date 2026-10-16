@@ -26,6 +26,11 @@ In a worktree without `node_modules` (move `apps/web/node_modules` aside, or use
 second must print `"decision":"block"` naming the package and `pnpm install --frozen-lockfile`, and must
 not write `.git/stop-verify-ok`.
 
+With a test failing, run the Stop hook twice without changing anything (#484). The first must run the gate and print
+`"decision":"block"`. The second must print `"decision":"block"` at once, with the same failure lines and
+`Cached from`, and must not run the gate. Change a file, or wait 10 minutes, and it must run the gate again.
+`scripts/stop-verify-cache.test.mjs` holds the same cases.
+
 The base guard, in a session Claude Code started here (it needs that session's pin, so run it from the session's
 own terminal, where `CLAUDE_CODE_SESSION_ID` is set). With a gate file changed (add a line to `ci/verify.mjs`) it
 must print `"decision":"block"` naming the file and run nothing; restored, it must run the Stop hook as above:
@@ -33,6 +38,13 @@ must print `"decision":"block"` naming the file and run nothing; restored, it mu
 ```bash
 printf '{}' | env -i HOME="$HOME" PATH=/usr/bin:/bin CLAUDE_PROJECT_DIR="$PWD" CLAUDE_CODE_SESSION_ID="$CLAUDE_CODE_SESSION_ID" sh -c "$(git cat-file blob "$(cat ~/.claude/slipway/sessions/$CLAUDE_CODE_SESSION_ID/base)":process/harness/hooks/base-guard.sh)" base-guard stop-verify.sh
 ```
+
+In a worktree (#481): start a new Claude Code session in a git worktree of the project (`git worktree add`). Its
+session folder must hold a `tree` file naming the worktree, not the main checkout:
+`cat ~/.claude/slipway/sessions/$CLAUDE_CODE_SESSION_ID/tree`. Make a test fail in the main checkout only: the
+session's turn must end unblocked. Make one fail in the worktree only: its turn must block, and the failure shown must
+be the worktree's. Remove the worktree before a turn ends: the Stop hook must block once, saying the folder is gone.
+`scripts/harness-state.test.mjs` holds the same cases.
 
 With the gate file still changed, send `trust gates` as a message of its own: Claude Code must show which files
 the yes covers, and the Stop hook must run again until you change the file once more.

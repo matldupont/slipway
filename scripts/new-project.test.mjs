@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { readDecisions } from '../ci/checks/lib/decisions.mjs';
 import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest, sha256, SLIPWAY_ROOT_COMMIT, TEMPLATE_MARKERS } from '../ci/checks/lib/manifest.mjs';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
 import { blobSha, derivePackageJson, publicSource, resolveSlipway } from './lib/install.mjs';
@@ -324,6 +325,16 @@ test('the created decisions.md holds the header and D-001–D-014 only: no slipw
   assert.match(text, /add this project's own as `PD-<n>`/);
   assert.doesNotMatch(text, /roadmap-page|#62|#63|D-(?:01[5-9]|0[2-9]\d)/);
   assert.match(readFileSync(join(SRC, 'decisions.md'), 'utf8'), /^## D-017 /m, 'slipway keeps its own records');
+});
+
+// F-15 §7, build step 4: the Contract said a fresh project counts 0 (D-001–D-014 match nothing); D-003's "Revisit when CI
+// time is a measured problem" matches the prose pattern, so a fresh project counts 1, and its first sync says so (D-003
+// is a prose condition nothing reads, which is true). Step 5 corrects the doc.
+test('a fresh project\'s decisions.md counts one decision in prose only (D-003) and none waiting on an issue', () => {
+  const dest = join(tmp(), 'probe');
+  newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
+  const record = readDecisions(dest);
+  assert.deepEqual([record.proseCount(), record.awaitingIssue()], [['D-003'], []]);
 });
 
 // #117: slipway's own skill settings stay in slipway; a project starts from AGENT.md's placeholders, filled.

@@ -148,7 +148,9 @@ function runCase(check, name, dir) {
       return;
     }
   }
-  const r = spawnSync(process.execPath, [check.file, target], {
+  // P1 alone takes a second argument, the fixture folder as the root its decisions record is read from (F-15 §8): no
+  // other check is handed a stray argument.
+  const r = spawnSync(process.execPath, [check.file, target, ...(check.id === 'p1' ? [target] : [])], {
     encoding: 'utf8',
     env: { ...process.env, ...env, CHECK_JSON: '1' },
   });
