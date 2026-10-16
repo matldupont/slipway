@@ -130,3 +130,44 @@ test('MS1 warns once, naming both, when two neighbours in id order start the oth
   });
   assert.deepEqual([inOrder.exit, inOrder.warnings], [0, []], inOrder.out);
 });
+
+test("status reads a risk's \"before M1.1\" cell and an M1.1 bet: the first bet is M1.1, and a test due before it is on time", () => {
+  const fixture = join(SRC, 'ci', 'fixtures', 'status', 'deadlines-toronto');
+  const root = mkdtempSync(join(tmpdir(), 'milestone-ids-'));
+  try {
+    cpSync(fixture, root, { recursive: true });
+    writeFileSync(join(root, 'docs', 'milestones', 'M1.1-deposits.md'), ms('M1.1', 'shaping'));
+    const prd = join(root, 'docs', 'PRD.md');
+    writeFileSync(prd, readFileSync(prd, 'utf8').replace('| pre-application call | before M4 |', '| pre-application call | before M1.1 |'));
+    const r = run('ci/status.mjs', root, { CHECK_TODAY: '', CHECK_NOW: '2026-03-10T23:30:00-04:00' });
+    assert.equal(r.status, 0, r.stderr);
+    const lines = r.stdout.split('\n').filter((l) => /Existential risk: RISK-[45]\b/.test(l));
+    // RISK-4 is due before M1.1, the first bet: on time. RISK-5, before M2 starts, is now after it.
+    assert.deepEqual(lines.map((l) => l.match(/RISK-\d is existential and untested, and [^:]*/)[0]), ['RISK-5 is existential and untested, and resolves before M2 starts, after M1.1 starts']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('MS1 holds M01 and m1 to be M1: a second document with either is id/duplicate', () => {
+  for (const id of ['M01', 'm1', 'M1']) {
+    inTree({ 'docs/milestones/M1-a.md': ms('M1', 'shaping'), 'docs/milestones/0-b.md': ms(id, 'shaping') }, (root) => {
+      const r = run('ci/checks/meta/ms1-milestones.mjs', root, { CHECK_JSON: '1' });
+      assert.deepEqual([r.status, json(r).findings.map((f) => f.where)], [1, ['M1-a.md#id/duplicate']], id);
+    });
+  }
+  inTree({ 'docs/milestones/M1-a.md': ms('M1', 'shaping'), 'docs/milestones/M1.1-b.md': ms('M1.1', 'shaping') }, (root) => {
+    assert.equal(run('ci/checks/meta/ms1-milestones.mjs', root).status, 0, 'M1.1 is not M1');
+  });
+});
+
+test('MS1 compares no milestone whose id is another shape: it sorts last, so its appetite says nothing about order', () => {
+  inTree({
+    'docs/milestones/M1-a.md': ms('M1', 'shaping', '2026-02-01..2026-02-14'),
+    'docs/milestones/M2-b.md': ms('M2', 'shaping', '2026-03-01..2026-03-14'),
+    'docs/milestones/Z-beta.md': ms('Beta', 'shaping', '2026-01-01..2026-01-14'),
+  }, (root) => {
+    const r = run('ci/checks/meta/ms1-milestones.mjs', root, { CHECK_JSON: '1' });
+    assert.deepEqual([r.status, json(r).warnings.filter((w) => /order/.test(w.where))], [0, []], r.stdout);
+  });
+});

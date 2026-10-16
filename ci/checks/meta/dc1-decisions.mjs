@@ -36,12 +36,14 @@ if (record.missing) process.exit(report({ id: 'DC1', claim: '', scanned: 0, unit
 
 // The milestones are read only when a position needs one, so a record that names none never depends on them.
 let milestones;
-const milestone = (id) => {
+const withId = (id) => {
   milestones ??= readMilestones(root).milestones;
-  return milestones.find((x) => milestoneId(x.fm?.id) === id);
+  return milestones.filter((x) => milestoneId(x.fm?.id) === id);
 };
-// A closed or killed milestone is never reshaped, so its items cannot move (the owner, 2026-10-15).
-const settled = (id) => ['closed', 'killed'].includes(milestone(id)?.fm.status);
+const milestone = (id) => withId(id)[0];
+// A closed or killed milestone is never reshaped, so its items cannot move (the owner, 2026-10-15). Every document with
+// the id must be, so a second, closed one (`id: M01` beside `id: M1`) settles nothing; MS1 fails the pair as id/duplicate.
+const settled = (id) => withId(id).length > 0 && withId(id).every((m) => ['closed', 'killed'].includes(m.fm.status));
 const item = (id, k) => {
   const m = milestone(id);
   const it = m && contents(m.md).find((i) => i.n === k);

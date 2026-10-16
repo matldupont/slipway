@@ -66,7 +66,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section, table } from '../lib/markdown.mjs';
-import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneKey, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
+import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
 import { excerpt, report } from '../lib/report.mjs';
 
@@ -99,8 +99,10 @@ for (const { file: f, md, fm } of milestones) {
   const add = (rule, detail) => findings.push({ where: `${f}#${rule}`, detail });
   if (!fm) { add('frontmatter/missing', 'no YAML frontmatter: start the file with the block shown in docs/milestones/TEMPLATE.md'); continue; }
   if (!fm.id || !fm.status) { add('field/missing', 'needs id: and status: in its frontmatter (docs/milestones/TEMPLATE.md shows both)'); continue; }
-  if (seen.has(fm.id)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(fm.id)} — give one of them the next free number`);
-  else seen.set(fm.id, f);
+  // Compared as the readers compare it, so `M01` and `m1` are M1 (#476): every reader takes the first by id order.
+  const same = milestoneId(fm.id) ?? fm.id;
+  if (seen.has(same)) add('id/duplicate', `id ${fm.id} is also used by ${seen.get(same)} — give one of them the next free number`);
+  else seen.set(same, f);
   if (!MILESTONE_STATUSES.includes(fm.status)) {
     add('status/unknown', `"${fm.status}" is not one of ${MILESTONE_STATUSES.join(', ')}`);
     continue;

@@ -664,11 +664,12 @@ test('process/intake.md → Milestone item: the argument is matched before use, 
   const m = (section(intake, 'Milestone item', 2) ?? '').replace(/\s+/g, ' ');
   assert.ok(m, 'process/intake.md has no ## Milestone item');
   const arg = m.match(/An argument matching `([^`]+)` selects this form, and is used for nothing before it matches/)?.[1];
-  assert.ok(arg, 'the argument is checked before it reaches anything');
+  // Pinned whole: the pattern is what keeps the argument out of a shell, so a looser one fails here before any sample.
+  assert.equal(arg, '^M\\d+(\\.\\d+)?#\\d+$', 'the argument is checked before it reaches anything');
   // #476: an inserted milestone's item is selected as M2's is; nothing else that could reach a command is.
   const re = new RegExp(arg);
   for (const ok of ['M2#2', 'M1.1#3', 'M10#1']) assert.ok(re.test(ok), `${arg} must select ${ok}`);
-  for (const no of ['M1.1.1#3', 'M1#', 'M1.#2', 'm1#2', 'M1#2; rm -rf x', 'x M1#2', 'M1b#2']) assert.ok(!re.test(no), `${arg} must not select ${no}`);
+  for (const no of ['M1.1.1#3', 'M1#', 'M1.#2', 'm1#2', 'M1#2; rm -rf x', 'M1#2 x', 'M1#2 $(x)', 'x M1#2', 'M1b#2']) assert.ok(!re.test(no), `${arg} must not select ${no}`);
   assert.match(m, /not `status: active`/, 'a milestone still being shaped stops the run');
   assert.match(m, /Phase 2, skipped,\*\* with one line: `\{id\} already made this bet/, 'the argument against building is replaced by one line');
   assert.match(m, /no F-ID is added and the PRD version is not bumped/, 'an item already in the PRD adds no F-ID');
