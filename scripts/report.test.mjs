@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { escapeControl, escapeOutput } from '../ci/checks/lib/report.mjs';
+import { codeSpan, escapeControl, escapeOutput } from '../ci/checks/lib/report.mjs';
 
 const REPORT = pathToFileURL(join(resolve(dirname(fileURLToPath(import.meta.url)), '..'), 'ci', 'checks', 'lib', 'report.mjs')).href;
 const STATUS = join(resolve(dirname(fileURLToPath(import.meta.url)), '..'), 'ci', 'status.mjs');
@@ -86,4 +86,11 @@ test('status prints a line break in a file name escaped: it cannot forge a Next:
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// #430 item 10: a project's file name printed in a code span cannot close it.
+test('codeSpan(): fenced by one backtick more than the longest run inside, padded when the text starts or ends with one', () => {
+  assert.equal(codeSpan('docs/a.md'), '`docs/a.md`');
+  assert.equal(codeSpan('a`b``c'), '```a`b``c```');
+  assert.equal(codeSpan('`a'), '`` `a ``');
 });

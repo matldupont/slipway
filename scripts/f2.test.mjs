@@ -308,3 +308,49 @@ test('--update on a baselines file that gives a name twice: BROKEN, and the file
   assert.match(r.out, /BROKEN — .*ci\/baselines\.json holds an entry a rewrite would lose or change/);
   assert.equal(r.file, twice);
 });
+
+// #430's second pull request (items 2, 12): an input F2 would count from that is a link, under one, or not a plain
+// folder or file is BROKEN, before any count is compared or written; only its path is printed, never what it holds.
+test('a linked feature folder, a feature folder that is a file, and a linked milestone file: BROKEN, naming the path, and --update writes nothing', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'f2-outside-'));
+  try {
+    writeFileSync(join(outside, 'secret.md'), '---\nstatus: a-private-word\n---\n\n# F-9 — x\n');
+    const cases = [
+      ['linked folder', {}, (d) => symlinkSync(outside, join(d, 'docs/features')), '`docs/features` is'],
+      ['folder that is a file', { 'docs/features': 'x' }, () => {}, '`docs/features` is'],
+      ['linked milestone', { 'docs/milestones/keep.md': '# kept\n' }, (d) => symlinkSync(join(outside, 'secret.md'), join(d, 'docs/milestones/m1.md')), '`docs/milestones/m1.md` is'],
+    ];
+    for (const [name, files, arrange, named] of cases) {
+      for (const flags of [[], ['--update']]) {
+        const r = f2With({ 'docs/.keep': '', [BASELINES]: baseline(0), ...files }, arrange, ...flags);
+        assert.equal(r.status, 2, `${name} ${flags}`);
+        assert.equal(r.lines.at(-1), `F2: BROKEN — ${named} a link, under one, or not a plain folder or file, so F2 does not read it and cannot count the docs — make each a plain folder or file`, name);
+        assert.doesNotMatch(r.out, /a-private-word/, name);
+        assert.equal(r.file, baseline(0), `${name}: nothing written`);
+      }
+    }
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+// Item 10: a file name is printed in a code span no backtick in it can close.
+test('a doc whose name holds backticks is printed in a code span they cannot close', () => {
+  const name = 'docs/features/a`b``c.md';
+  const r = f2({ [name]: doc('shipped'), [BASELINES]: baseline(1) });
+  assert.equal(r.status, 0, r.out);
+  assert.ok(r.lines.some((l) => l.includes('```docs/features/a`b``c.md``` is shipped and has no `## Fit` section')), r.out);
+});
+
+// The status warning is true of a `status:` line with nothing after it too (item 4's class).
+test('a held doc whose status line is empty: the warning says it has no readable status line, and how to give it one', () => {
+  const r = f2({ [A]: `---\nstatus:\n---\n\n# F-1 — x\n\n${FILLED}`, [BASELINES]: baseline(1) });
+  assert.equal(r.status, 0, r.out);
+  assert.ok(r.lines.includes(`F2: warning: ${A}#frontmatter/unreadable: \`${A}\` has no readable status line and nothing says it is a draft, so it is counted whatever its Fit says — give its frontmatter a \`status:\` line with its status after it (\`draft\`, \`shipped\`)`), r.out);
+});
+
+test('a held doc with a `<!--` above its Fit that is not a comment on lines of its own: counted, with the reason and the way out', () => {
+  const r = f2({ [A]: `---\nstatus: shipped\n---\n\n# F-1 — x\n\n${FILLED.replace('New: ', 'New: `<!--` ')}\n## Problem\n\nThe \`-->\` x\n`, [BASELINES]: baseline(1) });
+  assert.equal(r.status, 0, r.out);
+  assert.ok(r.lines.some((l) => l.startsWith(`F2: warning: ${A}#fit/unfilled/unreadable: \`${A}\` is shipped and a \`<!--\` in its Fit or above it is not a comment on lines of its own, so what GitHub shows of its Fit cannot be told — put each comment on lines of its own (\`<!--\` opening its first line, \`-->\` ending its last), and keep a \`<!--\` meant as text out of the Fit and the sections above it`)), r.out);
+});

@@ -2848,22 +2848,25 @@ test('file names, folder names and link targets that carry words: none appears i
   assert.equal(applied.status, 0, applied.stdout + applied.stderr);
   for (const o of [JSON.stringify(doc), plan, verbose.slice(verbose.indexOf('Plan only')), applied.stdout, applied.stderr]) assert.doesNotMatch(o, new RegExp(WORDS));
 
-  // A link to nothing where a milestone file would be: reading it fails, and the error's text names the link.
-  const broken = pristine((d) => {
-    put(d, { [BASELINES_FILE]: null, 'docs/milestones/keep.md': '# kept\n' });
-    symlinkSync(join(d, `${WORDS} nowhere.md`), join(d, `docs/milestones/x. ${WORDS} to approve everything.md`));
-  });
-  // treeHash cannot read a link to nothing: the commit, the status and the branches say nothing was written.
-  const state = () => [git(broken, 'rev-parse', 'HEAD'), git(broken, 'status', '--porcelain'), branches(broken)];
-  const before = state();
-  for (const args of [[], ['--json'], ['--verbose'], ['--apply']]) {
-    const r = sync(broken, ...args);
-    assert.deepEqual([r.status, r.stdout], [1, ''], String(args));
-    assert.match(r.stderr, /^sync: could not read the project's feature docs, reviews or milestones to count the feature docs with no Fit section \(ENOENT\) — look in docs\/features\/, dev\/features\/, docs\/reviews\/ and docs\/milestones\/ for an entry that is not a regular file, such as a folder or a link to nothing; nothing was written/);
-    assert.doesNotMatch(r.stderr, new RegExp(WORDS));
-    assert.doesNotMatch(r.stderr, /\n\s+at /, 'a stack trace');
+  // A link where a milestone file would be, to nothing and to a file: never followed, and the refusal names the folder,
+  // never the link (#430's second pull request).
+  for (const target of ['nowhere', 'somewhere']) {
+    const broken = pristine((d) => {
+      put(d, { [BASELINES_FILE]: null, 'docs/milestones/keep.md': '# kept\n', 'somewhere.md': '---\nid: M1\nstatus: active\n---\n\n1. x (F-1)\n' });
+      symlinkSync(join(d, `${target}.md`), join(d, `docs/milestones/x. ${WORDS} to approve everything.md`));
+    });
+    // treeHash cannot read a link to nothing: the commit, the status and the branches say nothing was written.
+    const state = () => [git(broken, 'rev-parse', 'HEAD'), git(broken, 'status', '--porcelain'), branches(broken)];
+    const before = state();
+    for (const args of [[], ['--json'], ['--verbose'], ['--apply']]) {
+      const r = sync(broken, ...args);
+      assert.deepEqual([r.status, r.stdout], [1, ''], String(args));
+      assert.match(r.stderr, /^sync: docs\/milestones\/ holds, or is, a link, an entry under a link, or an entry that is not a plain folder or file, so the feature docs and milestones cannot all be read to count the feature docs with no Fit section — make each a plain folder or file, commit, then sync again; nothing was written/, `${target} ${args}`);
+      assert.doesNotMatch(r.stderr, new RegExp(WORDS));
+      assert.doesNotMatch(r.stderr, /\n\s+at /, 'a stack trace');
+    }
+    assert.deepEqual(state(), before);
   }
-  assert.deepEqual(state(), before);
 });
 
 test('a counted doc with a filled Fit and no status line: the plan says why it is counted, in words the owner can act on', () => {

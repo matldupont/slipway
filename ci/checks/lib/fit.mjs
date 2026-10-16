@@ -14,6 +14,8 @@
 //
 // Lacks Fit, each reason a finding id:
 //   fit/missing             no `## Fit` heading; the first one in the file is the one read, as section() finds it
+//   fit/unfilled/unreadable  a `<!--` in or above the Fit section that is not a comment on lines of its own: the reader
+//                           cannot tell it from text, so it cannot tell which labels and text GitHub shows
 //   fit/unfilled/<label>    that label is absent, or its text is empty, or its text holds a placeholder
 //   fit/unfilled/new        also when `Reuses:` says nothing is reused and `New:` says `none`
 //   frontmatter/unreadable  the doc is held as `unreadable`
@@ -22,40 +24,106 @@
 // mark, emphasis or another case is not a label. The first line for each label is the one read, and its text runs
 // to the next label line or the end of the section.
 
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
 import { hasPlaceholder } from './frontmatter.mjs';
-import { sectionLines } from './markdown.mjs';
+import { commentLines, commentSpans, sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
-import { readPlain, reviewProvenance } from './review-header.mjs';
+import { MISSING, notPlainFolder, readPlain, reviewProvenance } from './review-header.mjs';
 
 const LABELS = { reuses: 'Reuses:', numbers: 'Numbers:', new: 'New:' };
 const REVIEWS = 'docs/reviews';
 
-// The text of each label of a doc's Fit section, absent labels left out; null when the doc has no section.
+// A heading inside the section, as GitHub shows one: an ATX heading of any level ends a label's text, and a line of
+// text with a setext underline under it (`=`s, or two `-`s or more), a label line too, is a level-1 or level-2
+// heading, which ends the section. A lone `-` under a line stays the empty list mark it was read as, and a numbered
+// item or a quote line above an underline is read as a heading (Known limitations).
+const ATX = /^ {0,3}#{1,6}(?:[ \t]|$)/;
+const UNDERLINE = /^ {0,3}(?:=+|-{2,})[ \t]*$/;
+const setextAt = (lines, i) => i + 1 < lines.length && lines[i].trim() !== '' && !/^\s*[-*+]\s/.test(lines[i]) && !UNDERLINE.test(lines[i]) && UNDERLINE.test(lines[i + 1]);
+const FIT = /^#{2}\s+Fit\s*$/i; // as sectionLines() finds the section
+
+// Comments, read only where GitHub's reading is certain. A comment on lines of its own (its `<!--` opens a line, up
+// to three spaces before it, and its `-->` ends a line) is an HTML block GitHub hides whole: those lines are blank
+// here, and every heading, label and text in them is hidden as GitHub hides it. Any other `<!--` (mid-line, after a
+// list or quote mark, in code, or with no `-->`) the reader cannot tell from text, so a doc with one in its Fit
+// section or above it is unreadable: counted, never passed. One after the section hides nothing of it.
+const lineOf = (md, at) => {
+  let n = 0;
+  for (let i = md.indexOf('\n'); i >= 0 && i < at; i = md.indexOf('\n', i + 1)) n++;
+  return n;
+};
+function commentKinds(md) {
+  const own = [];
+  const other = [];
+  for (const [start, end] of commentSpans(md, { unclosed: true })) {
+    const closed = end - start >= 7 && md.startsWith('-->', end - 3);
+    const eol = md.indexOf('\n', end);
+    const opens = /^ {0,3}$/.test(md.slice(md.lastIndexOf('\n', start - 1) + 1, start));
+    (closed && opens && /^[ \t]*$/.test(md.slice(end, eol < 0 ? md.length : eol)) ? own : other).push([start, end]);
+  }
+  return { own, other };
+}
+// The text with each span in `spans` replaced by `by(comment)`, and every other `<!--` made inert at the same length,
+// so the line numbers hold and no reader after this takes it for a comment.
+function replaceSpans(md, spans, by) {
+  let out = '';
+  let from = 0;
+  for (const [start, end] of spans) {
+    out += md.slice(from, start) + by(md.slice(start, end));
+    from = end;
+  }
+  return (out + md.slice(from)).replaceAll('<!--', '<!-\uE000');
+}
+
+// The text of each label of a doc's Fit section, absent labels left out, as `{ shown, kept }`: `shown` as GitHub
+// shows it, `kept` the same lines with each hidden comment's text in place, for the placeholder test only (a
+// placeholder in a comment is still the template's). 'unreadable' for a doc with a comment the reader cannot read
+// in or above the section; null when the doc has no section.
 function fitTexts(md) {
+  const { own, other } = md.includes('<!--') ? commentKinds(md) : { own: [], other: [] };
+  const shownMd = replaceSpans(md, own, commentLines);
   // The lines as written: section() trims its text, and an indented `Reuses:` on the first line is not a label.
-  const body = sectionLines(md, 'Fit', 2);
+  const body = sectionLines(shownMd, 'Fit', 2);
   if (body === null) return null;
+  const all = shownMd.split(/\r?\n/);
+  const start = all.findIndex((l) => FIT.test(l.trim()));
+  // The spans come in order, so the first is the one nearest the top: counted once, in one pass.
+  if (other.length && lineOf(md, other[0][0]) <= start + body.length) return 'unreadable';
+  const kept = replaceSpans(md, own, (c) => c.replace(/<!--|-->/g, '    ')).split(/\r?\n/);
   const texts = {};
   let cur = null;
-  for (const line of body) {
+  for (const [i, line] of body.entries()) {
+    if (setextAt(body, i)) break;
+    if (ATX.test(line)) {
+      cur = null;
+      continue;
+    }
     const key = Object.keys(LABELS).find((k) => line.startsWith(LABELS[k]));
     if (key) {
       cur = key in texts ? null : key; // a label written twice: its first line is the one read
-      if (cur) texts[key] = [line.slice(LABELS[key].length)];
-    } else if (cur) texts[cur].push(line);
+      if (cur) texts[key] = [i];
+    } else if (cur) texts[cur].push(i);
   }
-  return Object.fromEntries(Object.entries(texts).map(([k, lines]) => [k, lines.join('\n')]));
+  const read = (lines, at, k) => at.map((i, n) => (n === 0 ? lines[start + 1 + i].slice(LABELS[k].length) : lines[start + 1 + i])).join('\n');
+  const pick = (lines) => Object.fromEntries(Object.entries(texts).map(([k, at]) => [k, read(lines, at, k)]));
+  return { shown: pick(all), kept: pick(kept) };
 }
 
 // What says something: text with at least one letter or digit, in any script, once the characters that print as
 // nothing are taken out (lib/feature-docs.mjs). The rule names what is filled, not what is empty, so a list mark
 // alone, a line of punctuation and every character nobody sees say nothing without being listed. A value written
 // as a symbol only reads as unfilled: counted, never passed. Nothing is folded: a list mark is looked for on the
-// line as written, so a dash that opens a wrapped line stays part of the item above it.
-const says = (s) => /[\p{L}\p{N}]/u.test(unseen(s));
+// line as written, so a dash that opens a wrapped line stays part of the item above it. Markup GitHub shows as
+// nothing, or as a character a person cannot tell from one, says nothing either: a character reference (`&nbsp;`,
+// `&#8203;`), an HTML tag (`<br>`, `<i></i>`; an autolink `<https://…>` is not one), a link with no text `[](x)`,
+// and a line that is a link reference definition (`[x]: url`). Each pattern stops at the next `<`, `(` or line end.
+const MARKUP = /&(?:#\d{1,7}|#[xX][\da-fA-F]{1,6}|[A-Za-z][A-Za-z\d]{0,31});|<\/?[A-Za-z][\w-]*(?:\s[^<>\n]*)?\/?>|\[\]\([^()\n]*\)/g;
+const REFERENCE = /^ {0,3}\[[^\]\n]{1,999}\]:/;
+// Markup is taken out inside a code span too, where GitHub shows it: the strict reading (Known limitations).
+const shown = (s) => unseen(s).split('\n').filter((l) => !REFERENCE.test(l)).join('\n').replace(MARKUP, '');
+const says = (s) => /[\p{L}\p{N}]/u.test(shown(s));
 const word = (s) => unseen(s).replace(/`/g, '').trim().toLowerCase();
 // A label's text as one short answer: its list mark, backticks and closing full stop removed, case ignored.
 const answer = (text) => word(text.trimStart().replace(/^[-*]\s/, '')).replace(/\.$/, '').trim();
@@ -82,10 +150,12 @@ const placeholder = (text) => text.split('\n').some((line) => line.length > LINE
 
 // How a doc's Fit reads: `reasons` it lacks Fit (none: filled), and for a filled one which short answers it gave.
 function readFit(md) {
-  const texts = fitTexts(md);
-  if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
+  const read = fitTexts(md);
+  if (read === 'unreadable') return { reasons: ['fit/unfilled/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
+  if (read === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
+  const { shown: texts, kept } = read;
   // The placeholder test and its length cap come first, so a line nobody reads is never read further.
-  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || !says(texts[k]));
+  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || placeholder(kept[k]) || !says(texts[k]));
   const reusesNothing = !unfilled.includes('reuses') && items(texts.reuses).every((i) => word(i).startsWith('nothing'));
   const nothingNew = !unfilled.includes('new') && answer(texts.new) === 'none';
   // A feature that neither reuses nor adds anything has not been described.
@@ -99,10 +169,12 @@ function readFit(md) {
   };
 }
 
-// Each reviewed path, normalised → the review files that name it.
+// Each reviewed path, normalised → the review files that name it, and docs/reviews/ in `refused` when it is a link,
+// sits under one or is not a folder: then none of it is read.
 function reviewedPaths(root) {
   const named = new Map();
-  if (!existsSync(join(root, REVIEWS))) return named;
+  const why = notPlainFolder(root, REVIEWS);
+  if (why !== null) return { named, refused: why === MISSING ? [] : [REVIEWS] };
   for (const f of readdirSync(join(root, REVIEWS)).filter((x) => x.endsWith('.md') && x !== 'TEMPLATE.md').sort()) {
     const text = readPlain(root, `${REVIEWS}/${f}`);
     const path = text === null ? null : reviewProvenance(text).reviewed?.path;
@@ -110,17 +182,20 @@ function reviewedPaths(root) {
     const key = posix.normalize(path);
     named.set(key, [...(named.get(key) ?? []), `${REVIEWS}/${f}`]);
   }
-  return named;
+  return { named, refused: [] };
 }
 
-// Each F-<n> a running or finished milestone schedules → the milestone files that cite it.
+// Each F-<n> a running or finished milestone schedules → the milestone files that cite it, and the milestone
+// inputs refused unread.
 function scheduledFeatures(root) {
   const cited = new Map();
-  for (const { file, md, fm } of readMilestones(root).milestones) {
+  const { milestones, refused } = readMilestones(root);
+  for (const { file, md, fm } of milestones) {
     if (fm?.status !== 'active' && fm?.status !== 'closed') continue;
     for (const n of new Set(contents(md).flatMap((item) => citedFeatures(item.text)))) cited.set(n, [...(cited.get(n) ?? []), `docs/milestones/${file}`]);
   }
-  return cited;
+  // TEMPLATE.md and README.md feed no count: MS1 names them when refused, and the count does not.
+  return { cited, refused: refused.filter((p) => !/\/(?:TEMPLATE|README)\.md$/.test(p)) };
 }
 
 /**
@@ -133,13 +208,19 @@ function scheduledFeatures(root) {
  *   short     of the held docs with a filled Fit, how many reuse nothing, show no numbers and add nothing new
  *   drafts    the paths of the drafts not yet held that would lack Fit if they were
  *   others    the `*.md` files in the two folders that are not feature docs and no doc's companion:
- *             `{ path, why }`, `why` being `no-id` (no `F-<n>` heading) or `not-a-file` (a link, a folder)
+ *             `{ path, why }`, `why` being `no-id` (no `F-<n>` heading) or `not-a-file` (a link, a folder, a file
+ *             reached through a link); and each of the two folders that is a link, sits under one or is not a
+ *             folder, `why` being `not-a-folder`: none of its docs is read
  *   files     how many `*.md` files were looked at
+ *   unread    each input that is not read because it is a link, sits under one or is not what it should be: a
+ *             feature folder (also in `others`), docs/reviews/, a milestone file or docs/milestones/ (MS1 reports
+ *             these too). A review file that is a link is not in it: it is left out, and R1 names it.
+ *             The count leaves out what they hold, so a caller that records or compares it refuses first
  */
 export function fitCount(root) {
   const files = readFeatureFiles(root);
-  const reviewed = reviewedPaths(root);
-  const scheduled = scheduledFeatures(root);
+  const { named: reviewed, refused: reviewsRefused } = reviewedPaths(root);
+  const { cited: scheduled, refused } = scheduledFeatures(root);
   const docs = [];
   const drafts = [];
   for (const f of files.filter(isFeatureDoc)) {
@@ -166,7 +247,8 @@ export function fitCount(root) {
     held: held.length,
     short: { reusesNothing: tally('reusesNothing'), noNumbers: tally('noNumbers'), nothingNew: tally('nothingNew') },
     drafts,
-    others: files.filter((f) => !f.regular || f.ns.length === 0).map((f) => ({ path: f.path, why: f.regular ? 'no-id' : 'not-a-file' })),
+    others: files.filter((f) => !f.regular || f.ns.length === 0).map((f) => ({ path: f.path, why: f.folder ? 'not-a-folder' : f.regular ? 'no-id' : 'not-a-file' })),
     files: files.length,
+    unread: [...files.filter((f) => f.folder).map((f) => f.path), ...reviewsRefused, ...refused],
   };
 }

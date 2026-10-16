@@ -6,25 +6,34 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // pattern looks to the end of the text from every `<!--` that has no `-->` after it, so a document of openers
 // costs the square of its length; here the first opener with no closer ends the search, since none after it
 // has one either.
-export function commentSpans(md) {
+// With `unclosed`, a `<!--` with no `-->` after it is a span too, running to the end of the text, as GitHub hides it.
+export function commentSpans(md, { unclosed = false } = {}) {
   const spans = [];
   for (let at = md.indexOf('<!--'); at >= 0; ) {
     const close = md.indexOf('-->', at + 4);
-    if (close < 0) break;
+    if (close < 0) {
+      if (unclosed) spans.push([at, md.length]);
+      break;
+    }
     spans.push([at, close + 3]);
     at = md.indexOf('<!--', close + 3);
   }
   return spans;
 }
-const withoutComments = (md) => {
+// The text with each comment span replaced by `by(comment)`, in one pass: what md.replace(/<!--[\s\S]*?-->/g, by)
+// gives, without that pattern's cost (above). `unclosed` as for commentSpans().
+export const replaceComments = (md, by, { unclosed = false } = {}) => {
   let out = '';
   let from = 0;
-  for (const [start, end] of commentSpans(md)) {
-    out += md.slice(from, start);
+  for (const [start, end] of commentSpans(md, { unclosed })) {
+    out += md.slice(from, start) + by(md.slice(start, end));
     from = end;
   }
   return out + md.slice(from);
 };
+// A comment's line breaks, and nothing else of it: the lines around it keep their numbers.
+export const commentLines = (c) => c.replace(/[^\n]/g, '');
+const withoutComments = (md) => replaceComments(md, () => '');
 
 // The text under a heading with this exact title (case-insensitive), up to the next
 // heading of the same or a higher level, with HTML comments removed. null if absent.
@@ -63,7 +72,7 @@ export const commentCrossesHeading = (md) =>
 // For owner-only views; nothing that publishes reads through it.
 export function prose(md, { frontmatter = true, unclosed = true } = {}) {
   const body = frontmatter ? md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '') : md;
-  const text = unclosed ? body.replace(/<!--[\s\S]*?(?:-->|$)/g, '') : withoutComments(body);
+  const text = replaceComments(body, () => '', { unclosed });
   const out = [];
   let fence = null;
   for (const line of text.split(/\r?\n/)) {

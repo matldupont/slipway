@@ -156,3 +156,18 @@ test('process/slipway-rules.md tells a session how to claim an id (#368)', () =>
     /A session taking a new decision or feature id reads `main`, the open pull requests and the remote's branches first, makes the entry that carries the id its first commit, and pushes the branch before any further work \(ID1 holds two of one id apart\)\./,
   );
 });
+
+// #430's second pull request: a feature folder that is a link is one finding, and a name is printed in a code span.
+test('a linked feature folder is a finding naming it, and a linked doc whose name holds a backtick is printed in a code span it cannot close', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'id1-outside-'));
+  try {
+    writeFileSync(join(outside, 'z.md'), doc('9'));
+    const folder = id1({ 'dev/features/b.md': doc('2'), 'docs/.keep': '' }, (dir) => symlinkSync(outside, join(dir, 'docs/features')));
+    assert.deepEqual(folder.findings, ['docs/features#feature/unreadable']);
+    assert.equal(folder.json.findings[0].detail, '`docs/features` is a link, sits under one or is not a folder, so ID1 reads none of the docs in it: make it a plain folder');
+    const tick = id1({ [A]: doc('6') }, (dir) => symlinkSync(join(dir, A), join(dir, 'docs/features/b`c.md')));
+    assert.equal(tick.json.findings[0].detail, '``docs/features/b`c.md`` is a link, is reached through one or is not a regular file, so ID1 cannot read its F-id: make it a regular file');
+  } finally {
+    rmSync(outside, { recursive: true, force: true });
+  }
+});
