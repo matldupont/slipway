@@ -139,12 +139,10 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 4. **Subagents,** one per area worth handing off, in parallel only when independent. State the absolute
    working path in the prompt, twice (L-26); run `git status` there when it reports; check its result (L-30).
 5. **In every area:**
-   - Before changing a component, function or response shape, find its tests and the tests of its callers.
-     A changed interface updates those tests in the same commit.
-   - A schema change goes through the project's one migration path, as `Stack constraints` says: never by
-     hand, never pushed straight to a database.
-   - No `any`, no suppressed type error, no `TODO` without an issue number, never `--no-verify`. A git hook
-     may not be installed: a commit going through proves nothing, only the gate does.
+   - Before changing a component, function or response shape, find its tests and the tests of its callers. A changed interface updates those tests in the same commit.
+   - A schema change goes through the project's one migration path, as `Stack constraints` says: never by hand, never pushed straight to a database.
+   - No `any`, no suppressed type error, no `TODO` without an issue number, never `--no-verify`. A git hook may not be installed: a commit going through proves nothing, only the gate does.
+   - A condition line in `decisions.md` (`Amends:`, `Reopens when:`, `Closes when:`, or a heading's clause) removed, edited, or added to an entry already decided: ask the owner first, and name the line in the PR body. P1 cannot tell a deletion from an outcome write, so the ask is the check.
 
 ## Phase 4 — Prove it
 
@@ -278,9 +276,9 @@ Only after CLEAN, with nothing committed since (Rounds 2 and 3, step 4). Rewrite
 
 ```bash
 git status --porcelain            # prints nothing
-d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}
+d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" . && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}
 ```
-P1 is the `pr-body` check, run here on the final body, and the chain stops at it: on a finding, fix `{prdir}/pr.md` and run the block again, so the body checked is the body posted; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which. It is 1 local run, no wait: do not wait on CI, and do not merge. Report the PR's URL.
+P1 is the `pr-body` check, run here on the final body, and the chain stops at it: on a finding, fix `{prdir}/pr.md` and run the block again, so the body checked is the body posted; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which. The `.` is the root P1 reads `decisions.md` from: a closing word that meets a decision's `Closes when:` or `Reopens when:` on that issue is a finding naming the decision, and its outcome line is written in this PR (`decision/awaits-outcome`). It is 1 local run, no wait: do not wait on CI, and do not merge. Report the PR's URL.
 
 ## Follow-ups
 

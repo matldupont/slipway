@@ -99,7 +99,8 @@ test('events: every form of the table, case-folded verbs, ids in their case, a c
   const said = (s) => parseEvent(s)?.said ?? null;
   assert.deepEqual(['F-7 has a doc', 'F-07 HAS A FEATURE DOC', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is activated', 'M2 goes active', 'M2 closes', '2026-03-09 has passed', 'acme/app#12 lands', '#12 is closed'].map(said),
     ['F-07 has a doc', 'F-07 has a doc', 'F-07 is reviewed', 'F-07 is shipped', 'M2 is active', 'M2 is active', 'M2 is closed', '2026-03-09 passes', '#12 closes', '#12 closes']);
-  assert.deepEqual(parseEvent('acme/app#12 lands'), { kind: 'issue', issue: 12, readable: false, said: '#12 closes' });
+  assert.deepEqual(parseEvent('Acme/App#12 lands'), { kind: 'issue', issue: 12, repo: 'acme/app', readable: true, said: '#12 closes' });
+  assert.deepEqual(parseEvent('#12 closes'), { kind: 'issue', issue: 12, repo: '', readable: true, said: '#12 closes' });
   const c = one('## PD-1 — t\n\nReopens when: `F-07 has a doc`  or  M2 is active.\n').conditions[0];
   assert.deepEqual([c.readable, c.events.map((e) => e.kind)], [true, ['doc', 'active']]);
 });
@@ -121,15 +122,29 @@ test('a line is cut at 500 characters before any pattern reads it', () => {
 test('positions: the five shapes in a heading clause or body; not with no milestone id, nor in a code span or fence', () => {
   const at = (md) => one(md).positions.map((p) => [p.line, p.milestone, p.item]);
   for (const s of ['M2 item 4', "M2's item 4", 'M2 Contents item 4', "M2's Contents item 4", 'item 4 of M2', 'M2’s item 4']) {
-    assert.deepEqual(at(`## PD-3 — t\n\nThis was ${s}.\n`), [[3, 2, 4]], s);
+    assert.deepEqual(at(`## PD-3 — t\n\nThis was ${s}.\n`), [[3, 'M2', 4]], s);
   }
-  assert.deepEqual(at("## PD-4 — t *(decided 2026-03-01 · reopens when M2 item 4's feature doc is written)*\n\nClean.\n"), [[1, 2, 4]]);
+  assert.deepEqual(at("## PD-4 — t *(decided 2026-03-01 · reopens when M2 item 4's feature doc is written)*\n\nClean.\n"), [[1, 'M2', 4]]);
   for (const s of ['item 4 alone', 'm2 item 4', 'M2  item 4', 'an id `D-044` in a span', '`M2 item 4`', 'a span `that\ncrosses M2 item 4` a break', 'a stray ` that never closes M2 item 4']) {
     assert.deepEqual(at(`## PD-3 — t\n\n${s}\n`), [], s);
   }
   assert.deepEqual(at('## PD-3 — t\n\n```\nM2 item 4\n```\n'), []);
-  assert.deepEqual(at('## PD-3 — t\n\na span `that\ncrosses` a break, then M2 item 4\n'), [[4, 2, 4]]);
-  assert.deepEqual(at('## PD-3 — t\n\na stray `\n\nnext paragraph M2 item 4\n'), [[5, 2, 4]]);
+  assert.deepEqual(at('## PD-3 — t\n\na span `that\ncrosses` a break, then M2 item 4\n'), [[4, 'M2', 4]]);
+  assert.deepEqual(at('## PD-3 — t\n\na stray `\n\nnext paragraph M2 item 4\n'), [[5, 'M2', 4]]);
+});
+
+// #476: a position in an inserted milestone is one, and M10 is not M1.
+test('positions in M1.1 and M10 are read as in M2; M1.1.1 and a bare M1.1 name no item', () => {
+  const at = (md) => one(md).positions.map((p) => [p.line, p.milestone, p.item]);
+  for (const s of ['M1.1 item 2', "M1.1's Contents item 2", 'item 2 of M1.1', 'item 2 of M01.1']) assert.deepEqual(at(`## PD-3 — t\n\nThis was ${s}.\n`), [[3, 'M1.1', 2]], s);
+  assert.deepEqual(at('## PD-3 — t\n\nM10 item 2, then item 3 of M10.\n'), [[3, 'M10', 2], [3, 'M10', 3]]);
+  for (const s of ['M1.1.1 item 2', 'M1.1 alone', 'm1.1 item 2']) assert.deepEqual(at(`## PD-3 — t\n\n${s}\n`), [], s);
+});
+
+test('M1.1 is active and M10 is closed are events, said with the id as written by number', () => {
+  const said = (s) => parseEvent(s)?.said ?? null;
+  assert.deepEqual(['M1.1 is active', 'M01.1 closes', 'M10 is closed', 'M1.1.1 is active', 'm1.1 is active'].map(said), ['M1.1 is active', 'M1.1 is closed', 'M10 is closed', null, null]);
+  assert.deepEqual(parseEvent('M1.1 goes active'), { kind: 'active', milestone: 'M1.1', readable: true, said: 'M1.1 is active' });
 });
 
 test('the heading is read masked: a position or prose in its code span is not counted, and a span never runs past it', () => {
@@ -191,7 +206,30 @@ test('the backstop: a clause opening a typo hid from the suffix reading makes th
   // A heading in a fence is an entry, its suffix is not read, and a clause opening in it is unreadable (the owner, #466).
   assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01 · reopens when M2 is closed)*\n```\n').entries.map((e) => e.conditions.map((c) => c.readable)), [[], [false]]);
   assert.deepEqual(parseDecisions('## PD-7 — t\n\n```\n## PD-8 — x *(decided 2026-03-01)*\n```\n').entries.map((e) => e.conditions.length), [0, 0]);
-  tree({ 'decisions.md': '## PD-1 — keep the ` key *(decided 2026-03-01 · reopens when M2 is closed)*\n' }, (r) => assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-1', false]]));
+  tree({ 'decisions.md': '## PD-1 — keep the ` key *(decided 2026-03-01 · reopens when M2 is closed)*\n' }, (r) => assert.deepEqual(r.unreadable().map((u) => u.id), ['PD-1']));
+});
+
+test('a stray heading inside an entry is counted once, as a stray: its words never make the entry prose too (build step 4)', () => {
+  const md = '## PD-1 — t *(decided 2026-03-01)*\n\n### PD3 — u *(decided 2026-03-01 · reopens when M2 is activated)*\n';
+  const r = parseDecisions(md);
+  assert.deepEqual([r.strays, r.entries[0].prose], [[3], false]);
+  // The same words in the body of the entry still count as prose, once.
+  assert.equal(one('## PD-1 — t *(decided 2026-03-01)*\n\nIt reopens when M2 is activated.\n').prose, true);
+});
+
+test('the decisions waiting on an issue: a condition naming one, readable or not, in a line or a heading clause; an outcome or Amends: line is not one (build step 4)', () => {
+  const ids = (md) => tree({ 'decisions.md': md }, (r) => r.awaitingIssue());
+  assert.deepEqual(ids('## PD-1 — t\n\nCloses when: #12 lands\n\n## PD-2 — u *(decided 2026-03-01 · closes when owner/repo#7 is closed)*\n\n## PD-3 — v\n\nReopens when: F-07 has a doc or #9 closes\n'), ['PD-1', 'PD-2', 'PD-3']);
+  assert.deepEqual(ids('## PD-1 — t\n\nClosed 2026-03-10: done\n\n## PD-2 — u\n\nAmends: F-07\n\n## PD-3 — v\n\nReopens when: F-07 has a doc\n\n## PD-4 — w\n\n- Closes when: #12 lands\n'), []);
+  assert.deepEqual(ids('## PD-1 — t\n\n```\nCloses when: #12 lands\n```\n'), [], 'a fenced condition is unreadable and names no issue');
+  tree({}, (r) => assert.deepEqual(r.awaitingIssue(), []));
+});
+
+test('a decision waiting on an issue is not also prose only; a heading cut at 500 characters never counts as waiting (review round 1, build step 4)', () => {
+  tree({ 'decisions.md': '## PD-1 — t\n\nCloses when: #12 lands\n\nWe revisit this when the vendor moves.\n\n## PD-2 — u\n\nWe revisit this when it hurts.\n' }, (r) => assert.deepEqual([r.proseCount(), r.awaitingIssue()], [['PD-2'], ['PD-1']]));
+  const head = (pad) => `## PD-1 — ${'x'.repeat(pad)} *(decided 2026-03-01 · closes when #12 lands or the vendor moves)*\n`;
+  tree({ 'decisions.md': head(10) }, (r) => assert.deepEqual([r.awaitingIssue(), r.unreadable().length], [[], 1]));
+  tree({ 'decisions.md': head(445) }, (r) => assert.deepEqual([r.awaitingIssue(), r.unreadable().length], [[], 1]), 'cut after "#12 lands"');
 });
 
 test('AR-4: the heading suffix is read by the prose pattern outside every condition clause', () => {
@@ -345,7 +383,7 @@ test('heading conditions fire like labelled lines; several events fire on any on
   });
 });
 
-test('unreadable: in file order, ids only; an issue event is unreadable until step 5, flagged when it is the only reason', () => {
+test('unreadable: in file order, ids only; an issue event is readable (build step 5) and never fires in status', () => {
   tree({
     'decisions.md': [
       '## PD-3 — a *(decided 2026-03-01 · provisional until the supplier confirms in writing)*',
@@ -357,9 +395,11 @@ test('unreadable: in file order, ids only; an issue event is unreadable until st
     ].join('\n\n'),
     'dev/features/seven.md': doc(7),
   }, (r) => {
-    assert.deepEqual(r.unreadable().map((u) => [u.id, u.issueOnly]), [['PD-3', false], ['PD-4', true], ['PD-5', false], ['PD-7', true], ['PD-8', false]]);
-    // F-07 has a doc, so PD-6 fires; PD-7's condition holds the same event beside an issue, and is never fired until step 5.
-    assert.deepEqual(r.fired('2026-03-10').map((f) => f.id), ['PD-6']);
+    assert.deepEqual(r.unreadable().map((u) => u.id), ['PD-3', 'PD-5', 'PD-8']);
+    // F-07 has a doc, so PD-6 fires, and PD-7's condition fires on it beside an issue; an issue event alone never fires in status.
+    assert.deepEqual(r.fired('2026-03-10').map((f) => [f.id, f.events.map((e) => e.kind)]), [['PD-6', ['doc']], ['PD-7', ['doc']]]);
+    // The readable issue events, for P1 (§8): one per decision and event, the condition's kind, the repository as written.
+    assert.deepEqual(r.issueEvents(), [{ id: 'PD-4', kind: 'closes', where: 'line', issue: 12, repo: '' }, { id: 'PD-5', kind: 'closes', where: 'line', issue: 12, repo: 'acme/app' }, { id: 'PD-7', kind: 'closes', where: 'heading', issue: 12, repo: '' }, { id: 'PD-7', kind: 'reopens', where: 'line', issue: 13, repo: '' }]);
   });
 });
 

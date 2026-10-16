@@ -6,20 +6,21 @@
 // a project.
 
 import assert from 'node:assert/strict';
-import { appendFileSync, chmodSync, closeSync, openSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, closeSync, openSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { gitignoreText } from './lib/install.mjs';
 import test from 'node:test';
-import { SRC, SID, T, commands, work, git, put, reset, run, commit, unpin, pinOf } from './harness-fixture.mjs';
+import { SRC, SID, T, commands, work, git, put, reset, run, commit, unpin, pinOf, marks } from './harness-fixture.mjs';
 
 // A hook PATH holds node and a pnpm that answers `-v`, as the gate's runner does: the Stop hook says so and prints otherwise.
+// Asked to run a task, it fails in a folder that holds a file named RED, and says which folder (#481).
 const BIN = mkdtempSync(join(tmpdir(), 'harness-state-bin-'));
-writeFileSync(join(BIN, 'pnpm'), '#!/bin/sh\necho 0.0.0\n');
+writeFileSync(join(BIN, 'pnpm'), '#!/bin/sh\n[ "$1" = -v ] && { echo 0.0.0; exit 0; }\n[ -e RED ] && { echo "red in $(pwd -P)"; exit 1; }\nexit 0\n');
 chmodSync(join(BIN, 'pnpm'), 0o755);
 test.after(() => rmSync(BIN, { recursive: true, force: true }));
-const PATH = `/usr/bin:/bin:${dirname(process.execPath)}:${BIN}`;
+const PATH = `${BIN}:/usr/bin:/bin:${dirname(process.execPath)}`; // the stub first: node's folder may hold a real pnpm
 const REAL = ['session-state.sh', 'stop-verify.sh', 'stop-verify.mjs', 'find-node.sh'];
 
 // The base: the fixture's, with the real hooks and the real ci/ in it, and the ignore rules a project has.
@@ -188,5 +189,109 @@ test('a turn-end refresh that never returns is cut off after 20 s, and the Stop 
     try { closeSync(openSync(fifo, 'r+')); } catch { /* lets a reader a failed run left behind see the end of the file */ }
     rmSync(fifo, { force: true });
     writeFileSync(join(work, '.git/info/exclude'), '');
+  }
+});
+
+// #481 — a session in a git worktree of the project. Claude Code names the main checkout in CLAUDE_PROJECT_DIR; the
+// guard pins the folder the session started in and checks that tree, never the main checkout. Last in this file: it
+// commits a workspace to the base, so verify has a package to run.
+const wt = join(T, 'wt');
+const PIN = join(T, '.claude/slipway/sessions', SID, 'tree');
+const begin = (cwd) => (unpin(), run('session-state.sh', JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' }), SID, { PATH }, cwd));
+const stopIn = (cwd, input = '{}') => run('stop-verify.sh', input, SID, { PATH }, cwd);
+const decision = (r) => JSON.parse(r.out.split('\n').find((l) => l.startsWith('{')) ?? '{}');
+let workspace = false;
+const worktree = () => {
+  git('-C', work, 'checkout', '-q', '-f', 'main');
+  git('-C', work, 'reset', '-q', '--hard', 'origin/main');
+  git('-C', work, 'clean', '-q', '-ffdx');
+  if (!workspace) {
+    put('pnpm-workspace.yaml', 'packages:\n  - apps/*\n');
+    put('apps/a/package.json', '{ "name": "a", "scripts": { "check": "true", "test": "true" } }\n');
+    put('apps/a/a.test.mjs', '// a test file, so verify has one to count\n');
+    git('-C', work, 'add', '-A');
+    commit('a workspace');
+    git('-C', work, 'push', '-q', 'origin', 'main');
+    workspace = true;
+  }
+  rmSync(wt, { recursive: true, force: true });
+  git('-C', work, 'worktree', 'prune');
+  git('-C', work, 'worktree', 'add', '-q', '--detach', wt, 'origin/main');
+  assert.equal(begin(wt).status, 0);
+  assert.equal(readFileSync(PIN, 'utf8'), `${realpathSync(wt)}\n`, 'the session did not pin its worktree');
+  rmSync(join(work, 'STATE.md'), { force: true });
+  reset();
+};
+
+test('a worktree session: the Stop hook runs verify on the worktree, a red main checkout does not block it, and a cd elsewhere does not move it', () => {
+  worktree();
+  writeFileSync(join(work, 'RED'), '');
+  const green = stopIn(wt);
+  assert.equal(`${green.status} ${green.out}`, '0 ', 'the main checkout\'s failure blocked the worktree');
+  assert.ok(existsSync(join(wt, 'STATE.md')), 'the turn-end refresh did not write the worktree\'s STATE.md');
+  assert.ok(!existsSync(join(work, 'STATE.md')), 'the turn-end refresh wrote the main checkout\'s STATE.md');
+  rmSync(join(work, 'RED'));
+  writeFileSync(join(wt, 'RED'), '');
+  const red = decision(stopIn(wt));
+  assert.equal(red.decision, 'block', 'a red worktree ended its turn');
+  assert.ok(red.reason.includes(`red in ${realpathSync(wt)}`), `verify did not run in the worktree: ${red.reason}`);
+  // The pin, not the shell's folder: a session whose shell ended in the main checkout still checks its worktree.
+  assert.equal(decision(stopIn(work)).decision, 'block', 'a cd into the main checkout moved the gate');
+  assert.equal(`${stopIn(wt, '{"stop_hook_active":true}').status}`, '0');
+});
+
+test('a worktree session: SessionStart prints the worktree\'s state, and the guard reads the worktree\'s gate files', () => {
+  worktree();
+  put('docs/PRD.md', '# PRD in the main checkout only\n');
+  const s = run('session-state.sh', JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'resume' }), SID, { PATH }, wt);
+  assert.equal(readFileSync(join(wt, 'STATE.md'), 'utf8'), `${context(s.out)}\n`, 'status was not printed for the worktree');
+  assert.ok(!existsSync(join(work, 'STATE.md')), 'status was written for the main checkout');
+  // A gate file changed only in the main checkout holds back nothing here; one changed in the worktree does.
+  put('ci/extra.mjs', '// a gate file the base does not have\n');
+  assert.equal(`${stopIn(wt).out}`, '', 'the main checkout\'s gate file held back the worktree\'s hooks');
+  rmSync(join(work, 'ci/extra.mjs'));
+  writeFileSync(join(wt, 'ci/extra.mjs'), '// a gate file the base does not have\n');
+  assert.match(decision(stopIn(wt)).reason, /Gate files: ci\/extra\.mjs/);
+  assert.match(run('session-state.sh', '{"source":"resume"}', SID, { PATH }, wt).out, /session-state did not run/);
+});
+
+test('a session started outside a worktree of the project pins the project folder, and runs as before', () => {
+  const other = join(T, 'other');
+  git('init', '-q', other);
+  for (const [why, cwd] of [['the main checkout', work], ['a folder in no repository', T], ['another repository', other]]) {
+    assert.equal(begin(cwd).status, 0, why);
+    assert.equal(readFileSync(PIN, 'utf8'), `${realpathSync(work)}\n`, `${why}: the project folder was not pinned`);
+  }
+  worktree();
+  writeFileSync(join(wt, 'RED'), '');
+  begin(work);
+  assert.equal(`${stopIn(work).out}`, '', 'a main checkout session was blocked by a worktree');
+  writeFileSync(join(work, 'RED'), '');
+  assert.equal(decision(stopIn(work)).decision, 'block', 'a red main checkout ended its turn');
+});
+
+test('a pinned tree that is gone, no longer a worktree top, or a missing or unreadable pin blocks once and never falls back', () => {
+  worktree();
+  const top = realpathSync(work);
+  for (const [why, write] of [
+    ['the worktree removed', () => git('-C', work, 'worktree', 'remove', '--force', wt)],
+    ['a plain folder where the worktree was', () => mkdirSync(wt)],
+    ['a subfolder of the main checkout', () => writeFileSync(PIN, `${join(top, 'src')}\n`)],
+    ['a relative path', () => writeFileSync(PIN, 'work\n')],
+    ['two lines', () => writeFileSync(PIN, `${top}\n${top}\n`)],
+    ['an empty file', () => writeFileSync(PIN, '')],
+    ['no file, its base still pinned', () => rmSync(PIN)],
+    ['a clone of the project, its own repository', () => { git('clone', '-q', work, join(T, 'clone')); writeFileSync(PIN, `${realpathSync(join(T, 'clone'))}\n`); }],
+    ['a link', () => { rmSync(PIN); writeFileSync(join(T, 'elsewhere'), `${top}\n`); symlinkSync(join(T, 'elsewhere'), PIN); }],
+  ]) {
+    write();
+    reset();
+    const r = decision(stopIn(work));
+    assert.equal(r.decision, 'block', why);
+    assert.match(r.reason, /folder this session started in is gone, unreadable or no longer a worktree/, why);
+    assert.equal(`${stopIn(work, '{"stop_hook_active":true}').out}`, '', `${why}: blocked twice in one stop`);
+    assert.match(run('session-state.sh', '{"source":"resume"}', SID, { PATH }).out, /session-state did not run/, why);
+    run('lessons-first.sh', '{}', SID, { PATH });
+    assert.deepEqual(marks(), [], `${why}: a hook ran`);
   }
 });

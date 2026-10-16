@@ -4,14 +4,12 @@
 // module only for its size; it is the one reader callers import, and this file has no other reader.
 
 import { LEAD } from './feature-docs.mjs';
+import { MILESTONE_ID, milestoneId } from './milestones.mjs';
 
-const HEADING = new RegExp(LEAD);
 const FENCE = /^ {0,3}```/;
 
-// `#<n> closes` is read at the pull request that closes the issue (§8), and that reader ships in build step 5. Until
-// then the event is unreadable, flagged so status can say what reads it (§6).
-export const ISSUE_READABLE = false;
-
+// The heading line the decisions reader and the line scans share (ID1's reading).
+export const HEADING = new RegExp(LEAD);
 export const fid = (n) => `F-${String(n).padStart(2, '0')}`;
 const blank = (s) => ' '.repeat(s.length);
 
@@ -90,6 +88,9 @@ const FEATURE_VERBS = new Map([['has a doc', 'doc'], ['has a feature doc', 'doc'
 const FEATURE_SAID = new Map([['doc', 'has a doc'], ['reviewed', 'is reviewed'], ['shipped', 'is shipped']]);
 const MILESTONE_VERBS = new Map([['is active', 'active'], ['is activated', 'active'], ['goes active', 'active'], ['is closed', 'closed'], ['closes', 'closed']]);
 
+// `M2 is active`, `M1.1 is closed`: the id as milestoneId() writes it, so `M02` and `M2` are one milestone.
+const EVENT_MILESTONE = new RegExp(`^(${MILESTONE_ID}) (.{1,40})$`);
+
 // One event of §3's table, or null. Verbs are case folded; ids keep their case. `said` is the event in the table's
 // words, built from the numbers read, never from the record's text.
 export function parseEvent(part) {
@@ -99,16 +100,18 @@ export function parseEvent(part) {
     const kind = FEATURE_VERBS.get(m[2].toLowerCase());
     return kind ? { kind, feature: n, readable: true, said: `${fid(n)} ${FEATURE_SAID.get(kind)}` } : null;
   }
-  m = part.match(/^M(\d{1,9}) (.{1,40})$/);
+  m = part.match(EVENT_MILESTONE);
   if (m) {
-    const n = Number(m[1]);
+    const id = milestoneId(m[1]);
     const kind = MILESTONE_VERBS.get(m[2].toLowerCase());
-    return kind ? { kind, milestone: n, readable: true, said: `M${n} is ${kind}` } : null;
+    return kind ? { kind, milestone: id, readable: true, said: `${id} is ${kind}` } : null;
   }
   m = part.match(/^(\d{4}-\d{2}-\d{2}) (passes|has passed)$/i);
   if (m) return isDay(m[1]) ? { kind: 'date', date: m[1], readable: true, said: `${m[1]} passes` } : null;
   m = part.match(/^(?:([\w.-]{1,100}\/[\w.-]{1,100}))?#(\d{1,9}) (closes|lands|is closed)$/i);
-  if (m) return { kind: 'issue', issue: Number(m[2]), readable: ISSUE_READABLE, said: `#${Number(m[2])} closes` };
+  // Readable here, fired nowhere in status: P1 reads it at the pull request whose body closes the issue (§8). `repo` is
+  // the repository as written, lower case, or '' for this one.
+  if (m) return { kind: 'issue', issue: Number(m[2]), repo: (m[1] ?? '').toLowerCase(), readable: true, said: `#${Number(m[2])} closes` };
   return null;
 }
 

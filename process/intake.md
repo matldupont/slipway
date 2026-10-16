@@ -242,7 +242,7 @@ repository `git remote get-url origin` names, say so and ask before the first pu
 
   `--draft` when a review runs before the PR is ready (`/work-ticket`). Every later change is a new commit on the PR: never amend or force-push, so each reviewed head stays
   addressable. With no remote, stop before the push and tell the owner the branch is ready.
-- **Before ready,** a PR opened ready or marked ready by hand has the `pr-body` check run on its final body (saved as `{dir}/body.md`, in a fresh folder) with `node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "{dir}/body.changes.json"` and `node ci/checks/meta/p1-pr-body.mjs "{dir}"`, and is not marked ready while that reports a finding.
+- **Before ready,** a PR opened ready or marked ready by hand has the `pr-body` check run on its final body (saved as `{dir}/body.md`, in a fresh folder) with `node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "{dir}/body.changes.json"` and `node ci/checks/meta/p1-pr-body.mjs "{dir}" .` (the `.` is the root it reads `decisions.md` from), and is not marked ready while that reports a finding.
 
 ## Deferred check
 
@@ -397,9 +397,9 @@ run, an idea or a milestone item. No file: say so, and go on.
 
 ## Milestone item
 
-`/log-feature {milestone id}#{item}`, e.g. `/log-feature M1#2`: shape an item of a milestone's Contents that
-the milestone already bet on. An argument matching `^M\d+#\d+$` selects this form, and is used for nothing
-before it matches; anything else is an idea.
+`/log-feature {milestone id}#{item}`, e.g. `/log-feature M1#2` or `/log-feature M1.1#3`: shape an item of a
+milestone's Contents that the milestone already bet on. An argument matching `^M\d+(\.\d+)?#\d+$` selects this
+form, and is used for nothing before it matches; anything else is an idea.
 
 1. **Resolve.** The milestone doc whose frontmatter has that `id:` (`Milestone roadmap`); its Contents items are
    the lines that start `{n}.`, indented lines continuing them. A check line under an item (`Owed:` or `Ran:`,

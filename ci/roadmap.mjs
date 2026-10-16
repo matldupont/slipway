@@ -14,8 +14,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
-import { readMilestoneModel } from './checks/lib/milestones.mjs';
-import { milestoneNumber } from './checks/lib/risks.mjs';
+import { compareMilestones, milestoneKey, readMilestoneModel } from './checks/lib/milestones.mjs';
 import { escapeHtml } from './checks/lib/html.mjs';
 import { UNSAFE } from './checks/lib/report.mjs';
 
@@ -98,7 +97,11 @@ export function project(m) {
 }
 
 const KIND = { skeleton: 'First end-to-end version', mvp: 'First usable version', release: 'Release', bet: 'Improvement' };
-const byNumber = (a, b) => (milestoneNumber(a.id) || 0) - (milestoneNumber(b.id) || 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+// By number, then sub-number (M1, M1.1, M2, M10); an id of another shape comes first, then by id.
+const byNumber = (a, b) => {
+  const [x, y] = [milestoneKey(a.id), milestoneKey(b.id)];
+  return (x && y ? compareMilestones(a.id, b.id) : Boolean(x) - Boolean(y)) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+};
 
 // A projected milestone: it prints what project() left in it, so project() is the one gate.
 function card(m, when) {

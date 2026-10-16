@@ -21,21 +21,21 @@
 import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
-import { citedFeatures, contents } from './milestones.mjs';
+import { citedFeatures, contents, MILESTONE_ID, milestoneId } from './milestones.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
-import { CLAUSE_START, fenced, fid, hasClause, ISSUE_READABLE, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
+import { CLAUSE_START, fenced, fid, HEADING, hasClause, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
 
-export { fenced, fid, ISSUE_READABLE, mask, parseEvent };
+export { fenced, fid, mask, parseEvent };
 
 const MAX = 500;
 const ENTRY = new RegExp(`${LEAD}(P?D)-(\\d{1,9})\\b`);
 // A heading of level 1 or 2, a decision's or not, ends the entry above it (`## Week 1 — decide before M1 closes`).
 const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
-const HEADING = new RegExp(LEAD);
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
-const POSITION = /\bM(\d{1,9})(?:['’]s)? (?:Contents )?item (\d{1,9})\b|\bitem (\d{1,9}) of M(\d{1,9})\b/g;
+// `M2 item 4` and `M1.1 item 4` name a position; `M1.1` names a milestone, never an item (#476).
+const POSITION = new RegExp(`\\b(${MILESTONE_ID})(?:['’]s)? (?:Contents )?item (\\d{1,9})\\b|\\bitem (\\d{1,9}) of (${MILESTONE_ID})\\b`, 'g');
 const DECISION_ID = /\b(P?D)-(\d{1,9})\b/g;
 
 function condition(kind, where, line, raw) {
@@ -43,11 +43,11 @@ function condition(kind, where, line, raw) {
   if (kind === 'changes') {
     const tokens = text.split(/ ?, ?| and /i);
     const features = [...new Set(tokens.map((t) => t.match(/^F-(\d{1,9})$/)?.[1]).filter(Boolean).map(Number))];
-    return { kind, where, line, text, features, readable: text !== '' && tokens.every((t) => /^F-\d{1,9}$/.test(t)), issueOnly: false };
+    return { kind, where, line, text, features, readable: text !== '' && tokens.every((t) => /^F-\d{1,9}$/.test(t)) };
   }
   const events = text === '' ? [null] : text.split(/ or /i).map(parseEvent);
   const readable = events.every((e) => e?.readable);
-  return { kind, where, line, text, events: events.filter(Boolean), readable, issueOnly: !readable && events.every((e) => e && (e.readable || e.kind === 'issue')) };
+  return { kind, where, line, text, events: events.filter(Boolean), readable };
 }
 
 const clauseCondition = (clause) => {
@@ -88,12 +88,13 @@ function finish(e) {
     clauses.push({ text: c });
     const hit = i > 0 ? clauseCondition(c) : null;
     whole.push(hit ? hit[1] : raw);
-    if (hit) conditions.push(condition(hit[0], 'heading', e.line, hit[1]));
+    // A heading the cut at MAX shortened may have lost an event: its clauses are never read, as a cut labelled line's.
+    if (hit) conditions.push({ ...condition(hit[0], 'heading', e.line, hit[1]), ...(e.cut ? { readable: false } : {}) });
     // A part holding a clause opening is a condition clause, if an unreadable one: never prose too (AR-4).
     else if (hasClause(raw)) hidden = true;
     else proseClauses.push(e.masked.slice(at + 2 + off, at + 2 + off + raw.length));
   });
-  if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false, issueOnly: false });
+  if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false });
   const proseLines = [];
   for (const b of e.body) {
     // A label is read on the line as written: a stray backtick above it in the paragraph never hides it (a code span is
@@ -101,16 +102,16 @@ function finish(e) {
     // a stray fence marker can pair with a later fence and hide it (the owner, #466). A labelled line the cut at MAX
     // shortened may have lost an event: it is unreadable too, never read short.
     const label = LABELS.find(([l]) => b.text.startsWith(l));
-    if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut || b.fenced ? { readable: false, issueOnly: false } : {}) });
-    else if (!OUTCOME.test(b.masked)) proseLines.push(b.masked);
+    if (label) conditions.push({ ...condition(label[1], 'line', b.line, b.text.slice(label[0].length)), ...(b.cut || b.fenced ? { readable: false } : {}) });
+    // A stray heading is counted once, as a stray, never as prose too.
+    else if (!OUTCOME.test(b.masked) && !b.stray) proseLines.push(b.masked);
   }
   const positions = [];
   for (const { line, masked } of [{ line: e.line, masked: e.masked }, ...e.body]) {
-    for (const m of masked.matchAll(POSITION)) positions.push({ line, milestone: Number(m[1] ?? m[4]), item: Number(m[2] ?? m[3]) });
+    for (const m of masked.matchAll(POSITION)) positions.push({ line, milestone: milestoneId(m[1] ?? m[4]), item: Number(m[2] ?? m[3]) });
   }
   const readable = conditions.some((c) => c.kind !== 'changes' && c.readable);
-  // A condition clause, readable or not, is never read as prose: one unreadable clause is counted once, in the
-  // Unreadable line, as a labelled line is (AR-4 of the 0.3 review, the orchestrator session's advice).
+  // A condition clause, readable or not, is never read as prose: counted once, in the Unreadable line (AR-4 of the 0.3 review).
   const prose = !readable && (proseClauses.some(proseHit) || proseLines.some(proseHit));
   return { id: e.id, key: e.key, line: e.line, text: e.text, clauses, conditions, positions, prose, body: e.body.map(({ line, text }) => ({ line, text })) };
 }
@@ -140,23 +141,21 @@ export function parseDecisions(md) {
       // A labelled line in no entry, or a heading with no id holding a clause opening anywhere (a typo'd `### PD3` inside
       // an entry included), is a stray: never silent.
       const label = !cur && LABELS.some(([l]) => text.startsWith(l));
-      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX });
-      if ((label || (HEADING.test(text) && hasClause(whole[i].text))) && (entries.length || !fence[i])) strays.push(line);
+      const stray = (label || (HEADING.test(text) && hasClause(whole[i].text))) && (entries.length || !fence[i]);
+      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX, stray });
+      if (stray) strays.push(line);
     }
   });
   return { entries: entries.map(finish), strays };
 }
 
-// Whether `text` names the decision `key` as a whole word: `D-44` matches `D-044`, never `D-4`, `D-440` or `PD-44`.
-// Every decision key a text names, each once, so a doc is read once however many decisions ask about it.
+// Every decision key a text names, once: `D-44` matches `D-044`, never `D-4`, `D-440` or `PD-44`, and a doc is read once.
 const keysOf = (text) => new Set([...text.matchAll(DECISION_ID)].map((m) => `${m[1]}-${Number(m[2])}`));
 export const namesDecision = (text, key) => keysOf(text).has(key);
 
 const cut = (md) => visible(md).map((l) => l.text.slice(0, MAX)).join('\n');
-const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$/i)?.[1] : undefined);
 
-// Whether a folder of the tree, or a folder above it (`docs`, `dev`), is a link, a dangling one included: such a folder
-// is not read, and is named unread.
+// Whether a folder of the tree, or one above it (`docs`, `dev`), is a link, a dangling one included: named unread.
 const isLink = (root, dir) =>
   dir.split('/').some((_, i, parts) => {
     try { return lstatSync(posix.join(root, ...parts.slice(0, i + 1))).isSymbolicLink(); } catch { return false; }
@@ -223,7 +222,7 @@ function readTree(root) {
     .map((md) => ({ md, fm: docFrontmatter(md) }))
     .filter((m) => m.fm)
     .map(({ md, fm }) => ({
-      n: Number(milestoneNumber(fm.id) ?? NaN),
+      id: milestoneId(fm.id),
       status: fm.status,
       items: contents(md).map((it) => ({ features: citedFeatures(it.text.slice(0, MAX)), keys: keysOf(it.text.slice(0, MAX)) })),
     }));
@@ -240,13 +239,13 @@ function readTree(root) {
   return { milestones, carrying: indexBy(files, ns), docs: indexBy(files.filter(isFeatureDoc), ns), itemKeys, unread: unread.sort() };
 }
 
-// `{ missing, entries, strays, owed(), fired(today), unreadable(), proseCount(), unreadFolders() }` for the decisions.md at
+// `{ missing, entries, strays, owed(), fired(today), unreadable(), proseCount(), awaitingIssue(), unreadFolders() }` for the decisions.md at
 // `root`. `missing` is null, or why decisions.md cannot be read ('does not exist', 'is a link, not a file', …), and the
 // record is then empty. The tree (feature docs, milestones, reviews) is read once, on the first call that needs it;
 // `unreadFolders()` names, sorted, each of its folders that is there but could not be read, so nothing it hid is silent.
-export function readDecisions(root) {
-  const missing = notPlainFile(root, 'decisions.md');
-  const { entries, strays } = missing ? { entries: [], strays: [] } : parseDecisions(readPlain(root, 'decisions.md') ?? '');
+export function readDecisions(root, file = 'decisions.md') {
+  const missing = notPlainFile(root, file);
+  const { entries, strays } = missing ? { entries: [], strays: [] } : parseDecisions(readPlain(root, file) ?? '');
   let tree;
   const t = () => (tree ??= readTree(root));
 
@@ -256,8 +255,7 @@ export function readDecisions(root) {
   const amendsOf = new Map(entries.map((e) => [e, [...new Set(e.conditions.filter((c) => c.kind === 'changes' && c.readable).flatMap((c) => c.features))]]));
   const amends = (e) => amendsOf.get(e);
 
-  // The Amends: features nothing names yet (§4): `{ id, key, feature, docs }`, `docs` the paths of the docs carrying
-  // that F-id (a companion included), empty when no doc carries it yet.
+  // The Amends: features nothing names yet (§4): `{ id, key, feature, docs }`, `docs` the paths carrying that F-id.
   const owed = () => entries.flatMap((e) => amends(e).filter((n) => !cited(e.key, n)).map((n) => ({ id: e.id, key: e.key, feature: n, docs: carrying(n).map((f) => f.path) })));
 
   const fires = (e, ev, today) => {
@@ -273,8 +271,8 @@ export function readDecisions(root) {
     if (ev.kind === 'active' || ev.kind === 'closed') {
       // AR-2 of the 0.3 review: a killed milestone came through active as a closed one did; the words say which.
       const states = ev.kind === 'active' ? ['active', 'closed', 'killed'] : ['closed', 'killed'];
-      const m = t().milestones.find((x) => x.n === ev.milestone && states.includes(x.status));
-      return m ? { ...ev, status: m.status, said: `M${ev.milestone} is ${m.status}` } : null;
+      const m = t().milestones.find((x) => x.id && x.id === ev.milestone && states.includes(x.status));
+      return m ? { ...ev, status: m.status, said: `${ev.milestone} is ${m.status}` } : null;
     }
     if (ev.kind === 'date') return today > ev.date ? ev : null;
     return null;
@@ -288,13 +286,19 @@ export function readDecisions(root) {
         .filter((c) => c.events.length)
     );
 
-  // The entries with a condition or Amends: line that cannot be read, in file order. `issueOnly` when every one of
-  // them is unreadable only for an issue event, which the pull-request reader will read (§6's parenthesis).
-  const unreadable = () =>
-    entries.flatMap((e) => {
-      const bad = e.conditions.filter((c) => !c.readable);
-      return bad.length ? [{ id: e.id, key: e.key, line: e.line, issueOnly: bad.every((c) => c.issueOnly) }] : [];
-    });
+  // The entries with a condition or Amends: line that cannot be read, in file order.
+  const unreadable = () => entries.flatMap((e) => (e.conditions.some((c) => !c.readable) ? [{ id: e.id, key: e.key, line: e.line }] : []));
 
-  return { missing, entries, strays, owed, fired, unreadable, proseCount: () => entries.filter((e) => e.prose).map((e) => e.id), unreadFolders: () => [...t().unread] };
+  // A condition naming an issue: waiting, never also prose only. Status cannot see it happen (§3); P1 reads it at the
+  // pull request that closes the issue (§8).
+  const waits = (e) => e.conditions.some((c) => c.kind !== 'changes' && c.readable && c.events.some((ev) => ev.kind === 'issue'));
+  // The readable issue events, in file order: `{ id, kind, where, issue, repo }`, `kind` the condition's (reopens or closes), `where` heading or line, and
+  // `repo` as written, lower case, '' for the pull request's own repository.
+  const issueEvents = () =>
+    entries.flatMap((e) =>
+      e.conditions
+        .filter((c) => c.kind !== 'changes' && c.readable)
+        .flatMap((c) => c.events.filter((ev) => ev.kind === 'issue').map((ev) => ({ id: e.id, kind: c.kind, where: c.where, issue: ev.issue, repo: ev.repo })))
+    );
+  return { missing, entries, strays, owed, fired, unreadable, issueEvents, proseCount: () => entries.filter((e) => e.prose && !waits(e)).map((e) => e.id), awaitingIssue: () => entries.filter(waits).map((e) => e.id), unreadFolders: () => [...t().unread] };
 }

@@ -273,11 +273,18 @@ test('work-ticket Phase 6 runs P1 on the final body before `gh pr ready`, and in
   const phase = (section(read(skillPath('work-ticket')), 'Phase 6 — Ready', 2) ?? '').replace(/\s+/g, ' ');
   assert.equal(phase.split('gh pr ready').length - 1, 1, 'Phase 6 must have exactly one `gh pr ready`, the last link of the chain');
   assert.equal(phase.split('gh pr edit').length - 1, 1, 'Phase 6 must have exactly one `gh pr edit`, inside the chain');
-  assert.ok(phase.includes('d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}'), 'Phase 6 must chain the changed-files list, P1, the body edit and `gh pr ready` with &&, so a finding stops it');
+  assert.ok(phase.includes('d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" . && gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md" && gh pr ready {pr} --repo {checkout}'), 'Phase 6 must chain the changed-files list, P1, the body edit and `gh pr ready` with &&, so a finding stops it');
   assert.match(phase, /on a finding, fix `\{prdir\}\/pr\.md` and run the block again, so the body checked is the body posted; a finding editing the body cannot clear leaves the pull request a draft, and the owner is told which\./, 'Phase 6 must say what a finding leads to');
   assert.match(phase, /It is 1 local run, no wait: do not wait on CI, and do not merge\./, 'Phase 6 must keep "do not wait on CI"');
   const pr = flat(section(intake, 'Pull request', 2));
-  assert.match(pr, /\*\*Before ready,\*\* a PR opened ready or marked ready by hand has the `pr-body` check run on its final body .*node ci\/checks\/lib\/gate-files\.mjs "\$\(git rev-parse origin\/\{base\}\)" "\$\(git rev-parse HEAD\)" > "\{dir\}\/body\.changes\.json"` and `node ci\/checks\/meta\/p1-pr-body\.mjs "\{dir\}"`, and is not marked ready while that reports a finding\./, 'intake.md → Pull request must say P1 runs before ready, with both commands and the sidecar name');
+  assert.match(pr, /\*\*Before ready,\*\* a PR opened ready or marked ready by hand has the `pr-body` check run on its final body .*node ci\/checks\/lib\/gate-files\.mjs "\$\(git rev-parse origin\/\{base\}\)" "\$\(git rev-parse HEAD\)" > "\{dir\}\/body\.changes\.json"` and `node ci\/checks\/meta\/p1-pr-body\.mjs "\{dir\}" \.` \(the `\.` is the root it reads `decisions\.md` from\), and is not marked ready while that reports a finding\./, 'intake.md → Pull request must say P1 runs before ready, with both commands and the sidecar name');
+});
+
+// F-15 §8 (#440 step 5): the ready step reads decisions at the pull request, and asks before a condition line is touched.
+test('work-ticket asks the owner before a condition line in decisions.md is removed, edited or added to a decided entry, and its ready step passes P1 the root', () => {
+  const md = flat(read(skillPath('work-ticket')));
+  assert.match(md, /A condition line in `decisions\.md` \(`Amends:`, `Reopens when:`, `Closes when:`, or a heading's clause\) removed, edited, or added to an entry already decided: ask the owner first, and name the line in the PR body\./, 'Phase 3 must ask before a condition line is touched, an added one included');
+  assert.match(md, /a closing word that meets a decision's `Closes when:` or `Reopens when:` on that issue is a finding naming the decision/, 'Phase 6 must say what P1 reads at the pull request');
 });
 
 test('work-ticket\'s rule files name the settings file, the manifest and slipway\'s markers', () => {
@@ -656,7 +663,13 @@ test('process/intake.md → Decisions: read in full, a conflict asked before any
 test('process/intake.md → Milestone item: the argument is matched before use, and a started item names its issue', () => {
   const m = (section(intake, 'Milestone item', 2) ?? '').replace(/\s+/g, ' ');
   assert.ok(m, 'process/intake.md has no ## Milestone item');
-  assert.match(m, /matching `\^M\\d\+#\\d\+\$` selects this form, and is used for nothing before it matches/, 'the argument is checked before it reaches anything');
+  const arg = m.match(/An argument matching `([^`]+)` selects this form, and is used for nothing before it matches/)?.[1];
+  // Pinned whole: the pattern is what keeps the argument out of a shell, so a looser one fails here before any sample.
+  assert.equal(arg, '^M\\d+(\\.\\d+)?#\\d+$', 'the argument is checked before it reaches anything');
+  // #476: an inserted milestone's item is selected as M2's is; nothing else that could reach a command is.
+  const re = new RegExp(arg);
+  for (const ok of ['M2#2', 'M1.1#3', 'M10#1']) assert.ok(re.test(ok), `${arg} must select ${ok}`);
+  for (const no of ['M1.1.1#3', 'M1#', 'M1.#2', 'm1#2', 'M1#2; rm -rf x', 'M1#2 x', 'M1#2 $(x)', 'x M1#2', 'M1b#2']) assert.ok(!re.test(no), `${arg} must not select ${no}`);
   assert.match(m, /not `status: active`/, 'a milestone still being shaped stops the run');
   assert.match(m, /Phase 2, skipped,\*\* with one line: `\{id\} already made this bet/, 'the argument against building is replaced by one line');
   assert.match(m, /no F-ID is added and the PRD version is not bumped/, 'an item already in the PRD adds no F-ID');
@@ -697,6 +710,12 @@ test('a fail line naming a closed bug owes again: the rule says so, /close-miles
 
 // #258: `Issue milestone` defaults to `none`, so a project can reach its first close with no GitHub milestone, and
 // `gh issue list --milestone` then reads nothing. These pin the fallback in both places the list is used.
+// F-15 §7 (#440 step 4): the retro lists the decisions status cannot see, from DC1's info line, for the owner to check by hand.
+test('/close-milestone\'s retro lists the decisions in prose only and those waiting on an issue, from DC1\'s info line', () => {
+  const retro = (section(read('.claude/skills/close-milestone/SKILL.md'), '3. Write the retro — from the record, not memory', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(retro, /Run `node ci\/checks\/meta\/dc1-decisions\.mjs \.` and list the ids on its `info` line for the owner to check by hand: the decisions that say when they reopen or close in prose only, and those waiting on an issue/);
+});
+
 test('/close-milestone with no GitHub milestone says so in 1 line and reads every open issue; an empty list is never "nothing left"', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const head = flat(read('.claude/skills/close-milestone/SKILL.md').split('## 1. Decide which ending')[0]);
@@ -876,6 +895,12 @@ test('the four skills apply the decision defaults before asking; the working rul
   const title = dec.match(/^## (D-\d+ — The trust line\b.*)$/m)?.[1];
   assert.ok(title, 'decisions.md must record §3, the trust line');
   assert.match(section(dec, title, 2) ?? '', /`process\/decision-defaults\.md`/, 'the trust-line decision must cite the defaults file');
+});
+
+// #476: numbers stay in time order, so a project inserting a milestone writes M<n>.<k> and renumbers nothing.
+test('process/slipway-rules.md → Planning flow says an inserted milestone takes M<n>.<k>, never a renumbering, in one sentence', () => {
+  const flow = (section(read('process/slipway-rules.md'), 'Planning flow', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(flow, /- Milestone numbers run in time order: a milestone inserted between two others takes `M<n>\.<k>` \(M1\.1 sits between M1 and M2\), never a renumbering; `M<n>\.<k>` names a milestone, never an item\. -/);
 });
 
 // #163: one list of owner-only files. process/slipway-rules.md → Gates names the files /work-ticket judges a run by,

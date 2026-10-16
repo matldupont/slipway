@@ -1,5 +1,5 @@
 {
-  "_note": "a is active past its appetite but extended by a decision that exists, so no overrun. b cites a decision that does not. TEMPLATE.md renamed Retro. A project's PD-3 extension resolves (d); PD-404 does not (c).",
+  "_note": "a is active past its appetite but extended by a decision that exists, so no overrun. b cites a decision that does not. TEMPLATE.md renamed Retro. A project's PD-3 extension resolves (d); PD-404 does not (c). Its appetites also run out of id order, so MS1 warns order/appetite (#476).",
   "exit": 1,
   "env": {
     "CHECK_TODAY": "2026-09-21"
@@ -8,5 +8,8 @@
     "TEMPLATE.md#template/fields",
     "b-closed-bad-ext.md#extended/unresolved",
     "c-closed-bad-pd-ext.md#extended/unresolved"
+  ],
+  "warnings": [
+    "c-closed-bad-pd-ext.md#order/appetite"
   ]
 }

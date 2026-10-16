@@ -25,11 +25,11 @@ import { readDecisions } from './checks/lib/decisions.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
-import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { isPrdPath, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
-import { milestoneNumber, readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
+import { readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
 import { stepLines, stepName } from './checks/lib/steps.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -141,15 +141,16 @@ const riskFile = untracked.length ? ' File the issue that runs each untested one
 // The Impact cell must start with the word (`Existential: no lawful revenue`), so "not existential" is not.
 // Read only where the PRD's risk table has a Resolves by column.
 const deadlines = readDeadlines(prd);
-const skeletons = ms.filter((m) => m.kind === 'skeleton').map((m) => milestoneNumber(m.id)).filter((n) => n >= 0);
-const bets = ms.filter((m) => m.kind !== 'skeleton').map((m) => milestoneNumber(m.id)).filter((n) => n >= 0);
-const firstBet = bets.length ? Math.min(...bets) : skeletons.length ? Math.max(...skeletons) + 1 : null;
+const idsOf = (pred) => ms.filter(pred).map((m) => milestoneId(m.id)).filter(Boolean).sort(compareMilestones);
+const skeletons = idsOf((m) => m.kind === 'skeleton');
+const bets = idsOf((m) => m.kind !== 'skeleton');
+const firstBet = bets.length ? bets[0] : skeletons.length ? `M${milestoneKey(skeletons.at(-1))[0] + 1}` : null;
 const existential = deadlines && firstBet !== null
   ? risks.filter((r) => !r.tested && /^\W*existential\b/i.test(r.impact ?? '')).flatMap((r) => {
       const d = deadlines.get((r.id ?? '').toUpperCase());
-      if (d?.before && milestoneNumber(d.before) <= firstBet) return [];
-      const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${d.cell}, after M${firstBet} starts` : `resolves "${d.cell || 'blank'}", which names no milestone`;
-      return [`${r.id} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${r.id}'s Result`];
+      if (d?.before && compareMilestones(d.before, firstBet) <= 0) return [];
+      const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${d.cell}, after ${firstBet} starts` : `resolves "${d.cell || 'blank'}", which names no milestone`;
+      return [`${r.id} is existential and untested, and ${when}: schedule its test before ${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${r.id}'s Result`];
     })
   : [];
 
@@ -236,11 +237,12 @@ for (const file of walk(join(root, 'docs'))) {
 // doc is text a pull request can carry, so they print no project text from a check line: only the item's number,
 // its issue's number, a count, a date that is a calendar day, and the file to open. The milestone's id is printed
 // only in the shape the skills accept.
+const SKILL_ID = new RegExp(`^${MILESTONE_ID}$`);
 const owed_ = [];
 for (const item of cur ? contents(cur.md) : []) {
   const owes = owing(item);
   const issue = marker(item.text)?.issue;
-  const where = `${/^M\d+$/.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${item.n}`;
+  const where = `${SKILL_ID.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${item.n}`;
   const file = `docs/milestones/${cur.file}`;
   const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
   if (owed.length) owed_.push(`Owed check: ${where} (#${issue}) — ${owed.length} check(s) moved to after merge with no run recorded (the Owed: lines under it in ${file}): run each, post the result as a comment on #${issue}, then change the Owed line to Ran with that comment's link; #${issue} stays open until then (reopen it if it was closed)`);
@@ -294,7 +296,7 @@ function next() {
     // The command is built from the id and the item's number, never from its text, and only for an id the
     // skill accepts (process/intake.md → Milestone item): this line enters every session through the hook.
     const items = contents(cur.md).filter((i) => !i.text.trim().startsWith('<'));
-    if (items.length && /^M\d+$/.test(String(cur.id))) {
+    if (items.length && SKILL_ID.test(String(cur.id))) {
       const item = items.find((i) => !started(i.text));
       if (!item) return `${lead}. Every Contents item has an issue: finish them, then run /close-milestone once its Gate is green.${risk}`;
       return `${lead}. Next slice: item ${item.n}, "${excerpt(item.text)}". Start it in a fresh session with /log-feature ${cur.id}#${item.n}.${risk}`;

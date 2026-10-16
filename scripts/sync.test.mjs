@@ -2577,6 +2577,42 @@ test('no ci/baselines.json: the plan shows it as "count recorded" with the three
   }
 });
 
+// The decisions status cannot see (F-15 §7, build step 4): one note, ids only, in the plan, --apply and --json, never a row.
+const DECISIONS_MD = [
+  '## PD-1 — a *(decided 2026-03-01)*\n\nWe revisit this when the vendor changes.\n',
+  '## PD-2 — b *(decided 2026-03-01 · revisit when M2 is activated)*\n',
+  '## PD-3 — c *(decided 2026-03-01)*\n\nProvisional until the supplier confirms.\n',
+  '## PD-4 — d *(decided 2026-03-01)*\n\nReopens when: F-07 has a doc\n\nIt reopens when the vendor changes.\n',
+  '## PD-5 — e *(decided 2026-03-01)*\n\nCloses when: #12 lands\n',
+].join('\n');
+const DECISION_NOTE = '3 decisions say when they reopen or close in prose only (PD-1, PD-2, PD-3), and 1 waits on an issue status cannot see (PD-5): nothing reads a prose condition until it is written as an event; check the issue by hand';
+
+test('a project whose decisions.md has 3 prose-only conditions and 1 waiting on an issue: one note in the plan, --apply and --json, no row for decisions.md, and decisions.md is never written', () => {
+  const dir = counted({ 'decisions.md': DECISIONS_MD });
+  const before = treeHash(dir);
+  const plan = sync(dir);
+  assert.equal(plan.status, 0, plan.stderr);
+  assert.equal(plan.stdout.split('\n').filter((l) => l.includes('note: ')).length, 1);
+  assert.ok(plan.stdout.includes(`note: ${DECISION_NOTE}`), plan.stdout);
+  assert.equal(rows(sync(dir, '--verbose').stdout)['decisions.md'], undefined, 'the file is seeded and has no row');
+  assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).notes, [DECISION_NOTE]);
+  assert.equal(treeHash(dir), before, 'a plan wrote to the project');
+  const applied = sync(dir, '--apply');
+  assert.equal(applied.status, 0, applied.stdout + applied.stderr);
+  assert.ok(applied.stdout.includes(`note: ${DECISION_NOTE}`), applied.stdout);
+  assert.equal(bytes(dir, 'decisions.md').toString('utf8'), DECISIONS_MD, '--apply writes nothing to decisions.md');
+});
+
+test('the decisions note names ids and nothing of the record; with none to count there is no note; each part reads alone', () => {
+  const only = (md) => JSON.parse(sync(counted({ 'decisions.md': md }), '--json').stdout).notes;
+  assert.deepEqual(only('## PD-1 — a\n\nBody `\u001b]0;x\u0007 hostile` text, revisit when it hurts.\n\nOne reopens when `x`.\n'), ['1 decision says when it reopens or closes in prose only (PD-1): nothing reads a prose condition until it is written as an event']);
+  assert.deepEqual(only('## PD-1 — a\n\nCloses when: #12 lands\n'), ['1 decision waits on an issue status cannot see (PD-1): check the issue by hand']);
+  assert.deepEqual(only('## PD-1 — a\n\nClosed 2026-03-10: done\n\n## PD-2 — b\n\nReopens when: M2 is closed\n'), []);
+  const many = Array.from({ length: 22 }, (_, i) => `## PD-${i + 1} — a\n\nWe revisit this when it changes.\n`).join('\n');
+  assert.deepEqual(only('## PD-1 — a\n\nCloses when: #12 lands\n\nWe revisit this when the vendor moves.\n'), ['1 decision waits on an issue status cannot see (PD-1): check the issue by hand'], 'waiting on an issue is not also prose only');
+  assert.match(only(many)[0], /^22 decisions say when they reopen or close in prose only \(PD-1, PD-2, .*PD-20 and 2 more\): /);
+});
+
 test('--apply recounts: a doc that became held after the plan changes the number, and the number printed is the number written', () => {
   const dir = counted({ ...FIT_DOCS, [BASELINES_FILE]: null });
   assert.deepEqual(JSON.parse(sync(dir, '--json').stdout).notes[0], SENTENCES[0]);

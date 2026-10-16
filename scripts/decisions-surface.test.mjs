@@ -62,6 +62,16 @@ test('DC1 is green on every shape the reader reads without a position (§5\'s gr
   }
 });
 
+test('DC1 prints the two counts as one info line: ids only, never red, none when empty (build step 4)', () => {
+  const info = (md) => record(md).out.split('\n').find((l) => l.startsWith('DC1: info'));
+  assert.equal(info('## PD-1 — t\n\nWe revisit this when the vendor moves.\n\n## PD-2 — u\n\nCloses when: #12 lands\n\n## PD-3 — v\n\nReopens when: F-07 has a doc\n'), 'DC1: info — in prose only: PD-1 (1); waiting on an issue: PD-2 (1)');
+  assert.equal(info('## PD-1 — t\n\nBody.\n'), 'DC1: info — in prose only: none; waiting on an issue: none');
+  const crowd = record(Array.from({ length: 25 }, (_, i) => `## PD-${i + 1} — t\n\nWe revisit this when it hurts.\n`).join('\n')).out;
+  assert.match(crowd, /^DC1: info — in prose only: PD-1, .*PD-20 and 5 more \(25\); waiting on an issue: none$/m);
+  const r = record('## PD-1 — t\n\nWe revisit this when `a\u001b[31mhostile` text.\n\nCloses when: #12 lands\n');
+  assert.deepEqual([r.exit, r.out.includes('\u001b')], [0, false]);
+});
+
 test('DC1 fails a position after a span that crossed a line break and closed; it names the first match only', () => {
   const r = record('## PD-3 — t\n\na span `that\ncrosses` a break, then M2 item 4, and item 5 of M2\n');
   assert.deepEqual([r.exit, r.findings], [1, ['decisions.md#decision/position/PD-3']]);
@@ -95,11 +105,43 @@ test('DC1 skips a position in a closed or killed milestone, whose items never mo
   inTree({ 'decisions.md': '## PD-1 — t\n\nAs M9 item 1 said.\n', ...ms }, (dir) => assert.equal(dc1(dir).exit, 1));
 });
 
+// #476: an inserted milestone's items are read as M2's are, and M1.1 is not M1, nor M10 M1.
+test('DC1 reads an M1.1 position from M1.1, not M1; it skips a closed M1.1; M10 is its own milestone', () => {
+  const ms = { 'docs/milestones/M1-a.md': milestone('M1', 'closed', ['x (F-01)', 'w (F-04)']), 'docs/milestones/M1.1-b.md': milestone('M1.1', 'shaping', ['y (F-02)', 'z (F-07)']) };
+  inTree({ 'decisions.md': '## PD-3 — t\n\nAs M1.1 item 2 says.\n', ...ms }, (dir) => {
+    const r = dc1(dir);
+    assert.deepEqual([r.exit, r.findings], [1, ['decisions.md#decision/position/PD-3']]);
+    assert.match(r.details[0], /^PD-3 names M1\.1 item 2 \(line 3\)\..* M1\.1 item 2 builds F-07 today \(docs\/milestones\/M1\.1-b\.md\): write `Amends: F-07` under PD-3$/);
+  });
+  const closed = { ...ms, 'docs/milestones/M1.1-b.md': milestone('M1.1', 'closed', ['y (F-02)']) };
+  inTree({ 'decisions.md': '## PD-3 — t\n\nAs M1.1 item 1 says.\n', ...closed }, (dir) => assert.deepEqual([dc1(dir).exit, dc1(dir).findings], [0, []]));
+  inTree({ 'decisions.md': '## PD-3 — t\n\nAs M10 item 1 says.\n', ...ms, 'docs/milestones/M10-c.md': milestone('M10', 'shaping', ['v (F-10)']) }, (dir) => {
+    assert.match(dc1(dir).details[0], /M10 item 1 builds F-10 today \(docs\/milestones\/M10-c\.md\)/);
+  });
+});
+
+test('DC1 reads an id as the readers do: `m1.1` is M1.1; a closed `M01` beside an open M1 settles nothing', () => {
+  inTree({ 'decisions.md': '## PD-3 — t\n\nAs M1.1 item 1 says.\n', 'docs/milestones/M1.1-b.md': milestone('m1.1', 'shaping', ['y (F-02)']) }, (dir) => {
+    assert.match(dc1(dir).details[0], /M1\.1 item 1 builds F-02 today \(docs\/milestones\/M1\.1-b\.md\)/);
+  });
+  const decoy = { 'docs/milestones/0-decoy.md': milestone('M01', 'closed', ['z (F-09)']), 'docs/milestones/M1-a.md': milestone('M1', 'shaping', ['x (F-01)']) };
+  inTree({ 'decisions.md': '## PD-3 — t\n\nAs M1 item 1 says.\n', ...decoy }, (dir) => {
+    assert.deepEqual([dc1(dir).exit, dc1(dir).findings], [1, ['decisions.md#decision/position/PD-3']]);
+  });
+});
+
+test('status fires M1.1 is active from M1.1, never from M1', () => {
+  const md = '## PD-1 — t *(decided 2026-03-01)*\n\nReopens when: M1.1 is active\n';
+  const fired = (status) => lines({ 'decisions.md': md, 'docs/milestones/M1-a.md': milestone('M1', 'active', ['x']), 'docs/milestones/M1.1-b.md': milestone('M1.1', status, ['y']) });
+  assert.ok(fired('active').some((l) => l.includes('PD-1 — M1.1 is active')), fired('active').join('\n'));
+  assert.ok(!fired('shaping').some((l) => l.includes('PD-1 — M1')), fired('shaping').join('\n'));
+});
+
 test('DC1 warns on an unreadable condition and stays green; it prints no record text', () => {
   const r = record('## PD-1 — SECRETTITLE *(decided 2026-03-01)*\n\nReopens when: SECRETWORD happens\n\n## PD-2 — t\n\nCloses when: #12 lands\n');
-  assert.deepEqual([r.exit, r.findings, r.warnings], [0, [], ['decisions.md#decision/unreadable/PD-1', 'decisions.md#decision/unreadable/PD-2']]);
+  assert.deepEqual([r.exit, r.findings, r.warnings], [0, [], ['decisions.md#decision/unreadable/PD-1']]);
   assert.equal(/SECRET/.test(r.out), false);
-  assert.match(r.out, /PD-2 \(line 5\) has a condition or Amends: line status cannot read \(it waits on an issue/);
+  assert.match(r.out, /PD-1 \(line 1\) has a condition or Amends: line status cannot read: say what brings it back/);
 });
 
 test("DC1 is green on slipway's own record", () => {

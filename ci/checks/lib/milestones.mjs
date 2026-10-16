@@ -26,8 +26,34 @@ export function appetiteClock(appetite, today) {
   return { day: days(appetite.start, today) + 1, of: days(appetite.start, appetite.end) + 1, end: appetite.end, overrun: appetite.end < today };
 }
 
-// Every milestone document, TEMPLATE.md and README.md excluded. `fm` is null when the
-// document has no frontmatter. `files` names every `*.md` in the folder that is a regular file reached through no
+// A milestone id: `M<n>`, or `M<n>.<k>` for a milestone inserted between M<n> and M<n+1>, so numbers stay in time
+// order and nothing written is renumbered (#476). The one shape every reader of an id builds its pattern from.
+export const MILESTONE_ID = 'M\\d{1,9}(?:\\.\\d{1,9})?';
+const ID = new RegExp(`^${MILESTONE_ID}$`, 'i');
+
+// [n, k] for an id, k -1 for a plain M<n>, so M1 < M1.0 < M1.1 < M1.10 < M2; null for anything else. Numbers are
+// read as numbers: M02 is M2.
+export function milestoneKey(id) {
+  if (typeof id !== 'string' || !ID.test(id)) return null;
+  const [n, k] = id.slice(1).split('.');
+  return [Number(n), k === undefined ? -1 : Number(k)];
+}
+
+// The id as the readers compare it: `M2` for `m02`, `M1.1` for `M01.1`; null for anything else.
+export function milestoneId(id) {
+  const key = milestoneKey(id);
+  return key && `M${key[0]}${key[1] < 0 ? '' : `.${key[1]}`}`;
+}
+
+// By number, then sub-number. NaN when either is not an id, so `<`, `<=`, `>=` and `>` are all false for it.
+export function compareMilestones(a, b) {
+  const [x, y] = [milestoneKey(a), milestoneKey(b)];
+  return x && y ? x[0] - y[0] || x[1] - y[1] : NaN;
+}
+
+// Every milestone document, TEMPLATE.md and README.md excluded, in id order (M1, M1.1, M2, M10), then by file name;
+// a document with no id, or an id of another shape, comes after every id. `fm` is null when the document has no
+// frontmatter. `files`, in file-name order, names every `*.md` in the folder that is a regular file reached through no
 // link; `refused` names each one that is not (a link, a folder, a device) and is never opened, or the folder itself
 // when it is a link, sits under one or is not a folder: then nothing in it is read. MS1 reports each refusal.
 const MILESTONES = 'docs/milestones';
@@ -40,12 +66,14 @@ export function readMilestones(root) {
     .filter((f) => f.endsWith('.md'))
     .sort()
     .filter((f) => notPlainFile(root, `${MILESTONES}/${f}`) === null || !refused.push(`${MILESTONES}/${f}`));
+  const key = (m) => milestoneKey(m.fm?.id);
   const milestones = files
     .filter((f) => f !== 'TEMPLATE.md' && f !== 'README.md')
     .map((f) => {
       const md = readFileSync(join(dir, f), 'utf8');
       return { file: f, md, fm: frontmatter(md) };
-    });
+    })
+    .sort((a, b) => (key(a) && key(b) ? compareMilestones(a.fm.id, b.fm.id) : Boolean(key(b)) - Boolean(key(a))) || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
   return { dir, files, milestones, refused };
 }
 
@@ -173,13 +201,14 @@ export function noGos(md) {
 }
 
 // The title without reading the body: frontmatter `title:`, else the body's first line only when it is exactly
-// `# M<n> — <title>`, the template's shape, and the title holds none of `<`, `>`, a backtick, `[` or `]` (a comment,
-// code or a link could hide text). Anything else, or anything before it, means no title.
+// `# M<n> — <title>` or `# M<n>.<k> — <title>`, the template's shape, and the title holds none of `<`, `>`, a
+// backtick, `[` or `]` (a comment, code or a link could hide text). Anything else, or anything before it, means no title.
+const TITLE = new RegExp(`^# ${MILESTONE_ID} — (.+)$`);
 function titleOf(md, fm) {
   if (fm.title) return fm.title;
   const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
   const first = body.split(/\r?\n/).find((l) => l.trim() !== '') ?? '';
-  const title = first.match(/^# M\d+ — (.+)$/)?.[1].trim();
+  const title = first.match(TITLE)?.[1].trim();
   return title && !/[<>`[\]]/.test(title) ? title : null;
 }
 
