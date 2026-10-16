@@ -1,5 +1,5 @@
 {
-  "_note": "a (shaping, placeholders allowed), b (closed, complete), c (active, within appetite) and README.md pass; TEMPLATE.md intact. o's Gate exists only inside an HTML comment. c and d are both active, so wip fires once.",
+  "_note": "a (shaping, placeholders allowed), b (closed, complete), c (active, within appetite) and README.md pass; TEMPLATE.md intact. o's Gate exists only inside an HTML comment. c and d are both active, so wip fires once. Its appetites also run out of id order, so MS1 warns order/appetite (#476).",
   "exit": 1,
   "env": {
     "CHECK_TODAY": "2026-09-21"
@@ -17,5 +17,9 @@
     "m-bad-kind.md#kind/unknown",
     "n-no-appetite.md#appetite/missing",
     "o-comment-gate.md#section/Gate"
+  ],
+  "warnings": [
+    "d-active-overrun.md#order/appetite",
+    "h-closed-no-retro.md#order/appetite"
   ]
 }

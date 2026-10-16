@@ -173,6 +173,17 @@ test('the model still reads no-gos for owner-only views, from prose only', () =>
 
 const readdir = (m) => ({ m0: 'M0-skeleton.md', m1: 'M1-booking.md', m2: 'M2-refunds.md', m3: 'M3-marketplace.md' })[m];
 
+// #476: Next lists by number, then sub-number: M1 before M1.1 (a reader of `M\d+` reads M1.1 as no number, and puts it
+// first), M1.1 before M2, and M10 after it, though M10 sorts first by file name.
+test('Next lists M1, M1.1, M2 and M10 in that order', () => {
+  const root = variant('M1-booking.md', (md) => md.replace(/^status: active$/m, 'status: shaping'));
+  const shaping = (id, title) => `---\nid: ${id}\nstatus: shaping\nkind: bet\n---\n\n# ${id} — ${title}\n`;
+  writeFileSync(join(root, 'docs', 'milestones', 'M1.1-inserted.md'), shaping('M1.1', 'Inserted'));
+  writeFileSync(join(root, 'docs', 'milestones', 'M10-later.md'), shaping('M10', 'Later'));
+  const next = section(render(root), 'Next');
+  assert.deepEqual([...next.matchAll(/(M[\d.]+)<\/span> (\w+)/g)].map((m) => `${m[1]} ${m[2]}`), ['M1 Online', 'M1.1 Inserted', 'M2 Refunds', 'M10 Later']);
+});
+
 test('a field added to a model entry never reaches the page: only project() decides what shows', () => {
   const milestones = readMilestoneModel(join(FIX, 'full'), '2026-03-11').map((m) => ({
     ...m,

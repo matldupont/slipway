@@ -24,11 +24,11 @@ import { readDecisions } from './checks/lib/decisions.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { section } from './checks/lib/markdown.mjs';
-import { appetiteClock, contents, marker, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { isPrdPath, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
-import { milestoneNumber, readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
+import { readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
 import { stepLines, whoLine } from './checks/lib/steps.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
 
@@ -54,7 +54,7 @@ const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'ut
 // A file name printed in a line: only in the plain shape, else in words (a name a pull request carries is project text).
 const named = (f) => (/^[A-Za-z0-9._\/-]{1,100}$/.test(String(f)) ? f : 'a file with an unusual name');
 // Ids read from files no check shapes: printed only as M<n> or RISK-n (at most 9 digits), else counted in words.
-const MID = /^M\d{1,9}$/;
+const MID = new RegExp(`^${MILESTONE_ID}$`);
 const RID = /^RISK-\d{1,9}$/i;
 const idList = (list, ref, more) => {
   const ok = list.filter((x) => ref.test(String(x.id))).map((x) => x.id);
@@ -165,16 +165,17 @@ const riskBlocksSentence = pastSkeletonUnderway.length
 // The Impact cell must start with the word (`Existential: no lawful revenue`), so "not existential" is not.
 // Read only where the PRD's risk table has a Resolves by column.
 const deadlines = readDeadlines(prd);
-const skeletons = ms.filter((m) => m.kind === 'skeleton').map((m) => milestoneNumber(m.id)).filter((n) => n >= 0);
-const bets = ms.filter((m) => m.kind !== 'skeleton').map((m) => milestoneNumber(m.id)).filter((n) => n >= 0);
-const firstBet = bets.length ? Math.min(...bets) : skeletons.length ? Math.max(...skeletons) + 1 : null;
+const idsOf = (pred) => ms.filter(pred).map((m) => milestoneId(m.id)).filter(Boolean).sort(compareMilestones);
+const skeletons = idsOf((m) => m.kind === 'skeleton');
+const bets = idsOf((m) => m.kind !== 'skeleton');
+const firstBet = bets.length ? bets[0] : skeletons.length ? `M${milestoneKey(skeletons.at(-1))[0] + 1}` : null;
 const existential = deadlines && firstBet !== null
   ? risks.filter((r) => !r.tested && /^\W*existential\b/i.test(r.impact ?? '')).flatMap((r) => {
       const d = deadlines.get((r.id ?? '').toUpperCase());
-      if (d?.before && milestoneNumber(d.before) <= firstBet) return [];
-      const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${quoted(d.cell) || 'in a cell that cannot be shown'}, after M${firstBet} starts` : `resolves ${quoted(d.cell || 'blank')}, which names no milestone`;
+      if (d?.before && compareMilestones(d.before, firstBet) <= 0) return [];
+      const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${quoted(d.cell) || 'in a cell that cannot be shown'}, after ${firstBet} starts` : `resolves ${quoted(d.cell || 'blank')}, which names no milestone`;
       const who = RID.test(String(r.id)) ? r.id : 'A value risk with an unusual id';
-      return [`${who} is existential and untested, and ${when}: schedule its test before M${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${RID.test(String(r.id)) ? `${r.id}'s` : 'its'} Result`];
+      return [`${who} is existential and untested, and ${when}: schedule its test before ${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${RID.test(String(r.id)) ? `${r.id}'s` : 'its'} Result`];
     })
   : [];
 
@@ -261,7 +262,7 @@ const owed_ = [];
 for (const item of cur ? contents(cur.md) : []) {
   const owes = owing(item);
   const issue = marker(item.text)?.issue;
-  const where = `${/^M\d+$/.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${item.n}`;
+  const where = `${MID.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${item.n}`;
   const file = `docs/milestones/${named(cur.file)}`;
   const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
   if (owed.length) owed_.push(`Owed check: ${where} (#${issue}) — ${owed.length} check(s) moved to after merge with no run recorded (the Owed: lines under it in ${file}): run each, post the result as a comment on #${issue}, then change the Owed line to Ran with that comment's link; #${issue} stays open until then (reopen it if it was closed)`);

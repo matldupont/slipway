@@ -63,9 +63,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section } from '../lib/markdown.mjs';
-import { readMilestones } from '../lib/milestones.mjs';
+import { compareMilestones, readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
-import { EXPERIENCE, filled, milestoneNumber, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
+import { EXPERIENCE, filled, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
 // A Result quoted in a finding, cut like a parked question, by code point so a character is never split.
 // report() escapes what it prints.
@@ -151,12 +151,12 @@ for (const r of risks) {
   }
 }
 
-// PRD deadlines: `before Mn` is due once Mn, or any later milestone, is underway — a skipped or killed
+// PRD deadlines: `before Mn` is due once Mn, or any later milestone (M1.1 is later than M1), is underway — a skipped or killed
 // Mn does not defer it — whatever the risk's category.
 const prdPath = join(root, 'docs', 'PRD.md');
 const deadlines = existsSync(prdPath) ? readDeadlines(readFileSync(prdPath, 'utf8')) : null;
 for (const [id, d] of deadlines ?? []) {
-  const due = d.before && underway.find((m) => milestoneNumber(m.fm.id) >= milestoneNumber(d.before));
+  const due = d.before && underway.find((m) => compareMilestones(m.fm.id, d.before) >= 0);
   if (!due) continue;
   const r = risks.find((x) => (x.id ?? '').toUpperCase() === id);
   if (r?.tested || (r?.value && pastSkeleton.length)) continue;
