@@ -14,9 +14,8 @@
 //
 // Lacks Fit, each reason a finding id:
 //   fit/missing             no `## Fit` heading; the first one in the file is the one read, as section() finds it
-//   fit/unfilled/unreadable  a `<!--` and a `-->` sit on either side of a heading line (ATX, or a setext underline):
-//                           the reader cannot tell a comment from a `<!--` GitHub shows as text, so it cannot tell
-//                           which labels and text show
+//   fit/unfilled/unreadable  a `<!--` in or above the Fit section that is not a comment on lines of its own: the reader
+//                           cannot tell it from text, so it cannot tell which labels and text GitHub shows
 //   fit/unfilled/<label>    that label is absent, or its text is empty, or its text holds a placeholder
 //   fit/unfilled/new        also when `Reuses:` says nothing is reused and `New:` says `none`
 //   frontmatter/unreadable  the doc is held as `unreadable`
@@ -29,58 +28,87 @@ import { readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { docFrontmatter, isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
 import { hasPlaceholder } from './frontmatter.mjs';
-import { commentLines, commentSpans, replaceComments, sectionLines } from './markdown.mjs';
+import { commentLines, commentSpans, sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
 import { MISSING, notPlainFolder, readPlain, reviewProvenance } from './review-header.mjs';
 
 const LABELS = { reuses: 'Reuses:', numbers: 'Numbers:', new: 'New:' };
 const REVIEWS = 'docs/reviews';
 
-// A heading inside the section ends a label's text, as GitHub shows it: an ATX heading of any level, or a line of text
-// with a setext underline under it (`=`s, or two `-`s or more), which is no text either. A label line is read as a
-// label whatever is under it, a lone `-` under a line stays the empty list mark it was read as, and a numbered item or
-// a quote line above an underline is read as a heading (Known limitations): each is the strict reading.
+// A heading inside the section, as GitHub shows one: an ATX heading of any level ends a label's text, and a line of
+// text with a setext underline under it (`=`s, or two `-`s or more), a label line too, is a level-1 or level-2
+// heading, which ends the section. A lone `-` under a line stays the empty list mark it was read as, and a numbered
+// item or a quote line above an underline is read as a heading (Known limitations).
 const ATX = /^ {0,3}#{1,6}(?:[ \t]|$)/;
 const UNDERLINE = /^ {0,3}(?:=+|-{2,})[ \t]*$/;
-const isLabel = (line) => Object.values(LABELS).some((l) => line.startsWith(l));
-const headingAt = (lines, i) =>
-  ATX.test(lines[i]) || (i + 1 < lines.length && lines[i].trim() !== '' && !isLabel(lines[i]) && !/^\s*[-*+]\s/.test(lines[i]) && !UNDERLINE.test(lines[i]) && UNDERLINE.test(lines[i + 1]));
+const setextAt = (lines, i) => i + 1 < lines.length && lines[i].trim() !== '' && !/^\s*[-*+]\s/.test(lines[i]) && !UNDERLINE.test(lines[i]) && UNDERLINE.test(lines[i + 1]);
+const FIT = /^#{2}\s+Fit\s*$/i; // as sectionLines() finds the section
 
-// Comments. The reader does not tell a comment from a `<!--` GitHub shows as text (in code, in a list item, mid-line),
-// so it reads every one the strict way. A `<!--` with no `-->` hides the rest of the doc. A closed comment whose lines
-// after its first hold a heading line (an ATX heading or a setext underline) makes the doc unreadable: which headings,
-// labels and text show cannot be told. Any other closed comment holds no heading, and a label is unfilled when its
-// text holds a placeholder in any of three readings, each with the same sections: the comment as a space (what is
-// read for everything else), taken out whole with its line breaks (a comment inside a placeholder), and its text kept,
-// a `<!--` with no `-->` too (a `<!--` GitHub shows as text, before or around a placeholder). A placeholder is only
-// ever added by the second and third: a label is never read as filled through them.
-const crossesHeading = (md) => commentSpans(md).some(([start, end]) => md.slice(start, end).split('\n').slice(1).some((l) => ATX.test(l) || UNDERLINE.test(l)));
-const JOIN = '\uE000'; // a private-use character: where a comment was taken out whole
-const SHOWN = (c) => ` ${commentLines(c)}`;
-const JOINED = (c) => `${JOIN}${commentLines(c)}`;
-const KEPT = (c) => c.replace(/<!--|-->/g, '    ').replace(/^ {4}/, ' ');
+// Comments, read only where GitHub's reading is certain. A comment on lines of its own (its `<!--` opens a line, up
+// to three spaces before it, and its `-->` ends a line) is an HTML block GitHub hides whole: those lines are blank
+// here, and every heading, label and text in them is hidden as GitHub hides it. Any other `<!--` (mid-line, after a
+// list or quote mark, in code, or with no `-->`) the reader cannot tell from text, so a doc with one in its Fit
+// section or above it is unreadable: counted, never passed. One after the section hides nothing of it.
+const lineOf = (md, at) => {
+  let n = 0;
+  for (let i = md.indexOf('\n'); i >= 0 && i < at; i = md.indexOf('\n', i + 1)) n++;
+  return n;
+};
+function commentKinds(md) {
+  const own = [];
+  const other = [];
+  for (const [start, end] of commentSpans(md, { unclosed: true })) {
+    const closed = end - start >= 7 && md.startsWith('-->', end - 3);
+    const eol = md.indexOf('\n', end);
+    const opens = /^ {0,3}$/.test(md.slice(md.lastIndexOf('\n', start - 1) + 1, start));
+    (closed && opens && /^[ \t]*$/.test(md.slice(end, eol < 0 ? md.length : eol)) ? own : other).push([start, end]);
+  }
+  return { own, other };
+}
+// The text with each span in `spans` replaced by `by(comment)`, and every other `<!--` made inert at the same length,
+// so the line numbers hold and no reader after this takes it for a comment.
+function replaceSpans(md, spans, by) {
+  let out = '';
+  let from = 0;
+  for (const [start, end] of spans) {
+    out += md.slice(from, start) + by(md.slice(start, end));
+    from = end;
+  }
+  return (out + md.slice(from)).replaceAll('<!--', '<!-\uE000');
+}
 
-// The text of each label of a doc's Fit section, absent labels left out; null when the doc has no section. Each comment
-// is what `by` gives, and a `<!--` with no `-->` hides the rest of the doc (as a space and its line breaks).
-function fitTexts(md, by = SHOWN) {
+// The text of each label of a doc's Fit section, absent labels left out, as `{ shown, kept }`: `shown` as GitHub
+// shows it, `kept` the same lines with each hidden comment's text in place, for the placeholder test only (a
+// placeholder in a comment is still the template's). 'unreadable' for a doc with a comment the reader cannot read
+// in or above the section; null when the doc has no section.
+function fitTexts(md) {
+  const { own, other } = md.includes('<!--') ? commentKinds(md) : { own: [], other: [] };
+  const shownMd = replaceSpans(md, own, commentLines);
   // The lines as written: section() trims its text, and an indented `Reuses:` on the first line is not a label.
-  const shownMd = md.includes('<!--') ? replaceComments(md, by, { unclosed: true }) : md;
   const body = sectionLines(shownMd, 'Fit', 2);
   if (body === null) return null;
+  const all = shownMd.split(/\r?\n/);
+  const start = all.findIndex((l) => FIT.test(l.trim()));
+  // The spans come in order, so the first is the one nearest the top: counted once, in one pass.
+  if (other.length && lineOf(md, other[0][0]) <= start + body.length) return 'unreadable';
+  const kept = replaceSpans(md, own, (c) => c.replace(/<!--|-->/g, '    ')).split(/\r?\n/);
   const texts = {};
   let cur = null;
   for (const [i, line] of body.entries()) {
-    if (headingAt(body, i) || (i > 0 && headingAt(body, i - 1) && !ATX.test(body[i - 1]))) {
+    if (setextAt(body, i)) break;
+    if (ATX.test(line)) {
       cur = null;
       continue;
     }
     const key = Object.keys(LABELS).find((k) => line.startsWith(LABELS[k]));
     if (key) {
       cur = key in texts ? null : key; // a label written twice: its first line is the one read
-      if (cur) texts[key] = [line.slice(LABELS[key].length)];
-    } else if (cur) texts[cur].push(line);
+      if (cur) texts[key] = [i];
+    } else if (cur) texts[cur].push(i);
   }
-  return Object.fromEntries(Object.entries(texts).map(([k, lines]) => [k, lines.join('\n')]));
+  const read = (lines, at, k) => at.map((i, n) => (n === 0 ? lines[start + 1 + i].slice(LABELS[k].length) : lines[start + 1 + i])).join('\n');
+  const pick = (lines) => Object.fromEntries(Object.entries(texts).map(([k, at]) => [k, read(lines, at, k)]));
+  return { shown: pick(all), kept: pick(kept) };
 }
 
 // What says something: text with at least one letter or digit, in any script, once the characters that print as
@@ -122,15 +150,12 @@ const placeholder = (text) => text.split('\n').some((line) => line.length > LINE
 
 // How a doc's Fit reads: `reasons` it lacks Fit (none: filled), and for a filled one which short answers it gave.
 function readFit(md) {
-  const comments = md.includes('<!--');
-  if (comments && crossesHeading(md)) return { reasons: ['fit/unfilled/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
-  const texts = fitTexts(md);
-  if (texts === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
-  const joined = comments ? fitTexts(md, JOINED) ?? {} : {};
-  const kept = comments ? fitTexts(md, KEPT) ?? {} : {};
-  const inAny = (k) => [texts[k], joined[k]?.replace(/\uE000\n*/g, ''), kept[k]].some((t) => t !== undefined && placeholder(t));
+  const read = fitTexts(md);
+  if (read === 'unreadable') return { reasons: ['fit/unfilled/unreadable'], reusesNothing: false, noNumbers: false, nothingNew: false };
+  if (read === null) return { reasons: ['fit/missing'], reusesNothing: false, noNumbers: false, nothingNew: false };
+  const { shown: texts, kept } = read;
   // The placeholder test and its length cap come first, so a line nobody reads is never read further.
-  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || inAny(k) || !says(texts[k]));
+  const unfilled = Object.keys(LABELS).filter((k) => texts[k] === undefined || placeholder(texts[k]) || placeholder(kept[k]) || !says(texts[k]));
   const reusesNothing = !unfilled.includes('reuses') && items(texts.reuses).every((i) => word(i).startsWith('nothing'));
   const nothingNew = !unfilled.includes('new') && answer(texts.new) === 'none';
   // A feature that neither reuses nor adds anything has not been described.

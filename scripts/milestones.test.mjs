@@ -319,4 +319,15 @@ test('the milestone model and the PRD deadline table read a long line of placeho
   const deadlines = best(() => cpuMs(() => readDeadlines(large))) / Math.max(1, best(() => cpuMs(() => readDeadlines(small))));
   assert.ok(deadlines < 8, `the deadlines: grew ${deadlines.toFixed(1)} times`);
   assert.equal(readDeadlines(small), null);
+  // What each reads, besides how fast: a No-go whose line holds a line separator is no item; an opener no `>` closes
+  // is no placeholder.
+  const dir = mkdtempSync(join(tmpdir(), 'ms-'));
+  try {
+    mkdirSync(join(dir, 'docs/milestones'), { recursive: true });
+    writeFileSync(join(dir, 'docs/milestones/m1.md'), `---\nid: M1\nstatus: shaping\nsummary: ${'<…'.repeat(1_000)}\n---\n\n# M1 — x\n\n## No-gos\n\n-${' '.repeat(1_000)}x\u2028\n`);
+    const [m] = readMilestoneModel(dir, '2026-06-01');
+    assert.deepEqual([m.summary.length, m.noGos], [2_000, []]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

@@ -488,17 +488,17 @@ as the other ratchets' are.
   without a line of their own; MS1, run by every `pnpm meta`, is where it shows. `ci/ratchet.mjs` still reads the
   tool's report through a link: the report is the tool's own output, at a path the project's script names.
   Fit is read as GitHub shows it only in part, and where the reader cannot tell, the strict way (the owner's call,
-  2026-10-15, after two review rounds found holes in a closer reading): it does not tell a comment from a `<!--`
-  GitHub shows as text (in code, mid-line, in a list item), so every `<!--` is read as a comment. One with no `-->`
-  hides the rest of the doc, so a `<!--` meant as text, even in code, above or in the Fit leaves it missing or
-  unfilled; write it `&lt;!--`. A doc in which a comment's lines after its first hold a heading line (an ATX heading
-  or a setext underline) is counted as `fit/unfilled/unreadable`. A label is unfilled when its text holds a
-  placeholder with the comments read as a space, taken out whole, or kept as text. A heading ends a label's text; a
+  2026-10-15, after review rounds found holes in closer readings). A comment is read only on lines of its own: its
+  `<!--` opens a line (up to three spaces before it) and its `-->` ends one, the HTML block GitHub hides whole, so
+  those lines are hidden here too, and a placeholder inside one still counts as the template's. Any other `<!--` in
+  the Fit or above it (mid-line, after a list or quote mark, in code, or with no `-->`) the reader cannot tell from
+  text, so the doc is counted as `fit/unfilled/unreadable`; a `<!--` meant as text belongs after the Fit. An ATX
+  heading ends a label's text, and a setext heading (a label line with an underline included) ends the section. A
   character reference, an HTML tag (in a code span too), a link with no text and a link reference definition say
-  nothing. A label line with a setext underline under it is still a label, a lone `-` under a line is still an empty
-  list mark, a numbered item or a quote line above an underline is a heading, a label after a comment on its line
-  (`<!-- x -->Reuses:`) is not a label, and a character reference that shows a character (`&amp;`) says nothing:
-  each is read the strict way, counted rather than passed. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
+  nothing. A numbered item or a quote line above an underline is a heading, and a character reference that shows a
+  character (`&amp;`) says nothing: each is read the strict way, counted rather than passed. A lone `-` under a line
+  of text is read as an empty list mark, not the setext underline GitHub makes of it, so a label above such a
+  heading can pass: text in the diff a reviewer reads. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
   HTML block) are read as text. A heading or citation holding a run of more than 32 combining marks (the halfwidth
   voiced marks counted as marks) is folded a piece at a time, the run reordered within each piece only, which no id
   or heading mark depends on. `ci/checks/lib/yaml-list.mjs`'s line

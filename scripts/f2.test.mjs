@@ -349,8 +349,8 @@ test('a held doc whose status line is empty: the warning says it has no readable
   assert.ok(r.lines.includes(`F2: warning: ${A}#frontmatter/unreadable: \`${A}\` has no readable status line and nothing says it is a draft, so it is counted whatever its Fit says — give its frontmatter a \`status:\` line with its status after it (\`draft\`, \`shipped\`)`), r.out);
 });
 
-test('a held doc whose comment runs across a heading: counted, with the reason and the way out', () => {
+test('a held doc with a `<!--` above its Fit that is not a comment on lines of its own: counted, with the reason and the way out', () => {
   const r = f2({ [A]: `---\nstatus: shipped\n---\n\n# F-1 — x\n\n${FILLED.replace('New: ', 'New: `<!--` ')}\n## Problem\n\nThe \`-->\` x\n`, [BASELINES]: baseline(1) });
   assert.equal(r.status, 0, r.out);
-  assert.ok(r.lines.some((l) => l.startsWith(`F2: warning: ${A}#fit/unfilled/unreadable: \`${A}\` is shipped and an HTML comment (\`<!--\` … \`-->\`) runs across a heading line`)), r.out);
+  assert.ok(r.lines.some((l) => l.startsWith(`F2: warning: ${A}#fit/unfilled/unreadable: \`${A}\` is shipped and a \`<!--\` in its Fit or above it is not a comment on lines of its own, so what GitHub shows of its Fit cannot be told — put each comment on lines of its own (\`<!--\` opening its first line, \`-->\` ending its last), and keep a \`<!--\` meant as text out of the Fit and the sections above it`)), r.out);
 });

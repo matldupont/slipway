@@ -570,22 +570,25 @@ test('a milestone citation written with a look-alike hyphen or digit, or a chara
 // Item 11: what GitHub shows as nothing, or does not show, is not Fit.
 test('a Fit GitHub hides, a heading or label made only by taking a comment out, and markup that shows nothing are not a filled Fit', () => {
   const filled = fit('Reuses: x in lib/x', 'Numbers: none shown', 'New: a thing');
-  assert.deepEqual(reasons({ [A]: doc('shipped', `<!-- an open comment\n\n${filled}`) }), ['fit/missing'], 'after a <!-- with no -->');
-  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/unfilled/unreadable'], 'inside a comment, across its heading');
-  // A `<!--` GitHub shows as text (in code, in an attribute) and a `-->` under the next heading: the reader cannot tell
-  // which headings show, so the doc is counted, never passed.
+  // A comment on lines of its own hides those lines, as GitHub hides it; any other `<!--` in or above the section
+  // leaves the doc unreadable, counted.
+  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/missing'], 'inside a comment on lines of its own');
+  assert.deepEqual(reasons({ [A]: doc('shipped', `<!-- an open comment\n\n${filled}`) }), ['fit/unfilled/unreadable'], 'after a <!-- with no -->');
   for (const [open, close] of [['`<!--`', 'The `-->` export is slow.'], ['<span title="<!--"></span>', '<span title="-->"></span>']]) {
     assert.deepEqual(reasons({ [A]: `---\nstatus: shipped\n---\n\n# F-1 — x\n\n## Fit\n\nReuses: x in lib/x\n\nNumbers: none shown\n\nNew: ${open}\n\n## Problem\n\n${close}\n` }), ['fit/unfilled/unreadable'], open);
   }
   assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('## Fit', '#<!-- --># Fit')) }), ['fit/missing'], 'a heading only once the comment is out');
-  assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('Reuses:', 'Reu<!-- -->ses:')) }), ['fit/unfilled/reuses'], 'a label only once the comment is out');
+  assert.deepEqual(reasons({ [A]: doc('shipped', filled.replace('Reuses:', 'Reu<!-- -->ses:')) }), ['fit/unfilled/unreadable'], 'a label only once the comment is out');
   for (const markup of ['&nbsp;', '&#8203;', '&#x200B;', '<br>', '<i></i>', '<span class="x"></span>', '[](x)', '- [x]: https://example.com']) {
     assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n${markup.startsWith('-') ? markup.slice(2) : `- ${markup}`}`, 'Numbers: none shown', 'New: a thing')) }), ['fit/unfilled/reuses'], markup);
   }
   assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: <https://example.com/helper>', 'Numbers: none shown', 'New: a thing')) }), [], 'an autolink shows its address');
   assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', 'Numbers:\n\n### Notes\n\nnone shown', 'New: a thing')) }), ['fit/unfilled/numbers'], 'text under a ### heading');
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', 'Numbers:\n\nNotes\n===\n\nnone shown', 'New: a thing')) }), ['fit/unfilled/numbers'], 'text under a setext heading');
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', 'Numbers:\n\nNotes\n---\n\nnone shown', 'New: a thing')) }), ['fit/unfilled/numbers'], 'text under a --- setext heading');
+  // A setext heading is level 1 or 2: it ends the section, so a label under it is not the Fit's.
+  for (const underline of ['===', '---']) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', `Numbers:\n\nNotes\n${underline}\n\nnone shown`, 'New: a thing')) }), ['fit/unfilled/numbers', 'fit/unfilled/new'], `a setext heading ${underline}`);
+  }
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: `total()` in lib/money.ts\n---', 'Numbers: none shown', 'New: a thing')) }), ['fit/unfilled/reuses', 'fit/unfilled/numbers', 'fit/unfilled/new'], 'a label line with an underline is a heading');
 });
 
 // Item 13: a heading is folded in time linear in its line, whatever marks it holds.
@@ -632,30 +635,30 @@ test('a docs/reviews/ that is a link is listed unread, so no doc is held or drop
   }
 });
 
-// #482's review rounds 1 and 2, and the owner's call to narrow (2026-10-15): the reader does not tell a comment from a
-// `<!--` GitHub shows as text, so it reads each the strict way. A placeholder hidden by, inside or around a comment is
-// still one; a `<!--` with no `-->` hides the rest; a comment across any heading line makes Fit unreadable; markup in a
-// code span and a numbered or quote line above `---` read the strict way too.
-test('every comment shape is read the strict way: a placeholder near a comment is unfilled, an unclosed <!-- hides the rest, a comment across a heading of either kind is unreadable', () => {
+// #482's review rounds 1–3 and the owner's call to narrow (2026-10-15): a comment is read only when it sits on lines of
+// its own, where GitHub hides it whole; any other `<!--` in or above the section leaves the doc unreadable, counted.
+test('comments: one on lines of its own hides those lines; any other <!-- in or above the Fit makes it unreadable; one after it hides nothing; a placeholder in a hidden comment is unfilled', () => {
   const rest = { numbers: 'Numbers: none shown', fresh: 'New: a thing' };
   const filled = fit('Reuses: x in lib/x', rest.numbers, rest.fresh);
-  for (const reuses of ['Reuses: T<!-- -->BD', 'Reuses:\n- <<!-- -->…a pattern…>', 'Reuses: [NEEDS<!-- --> CLARIFICATION: x]', 'Reuses:\n- <…a pattern…<!--\n-->>', 'Reuses: x `<!--` <…a pattern…> `-->`']) {
-    assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, rest.numbers, rest.fresh)) }), ['fit/unfilled/reuses'], reuses);
+  const unreadable = ['fit/unfilled/unreadable'];
+  const shapes = [
+    'Reuses: T<!-- -->BD', 'Reuses:\n- <<!-- -->…a pattern…>', 'Reuses: x `<!--` <…a pattern…> `-->`', 'Reuses: x in lib/x <!-- a note -->',
+    'Reuses:\n- <!-- `total()` in lib/money.ts', 'Reuses: x\n<!-- a --> <!-- b\nof a closer: `-->`.', 'Reuses: x\n<!--\nold\n-->Reuses: y', '> <!-- quoted -->\nReuses: x',
+  ];
+  for (const reuses of shapes) assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, rest.numbers, rest.fresh)) }), unreadable, reuses);
+  for (const above of ['See `<!--` in code.', '<!-- ## Fit -->x', 'Notes `<!--`\n`-->## Fit']) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', `${above}\n\n${filled}`) }), unreadable, above);
   }
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', rest.numbers, 'New: the export, see <!-- <…anything this adds…>')) }), ['fit/unfilled/new'], 'a placeholder after an unclosed <!--');
-  assert.deepEqual(reasons({ [A]: doc('shipped', `See \`<!--\` in code.\n\n${filled}`) }), ['fit/missing'], 'an unclosed <!-- in code above the section hides it');
-  assert.deepEqual(reasons({ [A]: doc('shipped', `See \`<!--\` in code.\n\n<!-- notes\n\n${filled}`) }), ['fit/missing'], 'a later <!-- that opens a line');
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:\n- <!-- `total()` in lib/money.ts', rest.numbers, rest.fresh)) }), ['fit/unfilled/reuses', 'fit/unfilled/numbers', 'fit/unfilled/new'], 'a <!-- in a list item');
-  for (const underline of ['-------', '=======']) {
-    const md = `---\nstatus: shipped\n---\n\n# F-1 — x\n\n## Fit\n\nReuses: x in lib/x\n\nNumbers: none shown\n\nNew: \`<!--\`\n\nProblem\n${underline}\n\nThe \`-->\` export is slow.\n`;
-    assert.deepEqual(reasons({ [A]: md }), ['fit/unfilled/unreadable'], `a setext heading ${underline[0]}`);
-  }
-  assert.deepEqual(reasons({ [A]: doc('shipped', `#<!-- --># Fit\n\n${fit('Reuses: T<!-- -->BD', rest.numbers, rest.fresh)}`) }), ['fit/unfilled/reuses'], 'a decoy heading made by taking a comment out');
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', rest.numbers, 'New: `<ExportButton />`')) }), ['fit/unfilled/new'], 'markup in a code span says nothing');
-  for (const reuses of ['Reuses:\n1. `total()` in lib/money.ts\n---', 'Reuses:\n> `total()` in lib/money.ts\n---']) {
-    assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, rest.numbers, rest.fresh)) }), ['fit/unfilled/reuses'], reuses);
-  }
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x <!-- a note -->', rest.numbers, rest.fresh)) }), [], 'a comment that hides nothing changes nothing');
+  // On lines of its own: hidden whole, what it holds included, and a placeholder in it is still the template's.
+  assert.deepEqual(reasons({ [A]: doc('shipped', `<!-- ## Fit -->\n\n${filled}`) }), [], 'a decoy heading in a hidden comment');
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x\n<!--\nNew: what this adds\n-->', rest.numbers, rest.fresh)) }), [], 'a hidden label is not read');
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x\n  <!-- <…a pattern…> -->', rest.numbers, rest.fresh)) }), ['fit/unfilled/reuses'], 'a placeholder in a hidden comment');
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x\n<!--\nhint\n-->', 'Numbers:\n<!-- what it shows -->', rest.fresh)) }), ['fit/unfilled/numbers'], 'a label whose only text is hidden');
+  // After the section: GitHub hides from there on, and nothing of the Fit.
+  assert.deepEqual(reasons({ [A]: doc('shipped', `${filled}\n## Notes\n\nSee \`<!--\` and \`-->\` in code.\n`) }), [], 'a <!-- after the section');
+  // The strict readings kept: markup in a code span says nothing; a numbered or quote line above --- is a heading.
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', rest.numbers, 'New: `<ExportButton />`')) }), ['fit/unfilled/new']);
+  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:\n1. `total()` in lib/money.ts\n---', rest.numbers, rest.fresh)) }), ['fit/unfilled/reuses', 'fit/unfilled/numbers', 'fit/unfilled/new']);
 });
 
 test('a linked docs/milestones/TEMPLATE.md or README.md feeds no count, so the count lists neither unread', () => {
