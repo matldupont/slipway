@@ -61,6 +61,8 @@ test('the Next-line form: a good line passes, and each clause trips alone', () =
   }
   // The 260 counts the quoted spans; the other rules do not.
   assert.ok(nextFormBreaks(`Test RISK-1, "${'a'.repeat(250)}" now. Nothing waits. You, an afternoon.`).some((b) => /over 260/.test(b)));
+  // A comma left where a quoted span was cut is not a word.
+  assert.deepEqual(nextFormBreaks('Test a risk with an unusual id, "x", and 1 more with real people now. Nothing waits. Yours, days to weeks.'), []);
   // A quoted span is project text the rules cannot govern.
   assert.deepEqual(nextFormBreaks('Test RISK-1, "a; b — K1 D-005 Step 1" with real people. Nothing waits. Yours, days to weeks.'), []);
 });

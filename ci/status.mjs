@@ -55,6 +55,8 @@ const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'ut
 const named = (f) => (/^[A-Za-z0-9._\/-]{1,100}$/.test(String(f)) ? f : 'a file with an unusual name');
 // Ids read from files no check shapes: printed only as M<n> or RISK-n (at most 9 digits), else counted in words.
 const MID = new RegExp(`^${MILESTONE_ID}$`);
+// A tracker reference is printed only in the shapes the checks read (`owner/repo#n`, `#n`, a decision id), else as "tracked".
+const trackerRef = (t) => (/^(?:[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100})?#\d{1,9}$|^(?:OD|PD|D)-\d{1,9}$/.test(String(t)) ? t : 'tracked');
 const RID = /^RISK-\d{1,9}$/i;
 const idList = (list, ref, more) => {
   const ok = list.filter((x) => ref.test(String(x.id))).map((x) => x.id);
@@ -88,7 +90,7 @@ const riskState = (r) => {
   const w = r.window === 'unreadable'
     ? ', window unreadable — write yyyy-mm-dd..yyyy-mm-dd'
     : r.window && `, window ${r.window.start}..${r.window.end}${r.window.end < today ? ' — overran' : ''}`;
-  return `${r.id} scheduled (${r.tracker}${w || ''})`;
+  return `${r.id} scheduled (${trackerRef(r.tracker)}${w || ''})`;
 };
 
 // A seeded file nobody has edited yet: its bytes are the ones the install manifest recorded. Without a readable manifest
@@ -174,7 +176,7 @@ const existential = deadlines && firstBet !== null
       const d = deadlines.get((r.id ?? '').toUpperCase());
       if (d?.before && compareMilestones(d.before, firstBet) <= 0) return [];
       const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${quoted(d.cell) || 'in a cell that cannot be shown'}, after ${firstBet} starts` : `resolves ${quoted(d.cell || 'blank')}, which names no milestone`;
-      const who = RID.test(String(r.id)) ? r.id : 'A value risk with an unusual id';
+      const who = RID.test(String(r.id)) ? r.id : 'A risk with an unusual id';
       return [`${who} is existential and untested, and ${when}: schedule its test before ${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${RID.test(String(r.id)) ? `${r.id}'s` : 'its'} Result`];
     })
   : [];
@@ -247,7 +249,8 @@ for (const file of walk(join(root, 'docs'))) {
   lines.forEach((line, i) => {
     for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${quoted(body) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
-      const ref = body.match(TRACKER)?.[0] ?? 'untracked';
+      const found = body.match(TRACKER)?.[0];
+      const ref = found ? trackerRef(found) : 'untracked';
       parked_.push(`${rel_}:${i + 1} — ${quoted(body.split('·')[0]) || 'no text'} (${ref})`);
     }
   });
@@ -299,7 +302,7 @@ const step0 = packages === 0 || (!bootstrapped && !ms.some((m) => m.status === '
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 // The first untested value risk, named for the person who tests it, and how many more wait behind it.
 // A risk's id is read from the frame's ID column, which no check shapes: it is printed only as RISK-n, else as words.
-const riskRef = (r) => (RID.test(String(r.id)) ? r.id : 'a value risk with an unusual id');
+const riskRef = (r) => (RID.test(String(r.id)) ? r.id : 'a risk with an unusual id');
 const firstRisk = () => {
   const r = untestedValue[0];
   const more = untestedValue.length - 1;
