@@ -83,7 +83,7 @@ configuration key (every project has the file; with none, say so and go on).
 
 ### 2. The milestone-item form — `process/intake.md` → Milestone item (new section)
 
-`/log-feature {milestone id}#{item}`, e.g. `/log-feature M1#2`. An argument matching `^M\d+#\d+$` selects
+`/log-feature {milestone id}#{item}`, e.g. `/log-feature M1#2`. An argument matching `^M\d+(\.\d+)?#\d+$` (#476) selects
 this form; anything else is today's idea. The argument is used only after that match.
 
 1. **Resolve.** The milestone doc with that `id:` (`Milestone roadmap`). Stop, saying why, when:
@@ -161,7 +161,7 @@ none: developer tooling. It changes how a project's own skills and status start 
 The feature reads owner-written text and acts on it: the `{id}#{n}` argument, Contents lines and
 `decisions.md`. It defends:
 
-- **The argument never reaches a shell unchecked:** used only after it matches `^M\d+#\d+$`.
+- **The argument never reaches a shell unchecked:** used only after it matches `^M\d+(\.\d+)?#\d+$`.
 - **Repository text is data:** a Contents line or a decision that asks the skill to run a command, skip the
   conflict question or write elsewhere is quoted to the owner, not followed.
 - **The status excerpt is bounded:** one line, at most 60 characters. Status output enters every session

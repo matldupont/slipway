@@ -663,7 +663,13 @@ test('process/intake.md → Decisions: read in full, a conflict asked before any
 test('process/intake.md → Milestone item: the argument is matched before use, and a started item names its issue', () => {
   const m = (section(intake, 'Milestone item', 2) ?? '').replace(/\s+/g, ' ');
   assert.ok(m, 'process/intake.md has no ## Milestone item');
-  assert.match(m, /matching `\^M\\d\+#\\d\+\$` selects this form, and is used for nothing before it matches/, 'the argument is checked before it reaches anything');
+  const arg = m.match(/An argument matching `([^`]+)` selects this form, and is used for nothing before it matches/)?.[1];
+  // Pinned whole: the pattern is what keeps the argument out of a shell, so a looser one fails here before any sample.
+  assert.equal(arg, '^M\\d+(\\.\\d+)?#\\d+$', 'the argument is checked before it reaches anything');
+  // #476: an inserted milestone's item is selected as M2's is; nothing else that could reach a command is.
+  const re = new RegExp(arg);
+  for (const ok of ['M2#2', 'M1.1#3', 'M10#1']) assert.ok(re.test(ok), `${arg} must select ${ok}`);
+  for (const no of ['M1.1.1#3', 'M1#', 'M1.#2', 'm1#2', 'M1#2; rm -rf x', 'M1#2 x', 'M1#2 $(x)', 'x M1#2', 'M1b#2']) assert.ok(!re.test(no), `${arg} must not select ${no}`);
   assert.match(m, /not `status: active`/, 'a milestone still being shaped stops the run');
   assert.match(m, /Phase 2, skipped,\*\* with one line: `\{id\} already made this bet/, 'the argument against building is replaced by one line');
   assert.match(m, /no F-ID is added and the PRD version is not bumped/, 'an item already in the PRD adds no F-ID');
@@ -889,6 +895,12 @@ test('the four skills apply the decision defaults before asking; the working rul
   const title = dec.match(/^## (D-\d+ — The trust line\b.*)$/m)?.[1];
   assert.ok(title, 'decisions.md must record §3, the trust line');
   assert.match(section(dec, title, 2) ?? '', /`process\/decision-defaults\.md`/, 'the trust-line decision must cite the defaults file');
+});
+
+// #476: numbers stay in time order, so a project inserting a milestone writes M<n>.<k> and renumbers nothing.
+test('process/slipway-rules.md → Planning flow says an inserted milestone takes M<n>.<k>, never a renumbering, in one sentence', () => {
+  const flow = (section(read('process/slipway-rules.md'), 'Planning flow', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(flow, /- Milestone numbers run in time order: a milestone inserted between two others takes `M<n>\.<k>` \(M1\.1 sits between M1 and M2\), never a renumbering; `M<n>\.<k>` names a milestone, never an item\. -/);
 });
 
 // #163: one list of owner-only files. process/slipway-rules.md → Gates names the files /work-ticket judges a run by,

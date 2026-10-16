@@ -397,9 +397,9 @@ run, an idea or a milestone item. No file: say so, and go on.
 
 ## Milestone item
 
-`/log-feature {milestone id}#{item}`, e.g. `/log-feature M1#2`: shape an item of a milestone's Contents that
-the milestone already bet on. An argument matching `^M\d+#\d+$` selects this form, and is used for nothing
-before it matches; anything else is an idea.
+`/log-feature {milestone id}#{item}`, e.g. `/log-feature M1#2` or `/log-feature M1.1#3`: shape an item of a
+milestone's Contents that the milestone already bet on. An argument matching `^M\d+(\.\d+)?#\d+$` selects this
+form, and is used for nothing before it matches; anything else is an idea.
 
 1. **Resolve.** The milestone doc whose frontmatter has that `id:` (`Milestone roadmap`); its Contents items are
    the lines that start `{n}.`, indented lines continuing them. A check line under an item (`Owed:` or `Ran:`,

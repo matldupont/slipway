@@ -4,6 +4,7 @@
 // rule the risks table uses (lib/risks.mjs): it names an issue, a PRD open decision or a decision.
 
 import { plain, section, table } from './markdown.mjs';
+import { MILESTONE_ID } from './milestones.mjs';
 import { filled, TRACKER } from './risks.mjs';
 
 const COLUMNS = [
@@ -57,5 +58,7 @@ export function readRegister(md) {
   return { state: !rows.length && skipped ? 'unparsed' : 'ok', rows, hasTracker, skipped };
 }
 
-// The milestone ids a Blocks cell names, as `M<n>` tokens only: free text is never guessed at.
-export const milestonesNamed = (blocks) => [...new Set([...blocks.matchAll(/\bM\d+\b/g)].map((m) => m[0]))];
+// The milestone ids a Blocks cell names, as `M<n>` and `M<n>.<k>` tokens only: free text is never guessed at. A
+// full stop after an id ends a sentence (`blocks M1.`), and `M1.1.1` names no milestone.
+const NAMED = new RegExp(`\\b${MILESTONE_ID}\\b(?![.\\d]*\\.\\d)`, 'g');
+export const milestonesNamed = (blocks) => [...new Set([...blocks.matchAll(NAMED)].map((m) => m[0]))];

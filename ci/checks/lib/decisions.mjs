@@ -21,7 +21,7 @@
 import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
-import { citedFeatures, contents } from './milestones.mjs';
+import { citedFeatures, contents, MILESTONE_ID, milestoneId } from './milestones.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
 import { CLAUSE_START, fenced, fid, HEADING, hasClause, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
 
@@ -34,7 +34,8 @@ const TOP = new RegExp(LEAD.replace('#{1,6}', '#{1,2}'));
 const LABELS = [['Amends:', 'changes'], ['Reopens when:', 'reopens'], ['Closes when:', 'closes']];
 const GROUPS = / · |\)\*[ \t]{0,20}\*\(/g;
 const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
-const POSITION = /\bM(\d{1,9})(?:['’]s)? (?:Contents )?item (\d{1,9})\b|\bitem (\d{1,9}) of M(\d{1,9})\b/g;
+// `M2 item 4` and `M1.1 item 4` name a position; `M1.1` names a milestone, never an item (#476).
+const POSITION = new RegExp(`\\b(${MILESTONE_ID})(?:['’]s)? (?:Contents )?item (\\d{1,9})\\b|\\bitem (\\d{1,9}) of (${MILESTONE_ID})\\b`, 'g');
 const DECISION_ID = /\b(P?D)-(\d{1,9})\b/g;
 
 function condition(kind, where, line, raw) {
@@ -107,7 +108,7 @@ function finish(e) {
   }
   const positions = [];
   for (const { line, masked } of [{ line: e.line, masked: e.masked }, ...e.body]) {
-    for (const m of masked.matchAll(POSITION)) positions.push({ line, milestone: Number(m[1] ?? m[4]), item: Number(m[2] ?? m[3]) });
+    for (const m of masked.matchAll(POSITION)) positions.push({ line, milestone: milestoneId(m[1] ?? m[4]), item: Number(m[2] ?? m[3]) });
   }
   const readable = conditions.some((c) => c.kind !== 'changes' && c.readable);
   // A condition clause, readable or not, is never read as prose: counted once, in the Unreadable line (AR-4 of the 0.3 review).
@@ -153,7 +154,6 @@ const keysOf = (text) => new Set([...text.matchAll(DECISION_ID)].map((m) => `${m
 export const namesDecision = (text, key) => keysOf(text).has(key);
 
 const cut = (md) => visible(md).map((l) => l.text.slice(0, MAX)).join('\n');
-const milestoneNumber = (id) => (typeof id === 'string' ? id.match(/^m(\d{1,9})$/i)?.[1] : undefined);
 
 // Whether a folder of the tree, or one above it (`docs`, `dev`), is a link, a dangling one included: named unread.
 const isLink = (root, dir) =>
@@ -221,7 +221,7 @@ function readTree(root) {
     .map((md) => ({ md, fm: docFrontmatter(md) }))
     .filter((m) => m.fm)
     .map(({ md, fm }) => ({
-      n: Number(milestoneNumber(fm.id) ?? NaN),
+      id: milestoneId(fm.id),
       status: fm.status,
       items: contents(md).map((it) => ({ features: citedFeatures(it.text.slice(0, MAX)), keys: keysOf(it.text.slice(0, MAX)) })),
     }));
@@ -270,8 +270,8 @@ export function readDecisions(root, file = 'decisions.md') {
     if (ev.kind === 'active' || ev.kind === 'closed') {
       // AR-2 of the 0.3 review: a killed milestone came through active as a closed one did; the words say which.
       const states = ev.kind === 'active' ? ['active', 'closed', 'killed'] : ['closed', 'killed'];
-      const m = t().milestones.find((x) => x.n === ev.milestone && states.includes(x.status));
-      return m ? { ...ev, status: m.status, said: `M${ev.milestone} is ${m.status}` } : null;
+      const m = t().milestones.find((x) => x.id && x.id === ev.milestone && states.includes(x.status));
+      return m ? { ...ev, status: m.status, said: `${ev.milestone} is ${m.status}` } : null;
     }
     if (ev.kind === 'date') return today > ev.date ? ev : null;
     return null;

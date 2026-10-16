@@ -29,6 +29,8 @@ milestone at a time → `/close-milestone`.
 
 - **One active milestone.** Work belongs to it or waits. Anything outside its Contents goes to its no-gos, a
   later milestone, or a declined lesson — not into the current diff.
+- Milestone numbers run in time order: a milestone inserted between two others takes `M<n>.<k>` (M1.1 sits between M1
+  and M2), never a renumbering; `M<n>.<k>` names a milestone, never an item.
 - When a milestone's appetite ends, stop and run `/close-milestone`; extending needs a decision in `decisions.md`.
 - Execution issues **embed** the feature doc's Contract and `Verify` block; they do not link to it.
 - Before building on a code-state claim in an issue or doc, re-verify it against `main` and record
