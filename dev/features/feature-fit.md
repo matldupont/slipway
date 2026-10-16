@@ -454,7 +454,7 @@ as the other ratchets' are.
   refuses a `ci/baselines.json` not in slipway's form at the plan, as it refuses one that is not JSON, so no
   "count recorded" row is shown for it (§3's table puts the refusal at `--apply`). An `--update` run prints only
   the count it recorded, or its refusal, never the warnings or the claim (§4, "every run that is not BROKEN").
-  §1 cites `PLACEHOLDER` at `frontmatter.mjs:30`; it is at line 48, read through `hasPlaceholder()` (this doc's
+  §1 cites `PLACEHOLDER` at `frontmatter.mjs:30`; it is at line 51, read through `hasPlaceholder()` (this doc's
   Fit). `Reuses:` text on the label line, or unmarked before the first bullet, is an item too, and backticks are
   removed before `nothing` is read (§2 says "every bullet"). A doc held only for having no status line and with
   no section has two reasons, `frontmatter/unreadable` and `fit/missing`, so two warning lines (§2 says one).
@@ -487,15 +487,18 @@ as the other ratchets' are.
   out of the count (R1 names it). `pnpm status`, F1, DC1, K1, the work-order page and the roadmap page leave a refused milestone file out
   without a line of their own; MS1, run by every `pnpm meta`, is where it shows. `ci/ratchet.mjs` still reads the
   tool's report through a link: the report is the tool's own output, at a path the project's script names.
-  Fit is read as GitHub shows it only in part: a comment, and a `<!--` with no `-->` that opens a line to the end, is
-  a space, and a placeholder is also looked for with each comment taken out whole; a doc in
-  which a `<!--` and a `-->` sit on either side of a heading line is counted as `fit/unfilled/unreadable`, since the reader
-  cannot tell a comment from a `<!--` GitHub shows as text (a fenced example of one included); a heading
-  ends a label's text; a character reference, an HTML tag, a link with no text and a link reference definition say
+  Fit is read as GitHub shows it only in part, and where the reader cannot tell, the strict way (the owner's call,
+  2026-10-15, after two review rounds found holes in a closer reading): it does not tell a comment from a `<!--`
+  GitHub shows as text (in code, mid-line, in a list item), so every `<!--` is read as a comment. One with no `-->`
+  hides the rest of the doc, so a `<!--` meant as text, even in code, above or in the Fit leaves it missing or
+  unfilled; write it `&lt;!--`. A doc in which a comment's lines after its first hold a heading line (an ATX heading
+  or a setext underline) is counted as `fit/unfilled/unreadable`. A label is unfilled when its text holds a
+  placeholder with the comments read as a space, taken out whole, or kept as text. A heading ends a label's text; a
+  character reference, an HTML tag (in a code span too), a link with no text and a link reference definition say
   nothing. A label line with a setext underline under it is still a label, a lone `-` under a line is still an empty
-  list mark, a label after a comment on its line (`<!-- x -->Reuses:`) is not a label, and a character reference
-  that shows a character (`&amp;`) says nothing: each is read the strict way,
-  counted rather than passed. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
+  list mark, a numbered item or a quote line above an underline is a heading, a label after a comment on its line
+  (`<!-- x -->Reuses:`) is not a label, and a character reference that shows a character (`&amp;`) says nothing:
+  each is read the strict way, counted rather than passed. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
   HTML block) are read as text. A heading or citation holding a run of more than 32 combining marks (the halfwidth
   voiced marks counted as marks) is folded a piece at a time, the run reordered within each piece only, which no id
   or heading mark depends on. `ci/checks/lib/yaml-list.mjs`'s line

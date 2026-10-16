@@ -32,7 +32,8 @@ export const unseen = (s) => s.replace(INVISIBLE, '');
 // NFKC reorders a run of combining marks in time the square of its length, so a text holding a run of more than 32 is
 // folded a piece at a time, each piece at most 32 marks after its other characters: the run is reordered within each
 // piece only, which no id, heading mark or hyphen depends on. The halfwidth voiced marks U+FF9E and U+FF9F count as
-// marks here: NFKC turns each into a combining mark, and no other character that is not a mark does.
+// marks here: NFKC turns each wholly into a combining mark, and no other character that is not a mark does (U+0E33
+// and U+0EB3 give a mark and then a letter, which ends the run).
 const PIECE = /[^\p{M}\uFF9E\uFF9F]*[\p{M}\uFF9E\uFF9F]{0,32}/gu;
 const LONG_RUN = /[\p{M}\uFF9E\uFF9F]{33}/u;
 const nfkc = (s) => (LONG_RUN.test(s) ? s.match(PIECE).map((p) => p.normalize('NFKC')).join('') : s.normalize('NFKC'));

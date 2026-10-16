@@ -95,7 +95,7 @@ function held(doc) {
 }
 const NEXT = {
   'fit/missing': 'has no `## Fit` section — add it after `## Problem`, with `Reuses:`, `Numbers:` and `New:` filled in',
-  'fit/unfilled/unreadable': 'an HTML comment (`<!--` … `-->`) runs across a heading line, so what GitHub shows of its Fit cannot be told — close each comment before the next heading, and write a literal `<!--` or `-->` in a code fence',
+  'fit/unfilled/unreadable': 'an HTML comment (`<!--` … `-->`) runs across a heading line, so what GitHub shows of its Fit cannot be told — close each comment before the next heading, and write a `<!--` or `-->` meant as text as `&lt;!--` or `--&gt;`, even in code',
   'fit/unfilled/reuses': 'its Fit has no filled `Reuses:` line — name each pattern or helper it reuses and where it lives, or `nothing` with what was searched',
   'fit/unfilled/numbers': 'its Fit has no filled `Numbers:` line — say where each number it shows is calculated, or `none shown`',
   'fit/unfilled/new': 'its Fit has no filled `New:` line — say what it adds that nothing existing does and why, or `none` (not beside `nothing` under `Reuses:`: such a doc describes no feature)',
