@@ -861,3 +861,4 @@ before the line that asks for it (3); the counts (4) and the pull-request reader
   P1 reads it at the pull request; `/work-ticket` also asks before a condition line is added to a decided entry (the
   owner's yes, 2026-10-15). Known limitations gain the stray heading, the 500-character cut and the repository
   comparison · PR for #440 step 5
+- 2026-10-15 · MODIFIED · the wording of the status lines in §6 follows `process/writing.md` (F-16): who acts first, then the action, each id after its meaning in brackets, and the last two sentences say what it blocks and what it waits on. The forms quoted in §6 are the earlier wording; what each line says is unchanged · #456

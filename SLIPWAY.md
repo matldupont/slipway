@@ -16,16 +16,16 @@ sessions get the same output automatically when they start.
 
 ## Start here — the path
 
-| Step | Who, and how long | Produces | Done when (what fires) |
-|---|---|---|---|
-| **0 · Bootstrap** · you + agent, ~1–2h | `new-project` (repo, harness, label, protection), then `/bootstrap` (app, PR, probes) | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
-| **1 · Frame** · you with `/kickoff`, an afternoon | answer one question at a time; park what you can build without | [`docs/product/FRAME.md`](docs/product/FRAME.md) — job story, the question the product answers, risks | `status: framed`; **K1** blocks any milestone until then |
-| **2 · Test the risk** · **yours**, days to weeks | talk to people or run the job by hand, against a bar written first — an agent prepares the materials, you run it | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result, or is settled by experience with what would prove it wrong written down |
-| **3 · Shape** · you with `/kickoff`, 1–2 days | finish `/kickoff`: PRD, week-1 decisions, milestones; then `/review-doc` in a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green: the PRD's current version has a review |
-| **4 · Walking skeleton** · agent, days — **runs in parallel with step 2** | activate [M1](docs/milestones/M1-walking-skeleton.md): thinnest core path, deployed by CI | a live URL, analytics and errors wired | its gate: an end-to-end test against production |
-| **5 · Build loop** · agent | one active milestone; every change through its lane | small PRs with evidence | `verify` · `meta` · `pr-body` per PR; the Stop hook per agent turn; **MS1** |
-| **6 · Close the milestone** · you with `/close-milestone` | run `/close-milestone` | a retro from the record, closed GitHub milestone, next bet chosen | **MS1**: closed means retro written; overrun means a decision |
-| **7 · Learn** · you, weekly | weekly metrics and user conversations; bets chosen from evidence | [`docs/product/metrics.md`](docs/product/metrics.md) | nothing fires here; then back to 5 with the next milestone |
+| Step | Who | How long | What happens | Produces | Done when (what fires) |
+|---|---|---|---|---|---|
+| **0 · Bootstrap** | you and an agent | 1 to 2 hours | `new-project` (repo, harness, label, protection), then `/bootstrap` (app, PR, probes) | green `pnpm meta`, a `verify` that runs | all 15 probes in [BOOTSTRAP §3](BOOTSTRAP.md) seen failing once |
+| **1 · Frame** | you | an afternoon | answer one question at a time; park what you can build without | [`docs/product/FRAME.md`](docs/product/FRAME.md) — job story, the question the product answers, risks | `status: framed`; **K1** blocks any milestone until then |
+| **2 · Test the risk** | yours | days to weeks | talk to people or run the job by hand, against a bar written first — an agent prepares the materials, you run it | [`docs/product/evidence/`](docs/product/evidence/), a Result per value risk | **K1** blocks every milestone past the skeleton until each value risk has a Result, or is settled by experience with what would prove it wrong written down |
+| **3 · Shape** | you | 1 to 2 days | finish `/kickoff`: PRD, week-1 decisions, milestones; then `/review-doc` in a fresh session | [`docs/PRD.md`](docs/PRD.md), [`decisions.md`](decisions.md), [`docs/milestones/`](docs/milestones/), [`docs/reviews/`](docs/reviews/) | readiness gate PASS; **R1** green: the PRD's current version has a review |
+| **4 · Walking skeleton** | agent | days | activate [M1](docs/milestones/M1-walking-skeleton.md): thinnest core path, deployed by CI. This step runs in parallel with step 2. | a live URL, analytics and errors wired | its gate: an end-to-end test against production |
+| **5 · Build loop** | agent | one issue per session | one active milestone; every change through its lane | small PRs with evidence | `verify` · `meta` · `pr-body` per PR; the Stop hook per agent turn; **MS1** |
+| **6 · Close the milestone** | you | an afternoon | run `/close-milestone` | a retro from the record, closed GitHub milestone, next bet chosen | **MS1**: closed means retro written; overrun means a decision |
+| **7 · Learn** | you | weekly | weekly metrics and user conversations; bets chosen from evidence | [`docs/product/metrics.md`](docs/product/metrics.md) | nothing fires here; then back to 5 with the next milestone |
 
 ### 0 · Bootstrap — about an hour
 

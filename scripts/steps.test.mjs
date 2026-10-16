@@ -11,18 +11,60 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readRisks, settled } from '../ci/checks/lib/risks.mjs';
+import { nextFormBreaks } from '../ci/checks/lib/next-form.mjs';
 import { STATES, STEPS, stepLines, stepStates } from '../ci/checks/lib/steps.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-test('the path table in SLIPWAY.md names each step as the list does', () => {
-  const rows = [...readFileSync(join(SRC, 'SLIPWAY.md'), 'utf8').matchAll(/^\|\s*\*\*(\d) · ([^*]+?)\*\*/gm)].map((m) => ({ n: Number(m[1]), name: m[2] }));
+test('the path table in SLIPWAY.md says each step as the list does: number, name, who and how long', () => {
+  const rows = [...readFileSync(join(SRC, 'SLIPWAY.md'), 'utf8').matchAll(/^\|\s*\*\*(\d) · ([^*]+?)\*\*\s*\|([^|]*)\|([^|]*)\|/gm)].map((m) => ({ n: Number(m[1]), name: m[2], who: m[3].trim(), time: m[4].trim() }));
   assert.deepEqual(rows, STEPS);
+});
+
+test('the who and how-long cells are plain text: no markup, no digits written as a range with a dash', () => {
+  for (const { who, time } of STEPS) for (const cell of [who, time]) assert.match(cell, /^[a-z0-9][a-z0-9 ]*$/, cell);
 });
 
 test('status prints no step name of its own', () => {
   const src = readFileSync(join(SRC, 'ci', 'status.mjs'), 'utf8');
   for (const { name } of STEPS) assert.ok(!src.includes(`— ${name}`), `ci/status.mjs spells "${name}" instead of reading it from the list`);
+});
+
+test('status spells no who or how-long of its own: the last sentence of a Next line comes from the list', () => {
+  const src = readFileSync(join(SRC, 'ci', 'status.mjs'), 'utf8');
+  for (const { who, time } of STEPS) {
+    assert.ok(!src.toLowerCase().includes(`${who}, ${time}`), `ci/status.mjs spells "${who}, ${time}" instead of reading it from the list`);
+    assert.ok(!new RegExp(`\\b${time}\\.`).test(src), `ci/status.mjs ends a sentence with "${time}." instead of reading it from the list`);
+  }
+});
+
+// The form of the Next line, one clause at a time (ci/checks/lib/next-form.mjs): each must trip on its own, so deleting any one
+// of them turns a case here red. S1 holds the same function to every status fixture.
+test('the Next-line form: a good line passes, and each clause trips alone', () => {
+  const good = 'Run /kickoff to finish docs/product/FRAME.md. Its open questions need an answer. You, an afternoon.';
+  assert.deepEqual(nextFormBreaks(good), []);
+  const trips = {
+    'too few sentences': ['Run /kickoff now.', /sentences/],
+    'too many sentences': ['Run /kickoff. Its questions wait. Nothing else waits. The frame is next. You, an afternoon.', /5 sentences/],
+    'first sentence': [`Run the kickoff and then finish every part of the frame document with real people today please. Its open questions wait. You, an afternoon.`, /first sentence/],
+    'semicolon': ['Run /kickoff; it finishes the frame. Its questions wait. You, an afternoon.', /semicolon/],
+    'dash': ['Run /kickoff — it finishes the frame. Its questions wait. You, an afternoon.', /dash/],
+    'step number': ['Run /kickoff for Step 1. Its questions wait. You, an afternoon.', /step number/],
+    'check id': ['Run /kickoff to clear K1. Its questions wait. You, an afternoon.', /check id/],
+    'decision id': ['Run /kickoff to settle D-005. Its questions wait. You, an afternoon.', /decision id/],
+    'length': [`Run /kickoff. ${'Its questions wait. '.repeat(14)}You, an afternoon.`, /over 260/],
+    'who': ['Run /kickoff. Its questions wait. The frame is yours.', /say who/],
+  };
+  for (const [clause, [line, re]] of Object.entries(trips)) {
+    const broken = nextFormBreaks(line);
+    assert.ok(broken.some((b) => re.test(b)), `${clause}: ${JSON.stringify(broken)}`);
+  }
+  // The 260 counts the quoted spans; the other rules do not.
+  assert.ok(nextFormBreaks(`Test RISK-1, "${'a'.repeat(250)}" now. Nothing waits. You, an afternoon.`).some((b) => /over 260/.test(b)));
+  // A comma left where a quoted span was cut is not a word.
+  assert.deepEqual(nextFormBreaks('Test a risk with an unusual id, "x", and 1 more with real people now. Nothing waits. Yours, days to weeks.'), []);
+  // A quoted span is project text the rules cannot govern.
+  assert.deepEqual(nextFormBreaks('Test RISK-1, "a; b — K1 D-005 Step 1" with real people. Nothing waits. Yours, days to weeks.'), []);
 });
 
 // A project that is bootstrapped and has no frame, no PRD and no milestone yet.

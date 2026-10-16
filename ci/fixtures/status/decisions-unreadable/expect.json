@@ -1,9 +1,9 @@
 {
   "_note": "Three entries status cannot read (an event outside the table, an Amends: that is no F-id, an Amends: with \"or later\") and one readable one: one grouped line, ids in file order, no record text.",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you or an agent) Unreadable condition: 3 decisions say what brings them back in words status cannot read: PD-1, PD-2, PD-3 — for each, say what should bring it back (a feature doc written, reviewed or shipped; a milestone starting or closing; a date; an issue closing) or which feature it changes, and /clarify writes it in the form status reads, or moves a condition no event fits out of the heading into the entry's prose — blocks nothing: nothing reads these until then; waits on nothing"
+    "(you or an agent) Say what should bring each decision back, or which feature it changes. 3 decisions say that in words status cannot read (PD-1, PD-2, PD-3). A feature doc written, reviewed or shipped, a milestone starting or closing, a date or an issue closing all work. /clarify then writes it in the form status reads, or moves a condition no event fits out of the heading into the entry's prose. It blocks nothing, because nothing reads these until then. It waits on nothing."
   ]
 }

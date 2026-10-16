@@ -1,6 +1,6 @@
 {
-  "_note": "The expected text is what status printed with Window parsing switched off: RISK-1 reads as scheduled with no window. Status reads the evidence Window, so both lines differ.",
+  "_note": "The expected text is what status printed with Window parsing switched off: RISK-1 reads as scheduled with no window. Status reads the evidence Window, so the Frame line differs; the Next line no longer carries a window, so it matches.",
   "today": "2026-03-10",
-  "next": "Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: RISK-1 scheduled (#8) · blocks every milestone past the skeleton. An agent can prepare the materials; running the test with real people is yours. Thresholds and results go in docs/product/evidence/ — or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the risk's Result.",
+  "next": "Finish testing RISK-1, \"Walkers will pay monthly\". Its test is already scheduled. Nothing past the skeleton can start until every value risk has a result in docs/product/evidence/. Yours, days to weeks.",
   "frame": "framed · risks: RISK-1 scheduled (#8) · blocks every milestone past the skeleton"
 }

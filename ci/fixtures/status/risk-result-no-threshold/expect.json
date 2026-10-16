@@ -1,7 +1,7 @@
 {
   "_note": "#385. RISK-1 has a Result and no Threshold, so K1 fails it: it is not settled, step 2 reads in hand through its tracker, and step 5 waits.",
   "today": "2026-03-10",
-  "next": "Step 6 (you) — Close the milestone: choose the next bet, and activate one of M2 (set appetite dates), or shape a new one.",
+  "next": "Activate one of M2, or shape a new bet. Set its appetite dates when it goes active. You, an afternoon.",
   "frame": "framed · risks: RISK-1 tested",
   "steps": [
     "Step 0 · Bootstrap: done",
