@@ -25,3 +25,19 @@ Starts: M1.17 · RISK-1
 ## PD-5 — Run RISK-1's test as M1.19 *(superseded by PD-9)* · *(decided 2026-07-30)*
 
 Starts: M1.19 · RISK-1
+
+## PD-6 — Run RISK-1's test as M1.22 *(decided 2026-07-30)*
+
+A draft the owner left commented out; the rendered file shows no Starts: line.
+
+<!--
+Starts: M1.22 · RISK-1
+-->
+
+## PD-7 — Run RISK-1's test as M1.23 *(decided 2026-07-30)*
+
+An example in a tilde fence; the rendered file shows it as code.
+
+~~~
+Starts: M1.23 · RISK-1
+~~~

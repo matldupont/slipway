@@ -23,6 +23,7 @@ import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
 import { citedFeatures, contents, MILESTONE_ID, milestoneId, testsLine } from './milestones.mjs';
+import { commentLines, replaceComments } from './markdown.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
 import { CLAUSE_START, fenced, fid, HEADING, hasClause, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
 
@@ -59,6 +60,23 @@ const clauseCondition = (clause) => {
 };
 
 const proseHit = (s) => PROSE.some((p) => p.test(unquoted(s)));
+
+// The lines a rendered decisions.md does not show, for the `Starts:` reader only (#477): inside an HTML comment (an
+// unclosed one hides the rest), or inside a `~~~` fence, its marker lines included (an unclosed one hides the rest
+// too). A `Starts:` line grants a pass, so here a stray marker hides what follows rather than shows it; the condition
+// labels keep fenced()'s reading. Linear: one comment scan and one pass over the lines.
+const TILDES = /^ {0,3}~~~/;
+function hiddenLines(md) {
+  const raw = md.replace(/^\uFEFF/, '').split(/\r\n|\r|\n/);
+  const shown = replaceComments(md.replace(/^\uFEFF/, ''), commentLines, { unclosed: true }).split(/\r\n|\r|\n/);
+  let tilde = false;
+  return raw.map((text, i) => {
+    const marker = TILDES.test(text);
+    const inFence = tilde || marker;
+    if (marker) tilde = !tilde;
+    return inFence || (text.trim() !== '' && (shown[i] ?? '').trim() === '');
+  });
+}
 
 function finish(e) {
   const conditions = [];
@@ -99,12 +117,12 @@ function finish(e) {
   });
   if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false });
   const proseLines = [];
-  // `Starts:` lines: the test milestones this decision starts (#477). One in a fence, cut, or of any other shape starts
-  // nothing.
+  // `Starts:` lines: the test milestones this decision starts (#477). One in a fence or a comment (hiddenLines), cut, or
+  // of any other shape starts nothing.
   const starts = [];
   for (const b of e.body) {
     if (b.text.startsWith('Starts:')) {
-      const m = !b.cut && !b.fenced ? b.text.trimEnd().match(STARTS) : null;
+      const m = !b.cut && !b.fenced && !b.hidden ? b.text.trimEnd().match(STARTS) : null;
       starts.push(m ? { line: b.line, milestone: milestoneId(m[1]), risks: m[2].split(', '), readable: true } : { line: b.line, readable: false });
       continue;
     }
@@ -139,6 +157,7 @@ export function parseDecisions(md) {
   const lines = whole.map(({ line, text }) => ({ line, text: text.slice(0, MAX) }));
   const masked = mask(lines.map((l) => l.text));
   const fence = fenced(lines.map((l) => l.text));
+  const hidden = hiddenLines(md);
   const entries = [];
   const strays = [];
   let cur = null;
@@ -156,7 +175,7 @@ export function parseDecisions(md) {
       // an entry included), is a stray: never silent.
       const label = !cur && LABELS.some(([l]) => text.startsWith(l));
       const stray = (label || (HEADING.test(text) && hasClause(whole[i].text))) && (entries.length || !fence[i]);
-      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], cut: whole[i].text.length > MAX, stray });
+      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], hidden: hidden[i] ?? true, cut: whole[i].text.length > MAX, stray });
       if (stray) strays.push(line);
     }
   });
