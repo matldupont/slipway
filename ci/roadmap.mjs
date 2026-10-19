@@ -96,7 +96,7 @@ export function project(m) {
   };
 }
 
-const KIND = { skeleton: 'First end-to-end version', mvp: 'First usable version', release: 'Release', bet: 'Improvement' };
+const KIND = { skeleton: 'First end-to-end version', mvp: 'First usable version', release: 'Release', bet: 'Improvement', test: 'Risk test' };
 // By number, then sub-number (M1, M1.1, M2, M10); an id of another shape comes first, then by id.
 const byNumber = (a, b) => {
   const [x, y] = [milestoneKey(a.id), milestoneKey(b.id)];

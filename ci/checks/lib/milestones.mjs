@@ -10,7 +10,26 @@ import { UNSAFE } from './report.mjs';
 import { MISSING, notPlainFile, notPlainFolder } from './review-header.mjs';
 
 export const MILESTONE_STATUSES = ['shaping', 'active', 'closed', 'killed'];
-export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet'];
+export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet', 'test'];
+
+// A `kind: test` milestone exists to run the test of the value risks its `tests:` line names (#477): K1 lets it go
+// active while they are untested, refuses its close until each has a Result, and frees no other milestone. Read here
+// once, so K1 and `pnpm status` never disagree about which risks a milestone tests. `ids`: the RISK-n ids written,
+// upper-cased, each once; `other`: any other word on the line; `placeholder`: the line still holds a template
+// placeholder; `long`: the line is over TESTS_MAX characters, so it is not read at all (a cut could turn RISK-12 into
+// RISK-1). Null for a milestone of another kind. Status runs this in every session's hook: the length is tested before
+// any pattern reads the line.
+export const TESTS_MAX = 500;
+export function testsLine(fm) {
+  if (fm?.kind !== 'test') return null;
+  const raw = typeof fm.tests === 'string' ? fm.tests.trim() : '';
+  const none = { ids: [], other: [], placeholder: false, long: false };
+  if (raw.length > TESTS_MAX) return { ...none, long: true };
+  if (hasPlaceholder(raw)) return { ...none, placeholder: true };
+  const words = raw.split(/[\s,]+/).filter(Boolean);
+  const ids = [...new Set(words.filter((w) => /^RISK-\d{1,9}$/i.test(w)).map((w) => w.toUpperCase()))];
+  return { ...none, ids, other: words.filter((w) => !/^RISK-\d{1,9}$/i.test(w)) };
+}
 
 // appetite: `YYYY-MM-DD..YYYY-MM-DD`, both days inclusive.
 export function parseAppetite(value) {

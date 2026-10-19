@@ -20,7 +20,7 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { decisionLines } from './checks/lib/decision-lines.mjs';
-import { readDecisions } from './checks/lib/decisions.mjs';
+import { readDecisions, testStart } from './checks/lib/decisions.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
@@ -81,8 +81,16 @@ const risks = frameMd ? readRisks(root, frameMd).rows : [];
 // otherwise. K1 needs the tracker once any milestone is underway.
 const untestedValue = risks.filter((r) => r.value && !r.tested);
 const untracked = untestedValue.filter((r) => !r.tracker);
-// Settled by experience only when K1 would pass it: a missing `Wrong if:` line is said, never "settled".
+// The test milestones, shaping or active, that the owner's decision started for the risk (#477, decisions.mjs → testStart):
+// K1 and status read one answer. Read at call time: `ms` is below.
+const testedIn = (r) => ms.filter((m) => (m.status === 'shaping' || m.status === 'active') && frees(m, r)).map((m) => m.id);
 const riskState = (r) => {
+  const state = riskStateAlone(r);
+  const tests = !r.tested && r.value ? testedIn(r) : [];
+  return tests.length ? `${state}, being tested in ${tests.join(', ')}` : state;
+};
+// Settled by experience only when K1 would pass it: a missing `Wrong if:` line is said, never "settled".
+const riskStateAlone = (r) => {
   if (r.claimsExperience && !r.experience) return `${r.id} needs an experience reason (table stakes, creator is the user or domain expertise)`;
   if (r.experience) return r.refutation ? `${r.id} settled by experience (${r.experience.rationale})` : `${r.id} needs a Wrong if: line (experience: ${r.experience.rationale})`;
   if (r.tested) return `${r.id} tested`;
@@ -145,13 +153,19 @@ const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*
 const owedDecisions = decisionLines(readDecisions(root), today);
 
 const { milestones } = readMilestones(root);
+let decisionsByKey;
+const decisionOf = (key) => (decisionsByKey ??= new Map(readDecisions(root).entries.map((e) => [e.key, e]))).get(key);
+// Whether a test milestone is started, by the owner's decision, for this risk.
+const frees = (m, r) => Boolean(testStart(m, decisionOf)?.released.includes((r.id ?? '').toUpperCase()));
 const ms = milestones.filter((m) => m.fm?.id).map((m) => ({ ...m.fm, file: m.file, md: m.md, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));
 const active = ms.filter((m) => m.status === 'active');
 const cur = active[0];
 const curAppetite = cur && parseAppetite(cur.appetite);
-// What an untested value risk holds back: K1 refuses any milestone past the skeleton until it has a Result.
-const pastSkeletonUnderway = ms.filter((m) => m.kind !== 'skeleton' && (m.status === 'active' || m.status === 'closed'));
-const blockedByRisk = ms.filter((m) => m.kind !== 'skeleton' && m.status === 'shaping').map((m) => m.id);
+// What an untested value risk holds back: K1 refuses any milestone past the skeleton until it has a Result, except a
+// test milestone for the risks its `tests:` line names (#477) until it closes; every other untested value risk still holds it.
+const held = (m) => m.kind !== 'skeleton' && untestedValue.some((r) => m.status === 'closed' || !frees(m, r));
+const pastSkeletonUnderway = ms.filter((m) => held(m) && (m.status === 'active' || m.status === 'closed'));
+const blockedByRisk = ms.filter((m) => held(m) && m.status === 'shaping').map((m) => m.id);
 const riskBlocks = pastSkeletonUnderway.length
   ? `${pastSkeletonUnderway.map((m) => m.id).join(', ')} underway with it untested — pnpm meta is red until it has a Result`
   : `blocks ${blockedByRisk.length ? `${blockedByRisk.join(', ')} activation` : 'every milestone past the skeleton'}`;
@@ -171,10 +185,14 @@ const idsOf = (pred) => ms.filter(pred).map((m) => milestoneId(m.id)).filter(Boo
 const skeletons = idsOf((m) => m.kind === 'skeleton');
 const bets = idsOf((m) => m.kind !== 'skeleton');
 const firstBet = bets.length ? bets[0] : skeletons.length ? `M${milestoneKey(skeletons.at(-1))[0] + 1}` : null;
+// For one risk, a test milestone started for it is not a bet: it runs the test this warning asks for (#477). A killed
+// test milestone is no bet either.
+const firstBetFor = (r) => idsOf((m) => m.kind !== 'skeleton' && !(m.kind === 'test' && (m.status === 'killed' || frees(m, r))))[0] ?? (skeletons.length ? `M${milestoneKey(skeletons.at(-1))[0] + 1}` : null);
 const existential = deadlines && firstBet !== null
   ? risks.filter((r) => !r.tested && /^\W*existential\b/i.test(r.impact ?? '')).flatMap((r) => {
       const d = deadlines.get((r.id ?? '').toUpperCase());
-      if (d?.before && compareMilestones(d.before, firstBet) <= 0) return [];
+      const firstBet = firstBetFor(r);
+      if (firstBet === null || (d?.before && compareMilestones(d.before, firstBet) <= 0)) return [];
       const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${quoted(d.cell) || 'in a cell that cannot be shown'}, after ${firstBet} starts` : `resolves ${quoted(d.cell || 'blank')}, which names no milestone`;
       const who = RID.test(String(r.id)) ? r.id : 'A risk with an unusual id';
       return [`${who} is existential and untested, and ${when}: schedule its test before ${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${RID.test(String(r.id)) ? `${r.id}'s` : 'its'} Result`];

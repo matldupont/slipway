@@ -154,6 +154,71 @@ test('a risk is settled exactly when K1 raises no finding on its Result', () => 
   }
 });
 
+// #477: a kind: test milestone may go active while the risk it tests is untested, and status agrees with K1 about what
+// that risk still holds. The green case PC1 cannot hold (a known-bad case that passes is a finding there).
+test('an active test milestone passes K1 on its own risk, and status lists only the others as held', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'steps-test-milestone-'));
+  try {
+    cpSync(join(SRC, 'ci', 'fixtures', 'status', 'test-milestone-shaping'), dir, { recursive: true });
+    const set = (file, status) => {
+      const path = join(dir, 'docs', 'milestones', file);
+      writeFileSync(path, readFileSync(path, 'utf8').replace(/^status: \w+$/m, `status: ${status}`));
+    };
+    const k1 = () => spawnSync(process.execPath, [join(SRC, 'ci', 'checks', 'meta', 'k1-frame.mjs'), dir], { encoding: 'utf8' });
+    const frame = () => {
+      const r = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), dir], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-20', TZ: 'UTC' } });
+      return r.stdout.match(/^- Frame: (.*)$/m)?.[1];
+    };
+    set('M1.1-concierge.md', 'active');
+    const green = k1();
+    assert.equal(green.status, 0, green.stdout + green.stderr);
+    // Green says what it proved: RISK-1 is held only by its test milestone, never "tested".
+    assert.match(green.stdout, /every value risk was tested against a bar set first or settled by experience, except RISK-1, which only its test milestone holds/);
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · blocks M2, M3, M4 activation');
+    // Closed before its test finished: K1 is red at the close, and status says the milestone is held again.
+    set('M1.1-concierge.md', 'closed');
+    assert.match(k1().stdout, /M1\.1#risk\/test-unfinished/);
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), RISK-2 untested · M1.1 underway with it untested — pnpm meta is red until it has a Result');
+    set('M1.1-concierge.md', 'active');
+    // Without the owner's Starts: line, the decision starts nothing: K1 holds M1.1 for RISK-1, and status agrees.
+    const decisions = join(dir, 'decisions.md');
+    const record = readFileSync(decisions, 'utf8');
+    writeFileSync(decisions, record.replace(/^Starts: M1\.1 · RISK-1\n/m, ''));
+    const unstarted = k1();
+    assert.equal(unstarted.status, 1);
+    assert.match(unstarted.stdout, /RISK-1#risk\/unresolved: value risk untested while M1\.1 is underway/);
+    assert.match(unstarted.stdout, /M1\.1#risk\/test-target: .*PD-1 has no "Starts: M1\.1 · RISK-n" line/);
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), RISK-2 untested · M1.1 underway with it untested — pnpm meta is red until it has a Result');
+    writeFileSync(decisions, record);
+    // A lone carriage return above the Starts: line can hide it in the rendered file, so the line is not read (D-047).
+    // scripts/new-project.test.mjs refuses a CR byte in a tracked file, so the case is written here.
+    writeFileSync(decisions, record.replace('# Decisions\n', '# Decisions\n\nA note ended by a lone carriage return.\rNext line.\n'));
+    assert.match(k1().stdout, /M1\.1#risk\/test-target: .*is not read: line 3 above it holds a lone carriage return/);
+    writeFileSync(decisions, record);
+    // A lone carriage return below the Starts: line hides nothing above it, and turns no other rule off: a comment
+    // above the line still keeps it from being read.
+    writeFileSync(decisions, record.replace('# Decisions\n', '# Decisions\n\n<!-- a note -->\n') + 'Last line.\rEnd.\n');
+    assert.match(k1().stdout, /M1\.1#risk\/test-target: .*is not read: line 3 above it holds an HTML comment marker/);
+    writeFileSync(decisions, record + 'Last line.\rEnd.\n');
+    assert.equal(k1().status, 0);
+    writeFileSync(decisions, record);
+    // An existential RISK-1 due before M2: M1.1 runs its test, so status does not ask for it before M1.1.
+    const framePath = join(dir, 'docs', 'product', 'FRAME.md');
+    writeFileSync(framePath, readFileSync(framePath, 'utf8').replace('| value | no product |', '| value | Existential: no product |'));
+    writeFileSync(join(dir, 'docs', 'PRD.md'), '# PRD\n\nStatus: approved\nVersion: 1.0.0\n\n## 8. Risks\n\n| ID | Risk | Resolves by |\n|---|---|---|\n| RISK-1 | Group texts | before M2 |\n');
+    const st = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), dir], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-20', TZ: 'UTC' } }).stdout;
+    assert.doesNotMatch(st, /RISK-1 is existential and untested/);
+    // A second milestone underway that is not the test milestone: K1 holds RISK-1 again, and status says so.
+    set('M2-booking.md', 'active');
+    const red = k1();
+    assert.equal(red.status, 1);
+    assert.match(red.stdout, /RISK-1#risk\/unresolved: value risk untested while M2 is underway/);
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · M2 underway with it untested — pnpm meta is red until it has a Result');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('S1 fails a case whose step lines differ from steps', () => {
   const dir = mkdtempSync(join(tmpdir(), 'steps-'));
   try {

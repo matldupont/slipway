@@ -1210,6 +1210,41 @@ worked, and today gets them in slipway's vocabulary (D-016 set the test; this re
 at 0.2 is the last whole-document review before the build: high findings come to the owner, the rest ride the build
 as lines under the step they touch (the owner, 2026-10-14). Spec: F-16; #455.
 
+## D-047 — A milestone built to run a value risk's test may go active before that risk has a Result *(decided 2026-10-15)*
+
+K1 holds every milestone past the skeleton until each value risk has a Result. For a milestone whose whole purpose is
+to run that test, the rule is circular: it cannot start until the test it runs has a result. The only way out was a
+decision to build ahead, written in the risk's Result, which marks the risk settled and so frees every later milestone
+too. On 2026-10-15, in the orchestrator session, the owner chose "A test milestone kind" over "Nothing: build-ahead
+decision", and the same day chose to wait for it rather than record a build-ahead decision in the project:
+
+- **`kind: test`, with a `tests:` line naming the value risks it runs.** K1 lets it go active while those risks are
+  untested. It cannot close until each has a real Result (red at close), and it unblocks nothing else: every other
+  untested value risk still holds it, and every other milestone stays held, so M2 waits as before.
+- **Limits, read from #477's acceptance by the orchestrator (2026-10-19):** a `tests:` line naming a risk that already
+  has a Result is a finding only while the milestone is shaping or active, since closed is when the Result arrives; a
+  non-value risk is a finding, since K1 holds no milestone for one; every bad `tests:` line is one finding,
+  `risk/test-target`, its detail naming the cause; the line is checked on shaping, active and closed milestones, a
+  shaping one still holding a template placeholder not yet, a killed one never; and a PRD deadline `before M1.1` for
+  M1.1's own risk still falls due once M1.1 is underway (`risk/overdue` is unchanged), since that cell is written wrong.
+- **Declaring one is the owner's call, recorded as a decision (the owner, 2026-10-19, via the orchestrator session:
+  "Yes, require the decision").** An active or closed test milestone names it on a `decided: PD-<n>` (or D-<n>)
+  line: an entry whose first heading clause is decided or accepted, carrying a column-0 line
+  `Starts: M1.1 · RISK-1, RISK-2` that names the milestone's id and exactly the risks on its `tests:` line (the owner,
+  2026-10-19, via the orchestrator session: "A `Starts:` line"). K1 and status read it through one function, and K1
+  reports a missing, unknown, undecided or unrelated one as `risk/test-target`. A `Starts:` line is read only when
+  nothing above it in decisions.md could hide it in the rendered file: no HTML comment marker, no code fence, no HTML
+  block at column 0 and no lone carriage return (the owner, 2026-10-19: fix it here, failing closed). Otherwise K1
+  names the line to move the decision above. Without it, any milestone could set its
+  own kind and pass the value gate unasked. What it cannot stop is an agent writing that decision itself, the same class as an agent
+  writing a Result it did not measure; the owner sees the decision in the pull request that adds it.
+- **Cost if wrong:** a test milestone could hold product work while its risk is untested. K1 still holds every other
+  milestone, the test milestone cannot close without the Result, and the decision it names puts the owner's call on
+  record.
+
+Why: a project should be able to schedule, appetite and close the test of its riskiest assumption as a milestone,
+without pretending the risk is settled. Spec: #477.
+
 ## D-048 — Whether slipway's text got plainer is the owner's judgement, alongside the checks; no baseline and no later readings *(decided 2026-10-19)*
 
 Amends: F-16

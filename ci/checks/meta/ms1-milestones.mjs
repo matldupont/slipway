@@ -9,7 +9,7 @@
 //   frontmatter/unreadable a header line holds a lone carriage return, which readers can split two ways (#495)
 //   field/missing          no `id` or `status`
 //   status/unknown         not one of: shaping active closed killed
-//   kind/unknown           `kind` set, but not one of: skeleton mvp release bet
+//   kind/unknown           `kind` set, but not one of: skeleton mvp release bet test
 //   id/duplicate
 //   appetite/missing       active, closed and killed milestones need `appetite`
 //   appetite/invalid       appetite is not YYYY-MM-DD..YYYY-MM-DD (start <= end)

@@ -1,0 +1,5 @@
+{
+  "_note": "#477, D-047: a test milestone frees its risks from risk/unresolved, never from a PRD deadline. M1.1 is an active kind: test milestone for RISK-1 and RISK-4, so nothing reports them unresolved; the PRD says RISK-1 resolves before M1.1, so it is overdue. RISK-4 is due before M2, which has not started.",
+  "exit": 1,
+  "findings": ["RISK-1#risk/overdue"]
+}
