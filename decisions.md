@@ -1227,8 +1227,13 @@ decision", and the same day chose to wait for it rather than record a build-ahea
   `risk/test-target`, its detail naming the cause; the line is checked on shaping, active and closed milestones, a
   shaping one still holding a template placeholder not yet, a killed one never; and a PRD deadline `before M1.1` for
   M1.1's own risk still falls due once M1.1 is underway (`risk/overdue` is unchanged), since that cell is written wrong.
+- **Declaring one is the owner's call, recorded as a decision (the owner, 2026-10-19, via the orchestrator session:
+  "Yes, require the decision").** An active or closed test milestone names it on a `decided: PD-<n>` (or D-<n>)
+  line, a heading in decisions.md that is not open; K1 reports a missing, unknown or open one as `risk/test-target`.
+  Without it, any milestone could set its own kind and pass the value gate unasked.
 - **Cost if wrong:** a test milestone could hold product work while its risk is untested. K1 still holds every other
-  milestone, and the test milestone cannot close without the Result.
+  milestone, the test milestone cannot close without the Result, and the decision it names puts the owner's call on
+  record.
 
 Why: a project should be able to schedule, appetite and close the test of its riskiest assumption as a milestone,
 without pretending the risk is settled. Spec: #477.

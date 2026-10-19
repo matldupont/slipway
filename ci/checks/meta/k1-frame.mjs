@@ -43,7 +43,9 @@
 //   risk/test-target       its `tests:` line is missing or empty, or names a word that is not a RISK-n id, a
 //                          risk FRAME's Risks table does not have, or a risk that is not a value risk; or,
 //                          while shaping or active, a risk that already has a Result. A shaping milestone
-//                          whose `tests:` still holds a template placeholder is not read yet.
+//                          whose `tests:` still holds a template placeholder is not read yet. Active or closed,
+//                          it names the decision that started it on a `decided: PD-<n>` (or D-<n>) line: a
+//                          heading in decisions.md that is not open. Declaring one is the owner's call (D-047).
 //   risk/test-unfinished   it is closed, and a value risk it tests still has no Result
 //
 // Where the PRD's risk table has a `Resolves by` column, its deadlines hold too, for every category:
@@ -72,6 +74,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section } from '../lib/markdown.mjs';
+import { readDecisions } from '../lib/decisions.mjs';
 import { compareMilestones, readMilestones, TESTS_MAX, testsLine } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
 import { EXPERIENCE, filled, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
@@ -165,7 +168,10 @@ for (const r of risks) {
   }
 }
 
-// A test milestone names the value risks it runs, and closes only once each has a Result.
+// A test milestone names the value risks it runs and the decision that started it, and closes only once each risk has a
+// Result. decisions.md is read only when there is a test milestone to check.
+let decisionsByKey;
+const decisionOf = (key) => (decisionsByKey ??= new Map(readDecisions(root).entries.map((e) => [e.key, e]))).get(key);
 for (const m of milestones.filter((x) => x.fm && ['shaping', 'active', 'closed'].includes(x.fm.status))) {
   const t = testsLine(m.fm);
   if (!t || (t.placeholder && m.fm.status === 'shaping')) continue;
@@ -175,6 +181,14 @@ for (const m of milestones.filter((x) => x.fm && ['shaping', 'active', 'closed']
     continue;
   }
   const causes = [];
+  if (m.fm.status === 'active' || m.fm.status === 'closed') {
+    const said = typeof m.fm.decided === 'string' ? m.fm.decided.trim() : '';
+    const id = said.match(/^(P?D)-(\d{1,9})$/i);
+    const e = id && decisionOf(`${id[1].toUpperCase()}-${Number(id[2])}`);
+    if (!said) causes.push(`it names no decision: starting a test milestone is the owner's call, recorded in decisions.md and named on a decided: PD-<n> line`);
+    else if (!e) causes.push(`decided: "${quote(said)}" is not a decision heading in decisions.md`);
+    else if (/\*\(open/i.test(e.text)) causes.push(`${e.id} is still open in decisions.md, so nothing has decided to run this test yet`);
+  }
   if (t.long) causes.push(`its tests: line is longer than ${TESTS_MAX} characters, so it is not read: name only the risk ids`);
   else if (!t.ids.length && !t.other.length) causes.push('it has no tests: line naming the value risks it runs (tests: RISK-1)');
   if (t.other.length) causes.push(`"${quote(t.other.join(' '))}" is not a RISK-n id`);
@@ -186,7 +200,7 @@ for (const m of milestones.filter((x) => x.fm && ['shaping', 'active', 'closed']
     else if (r.tested && m.fm.status !== 'closed') causes.push(`${id} already has a Result, so there is nothing left to test`);
     else if (!r.tested) untested.push(id);
   }
-  if (causes.length) add(where, `a test milestone's tests: line must name untested value risks from FRAME: ${causes.join('; ')}`);
+  if (causes.length) add(where, `a test milestone names, on its tests: line, untested value risks from FRAME, and on its decided: line the decision that started it: ${causes.join('; ')}`);
   if (m.fm.status === 'closed' && untested.length) {
     add(`${m.fm.id}#risk/test-unfinished`, `is closed, but ${untested.join(', ')} ${untested.length > 1 ? 'have' : 'has'} no Result: record each in FRAME's Risks table, or reopen ${m.fm.id}`);
   }
