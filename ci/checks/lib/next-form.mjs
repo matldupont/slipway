@@ -19,7 +19,7 @@ export function nextFormBreaks(line) {
   const sentences = text.split(/(?<=[.?!])(?:\s+|$)/).map((x) => x.trim()).filter((x) => /[\p{L}\p{N}]/u.test(x));
   const breaks = [];
   if (sentences.length < 2 || sentences.length > 4) breaks.push(`${sentences.length} sentences, not 2 to 4`);
-  if (sentences[0] && sentences[0].split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length > 14) breaks.push('a first sentence over 14 words');
+  if (sentences[0] && sentences[0].split(/\s+/).length > 14) breaks.push('a first sentence over 14 words');
   if (text.includes(';')) breaks.push('a semicolon');
   if (text.includes(' — ')) breaks.push('a dash between clauses');
   if (/\bStep \d/.test(text)) breaks.push('a step number');
