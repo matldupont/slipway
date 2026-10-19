@@ -1,9 +1,9 @@
 {
   "_note": "AR-7 of the 0.3 review: a doc's path is printed only in the shape feature docs are named; a space in it is said as a feature doc carrying F-06.",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you or an agent) Owed citation: PD-1 amends F-06 and nothing for F-06 names PD-1 — write what PD-1 changes into a feature doc carrying F-06 where the change belongs (its Contract when it changes what F-06 does, and the Version moves) or onto the Contents line that builds F-06 — before F-06 is reviewed or built; waits on nothing"
+    "(you or an agent) Write what the decision (PD-1) changes into the feature's doc. It amends the feature (F-06), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature. It blocks the feature's review and build. It waits on nothing."
   ]
 }

@@ -1,10 +1,10 @@
 {
   "_note": "PD-1: F-07's only review quotes 0.1 and the doc is at 0.2, so nothing. PD-2: F-08's review is current and the doc names PD-2, so one reopens line saying the current review covers it. PD-3 (AR-1 of the 0.3 review): F-09's review is current but the doc does not name PD-3, so the Owed citation line and no reopens line.",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you or an agent) Owed citation: PD-3 amends F-09 and nothing for F-09 names PD-3 — write what PD-3 changes into dev/features/tips.md where the change belongs (its Contract when it changes what F-09 does, and the Version moves) or onto the Contents line that builds F-09 — before F-09 is reviewed or built; waits on nothing",
-    "(you) Decision reopens: PD-2 — F-08 is reviewed (F-08's current review already covers it): re-read PD-2; does it still hold? An agent or /clarify writes the outcome in its place: \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\"; or, when it is open again, \"open — reopened 2026-03-10\" as its heading status and \"Reopened 2026-03-10: open again\"; or the decision that supersedes it — before anything new is built on PD-2; waits on nothing"
+    "(you or an agent) Write what the decision (PD-3) changes into dev/features/tips.md. It amends the feature (F-09), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature. It blocks the feature's review and build. It waits on nothing.",
+    "(you) Re-read the decision (PD-2) and say whether it still holds. Its condition has happened (F-08 is reviewed, and that review already covers the decision). An agent or /clarify then writes the outcome in place of the condition, as \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\". When it is open again, it writes \"open — reopened 2026-03-10\" as the heading status and \"Reopened 2026-03-10: open again\" in place of the condition. A decision that supersedes it settles it too. It blocks anything new built on the decision. It waits on nothing."
   ]
 }

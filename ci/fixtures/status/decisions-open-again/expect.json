@@ -1,9 +1,9 @@
 {
   "_note": "AR-3 of the 0.3 review: a re-read that left the decision open writes open — reopened as the heading status and Reopened …: open again. Only the Open decision line.",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "Open decision: PD-1 Deposits are refundable (open — reopened 2026-03-05)"
+    "(you) Decide \"Deposits are refundable\" (PD-1, open, reopened 2026-03-05)"
   ]
 }

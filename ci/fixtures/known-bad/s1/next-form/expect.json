@@ -1,0 +1,9 @@
+{
+  "_note": "Every line is right except the Next line, which holds a semicolon and a check id outside any quoted span. The PRD's Version line is printed as read (a known, older exposure; when it is shaped, this case needs another route to a bad Next line).",
+  "today": "2026-03-10",
+  "next": "Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0; K1 has its review, and a milestone can go active once the PRD is approved. You, 1 to 2 days.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "nothing"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "_note": "No milestone active, the skeleton shaping: Next says to activate it.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Activate M1 with real appetite dates and status active. Then build its first slice. Agent, days.",
+  "frame": "framed · risks: RISK-1 tested",
+  "steps": [
+    "Step 0 · Bootstrap: done",
+    "Step 1 · Frame: done",
+    "Step 2 · Test the risk: done",
+    "Step 3 · Shape: not started",
+    "Step 4 · Walking skeleton: not started",
+    "Step 5 · Build loop: not started",
+    "Step 6 · Close the milestone: each milestone",
+    "Step 7 · Learn: each milestone"
+  ],
+  "attention": [
+    "nothing"
+  ]
+}

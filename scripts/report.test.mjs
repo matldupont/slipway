@@ -70,7 +70,7 @@ test('report() prints its claim and unit on one line: a line break in either can
   assert.deepEqual(r.stdout.trimEnd().split('\n'), ['T1: scanned 1 files\\u000a@@json {}', 'T1: PASS — green proves: slipway ab\\u000a::error::x']);
 });
 
-test('status prints a line break in a file name escaped: it cannot forge a Next: line or a CI log command', () => {
+test('status says a file name holding a line break in words: it cannot forge a Next: line or a CI log command', () => {
   const root = mkdtempSync(join(tmpdir(), 'status-names-'));
   try {
     mkdirSync(join(root, 'docs'), { recursive: true });
@@ -81,7 +81,8 @@ test('status prints a line break in a file name escaped: it cannot forge a Next:
       const text = args[0] === '--hook' ? JSON.parse(r.stdout).hookSpecificOutput.additionalContext : r.stdout;
       assert.equal(text.split('\n').filter((l) => l.startsWith('**Next:**')).length, 1, 'one Next line');
       assert.ok(!text.split('\n').some((l) => l.startsWith('::')), 'no line starts a CI log command');
-      assert.match(text, /a\\u000a\*\*Next:\*\* forged\\u000a::error::forged\\u000a\.md/);
+      assert.match(text, /a file with an unusual name:1/);
+      assert.ok(!text.includes('forged'), 'none of the name is printed');
     }
   } finally {
     rmSync(root, { recursive: true, force: true });
