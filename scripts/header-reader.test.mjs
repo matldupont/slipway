@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -39,22 +39,35 @@ const CALLERS = [
   'scripts/adopt.mjs',
 ];
 
-// What finding a header block looks like in a script: a pattern that starts at `^---`, or a test of a text's first
-// three characters for `---`.
-const OWN_READER = /\^---|startsWith\(\s*['"`]---|slice\(\s*0\s*,\s*3\s*\)\s*===?\s*['"`]---/;
+// What finding a header block looks like in a script: any `---`, or three dashes counted (`-{3}`), on a line that is not
+// a comment. The few lines that write `---` for something other than a markdown header are named, each with why.
+const OWN_READER = /---|-\{3/;
+const NOT_A_HEADER = {
+  'ci/status.mjs': [/'\|---\|---\|---\|---\|---\|'/], // a markdown table's rule row, written out
+  'ci/checks/lib/workflow-yaml.mjs': [/^\s*if \(\/\^\[ \\t\]\+---/], // a YAML document marker, in a workflow
+  'ci/checks/lib/vendor/js-yaml.mjs': [/./], // the vendored YAML parser: YAML's own document markers
+};
+const ownReaders = (p, js) => js.split('\n').flatMap((line, i) => {
+  if (/^\s*(?:\/\/|\*|\/\*)/.test(line) || !OWN_READER.test(line)) return [];
+  return (NOT_A_HEADER[p] ?? []).some((ok) => ok.test(line)) ? [] : [`${p}:${i + 1}`];
+});
 
 test('the header readers: one parser, and the files that call it, listed', () => {
   const calls = SOURCES.filter((p) => {
     const js = readFileSync(join(SRC, p), 'utf8');
-    return p !== READER && /\b(?:frontmatter|withoutHeader)\(/.test(js) && /from '[^']*\/frontmatter\.mjs'/.test(js);
+    return p !== READER && /\b(?:frontmatter|withoutHeader)\(/.test(js) && /from ['"`][^'"`]*\/frontmatter\.mjs['"`]/.test(js);
   });
   assert.deepEqual(calls, CALLERS);
 });
 
 test('no script but the one reader finds a header block itself', () => {
-  const own = SOURCES.filter((p) => p !== READER && OWN_READER.test(readFileSync(join(SRC, p), 'utf8')));
+  const own = SOURCES.filter((p) => p !== READER).flatMap((p) => ownReaders(p, readFileSync(join(SRC, p), 'utf8')));
   assert.deepEqual(own, []);
-  assert.match(readFileSync(join(SRC, READER), 'utf8'), OWN_READER, 'the pattern this test looks for is the one the reader uses');
+  assert.ok(ownReaders('x.mjs', readFileSync(join(SRC, READER), 'utf8')).length > 0, 'the pattern this test looks for is the one the reader uses');
+  for (const shape of ["md.match(/^-{3}\\r?\\n/)", "lines[0] === '---'", "md.split(/\\n---\\n/)", "md.startsWith('---')", "/^\\uFEFF?---/"]) {
+    assert.deepEqual(ownReaders('x.mjs', shape), ['x.mjs:1'], shape);
+  }
+  assert.deepEqual(ownReaders('x.mjs', '// a comment about ---'), [], 'a comment is not a reader');
 });
 
 // Each call of the reader in `js`, with the text of its argument: what is between the call's own parentheses.
@@ -99,9 +112,12 @@ const inTree = ({ base, files = {} }, crlf, run) => {
       mkdirSync(dirname(join(dir, p)), { recursive: true });
       writeFileSync(join(dir, p), body);
     }
+    // Never through a link: a link in a case would have the CRLF pass rewrite the file it points at.
     const walk = (d) => readdirSync(d).forEach((f) => {
       const p = join(d, f);
-      if (statSync(p).isDirectory()) return walk(p);
+      const st = lstatSync(p);
+      if (st.isSymbolicLink()) throw new Error(`${p} is a link: a case is plain files only`);
+      if (st.isDirectory()) return walk(p);
       if (crlf && p.endsWith('.md')) writeFileSync(p, readFileSync(p, 'utf8').replace(/\r?\n/g, '\r\n'));
     });
     walk(dir);

@@ -79,7 +79,7 @@ for (const { path, regular, folder, ns, companionOf, unreadable } of readFeature
   }
   if (ns.length) scanned++;
   if (unreadable) {
-    findings.push({ where: `${path}#frontmatter/unreadable`, detail: `a line in ${path}'s frontmatter holds a carriage return with no line feed after it, so readers disagree on its keys: save the file with LF or CRLF line endings` });
+    findings.push({ where: `${path}#frontmatter/unreadable`, detail: `a line in ${codeSpan(path)}'s frontmatter holds a carriage return with no line feed after it, so readers disagree on its keys: save the file with LF or CRLF line endings` });
     continue;
   }
   docs.set(path, { ns, companionOf });
