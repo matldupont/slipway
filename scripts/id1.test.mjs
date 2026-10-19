@@ -72,9 +72,11 @@ test('a decisions.md heading inside front matter, a fence or a comment counts', 
   }
 });
 
-test('a companion declared in a CR-only file is read', () => {
-  const r = id1({ [A]: doc('3'), 'docs/features/b.md': doc('3', A).replaceAll('\n', '\r') });
-  assert.deepEqual([r.status, r.findings], [0, []]);
+test('a companion declared in a CRLF file is read; in a CR-only file its header is unreadable, as every reader reads it (#495)', () => {
+  const crlf = id1({ [A]: doc('3'), 'docs/features/b.md': doc('3', A).replaceAll('\n', '\r\n') });
+  assert.deepEqual([crlf.status, crlf.findings], [0, []]);
+  const cr = id1({ [A]: doc('3'), 'docs/features/b.md': doc('3', A).replaceAll('\n', '\r') });
+  assert.deepEqual([cr.status, cr.findings], [1, ['docs/features/b.md#frontmatter/unreadable']]);
 });
 
 test('a companion may carry only its primary\'s ids', () => {

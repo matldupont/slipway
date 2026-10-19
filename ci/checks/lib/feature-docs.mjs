@@ -8,7 +8,7 @@
 
 import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter } from './frontmatter.mjs';
+import { frontmatter, isUnreadable } from './frontmatter.mjs';
 import { UNSAFE } from './report.mjs';
 
 export const FEATURE_DIRS = ['docs/features', 'dev/features'];
@@ -50,7 +50,8 @@ const regular = (root, path) => {
 // Every `*.md` directly in the two folders but TEMPLATE.md and README.md, by folder then name:
 // `{ path, regular, md, ns, companionOf }`. `regular` is false for a link or anything that is not a file, which is
 // never opened (`md` null, `ns` empty). `ns` is every F-<n> a heading of the doc carries, as numbers, and
-// `companionOf` its frontmatter's `companion-of:` as written, null when it has none.
+// `companionOf` its frontmatter's `companion-of:` as written, null when it has none. `unreadable` is true when its
+// header can be read two ways (frontmatter.mjs → UNREADABLE), which then names no companion.
 // `dirs` narrows the folders read, so a caller can read each on its own; by default both.
 export function readFeatureFiles(root, dirs = FEATURE_DIRS) {
   const files = [];
@@ -60,12 +61,13 @@ export function readFeatureFiles(root, dirs = FEATURE_DIRS) {
     for (const f of readdirSync(abs).filter((x) => x.endsWith('.md') && x !== 'TEMPLATE.md' && x !== 'README.md').sort()) {
       const path = `${dir}/${f}`;
       if (!regular(root, path)) {
-        files.push({ path, regular: false, md: null, ns: [], companionOf: null });
+        files.push({ path, regular: false, md: null, ns: [], companionOf: null, unreadable: false });
         continue;
       }
       const md = readFileSync(join(abs, f), 'utf8');
       const ns = [...new Set(visible(md).map((l) => l.text.match(FEATURE)).filter(Boolean).map((m) => Number(m[1])))];
-      files.push({ path, regular: true, md, ns, companionOf: (frontmatter(md) ?? {})['companion-of'] ?? null });
+      const fm = frontmatter(md);
+      files.push({ path, regular: true, md, ns, companionOf: (fm ?? {})['companion-of'] ?? null, unreadable: isUnreadable(fm) });
     }
   }
   return files;
