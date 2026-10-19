@@ -75,7 +75,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { readDecisions } from '../lib/decisions.mjs';
 import { gateGlobs, gateMatcher, gateTouched, globToRegExp, SETTINGS } from '../lib/gate-files.mjs';
-import { commentCrossesHeading, prose, repeatedHeadings, section, strictSection } from '../lib/markdown.mjs';
+import { commentCrossesHeading, prose, repeatedHeadings, replaceComments, section, strictSection } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 import { unreviewedSpecs } from '../lib/spec-review.mjs';
 
@@ -115,7 +115,7 @@ const sameIssue = (a, b) => a.n === b.n && (!a.repo || !b.repo || a.repo === b.r
 // a `Part of` that GitHub shows. What answers it is read from the prose alone, with fenced and indented code, inline
 // code and comments taken out, so a plain example of a closing link, of the section or of the sentence answers
 // nothing. A body written to quote an answer in some other form can still pass.
-const stated = (md) => md.replace(/<!--[\s\S]*?-->/g, '');
+const stated = (md) => replaceComments(md, () => '');
 const written = (md) => prose(md).split(/\r?\n/).filter((l) => !/^(?: {4}|\t)/.test(l)).join('\n').replace(/`[^`\n]*`/g, ' ');
 
 // `## Follow-ups` against the rest of the body (#242). Read from the prose with fences, comments and inline code taken

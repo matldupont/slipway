@@ -20,6 +20,9 @@
 //   extended/unresolved    `extended: PD-<n>` names a decision decisions.md does not hold
 //   wip/exceeded           more than one milestone is active
 //   template/fields        TEMPLATE.md lost a field or section MS1 reads
+//   file/unreadable        a `*.md` in docs/milestones/ that is a link, a folder or another entry that is not a
+//                          regular file, or reached through a link; or docs/milestones/ itself a link, under
+//                          one, or not a folder. It is never opened, so nothing reads it as a milestone
 //   summary/drift          a milestone's `summary:` differs from its row in the table under
 //                          PRD `## 10. …` › `### Milestones`, or has no row there. Only milestones
 //                          that declare a non-empty `summary:` are compared, so a repo without the
@@ -64,24 +67,27 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
+import { frontmatter, hasPlaceholder } from '../lib/frontmatter.mjs';
 import { plain, section, table } from '../lib/markdown.mjs';
 import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
-import { excerpt, report } from '../lib/report.mjs';
+import { codeSpan, excerpt, report } from '../lib/report.mjs';
 
 const REQUIRED_SECTIONS = ['No-gos', 'Gate', 'Kill criteria'];
 const TEMPLATE_KEYS = ['id', 'status', 'kind', 'appetite'];
 
 const root = process.argv[2] ?? '.';
 const today = localToday(root);
-const { dir, files, milestones } = readMilestones(root);
+const { dir, files, milestones, refused } = readMilestones(root);
 const decisionsPath = join(root, 'decisions.md');
 const decisions = existsSync(decisionsPath) ? readFileSync(decisionsPath, 'utf8') : '';
 const hasDecision = (id) => new RegExp(`^#{2,3}\\s+${id}\\b`, 'm').test(decisions);
-const written = (s) => s !== null && s.trim() !== '' && !PLACEHOLDER.test(s);
+const written = (s) => s !== null && s.trim() !== '' && !hasPlaceholder(s);
 
-const findings = [];
+const findings = refused.map((path) => ({
+  where: `${path}#file/unreadable`,
+  detail: path.endsWith('.md') ? `${codeSpan(path)} is a link, is reached through one or is not a regular file, so it is not read as a milestone: make it a regular file` : `${codeSpan(path)} is a link, sits under one or is not a folder, so no milestone in it is read: make it a plain folder`,
+}));
 const seen = new Map();
 const active = [];
 
@@ -187,7 +193,7 @@ if (prd) {
     warnings.push({ where: 'docs/PRD.md#estimate/header', detail: 'the estimate table in the PRD (§9) has no Milestone and Hours columns, so no estimate is compared with its appetite' });
   } else if (t) {
     const rows = t.rows.map((c) => ({ id: plain(c[idAt] ?? ''), cell: c[hoursAt] ?? '', hours: hoursIn(c[hoursAt]) }));
-    for (const r of rows.filter((r) => !r.hours && r.cell && !PLACEHOLDER.test(r.cell))) {
+    for (const r of rows.filter((r) => !r.hours && r.cell && !hasPlaceholder(r.cell))) {
       warnings.push({ where: `docs/PRD.md#estimate/unreadable/${r.id}`, detail: `cannot read hours "${r.cell.slice(0, 60)}" — write n, n–m or n to m` });
     }
     for (const r of rows.filter((r) => r.id && !named.has(r.id) && !/^total\b/i.test(r.id))) {
@@ -239,7 +245,7 @@ process.exit(
   report({
     id: 'MS1',
     claim: `every milestone is shaped, at most one is active, none has outrun its appetite unextended, and every summary: matches the PRD (${byStatus || 'none'}; ${withSummary.length} with summary:)`,
-    scanned: files.length,
+    scanned: files.length + refused.length,
     unit: 'milestone documents',
     findings,
     warnings,

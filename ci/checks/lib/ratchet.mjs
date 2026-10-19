@@ -3,21 +3,22 @@
 // the same way, and the one reader and writer of that file: the checks, sync and new-project all go through it.
 // It never exits, so a program that is not a check can import it.
 
-import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { MISSING, notPlainFile, notPlainFolder } from './review-header.mjs';
 
 export const BASELINES = 'ci/baselines.json';
 // The name the Fit count is kept under (lib/fit.mjs).
 export const FIT_KEY = 'feature-fit';
 
 // The file's text as an object of name → number. Throws, naming why, on text that is not JSON or not an object:
-// a file nobody can read is never an empty one.
+// a file nobody can read is never an empty one. The parser's own message is never passed on: it quotes the text.
 export function parseBaselines(text) {
   let value;
   try {
     value = JSON.parse(text);
-  } catch (e) {
-    throw new Error(`${BASELINES} is not valid JSON: ${e.message}`);
+  } catch {
+    throw new Error(`${BASELINES} is not valid JSON`);
   }
   if (value === null || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${BASELINES} is not a JSON object of name → number`);
   return value;
@@ -26,8 +27,23 @@ export function parseBaselines(text) {
 // The one form the file is written in: two-space JSON and a final newline.
 export const serialiseBaselines = (baselines) => `${JSON.stringify(baselines, null, 2)}\n`;
 
-// The baselines under `root`; none when the file is absent.
-export const readBaselines = (root = '.') => (existsSync(join(root, BASELINES)) ? parseBaselines(readFileSync(join(root, BASELINES), 'utf8')) : {});
+// Why the file under `root`, or the folder above it, is not one the ratchet reads or writes: a link, a file reached
+// through one, a folder above it that is a link or not a folder, or anything but a plain file. null when it is plain
+// or absent, with its folder plain or absent.
+function notPlainBaselines(root) {
+  const folder = notPlainFolder(root, dirname(BASELINES));
+  if (folder !== null && folder !== MISSING) return `${dirname(BASELINES)}/ ${folder}`;
+  const file = notPlainFile(root, BASELINES);
+  return file === MISSING ? null : file && `${BASELINES} ${file}`;
+}
+
+// The baselines under `root`; none when the file is absent. Throws, reading nothing, when it is not a plain file of
+// the repository: a link is never followed, and a device or a pipe is never opened.
+export const readBaselines = (root = '.') => {
+  const why = notPlainBaselines(root);
+  if (why) throw new Error(`${why}, so it is not read — make it a plain file in a plain folder`);
+  return notPlainFile(root, BASELINES) === MISSING ? {} : parseBaselines(readFileSync(join(root, BASELINES), 'utf8'));
+};
 
 // Every name in a JSON text, at any depth, as written: each string followed by a `:`, read as a lone string.
 // JSON.parse on Node 23 and 24 can read a one-character escaped name as `\` once the process has parsed an object
@@ -52,14 +68,14 @@ const namesOf = (value) => (value !== null && typeof value === 'object' ? Object
 const changedNumber = (value) => (typeof value === 'number' ? !Number.isFinite(value) || (Number.isInteger(value) && !Number.isSafeInteger(value)) : value !== null && typeof value === 'object' && Object.values(value).some(changedNumber));
 
 // Writes `baselines` over the file under `root`. Throws, writing nothing, when that file holds an entry a rewrite
-// would lose or change: a link or anything but a plain file there; bytes that are not UTF-8; a name the parser does
+// would lose or change: a link or anything but a plain file there, or a folder above it that is a link; bytes that are not UTF-8; a name the parser does
 // not read as written (a name given twice, or the Node bug above); a number that is not written back as read. The
 // file is read again here, so a caller's own earlier read is not what is checked (F-12, Known limitations).
 export function writeBaselines(root, baselines) {
   const file = join(root, BASELINES);
-  const stat = lstatSync(file, { throwIfNoEntry: false });
-  if (stat) {
-    if (!stat.isFile()) throw new Error(`${BASELINES} is a link or not a plain file, so it is not rewritten; nothing was written — make it a plain file`);
+  const why = notPlainBaselines(root);
+  if (why) throw new Error(`${why}, so it is not rewritten; nothing was written — make it a plain file in a plain folder`);
+  if (notPlainFile(root, BASELINES) !== MISSING) {
     const bytes = readFileSync(file);
     const text = bytes.toString('utf8');
     const parsed = parseBaselines(text);
