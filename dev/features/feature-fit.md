@@ -72,18 +72,18 @@ Three things changed at 0.2, on the owner's answers to the review of 0.1 (`docs/
 ## Fit
 
 Reuses:
-- `sectionLines()` in `ci/checks/lib/markdown.mjs:38`, the lines under which `section()` (line 34), the section
+- `sectionLines()` in `ci/checks/lib/markdown.mjs:47`, the lines under which `section()` (line 43), the section
   reader every document check uses, joins and trims; the Fit reader takes the lines, so a first line's indent is
-  kept. `hasPlaceholder()` in `ci/checks/lib/frontmatter.mjs:54`, which reads each line once for `PLACEHOLDER`
-  (line 48), the one definition of "still a template placeholder".
-- `frontmatter()` in `ci/checks/lib/frontmatter.mjs:27`: the one reader of `status:` and `companion-of:`.
+  kept. `hasPlaceholder()` in `ci/checks/lib/frontmatter.mjs:57`, which reads each line once for `PLACEHOLDER`
+  (line 51), the one definition of "still a template placeholder".
+- `frontmatter()` in `ci/checks/lib/frontmatter.mjs:30`: the one reader of `status:` and `companion-of:`.
 - ID1's reading of what a feature doc is (`ci/checks/meta/id1-ids.mjs`: the two folders, the two file names
   skipped, a regular file, an `F-<n>` heading, `companion-of:`), moved to a shared module so ID1, F2 and sync
   class a file the same way.
 - `reviewProvenance()` in `ci/checks/lib/review-header.mjs`: which document a review names, as R1 reads it.
 - `readMilestones()` and `contents()` in `ci/checks/lib/milestones.mjs`, and `citedFeatures()` beside them
-  (line 81), the `F-<n>` citation pattern F1 applied inline to a Contents item, moved there; F1 calls it.
-- `report()` in `ci/checks/lib/report.mjs:65`, its warnings, and PC1's `expected.json` layout: every check's
+  (line 93), the `F-<n>` citation pattern F1 applied inline to a Contents item, moved there; F1 calls it.
+- `report()` in `ci/checks/lib/report.mjs:74`, its warnings, and PC1's `expected.json` layout: every check's
   output and its known-bad fixture shape.
 - The ratchet's rule in `ci/ratchet.mjs` (above the baseline fails, equal passes, below passes and says to lock
   it in, no baseline is broken), moved into a shared helper so F2 and `ci/ratchet.mjs` compare the same way.
@@ -454,7 +454,7 @@ as the other ratchets' are.
   refuses a `ci/baselines.json` not in slipway's form at the plan, as it refuses one that is not JSON, so no
   "count recorded" row is shown for it (§3's table puts the refusal at `--apply`). An `--update` run prints only
   the count it recorded, or its refusal, never the warnings or the claim (§4, "every run that is not BROKEN").
-  §1 cites `PLACEHOLDER` at `frontmatter.mjs:30`; it is at line 48, read through `hasPlaceholder()` (this doc's
+  §1 cites `PLACEHOLDER` at `frontmatter.mjs:30`; it is at line 51, read through `hasPlaceholder()` (this doc's
   Fit). `Reuses:` text on the label line, or unmarked before the first bullet, is an item too, and backticks are
   removed before `nothing` is read (§2 says "every bullet"). A doc held only for having no status line and with
   no section has two reasons, `frontmatter/unreadable` and `fit/missing`, so two warning lines (§2 says one).
@@ -479,6 +479,32 @@ as the other ratchets' are.
   reading it again, not the caller's own earlier read: the bug depends on what the process parsed before, so the
   two reads could differ. Neither command has been seen to (thousands of generated files, #430's review), and
   checking the caller's object would refuse `new-project`, which writes a fresh file over slipway's copy.
+- What #430's second pull request decided and left (items 2, 3, 8–13, 19, 20). Each reader the count goes through
+  opens a file only when it is a regular file reached through no link at any depth, and reads a folder only when it
+  is a folder reached through none. A feature folder, `docs/reviews/` or `docs/milestones/` that is not, or a
+  milestone file that is not, is never read: F2 is BROKEN naming it, sync refuses naming the folder, MS1 and ID1 name it. A single `*.md` in
+  a feature folder that is a link stays a warning (§2: named, not counted), and a review file that is a link is left
+  out of the count (R1 names it). `pnpm status`, F1, DC1, K1, the work-order page and the roadmap page leave a refused milestone file out
+  without a line of their own; MS1, run by every `pnpm meta`, is where it shows. `ci/ratchet.mjs` still reads the
+  tool's report through a link: the report is the tool's own output, at a path the project's script names.
+  Fit is read as GitHub shows it only in part, and where the reader cannot tell, the strict way. The reader cannot
+  tell a comment GitHub hides from a `<!--` it shows as text (in code, a fence, frontmatter, a list item or an HTML
+  block), so a held doc with any `<!--` in its Fit section or above it is counted as `fit/unfilled/unreadable`, and
+  F2 names the line of the first: remove the comment, or move the text that quotes `<!--` below the Fit section (the
+  owner's call, 2026-10-19, after three review rounds found holes in closer readings). A template's guidance
+  comments in or above the Fit count a doc until they are removed. One after the section changes nothing. An ATX
+  heading ends a label's text, and a setext heading whose text is one line (a label line included) ends the
+  section. A character reference, an HTML tag (in a code span too), a link with no text and a link reference
+  definition say nothing. A numbered item or a quote line above an underline is a heading, and a character reference
+  that shows a character (`&amp;`) says nothing: each is read the strict way, counted rather than passed. Three
+  shapes GitHub shows as a heading are not read as one, so a label above or under one can pass: a setext heading
+  whose text runs over two lines or more, a lone `-` under a line of text (read as an empty list mark), and an
+  empty `##` or an indented `## Notes` (the section ends only at a `#` or `##` in the first column). Each is text in
+  the diff a reviewer reads. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
+  HTML block) are read as text. A heading or citation holding a run of more than 32 combining marks (the halfwidth
+  voiced marks counted as marks) is folded a piece at a time, the run reordered within each piece only, which no id
+  or heading mark depends on. `ci/checks/lib/yaml-list.mjs`'s line
+  patterns are left as they are: it refuses a line with a line break inside before matching, so each reads a line once.
 
 ## Acceptance
 

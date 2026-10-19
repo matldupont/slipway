@@ -35,8 +35,8 @@ if (!existsSync(reportPath)) broken(`${reportPath} does not exist — did the to
 let value;
 try {
   value = path.split('.').reduce((o, k) => o?.[k], JSON.parse(readFileSync(reportPath, 'utf8')));
-} catch (e) {
-  broken(`${reportPath} is not JSON: ${e.message}`);
+} catch {
+  broken(`${reportPath} is not JSON`); // never the parser's message: it quotes the file
 }
 if (typeof value !== 'number' || !Number.isFinite(value)) broken(`${path} in ${reportPath} is ${JSON.stringify(value)}, not a number`);
 

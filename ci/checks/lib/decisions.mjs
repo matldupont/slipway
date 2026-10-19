@@ -177,11 +177,12 @@ const listed = (root, dir, skip, unread) => {
 const plainFiles = (root, dir, skip, unread) => listed(root, dir, skip, unread).map((f) => readPlain(root, `${dir}/${f}`)).filter((t) => t !== null);
 
 // The feature docs, each folder read on its own and never a throw: a docs/features or dev/features that cannot be read,
-// or is a link, is added to `unread`, and the other folder's docs are still read.
+// is a link, sits under one or is not a folder, is added to `unread`, and the other folder's docs are still read.
 const featureFiles = (root, unread) =>
   FEATURE_DIRS.flatMap((dir) => {
     try {
-      if (!isLink(root, dir)) return readFeatureFiles(root, [dir]).filter((f) => f.regular);
+      const files = readFeatureFiles(root, [dir]);
+      if (!files.some((f) => f.folder)) return files.filter((f) => f.regular);
     } catch { /* named unread below */ }
     unread.push(dir);
     return [];

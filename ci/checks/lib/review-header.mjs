@@ -32,6 +32,25 @@ export const notPlainFile = (root, rel) => {
   }
   return null;
 };
+// The same for a folder: why `rel` under `root` is not a folder reached through no link, or null when it is one.
+// Every component is held to it, not only the last: a parent that is a link is reported as one.
+export const notPlainFolder = (root, rel) => {
+  const target = join(root, rel);
+  let st;
+  try {
+    st = lstatSync(target);
+  } catch {
+    return MISSING;
+  }
+  if (st.isSymbolicLink()) return 'is a link, not a folder';
+  if (!st.isDirectory()) return 'is not a folder';
+  try {
+    if (realpathSync(target) !== join(realpathSync(root), rel)) return 'is reached through a link';
+  } catch {
+    return MISSING;
+  }
+  return null;
+};
 // The text of a plain file of the repository, or null.
 export const readPlain = (root, rel) => (notPlainFile(root, rel) === null ? readFileSync(join(root, rel), 'utf8') : null);
 

@@ -13,8 +13,12 @@
 //   no count recorded    exit 2 BROKEN — sync records it in a project; --update records it by hand
 //
 //   <doc>#fit/missing             no `## Fit` section
+//   <doc>#fit/unfilled/unreadable  a `<!--` in the Fit section or above it; the finding names the first one's line
 //   <doc>#fit/unfilled/<label>    `Reuses:`, `Numbers:` or `New:` is absent, empty or still the template's text
-//   <doc>#frontmatter/unreadable  no `status:` line, so nothing says the doc is a draft
+//   <doc>#frontmatter/unreadable  no `status:` line, or one with nothing after it, so nothing says the doc is a draft
+//
+// A feature folder, docs/milestones/ or a milestone file that is a link, sits under one or is not a plain folder or
+// file is BROKEN: it is never read, so the count would leave out what it holds (MS1 and ID1 name these too).
 //
 // Every run that is not BROKEN also warns of each file in the two folders that is not a feature doc
 // (`#not-a-feature-doc`), and of each draft nothing holds yet that has no filled Fit (`#fit/draft`): it is not
@@ -29,13 +33,12 @@
 // duplication ratchet sees copied lines, not a second calculation of one number or a second kind of surface.
 // F2 holds that the question was answered in the doc, not that the answer is true: a reviewer reads that.
 
-import { lstatSync, realpathSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 import { FEATURE_DIRS } from '../lib/feature-docs.mjs';
 import { fitCount } from '../lib/fit.mjs';
 import { BASELINES, compare, FIT_KEY, isCount, readBaselines, writeBaselines } from '../lib/ratchet.mjs';
-import { excerpt, report } from '../lib/report.mjs';
-import { MISSING, notPlainFile } from '../lib/review-header.mjs';
+import { codeSpan, excerpt, report } from '../lib/report.mjs';
+import { MISSING, notPlainFile, notPlainFolder } from '../lib/review-header.mjs';
 
 const args = process.argv.slice(2);
 const update = args.includes('--update');
@@ -53,15 +56,12 @@ const broken = (why) => process.exit(report({ id: 'F2', claim: '', scanned, unit
 // as sync refuses a link or a folder at that path for its own write.
 const notPlain = notPlainFile(root, BASELINES);
 const folder = dirname(BASELINES);
-let linked = false;
-try {
-  const st = lstatSync(join(root, folder));
-  linked = !st.isDirectory() || realpathSync(join(root, folder)) !== join(realpathSync(root), folder);
-} catch (e) {
-  linked = e.code !== 'ENOENT'; // no ci/ folder yet: --update makes it; anything else is not a plain folder
-}
-if (linked) broken(`${BASELINES} is under a ${folder}/ that is a link or not a folder, so it is neither read nor written — make ${folder}/ a plain folder`);
+const folderWhy = notPlainFolder(root, folder); // no ci/ folder yet: --update makes it
+if (folderWhy !== null && folderWhy !== MISSING) broken(`${BASELINES} is under a ${folder}/ that is a link or not a folder, so it is neither read nor written — make ${folder}/ a plain folder`);
 if (notPlain !== null && notPlain !== MISSING) broken(`${BASELINES} ${notPlain}, so it is neither read nor written — make it a plain file`);
+if (fit.unread.length) {
+  broken(`${fit.unread.map(codeSpan).join(', ')} ${fit.unread.length === 1 ? 'is' : 'are'} a link, under one, or not a plain folder or file, so F2 does not read ${fit.unread.length === 1 ? 'it' : 'them'} and cannot count the docs — make each a plain folder or file`);
+}
 let baselines;
 try {
   baselines = readBaselines(root);
@@ -88,28 +88,29 @@ function held(doc) {
   const named = (files) => `${files[0]}${files.length > 1 ? ` and ${files.length - 1} more` : ''}`;
   const why = [];
   for (const status of by('status')) why.push(status === 'shipped' ? 'is shipped' : `has the status "${excerpt(status, 30)}", which is not draft`);
-  if (by('unreadable').length) why.push('has no status line');
+  if (by('unreadable').length) why.push('has no readable status line');
   if (by('review').length) why.push(`is reviewed (${named(by('review'))})`);
   if (by('milestone').length) why.push(`is scheduled (${named(by('milestone'))})`);
   return why.join(', ');
 }
 const NEXT = {
   'fit/missing': 'has no `## Fit` section — add it after `## Problem`, with `Reuses:`, `Numbers:` and `New:` filled in',
+  'fit/unfilled/unreadable': (d) => `line ${d.commentLine} holds a \`<!--\`, in its Fit section or above it, so what GitHub shows of its Fit cannot be told — remove the comment, or move the text that quotes \`<!--\` below the Fit section`,
   'fit/unfilled/reuses': 'its Fit has no filled `Reuses:` line — name each pattern or helper it reuses and where it lives, or `nothing` with what was searched',
   'fit/unfilled/numbers': 'its Fit has no filled `Numbers:` line — say where each number it shows is calculated, or `none shown`',
   'fit/unfilled/new': 'its Fit has no filled `New:` line — say what it adds that nothing existing does and why, or `none` (not beside `nothing` under `Reuses:`: such a doc describes no feature)',
-  'frontmatter/unreadable': 'nothing says it is a draft, so it is counted whatever its Fit says — give its frontmatter a `status:` line',
+  'frontmatter/unreadable': 'nothing says it is a draft, so it is counted whatever its Fit says — give its frontmatter a `status:` line with its status after it (`draft`, `shipped`)',
 };
 const counted = fit.docs
   .filter((d) => d.reasons.length)
-  .flatMap((d) => d.reasons.map((reason) => ({ where: `${d.path}#${reason}`, detail: `\`${d.path}\` ${held(d)} and ${NEXT[reason]}` })));
+  .flatMap((d) => d.reasons.map((reason) => ({ where: `${d.path}#${reason}`, detail: `${codeSpan(d.path)} ${held(d)} and ${typeof NEXT[reason] === 'function' ? NEXT[reason](d) : NEXT[reason]}` })));
 
 const warnings = [
   ...fit.others.map((o) => ({
     where: `${o.path}#not-a-feature-doc`,
-    detail: o.why === 'no-id' ? `\`${o.path}\` is not a feature doc (no \`F-<n>\` title), so its Fit is not checked` : `\`${o.path}\` is a link or a folder, not a file, so it is not read and its Fit is not checked`,
+    detail: o.why === 'no-id' ? `${codeSpan(o.path)} is not a feature doc (no \`F-<n>\` title), so its Fit is not checked` : `${codeSpan(o.path)} is a link or a folder, not a file, so it is not read and its Fit is not checked`,
   })),
-  ...fit.drafts.map((path) => ({ where: `${path}#fit/draft`, detail: `\`${path}\` is a draft nothing holds yet and has no filled Fit: not counted until it is reviewed, scheduled or shipped` })),
+  ...fit.drafts.map((path) => ({ where: `${path}#fit/draft`, detail: `${codeSpan(path)} is a draft nothing holds yet and has no filled Fit: not counted until it is reviewed, scheduled or shipped` })),
   ...(outcome === 'above' ? [] : counted),
 ];
 

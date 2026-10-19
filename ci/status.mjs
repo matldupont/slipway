@@ -23,7 +23,7 @@ import { decisionLines } from './checks/lib/decision-lines.mjs';
 import { readDecisions } from './checks/lib/decisions.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
-import { section } from './checks/lib/markdown.mjs';
+import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
 import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
@@ -245,7 +245,7 @@ for (const file of walk(join(root, 'docs'))) {
   // Comments are blanked, not removed, so line numbers hold. A marker sitting whole inside inline code is the
   // template explaining the syntax, not a question; an escaped backtick is not code. Every span is matched so
   // that the gap between two spans is never read as one.
-  const lines = readFileSync(file, 'utf8').replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, '')).split(/\r?\n/).map((l) => l.replace(/(?<!\\)`[^`\n]*`/g, (span) => (/\[(?:NEEDS CLARIFICATION|PARKED)[^\]]*\]/.test(span) ? '' : span)));
+  const lines = replaceComments(readFileSync(file, 'utf8'), commentLines).split(/\r?\n/).map((l) => l.replace(/(?<!\\)`[^`\n]*`/g, (span) => (/\[(?:NEEDS CLARIFICATION|PARKED)[^\]]*\]/.test(span) ? '' : span)));
   lines.forEach((line, i) => {
     for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${quoted(body) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {

@@ -50,6 +50,15 @@ export const excerpt = (text, max = 60) => {
   return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;
 };
 
+// Text from a project, such as a file name, as a markdown code span no backtick in it can close: fenced by one backtick
+// more than its longest run of them, with a space inside each fence when it starts or ends with one (CommonMark).
+export const codeSpan = (text) => {
+  const s = String(text);
+  const fence = '`'.repeat(Math.max(0, ...(s.match(/`+/g) ?? []).map((r) => r.length)) + 1);
+  const pad = s.startsWith('`') || s.endsWith('`') ? ' ' : '';
+  return `${fence}${pad}${s}${pad}${fence}`;
+};
+
 /**
  * @param {object} o
  * @param {string} o.id        check id, e.g. "FO1"
