@@ -114,9 +114,10 @@ const sameIssue = (a, b) => a.n === b.n && (!a.repo || !b.repo || a.repo === b.r
 // closed comments, so no mark written as text (a `<!--` in inline code, a one-line fence, a leading `---` block) hides
 // a `Part of` that GitHub shows. What answers it is read from the prose alone, with fenced and indented code, inline
 // code and comments taken out, so a plain example of a closing link, of the section or of the sentence answers
-// nothing. A body written to quote an answer in some other form can still pass.
+// nothing. A body written to quote an answer in some other form can still pass. A PR body has no header: a leading
+// `---` block, with a byte-order mark before it or not, is read as prose, as GitHub shows it (#495).
 const stated = (md) => replaceComments(md, () => '');
-const written = (md) => prose(md).split(/\r?\n/).filter((l) => !/^(?: {4}|\t)/.test(l)).join('\n').replace(/`[^`\n]*`/g, ' ');
+const written = (md) => prose(md, { frontmatter: false }).split(/\r?\n/).filter((l) => !/^(?: {4}|\t)/.test(l)).join('\n').replace(/`[^`\n]*`/g, ' ');
 
 // `## Follow-ups` against the rest of the body (#242). Read from the prose with fences, comments and inline code taken
 // out (so a quoted title or example answers and triggers nothing), indented lines kept: a nested bullet is prose.
@@ -129,7 +130,7 @@ const ITEM = /^ {0,3}(?:[-*+]|\d{1,9}[.)])\s/;
 const HEADING = /^ {0,3}#{1,6}(?:\s|$)/;
 const FOLLOW_HEADING = /^##[^\S\n]+Follow-ups[^\S\n]*$/i;
 const ENDS = /^ {0,3}#{1,2}(?:\s|$)/;
-const seen = (md) => prose(md).replace(/\r\n?/g, '\n').replace(/`[^`\n]*`/g, ' ');
+const seen = (md) => prose(md, { frontmatter: false }).replace(/\r\n?/g, '\n').replace(/`[^`\n]*`/g, ' ');
 // The entries of one section: its list items, or its blank-line-separated paragraphs when it has none; a heading
 // inside it is not an entry, and prose after a leading "none" elaborates it.
 const entriesOf = (lines) => {

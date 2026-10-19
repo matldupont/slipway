@@ -9,7 +9,7 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter } from './frontmatter.mjs';
+import { frontmatter, isUnreadable } from './frontmatter.mjs';
 import { UNSAFE } from './report.mjs';
 import { MISSING, notPlainFile, notPlainFolder } from './review-header.mjs';
 
@@ -51,12 +51,13 @@ export const LEAD = String.raw`^(?:[ \t>]|[-*+][ \t]|\d{1,9}[.)][ \t])*#{1,6}[ \
 const FEATURE = new RegExp(`${LEAD}F-(\\d+)\\b`);
 
 // Every `*.md` directly in the two folders but TEMPLATE.md and README.md, by folder then name:
-// `{ path, regular, folder, md, ns, companionOf }`. `regular` is false for a link, anything that is not a file, or a
-// file reached through a link, which is never opened (`md` null, `ns` empty). A folder that is there but is a link,
-// sits under one or is not a folder is one entry, `folder` true and `path` the folder's, and nothing in it is listed.
-// `ns` is every F-<n> a heading of the doc carries, as numbers, and `companionOf` its frontmatter's `companion-of:`
-// as written, null when it has none. `dirs` narrows the folders read, so a caller can read each on its own; by
-// default both.
+// `{ path, regular, folder, md, ns, companionOf, unreadable }`. `regular` is false for a link, anything that is not a
+// file, or a file reached through a link, which is never opened (`md` null, `ns` empty). A folder that is there but is a
+// link, sits under one or is not a folder is one entry, `folder` true and `path` the folder's, and nothing in it is
+// listed. `ns` is every F-<n> a heading of the doc carries, as numbers, and `companionOf` its frontmatter's
+// `companion-of:` as written, null when it has none. `unreadable` is true when its header can be read two ways
+// (frontmatter.mjs → UNREADABLE), which then names no companion. `dirs` narrows the folders read, so a caller can read
+// each on its own; by default both.
 export function readFeatureFiles(root, dirs = FEATURE_DIRS) {
   const files = [];
   for (const dir of dirs) {
@@ -70,19 +71,17 @@ export function readFeatureFiles(root, dirs = FEATURE_DIRS) {
     for (const f of readdirSync(abs).filter((x) => x.endsWith('.md') && x !== 'TEMPLATE.md' && x !== 'README.md').sort()) {
       const path = `${dir}/${f}`;
       if (notPlainFile(root, path) !== null) {
-        files.push({ path, regular: false, folder: false, md: null, ns: [], companionOf: null });
+        files.push({ path, regular: false, folder: false, md: null, ns: [], companionOf: null, unreadable: false });
         continue;
       }
       const md = readFileSync(join(abs, f), 'utf8');
       const ns = [...new Set(visible(md).map((l) => l.text.match(FEATURE)).filter(Boolean).map((m) => Number(m[1])))];
-      files.push({ path, regular: true, folder: false, md, ns, companionOf: (docFrontmatter(md) ?? {})['companion-of'] ?? null });
+      const fm = frontmatter(md);
+      files.push({ path, regular: true, folder: false, md, ns, companionOf: (fm ?? {})['companion-of'] ?? null, unreadable: isUnreadable(fm) });
     }
   }
   return files;
 }
-
-// A doc's frontmatter, whatever its line endings and with a byte-order mark before it; null when it has none.
-export const docFrontmatter = (md) => frontmatter(md.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n'));
 
 // Whether a file readFeatureFiles() lists is a feature doc.
 export const isFeatureDoc = (file) => file.regular && file.ns.length > 0 && file.companionOf === null;

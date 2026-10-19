@@ -5,7 +5,7 @@
 //
 // Held. A feature doc (lib/feature-docs.mjs) is held when any of these is true:
 //   status      its `status:` is present and, lower-cased, is not `draft` (`shipped`, or any word not known here)
-//   unreadable  it has no frontmatter, or no `status:`: nothing says it is a draft. It counts whatever its Fit says
+//   unreadable  it has no frontmatter, no `status:`, or a header readable two ways (#495): nothing says it is a draft. It counts whatever its Fit says
 //   review      a review names it: a file in docs/reviews/ other than TEMPLATE.md whose `Reviewed:` line gives its
 //               path, compared after normalising as R1 does (`./docs/features/x.md` is `docs/features/x.md`).
 //               Any review counts, current or not
@@ -26,8 +26,8 @@
 
 import { readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { docFrontmatter, isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
-import { hasPlaceholder } from './frontmatter.mjs';
+import { isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
+import { frontmatter, hasPlaceholder, isUnreadable } from './frontmatter.mjs';
 import { sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
 import { MISSING, notPlainFolder, readPlain, reviewProvenance } from './review-header.mjs';
@@ -195,10 +195,11 @@ export function fitCount(root) {
   for (const f of files.filter(isFeatureDoc)) {
     // A byte-order mark is not part of the doc, and CR, LF and CRLF all end a line, as ID1 reads its headings.
     const md = f.md.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n');
-    const fm = docFrontmatter(md);
+    // The header as every other reader reads it, from the file as written (#495).
+    const fm = frontmatter(f.md);
     const status = typeof fm?.status === 'string' ? fm.status.trim().toLowerCase() : '';
     const heldBy = [
-      ...(status === '' ? [{ rule: 'unreadable', by: fm ? 'no status' : 'no frontmatter' }] : status === 'draft' ? [] : [{ rule: 'status', by: status }]),
+      ...(status === '' ? [{ rule: 'unreadable', by: isUnreadable(fm) ? 'unreadable header' : fm ? 'no status' : 'no frontmatter' }] : status === 'draft' ? [] : [{ rule: 'status', by: status }]),
       ...(reviewed.get(f.path) ?? []).map((by) => ({ rule: 'review', by })),
       ...[...new Set(f.ns.flatMap((n) => scheduled.get(n) ?? []))].map((by) => ({ rule: 'milestone', by })),
     ];

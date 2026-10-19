@@ -1,0 +1,10 @@
+{
+  "_note": "decisions-control, with FRAME.md's header and one lesson's header readable two ways (#495): the frame reads as unknown, and only the readable lesson, L-02, is due for review.",
+  "today": "2026-03-10",
+  "next": "Run /kickoff to finish docs/product/FRAME.md. Its open questions need an answer or a parked assumption before the frame is done. You, an afternoon.",
+  "frame": "unknown · risks: RISK-1 tested",
+  "attention": [
+    "(you) Decide \"Deposits are refundable\" (PD-1, open)",
+    "Review the lesson (L-02) by 2026-03-15."
+  ]
+}

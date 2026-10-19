@@ -12,7 +12,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { isFeatureDoc, readFeatureFiles, visible } from '../ci/checks/lib/feature-docs.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
-import { frontmatter, hasPlaceholder, lineRest, PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
+import { frontmatter, hasPlaceholder, lineRest, PLACEHOLDER, UNREADABLE } from '../ci/checks/lib/frontmatter.mjs';
 import { commentCrossesHeading, commentSpans, prose, repeatedHeadings, section, sectionLines } from '../ci/checks/lib/markdown.mjs';
 import { citedFeatures, contents } from '../ci/checks/lib/milestones.mjs';
 import { parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
@@ -259,10 +259,10 @@ test('a line no person writes is read as unfilled, in bounded time: a label line
   assert.deepEqual(reasons({ [A]: doc('shipped', fit(`Reuses:\n- ${'a helper. '.repeat(400)}`, 'Numbers:\n- b', 'New: c')) }), [], 'a long line under the cap is read');
 });
 
-test('a doc is read as ID1 reads it: a byte-order mark is not part of it, and a lone CR ends a line', () => {
+test('a doc is read as ID1 reads it: a byte-order mark is not part of it, and a header two readers could read two ways is unreadable to all of them (#495)', () => {
   const bom = count({ [A]: `ï»¿${doc('draft')}` });
   assert.deepEqual([bom.docs[0].heldBy, bom.count], [[], 0], 'a draft saved with a byte-order mark is still a draft');
-  assert.deepEqual(reasons({ [A]: doc('shipped', FILLED).replace(/\n/g, '\r') }), []);
+  assert.deepEqual(reasons({ [A]: doc('shipped', FILLED).replace(/\n/g, '\r') }), ['frontmatter/unreadable']);
   assert.deepEqual(reasons({ [A]: doc('shipped', FILLED).replace(/\n/g, '\r\n') }), []);
 });
 
@@ -398,7 +398,12 @@ test('frontmatter(): what the two header patterns read, on 20,000 built blocks â
   const pieces = ['key', 'a-b', ':', ': ', ' ', '  ', '\t', 'value', '"q"', "'", '#', '\u2028', '\u2029', '\r', '\n', '\n', '\n  ', '\u00a0'];
   for (let seed = 1; seed <= 20000; seed++) {
     const md = `---\n${built(pieces, seed, 16)}\n---\n`;
-    assert.deepEqual(frontmatter(md), oldFrontmatter(md), JSON.stringify(md));
+    // The two readers there were before #495: the header as written, and with every CR read as a line end. The one
+    // reader never takes one side: what it reads, both read; where they differ, it reads nothing.
+    const fm = frontmatter(md);
+    const [asWritten, everyCr] = [oldFrontmatter(md), oldFrontmatter(md.replace(/\r\n|\r/g, '\n'))];
+    if (!md.includes('\r')) assert.deepEqual(fm, asWritten, JSON.stringify(md));
+    else if (fm !== UNREADABLE) assert.deepEqual([fm, fm], [asWritten, everyCr], JSON.stringify(md));
   }
 });
 
@@ -471,7 +476,7 @@ test('a closer on the heading\'s own line, a comment that hides a repeated headi
   const CR = String.fromCodePoint(13);
   assert.equal(lineRest(` a${CR}b`), null);
   assert.equal(lineRest(`${CR} a b `), 'a b ', 'a line end in the leading whitespace is whitespace');
-  assert.deepEqual(frontmatter(`---\nkey: a${CR}b\nother: c\n---\n`), { other: 'c' });
+  assert.equal(frontmatter(`---\nkey: a${CR}b\nother: c\n---\n`), UNREADABLE, 'unreadable, never the keys one reading finds (#495)');
 });
 
 // Filled means: says something. A label's text, and an item under it, counts only when it holds a letter or a digit.

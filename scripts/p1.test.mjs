@@ -107,3 +107,15 @@ test('a sidecar\'s record serves its body alone and is never read as a body (rec
   const odd = p1({ md: body('Closes #12'), sidecar: { decisions: '../decisions.md' }, files: { 'decisions.md': record(CLOSES) } });
   assert.deepEqual(odd.findings, ['body.md#decision/awaits-outcome:PD-7'], 'a name that is not a file of the bodies folder is ignored: the root is read');
 });
+
+// A PR body has no header (#495): a leading `---` block is what GitHub shows, so what it says is read, with a
+// byte-order mark before it or without.
+test('a block at the top of a body is read: a closing word in it with "leaves open" below, and a follow-up in it with Follow-ups saying none', () => {
+  const top = (inside) => `---\n${inside}\n---\n\n`;
+  for (const mark of ['', '\uFEFF']) {
+    const closes = p1({ md: `${mark}${top('Closes #12')}${body('Part of #12. This pull request leaves #12 open: the last step is next.')}` });
+    assert.ok(closes.findings.some((f) => f.startsWith('body.md#links/closes-and-leaves-open:')), JSON.stringify([mark, closes.findings]));
+    const later = p1({ md: `${mark}${top('The export button is a follow-up.')}${body('Closes #12')}\n## Follow-ups\n\nNone.\n` });
+    assert.ok(later.findings.includes('body.md#followups/none-contradicted'), JSON.stringify([mark, later.findings]));
+  }
+});
