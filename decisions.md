@@ -1210,6 +1210,29 @@ worked, and today gets them in slipway's vocabulary (D-016 set the test; this re
 at 0.2 is the last whole-document review before the build: high findings come to the owner, the rest ride the build
 as lines under the step they touch (the owner, 2026-10-14). Spec: F-16; #455.
 
+## D-047 — A milestone built to run a value risk's test may go active before that risk has a Result *(decided 2026-10-15)*
+
+K1 holds every milestone past the skeleton until each value risk has a Result. For a milestone whose whole purpose is
+to run that test, the rule is circular: it cannot start until the test it runs has a result. The only way out was a
+decision to build ahead, written in the risk's Result, which marks the risk settled and so frees every later milestone
+too. On 2026-10-15, in the orchestrator session, the owner chose "A test milestone kind" over "Nothing: build-ahead
+decision", and the same day chose to wait for it rather than record a build-ahead decision in the project:
+
+- **`kind: test`, with a `tests:` line naming the value risks it runs.** K1 lets it go active while those risks are
+  untested. It cannot close until each has a real Result (red at close), and it unblocks nothing else: every other
+  untested value risk still holds it, and every other milestone stays held, so M2 waits as before.
+- **Limits, read from #477's acceptance by the orchestrator (2026-10-19):** a `tests:` line naming a risk that already
+  has a Result is a finding only while the milestone is shaping or active, since closed is when the Result arrives; a
+  non-value risk is a finding, since K1 holds no milestone for one; every bad `tests:` line is one finding,
+  `risk/test-target`, its detail naming the cause; the line is checked on shaping, active and closed milestones, a
+  shaping one still holding a template placeholder not yet, a killed one never; and a PRD deadline `before M1.1` for
+  M1.1's own risk still falls due once M1.1 is underway (`risk/overdue` is unchanged), since that cell is written wrong.
+- **Cost if wrong:** a test milestone could hold product work while its risk is untested. K1 still holds every other
+  milestone, and the test milestone cannot close without the Result.
+
+Why: a project should be able to schedule, appetite and close the test of its riskiest assumption as a milestone,
+without pretending the risk is settled. Spec: #477.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
