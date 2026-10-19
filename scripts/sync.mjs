@@ -813,6 +813,11 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
         // The error's text names a path of the project's, so only its code is shown.
         throw new Refusal(`could not read the project's feature docs, reviews or milestones to count the feature docs with no Fit section${codeNote(e)} — look in docs/features/, dev/features/, docs/reviews/ and docs/milestones/ for an entry that is not a regular file, such as a folder or a link to nothing; nothing was written`);
       }
+      if (fit.unread.length) {
+        // By folder only: a file's name is the project's text.
+        const where = [...new Set(fit.unread.map((u) => `${u.endsWith('.md') ? u.slice(0, u.lastIndexOf('/')) : u}/`))].join(' and ');
+        throw new Refusal(`${oneLine(where)} holds, or is, a link, an entry under a link, or an entry that is not a plain folder or file, so the feature docs and milestones cannot all be read to count the feature docs with no Fit section — make each a plain folder or file, commit, then sync again; nothing was written`);
+      }
       const bytes = serialiseBaselines({ ...was?.json, [FIT_KEY]: fit.count });
       todo.writes.set(p, { bytes: Buffer.from(bytes) });
       todo.count = {
