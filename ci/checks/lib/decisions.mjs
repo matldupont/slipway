@@ -23,7 +23,6 @@ import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
 import { citedFeatures, contents, MILESTONE_ID, milestoneId, testsLine } from './milestones.mjs';
-import { commentLines, replaceComments } from './markdown.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
 import { CLAUSE_START, fenced, fid, HEADING, hasClause, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
 
@@ -61,20 +60,25 @@ const clauseCondition = (clause) => {
 
 const proseHit = (s) => PROSE.some((p) => p.test(unquoted(s)));
 
-// The lines a rendered decisions.md does not show, for the `Starts:` reader only (#477): inside an HTML comment (an
-// unclosed one hides the rest), or inside a `~~~` fence, its marker lines included (an unclosed one hides the rest
-// too). A `Starts:` line grants a pass, so here a stray marker hides what follows rather than shows it; the condition
-// labels keep fenced()'s reading. Linear: one comment scan and one pass over the lines.
-const TILDES = /^ {0,3}~~~/;
-function hiddenLines(md) {
-  const raw = md.replace(/^\uFEFF/, '').split(/\r\n|\r|\n/);
-  const shown = replaceComments(md.replace(/^\uFEFF/, ''), commentLines, { unclosed: true }).split(/\r\n|\r|\n/);
-  let tilde = false;
-  return raw.map((text, i) => {
-    const marker = TILDES.test(text);
-    const inFence = tilde || marker;
-    if (marker) tilde = !tilde;
-    return inFence || (text.trim() !== '' && (shown[i] ?? '').trim() === '');
+// For the `Starts:` reader only (#477, D-047): for each line, the first line above it that could hide text in the
+// rendered file, as `{ line, what }`, or null. A `Starts:` line grants a pass, so it is read only when nothing above it
+// could hide it: no HTML comment marker, no code fence, no HTML block at column 0, and no lone carriage return in the
+// file. A false alarm moves the decision; it is never a false pass. No parser: one linear scan, `includes` and anchored
+// tests on each line.
+const FENCE_LINE = /^ {0,3}(?:```|~~~)/;
+const HTML_BLOCK = /^<[A-Za-z!/]/;
+function hidersAbove(md) {
+  const text = md.replace(/^\uFEFF/, '');
+  const lines = text.split(/\r\n|\r|\n/);
+  const lone = text.search(/\r(?!\n)/);
+  let first = lone < 0 ? null : { line: text.slice(0, lone).split(/\r\n|\r|\n/).length, what: 'a lone carriage return' };
+  return lines.map((l, i) => {
+    const above = first && first.line <= i ? first : null;
+    if (!first) {
+      const what = l.includes('<!--') || l.includes('-->') ? 'an HTML comment marker' : FENCE_LINE.test(l) ? 'a code fence' : HTML_BLOCK.test(l) ? 'an HTML block' : null;
+      if (what) first = { line: i + 1, what };
+    }
+    return above;
   });
 }
 
@@ -117,13 +121,14 @@ function finish(e) {
   });
   if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false });
   const proseLines = [];
-  // `Starts:` lines: the test milestones this decision starts (#477). One in a fence or a comment (hiddenLines), cut, or
-  // of any other shape starts nothing.
+  // `Starts:` lines: the test milestones this decision starts (#477). One below a line that could hide it (hidersAbove),
+  // cut, or of any other shape starts nothing; `hider` says which line, so K1 can say what to move.
   const starts = [];
   for (const b of e.body) {
     if (b.text.startsWith('Starts:')) {
-      const m = !b.cut && !b.fenced && !b.hidden ? b.text.trimEnd().match(STARTS) : null;
-      starts.push(m ? { line: b.line, milestone: milestoneId(m[1]), risks: m[2].split(', '), readable: true } : { line: b.line, readable: false });
+      const m = !b.cut ? b.text.trimEnd().match(STARTS) : null;
+      if (m && b.hider) starts.push({ line: b.line, milestone: milestoneId(m[1]), readable: false, hider: b.hider });
+      else starts.push(m ? { line: b.line, milestone: milestoneId(m[1]), risks: m[2].split(', '), readable: true } : { line: b.line, readable: false });
       continue;
     }
     // A label is read on the line as written: a stray backtick above it in the paragraph never hides it (a code span is
@@ -157,7 +162,7 @@ export function parseDecisions(md) {
   const lines = whole.map(({ line, text }) => ({ line, text: text.slice(0, MAX) }));
   const masked = mask(lines.map((l) => l.text));
   const fence = fenced(lines.map((l) => l.text));
-  const hidden = hiddenLines(md);
+  const hiders = hidersAbove(md);
   const entries = [];
   const strays = [];
   let cur = null;
@@ -175,7 +180,7 @@ export function parseDecisions(md) {
       // an entry included), is a stray: never silent.
       const label = !cur && LABELS.some(([l]) => text.startsWith(l));
       const stray = (label || (HEADING.test(text) && hasClause(whole[i].text))) && (entries.length || !fence[i]);
-      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], hidden: hidden[i] ?? true, cut: whole[i].text.length > MAX, stray });
+      if (cur) cur.body.push({ line, text, masked: masked[i], fenced: fence[i], hider: hiders[i] === undefined ? { line: 1, what: 'an unreadable line' } : hiders[i], cut: whole[i].text.length > MAX, stray });
       if (stray) strays.push(line);
     }
   });
@@ -197,9 +202,11 @@ export function testStart(fm, entryOf) {
   const ref = said.match(/^(P?D)-(\d{1,9})$/i);
   const e = ref && entryOf(`${ref[1].toUpperCase()}-${Number(ref[2])}`);
   const line = e?.starts.find((s) => s.readable && s.milestone === id);
+  const hidden = !line && e?.starts.find((s) => s.hider && s.milestone === id);
   if (!said) causes.push(`it names no decision: starting a test milestone is the owner's call, recorded in decisions.md with a "Starts: ${fm.id} · RISK-n" line and named on a decided: PD-<n> line`);
   else if (!e) causes.push(`decided: names no decision heading in decisions.md`);
   else if (!e.decided) causes.push(`${e.id} is not marked decided or accepted in its heading: the owner decides first`);
+  else if (hidden) causes.push(`${e.id}'s Starts: line for ${fm.id} (decisions.md line ${hidden.line}) is not read: line ${hidden.hider.line} above it holds ${hidden.hider.what}, which can hide text in the rendered file; move the decision above line ${hidden.hider.line}, or remove it`);
   else if (!line) causes.push(`${e.id} has no "Starts: ${fm.id} · RISK-n" line: the owner's decision names the test milestone it starts`);
   else if (t.ids.length) {
     const want = new Set(line.risks);

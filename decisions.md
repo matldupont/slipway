@@ -1232,7 +1232,10 @@ decision", and the same day chose to wait for it rather than record a build-ahea
   line: an entry whose first heading clause is decided or accepted, carrying a column-0 line
   `Starts: M1.1 · RISK-1, RISK-2` that names the milestone's id and exactly the risks on its `tests:` line (the owner,
   2026-10-19, via the orchestrator session: "A `Starts:` line"). K1 and status read it through one function, and K1
-  reports a missing, unknown, undecided or unrelated one as `risk/test-target`. Without it, any milestone could set its
+  reports a missing, unknown, undecided or unrelated one as `risk/test-target`. A `Starts:` line is read only when
+  nothing above it in decisions.md could hide it in the rendered file: no HTML comment marker, no code fence, no HTML
+  block at column 0 and no lone carriage return (the owner, 2026-10-19: fix it here, failing closed). Otherwise K1
+  names the line to move the decision above. Without it, any milestone could set its
   own kind and pass the value gate unasked. What it cannot stop is an agent writing that decision itself, the same class as an agent
   writing a Result it did not measure; the owner sees the decision in the pull request that adds it.
 - **Cost if wrong:** a test milestone could hold product work while its risk is untested. K1 still holds every other

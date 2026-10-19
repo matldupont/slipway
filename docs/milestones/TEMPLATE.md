@@ -18,7 +18,8 @@ Version: 0.1 (<date>)
 > - `kind: test` is a milestone that exists to run the test of untested value risks, named on a
 >   `tests: RISK-1, RISK-2` line added under `kind`. Declaring one is the owner's call: record it in
 >   decisions.md, marked decided, with a `Starts: M1.1 · RISK-1, RISK-2` line naming this milestone and the same
->   risks, and name that decision on a `decided: PD-<n>` line before the milestone goes active. It may go active
+>   risks, with no comment, code fence or HTML block above it in decisions.md, and name that decision on a
+>   `decided: PD-<n>` line before the milestone goes active. It may go active
 >   before its risks have a Result, cannot close until each has one, and frees no other milestone; K1 checks it.
 >   Other kinds have no `tests:` or `decided:` line.
 > - `appetite`: first and last day, inclusive. When it ends the milestone closes, is killed,
