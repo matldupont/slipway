@@ -13,7 +13,7 @@
 //   no count recorded    exit 2 BROKEN — sync records it in a project; --update records it by hand
 //
 //   <doc>#fit/missing             no `## Fit` section
-//   <doc>#fit/unfilled/unreadable  a `<!--` in or above the Fit is not a comment on lines of its own
+//   <doc>#fit/unfilled/unreadable  a `<!--` in the Fit section or above it; the finding names the first one's line
 //   <doc>#fit/unfilled/<label>    `Reuses:`, `Numbers:` or `New:` is absent, empty or still the template's text
 //   <doc>#frontmatter/unreadable  no `status:` line, or one with nothing after it, so nothing says the doc is a draft
 //
@@ -95,7 +95,7 @@ function held(doc) {
 }
 const NEXT = {
   'fit/missing': 'has no `## Fit` section — add it after `## Problem`, with `Reuses:`, `Numbers:` and `New:` filled in',
-  'fit/unfilled/unreadable': 'a `<!--` in its Fit or above it is not a comment on lines of its own, so what GitHub shows of its Fit cannot be told — put each comment on lines of its own (`<!--` opening its first line, `-->` ending its last), and keep a `<!--` meant as text out of the Fit and the sections above it',
+  'fit/unfilled/unreadable': (d) => `line ${d.commentLine} holds a \`<!--\`, in its Fit section or above it, so what GitHub shows of its Fit cannot be told — remove the comment, or move the text that quotes \`<!--\` below the Fit section`,
   'fit/unfilled/reuses': 'its Fit has no filled `Reuses:` line — name each pattern or helper it reuses and where it lives, or `nothing` with what was searched',
   'fit/unfilled/numbers': 'its Fit has no filled `Numbers:` line — say where each number it shows is calculated, or `none shown`',
   'fit/unfilled/new': 'its Fit has no filled `New:` line — say what it adds that nothing existing does and why, or `none` (not beside `nothing` under `Reuses:`: such a doc describes no feature)',
@@ -103,7 +103,7 @@ const NEXT = {
 };
 const counted = fit.docs
   .filter((d) => d.reasons.length)
-  .flatMap((d) => d.reasons.map((reason) => ({ where: `${d.path}#${reason}`, detail: `${codeSpan(d.path)} ${held(d)} and ${NEXT[reason]}` })));
+  .flatMap((d) => d.reasons.map((reason) => ({ where: `${d.path}#${reason}`, detail: `${codeSpan(d.path)} ${held(d)} and ${typeof NEXT[reason] === 'function' ? NEXT[reason](d) : NEXT[reason]}` })));
 
 const warnings = [
   ...fit.others.map((o) => ({

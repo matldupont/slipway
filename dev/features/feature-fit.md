@@ -487,18 +487,20 @@ as the other ratchets' are.
   out of the count (R1 names it). `pnpm status`, F1, DC1, K1, the work-order page and the roadmap page leave a refused milestone file out
   without a line of their own; MS1, run by every `pnpm meta`, is where it shows. `ci/ratchet.mjs` still reads the
   tool's report through a link: the report is the tool's own output, at a path the project's script names.
-  Fit is read as GitHub shows it only in part, and where the reader cannot tell, the strict way (the owner's call,
-  2026-10-15, after review rounds found holes in closer readings). A comment is read only on lines of its own: its
-  `<!--` opens a line (up to three spaces before it) and its `-->` ends one, the HTML block GitHub hides whole, so
-  those lines are hidden here too, and a placeholder inside one still counts as the template's. Any other `<!--` in
-  the Fit or above it (mid-line, after a list or quote mark, in code, or with no `-->`) the reader cannot tell from
-  text, so the doc is counted as `fit/unfilled/unreadable`; a `<!--` meant as text belongs after the Fit. An ATX
-  heading ends a label's text, and a setext heading (a label line with an underline included) ends the section. A
-  character reference, an HTML tag (in a code span too), a link with no text and a link reference definition say
-  nothing. A numbered item or a quote line above an underline is a heading, and a character reference that shows a
-  character (`&amp;`) says nothing: each is read the strict way, counted rather than passed. A lone `-` under a line
-  of text is read as an empty list mark, not the setext underline GitHub makes of it, so a label above such a
-  heading can pass: text in the diff a reviewer reads. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
+  Fit is read as GitHub shows it only in part, and where the reader cannot tell, the strict way. The reader cannot
+  tell a comment GitHub hides from a `<!--` it shows as text (in code, a fence, frontmatter, a list item or an HTML
+  block), so a held doc with any `<!--` in its Fit section or above it is counted as `fit/unfilled/unreadable`, and
+  F2 names the line of the first: remove the comment, or move the text that quotes `<!--` below the Fit section (the
+  owner's call, 2026-10-19, after three review rounds found holes in closer readings). A template's guidance
+  comments in or above the Fit count a doc until they are removed. One after the section changes nothing. An ATX
+  heading ends a label's text, and a setext heading whose text is one line (a label line included) ends the
+  section. A character reference, an HTML tag (in a code span too), a link with no text and a link reference
+  definition say nothing. A numbered item or a quote line above an underline is a heading, and a character reference
+  that shows a character (`&amp;`) says nothing: each is read the strict way, counted rather than passed. Three
+  shapes GitHub shows as a heading are not read as one, so a label above or under one can pass: a setext heading
+  whose text runs over two lines or more, a lone `-` under a line of text (read as an empty list mark), and an
+  empty `##` or an indented `## Notes` (the section ends only at a `#` or `##` in the first column). Each is text in
+  the diff a reviewer reads. Other shapes a renderer hides (a collapsed `<details>`, an image with no alt text, an
   HTML block) are read as text. A heading or citation holding a run of more than 32 combining marks (the halfwidth
   voiced marks counted as marks) is folded a piece at a time, the run reordered within each piece only, which no id
   or heading mark depends on. `ci/checks/lib/yaml-list.mjs`'s line

@@ -570,9 +570,8 @@ test('a milestone citation written with a look-alike hyphen or digit, or a chara
 // Item 11: what GitHub shows as nothing, or does not show, is not Fit.
 test('a Fit GitHub hides, a heading or label made only by taking a comment out, and markup that shows nothing are not a filled Fit', () => {
   const filled = fit('Reuses: x in lib/x', 'Numbers: none shown', 'New: a thing');
-  // A comment on lines of its own hides those lines, as GitHub hides it; any other `<!--` in or above the section
-  // leaves the doc unreadable, counted.
-  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/missing'], 'inside a comment on lines of its own');
+  // Any `<!--` in the section or above it leaves the doc unreadable, counted (the owner's call, 2026-10-19).
+  assert.deepEqual(reasons({ [A]: doc('shipped', `<!--\n${filled}-->\n`) }), ['fit/unfilled/unreadable'], 'inside a comment on lines of its own');
   assert.deepEqual(reasons({ [A]: doc('shipped', `<!-- an open comment\n\n${filled}`) }), ['fit/unfilled/unreadable'], 'after a <!-- with no -->');
   for (const [open, close] of [['`<!--`', 'The `-->` export is slow.'], ['<span title="<!--"></span>', '<span title="-->"></span>']]) {
     assert.deepEqual(reasons({ [A]: `---\nstatus: shipped\n---\n\n# F-1 — x\n\n## Fit\n\nReuses: x in lib/x\n\nNumbers: none shown\n\nNew: ${open}\n\n## Problem\n\n${close}\n` }), ['fit/unfilled/unreadable'], open);
@@ -635,28 +634,29 @@ test('a docs/reviews/ that is a link is listed unread, so no doc is held or drop
   }
 });
 
-// #482's review rounds 1–3 and the owner's call to narrow (2026-10-15): a comment is read only when it sits on lines of
-// its own, where GitHub hides it whole; any other `<!--` in or above the section leaves the doc unreadable, counted.
-test('comments: one on lines of its own hides those lines; any other <!-- in or above the Fit makes it unreadable; one after it hides nothing; a placeholder in a hidden comment is unfilled', () => {
+// #482's review rounds 1–3 and the owner's call (2026-10-19): the reader cannot tell a comment GitHub hides from a
+// `<!--` it shows as text, so any `<!--` in the Fit section or above it leaves the doc unreadable, with the line of
+// the first; one after the section changes nothing.
+test('comments: any <!-- in the Fit or above it makes the doc unreadable and names its line; one after the section changes nothing', () => {
   const rest = { numbers: 'Numbers: none shown', fresh: 'New: a thing' };
   const filled = fit('Reuses: x in lib/x', rest.numbers, rest.fresh);
-  const unreadable = ['fit/unfilled/unreadable'];
   const shapes = [
-    'Reuses: T<!-- -->BD', 'Reuses:\n- <<!-- -->…a pattern…>', 'Reuses: x `<!--` <…a pattern…> `-->`', 'Reuses: x in lib/x <!-- a note -->',
-    'Reuses:\n- <!-- `total()` in lib/money.ts', 'Reuses: x\n<!-- a --> <!-- b\nof a closer: `-->`.', 'Reuses: x\n<!--\nold\n-->Reuses: y', '> <!-- quoted -->\nReuses: x',
+    'Reuses: T<!-- -->BD', 'Reuses: x `<!--` <…a pattern…> `-->`', 'Reuses: x in lib/x <!-- a note -->', 'Reuses:\n- <!-- `total()` in lib/money.ts',
+    'Reuses: x\n<!--\nhint\n-->', 'Reuses: x\n```\n<!--\n```\n## Notes\n```\n-->\n```', 'Reuses: x\n<!-->\n### Notes\n-->', 'Reuses: x\n    <!-- indented -->',
   ];
-  for (const reuses of shapes) assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, rest.numbers, rest.fresh)) }), unreadable, reuses);
-  for (const above of ['See `<!--` in code.', '<!-- ## Fit -->x', 'Notes `<!--`\n`-->## Fit']) {
-    assert.deepEqual(reasons({ [A]: doc('shipped', `${above}\n\n${filled}`) }), unreadable, above);
+  for (const reuses of shapes) assert.deepEqual(reasons({ [A]: doc('shipped', fit(reuses, rest.numbers, rest.fresh)) }), ['fit/unfilled/unreadable'], reuses);
+  for (const above of ['See `<!--` in code.', '<!-- ## Fit -->', '<!-- a note -->', '```\n<!--\n```']) {
+    assert.deepEqual(reasons({ [A]: doc('shipped', `${above}\n\n${filled}`) }), ['fit/unfilled/unreadable'], above);
   }
-  // On lines of its own: hidden whole, what it holds included, and a placeholder in it is still the template's.
-  assert.deepEqual(reasons({ [A]: doc('shipped', `<!-- ## Fit -->\n\n${filled}`) }), [], 'a decoy heading in a hidden comment');
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x\n<!--\nNew: what this adds\n-->', rest.numbers, rest.fresh)) }), [], 'a hidden label is not read');
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x\n  <!-- <…a pattern…> -->', rest.numbers, rest.fresh)) }), ['fit/unfilled/reuses'], 'a placeholder in a hidden comment');
-  assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x\n<!--\nhint\n-->', 'Numbers:\n<!-- what it shows -->', rest.fresh)) }), ['fit/unfilled/numbers'], 'a label whose only text is hidden');
-  // After the section: GitHub hides from there on, and nothing of the Fit.
-  assert.deepEqual(reasons({ [A]: doc('shipped', `${filled}\n## Notes\n\nSee \`<!--\` and \`-->\` in code.\n`) }), [], 'a <!-- after the section');
-  // The strict readings kept: markup in a code span says nothing; a numbered or quote line above --- is a heading.
+  // In frontmatter too: it sits above the section.
+  assert.deepEqual(reasons({ [A]: `---\nstatus: shipped\nnote: <!-- x -->\n---\n\n# F-1 — x\n\n${filled}` }), ['fit/unfilled/unreadable'], 'frontmatter');
+  // The line named is the first `<!--`'s, counted from the file's first line.
+  const md = `---\nstatus: shipped\n---\n\n# F-1 — x\n\nSee \`<!--\`.\n\n${filled}`;
+  assert.equal(count({ [A]: md }).docs[0].commentLine, 7);
+  // After the section: nothing of the Fit is hidden.
+  assert.deepEqual(reasons({ [A]: doc('shipped', `${filled}\n## Notes\n\nSee \`<!--\` and \`-->\` in code.\n<!-- a note -->\n`) }), [], 'a <!-- after the section');
+  assert.equal(count({ [A]: doc('shipped', filled) }).docs[0].commentLine, null);
+  // The strict readings kept: markup in a code span says nothing; a numbered line above --- is a heading.
   assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses: x in lib/x', rest.numbers, 'New: `<ExportButton />`')) }), ['fit/unfilled/new']);
   assert.deepEqual(reasons({ [A]: doc('shipped', fit('Reuses:\n1. `total()` in lib/money.ts\n---', rest.numbers, rest.fresh)) }), ['fit/unfilled/reuses', 'fit/unfilled/numbers', 'fit/unfilled/new']);
 });
