@@ -8,6 +8,7 @@
 //   Amends: F-07                    the features it changes; owed until that feature's doc or Contents line names it
 //   Reopens when: F-07 is reviewed  one event, or several joined by ` or `, from §3's closed list (parseEvent)
 //   Closes when: M2 is closed
+//   Starts: M1.1 · RISK-1, RISK-2   the test milestone it starts and the value risks that milestone runs (D-047, #477)
 //
 // A heading's status suffix is read too: each clause after the first, split on ` · `, that starts `reopens when`,
 // `reopens if`, `closes when`, `closes if` or `provisional until` is a condition (`provisional until` reopens).
@@ -21,7 +22,7 @@
 import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
-import { citedFeatures, contents, MILESTONE_ID, milestoneId } from './milestones.mjs';
+import { citedFeatures, contents, MILESTONE_ID, milestoneId, testsLine } from './milestones.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
 import { CLAUSE_START, fenced, fid, HEADING, hasClause, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
 
@@ -37,6 +38,8 @@ const OUTCOME = /^(?:Reopened|Closed|Reviewed) \d{4}-\d{2}-\d{2}:/;
 // `M2 item 4` and `M1.1 item 4` name a position; `M1.1` names a milestone, never an item (#476).
 const POSITION = new RegExp(`\\b(${MILESTONE_ID})(?:['’]s)? (?:Contents )?item (\\d{1,9})\\b|\\bitem (\\d{1,9}) of (${MILESTONE_ID})\\b`, 'g');
 const DECISION_ID = /\b(P?D)-(\d{1,9})\b/g;
+// `Starts: M1.1 · RISK-1, RISK-2`, exactly: the milestone, a middle dot, then the risks, comma-separated.
+const STARTS = new RegExp(`^Starts: (${MILESTONE_ID}) · (RISK-\\d{1,9}(?:, RISK-\\d{1,9}){0,49})$`);
 
 function condition(kind, where, line, raw) {
   const text = squash(raw);
@@ -96,7 +99,15 @@ function finish(e) {
   });
   if (hidden || hasClause(whole.join(' '))) conditions.push({ kind: 'reopens', where: 'heading', line: e.line, text: e.text, events: [], readable: false });
   const proseLines = [];
+  // `Starts:` lines: the test milestones this decision starts (#477). One in a fence, cut, or of any other shape starts
+  // nothing.
+  const starts = [];
   for (const b of e.body) {
+    if (b.text.startsWith('Starts:')) {
+      const m = !b.cut && !b.fenced ? b.text.trimEnd().match(STARTS) : null;
+      starts.push(m ? { line: b.line, milestone: milestoneId(m[1]), risks: m[2].split(', '), readable: true } : { line: b.line, readable: false });
+      continue;
+    }
     // A label is read on the line as written: a stray backtick above it in the paragraph never hides it (a code span is
     // no reason to skip a label, §2). One inside a fence under a decision is unreadable, never read and never skipped:
     // a stray fence marker can pair with a later fence and hide it (the owner, #466). A labelled line the cut at MAX
@@ -113,7 +124,10 @@ function finish(e) {
   const readable = conditions.some((c) => c.kind !== 'changes' && c.readable);
   // A condition clause, readable or not, is never read as prose: counted once, in the Unreadable line (AR-4 of the 0.3 review).
   const prose = !readable && (proseClauses.some(proseHit) || proseLines.some(proseHit));
-  return { id: e.id, key: e.key, line: e.line, text: e.text, clauses, conditions, positions, prose, body: e.body.map(({ line, text }) => ({ line, text })) };
+  // Decided only when the heading's first status clause says so: `*(decided …)*` or `*(accepted …)*`, never a later one.
+  const first = e.text.indexOf('*(');
+  const decided = first >= 0 && /^(?:decided|accepted)\b/i.test(e.text.slice(first + 2, first + 12));
+  return { id: e.id, key: e.key, line: e.line, text: e.text, decided, clauses, conditions, positions, prose, starts, body: e.body.map(({ line, text }) => ({ line, text })) };
 }
 
 // The record as data, from decisions.md's text: `{ entries, strays }`, in file order. An entry is a heading `LEAD` finds
@@ -147,6 +161,34 @@ export function parseDecisions(md) {
     }
   });
   return { entries: entries.map(finish), strays };
+}
+
+// Which value risks a `kind: test` milestone is started for (#477, D-047): `{ released, causes }`, or null for a milestone
+// of another kind. `entryOf(key)` is a decision entry by key (`PD-1`). Released, a risk no longer holds that milestone in
+// K1 and status; it is released only when the milestone's `decided:` line names an entry whose first heading clause is
+// decided or accepted, with a readable `Starts:` line naming this milestone's id exactly, and its `tests:` line names the
+// same risks as that `Starts:` line. `causes` says, in the owner's words, why not; K1 reports them, status only reads
+// `released`. K1 and status both read it here, so they cannot disagree about what a test milestone frees.
+export function testStart(fm, entryOf) {
+  const t = testsLine(fm);
+  if (!t) return null;
+  const causes = [];
+  const id = milestoneId(fm.id);
+  const said = typeof fm.decided === 'string' ? fm.decided.trim() : '';
+  const ref = said.match(/^(P?D)-(\d{1,9})$/i);
+  const e = ref && entryOf(`${ref[1].toUpperCase()}-${Number(ref[2])}`);
+  const line = e?.starts.find((s) => s.readable && s.milestone === id);
+  if (!said) causes.push(`it names no decision: starting a test milestone is the owner's call, recorded in decisions.md with a "Starts: ${fm.id} · RISK-n" line and named on a decided: PD-<n> line`);
+  else if (!e) causes.push(`decided: names no decision heading in decisions.md`);
+  else if (!e.decided) causes.push(`${e.id} is not marked decided or accepted in its heading: the owner decides first`);
+  else if (!line) causes.push(`${e.id} has no "Starts: ${fm.id} · RISK-n" line: the owner's decision names the test milestone it starts`);
+  else if (t.ids.length) {
+    const want = new Set(line.risks);
+    const extra = t.ids.filter((r) => !want.has(r));
+    const missing = line.risks.filter((r) => !t.ids.includes(r));
+    if (extra.length || missing.length) causes.push(`its tests: line and ${e.id}'s Starts: line must name the same risks${extra.length ? `; ${extra.join(', ')} ${extra.length > 1 ? 'are' : 'is'} not on the Starts: line` : ''}${missing.length ? `; ${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} not on the tests: line` : ''}`);
+  }
+  return { released: causes.length ? [] : t.ids, causes };
 }
 
 // Every decision key a text names, once: `D-44` matches `D-044`, never `D-4`, `D-440` or `PD-44`, and a doc is read once.

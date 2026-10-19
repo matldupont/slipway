@@ -138,8 +138,18 @@ test('an active test milestone passes K1 on its own risk, and status lists only 
     // Closed before its test finished: K1 is red at the close, and status says the milestone is held again.
     set('M1.1-concierge.md', 'closed');
     assert.match(k1().stdout, /M1\.1#risk\/test-unfinished/);
-    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · M1.1 underway with it untested — pnpm meta is red until it has a Result');
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), RISK-2 untested · M1.1 underway with it untested — pnpm meta is red until it has a Result');
     set('M1.1-concierge.md', 'active');
+    // Without the owner's Starts: line, the decision starts nothing: K1 holds M1.1 for RISK-1, and status agrees.
+    const decisions = join(dir, 'decisions.md');
+    const record = readFileSync(decisions, 'utf8');
+    writeFileSync(decisions, record.replace(/^Starts: M1\.1 · RISK-1\n/m, ''));
+    const unstarted = k1();
+    assert.equal(unstarted.status, 1);
+    assert.match(unstarted.stdout, /RISK-1#risk\/unresolved: value risk untested while M1\.1 is underway/);
+    assert.match(unstarted.stdout, /M1\.1#risk\/test-target: .*PD-1 has no "Starts: M1\.1 · RISK-n" line/);
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), RISK-2 untested · M1.1 underway with it untested — pnpm meta is red until it has a Result');
+    writeFileSync(decisions, record);
     // An existential RISK-1 due before M2: M1.1 runs its test, so status does not ask for it before M1.1.
     const framePath = join(dir, 'docs', 'product', 'FRAME.md');
     writeFileSync(framePath, readFileSync(framePath, 'utf8').replace('| value | no product |', '| value | Existential: no product |'));

@@ -1229,9 +1229,11 @@ decision", and the same day chose to wait for it rather than record a build-ahea
   M1.1's own risk still falls due once M1.1 is underway (`risk/overdue` is unchanged), since that cell is written wrong.
 - **Declaring one is the owner's call, recorded as a decision (the owner, 2026-10-19, via the orchestrator session:
   "Yes, require the decision").** An active or closed test milestone names it on a `decided: PD-<n>` (or D-<n>)
-  line: a heading in decisions.md marked decided or accepted that names the milestone's id. K1 reports a missing,
-  unknown, undecided or unrelated one as `risk/test-target`. Without it, any milestone could set its own kind and pass
-  the value gate unasked. What it cannot stop is an agent writing that decision itself, the same class as an agent
+  line: an entry whose first heading clause is decided or accepted, carrying a column-0 line
+  `Starts: M1.1 · RISK-1, RISK-2` that names the milestone's id and exactly the risks on its `tests:` line (the owner,
+  2026-10-19, via the orchestrator session: "A `Starts:` line"). K1 and status read it through one function, and K1
+  reports a missing, unknown, undecided or unrelated one as `risk/test-target`. Without it, any milestone could set its
+  own kind and pass the value gate unasked. What it cannot stop is an agent writing that decision itself, the same class as an agent
   writing a Result it did not measure; the owner sees the decision in the pull request that adds it.
 - **Cost if wrong:** a test milestone could hold product work while its risk is untested. K1 still holds every other
   milestone, the test milestone cannot close without the Result, and the decision it names puts the owner's call on
