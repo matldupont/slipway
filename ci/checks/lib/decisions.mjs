@@ -71,12 +71,14 @@ const HTML_BLOCK = /^<[A-Za-z!/]/;
 function hidersAbove(md) {
   const text = md.replace(/^\uFEFF/, '');
   const lines = text.split(/\r\n|\r|\n/);
+  // The line a lone carriage return ends: it hides only what comes after it, as every other hider does.
   const lone = text.search(/\r(?!\n)/);
-  let first = lone < 0 ? null : { line: text.slice(0, lone).split(/\r\n|\r|\n/).length, what: 'a lone carriage return' };
+  const loneLine = lone < 0 ? 0 : text.slice(0, lone).split(/\r\n|\r|\n/).length;
+  let first = null;
   return lines.map((l, i) => {
-    const above = first && first.line <= i ? first : null;
+    const above = first;
     if (!first) {
-      const what = l.includes('<!--') || l.includes('-->') ? 'an HTML comment marker' : FENCE_LINE.test(l) ? 'a code fence' : HTML_BLOCK.test(l) ? 'an HTML block' : null;
+      const what = l.includes('<!--') || l.includes('-->') ? 'an HTML comment marker' : FENCE_LINE.test(l) ? 'a code fence' : HTML_BLOCK.test(l) ? 'an HTML block' : i + 1 === loneLine ? 'a lone carriage return' : null;
       if (what) first = { line: i + 1, what };
     }
     return above;
