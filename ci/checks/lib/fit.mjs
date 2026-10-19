@@ -5,7 +5,7 @@
 //
 // Held. A feature doc (lib/feature-docs.mjs) is held when any of these is true:
 //   status      its `status:` is present and, lower-cased, is not `draft` (`shipped`, or any word not known here)
-//   unreadable  it has no frontmatter, or no `status:`: nothing says it is a draft. It counts whatever its Fit says
+//   unreadable  it has no frontmatter, no `status:`, or a header readable two ways (#495): nothing says it is a draft. It counts whatever its Fit says
 //   review      a review names it: a file in docs/reviews/ other than TEMPLATE.md whose `Reviewed:` line gives its
 //               path, compared after normalising as R1 does (`./docs/features/x.md` is `docs/features/x.md`).
 //               Any review counts, current or not

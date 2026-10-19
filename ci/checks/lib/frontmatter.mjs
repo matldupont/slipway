@@ -36,8 +36,8 @@ const HEADER = /^---\r?\n([\s\S]*?)\r?\n---/;
 export const UNREADABLE = Object.freeze(Object.create(null));
 export const isUnreadable = (fm) => fm === UNREADABLE;
 
-// The document with its header block removed, the same block frontmatter() reads.
-export const withoutHeader = (md) => md.replace(HEADER, '');
+// The document with its header block removed, the same block frontmatter() reads: a byte-order mark before it goes with it.
+export const withoutHeader = (md) => md.replace(/^\uFEFF(?=---\r?\n)/, '').replace(HEADER, '');
 
 // null when the document has no frontmatter block; UNREADABLE when its block, read with every CR as a line end, holds a
 // lone CR. CRLF and LF read the same, and a leading byte-order mark is not part of the document.

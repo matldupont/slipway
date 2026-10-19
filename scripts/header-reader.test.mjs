@@ -57,11 +57,30 @@ test('no script but the one reader finds a header block itself', () => {
   assert.match(readFileSync(join(SRC, READER), 'utf8'), OWN_READER, 'the pattern this test looks for is the one the reader uses');
 });
 
+// Each call of the reader in `js`, with the text of its argument: what is between the call's own parentheses.
+const calls = (js) => [...js.matchAll(/\b(?:frontmatter|withoutHeader)\(/g)].map((m) => {
+  let depth = 1;
+  let at = m.index + m[0].length;
+  for (; at < js.length && depth; at++) depth += js[at] === '(' ? 1 : js[at] === ')' ? -1 : 0;
+  return js.slice(m.index + m[0].length, at - 1);
+});
+// A text rewritten on its way in: the old second reader was frontmatter() of the text with its line ends rewritten.
+const REWRITE = /\.(?:replace|replaceAll|split|normalize|slice|substring|trim\w*)\(/;
+
+test('no caller rewrites the text it hands the reader', () => {
+  const rewritten = SOURCES.filter((p) => p !== READER).flatMap((p) => calls(readFileSync(join(SRC, p), 'utf8')).filter((arg) => REWRITE.test(arg)).map((arg) => `${p}: ${arg}`));
+  assert.deepEqual(rewritten, []);
+  assert.deepEqual(calls("frontmatter(md.replace(/\\r/g, '\\n'))").filter((arg) => REWRITE.test(arg)).length, 1, 'the scan sees a rewrite');
+  assert.deepEqual(calls("frontmatter(readFileSync(join(dir, f), 'utf8'))").filter((arg) => REWRITE.test(arg)).length, 0, 'a nested call is not a rewrite');
+});
+
 test('a header in CRLF reads as in LF; one readers could split two ways reads as nothing', () => {
   const lf = '---\nid: M1\nstatus: shaping\nparent:\n  child: x\n---\n\n# M1\n';
   assert.deepEqual(frontmatter(lf.replace(/\n/g, '\r\n')), frontmatter(lf));
   assert.deepEqual(frontmatter(`﻿${lf}`), frontmatter(lf), 'a byte-order mark is not part of the document');
   assert.equal(withoutHeader(lf.replace(/\n/g, '\r\n')), '\r\n\r\n# M1\r\n');
+  assert.equal(withoutHeader(`\uFEFF${lf}`), withoutHeader(lf), 'the block frontmatter() reads, a byte-order mark before it included');
+  assert.equal(withoutHeader('\uFEFF# no header\n'), '\uFEFF# no header\n', 'a mark with no header after it stays');
   const two = lf.replace('status:', `note: x${String.fromCodePoint(13)}status:`);
   assert.equal(frontmatter(two), UNREADABLE);
   assert.equal(isUnreadable(frontmatter(two)), true);
@@ -140,7 +159,7 @@ const CASES = [
   {
     check: 'f2-feature-fit',
     finding: 'docs/features/export.md#frontmatter/unreadable',
-    detail: /carriage return/,
+    detail: /carriage return[\s\S]*LF or CRLF line endings/,
     tree: (split) => ({ files: { 'ci/baselines.json': '{\n  "feature-fit": 0\n}\n', 'docs/features/export.md': feature(split, split ? 'shipped' : 'draft') } }),
   },
 ];

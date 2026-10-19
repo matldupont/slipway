@@ -15,7 +15,8 @@
 //   <doc>#fit/missing             no `## Fit` section
 //   <doc>#fit/unfilled/unreadable  a `<!--` in the Fit section or above it; the finding names the first one's line
 //   <doc>#fit/unfilled/<label>    `Reuses:`, `Numbers:` or `New:` is absent, empty or still the template's text
-//   <doc>#frontmatter/unreadable  no `status:` line, or one with nothing after it, so nothing says the doc is a draft
+//   <doc>#frontmatter/unreadable  no `status:` line, or one with nothing after it, or a header readable two ways (#495), so
+//                                 nothing says the doc is a draft
 //
 // A feature folder, docs/milestones/ or a milestone file that is a link, sits under one or is not a plain folder or
 // file is BROKEN: it is never read, so the count would leave out what it holds (MS1 and ID1 name these too).
@@ -100,7 +101,9 @@ const NEXT = {
   'fit/unfilled/reuses': 'its Fit has no filled `Reuses:` line — name each pattern or helper it reuses and where it lives, or `nothing` with what was searched',
   'fit/unfilled/numbers': 'its Fit has no filled `Numbers:` line — say where each number it shows is calculated, or `none shown`',
   'fit/unfilled/new': 'its Fit has no filled `New:` line — say what it adds that nothing existing does and why, or `none` (not beside `nothing` under `Reuses:`: such a doc describes no feature)',
-  'frontmatter/unreadable': 'nothing says it is a draft, so it is counted whatever its Fit says — give its frontmatter a `status:` line with its status after it (`draft`, `shipped`)',
+  'frontmatter/unreadable': (d) => (d.heldBy.some((h) => h.by === 'unreadable header')
+    ? 'nothing says it is a draft, so it is counted whatever its Fit says — save the file with LF or CRLF line endings, so its header reads one way'
+    : 'nothing says it is a draft, so it is counted whatever its Fit says — give its frontmatter a `status:` line with its status after it (`draft`, `shipped`)'),
 };
 const counted = fit.docs
   .filter((d) => d.reasons.length)
