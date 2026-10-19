@@ -1,7 +1,7 @@
 {
   "_note": "decisions-fired-shipped, with the feature doc's header readable two ways (#495): nothing reads the doc as shipped, so PD-1 does not close.",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
     "nothing"
