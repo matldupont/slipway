@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { agentRow, today as localToday, zone } from './checks/lib/clock.mjs';
-import { PLACEHOLDER } from './checks/lib/frontmatter.mjs';
+import { hasPlaceholder } from './checks/lib/frontmatter.mjs';
 import { escapeShown } from './checks/lib/html.mjs';
 import { blockers, designation, overlap, touches } from './checks/lib/issue-body.mjs';
 import { trustedEnvAt } from './checks/lib/manifest.mjs';
@@ -97,7 +97,7 @@ export function collect(root, gh) {
   if (!m) return base;
   const md = readMilestones(root).milestones.find((x) => x.file === m.file).md;
   const items = contents(md)
-    .filter((i) => !PLACEHOLDER.test(i.text))
+    .filter((i) => !hasPlaceholder(i.text))
     .map((i) => {
       const at = marker(i.text);
       // What the item still owes (F-09): a check moved to after merge, an unreadable check line, a failed run.

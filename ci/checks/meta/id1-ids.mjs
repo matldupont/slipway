@@ -40,7 +40,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FEATURE_DIRS, LEAD, readFeatureFiles, visible } from '../lib/feature-docs.mjs';
-import { report } from '../lib/report.mjs';
+import { codeSpan, report } from '../lib/report.mjs';
 
 const root = process.argv[2] ?? '.';
 
@@ -68,9 +68,13 @@ if (existsSync(decisionsPath)) {
 
 // feature docs: path → { ns (every F-<n> a heading of the doc carries; empty: none), companionOf }
 const docs = new Map();
-for (const { path, regular, ns, companionOf, unreadable } of readFeatureFiles(root)) {
+for (const { path, regular, folder, ns, companionOf, unreadable } of readFeatureFiles(root)) {
+  if (folder) {
+    findings.push({ where: `${path}#feature/unreadable`, detail: `${codeSpan(path)} is a link, sits under one or is not a folder, so ID1 reads none of the docs in it: make it a plain folder` });
+    continue;
+  }
   if (!regular) {
-    findings.push({ where: `${path}#feature/unreadable`, detail: `${path} is a link or not a regular file, so ID1 cannot read its F-id: make it a regular file` });
+    findings.push({ where: `${path}#feature/unreadable`, detail: `${codeSpan(path)} is a link, is reached through one or is not a regular file, so ID1 cannot read its F-id: make it a regular file` });
     continue;
   }
   if (ns.length) scanned++;
