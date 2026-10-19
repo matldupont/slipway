@@ -1,7 +1,0 @@
-{
-  "_note": "A lesson, inert. Its header can be read two ways (#495): it is unreadable, never read one way.",
-  "exit": 1,
-  "findings": [
-    "split.md#frontmatter/unreadable"
-  ]
-}

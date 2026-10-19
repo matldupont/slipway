@@ -7,9 +7,9 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { frontmatter, isUnreadable, UNREADABLE, withoutHeader } from '../ci/checks/lib/frontmatter.mjs';
@@ -70,15 +70,20 @@ test('a header in CRLF reads as in LF; one readers could split two ways reads as
   assert.equal(frontmatter(`${lf}body${String.fromCodePoint(13)}text`).id, 'M1', 'the body is not the header');
 });
 
-// Each file of a case, in CRLF, in a temporary copy: the case reads as it does in LF.
-const inCrlf = (from, run) => {
+// A case is inert text in a temporary folder: `files` maps a path to its text, `base` names a fixture folder copied in
+// first. `crlf` writes every line end of every `.md` file as CRLF, leaving a lone CR as it is.
+const inTree = ({ base, files = {} }, crlf, run) => {
   const dir = mkdtempSync(join(tmpdir(), 'header-reader-'));
   try {
-    cpSync(from, dir, { recursive: true });
+    if (base) cpSync(join(SRC, base), dir, { recursive: true });
+    for (const [p, body] of Object.entries(files)) {
+      mkdirSync(dirname(join(dir, p)), { recursive: true });
+      writeFileSync(join(dir, p), body);
+    }
     const walk = (d) => readdirSync(d).forEach((f) => {
       const p = join(d, f);
       if (statSync(p).isDirectory()) return walk(p);
-      if (p.endsWith('.md')) writeFileSync(p, readFileSync(p, 'utf8').replace(/\r?\n/g, '\r\n'));
+      if (crlf && p.endsWith('.md')) writeFileSync(p, readFileSync(p, 'utf8').replace(/\r?\n/g, '\r\n'));
     });
     walk(dir);
     return run(dir);
@@ -87,28 +92,67 @@ const inCrlf = (from, run) => {
   }
 };
 const node = (args, env = {}) => spawnSync(process.execPath, args, { cwd: SRC, encoding: 'utf8', env: { ...process.env, ...env } });
+// What a check reported: its exit and its findings, from the line report() writes last.
+const ran = (check, dir, env = {}) => {
+  const r = node([`ci/checks/meta/${check}.mjs`, dir], { ...env, CHECK_JSON: '1' });
+  const json = JSON.parse((r.stdout.split('\n').findLast((l) => l.startsWith('@@json ')) ?? '@@json null').slice(7));
+  return { exit: r.status, findings: (json?.findings ?? []).map((f) => f.where), details: (json?.findings ?? []).map((f) => f.detail).join('\n') };
+};
 
 test('in CRLF, status prints what it prints in LF, for the two cases and their controls', () => {
   for (const c of ['decisions-fired-milestone', 'decisions-unreadable-header', 'decisions-fired-shipped', 'decisions-unreadable-shipped']) {
-    const from = join(SRC, 'ci/fixtures/status', c);
-    const today = JSON.parse(readFileSync(join(from, 'expect.json'), 'utf8')).today;
-    const lf = node(['ci/status.mjs', from], { CHECK_TODAY: today });
-    const crlf = inCrlf(from, (dir) => node(['ci/status.mjs', dir], { CHECK_TODAY: today }));
+    const base = `ci/fixtures/status/${c}`;
+    const today = JSON.parse(readFileSync(join(SRC, base, 'expect.json'), 'utf8')).today;
+    const lf = inTree({ base }, false, (dir) => node(['ci/status.mjs', dir], { CHECK_TODAY: today }));
+    const crlf = inTree({ base }, true, (dir) => node(['ci/status.mjs', dir], { CHECK_TODAY: today }));
     assert.equal(lf.status, 0, c);
     assert.equal(crlf.stdout, lf.stdout, c);
   }
 });
 
-test('in CRLF, each check reports the unreadable header it reports in LF', () => {
-  const cases = { ms1: 'ms1-milestones', k1: 'k1-frame', l1: 'l1-lessons', f2: 'f2-feature-fit' };
-  for (const [id, check] of Object.entries(cases)) {
-    const from = join(SRC, 'ci/fixtures/known-bad', id, 'unreadable-header');
-    const expected = JSON.parse(readFileSync(join(from, 'expected.json'), 'utf8'));
-    const run = (dir) => node([`ci/checks/meta/${check}.mjs`, dir], expected.env ?? {});
-    const lf = run(from);
-    const crlf = inCrlf(from, run);
-    assert.equal(lf.status, 1, `${id}: ${lf.stdout}${lf.stderr}`);
-    assert.equal(crlf.status, 1, id);
-    for (const f of expected.findings) assert.match(crlf.stdout + crlf.stderr, new RegExp(f.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')), `${id} in CRLF: ${relative(SRC, from)}`);
+// The four checks that own a header, each with a case whose header can be read two ways and a control that is the same
+// header read one way. These live here, not under ci/fixtures/known-bad: those folders ship to projects, and a shipped
+// file holds no CR byte after an autocrlf checkout (scripts/new-project.test.mjs). The case's finding is the only one,
+// in LF and in CRLF; the control is green in both.
+const CR = String.fromCodePoint(13);
+const SPLIT = `note: x${CR}`;
+const M1 = '---\nid: M1\nstatus: shaping\nkind: skeleton\nappetite: 2026-03-01..2026-03-28\n---\n\n# M1 — invented\n\n## Contents\n\n1. Deploy a hello page (no feature: skeleton)\n';
+const FRAME = readFileSync(join(SRC, 'ci/fixtures/known-bad/k1/bad-status/docs/product/FRAME.md'), 'utf8');
+const lesson = (split) => `---\nid: L-01\nrule: fixture rule\n${split}enforcement:\n  status: prose\n  pointer: docs/guide.md\n  review-by: 2099-01-01\n---\n\nWhy.\n`;
+const feature = (split, status) => `---\n${split}status: ${status}\n---\n\n${readFileSync(join(SRC, 'ci/fixtures/known-bad/f2/no-frontmatter/docs/features/export.md'), 'utf8')}`;
+const CASES = [
+  {
+    check: 'ms1-milestones',
+    finding: 'notes.md#frontmatter/unreadable',
+    tree: (split) => ({ files: { 'docs/milestones/M1-walking-skeleton.md': M1, 'docs/milestones/notes.md': `---\nid: ${split ? 'Beta' : 'M2'}\n${split}${split ? 'id: M01\nstatus: closed' : 'status: shaping'}\n---\n\n# Notes — invented\n` } }),
+  },
+  {
+    check: 'k1-frame',
+    finding: 'FRAME.md#frontmatter/unreadable',
+    tree: (split) => ({ files: { 'docs/product/FRAME.md': FRAME.replace('---\nstatus: done\n---', `---\n${split}status: framed\n---`) } }),
+  },
+  {
+    check: 'l1-lessons',
+    finding: 'split.md#frontmatter/unreadable',
+    tree: (split) => ({ files: { 'docs/guide.md': '# Guide\n', 'process/lessons/split.md': lesson(split) } }),
+    env: { CHECK_TODAY: '2026-09-21' },
+  },
+  {
+    check: 'f2-feature-fit',
+    finding: 'docs/features/export.md#frontmatter/unreadable',
+    detail: /carriage return/,
+    tree: (split) => ({ files: { 'ci/baselines.json': '{\n  "feature-fit": 0\n}\n', 'docs/features/export.md': feature(split, split ? 'shipped' : 'draft') } }),
+  },
+];
+
+test('each check that owns a header reports one that can be read two ways, in LF and in CRLF, and passes its control', () => {
+  for (const c of CASES) {
+    for (const crlf of [false, true]) {
+      const bad = inTree(c.tree(SPLIT), crlf, (dir) => ran(c.check, dir, c.env));
+      assert.deepEqual([bad.exit, bad.findings], [1, [c.finding]], `${c.check}${crlf ? ' in CRLF' : ''}`);
+      if (c.detail) assert.match(bad.details, c.detail, c.check);
+      const good = inTree(c.tree(''), crlf, (dir) => ran(c.check, dir, c.env));
+      assert.deepEqual([good.exit, good.findings], [0, []], `${c.check} control${crlf ? ' in CRLF' : ''}`);
+    }
   }
 });
