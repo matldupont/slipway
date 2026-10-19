@@ -72,7 +72,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section } from '../lib/markdown.mjs';
-import { compareMilestones, readMilestones, testsLine } from '../lib/milestones.mjs';
+import { compareMilestones, readMilestones, TESTS_MAX, testsLine } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
 import { EXPERIENCE, filled, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
@@ -103,6 +103,8 @@ const underway = milestones.filter((m) => m.fm && (m.fm.status === 'active' || m
 const pastSkeleton = underway.filter((m) => m.fm.kind !== 'skeleton');
 
 const findings = [];
+// The risks reported as risk/unresolved, so a PRD deadline is not reported twice for one (risk/overdue).
+const unresolved = new Set();
 const add = (where, detail) => findings.push({ where, detail });
 
 // A parked question carries its working assumption, the cost if it is wrong, and a tracker.
@@ -155,6 +157,7 @@ for (const r of risks) {
   // A test milestone is not held by a risk it names (#477); it is held by every other one.
   const holders = pastSkeleton.filter((m) => !testsLine(m.fm)?.ids.includes((r.id ?? '').toUpperCase()));
   if (holders.length && r.value && !r.tested) {
+    unresolved.add((r.id ?? '').toUpperCase());
     add(`${r.id}#risk/unresolved`, `value risk untested while ${holders.map((m) => m.fm.id).join(', ')} is underway: record its Result in FRAME's Risks table, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`);
   }
   if (underway.length && r.value && !r.tested && !r.tracker) {
@@ -172,7 +175,8 @@ for (const m of milestones.filter((x) => x.fm && ['shaping', 'active', 'closed']
     continue;
   }
   const causes = [];
-  if (!t.ids.length && !t.other.length) causes.push('it has no tests: line naming the value risks it runs (tests: RISK-1)');
+  if (t.long) causes.push(`its tests: line is longer than ${TESTS_MAX} characters, so it is not read: name only the risk ids`);
+  else if (!t.ids.length && !t.other.length) causes.push('it has no tests: line naming the value risks it runs (tests: RISK-1)');
   if (t.other.length) causes.push(`"${quote(t.other.join(' '))}" is not a RISK-n id`);
   const untested = [];
   for (const id of t.ids) {
@@ -196,17 +200,20 @@ for (const [id, d] of deadlines ?? []) {
   const due = d.before && underway.find((m) => compareMilestones(m.fm.id, d.before) >= 0);
   if (!due) continue;
   const r = risks.find((x) => (x.id ?? '').toUpperCase() === id);
-  if (r?.tested || (r?.value && pastSkeleton.length)) continue;
+  if (r?.tested || unresolved.has(id)) continue;
   add(`${id}#risk/overdue`, r
     ? `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}: record its Result in FRAME, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`
     : `the PRD says it resolves ${d.cell}, and ${due.fm.id} is ${due.fm.status}, but FRAME's Risks table has no ${id} row: add one with its Threshold, then its Result`);
 }
 
+// The untested value risks a test milestone underway names and no other milestone holds: green does not mean they were tested.
+const underTest = pastSkeleton.length ? risks.filter((r) => r.value && !r.tested && !unresolved.has((r.id ?? '').toUpperCase())).map((r) => r.id) : [];
+
 process.exit(
   report({
     id: 'K1',
     claim: underway.length
-      ? `the frame is finished, every untested value risk names a tracker, every risk settled by experience names its reason and what would prove it wrong${pastSkeleton.length ? ', every value risk was tested against a bar set first or settled by experience' : ''}${deadlines ? `, and every risk the PRD's Resolves by has made due has a Result` : ''} (${risks.length} risks)`
+      ? `the frame is finished, every untested value risk names a tracker, every risk settled by experience names its reason and what would prove it wrong${pastSkeleton.length ? `, every value risk was tested against a bar set first or settled by experience${underTest.length ? `, except ${underTest.join(', ')}, which only ${underTest.length > 1 ? 'their' : 'its'} test milestone holds` : ''}` : ''}${deadlines ? `, and every risk the PRD's Resolves by has made due has a Result` : ''} (${risks.length} risks)`
       : `no milestone is underway, so only the frame's shape, its Thresholds and its risks settled by experience are checked (${risks.length} risks)`,
     scanned: 1,
     unit: `${UNIT} (${milestones.length} milestones read)`,

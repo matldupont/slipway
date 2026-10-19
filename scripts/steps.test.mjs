@@ -132,7 +132,14 @@ test('an active test milestone passes K1 on its own risk, and status lists only 
     set('M1.1-concierge.md', 'active');
     const green = k1();
     assert.equal(green.status, 0, green.stdout + green.stderr);
+    // Green says what it proved: RISK-1 is held only by its test milestone, never "tested".
+    assert.match(green.stdout, /every value risk was tested against a bar set first or settled by experience, except RISK-1, which only its test milestone holds/);
     assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · blocks M2, M3, M4 activation');
+    // Closed before its test finished: K1 is red at the close, and status says the milestone is held again.
+    set('M1.1-concierge.md', 'closed');
+    assert.match(k1().stdout, /M1\.1#risk\/test-unfinished/);
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · M1.1 underway with it untested — pnpm meta is red until it has a Result');
+    set('M1.1-concierge.md', 'active');
     // A second milestone underway that is not the test milestone: K1 holds RISK-1 again, and status says so.
     set('M2-booking.md', 'active');
     const red = k1();

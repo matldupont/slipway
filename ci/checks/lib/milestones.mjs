@@ -14,14 +14,19 @@ export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet', 'test'];
 // active while they are untested, refuses its close until each has a Result, and frees no other milestone. Read here
 // once, so K1 and `pnpm status` never disagree about which risks a milestone tests. `ids`: the RISK-n ids written,
 // upper-cased, each once; `other`: any other word on the line; `placeholder`: the line still holds a template
-// placeholder. Null for a milestone of another kind.
+// placeholder; `long`: the line is over TESTS_MAX characters, so it is not read at all (a cut could turn RISK-12 into
+// RISK-1). Null for a milestone of another kind. Status runs this in every session's hook: the length is tested before
+// any pattern reads the line.
+export const TESTS_MAX = 500;
 export function testsLine(fm) {
   if (fm?.kind !== 'test') return null;
   const raw = typeof fm.tests === 'string' ? fm.tests.trim() : '';
-  if (PLACEHOLDER.test(raw)) return { ids: [], other: [], placeholder: true };
-  const words = raw.slice(0, 500).split(/[\s,]+/).filter(Boolean);
+  const none = { ids: [], other: [], placeholder: false, long: false };
+  if (raw.length > TESTS_MAX) return { ...none, long: true };
+  if (PLACEHOLDER.test(raw)) return { ...none, placeholder: true };
+  const words = raw.split(/[\s,]+/).filter(Boolean);
   const ids = [...new Set(words.filter((w) => /^RISK-\d{1,9}$/i.test(w)).map((w) => w.toUpperCase()))];
-  return { ids, other: words.filter((w) => !/^RISK-\d{1,9}$/i.test(w)), placeholder: false };
+  return { ...none, ids, other: words.filter((w) => !/^RISK-\d{1,9}$/i.test(w)) };
 }
 
 // appetite: `YYYY-MM-DD..YYYY-MM-DD`, both days inclusive.

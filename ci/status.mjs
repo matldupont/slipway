@@ -135,8 +135,8 @@ const active = ms.filter((m) => m.status === 'active');
 const cur = active[0];
 const curAppetite = cur && parseAppetite(cur.appetite);
 // What an untested value risk holds back: K1 refuses any milestone past the skeleton until it has a Result, except a
-// test milestone for the risks its `tests:` line names (#477); every other untested value risk still holds it.
-const held = (m) => m.kind !== 'skeleton' && untestedValue.some((r) => !testsLine(m)?.ids.includes((r.id ?? '').toUpperCase()));
+// test milestone for the risks its `tests:` line names (#477) until it closes; every other untested value risk still holds it.
+const held = (m) => m.kind !== 'skeleton' && untestedValue.some((r) => m.status === 'closed' || !testsLine(m)?.ids.includes((r.id ?? '').toUpperCase()));
 const pastSkeletonUnderway = ms.filter((m) => held(m) && (m.status === 'active' || m.status === 'closed'));
 const blockedByRisk = ms.filter((m) => held(m) && m.status === 'shaping').map((m) => m.id);
 const riskBlocks = pastSkeletonUnderway.length
