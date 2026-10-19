@@ -31,6 +31,8 @@ milestone at a time → `/close-milestone`.
   later milestone, or a declined lesson — not into the current diff.
 - Milestone numbers run in time order: a milestone inserted between two others takes `M<n>.<k>` (M1.1 sits between M1
   and M2), never a renumbering; `M<n>.<k>` names a milestone, never an item.
+- A `kind: test` milestone runs the test of the value risks its `tests:` line names: it may go active while they are
+  untested, cannot close until each has a Result, and frees no other milestone.
 - When a milestone's appetite ends, stop and run `/close-milestone`; extending needs a decision in `decisions.md`.
 - Execution issues **embed** the feature doc's Contract and `Verify` block; they do not link to it.
 - Before building on a code-state claim in an issue or doc, re-verify it against `main` and record

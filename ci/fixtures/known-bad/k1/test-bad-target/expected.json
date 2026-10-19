@@ -1,0 +1,22 @@
+{
+  "_note": "#477: each kind: test milestone whose tests: line cannot be what it runs. M1.1 (active) has no tests: line, M1.2 (closed) an empty one, M1.3 names a risk FRAME lacks, M1.4 a feasibility risk, M1.5 (shaping) a risk that already has a Result, M1.6 a word that is no RISK id, M1.7 (active) still a template placeholder. Not findings: M1.8 is shaping with the placeholder, M1.9 is killed, M1.10 is closed on a risk that now has its Result, the normal end. M1.1, M1.2, M1.7 and M1.10 are underway and name neither RISK-1 nor RISK-4, so each still holds both.",
+  "exit": 1,
+  "findings": [
+    "M1.1#risk/test-target",
+    "M1.2#risk/test-target",
+    "M1.3#risk/test-target",
+    "M1.4#risk/test-target",
+    "M1.5#risk/test-target",
+    "M1.6#risk/test-target",
+    "M1.7#risk/test-target",
+    "RISK-1#risk/unresolved",
+    "RISK-4#risk/unresolved"
+  ],
+  "details": {
+    "M1.3#risk/test-target": "RISK-9 is not in FRAME",
+    "M1.4#risk/test-target": "RISK-3 is not a value risk",
+    "M1.5#risk/test-target": "RISK-2 already has a Result",
+    "M1.6#risk/test-target": "\"soon\" is not a RISK-n id",
+    "M1.7#risk/test-target": "template placeholder"
+  }
+}

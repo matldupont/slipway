@@ -15,6 +15,9 @@ Version: 0.1 (<date>)
 >
 > - `status`: shaping → active → closed, or killed. **One active at a time.**
 > - `kind`: skeleton (the first, thinnest end-to-end path) · mvp · release · bet (after launch).
+> - `kind: test` is a milestone that exists to run the test of untested value risks, named on a
+>   `tests: RISK-1, RISK-2` line added under `kind`. It may go active before they have a Result,
+>   cannot close until each has one, and frees no other milestone; K1 checks it. Other kinds have no `tests:` line.
 > - `appetite`: first and last day, inclusive. When it ends the milestone closes, is killed,
 >   or gets an extension recorded in decisions.md (`extended: PD-<n>`). By default it does
 >   not get more time.

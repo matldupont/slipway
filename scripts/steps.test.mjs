@@ -114,6 +114,36 @@ test('a risk is settled exactly when K1 raises no finding on its Result', () => 
   }
 });
 
+// #477: a kind: test milestone may go active while the risk it tests is untested, and status agrees with K1 about what
+// that risk still holds. The green case PC1 cannot hold (a known-bad case that passes is a finding there).
+test('an active test milestone passes K1 on its own risk, and status lists only the others as held', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'steps-test-milestone-'));
+  try {
+    cpSync(join(SRC, 'ci', 'fixtures', 'status', 'test-milestone-shaping'), dir, { recursive: true });
+    const set = (file, status) => {
+      const path = join(dir, 'docs', 'milestones', file);
+      writeFileSync(path, readFileSync(path, 'utf8').replace(/^status: \w+$/m, `status: ${status}`));
+    };
+    const k1 = () => spawnSync(process.execPath, [join(SRC, 'ci', 'checks', 'meta', 'k1-frame.mjs'), dir], { encoding: 'utf8' });
+    const frame = () => {
+      const r = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), dir], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-20', TZ: 'UTC' } });
+      return r.stdout.match(/^- Frame: (.*)$/m)?.[1];
+    };
+    set('M1.1-concierge.md', 'active');
+    const green = k1();
+    assert.equal(green.status, 0, green.stdout + green.stderr);
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · blocks M2, M3, M4 activation');
+    // A second milestone underway that is not the test milestone: K1 holds RISK-1 again, and status says so.
+    set('M2-booking.md', 'active');
+    const red = k1();
+    assert.equal(red.status, 1);
+    assert.match(red.stdout, /RISK-1#risk\/unresolved: value risk untested while M2 is underway/);
+    assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · M2 underway with it untested — pnpm meta is red until it has a Result');
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('S1 fails a case whose step lines differ from steps', () => {
   const dir = mkdtempSync(join(tmpdir(), 'steps-'));
   try {

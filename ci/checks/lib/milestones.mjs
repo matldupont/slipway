@@ -8,7 +8,21 @@ import { plain, prose, section, strictSection } from './markdown.mjs';
 import { UNSAFE } from './report.mjs';
 
 export const MILESTONE_STATUSES = ['shaping', 'active', 'closed', 'killed'];
-export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet'];
+export const MILESTONE_KINDS = ['skeleton', 'mvp', 'release', 'bet', 'test'];
+
+// A `kind: test` milestone exists to run the test of the value risks its `tests:` line names (#477): K1 lets it go
+// active while they are untested, refuses its close until each has a Result, and frees no other milestone. Read here
+// once, so K1 and `pnpm status` never disagree about which risks a milestone tests. `ids`: the RISK-n ids written,
+// upper-cased, each once; `other`: any other word on the line; `placeholder`: the line still holds a template
+// placeholder. Null for a milestone of another kind.
+export function testsLine(fm) {
+  if (fm?.kind !== 'test') return null;
+  const raw = typeof fm.tests === 'string' ? fm.tests.trim() : '';
+  if (PLACEHOLDER.test(raw)) return { ids: [], other: [], placeholder: true };
+  const words = raw.slice(0, 500).split(/[\s,]+/).filter(Boolean);
+  const ids = [...new Set(words.filter((w) => /^RISK-\d{1,9}$/i.test(w)).map((w) => w.toUpperCase()))];
+  return { ids, other: words.filter((w) => !/^RISK-\d{1,9}$/i.test(w)), placeholder: false };
+}
 
 // appetite: `YYYY-MM-DD..YYYY-MM-DD`, both days inclusive.
 export function parseAppetite(value) {

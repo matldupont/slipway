@@ -1,0 +1,9 @@
+{
+  "_note": "#477: a test milestone frees only itself, and only for the risks it names. M1.1 is an active kind: test milestone for RISK-1; M2 is an active mvp. RISK-1 is still held by M2 alone; RISK-4, which M1.1 does not name, is held by both.",
+  "exit": 1,
+  "findings": ["RISK-1#risk/unresolved", "RISK-4#risk/unresolved"],
+  "details": {
+    "RISK-1#risk/unresolved": "untested while M2 is underway",
+    "RISK-4#risk/unresolved": "untested while M1.1, M2 is underway"
+  }
+}

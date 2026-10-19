@@ -1,0 +1,6 @@
+{
+  "_note": "#477. M1.1 is a closed kind: test milestone whose tests: line names RISK-1 and RISK-4 (lower case reads the same), neither with a Result: it closed before its test finished, so K1 names both under M1.1, and reports neither as risk/unresolved on M1.1's account, so the finding is reported once. M1.2 is a killed test milestone for RISK-1: killed needs no Result.",
+  "exit": 1,
+  "findings": ["M1.1#risk/test-unfinished"],
+  "details": { "M1.1#risk/test-unfinished": "RISK-1, RISK-4 have no Result" }
+}

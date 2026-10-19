@@ -1,0 +1,16 @@
+{
+  "_note": "A closed skeleton, M1.1 a shaping kind: test milestone whose tests: line names RISK-1, and M2–M4 shaping bets behind it (#477). RISK-1 is untested and tracked: status says it is being tested in M1.1, and lists only M2, M3 and M4 as held, never M1.1. RISK-2 is not a value risk, so nothing names a test milestone for it.",
+  "today": "2026-03-20",
+  "next": "Step 2 (YOURS, not an agent's — days to weeks) — Test the risk: RISK-1 scheduled (#9), being tested in M1.1 · blocks M2, M3, M4 activation. An agent can prepare the materials; running the test with real people is yours. Thresholds and results go in docs/product/evidence/ — or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the risk's Result.",
+  "frame": "framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · blocks M2, M3, M4 activation",
+  "steps": [
+    "Step 0 · Bootstrap: done",
+    "Step 1 · Frame: done",
+    "Step 2 · Test the risk: in hand",
+    "Step 3 · Shape: not started",
+    "Step 4 · Walking skeleton: done",
+    "Step 5 · Build loop: waiting",
+    "Step 6 · Close the milestone: each milestone",
+    "Step 7 · Learn: each milestone"
+  ]
+}

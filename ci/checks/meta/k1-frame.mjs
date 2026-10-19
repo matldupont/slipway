@@ -35,7 +35,16 @@
 // Once a milestone that is not the walking skeleton (kind other than `skeleton`) is active
 // or closed, every value risk must have been tested:
 //   risk/unresolved        a risk tagged value has no Result (a PD-<n> override counts, and so does
-//                          experience with what would prove it wrong written down)
+//                          experience with what would prove it wrong written down). A `kind: test` milestone
+//                          is not held by a risk its `tests:` line names: it exists to run that test. It is
+//                          held by every other untested value risk, and it frees no other milestone.
+//
+// A `kind: test` milestone (#477), shaping, active or closed (killed needs nothing):
+//   risk/test-target       its `tests:` line is missing or empty, or names a word that is not a RISK-n id, a
+//                          risk FRAME's Risks table does not have, or a risk that is not a value risk; or,
+//                          while shaping or active, a risk that already has a Result. A shaping milestone
+//                          whose `tests:` still holds a template placeholder is not read yet.
+//   risk/test-unfinished   it is closed, and a value risk it tests still has no Result
 //
 // Where the PRD's risk table has a `Resolves by` column, its deadlines hold too, for every category:
 //   risk/overdue           the PRD says `before Mn`, Mn or a later milestone is active or closed, and
@@ -63,7 +72,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section } from '../lib/markdown.mjs';
-import { compareMilestones, readMilestones } from '../lib/milestones.mjs';
+import { compareMilestones, readMilestones, testsLine } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
 import { EXPERIENCE, filled, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
@@ -143,11 +152,39 @@ for (const r of risks) {
     const why = EXPERIENCE.test(plain(r.result ?? '')) ? ` (experience settles only a value risk, and ${r.id} is ${quote(plain(r.category ?? '')) || 'uncategorised'})` : '';
     add(`${r.id}#risk/no-threshold`, `has a Result but no Threshold${why}: the bar must be written before the test — write the Threshold it was measured against, or clear the Result and run the test again`);
   }
-  if (pastSkeleton.length && r.value && !r.tested) {
-    add(`${r.id}#risk/unresolved`, `value risk untested while ${pastSkeleton.map((m) => m.fm.id).join(', ')} is underway: record its Result in FRAME's Risks table, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`);
+  // A test milestone is not held by a risk it names (#477); it is held by every other one.
+  const holders = pastSkeleton.filter((m) => !testsLine(m.fm)?.ids.includes((r.id ?? '').toUpperCase()));
+  if (holders.length && r.value && !r.tested) {
+    add(`${r.id}#risk/unresolved`, `value risk untested while ${holders.map((m) => m.fm.id).join(', ')} is underway: record its Result in FRAME's Risks table, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`);
   }
   if (underway.length && r.value && !r.tested && !r.tracker) {
     add(`${r.id}#risk/untracked`, `value risk has no Result and no tracker while ${underway.map((m) => m.fm.id).join(', ')} ${underway.length > 1 ? 'are' : 'is'} underway: name the issue running its test in FRAME's Tracker column (#n), or in a \`Tracked: #n\` line in its docs/product/evidence/ file`);
+  }
+}
+
+// A test milestone names the value risks it runs, and closes only once each has a Result.
+for (const m of milestones.filter((x) => x.fm && ['shaping', 'active', 'closed'].includes(x.fm.status))) {
+  const t = testsLine(m.fm);
+  if (!t || (t.placeholder && m.fm.status === 'shaping')) continue;
+  const where = `${m.fm.id}#risk/test-target`;
+  if (t.placeholder) {
+    add(where, `is ${m.fm.status}, and its tests: line still holds a template placeholder: name the value risks it runs (tests: RISK-1)`);
+    continue;
+  }
+  const causes = [];
+  if (!t.ids.length && !t.other.length) causes.push('it has no tests: line naming the value risks it runs (tests: RISK-1)');
+  if (t.other.length) causes.push(`"${quote(t.other.join(' '))}" is not a RISK-n id`);
+  const untested = [];
+  for (const id of t.ids) {
+    const r = risks.find((x) => (x.id ?? '').toUpperCase() === id);
+    if (!r) causes.push(`${id} is not in FRAME's Risks table`);
+    else if (!r.value) causes.push(`${id} is not a value risk, and K1 holds no milestone for one: test it without a test milestone`);
+    else if (r.tested && m.fm.status !== 'closed') causes.push(`${id} already has a Result, so there is nothing left to test`);
+    else if (!r.tested) untested.push(id);
+  }
+  if (causes.length) add(where, `a test milestone's tests: line must name untested value risks from FRAME: ${causes.join('; ')}`);
+  if (m.fm.status === 'closed' && untested.length) {
+    add(`${m.fm.id}#risk/test-unfinished`, `is closed, but ${untested.join(', ')} ${untested.length > 1 ? 'have' : 'has'} no Result: record each in FRAME's Risks table, or reopen ${m.fm.id}`);
   }
 }
 
