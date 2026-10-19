@@ -24,8 +24,8 @@
 
 import { existsSync, readdirSync } from 'node:fs';
 import { join, posix } from 'node:path';
-import { docFrontmatter, isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
-import { hasPlaceholder } from './frontmatter.mjs';
+import { isFeatureDoc, readFeatureFiles, unseen } from './feature-docs.mjs';
+import { frontmatter, hasPlaceholder, isUnreadable } from './frontmatter.mjs';
 import { sectionLines } from './markdown.mjs';
 import { citedFeatures, contents, readMilestones } from './milestones.mjs';
 import { readPlain, reviewProvenance } from './review-header.mjs';
@@ -145,10 +145,11 @@ export function fitCount(root) {
   for (const f of files.filter(isFeatureDoc)) {
     // A byte-order mark is not part of the doc, and CR, LF and CRLF all end a line, as ID1 reads its headings.
     const md = f.md.replace(/^\uFEFF/, '').replace(/\r\n|\r/g, '\n');
-    const fm = docFrontmatter(md);
+    // The header as every other reader reads it, from the file as written (#495).
+    const fm = frontmatter(f.md);
     const status = typeof fm?.status === 'string' ? fm.status.trim().toLowerCase() : '';
     const heldBy = [
-      ...(status === '' ? [{ rule: 'unreadable', by: fm ? 'no status' : 'no frontmatter' }] : status === 'draft' ? [] : [{ rule: 'status', by: status }]),
+      ...(status === '' ? [{ rule: 'unreadable', by: isUnreadable(fm) ? 'unreadable header' : fm ? 'no status' : 'no frontmatter' }] : status === 'draft' ? [] : [{ rule: 'status', by: status }]),
       ...(reviewed.get(f.path) ?? []).map((by) => ({ rule: 'review', by })),
       ...[...new Set(f.ns.flatMap((n) => scheduled.get(n) ?? []))].map((by) => ({ rule: 'milestone', by })),
     ];

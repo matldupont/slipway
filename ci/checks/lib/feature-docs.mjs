@@ -65,14 +65,11 @@ export function readFeatureFiles(root, dirs = FEATURE_DIRS) {
       }
       const md = readFileSync(join(abs, f), 'utf8');
       const ns = [...new Set(visible(md).map((l) => l.text.match(FEATURE)).filter(Boolean).map((m) => Number(m[1])))];
-      files.push({ path, regular: true, md, ns, companionOf: (docFrontmatter(md) ?? {})['companion-of'] ?? null });
+      files.push({ path, regular: true, md, ns, companionOf: (frontmatter(md) ?? {})['companion-of'] ?? null });
     }
   }
   return files;
 }
-
-// A doc's frontmatter, whatever its line endings; null when it has none.
-export const docFrontmatter = (md) => frontmatter(md.replace(/\r\n|\r/g, '\n'));
 
 // Whether a file readFeatureFiles() lists is a feature doc.
 export const isFeatureDoc = (file) => file.regular && file.ns.length > 0 && file.companionOf === null;

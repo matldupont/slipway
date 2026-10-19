@@ -6,6 +6,7 @@
 // document in docs/milestones/ and the set as a whole:
 //
 //   frontmatter/missing    no YAML frontmatter
+//   frontmatter/unreadable a header line holds a lone carriage return, which readers can split two ways (#495)
 //   field/missing          no `id` or `status`
 //   status/unknown         not one of: shaping active closed killed
 //   kind/unknown           `kind` set, but not one of: skeleton mvp release bet
@@ -64,7 +65,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
+import { frontmatter, isUnreadable, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section, table } from '../lib/markdown.mjs';
 import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
@@ -98,6 +99,7 @@ if (files.includes('TEMPLATE.md')) {
 for (const { file: f, md, fm } of milestones) {
   const add = (rule, detail) => findings.push({ where: `${f}#${rule}`, detail });
   if (!fm) { add('frontmatter/missing', 'no YAML frontmatter: start the file with the block shown in docs/milestones/TEMPLATE.md'); continue; }
+  if (isUnreadable(fm)) { add('frontmatter/unreadable', 'a line in its frontmatter holds a carriage return with no line feed after it, so readers disagree on its keys: save the file with LF or CRLF line endings'); continue; }
   if (!fm.id || !fm.status) { add('field/missing', 'needs id: and status: in its frontmatter (docs/milestones/TEMPLATE.md shows both)'); continue; }
   // Compared as the readers compare it, so `M01` and `m1` are M1 (#476): every reader takes the first by id order.
   const same = milestoneId(fm.id) ?? fm.id;

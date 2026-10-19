@@ -1,5 +1,7 @@
 // Minimal markdown reading for body and document checks.
 
+import { withoutHeader } from './frontmatter.mjs';
+
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Each span from a `<!--` to the next `-->`, as `[start, end)`, in one pass: what /<!--[\s\S]*?-->/g matches. The
@@ -62,7 +64,7 @@ export const commentCrossesHeading = (md) =>
 // inline code, a ` ``` x ``` ` line and a tab-indented fence (dev/features/roadmap-page.md → Known limitations).
 // For owner-only views; nothing that publishes reads through it.
 export function prose(md, { frontmatter = true, unclosed = true } = {}) {
-  const body = frontmatter ? md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '') : md;
+  const body = frontmatter ? withoutHeader(md) : md;
   const text = unclosed ? body.replace(/<!--[\s\S]*?(?:-->|$)/g, '') : withoutComments(body);
   const out = [];
   let fence = null;

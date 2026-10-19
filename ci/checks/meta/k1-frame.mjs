@@ -5,6 +5,7 @@
 // what could kill it. K1 makes the frame a precondition of building, in three tiers:
 //
 // Always, milestone or not:
+//   frontmatter/unreadable a header line holds a lone carriage return, which readers can split two ways (#495)
 //   status/unknown         `status` is not draft or framed
 //   parked/incomplete      a [PARKED: …] question is missing its working assumption, the cost if it
 //                          is wrong, or where it is tracked (#12, owner/repo#12, OD-3, D-7)
@@ -61,7 +62,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter, PLACEHOLDER } from '../lib/frontmatter.mjs';
+import { frontmatter, isUnreadable, PLACEHOLDER } from '../lib/frontmatter.mjs';
 import { plain, section } from '../lib/markdown.mjs';
 import { compareMilestones, readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
@@ -106,7 +107,9 @@ for (const [, body] of text.matchAll(/\[PARKED:([^\]]*)\]/g)) {
   if (missing.length) add('FRAME.md#parked/incomplete', `parked question "${body.trim().slice(0, 60)}" is missing ${missing.join(', ')}`);
 }
 
-if (fm.status !== 'draft' && fm.status !== 'framed') {
+if (isUnreadable(fm)) {
+  add('FRAME.md#frontmatter/unreadable', 'a line in its frontmatter holds a carriage return with no line feed after it, so readers disagree on its keys: save the file with LF or CRLF line endings');
+} else if (fm.status !== 'draft' && fm.status !== 'framed') {
   add('FRAME.md#status/unknown', `status "${fm.status ?? ''}" is not draft or framed`);
 }
 

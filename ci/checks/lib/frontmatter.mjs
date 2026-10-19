@@ -26,9 +26,27 @@ const CHILD = /^\s+([\w-]+):/;
 // key a document writes can make another read as inherited.
 const own = (obj, key, value) => Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });
 
-// null when the document has no frontmatter block.
+// The header block at the start of a document, `---` to `---`. Every reader of a header goes through frontmatter() or
+// withoutHeader(), so no two of them can take a different block for the same file (#495).
+const HEADER = /^---\r?\n([\s\S]*?)\r?\n---/;
+
+// What frontmatter() returns for a header that cannot be read one way only: it holds a carriage return that no line
+// feed follows, which one reader takes for a line end and another for text. It has no keys, so a reader that does not
+// ask isUnreadable() still reads no id and no status from it; the check that owns the document reports it.
+export const UNREADABLE = Object.freeze(Object.create(null));
+export const isUnreadable = (fm) => fm === UNREADABLE;
+
+// The document with its header block removed, the same block frontmatter() reads.
+export const withoutHeader = (md) => md.replace(HEADER, '');
+
+// null when the document has no frontmatter block; UNREADABLE when its block, read with every CR as a line end, holds a
+// lone CR. CRLF and LF read the same, and a leading byte-order mark is not part of the document.
 export function frontmatter(md) {
-  const m = md.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const lf = md.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+  // Every CR a line end: the same length as `lf`, so the block it finds is the same span of `lf`.
+  const loose = lf.replace(/\r/g, '\n').match(HEADER);
+  if (loose && lf.slice(0, loose[0].length).includes('\r')) return UNREADABLE;
+  const m = lf.match(HEADER);
   if (!m) return null;
   const out = {};
   let parent = null;

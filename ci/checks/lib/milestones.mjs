@@ -3,7 +3,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter, lineRest, PLACEHOLDER } from './frontmatter.mjs';
+import { frontmatter, lineRest, PLACEHOLDER, withoutHeader } from './frontmatter.mjs';
 import { plain, prose, section, strictSection } from './markdown.mjs';
 import { UNSAFE } from './report.mjs';
 
@@ -193,7 +193,7 @@ export function noGos(md) {
 const TITLE = new RegExp(`^# ${MILESTONE_ID} — (.+)$`);
 function titleOf(md, fm) {
   if (fm.title) return fm.title;
-  const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
+  const body = withoutHeader(md);
   const first = body.split(/\r?\n/).find((l) => l.trim() !== '') ?? '';
   const title = first.match(TITLE)?.[1].trim();
   return title && !/[<>`[\]]/.test(title) ? title : null;

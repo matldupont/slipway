@@ -20,7 +20,8 @@
 
 import { lstatSync, readdirSync } from 'node:fs';
 import { posix } from 'node:path';
-import { docFrontmatter, FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
+import { FEATURE_DIRS, isFeatureDoc, LEAD, readFeatureFiles, visible } from './feature-docs.mjs';
+import { frontmatter, isUnreadable } from './frontmatter.mjs';
 import { citedFeatures, contents, MILESTONE_ID, milestoneId } from './milestones.mjs';
 import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
 import { CLAUSE_START, fenced, fid, HEADING, hasClause, mask, parseEvent, PROSE, squash, unquoted } from './decision-text.mjs';
@@ -214,12 +215,13 @@ function readTree(root) {
       ...f,
       keys: keysOf(cut(f.md)),
       reviewed: (quoted.get(f.path) ?? []).some((r) => quotedVersion(f.md, r.version, lines) === 'current'),
-      shipped: typeof docFrontmatter(f.md)?.status === 'string' && docFrontmatter(f.md).status.toLowerCase() === 'shipped',
+      shipped: typeof frontmatter(f.md)?.status === 'string' && frontmatter(f.md).status.toLowerCase() === 'shipped',
     };
   });
   const milestones = plainFiles(root, 'docs/milestones', ['TEMPLATE.md', 'README.md'], unread)
-    .map((md) => ({ md, fm: docFrontmatter(md) }))
-    .filter((m) => m.fm)
+    .map((md) => ({ md, fm: frontmatter(md) }))
+    // A header that cannot be read one way only gives no event; MS1 reports it.
+    .filter((m) => m.fm && !isUnreadable(m.fm))
     .map(({ md, fm }) => ({
       id: milestoneId(fm.id),
       status: fm.status,

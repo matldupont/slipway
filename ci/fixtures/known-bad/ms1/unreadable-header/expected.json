@@ -1,0 +1,7 @@
+{
+  "_note": "A second milestone doc, inert. Its header can be read two ways (#495): it is unreadable, never read one way.",
+  "exit": 1,
+  "findings": [
+    "notes.md#frontmatter/unreadable"
+  ]
+}

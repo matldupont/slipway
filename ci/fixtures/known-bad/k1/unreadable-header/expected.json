@@ -1,0 +1,7 @@
+{
+  "_note": "FRAME.md, inert, with no docs/milestones. Its header can be read two ways (#495): it is unreadable, never read one way.",
+  "exit": 1,
+  "findings": [
+    "FRAME.md#frontmatter/unreadable"
+  ]
+}
