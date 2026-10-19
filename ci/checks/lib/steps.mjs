@@ -3,18 +3,23 @@
 // The states are computed from facts `pnpm status` already holds, so a reader sees every step at once: the path is not
 // one line (step 4 runs beside step 2, and step 7 sends the project back to 5).
 
+// `who` and `time` are the path table's two cells for the step; `pnpm status` builds the last sentence of the Next line
+// from them (`whoLine`) and never spells either itself. scripts/steps.test.mjs holds the table to this list.
 export const STEPS = [
-  { n: 0, name: 'Bootstrap' },
-  { n: 1, name: 'Frame' },
-  { n: 2, name: 'Test the risk' },
-  { n: 3, name: 'Shape' },
-  { n: 4, name: 'Walking skeleton' },
-  { n: 5, name: 'Build loop' },
-  { n: 6, name: 'Close the milestone' },
-  { n: 7, name: 'Learn' },
+  { n: 0, name: 'Bootstrap', who: 'you and an agent', time: '1 to 2 hours' },
+  { n: 1, name: 'Frame', who: 'you', time: 'an afternoon' },
+  { n: 2, name: 'Test the risk', who: 'yours', time: 'days to weeks' },
+  { n: 3, name: 'Shape', who: 'you', time: '1 to 2 days' },
+  { n: 4, name: 'Walking skeleton', who: 'agent', time: 'days' },
+  { n: 5, name: 'Build loop', who: 'agent', time: 'one issue per session' },
+  { n: 6, name: 'Close the milestone', who: 'you', time: 'an afternoon' },
+  { n: 7, name: 'Learn', who: 'you', time: 'weekly' },
 ];
 
 export const stepName = (n) => STEPS[n].name;
+
+// The sentence that closes a Next line: who does the step, and how long it takes ("Yours, days to weeks.").
+export const whoLine = (n) => `${STEPS[n].who[0].toUpperCase()}${STEPS[n].who.slice(1)}, ${STEPS[n].time}.`;
 
 export const STATES = ['done', 'in hand', 'waiting', 'not started', 'each milestone'];
 

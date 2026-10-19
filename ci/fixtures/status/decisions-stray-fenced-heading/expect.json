@@ -1,9 +1,9 @@
 {
   "_note": "A level-2 heading in a fenced example ends PD-1's entry: the Amends: inside the fence after it (line 11) and the Closes when: after the fence (line 14) are strays. Only a fenced line above the first decision is the header's example.",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you or an agent) Stray condition line: decisions.md lines 11, 14 hold conditions under no decision heading status can read, or in a heading whose id it cannot read — move each condition line under its decision's heading (one that starts with the decision's id), correct a heading's id, or close the fence or end the heading that cut it off — blocks nothing: nothing reads them until then; waits on nothing"
+    "(you or an agent) Move each condition line in decisions.md under its decision's heading, which starts with the decision's id. Lines 11, 14 hold conditions under no decision heading status can read, or in a heading whose id it cannot read. Otherwise correct a heading's id, or close the fence or end the heading that cut it off. It blocks nothing, because nothing reads them until then. It waits on nothing."
   ]
 }

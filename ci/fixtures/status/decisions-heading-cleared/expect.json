@@ -1,7 +1,7 @@
 {
   "_note": "PD-1's clause was removed from the heading and its outcome written beneath; PD-2's condition was moved into body prose. Nothing from F-15 is printed (the prose is counted at sync, step 4).",
   "today": "2026-03-10",
-  "next": "Step 5 (agent) — Build loop: M2 — invented. Every Contents item has an issue: finish them, then run /close-milestone once its Gate is green.",
+  "next": "Finish M2's open issues, then run /close-milestone once its gate is green. Every item has an issue. Agent, one issue per session.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
     "nothing"

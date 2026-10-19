@@ -1,7 +1,7 @@
 {
   "_note": "#385. FRAME.md and PRD.md are exactly the files the install manifest recorded, both drafts: steps 1 and 3 read not started, though each file exists and is a draft.",
   "today": "2026-03-10",
-  "next": "Step 1 (you, with /kickoff) — Frame: finish docs/product/FRAME.md, answer or park its open questions, then set status: framed.",
+  "next": "Run /kickoff to finish docs/product/FRAME.md. Its open questions need an answer or a parked assumption before the frame is done. You, an afternoon.",
   "frame": "draft · risks: RISK-1 untested (no tracker) · blocks every milestone past the skeleton",
   "steps": [
     "Step 0 · Bootstrap: done",

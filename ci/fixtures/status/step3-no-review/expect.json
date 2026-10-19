@@ -1,0 +1,12 @@
+{
+  "_note": "Framed, a draft PRD with no review of its current version, a skeleton shaping: Next is the review in a new session.",
+  "today": "2026-03-10",
+  "next": "Finish /kickoff, then run /review-doc docs/PRD.md in a new session. The PRD needs a review before it is approved, or the checks go red. You, 1 to 2 days.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "Run /review-doc docs/PRD.md in a fresh session. PRD 0.3.0 has no adversarial review, and it needs one before it leaves draft."
+  ],
+  "also": [
+    "(fresh session) Run /review-doc docs/PRD.md. The PRD at 0.3.0 has no adversarial review, and it needs one before Status: approved."
+  ]
+}

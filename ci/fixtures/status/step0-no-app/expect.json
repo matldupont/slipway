@@ -1,0 +1,9 @@
+{
+  "_note": "AGENT.md is filled and no workspace package exists: Next is bootstrap, to scaffold the app.",
+  "today": "2026-03-10",
+  "next": "Run /bootstrap. There is no app yet, so it scaffolds one and opens the first PR. You and an agent, 1 to 2 hours.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (#7), RISK-3 untested (no tracker), RISK-4 scheduled (D-4), RISK-5 untested (no tracker), RISK-6 scheduled (#9), RISK-7 untested · blocks every milestone past the skeleton",
+  "attention": [
+    "nothing"
+  ]
+}

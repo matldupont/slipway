@@ -1,0 +1,23 @@
+{
+  "_note": "Two milestones active: Next says to leave one, naming both ids.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Set every milestone but one to shaping or closed. M1, M2 are all active, and the checks stay red until one is. You.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · M2 underway with it untested — pnpm meta is red until it has a Result",
+  "steps": [
+    "Step 0 · Bootstrap: done",
+    "Step 1 · Frame: done",
+    "Step 2 · Test the risk: in hand",
+    "Step 3 · Shape: not started",
+    "Step 4 · Walking skeleton: in hand",
+    "Step 5 · Build loop: in hand",
+    "Step 6 · Close the milestone: each milestone",
+    "Step 7 · Learn: each milestone"
+  ],
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ],
+  "also": [
+    "(you) Test the untested value risks (RISK-2, RISK-3). M2 is underway with it untested, so the checks stay red until it has a result."
+  ]
+}

@@ -1,7 +1,9 @@
 {
   "_note": "#375. The same closed milestone and review, with the PRD approved: Needs attention has no line about its approval.",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
-  "attention": ["nothing"]
+  "attention": [
+    "nothing"
+  ]
 }

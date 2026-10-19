@@ -71,7 +71,7 @@ test('status: an active M1.1 is named in Next and its owed checks; the table lis
     writeFileSync(join(dir, 'M10-last.md'), ms('M10', 'shaping'));
     const r = run('ci/status.mjs', root);
     assert.equal(r.status, 0, r.stderr);
-    assert.match(r.stdout, /Start it in a fresh session with \/log-feature M1\.1#2\./);
+    assert.match(r.stdout, /Start item 2 of M1\.1 in a fresh session with \/log-feature M1\.1#2\./);
     assert.match(r.stdout, /^- Owed check: M1\.1 item 1 \(#12\) — 1 check\(s\)/m);
     const table = r.stdout.split('\n').filter((l) => /^\| M/.test(l)).map((l) => l.split('|')[1].trim());
     assert.deepEqual(table, ['M1', 'M1.1', 'M2', 'M10']);
@@ -143,7 +143,7 @@ test("status reads a risk's \"before M1.1\" cell and an M1.1 bet: the first bet 
     assert.equal(r.status, 0, r.stderr);
     const lines = r.stdout.split('\n').filter((l) => /Existential risk: RISK-[45]\b/.test(l));
     // RISK-4 is due before M1.1, the first bet: on time. RISK-5, before M2 starts, is now after it.
-    assert.deepEqual(lines.map((l) => l.match(/RISK-\d is existential and untested, and [^:]*/)[0]), ['RISK-5 is existential and untested, and resolves before M2 starts, after M1.1 starts']);
+    assert.deepEqual(lines.map((l) => l.match(/RISK-\d is existential and untested, and [^:]*/)[0]), ['RISK-5 is existential and untested, and resolves "before M2 starts", after M1.1 starts']);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

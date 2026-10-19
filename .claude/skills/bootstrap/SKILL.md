@@ -1,6 +1,6 @@
 ---
 name: bootstrap
-description: Finish step 0 of a project created from slipway — scaffold the app with the D-005 default, add check and test scripts with one real test, fill AGENT.md, get verify/meta/status green, open the bootstrap PR (carrying the uncommitted D-001 record), then run the BOOTSTRAP §3 acceptance probes the agent can run and list the rest for the owner. Use right after `new-project`, when `pnpm status` says "Step 0 — Bootstrap", or when the user says "bootstrap", "set up the project", "finish step 0".
+description: Finish step 0 of a project created from slipway — scaffold the app with the D-005 default, add check and test scripts with one real test, fill AGENT.md, get verify/meta/status green, open the bootstrap PR (carrying the uncommitted D-001 record), then run the BOOTSTRAP §3 acceptance probes the agent can run and list the rest for the owner. Use right after `new-project`, when `pnpm status` says "Run /bootstrap", or when the user says "bootstrap", "set up the project", "finish step 0".
 ---
 
 # Bootstrap
@@ -11,7 +11,7 @@ merged-ready PR, not a chat summary.
 
 ## Before anything
 
-1. Run `pnpm status`. If its **Next** line is not "Step 0 — Bootstrap", say what it says and stop.
+1. Run `pnpm status`. If its **Next** line does not start "Run /bootstrap.", say what it says and stop.
 2. Run `git status`. Expect `decisions.md` modified (D-001, written by `new-project`) and nothing
    else unexplained. Anything else uncommitted: ask before touching it.
 3. `git remote -v` must point at this project's repository, and `gh auth status` must be logged in.
@@ -51,7 +51,7 @@ are read in (CI runs in UTC, so `local` there is UTC); and whether the product h
 correctness-critical math (the domain invariants doc, or `none`). Every other row keeps its default unless
 the repo says otherwise (paths, gates, the domain map from `apps/` and `packages/`) — never ask about
 those. When done,
-`grep -n "<" AGENT.md` shows no placeholders, and `pnpm status` no longer reports Step 0.
+`grep -n "<" AGENT.md` shows no placeholders, and `pnpm status` no longer says "Run /bootstrap".
 
 ## 3 — Open the bootstrap PR
 
