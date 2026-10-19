@@ -1245,6 +1245,26 @@ decision", and the same day chose to wait for it rather than record a build-ahea
 Why: a project should be able to schedule, appetite and close the test of its riskiest assumption as a milestone,
 without pretending the risk is settled. Spec: #477.
 
+## D-048 — Whether slipway's text got plainer is the owner's judgement, alongside the checks; no baseline and no later readings *(decided 2026-10-19)*
+
+Amends: F-16
+
+D-046 said the outcome is "measured in slipway, on slipway's own PRs and status": the owner's minutes and edits on a
+fixed set, taken before step 1, after step 3 and after step 7, as dated lines in F-16's Changes, with a flat or worse
+reading stopping the next stage (F-16 §9). The owner dropped that on 2026-10-19:
+
+- **No `MEASURED` baseline and no later readings.** F-16's Changes holds none, and no stage waits on one.
+- **Whether the writing improves is the owner's judgement,** formed as the owner reads slipway's text, alongside what
+  the checks hold: the form test on the Next line, the check-message form, the title and subject rules and the prose
+  check, as each step builds them.
+- **The rest of D-046 stands:** a check fails only on unambiguous junk, the ratchet counts what a person reads cold,
+  nothing new reaches a project until a project's text has been read once, and templates only lose sections.
+- **§9's text is left as written** until #462's PR, which already carries F-16's Contract corrections; that PR removes
+  it. Until then §9 reads as it did and this decision overrides it.
+
+Why: a reading by one person on a fixed set costs time every few PRs and yields a number that one judgement already
+covers; the owner would rather spend it on the text. Spec: F-16; #455, #456.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,

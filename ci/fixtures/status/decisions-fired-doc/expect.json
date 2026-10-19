@@ -1,9 +1,9 @@
 {
   "_note": "Reopens when: F-07 has a doc, and a doc carries F-07: one Decision reopens line.",
   "today": "2026-03-10",
-  "next": "Step 6/7 (you) — No milestone active or shaped: shape the next bet from docs/product/metrics.md evidence.",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you) Decision reopens: PD-1 — F-07 has a doc: re-read PD-1; does it still hold? An agent or /clarify writes the outcome in its place: \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\"; or, when it is open again, \"open — reopened 2026-03-10\" as its heading status and \"Reopened 2026-03-10: open again\"; or the decision that supersedes it — before anything new is built on PD-1; waits on nothing"
+    "(you) Re-read the decision (PD-1) and say whether it still holds. Its condition has happened (F-07 has a doc). An agent or /clarify then writes the outcome in place of the condition, as \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\". When it is open again, it writes \"open — reopened 2026-03-10\" as the heading status and \"Reopened 2026-03-10: open again\" in place of the condition. A decision that supersedes it settles it too. It blocks anything new built on the decision. It waits on nothing."
   ]
 }

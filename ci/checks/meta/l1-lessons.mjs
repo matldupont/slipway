@@ -5,6 +5,7 @@
 // makes that statement checkable:
 //
 //   frontmatter/missing   no YAML frontmatter
+//   frontmatter/unreadable a header line holds a lone carriage return, which readers can split two ways (#495)
 //   field/missing         no `id`, `rule` or `enforcement.status`
 //   status/unknown        not one of: check structural artifact prose declined
 //   pointer/missing       every status except declined must say where the rule lives
@@ -28,7 +29,7 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter } from '../lib/frontmatter.mjs';
+import { frontmatter, isUnreadable } from '../lib/frontmatter.mjs';
 import { today as localToday } from '../lib/clock.mjs';
 import { report } from '../lib/report.mjs';
 
@@ -76,6 +77,7 @@ for (const f of files) {
   const add = (rule, detail) => findings.push({ where: `${f}#${rule}`, detail });
   const fm = frontmatter(readFileSync(join(dir, f), 'utf8'));
   if (!fm) { add('frontmatter/missing', 'no YAML frontmatter: start the file with the block shown in process/lessons/README.md'); continue; }
+  if (isUnreadable(fm)) { add('frontmatter/unreadable', 'a line in its frontmatter holds a carriage return with no line feed after it, so readers disagree on its keys: save the file with LF or CRLF line endings'); continue; }
 
   const enf = typeof fm.enforcement === 'object' ? fm.enforcement : {};
   const status = enf.status;

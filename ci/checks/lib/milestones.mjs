@@ -4,7 +4,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fold } from './feature-docs.mjs';
-import { frontmatter, hasPlaceholder, lineRest } from './frontmatter.mjs';
+import { frontmatter, hasPlaceholder, lineRest, withoutHeader } from './frontmatter.mjs';
 import { plain, prose, section, strictSection } from './markdown.mjs';
 import { UNSAFE } from './report.mjs';
 import { MISSING, notPlainFile, notPlainFolder } from './review-header.mjs';
@@ -225,7 +225,7 @@ export function noGos(md) {
 const TITLE = new RegExp(`^# ${MILESTONE_ID} — (.+)$`);
 function titleOf(md, fm) {
   if (fm.title) return fm.title;
-  const body = md.replace(/^---\r?\n[\s\S]*?\r?\n---/, '');
+  const body = withoutHeader(md);
   const first = body.split(/\r?\n/).find((l) => l.trim() !== '') ?? '';
   const title = first.match(TITLE)?.[1].trim();
   return title && !/[<>`[\]]/.test(title) ? title : null;

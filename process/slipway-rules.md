@@ -71,6 +71,7 @@ Each rule below is a lesson in `process/lessons/`, which records where it fires.
 - Before writing a new helper, component, hook or type, search for an existing one by behaviour and follow
   `docs/conventions.md`; cite what you found, or that you searched and found nothing, in the PR.
 - Search open PRs and issues for the same files before filing or starting work (L-19).
+- What a person reads follows `process/writing.md`: action first, the project's words, one idea per sentence.
 - A follow-up question asks for an explanation, not a change. Separate hard constraints from preferences;
   when something does change, say so (L-39).
 - Never rebase- or squash-merge a PR that others are stacked on; merge it with a merge commit, and read

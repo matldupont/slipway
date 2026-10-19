@@ -14,6 +14,7 @@
 //                               names both files
 //   companion/id-differs        the doc `companion-of:` names carries another F-<n>, or none; or the companion has no F-<n> heading
 //   feature/unreadable          a feature doc is a link or not a regular file, so its F-<n> cannot be read
+//   frontmatter/unreadable      a feature doc's header can be read two ways, so whether it is a companion cannot be (#495)
 //
 // What counts as a declaration. A line that starts (spaces, quote and list markers allowed, then 1–6 `#`) with the id:
 // `## D-014 — …`, `## D-014 — … *(open — week 1)*`, `### PD-3 — …`, `# F-12 — …`. An id quoted in a body paragraph is not
@@ -67,7 +68,7 @@ if (existsSync(decisionsPath)) {
 
 // feature docs: path → { ns (every F-<n> a heading of the doc carries; empty: none), companionOf }
 const docs = new Map();
-for (const { path, regular, folder, ns, companionOf } of readFeatureFiles(root)) {
+for (const { path, regular, folder, ns, companionOf, unreadable } of readFeatureFiles(root)) {
   if (folder) {
     findings.push({ where: `${path}#feature/unreadable`, detail: `${codeSpan(path)} is a link, sits under one or is not a folder, so ID1 reads none of the docs in it: make it a plain folder` });
     continue;
@@ -77,6 +78,10 @@ for (const { path, regular, folder, ns, companionOf } of readFeatureFiles(root))
     continue;
   }
   if (ns.length) scanned++;
+  if (unreadable) {
+    findings.push({ where: `${path}#frontmatter/unreadable`, detail: `a line in ${codeSpan(path)}'s frontmatter holds a carriage return with no line feed after it, so readers disagree on its keys: save the file with LF or CRLF line endings` });
+    continue;
+  }
   docs.set(path, { ns, companionOf });
 }
 
