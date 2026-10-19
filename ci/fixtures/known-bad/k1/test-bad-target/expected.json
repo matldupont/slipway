@@ -1,5 +1,5 @@
 {
-  "_note": "#477: each kind: test milestone whose tests: line cannot be what it runs. M1.1 (active) has no tests: line, M1.2 (closed) an empty one, M1.3 names a risk FRAME lacks, M1.4 a feasibility risk, M1.5 (shaping) a risk that already has a Result, M1.6 a word that is no RISK id, M1.7 (active) still a template placeholder, M1.11 a line over 500 characters, which is not read at all rather than cut mid-id. Not findings: M1.8 is shaping with the placeholder, M1.9 is killed, M1.10 is closed on a risk that now has its Result, the normal end. M1.1, M1.2, M1.7 and M1.10 are underway and name neither RISK-1 nor RISK-4, so each still holds both. Active and closed test milestones also name the decision that started them (D-047): M1.12 (active) names none, M1.13 (active) names PD-9, which decisions.md lacks, and M1.14 (active) names PD-2, which is still open. M1.15 is shaping, so it needs no decision yet. Every other active or closed test milestone here names PD-1.",
+  "_note": "#477: each kind: test milestone whose tests: line cannot be what it runs. M1.1 (active) has no tests: line, M1.2 (closed) an empty one, M1.3 names a risk FRAME lacks, M1.4 a feasibility risk, M1.5 (shaping) a risk that already has a Result, M1.6 a word that is no RISK id, M1.7 (active) still a template placeholder, M1.11 a line over 500 characters, which is not read at all rather than cut mid-id. Not findings: M1.8 is shaping with the placeholder, M1.9 is killed, M1.10 is closed on a risk that now has its Result, the normal end. M1.1, M1.2, M1.7 and M1.10 are underway and name neither RISK-1 nor RISK-4, so each still holds both. Active and closed test milestones also name the decision that started them (D-047): M1.12 (active) names none, M1.13 (active) names PD-9, which decisions.md lacks, and M1.14 (active) names PD-2, which is still open. M1.15 is shaping, so it needs no decision yet. Every other active or closed test milestone here names PD-1. A decision starts a test milestone only when it is marked decided or accepted and names that milestone: M1.16 names PD-3, decided but about something else, and M1.17 names PD-4, which was declined.",
   "exit": 1,
   "findings": [
     "M1.1#risk/test-target",
@@ -14,17 +14,21 @@
     "RISK-4#risk/unresolved",
     "M1.12#risk/test-target",
     "M1.13#risk/test-target",
-    "M1.14#risk/test-target"
+    "M1.14#risk/test-target",
+    "M1.16#risk/test-target",
+    "M1.17#risk/test-target"
   ],
   "details": {
     "M1.3#risk/test-target": "RISK-9 is not in FRAME",
     "M1.4#risk/test-target": "RISK-3 is not a value risk",
-    "M1.5#risk/test-target": "RISK-2 already has a Result",
+    "M1.5#risk/test-target": "RISK-2 already has a Result, so there is nothing left to test: close M1.5",
     "M1.6#risk/test-target": "\"soon\" is not a RISK-n id",
     "M1.7#risk/test-target": "template placeholder",
     "M1.11#risk/test-target": "longer than 500 characters",
     "M1.12#risk/test-target": "it names no decision",
     "M1.13#risk/test-target": "\"PD-9\" is not a decision heading",
-    "M1.14#risk/test-target": "PD-2 is still open"
+    "M1.14#risk/test-target": "PD-2 is not marked decided or accepted",
+    "M1.16#risk/test-target": "PD-3 does not name M1.16",
+    "M1.17#risk/test-target": "PD-4 is not marked decided or accepted"
   }
 }

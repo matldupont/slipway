@@ -140,6 +140,12 @@ test('an active test milestone passes K1 on its own risk, and status lists only 
     assert.match(k1().stdout, /M1\.1#risk\/test-unfinished/);
     assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · M1.1 underway with it untested — pnpm meta is red until it has a Result');
     set('M1.1-concierge.md', 'active');
+    // An existential RISK-1 due before M2: M1.1 runs its test, so status does not ask for it before M1.1.
+    const framePath = join(dir, 'docs', 'product', 'FRAME.md');
+    writeFileSync(framePath, readFileSync(framePath, 'utf8').replace('| value | no product |', '| value | Existential: no product |'));
+    writeFileSync(join(dir, 'docs', 'PRD.md'), '# PRD\n\nStatus: approved\nVersion: 1.0.0\n\n## 8. Risks\n\n| ID | Risk | Resolves by |\n|---|---|---|\n| RISK-1 | Group texts | before M2 |\n');
+    const st = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), dir], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-20', TZ: 'UTC' } }).stdout;
+    assert.doesNotMatch(st, /RISK-1 is existential and untested/);
     // A second milestone underway that is not the test milestone: K1 holds RISK-1 again, and status says so.
     set('M2-booking.md', 'active');
     const red = k1();

@@ -152,7 +152,8 @@ const riskFile = untracked.length ? ' File the issue that runs each untested one
 const deadlines = readDeadlines(prd);
 const idsOf = (pred) => ms.filter(pred).map((m) => milestoneId(m.id)).filter(Boolean).sort(compareMilestones);
 const skeletons = idsOf((m) => m.kind === 'skeleton');
-const bets = idsOf((m) => m.kind !== 'skeleton');
+// A test milestone is not a bet: it runs the test this warning asks for (#477).
+const bets = idsOf((m) => m.kind !== 'skeleton' && m.kind !== 'test');
 const firstBet = bets.length ? bets[0] : skeletons.length ? `M${milestoneKey(skeletons.at(-1))[0] + 1}` : null;
 const existential = deadlines && firstBet !== null
   ? risks.filter((r) => !r.tested && /^\W*existential\b/i.test(r.impact ?? '')).flatMap((r) => {

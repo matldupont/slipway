@@ -45,7 +45,9 @@
 //                          while shaping or active, a risk that already has a Result. A shaping milestone
 //                          whose `tests:` still holds a template placeholder is not read yet. Active or closed,
 //                          it names the decision that started it on a `decided: PD-<n>` (or D-<n>) line: a
-//                          heading in decisions.md that is not open. Declaring one is the owner's call (D-047).
+//                          heading in decisions.md marked decided or accepted, whose heading or text names this
+//                          milestone's id, so a decision taken for something else cannot start it. Declaring one
+//                          is the owner's call (D-047).
 //   risk/test-unfinished   it is closed, and a value risk it tests still has no Result
 //
 // Where the PRD's risk table has a `Resolves by` column, its deadlines hold too, for every category:
@@ -75,7 +77,7 @@ import { join } from 'node:path';
 import { frontmatter, hasPlaceholder } from '../lib/frontmatter.mjs';
 import { commentLines, plain, replaceComments, section } from '../lib/markdown.mjs';
 import { readDecisions } from '../lib/decisions.mjs';
-import { compareMilestones, readMilestones, TESTS_MAX, testsLine } from '../lib/milestones.mjs';
+import { compareMilestones, MILESTONE_ID, milestoneId, readMilestones, TESTS_MAX, testsLine } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
 import { EXPERIENCE, filled, readDeadlines, readRisks, TRACKER } from '../lib/risks.mjs';
 
@@ -172,6 +174,9 @@ for (const r of risks) {
 // Result. decisions.md is read only when there is a test milestone to check.
 let decisionsByKey;
 const decisionOf = (key) => (decisionsByKey ??= new Map(readDecisions(root).entries.map((e) => [e.key, e]))).get(key);
+// The milestone ids a decision's heading and text name, as the readers compare them (M01.1 is M1.1).
+const MILESTONE_WORD = new RegExp(`(?<![\\w.])${MILESTONE_ID}(?!\\w|\\.\\d)`, 'gi');
+const milestonesIn = (e) => new Set([e.text, ...e.body.map((b) => b.text)].flatMap((t) => [...t.matchAll(MILESTONE_WORD)].map((x) => milestoneId(x[0]))));
 for (const m of milestones.filter((x) => x.fm && ['shaping', 'active', 'closed'].includes(x.fm.status))) {
   const t = testsLine(m.fm);
   if (!t || (t.placeholder && m.fm.status === 'shaping')) continue;
@@ -187,7 +192,8 @@ for (const m of milestones.filter((x) => x.fm && ['shaping', 'active', 'closed']
     const e = id && decisionOf(`${id[1].toUpperCase()}-${Number(id[2])}`);
     if (!said) causes.push(`it names no decision: starting a test milestone is the owner's call, recorded in decisions.md and named on a decided: PD-<n> line`);
     else if (!e) causes.push(`decided: "${quote(said)}" is not a decision heading in decisions.md`);
-    else if (/\*\(open/i.test(e.text)) causes.push(`${e.id} is still open in decisions.md, so nothing has decided to run this test yet`);
+    else if (!/\*\((?:decided|accepted)\b/i.test(e.text)) causes.push(`${e.id} is not marked decided or accepted in decisions.md, so nothing has decided to run this test yet`);
+    else if (!milestonesIn(e).has(milestoneId(m.fm.id))) causes.push(`${e.id} does not name ${m.fm.id}: the decision that starts a test milestone says which one it starts`);
   }
   if (t.long) causes.push(`its tests: line is longer than ${TESTS_MAX} characters, so it is not read: name only the risk ids`);
   else if (!t.ids.length && !t.other.length) causes.push('it has no tests: line naming the value risks it runs (tests: RISK-1)');
@@ -197,7 +203,7 @@ for (const m of milestones.filter((x) => x.fm && ['shaping', 'active', 'closed']
     const r = risks.find((x) => (x.id ?? '').toUpperCase() === id);
     if (!r) causes.push(`${id} is not in FRAME's Risks table`);
     else if (!r.value) causes.push(`${id} is not a value risk, and K1 holds no milestone for one: test it without a test milestone`);
-    else if (r.tested && m.fm.status !== 'closed') causes.push(`${id} already has a Result, so there is nothing left to test`);
+    else if (r.tested && m.fm.status !== 'closed') causes.push(`${id} already has a Result, so there is nothing left to test: close ${m.fm.id} in the change that records it`);
     else if (!r.tested) untested.push(id);
   }
   if (causes.length) add(where, `a test milestone names, on its tests: line, untested value risks from FRAME, and on its decided: line the decision that started it: ${causes.join('; ')}`);
