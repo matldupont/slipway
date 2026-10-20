@@ -28,6 +28,8 @@ When <…situation…>, I want to <…motivation…>, so I can <…outcome…>.
 The situation is a moment, not a persona. The outcome is what changes in the person's life,
 not a feature.
 
+Front end: <…where people use this: a web app, a phone app — or none, for an API or a tool with no screens…>
+
 ## The question it answers
 
 <…the one question a user brings to the product, in their words…>
