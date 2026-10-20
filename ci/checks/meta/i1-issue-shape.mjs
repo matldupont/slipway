@@ -12,10 +12,17 @@
 //   seams/unanswered            person, channel or promise? not answered; silence is not `none`
 //   seams/none-without-reason   `none` with no reason
 //   seams/unenumerated          a person, channel or promise with no detail
+//   designation/trailer         (warning) the body's last non-empty line starts `Per `: a sentence after the
+//                               designation block, which the block is without (`process/intake.md` → Issue body)
 //   contract/missing            Links says Lane: feature, no Contract section
 //   contract/link-only          Contract has fewer than 8 non-link words — nothing copied in
 //   verify/missing              Links says Lane: feature, no Verify section
 //   verify/link-only            Verify has fewer than 8 non-link words — nothing copied in
+//
+// Seams is one field (the forms, #460): its first non-blank line is `none: <a reason of at least one word>`, or every
+// unindented line is a list item (`- ` or `* `), one per seam. Anything else is a finding, so the field fails closed
+// on its shape and no word count can pad past it. A body that still carries a `### Seams detail` heading, filed on the
+// old form, is read the old way: Seams, then its detail.
 //
 // WHY: an issue whose acceptance criteria cannot fail closes, then reopens. A conditional
 // rule — "answer seams whenever the feature adds a person…" — makes an absent section
@@ -69,6 +76,7 @@ function items(text) {
 const dir = process.argv[2] ?? '.';
 const bodies = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')).sort() : [];
 const findings = [];
+const warnings = [];
 
 for (const f of bodies) {
   const md = readFileSync(join(dir, f), 'utf8');
@@ -90,11 +98,27 @@ for (const f of bodies) {
   const seams = section(md, 'Seams', 3);
   const detail = section(md, 'Seams detail', 3);
   if (isNoResponse(seams)) {
-    findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none` with one line of why, or name them' });
+    findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none: <one line of why>`, or one list item per seam' });
+  } else if (!/^### Seams detail\s*$/m.test(md)) {
+    const lines = seams.split(/\r?\n/).filter((l) => l.trim());
+    if (/^none:\s*\S/i.test(lines[0])) {
+      // passes
+    } else if (lines.every((l) => /^\s/.test(l) || /^([-*])\s+\S/.test(l)) && /^([-*])\s+\S/.test(lines[0])) {
+      // passes
+    } else if (/^none\b[\s:.]*$/i.test(lines[0])) {
+      findings.push({ where: `${f}#seams/none-without-reason`, detail: '`none` needs a reason on the same line: `none: <one line of why>`' });
+    } else {
+      findings.push({ where: `${f}#seams/unenumerated`, detail: 'write `none: <one line of why>`, or one list item per seam: who pays, who is counted, who is told, what is promised' });
+    }
   } else if (/^none\b/i.test(seams)) {
     if (isNoResponse(detail)) findings.push({ where: `${f}#seams/none-without-reason`, detail: '`none` needs one line of why' });
   } else if (isNoResponse(detail)) {
     findings.push({ where: `${f}#seams/unenumerated`, detail: 'name who pays, who is counted, who is told, what is promised' });
+  }
+
+  const last = md.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).at(-1) ?? '';
+  if (/^Per /.test(last)) {
+    warnings.push({ where: `${f}#designation/trailer`, detail: 'the last line starts `Per `: the designation block is the code block alone, with no sentence after it (process/intake.md → Issue body)' });
   }
 
   const links = section(md, 'Links', 3);
@@ -117,5 +141,6 @@ process.exit(
     scanned: bodies.length,
     unit: 'issue bodies',
     findings,
+    warnings,
   })
 );

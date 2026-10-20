@@ -965,7 +965,7 @@ test('each log- skill names Touches: on its Links line (log-feature: Phase 5 and
 
 test('I1 accepts a feature body with and without a Touches: segment in Links', () => {
   const body = (links) =>
-    `### Problem\n\nA problem.\n\n### Acceptance\n\n- \`node scripts/skills.test.mjs\` exits 0\n\n### Contract\n\nThe contract, with enough words to count as written in the body itself rather than linked from elsewhere.\n\n### Verify\n\n\`\`\`\nnode scripts/skills.test.mjs      # the rule is in the intake file and each skill\nnode ci/checks/meta/i1-issue-shape.mjs <dir>   # both bodies pass\n\`\`\`\n\n### Seams\n\nnone\n\n### Seams detail\n\nnone: rules only, no person, channel or promise.\n\n### Out of scope\n\nNothing else.\n\n### Links\n\n${links}\n`;
+    `### Problem\n\nA problem.\n\n### Acceptance\n\n- \`node scripts/skills.test.mjs\` exits 0\n\n### Contract\n\nThe contract, with enough words to count as written in the body itself rather than linked from elsewhere.\n\n### Verify\n\n\`\`\`\nnode scripts/skills.test.mjs      # the rule is in the intake file and each skill\nnode ci/checks/meta/i1-issue-shape.mjs <dir>   # both bodies pass\n\`\`\`\n\n### Seams\n\nnone: rules only, no person, channel or promise.\n\n### Out of scope\n\nNothing else.\n\n### Links\n\n${links}\n`;
   const dir = mkdtempSync(join(tmpdir(), 'touches-'));
   try {
     writeFileSync(join(dir, 'without.md'), body('Part of: #156 · Lane: feature'));
