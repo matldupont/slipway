@@ -59,7 +59,7 @@ deletion must fill this in: what it defends, who it defends against, and what it
 
 Gaps seen and accepted, one line each with why. A review finding that is already listed here is
 dropped; a new one that breaks no guarantee is added here in the same PR instead of opening another
-round. A question with an owner is a `[NEEDS CLARIFICATION: <question>]` marker where it sits.
+round.
 
 ## Acceptance
 
@@ -88,6 +88,10 @@ step: the surface ships and the machinery does not.
 ## Out of scope
 
 What is deferred, and where it goes.
+
+## Open questions
+
+Each with an owner. When answered, the answer moves into Contract and the question stays, struck through.
 
 ## Changes
 

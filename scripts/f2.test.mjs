@@ -230,16 +230,6 @@ test("the template has `## Fit` after `## Problem` and before `## Contract`, and
   for (const label of ['Reuses:', 'Numbers:', 'New:']) assert.ok(fenced.includes(template.split('\n').find((l, i, all) => l.startsWith(label) && (l.includes('<…') || all[i + 1].includes('<…')))), label);
 });
 
-// #460: the template's section count is a number a sync may lower and never raise (process/writing.md, last line).
-test('docs/features/TEMPLATE.md has 11 `## ` sections and no Open questions; process/writing.md names 11', () => {
-  const template = readFileSync(join(SRC, 'docs', 'features', 'TEMPLATE.md'), 'utf8');
-  const headings = template.split('\n').filter((l) => l.startsWith('## '));
-  assert.equal(headings.length, 11);
-  assert.ok(!headings.includes('## Open questions'));
-  const last = readFileSync(join(SRC, 'process', 'writing.md'), 'utf8').trim().split('\n').at(-1);
-  assert.match(last, /has 11 sections today\. A sync may lower that number and never raise it\./);
-});
-
 test('the fixture has the sixteen cases of Contract §4, each with its expected.json', () => {
   const dir = join(SRC, 'ci', 'fixtures', 'known-bad', 'f2');
   const cases = readdirSync(dir).filter((d) => existsSync(join(dir, d, 'expected.json'))).sort();

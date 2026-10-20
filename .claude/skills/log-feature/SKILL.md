@@ -144,12 +144,12 @@ cases). Fill every section:
   endpoints and components touched, what is reused (Phase 3). Every claim about current code is re-read on the
   default branch: `Verified against: <sha> <date>` (L-18). A decision it rests on is stated in words, its id
   in brackets, so the copy in the issue reads without the log. Each decision Phase 3 listed is cited where it bears on the doc, the Contract included (a decision that changes the Contract later moves the `Version:`, D-041); one the run records gets an `Amends: F-{nn}` line.
-- **Seams:** person, channel, promise, answered; `none: <one line of why>`. A question with an owner is a `[NEEDS CLARIFICATION: <question>]` marker where it sits; in slipway's own tree, a line under Known limitations naming its owner, or an issue.
+- **Seams:** person, channel, promise, answered; `none: <one line of why>`.
 - **Threat model:** required when the feature adds a network call, a cache, a subprocess, stored secrets,
   user-supplied input or a deletion; otherwise `none beyond baseline`.
 - **Known limitations**, **Acceptance** (`Given / When / Then`, unhappy and empty states included),
   **Verify** (the exact commands and test paths), **Build map**, **Out of scope** (the deferrals, with where
-  each goes), **Changes** (the ADDED line, citing the
+  each goes), **Open questions** (each with an owner, or none), **Changes** (the ADDED line, citing the
   issue number once Phase 5 has it).
 
 With a `Domain invariants doc` and checked math touched: an acceptance line says which rule holds across all
