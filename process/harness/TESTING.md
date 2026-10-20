@@ -39,8 +39,10 @@ must print `"decision":"block"` naming the file and run nothing; restored, it mu
 printf '{}' | env -i HOME="$HOME" PATH=/usr/bin:/bin CLAUDE_PROJECT_DIR="$PWD" CLAUDE_CODE_SESSION_ID="$CLAUDE_CODE_SESSION_ID" sh -c "$(git cat-file blob "$(cat ~/.claude/slipway/sessions/$CLAUDE_CODE_SESSION_ID/base)":process/harness/hooks/base-guard.sh)" base-guard stop-verify.sh
 ```
 
-In a worktree (#481): start a new Claude Code session in a git worktree of the project (`git worktree add`). Its
-session folder must hold a `tree` file naming the worktree, not the main checkout:
+In a worktree (#481, #506): start a new session from the Claude desktop app's Code tab with its worktree option on, so
+the app makes the worktree. A shell `cd`'d into a worktree does not count: there the hook process starts in the
+worktree too, which hid #506. Its session folder must hold a `tree` file naming the worktree, not the main checkout,
+and its first SessionStart must not say the folder could not be read:
 `cat ~/.claude/slipway/sessions/$CLAUDE_CODE_SESSION_ID/tree`. Make a test fail in the main checkout only: the
 session's turn must end unblocked. Make one fail in the worktree only: its turn must block, and the failure shown must
 be the worktree's. Remove the worktree before a turn ends: the Stop hook must block once, saying the folder is gone.

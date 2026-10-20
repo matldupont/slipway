@@ -107,7 +107,10 @@ SessionStart pins only when the session has no pin and its `source` is `startup`
 that come with a new session id; a compaction or a resume never pins. The same SessionStart pins the session's
 **tree** (#481) beside it, in `tree`: the top of the folder the session started in when that is a git worktree of the
 project (the same git common dir), since Claude Code names the main checkout in `CLAUDE_PROJECT_DIR` there, and the
-project folder otherwise. Every hook checks that tree and runs with `CLAUDE_PROJECT_DIR` set to it, wherever the
+project folder otherwise. The folder the session started in is the `cwd` of the SessionStart input (#506), never the
+hook process's own folder, which the app may start in the main checkout. An input whose `cwd` the guard cannot read
+without parsing a string (missing, relative, escaped, or given twice) pins the project folder, and SessionStart says so
+in one sentence; in a worktree session that means its hooks check the main checkout. Every hook checks that tree and runs with `CLAUDE_PROJECT_DIR` set to it, wherever the
 agent's shell has moved since. The tree is written before the base, so every session this guard pins has one; a
 `tree` file that is missing or unreadable, or names a folder that is gone or no longer the project folder or a worktree
 top of the project, runs no hook, and the Stop hook blocks once to say so. Git older than 2.31 cannot print an absolute

@@ -218,7 +218,7 @@ test('on a git that prints --path-format back, another repository is not pinned 
   git('init', '-q', other);
   clean();
   unpin();
-  run('session-state.sh', JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' }), SID, env, other);
+  run('session-state.sh', JSON.stringify({ session_id: SID, cwd: other, hook_event_name: 'SessionStart', source: 'startup' }), SID, env);
   assert.equal(readFileSync(join(T, '.claude/slipway/sessions', SID, 'tree'), 'utf8'), `${realpathSync(work)}\n`, 'another repository was pinned as the tree');
   reset();
   run('stop-verify.sh', '{}', SID, env);

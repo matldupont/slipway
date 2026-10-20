@@ -27,8 +27,10 @@
 # pin, denies a scheduling, messaging, terminal or typing tool call that carries the phrase as a whole value.
 # The session's tree (#481): in a session that runs in a git worktree, CLAUDE_PROJECT_DIR names the main checkout. So
 # the SessionStart that pins the base also pins, in the session's `tree` file, the top of the folder it started in when
-# that is a worktree of the same repository (the same git common dir), and the project folder otherwise. Every hook then
-# checks that tree and runs its hooks with CLAUDE_PROJECT_DIR set to it. The tree is written before the base, so a
+# that is a worktree of the same repository (the same git common dir), and the project folder otherwise. That folder is
+# the `cwd` of the SessionStart input (#506): the hook process may start in the main checkout, so its own folder says
+# nothing. An input whose `cwd` cannot be read without parsing a string pins the project folder, and says so. Every
+# hook then checks that tree and runs its hooks with CLAUDE_PROJECT_DIR set to it. The tree is written before the base, so a
 # session this file pinned always has one (a session pinned earlier runs its own, older guard). A `tree` file that is
 # missing, cannot be read, or names a folder that is no longer the project folder or the top of a worktree of this
 # repository runs no hook: never another tree in its place.
@@ -58,18 +60,20 @@ fail() {
   exit 0
 }
 
-input=
+input= flat= note=
+# The hook's input, read without parsing a string. A quote inside a JSON string is always \", so `"<name>":` after `{`
+# or `,` is a real member, at any depth; `once` holds when there is exactly one. So a second one, nested in another
+# object, makes the member unreadable; a lone nested one is taken, and the SessionStart pin still checks its folder.
+m() { printf '%s' "$flat" | LC_ALL=C grep -Eq$2 "$1"; }
+once() { [ "$(printf '%s' "$flat" | LC_ALL=C grep -Eo "(^|[{,])[[:space:]]*\"$1\"[[:space:]]*:" | sed -n '$=')" = 1 ]; }
 case "$hook" in
   stop-verify.sh|intake-reminder.sh|lessons-first.sh|absence-search.sh) ;;
-  session-state.sh) input=$(cat) ;;
+  session-state.sh) input=$(cat); flat=$(printf '%s' "$input" | tr -d '\n\r') ;;
   trust-gates)
-    # The owner's message, and nothing else, says yes. A quote inside a JSON string is always \", so `"prompt":` after
-    # `{` or `,` is the real member, and its whole value must be the phrase: no string is parsed. Each of the two
-    # members is there once, so one nested in another object is not taken for the message's own. Checked before any
-    # git work; anything else (another event, a subagent, a longer message, pasted or relayed text) ends here.
-    input=$(tr -d '\n\r')
-    m() { printf '%s' "$input" | LC_ALL=C grep -Eq$2 "$1"; }
-    once() { [ "$(printf '%s' "$input" | LC_ALL=C grep -Eo "(^|[{,])[[:space:]]*\"$1\"[[:space:]]*:" | sed -n '$=')" = 1 ]; }
+    # The owner's message, and nothing else, says yes: `"prompt":`'s whole value must be the phrase. Each of the two
+    # members is there once. Checked before any git work; anything else (another event, a subagent, a longer message,
+    # pasted or relayed text) ends here.
+    input=$(tr -d '\n\r'); flat=$input
     once hook_event_name && once prompt || exit 0
     m '(^|[{,])[[:space:]]*"hook_event_name"[[:space:]]*:[[:space:]]*"UserPromptSubmit"[[:space:]]*([,}]|$)' || exit 0
     m '(^|[{,])[[:space:]]*"agent_id"[[:space:]]*:' && exit 0
@@ -89,8 +93,16 @@ if [ "$hook" = session-state.sh ] && [ ! -e "$state/base" ] && [ ! -L "$state/ba
   case "$input" in
     *'"source":"startup"'*|*'"source": "startup"'*|*'"source":"clear"'*|*'"source": "clear"'*|*'"source":"fork"'*|*'"source": "fork"'*)
       base=$(g rev-parse -q --verify 'refs/remotes/origin/HEAD^{commit}') || fail 'no origin/HEAD (git remote set-head origin --auto)'
-      # The tree first: a session whose tree could not be written gets no base either, so it runs no hook.
-      t=$(top .) && pc=$(common "$p") && [ -n "$pc" ] && [ "$(common "$t")" = "$pc" ] || t=$(top "$p")
+      # The tree first: a session whose tree could not be written gets no base either, so it runs no hook. The folder
+      # is the input's `cwd` (#506), never this process's own folder: one member, its value with no `\` or `"` in it,
+      # and absolute. Any other input pins the project folder and says so; a folder git places in no worktree of this
+      # repository pins it silently, as a session outside the project does.
+      cwd=
+      once cwd && m '(^|[{,])[[:space:]]*"cwd"[[:space:]]*:[[:space:]]*"[^"\\]*"[[:space:]]*([,}]|$)' &&
+        cwd=$(printf '%s' "$flat" | LC_ALL=C sed -nE 's/^(.*[{,])?[[:space:]]*"cwd"[[:space:]]*:[[:space:]]*"([^"\\]*)"[[:space:]]*([,}].*)?$/\2/p')
+      case "$cwd" in /*) ;; *) cwd= note="base-guard: this session's folder could not be read from its SessionStart input, so its hooks check the project folder, which in a worktree session is the main checkout." ;; esac
+      t= pc=$(common "$p")
+      [ -n "$cwd" ] && [ -n "$pc" ] && t=$(top "$cwd") && [ "$(common "$t")" = "$pc" ] || t=$(top "$p")
       case "$t" in /*) ;; *) fail 'the folder this session started in could not be pinned' ;; esac
       case "$t" in *"$nl"*) fail 'the folder this session started in could not be pinned' ;; esac
       (umask 077 && mkdir -p "$state" && set -C && printf '%s\n' "$t" >"$state/tree") 2>/dev/null || fail 'the folder this session started in could not be pinned'
@@ -111,7 +123,7 @@ held() {
       case "$input" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exit 0 ;; esac
       printf '{"decision":"block","reason":"stop-verify did not run: %s. Until then, say plainly that the gate did not run."}\n' "$1" ;;
     session-state.sh)
-      printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"session-state did not run: %s."}}\n' "$1" ;;
+      printf '{%s"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"session-state did not run: %s."}}\n' "${note:+\"systemMessage\":\"$note\",}" "$1" ;;
     trust-gates) printf '{"systemMessage":"base-guard: %s, so no yes was recorded."}\n' "$1" ;;
   esac
   exit 0
@@ -131,7 +143,21 @@ d=$t
 run() {
   CLAUDE_PROJECT_DIR=$d; export CLAUDE_PROJECT_DIR # the session's tree, for the hook and what it runs
   case "$hook" in
-    session-state.sh) printf '%s' "$input" | sh "$d/process/harness/hooks/$hook"; exit ;;
+    session-state.sh)
+      [ -z "$note" ] && { printf '%s' "$input" | sh "$d/process/harness/hooks/$hook"; exit; }
+      # The pin's sentence, where it keeps the output what it was: in session-state's one-line object, after plain
+      # text (no node), and on stderr for any other shape, left as it is.
+      out=$(printf '%s' "$input" | sh "$d/process/harness/hooks/$hook"); rc=$?
+      case "$out" in
+        *'{'*) case "$out" in
+            *"$nl"*|*'"systemMessage"'*) printf '%s\n' "$out"; printf '%s\n' "$note" >&2 ;;
+            '{"hookSpecificOutput":'*'}') printf '{"systemMessage":"%s",%s\n' "$note" "${out#\{}" ;;
+            *) printf '%s\n' "$out"; printf '%s\n' "$note" >&2 ;;
+          esac ;;
+        '') printf '%s\n' "$note" ;;
+        *) printf '%s\n%s\n' "$out" "$note" ;;
+      esac
+      exit "$rc" ;;
     stop-verify.sh|intake-reminder.sh|lessons-first.sh|absence-search.sh) exec sh "$d/process/harness/hooks/$hook" ;;
   esac
   exit 0

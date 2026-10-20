@@ -6,7 +6,7 @@
 // a project.
 
 import assert from 'node:assert/strict';
-import { appendFileSync, chmodSync, closeSync, openSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, unlinkSync, closeSync, openSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -39,7 +39,7 @@ const fresh = () => {
   git('-C', work, 'reset', '-q', '--hard', 'origin/main');
   git('-C', work, 'clean', '-q', '-ffdx');
   unpin();
-  run('session-state.sh', JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' }), SID, { PATH });
+  run('session-state.sh', JSON.stringify({ session_id: SID, cwd: work, hook_event_name: 'SessionStart', source: 'startup' }), SID, { PATH });
   assert.ok(existsSync(pinOf()), 'a new session did not pin origin/HEAD');
   rmSync(state, { recursive: true, force: true });
   reset();
@@ -195,9 +195,14 @@ test('a turn-end refresh that never returns is cut off after 20 s, and the Stop 
 // #481 — a session in a git worktree of the project. Claude Code names the main checkout in CLAUDE_PROJECT_DIR; the
 // guard pins the folder the session started in and checks that tree, never the main checkout. Last in this file: it
 // commits a workspace to the base, so verify has a package to run.
+// #506 — the session's folder is the input's `cwd`. The hook process runs in the main checkout, as it does in the app,
+// so a guard that read its own folder would pin the main checkout here.
 const wt = join(T, 'wt');
 const PIN = join(T, '.claude/slipway/sessions', SID, 'tree');
-const begin = (cwd) => (unpin(), run('session-state.sh', JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' }), SID, { PATH }, cwd));
+const opening = (cwd) => JSON.stringify({ session_id: SID, transcript_path: '/x.jsonl', cwd, hook_event_name: 'SessionStart', source: 'startup' });
+const startWith = (input) => (unpin(), run('session-state.sh', input, SID, { PATH }, work));
+const begin = (cwd) => startWith(opening(cwd));
+const FALLBACK = /^base-guard: this session's folder could not be read from its SessionStart input, so its hooks check the project folder/;
 const stopIn = (cwd, input = '{}') => run('stop-verify.sh', input, SID, { PATH }, cwd);
 const decision = (r) => JSON.parse(r.out.split('\n').find((l) => l.startsWith('{')) ?? '{}');
 let workspace = false;
@@ -258,9 +263,11 @@ test('a worktree session: SessionStart prints the worktree\'s state, and the gua
 test('a session started outside a worktree of the project pins the project folder, and runs as before', () => {
   const other = join(T, 'other');
   git('init', '-q', other);
-  for (const [why, cwd] of [['the main checkout', work], ['a folder in no repository', T], ['another repository', other]]) {
-    assert.equal(begin(cwd).status, 0, why);
+  for (const [why, cwd] of [['the main checkout', work], ['a folder in no repository', T], ['another repository', other], ['a folder that is not there', join(T, 'nowhere')]]) {
+    const r = begin(cwd);
+    assert.equal(r.status, 0, why);
     assert.equal(readFileSync(PIN, 'utf8'), `${realpathSync(work)}\n`, `${why}: the project folder was not pinned`);
+    assert.doesNotMatch(r.out, /could not be read from its SessionStart input/, `${why}: a folder that was read was called unreadable`);
   }
   worktree();
   writeFileSync(join(wt, 'RED'), '');
@@ -294,4 +301,97 @@ test('a pinned tree that is gone, no longer a worktree top, or a missing or unre
     run('lessons-first.sh', '{}', SID, { PATH });
     assert.deepEqual(marks(), [], `${why}: a hook ran`);
   }
+});
+
+test('the worktree is pinned from the input when the hook runs in the main checkout, through a link too', () => {
+  worktree(); // begin() runs the hook in the main checkout and names the worktree in the input
+  begin(join(wt, 'apps/a'));
+  assert.equal(readFileSync(PIN, 'utf8'), `${realpathSync(wt)}\n`, 'a subfolder of the worktree did not pin its top');
+  const link = join(T, 'wt-link');
+  try { unlinkSync(link); } catch {}
+  symlinkSync(wt, link);
+  assert.equal(begin(link).status, 0);
+  assert.equal(readFileSync(PIN, 'utf8'), `${realpathSync(wt)}\n`, 'a link to the worktree did not pin the worktree');
+  unlinkSync(link);
+});
+
+// An input the guard cannot read the folder from without parsing a string pins the project folder, and says so where
+// the owner sees it, in one fixed sentence that quotes nothing from the input.
+test('a cwd that is missing, relative, escaped or given twice pins the project folder, and SessionStart says so', () => {
+  worktree();
+  const plain = opening(wt);
+  for (const [why, input] of [
+    ['no cwd', JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' })],
+    ['a relative cwd', opening('wt')],
+    ['an escaped cwd', plain.replace(`"cwd":"${wt}"`, `"cwd":"${wt.replaceAll('/', '\\/')}"`)],
+    ['a quote in the cwd', opening(`${wt}"x`)],
+    ['a backslash after the first character', opening(`${wt}\\x`)],
+    ['two cwd members', plain.replace('"hook_event_name"', `"cwd":"${wt}","hook_event_name"`)],
+    ['a cwd nested in another member', plain.replace('"hook_event_name"', `"extra":{"cwd":"${T}"},"hook_event_name"`)],
+  ]) {
+    assert.notEqual(input, plain, `${why}: the case is the plain input`);
+    const r = startWith(input);
+    assert.equal(r.status, 0, why);
+    assert.equal(readFileSync(PIN, 'utf8'), `${realpathSync(work)}\n`, `${why}: the project folder was not pinned`);
+    const lines = r.out.split('\n').filter(Boolean);
+    assert.equal(lines.length, 1, `${why}: more than the one JSON line: ${r.out}`);
+    const out = JSON.parse(lines[0]);
+    assert.match(out.systemMessage, FALLBACK, why);
+    assert.ok(!out.systemMessage.includes(wt) && !out.systemMessage.includes(T), `${why}: the sentence quoted the input`);
+    assert.equal(out.hookSpecificOutput.hookEventName, 'SessionStart', `${why}: session-state's own output was lost`);
+  }
+});
+
+// The sentence goes in only where it keeps the output valid: spliced into session-state's one-line object, after plain
+// text, and on stderr for any other shape, which is left byte for byte as it was.
+test('the fallback sentence is spliced, appended or sent to stderr by the shape of session-state\'s output', () => {
+  worktree();
+  const missing = JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' });
+  const hook = join(work, 'process/harness/hooks/session-state.sh');
+  const real = readFileSync(hook, 'utf8');
+  const shaped = (body) => {
+    writeFileSync(hook, `#!/bin/sh\ncat >/dev/null\n${body}\n`);
+    git('-C', work, 'add', '-A');
+    commit('session-state, another shape');
+    git('-C', work, 'push', '-q', 'origin', 'main');
+    git('-C', work, 'remote', 'set-head', 'origin', 'main');
+    return spawnSync('/bin/sh', ['-c', commands.get('session-state.sh')], { input: missing, encoding: 'utf8', cwd: work, env: { PATH, HOME: T, CLAUDE_PROJECT_DIR: work, CLAUDE_CODE_SESSION_ID: SID } });
+  };
+  try {
+    unpin();
+    let r = shaped("printf '%s\\n' 'node is not on the hook PATH'");
+    assert.equal(r.stdout, `node is not on the hook PATH\n${r.stdout.split('\n')[1]}\n`);
+    assert.match(r.stdout.split('\n')[1], FALLBACK, 'plain text did not get the sentence as a line');
+    for (const body of [
+      `printf '%s\\n' '{"systemMessage":"already","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"x"}}'`,
+      `printf '%s\\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"x"},"systemMessage":"already"}'`,
+      `printf '%s\\n%s\\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart",' '"additionalContext":"x"}}'`,
+      `printf '%s\\n' '{"continue":true}'`,
+    ]) {
+      unpin();
+      r = shaped(body);
+      const want = spawnSync('/bin/sh', ['-c', body], { encoding: 'utf8' }).stdout;
+      assert.equal(r.stdout, want, `another shape was changed: ${body}`);
+      assert.match(r.stderr, /could not be read from its SessionStart input/, `the sentence did not go to stderr: ${body}`);
+    }
+  } finally {
+    writeFileSync(hook, real);
+    git('-C', work, 'add', '-A');
+    commit('session-state, real again');
+    git('-C', work, 'push', '-q', 'origin', 'main');
+  }
+});
+
+// A fallback session whose checkout's gate files differ from the base is held at SessionStart, the #506 symptom: the
+// held output carries the sentence too, as one JSON object.
+test('a held SessionStart in a fallback session says so in its systemMessage', () => {
+  worktree();
+  put('ci/extra.mjs', '// a gate file the base does not have\n');
+  const r = startWith(JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' }));
+  const lines = r.out.split('\n').filter(Boolean);
+  assert.equal(lines.length, 1, r.out);
+  const out = JSON.parse(lines[0]);
+  assert.match(out.systemMessage, FALLBACK);
+  assert.match(out.hookSpecificOutput.additionalContext, /^session-state did not run: .*Gate files: ci\/extra\.mjs/);
+  rmSync(join(work, 'ci/extra.mjs'));
 });
