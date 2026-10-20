@@ -121,9 +121,9 @@ for (const f of bodies) {
     const unindented = lines.filter((l) => !/^\s/.test(l));
     const kinds = unindented.map(kind);
     if (!marker.test(lines[0])) {
-      // the single line `none: <reason>`; any other line that is not a list item is the wrong shape
+      // the line `none: <reason>`, which may wrap onto lines that are not list items; a list item after it is the wrong shape
       if (kinds[0] === 'none') findings.push({ where: `${f}#seams/none-without-reason`, detail: NONE_REASON });
-      else if (kinds[0] !== 'none-ok' || unindented.length > 1) findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
+      else if (kinds[0] !== 'none-ok' || unindented.slice(1).some((l) => marker.test(l))) findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
     } else if (!unindented.every((l) => marker.test(l))) {
       findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
     } else if (kinds.includes('none')) {
