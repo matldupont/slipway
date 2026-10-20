@@ -4,10 +4,17 @@
 // id written exactly as the field writes it and compared as text, never as a pattern: `D-5` does not answer for `D-005`,
 // and `PD-1` does not answer for `PD-12`.
 //
-// With `decided: true` only a heading whose first status clause reads `*(decided …)*` or `*(accepted …)*` answers, as
-// testStart() in lib/decisions.mjs reads one: every project's decisions.md holds `## D-005 — Frontend framework
-// *(open — week 1)*`, and an open stub is no decision; a heading with no status, or one cut before it, fails closed.
-// MS1 reads without it for now (#513).
+// With `decided: true` the record is read through parseDecisions() (lib/decisions.mjs), the one reader of decisions.md
+// that ID1, DC1 and testStart() share: the entry with that exact id as written answers only when its heading's first
+// status clause reads `*(decided …)*` or `*(accepted …)*`. Every project's decisions.md holds `## D-005 — Frontend
+// framework *(open — week 1)*`, and an open stub is no decision; a heading with no status, or one cut before it, fails
+// closed. MS1 reads without it, on `## `/`### ` headings as it always has (#513).
+
+import { parseDecisions } from './decisions.mjs';
+
+// The record parsed once per text: status asks for each shaping milestone it reads.
+let last = null;
+const entriesOf = (md) => (last?.md === md ? last : (last = { md, entries: parseDecisions(md).entries })).entries;
 
 export const DECISION_REF = /^P?D-\d{1,9}$/;
 // decisions.md is a file a pull request carries: each line is cut before anything reads it.
@@ -17,19 +24,17 @@ const MAX = 500;
 export function resolveDecision(decisionsMd, value, { decided = false } = {}) {
   const id = typeof value === 'string' ? value.trim() : '';
   if (!DECISION_REF.test(id)) return { ok: false, why: 'not-an-id' };
-  let open = false;
+  if (decided) {
+    const entry = entriesOf(decisionsMd ?? '').find((e) => e.id === id);
+    return !entry ? { ok: false, why: 'missing' } : entry.decided ? { ok: true } : { ok: false, why: 'open' };
+  }
   for (const whole of (decisionsMd ?? '').split(/\r?\n/)) {
     const line = whole.slice(0, MAX);
     const hashes = line.startsWith('### ') ? 4 : line.startsWith('## ') ? 3 : 0;
     if (!hashes) continue;
     const rest = line.slice(hashes).trimStart();
     if (!rest.startsWith(id) || /[\w-]/.test(rest[id.length] ?? '')) continue;
-    const status = rest.indexOf('*(');
-    if (decided && !(status >= 0 && /^(?:decided|accepted)\b/i.test(rest.slice(status + 2, status + 12)))) {
-      open = true;
-      continue;
-    }
     return { ok: true };
   }
-  return { ok: false, why: open ? 'open' : 'missing' };
+  return { ok: false, why: 'missing' };
 }

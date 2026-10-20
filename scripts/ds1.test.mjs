@@ -9,6 +9,7 @@ import { mkdirSync, mkdtempSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { resolveDecision } from '../ci/checks/lib/decision-ref.mjs';
 import { A11Y, DESIGN, ds1, entry, files, frame, milestone, write } from './lib/ds1.mjs';
 import { done, run, SRC } from './lib/lk1-lockfile.mjs';
 import { spawnSync } from 'node:child_process';
@@ -257,4 +258,18 @@ test('pnpm status names a shaping milestone whose id is not M<n> in words, never
   } finally {
     done(dir);
   }
+});
+
+test('a decision id answers only for its own heading: PD-1 is not ## PD-12, for MS1\'s extended: and DS1\'s design: alike (round 1 of PR #512)', () => {
+  const md = '# Decisions\n\n## PD-12 — Twelve *(decided 2026-10-01)*\n';
+  assert.deepEqual(resolveDecision(md, 'PD-1'), { ok: false, why: 'missing' });
+  assert.deepEqual(resolveDecision(md, 'PD-12'), { ok: true });
+  assert.deepEqual(resolveDecision(md, 'PD-1', { decided: true }), { ok: false, why: 'missing' });
+  assert.deepEqual(resolveDecision(md, 'PD-12', { decided: true }), { ok: true });
+});
+
+test('an entry that excuses nothing does not excuse its active milestone: the Gate line is still owed (round 1 of PR #512)', () => {
+  const r = ds1(files({ milestones: { 'M2.md': milestone({ contents: [DESIGN], gate: ['`pnpm verify` green on main'] }) }, entries: [entry('M2', { reason: null })] }));
+  assert.deepEqual(ids(r), ['accessibility/entry:M2', 'gate/accessibility:M2']);
+  assert.deepEqual(r.json.exempted, []);
 });
