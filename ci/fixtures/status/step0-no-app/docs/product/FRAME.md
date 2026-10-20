@@ -23,3 +23,5 @@ Where do I need to be tomorrow, and who hasn't paid?
 | RISK-5 | Walkers want invoices | value | wasted build | interviews | 3 of 5 ask | | |
 | RISK-6 | A walk fits one slot | value | wrong model | calendar audit | 9 of 10 walks | | #9 |
 | RISK-7 | Slot conflicts resolve fast enough | feasibility | rewrite | spike | p95 < 200 ms | | |
+
+Front end: none (a status fixture)

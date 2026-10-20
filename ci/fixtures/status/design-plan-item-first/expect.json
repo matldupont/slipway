@@ -1,0 +1,10 @@
+{
+  "_note": "F-14 §4: the design item as item 1 of a shaping M2, M3 shaping after it, both with their Gate line: no design line for either (a design item in a shaping milestone counts for a plan).",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Start item 1 of M1 in a fresh session with /log-feature M1#1. It reads \"Sign-in and the core action (no feature: skeleton)\". Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2, M3 activation",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}

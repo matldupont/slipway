@@ -85,3 +85,5 @@ started; every untested value risk needs one once a milestone is underway.
 | RISK-1 | <…> | value | <…> | <…> | <…> | | |
 
 Evidence — interview notes and test results — lives in `docs/product/evidence/`.
+
+Front end: none (a status fixture)

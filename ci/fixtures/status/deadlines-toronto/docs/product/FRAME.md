@@ -34,3 +34,5 @@ Where do I need to be tomorrow, and who hasn't paid?
 Use `a` or `b`. [NEEDS CLARIFICATION: which store?] See `c`.
 
 Pick `a` or `b`: [PARKED: which one? · assume: `a` · if wrong: none · #3] then `c`.
+
+Front end: none (a status fixture)

@@ -18,3 +18,5 @@ Where do I need to be tomorrow, and who hasn't paid?
 |---|---|---|---|---|---|---|---|
 | RISK-1 | Walkers will leave group texts | value | no product | concierge test | 3 of 5 re-engage | | #9 |
 | RISK-2 | Slot conflicts resolve fast enough | feasibility | rewrite | spike | p95 < 200 ms | | |
+
+Front end: none (a status fixture)

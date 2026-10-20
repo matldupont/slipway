@@ -18,3 +18,5 @@ Where do I need to be tomorrow, and who hasn't paid?
 |---|---|---|---|---|---|---|---|
 | RISK-1 | Walkers will leave group texts | value | no product | concierge test | 3 of 5 re-engage | 4 of 5 — met | #2 |
 | RISK-5 | Walkers want invoices | value | wasted build | interviews | 3 of 5 ask | | |
+
+Front end: none (a status fixture)

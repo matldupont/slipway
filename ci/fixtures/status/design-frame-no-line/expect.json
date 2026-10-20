@@ -1,0 +1,11 @@
+{
+  "_note": "F-14 §4: an active skeleton whose frame has no Front end: line: status says to write it, and holds no milestone to anything until it is written.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Start item 1 of M1 in a fresh session with /log-feature M1#1. It reads \"Sign-in and the core action (no feature: skeleton)\". Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
+    "docs/product/FRAME.md does not say where people use the product: write its Front end: line"
+  ]
+}
