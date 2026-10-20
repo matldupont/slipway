@@ -37,7 +37,8 @@ cannot carry the skeleton is cheap to change now and expensive in month three.
 
 ## No-gos
 
-- Styling beyond design tokens. No component library.
+- Styling beyond design tokens, and no component library: these screens are rebuilt to the design, which lands in
+  <…the milestone that holds the design item, and the item's number…>.
 - A second feature, however small.
 - Performance work, caching, admin tooling.
 
@@ -51,6 +52,8 @@ cannot carry the skeleton is cheap to change now and expensive in month three.
 - The end-to-end test passes against the production URL, in CI.
 - An analytics event from that test is visible in production analytics.
 - The acceptance run in BOOTSTRAP §3 is complete.
+- Screens built here meet WCAG 2.2 AA, held by
+  <…what goes red: an automated accessibility check in CI, a keyboard and screen-reader pass in docs/qa/…>.
 
 ## Kill criteria
 
