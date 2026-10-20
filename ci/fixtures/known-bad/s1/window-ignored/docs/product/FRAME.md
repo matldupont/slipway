@@ -17,3 +17,5 @@ Where do I need to be tomorrow, and who hasn't paid?
 | ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result | Tracker |
 |---|---|---|---|---|---|---|---|
 | RISK-1 | Walkers will pay monthly | value | no business | fake door | 3% click | | #8 |
+
+Front end: none (a status fixture)
