@@ -1,0 +1,29 @@
+{
+  "_note": "One entry per clause of accessibility/entry (0.3 AR-8): no reason (M2), no owner (M3), a day that is not a real day (M4), a milestone that is not there (M9), a shaping one (M5), a killed one (M6), one that has the line (M7), one under screens: none (M8), and an id of the wrong form, which is still DS1's (0.3 AR-1). No milestone is active.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "ci/exceptions.yaml#accessibility/entry:M2",
+    "ci/exceptions.yaml#accessibility/entry:M3",
+    "ci/exceptions.yaml#accessibility/entry:M4",
+    "ci/exceptions.yaml#accessibility/entry:M9",
+    "ci/exceptions.yaml#accessibility/entry:M5",
+    "ci/exceptions.yaml#accessibility/entry:M6",
+    "ci/exceptions.yaml#accessibility/entry:M7",
+    "ci/exceptions.yaml#accessibility/entry:M8",
+    "ci/exceptions.yaml#accessibility/entry:M2/accesibility"
+  ],
+  "details": {
+    "ci/exceptions.yaml#accessibility/entry:M2": "has no reason",
+    "ci/exceptions.yaml#accessibility/entry:M3": "has no owner",
+    "ci/exceptions.yaml#accessibility/entry:M4": "is not a real day",
+    "ci/exceptions.yaml#accessibility/entry:M9": "no milestone in docs/milestones/ has id M9",
+    "ci/exceptions.yaml#accessibility/entry:M5": "M5 is shaping",
+    "ci/exceptions.yaml#accessibility/entry:M6": "M6 is killed",
+    "ci/exceptions.yaml#accessibility/entry:M7": "M7's Gate already says",
+    "ci/exceptions.yaml#accessibility/entry:M8": "builds no screens (screens: none)",
+    "ci/exceptions.yaml#accessibility/entry:M2/accesibility": "its id must be docs/milestones#<milestone id>/accessibility"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "_note": "The entry excusing active M2's line ended today: it is overdue, and M2's line is owed again.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "ci/exceptions.yaml#accessibility/overdue:M2",
+    "docs/milestones/M2.md#gate/accessibility:M2"
+  ],
+  "details": {
+    "ci/exceptions.yaml#accessibility/overdue:M2": "ended 2026-10-19",
+    "docs/milestones/M2.md#gate/accessibility:M2": "M2's Gate does not say"
+  }
+}

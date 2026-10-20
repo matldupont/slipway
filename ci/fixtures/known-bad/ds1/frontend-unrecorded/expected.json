@@ -1,0 +1,13 @@
+{
+  "_note": "A project synced from before this release: its frame has no Front end: line, and M2 is active. DS1 cannot tell whether it has screens, so it says to write the line.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/product/FRAME.md#frontend/unrecorded"
+  ],
+  "details": {
+    "docs/product/FRAME.md#frontend/unrecorded": "has no Front end: line"
+  }
+}

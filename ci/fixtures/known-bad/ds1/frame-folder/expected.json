@@ -1,0 +1,8 @@
+{
+  "_note": "docs/product/FRAME.md is a folder: where people use the product cannot be read, so DS1 is BROKEN, never a pass.",
+  "exit": 2,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "broken": "docs/product/FRAME.md is not a regular file"
+}

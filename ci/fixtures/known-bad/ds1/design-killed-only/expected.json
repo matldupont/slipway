@@ -1,0 +1,13 @@
+{
+  "_note": "The only design item is in a killed M2: its work stopped, so it is not design before M3.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M3.md#design/missing:M3"
+  ],
+  "details": {
+    "docs/milestones/M3.md#design/missing:M3": "no design item before M3"
+  }
+}

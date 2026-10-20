@@ -1,0 +1,13 @@
+{
+  "_note": "The template's accessibility line, its placeholder unfilled, is no accessibility line.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M2.md#gate/accessibility:M2"
+  ],
+  "details": {
+    "docs/milestones/M2.md#gate/accessibility:M2": "does not say how its screens meet WCAG 2.2 AA"
+  }
+}

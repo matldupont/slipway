@@ -1,0 +1,13 @@
+{
+  "_note": "design: names PD-9, which decisions.md has no heading for. design/missing is not reported beside it: the field is the answer the owner gave, and it is wrong.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M2.md#design/unresolved:M2"
+  ],
+  "details": {
+    "docs/milestones/M2.md#design/unresolved:M2": "PD-9 is not a heading in decisions.md"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "_note": "M2 closed with no accessibility line under an entry whose day has passed: closing a milestone does not end its entry. M3 is active with its item and its line.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "ci/exceptions.yaml#accessibility/overdue:M2"
+  ],
+  "details": {
+    "ci/exceptions.yaml#accessibility/overdue:M2": "ended 2026-10-01"
+  }
+}
