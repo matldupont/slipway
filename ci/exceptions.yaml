@@ -25,4 +25,16 @@
 #     reason: the fork carries a fix the registry release lacks (acme/fork#12)
 #     owner: build lead
 #     expires: 2026-12-31
+#
+# It also stands in for a milestone's accessibility line while its screens cannot yet show how they meet
+# WCAG 2.2 AA (DS1, dev/features/design-before-screens.md §3). Its id is `docs/milestones#<milestone id>/accessibility`,
+# one milestone per entry, and it needs a reason, an owner and a real future day. DS1 reads it whatever the
+# milestone's status, so the build goes red on that day, after the milestone has closed too, until the line is
+# written under that milestone's ## Gate with what holds it and the entry removed. Every id starting
+# `docs/milestones#` is DS1's to judge; FO1 skips them.
+#
+#   - id: docs/milestones#M2/accessibility
+#     reason: the sign-in form has no automated check yet; an axe run in CI holds it from the next slice
+#     owner: build lead
+#     expires: 2026-12-01
 exceptions: []

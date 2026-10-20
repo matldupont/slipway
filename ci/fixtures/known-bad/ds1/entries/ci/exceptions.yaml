@@ -1,0 +1,36 @@
+exceptions:
+  - id: docs/milestones#M2/accessibility
+    owner: build lead
+    expires: 2026-12-01
+  - id: docs/milestones#M3/accessibility
+    reason: the sign-in form has no automated check yet
+    owner: ~
+    expires: 2026-12-01
+  - id: docs/milestones#M4/accessibility
+    reason: the sign-in form has no automated check yet
+    owner: build lead
+    expires: 2026-02-30
+  - id: docs/milestones#M9/accessibility
+    reason: the sign-in form has no automated check yet
+    owner: build lead
+    expires: 2026-12-01
+  - id: docs/milestones#M5/accessibility
+    reason: the sign-in form has no automated check yet
+    owner: build lead
+    expires: 2026-12-01
+  - id: docs/milestones#M6/accessibility
+    reason: the sign-in form has no automated check yet
+    owner: build lead
+    expires: 2026-12-01
+  - id: docs/milestones#M7/accessibility
+    reason: the sign-in form has no automated check yet
+    owner: build lead
+    expires: 2026-12-01
+  - id: docs/milestones#M8/accessibility
+    reason: the sign-in form has no automated check yet
+    owner: build lead
+    expires: 2026-12-01
+  - id: docs/milestones#M2/accesibility
+    reason: the sign-in form has no automated check yet
+    owner: build lead
+    expires: 2026-12-01

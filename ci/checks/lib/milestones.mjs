@@ -208,9 +208,13 @@ export function marker(text) {
 // Bullets under `## No-gos`: a line starting `-` or `*` opens one; indented lines continue it. Read from the prose
 // only, and the heading must start its line, so a `## No-gos` in a code fence, a comment or indented under another
 // section's list is never taken for the section. It ends at the next `#` or `##` heading that starts a line.
-export function noGos(md) {
+export const noGos = (md) => bullets(strictSection(prose(md), 'No-gos', 2));
+
+// The bullets of a section's text: a line starting `-` or `*` opens one, and its indented lines are joined to it with
+// one space. Shared by noGos() and the accessibility line under Gate (lib/design.mjs).
+export function bullets(text) {
   const items = [];
-  for (const line of (strictSection(prose(md), 'No-gos', 2) ?? '').split(/\r?\n/)) {
+  for (const line of (text ?? '').split(/\r?\n/)) {
     // `- text`, as /^[-*]\s+(.*)$/ reads it, without that pattern's retry from every space of a long line.
     const rest = /^[-*]\s/.test(line) ? lineRest(line.slice(1)) : null;
     if (rest !== null) items.push(rest);

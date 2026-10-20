@@ -19,3 +19,5 @@ Where do I need to be tomorrow, and who hasn't paid?
 | RISK-1 | Walkers will leave group texts | value | no product | concierge test | 3 of 5 re-engage | 4 of 5 — met | #2 |
 | RISK-2 | Clients will book in the app | value | walkers re-key texts | diary study | 3 of 5 | | |
 | RISK-3 | Walkers will pay monthly | value | no business | fake door | 3% click | | |
+
+Front end: none (a status fixture)

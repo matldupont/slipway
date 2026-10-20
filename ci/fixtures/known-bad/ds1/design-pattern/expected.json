@@ -1,0 +1,13 @@
+{
+  "_note": "design: .* is no decision id, so it is never looked up, though decisions.md has headings a pattern would match (0.2 AR-4).",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M2.md#design/unresolved:M2"
+  ],
+  "details": {
+    "docs/milestones/M2.md#design/unresolved:M2": "is not a decision id"
+  }
+}

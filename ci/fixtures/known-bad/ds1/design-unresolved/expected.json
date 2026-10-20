@@ -1,0 +1,15 @@
+{
+  "_note": "design: names PD-9, which decisions.md has no heading for, and the Gate has no WCAG 2.2 AA line: design/unresolved and gate/accessibility both (the acceptance: \"design/unresolved:<id> too\"). design/missing is not reported beside it: the field is the answer the owner gave, and it is wrong.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M2.md#design/unresolved:M2",
+    "docs/milestones/M2.md#gate/accessibility:M2"
+  ],
+  "details": {
+    "docs/milestones/M2.md#design/unresolved:M2": "PD-9 is not a heading in decisions.md",
+    "docs/milestones/M2.md#gate/accessibility:M2": "M2's Gate does not say"
+  }
+}

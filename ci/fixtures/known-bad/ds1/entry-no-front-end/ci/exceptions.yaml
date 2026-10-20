@@ -1,0 +1,5 @@
+exceptions:
+  - id: docs/milestones#M2/accessibility
+    reason: the sign-in form has no automated check yet
+    owner: build lead
+    expires: 2026-12-01

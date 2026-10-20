@@ -1,0 +1,13 @@
+{
+  "_note": "The design item sits below an item that is not started: work still to start comes before it.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M2.md#design/missing:M2"
+  ],
+  "details": {
+    "docs/milestones/M2.md#design/missing:M2": "no design item before M2"
+  }
+}

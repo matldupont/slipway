@@ -1,0 +1,13 @@
+{
+  "_note": "screens: holds a word that is not none: a finding, never a pass.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M2.md#screens/unknown:M2"
+  ],
+  "details": {
+    "docs/milestones/M2.md#screens/unknown:M2": "screens: is \"partly\""
+  }
+}

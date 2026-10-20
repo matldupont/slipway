@@ -20,7 +20,10 @@ import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
 import { decisionLines } from './checks/lib/decision-lines.mjs';
+import { resolveDecision } from './checks/lib/decision-ref.mjs';
 import { readDecisions, testStart } from './checks/lib/decisions.mjs';
+import { designBefore, hasAccessibilityLine } from './checks/lib/design.mjs';
+import { frontEnd } from './checks/lib/frame.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
@@ -160,6 +163,26 @@ const frees = (m, r) => Boolean(testStart(m, decisionOf)?.released.includes((r.i
 const ms = milestones.filter((m) => m.fm?.id).map((m) => ({ ...m.fm, file: m.file, md: m.md, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));
 const active = ms.filter((m) => m.status === 'active');
 const cur = active[0];
+// Design before screens (F-14 §4), asked of a plan: DS1 holds the active milestone, status says what each shaping one in a
+// front-end project has no place for yet. A design item counts in any earlier milestone but a killed one, a shaping one
+// included (lib/design.mjs designBefore()). A frame still holding the template's line is unfinished, and Next already
+// sends its owner to /kickoff, which asks; with the front end unrecorded no milestone is held to anything.
+const fe = frameMd ? frontEnd(frameMd) : null;
+const designLines = (() => {
+  if (fe?.state === 'unrecorded') return fe.why === 'placeholder' ? [] : ['docs/product/FRAME.md does not say where people use the product: write its Front end: line'];
+  if (fe?.state !== 'screens') return [];
+  return milestones
+    .filter((m) => m.fm?.id && m.fm.status === 'shaping' && !(typeof m.fm.screens === 'string' && m.fm.screens.trim().toLowerCase() === 'none'))
+    .flatMap((m) => {
+      // An id is printed only in the shape the skills accept, else in words (milestoneRef below).
+      const id = milestoneId(m.fm.id) ?? 'A shaping milestone';
+      const named = typeof m.fm.design === 'string' && resolveDecision(decisions, m.fm.design, { decided: true }).ok;
+      return [
+        ...(m.fm.kind !== 'skeleton' && !named && !designBefore(m, milestones, ['shaping', 'active', 'closed']) ? [`${id} has no design item before it: add one to an earlier milestone, or as its item 1`] : []),
+        ...(hasAccessibilityLine(m.md) ? [] : [`${id}'s Gate does not say how its screens meet WCAG 2.2 AA: write the line with what holds it, or set screens: none`]),
+      ];
+    });
+})();
 const curAppetite = cur && parseAppetite(cur.appetite);
 // What an untested value risk holds back: K1 refuses any milestone past the skeleton until it has a Result, except a
 // test milestone for the risks its `tests:` line names (#477) until it closes; every other untested value risk still holds it.
@@ -433,6 +456,7 @@ const attention = [
   ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result.`] : []),
   ...((riskNamed || (cur && untestedValue.length)) && untracked.length ? ['File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.'] : []),
   ...registerLines,
+  ...designLines,
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions,
   ...owedDecisions,

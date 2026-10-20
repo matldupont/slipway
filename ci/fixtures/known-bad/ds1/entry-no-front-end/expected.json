@@ -1,0 +1,16 @@
+{
+  "_note": "Front end: none closes every milestone finding, but not an entry: one that excuses nothing is still reported (0.3 AR-5).",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "ci/exceptions.yaml#accessibility/entry:M2"
+  ],
+  "exempted": [
+    "M2: front end: none"
+  ],
+  "details": {
+    "ci/exceptions.yaml#accessibility/entry:M2": "the frame says Front end: none"
+  }
+}

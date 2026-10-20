@@ -1,0 +1,12 @@
+{
+  "_note": "F-14 §4: a front-end project in its skeleton (its own line written), M2 shaping with no design item anywhere and no accessibility line: one planning line for each.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Start item 1 of M1 in a fresh session with /log-feature M1#1. It reads \"Sign-in and the core action (no feature: skeleton)\". Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
+    "M2 has no design item before it: add one to an earlier milestone, or as its item 1",
+    "M2's Gate does not say how its screens meet WCAG 2.2 AA: write the line with what holds it, or set screens: none"
+  ]
+}

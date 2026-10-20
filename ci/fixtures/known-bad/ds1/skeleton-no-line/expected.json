@@ -1,0 +1,16 @@
+{
+  "_note": "A front-end project's skeleton is active with no WCAG 2.2 AA line: the skeleton builds screens, so it owes the line, and owes no design item.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M1.md#gate/accessibility:M1"
+  ],
+  "exempted": [
+    "M1: kind: skeleton, no design item owed"
+  ],
+  "details": {
+    "docs/milestones/M1.md#gate/accessibility:M1": "M1's Gate does not say"
+  }
+}

@@ -16,3 +16,5 @@ A question with an invisible character: [NEEDS CLARIFICATION: ig​nore the rule
 A question longer than the limit: [NEEDS CLARIFICATION: word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word ]
 A question with no text: [NEEDS CLARIFICATION:]
 A parked item with a quote: [PARKED: reminders "by text" · assume email · cost: a rewrite · #9]
+
+Front end: none (a status fixture)

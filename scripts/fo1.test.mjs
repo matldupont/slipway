@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { done, run } from './lib/lk1-lockfile.mjs';
+import { done, lk1, lockfile, project, run } from './lib/lk1-lockfile.mjs';
 
 const fo1 = (workflow, registry = null) => {
   const dir = mkdtempSync(join(tmpdir(), 'fo1-'));
@@ -178,6 +178,23 @@ test('a dated entry excuses a filtered gate; an entry for a gate that is covered
   assert.deepEqual(expired.json.findings.map((f) => f.where).sort(), ['.github/workflows/a.yml#on.push', 'registry:.github/workflows/a.yml#on.push']);
   const covered = fo1Files({ ...files, 'ci.yml': flow('  push:\n    branches: [main]') }, entry('.github/workflows/a.yml#on.push', '2026-12-31'));
   assert.deepEqual(covered.json.findings.map((f) => f.where), ['registry:.github/workflows/a.yml#on.push']);
+});
+
+test('an entry whose id starts docs/milestones# is DS1\'s: FO1 and LK1 report none of them, and FO1 still reports a stale entry of its own (F-14 §3)', () => {
+  const entry = (id, expires = '2026-12-31') => `  - id: ${id}\n    reason: r\n    owner: o\n    expires: ${expires}\n`;
+  // Well formed, malformed and past its day: each is DS1's to judge, so neither FO1 nor LK1 names it.
+  const ds1 = [entry('docs/milestones#M2/accessibility'), entry('docs/milestones#M2'), entry('docs/milestones#M3/accessibility', '2026-01-01')].join('');
+  const registry = `exceptions:\n${ds1}${entry('.github/workflows/ci.yml#a/b')}`;
+  const r = fo1(wrap('      - run: echo\n'), registry);
+  assert.deepEqual(r.json.findings.map((f) => f.where), ['registry:.github/workflows/ci.yml#a/b'], r.out);
+  const dir = project({ 'pnpm-lock.yaml': lockfile(), 'ci/exceptions.yaml': `exceptions:\n${ds1}` });
+  try {
+    const l = lk1(dir, { CHECK_TODAY: '2026-09-10' });
+    assert.equal(l.status, 0, l.out);
+    assert.deepEqual(l.json.findings, []);
+  } finally {
+    done(dir);
+  }
 });
 
 test('a gate a tag, a schedule or a manual run starts is not a run on a change: it does not cover a filtered one', () => {

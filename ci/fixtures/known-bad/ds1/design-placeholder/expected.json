@@ -1,0 +1,13 @@
+{
+  "_note": "The only design item is still a placeholder, so it is no design item.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M2.md#design/missing:M2"
+  ],
+  "details": {
+    "docs/milestones/M2.md#design/missing:M2": "no design item before M2"
+  }
+}

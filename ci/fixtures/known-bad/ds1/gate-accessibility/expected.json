@@ -1,0 +1,13 @@
+{
+  "_note": "M2 has its design item and no WCAG 2.2 AA line under its Gate, and no entry excuses it.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-10-19"
+  },
+  "findings": [
+    "docs/milestones/M2.md#gate/accessibility:M2"
+  ],
+  "details": {
+    "docs/milestones/M2.md#gate/accessibility:M2": "M2's Gate does not say how its screens meet WCAG 2.2 AA"
+  }
+}

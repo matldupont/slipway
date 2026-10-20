@@ -18,7 +18,8 @@
 //   retro/missing          a closed or killed milestone has no Retro
 //   appetite/overrun       active past the last day of its appetite, with no extension — the
 //                          circuit breaker: by default a bet does not get more time
-//   extended/unresolved    `extended: PD-<n>` names a decision decisions.md does not hold
+//   extended/unresolved    `extended:` is not a decision id (PD-<n> or D-<n>), or names one decisions.md
+//                          has no heading for
 //   wip/exceeded           more than one milestone is active
 //   template/fields        TEMPLATE.md lost a field or section MS1 reads
 //   file/unreadable        a `*.md` in docs/milestones/ that is a link, a folder or another entry that is not a
@@ -73,6 +74,7 @@ import { plain, section, table } from '../lib/markdown.mjs';
 import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
 import { codeSpan, excerpt, report } from '../lib/report.mjs';
+import { resolveDecision } from '../lib/decision-ref.mjs';
 
 const REQUIRED_SECTIONS = ['No-gos', 'Gate', 'Kill criteria'];
 const TEMPLATE_KEYS = ['id', 'status', 'kind', 'appetite'];
@@ -82,7 +84,9 @@ const today = localToday(root);
 const { dir, files, milestones, refused } = readMilestones(root);
 const decisionsPath = join(root, 'decisions.md');
 const decisions = existsSync(decisionsPath) ? readFileSync(decisionsPath, 'utf8') : '';
-const hasDecision = (id) => new RegExp(`^#{2,3}\\s+${id}\\b`, 'm').test(decisions);
+// `extended:` must be a decision id with a heading in decisions.md (lib/decision-ref.mjs): `extended: .*` names none.
+// An open decision still answers here; DS1's `design:` asks for one that is not open.
+const hasDecision = (id) => resolveDecision(decisions, id).ok;
 const written = (s) => s !== null && s.trim() !== '' && !hasPlaceholder(s);
 
 const findings = refused.map((path) => ({
