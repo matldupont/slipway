@@ -94,13 +94,13 @@ and why is an answer, not a gap. A project has a manifest, so none of this reach
 
 The body reads as the repository's issue form would render it, so the checks that read issues accept it.
 
-- Headings at level 3, in the form's order: `### Problem`, `### Acceptance`, `### Seams`, `### Seams detail`,
+- Headings at level 3, in the form's order: `### Problem`, `### Acceptance`, `### Seams`,
   `### Out of scope`, `### Links`. A bug uses the headings of `.github/ISSUE_TEMPLATE/bug.yml`, with
   `### Root cause` added after `### Reproduction`. A feature or a split issue adds `### Contract` and
   `### Verify` after `### Acceptance`, **copied in**, never linked: the issue is built from its own body.
 - **Acceptance:** one line each, each able to fail: a number, a `command`, a comparison, `Given / When / Then`,
   or an issue reference. "Faster" is an adjective, not a test.
-- **Seams:** does this add a person, a channel or a promise? Answer every time. `none` takes one line of why.
+- **Seams:** one field. Does this add a person, a channel or a promise? Answer every time: `none: <one line of why>`, or one list line per seam, `<label>: <what>`. An issue filed on the old form, with `### Seams detail` after it, is still read.
 - **In the project's words.** The body, every Ripple row and everything shown to the owner say what changes
   in their project. Never slipway's machinery: no ownership classes (managed, seeded), check ids, slipway's own
   files (`.slipway/manifest.json`, its overrides) or a bare decision id; say what was decided, and put the id
@@ -135,6 +135,8 @@ The body reads as the repository's issue form would render it, so the checks tha
 
   mode: `regular` · model: `<the tier's model>` · effort: `medium` — case 4: <what checks the result, in one line>
   ```
+
+  The block is the code block alone, with no sentence after it.
 
   A feature-lane issue carries two lines, **Shape:** and **Build:**, since the two phases differ. With no
   oracle (a schema others build on, a definition of "correct"), the shaping goes to the discovery tier at high

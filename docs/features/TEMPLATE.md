@@ -42,7 +42,7 @@ date. Evidence rots within days; re-verify before building (L-18).
 
 ## Seams
 
-Does this add a person, a channel, or a promise? `none` plus one line of why — or who pays, who is
+Does this add a person, a channel, or a promise? `none: <one line of why>` — or one list line per seam, `<label>: <what>` — who pays, who is
 counted, who is told, what is promised.
 
 ## Threat model

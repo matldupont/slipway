@@ -228,8 +228,8 @@ Review:   {PRD entry's or Feature doc version's owner message, when R1 reports i
   - `` {N} tests in Missing test exist, each fails with the fix reverted, and `pnpm verify` runs them ``;
   - the unhappy path, and the rule from Phase 3 when there is one;
   - B / C: `` `{doc path}` has a review in `docs/reviews/` (`/review-doc`) before the fix starts ``; for a confirmed block (Phase 4), instead: `` `{doc path}`'s Changes has an `owner-confirmed, not reviewed` line naming this issue, on the default branch before the fix starts ``.
-- `### Seams`, `### Seams detail`: does the fix add a person, a channel or a promise? Usually `none`, with one
-  line of why.
+- `### Seams`: does the fix add a person, a channel or a promise? Usually `none: <one line of why>`; otherwise one
+  list line per seam, `<label>: <what>`.
 - `### Missing test`: the table from Phase 3.
 - `### Links`: `Regression of: #n` (the PR that broke it; the commit's short sha when no PR was found),
   `Breaks: #n` (the issue that promised it), `Part of: #n` for a parent, `Spec:` the doc, `Touches:` (the files the fix changes, per `process/intake.md` → Issue body), any `Decision:`,

@@ -144,7 +144,7 @@ cases). Fill every section:
   endpoints and components touched, what is reused (Phase 3). Every claim about current code is re-read on the
   default branch: `Verified against: <sha> <date>` (L-18). A decision it rests on is stated in words, its id
   in brackets, so the copy in the issue reads without the log. Each decision Phase 3 listed is cited where it bears on the doc, the Contract included (a decision that changes the Contract later moves the `Version:`, D-041); one the run records gets an `Amends: F-{nn}` line.
-- **Seams:** person, channel, promise, answered; `none` with one line of why.
+- **Seams:** person, channel, promise, answered; `none: <one line of why>`.
 - **Threat model:** required when the feature adds a network call, a cache, a subprocess, stored secrets,
   user-supplied input or a deletion; otherwise `none beyond baseline`.
 - **Known limitations**, **Acceptance** (`Given / When / Then`, unhappy and empty states included),
@@ -197,7 +197,7 @@ Branch:    docs/feature-{name} (committed, id pushed | DEFER: unpushed)
 - `### Contract` and `### Verify`: **copied from the doc, never linked**, with its Threat model and Known
   limitations as `####` subsections of Contract. The issue is built from its own body; the build's review
   measures findings against those two.
-- `### Seams`, `### Seams detail`, `### Out of scope`: from the doc.
+- `### Seams`, `### Out of scope`: from the doc.
 - `### Links`: `Part of: #n` when there is a parent, `Spec: {doc path}`, `Touches:` (Issue body), `Lane: feature`,
   any `Decision:`, and `Blocked by:` an issue, or an F-ID with "(no issue yet)" when it needs a feature nobody has filed.
 - The designation block, with a **Shape:** and a **Build:** line.
@@ -241,7 +241,7 @@ or data deletion deserves its own review, apart from the rest).
    Body: `### Problem` (step {k} of {total} for #{n}: what this step makes true; `Spec:` and its Build map
    line), `### Acceptance` (checkable at this step alone; the last step also carries the parent's end-to-end
    lines; a check that needs the deployed default branch stays in the parent's: `process/intake.md` → Deferred check), `### Contract` (only the part this step builds, with the Threat model and Known limitations that
-   apply, copied), `### Verify`, `### Seams`, `### Seams detail`, `### Out of scope` (the later steps),
+   apply, copied), `### Verify`, `### Seams`, `### Out of scope` (the later steps),
    `### Links` (`Part of: #{n}`, `Blocked by:` the previous step, `Touches:` for the files that step changes), and a designation per step: a schema step
    and a screen step rarely share one. A reader of the title alone should expect every file its PR touches.
 3. **Number the plan.** Add each sub-issue's number to its Build map line in the doc, and the `Owed:` line for a check that stayed in the parent's (`process/intake.md` → Deferred check, Splitting an item), and commit. GitHub lists

@@ -32,24 +32,11 @@ body:
         Given/When/Then. CI flags adjectives.
     validations:
       required: true
-  - type: dropdown
+  - type: textarea
     id: seams
     attributes:
       label: Seams
-      description: Who else does this touch — does the fix add or change a person, a channel, or a promise? Always answer.
-      multiple: true
-      options:
-        - none
-        - adds a person
-        - adds a channel
-        - adds a promise
-    validations:
-      required: true
-  - type: textarea
-    id: seams-detail
-    attributes:
-      label: Seams detail
-      description: For `none`, one line of why. Otherwise — who pays, who is counted, who is told, what is promised.
+      description: "Does the fix add or change a person, a channel or a promise? Write `none: <one line of why>`, or one list line per seam, `<label>: <what>` — who pays, who is counted, who is told, what is promised."
     validations:
       required: true
   - type: textarea

@@ -1,17 +1,8 @@
 ## What
-<!-- One or two sentences: what changes, and why now.
-Lane: trivial | bounded | feature (process/slipway-rules.md#Lanes). A trivial change links `none: trivial`. -->
+<!-- What changes and why now, in one or two sentences. Then the lane: trivial, bounded or feature (process/slipway-rules.md#Lanes). -->
 
 ## Verification
-<!--
-What you ran and what it showed. Name commands, their output or CI runs.
-"Tested locally" is a claim, not evidence — CI fails a PR without one.
-Also say what you did NOT verify: motion, real devices, production data.
-
-```
-pnpm verify
-```
--->
+<!-- What you ran and what it showed, in a code block: the commands and their output, or the CI run. Then what you did not verify. -->
 
 ## Links
-<!-- Closes #123 · Part of #45 · or: none: <reason> -->
+<!-- The issue this closes or is part of, or `none: <reason>`. -->
