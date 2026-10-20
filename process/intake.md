@@ -100,7 +100,7 @@ The body reads as the repository's issue form would render it, so the checks tha
   `### Verify` after `### Acceptance`, **copied in**, never linked: the issue is built from its own body.
 - **Acceptance:** one line each, each able to fail: a number, a `command`, a comparison, `Given / When / Then`,
   or an issue reference. "Faster" is an adjective, not a test.
-- **Seams:** one field. Does this add a person, a channel or a promise? Answer every time: `none: <one line of why>`, or one list item per seam. An issue filed on the old form, with `### Seams detail` after it, is still read.
+- **Seams:** one field. Does this add a person, a channel or a promise? Answer every time: `none: <one line of why>`, or one list line per seam, `<label>: <what>`. An issue filed on the old form, with `### Seams detail` after it, is still read.
 - **In the project's words.** The body, every Ripple row and everything shown to the owner say what changes
   in their project. Never slipway's machinery: no ownership classes (managed, seeded), check ids, slipway's own
   files (`.slipway/manifest.json`, its overrides) or a bare decision id; say what was decided, and put the id

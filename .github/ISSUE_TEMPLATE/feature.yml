@@ -26,7 +26,7 @@ body:
     id: seams
     attributes:
       label: Seams
-      description: "Does this add a person, a channel or a promise? Write `none: <one line of why>`, or one list item per seam: who pays, who is counted, who is told, what is promised."
+      description: "Does this add a person, a channel or a promise? Write `none: <one line of why>`, or one list line per seam, `<label>: <what>` — who pays, who is counted, who is told, what is promised."
     validations:
       required: true
   - type: textarea

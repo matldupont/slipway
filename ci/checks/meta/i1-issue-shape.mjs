@@ -19,10 +19,12 @@
 //   verify/missing              Links says Lane: feature, no Verify section
 //   verify/link-only            Verify has fewer than 8 non-link words — nothing copied in
 //
-// Seams is one field (the forms, #460): its first non-blank line is `none: <a reason of at least one word>`, or every
-// unindented line is a list item (`- ` or `* `), one per seam (`-`, `*`, `+` or `1.`), and no item is a `none` without its reason or only a category label; a reason holds a letter or digit. Anything else is a finding, so the field fails closed
-// on its shape and no word count can pad past it. A body that still carries a `### Seams detail` heading, filed on the
-// old form, is read the old way: Seams, then its detail.
+// Seams is one field (the forms, #460): one line per seam, `<label>: <detail>`, in a list (`-`, `*`, `+` or `1.`),
+// or the single line `none: <reason>`. A line is read after its marker, checkbox, emphasis, code marks and links
+// are taken off, and it needs a colon with a letter or digit on each side. A `none` label with no reason is
+// `seams/none-without-reason`; any other line of a different shape is `seams/unenumerated`. The check holds the
+// shape, not the meaning: a padded `a: b` passes, as a form can always be filled with words. A body that still
+// carries a `### Seams detail` heading, filed on the old form, is read the old way: Seams, then its detail.
 //
 // WHY: an issue whose acceptance criteria cannot fail closes, then reopens. A conditional
 // rule — "answer seams whenever the feature adds a person…" — makes an absent section
@@ -51,9 +53,11 @@
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { isNoResponse, section, sectionLines } from '../lib/markdown.mjs';
+import { isNoResponse, plain, section, sectionLines } from '../lib/markdown.mjs';
 import { report } from '../lib/report.mjs';
 
+const SEAMS_SHAPE = 'write one line per seam, `who pays: …` (a label, a colon, then what), in a list; or the one line `none: <one line of why>`';
+const NONE_REASON = 'a `none` needs a reason on the same line: `none: <one line of why>`';
 const FALSIFIABLE = /\d|`[^`]+`|[<>≤≥]|[=!]=|^(given|when|then)\b|#\d+/i;
 const LANE_FEATURE = /Lane:\s*`?feature`?\b/i;
 const isReference = (word) => word.includes('://') || word.startsWith('[') || word.startsWith('<http');
@@ -101,23 +105,29 @@ for (const f of bodies) {
     findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none: <one line of why>`, or one list item per seam' });
   } else if (sectionLines(md, 'Seams detail', 3) === null) {
     const lines = seams.split(/\r?\n/).filter((l) => l.trim());
-    const isItem = (l) => /^([-*+]|\d+\.)\s+\S/.test(l);
-    const items = lines.filter(isItem).map((l) => l.replace(/^([-*+]|\d+\.)\s+/, '').trim());
-    const noReason = 'a `none` needs a reason on the same line: `none: <one line of why>`';
-    const bareLabel = /^adds an? (person|channel|promise)[\s:.]*$/i;
-    if (/^none:\s*[^\p{L}\p{N}\s]*[\p{L}\p{N}]/iu.test(lines[0])) {
-      // passes
-    } else if (isItem(lines[0]) && lines.every((l) => /^\s/.test(l) || isItem(l))) {
-      // a list: an item that is only `none` (or `none` without its reason), or only a category label, names no seam
-      if (items.some((i) => /^none\b/i.test(i) && !/^none:\s*[^\p{L}\p{N}\s]*[\p{L}\p{N}]/iu.test(i))) {
-        findings.push({ where: `${f}#seams/none-without-reason`, detail: noReason });
-      } else if (items.some((i) => bareLabel.test(i))) {
-        findings.push({ where: `${f}#seams/unenumerated`, detail: 'a list item names a category only; say who pays, who is counted, who is told, what is promised' });
-      }
-    } else if (/^none\b/i.test(lines[0])) {
-      findings.push({ where: `${f}#seams/none-without-reason`, detail: noReason });
-    } else {
-      findings.push({ where: `${f}#seams/unenumerated`, detail: 'write `none: <one line of why>`, or one list item per seam: who pays, who is counted, who is told, what is promised' });
+    const hasText = /[\p{L}\p{N}]/u;
+    const marker = /^([-*+]|\d+\.)\s+/;
+    // 'ok' (`label: detail`), 'none-ok' (`none: reason`), 'none' (a `none` with no reason) or 'bad'
+    const kind = (line) => {
+      const text = plain(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''));
+      const colon = text.indexOf(':');
+      const label = (colon < 0 ? text : text.slice(0, colon)).trim();
+      const detail = colon < 0 ? '' : text.slice(colon + 1);
+      if (/^none\b/i.test(label)) return /^none$/i.test(label) && hasText.test(detail) ? 'none-ok' : 'none';
+      return hasText.test(label) && hasText.test(detail) ? 'ok' : 'bad';
+    };
+    const unindented = lines.filter((l) => !/^\s/.test(l));
+    const kinds = unindented.map(kind);
+    if (!marker.test(lines[0])) {
+      // the single line `none: <reason>`; any other line that is not a list item is the wrong shape
+      if (kinds[0] === 'none') findings.push({ where: `${f}#seams/none-without-reason`, detail: NONE_REASON });
+      else if (kinds[0] !== 'none-ok') findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
+    } else if (!unindented.every((l) => marker.test(l))) {
+      findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
+    } else if (kinds.includes('none')) {
+      findings.push({ where: `${f}#seams/none-without-reason`, detail: NONE_REASON });
+    } else if (kinds.includes('bad')) {
+      findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
     }
   } else if (/^none\b/i.test(seams)) {
     if (isNoResponse(detail)) findings.push({ where: `${f}#seams/none-without-reason`, detail: '`none` needs one line of why' });

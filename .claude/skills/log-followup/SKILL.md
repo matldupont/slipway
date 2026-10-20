@@ -102,7 +102,7 @@ Acceptance:   {lines}
   the framing is settled and it routes through code that already works. Say why it differs from the parent.
 
 Body, in this order: `### Problem` (a one-line pointer to the parent, the frame from Phase 1, and the
-`Verified against` line when there is one), `### Acceptance`, `### Seams` (`none: <why>` or a list),
+`Verified against` line when there is one), `### Acceptance`, `### Seams` (`none: <why>` or one `<label>: <what>` line per seam),
 `### Out of scope`, `### Links` (`Part of: #{parent}`, `Blocked by:`, `Touches:` per `process/intake.md` → Issue body, `Lane:`), then the designation block.
 
 1. Write the body and run the issue check on it (`process/intake.md` → Issue body). Fix every finding.
