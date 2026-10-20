@@ -22,6 +22,11 @@ Version: 0.1 (<date>)
 >   `decided: PD-<n>` line before the milestone goes active. It may go active
 >   before its risks have a Result, cannot close until each has one, and frees no other milestone; K1 checks it.
 >   Other kinds have no `tests:` or `decided:` line.
+> - `screens`: optional. A milestone in a project with a front end builds screens, and owes the accessibility
+>   line under Gate below. `screens: none` says this one builds none (a data migration, a billing back end).
+>   Any other value is a finding.
+> - `design`: optional, `design: PD-<n>`. Names a decision in decisions.md that answers where the design for
+>   this milestone's screens comes from, in place of a `Design:` item in Contents.
 > - `appetite`: first and last day, inclusive. When it ends the milestone closes, is killed,
 >   or gets an extension recorded in decisions.md (`extended: PD-<n>`). By default it does
 >   not get more time.
@@ -63,6 +68,9 @@ What goes red if the milestone is not done: a check id, a test path, a QA plan i
 `docs/qa/`, a metric with a number. Never "feature complete".
 
 - <…>
+- Screens built here meet WCAG 2.2 AA, held by
+  <…what goes red: an automated accessibility check in CI, a keyboard and screen-reader pass in docs/qa/…>.
+  Delete this line, and set `screens: none`, when the milestone builds no screens.
 
 ## Kill criteria
 

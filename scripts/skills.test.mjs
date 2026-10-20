@@ -15,7 +15,9 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { gateGlobs, gateTouched, GUARD_GLOBS, SETTINGS as HARNESS_SETTINGS } from '../ci/checks/lib/gate-files.mjs';
+import { PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
 import { plain, section, table } from '../ci/checks/lib/markdown.mjs';
+import { classify, parseOwnership } from '../ci/checks/lib/ownership.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(SRC, p), 'utf8');
@@ -1273,4 +1275,41 @@ test('the session that moves a spec\'s Version ends with a Yours: block naming t
   const lf = flat(section(read(skillPath('log-feature')), 'Phase 7 — Open the doc PR', 2));
   assert.match(lf, /The body also carries `Owed: review of \{version\} \(owner, fresh session\)`, and the session ends its turn with a `Yours:` block naming that review and the prompt `\/review-doc \{doc path\}` for the new version/, '/log-feature Phase 7 must carry the Owed line and the Yours: block');
   assert.match(flat(section(read('process/intake.md'), 'Feature doc version', 2)), /\*\*Owed review\.\*\* The session that moves the line \(`\/log-feature`, or a revision after a review\) ends its turn with a `Yours:` block that names the owed review and gives the prompt `\/review-doc \{doc path\}` for the new version, and the doc pull request's body carries `Owed: review of \{version\} \(owner, fresh session\)`/, 'intake.md → Feature doc version must say who hands the owed review over, and how');
+});
+
+// #406 step 2 (F-14, D-042): the templates carry the front-end line, the screens and design fields, and the
+// accessibility line. Each placeholder is whole on one line, in the form PLACEHOLDER matches.
+test('docs/product/FRAME.md carries one front-end line under Job story, as a placeholder PLACEHOLDER matches', () => {
+  const frame = read('docs/product/FRAME.md');
+  const lines = frame.split('\n').filter((l) => l.startsWith('Front end:'));
+  assert.deepEqual(lines, ['Front end: <…where people use this: a web app, a phone app — or none, for an API or a tool with no screens…>'], 'the frame must carry exactly one front-end line, as the Contract words it');
+  assert.match(section(frame, 'Job story', 2), /^Front end: /m, 'the line sits under ## Job story');
+  assert.ok(PLACEHOLDER.test(lines[0]), 'the front-end line must match PLACEHOLDER on one line');
+});
+
+test('docs/milestones/TEMPLATE.md documents screens: and design: and carries the accessibility line under Gate', () => {
+  const template = read('docs/milestones/TEMPLATE.md');
+  const note = flat(template.replace(/^> ?/gm, ''));
+  assert.ok(note.includes('- `screens`: optional. A milestone in a project with a front end builds screens, and owes the accessibility line under Gate below. `screens: none` says this one builds none (a data migration, a billing back end). Any other value is a finding.'), 'the header note must document screens:');
+  assert.ok(note.includes('- `design`: optional, `design: PD-<n>`.'), 'the header note must document design:');
+  assert.ok(flat(section(template, 'Gate', 2)).includes('- Screens built here meet WCAG 2.2 AA, held by <…what goes red: an automated accessibility check in CI, a keyboard and screen-reader pass in docs/qa/…>. Delete this line, and set `screens: none`, when the milestone builds no screens.'), 'the template Gate must carry the accessibility line');
+  assert.ok(PLACEHOLDER.test('  <…what goes red: an automated accessibility check in CI, a keyboard and screen-reader pass in docs/qa/…>.'), 'the accessibility placeholder must match PLACEHOLDER on its one line');
+});
+
+test('the M1 skeleton names where design lands in its no-go and carries the accessibility line, each placeholder on one line', () => {
+  const m1 = read('docs/milestones/M1-walking-skeleton.md');
+  const nogo = '- Styling beyond design tokens, and no component library: these screens are rebuilt to the design, which lands in\n  <…the milestone that holds the design item, and the item\'s number…>.';
+  assert.ok(section(m1, 'No-gos', 2).includes(nogo), 'the skeleton no-go must name where design lands');
+  assert.ok(PLACEHOLDER.test('<…the milestone that holds the design item, and the item\'s number…>'), 'the no-go placeholder must match PLACEHOLDER');
+  assert.ok(flat(section(m1, 'Gate', 2)).includes('- Screens built here meet WCAG 2.2 AA, held by <…what goes red: an automated accessibility check in CI, a keyboard and screen-reader pass in docs/qa/…>.'), 'the skeleton Gate must carry the accessibility line');
+  assert.ok(!flat(section(m1, 'Gate', 2)).includes('Delete this line'), 'the skeleton line has no last sentence');
+});
+
+// #406 step 2, 0.2 AR-6 point 1: the template is slipway's file (a sync replaces it whole), the skeleton and the frame
+// are the project's once written.
+test('docs/milestones/TEMPLATE.md is managed, the M1 skeleton and the frame are seeded', () => {
+  const rules = parseOwnership(read('dev/ownership.yaml'));
+  assert.equal(classify(rules, 'docs/milestones/TEMPLATE.md'), 'managed', 'a sync replaces the milestone template whole');
+  assert.equal(classify(rules, 'docs/milestones/M1-walking-skeleton.md'), 'seeded', 'the skeleton is written once, then the project\'s');
+  assert.equal(classify(rules, 'docs/product/FRAME.md'), 'seeded', 'the frame is written once, then the project\'s');
 });
