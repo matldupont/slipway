@@ -11,7 +11,7 @@
 //                               start with Given/When/Then, and has no #ref — an adjective
 //   seams/unanswered            person, channel or promise? not answered; silence is not `none`
 //   seams/none-without-reason   `none` with no reason
-//   seams/unenumerated          a person, channel or promise with no detail
+//   seams/unenumerated          a Seams line that is not `<label>: <detail>`, or a category with no detail
 //   designation/trailer         (warning) the body's last non-empty line starts `Per `: a sentence after the
 //                               designation block, which the block is without (`process/intake.md` → Issue body)
 //   contract/missing            Links says Lane: feature, no Contract section
@@ -102,14 +102,16 @@ for (const f of bodies) {
   const seams = section(md, 'Seams', 3);
   const detail = section(md, 'Seams detail', 3);
   if (isNoResponse(seams)) {
-    findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none: <one line of why>`, or one list item per seam' });
+    findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none: <one line of why>`, or one `<label>: <what>` line per seam' });
   } else if (sectionLines(md, 'Seams detail', 3) === null) {
     const lines = seams.split(/\r?\n/).filter((l) => l.trim());
     const hasText = /[\p{L}\p{N}]/u;
-    const marker = /^([-*+]|\d+\.)\s+/;
+    const marker = /^([-*+]|\d+[.)])\s+/;
+    // what a reader does not see as text: HTML tags and entities, bare URLs (their own colon), invisible letters
+    const unseen = (t) => t.replace(/<\/?[A-Za-z][\w-]*(?:\s[^<>]*)?\/?>/g, '').replace(/&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);/gi, '').replace(/\b[a-z][a-z\d+.-]*:\/\/\S+/gi, '').replace(/[\u115f\u1160\u3164\uffa0]/g, '');
     // 'ok' (`label: detail`), 'none-ok' (`none: reason`), 'none' (a `none` with no reason) or 'bad'
     const kind = (line) => {
-      const text = plain(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''));
+      const text = unseen(plain(unseen(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''))));
       const colon = text.indexOf(':');
       const label = (colon < 0 ? text : text.slice(0, colon)).trim();
       const detail = colon < 0 ? '' : text.slice(colon + 1);
@@ -121,7 +123,7 @@ for (const f of bodies) {
     if (!marker.test(lines[0])) {
       // the single line `none: <reason>`; any other line that is not a list item is the wrong shape
       if (kinds[0] === 'none') findings.push({ where: `${f}#seams/none-without-reason`, detail: NONE_REASON });
-      else if (kinds[0] !== 'none-ok') findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
+      else if (kinds[0] !== 'none-ok' || unindented.length > 1) findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
     } else if (!unindented.every((l) => marker.test(l))) {
       findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
     } else if (kinds.includes('none')) {
