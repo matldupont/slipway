@@ -31,7 +31,7 @@
 import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { today as localToday } from '../lib/clock.mjs';
-import { expiryProblem, loadRegistry } from '../lib/exceptions.mjs';
+import { expiryProblem, loadRegistry, said } from '../lib/exceptions.mjs';
 import { NPMRC, registryHost } from '../lib/npmrc.mjs';
 import { checkLockfile, ID_PREFIX, KINDS, LOCKFILE, parseLockfile, workspaceFolders } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
@@ -96,8 +96,6 @@ for (const e of registry) {
   if (!e.id.startsWith(ID_PREFIX)) continue;
   const where = `registry:${e.id}`;
   const date = expiryProblem(e.expires, today);
-  // text that says something: a word or number, not blank, YAML's spellings of no value, or an indicator (`|`, `[]`, `&a`, `!!null`)
-  const said = (v) => typeof v === 'string' && /[\p{L}\p{N}]/u.test(v) && !/^[\s|>&*!%@`[{]/.test(v) && !['null', '~'].includes(v.trim().toLowerCase());
   if (date === 'none') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
   else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a real day written yyyy-mm-dd, which cannot be compared as ending — set it to a real future day, e.g. 2099-12-31' });
   else if (!said(e.reason)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no reason: — say why this package may come from outside the registry' });
