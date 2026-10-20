@@ -363,6 +363,7 @@ test('the fallback sentence is spliced, appended or sent to stderr by the shape 
     assert.match(r.stdout.split('\n')[1], FALLBACK, 'plain text did not get the sentence as a line');
     for (const body of [
       `printf '%s\\n' '{"systemMessage":"already","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"x"}}'`,
+      `printf '%s\\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"x"},"systemMessage":"already"}'`,
       `printf '%s\\n%s\\n' '{"hookSpecificOutput":{"hookEventName":"SessionStart",' '"additionalContext":"x"}}'`,
       `printf '%s\\n' '{"continue":true}'`,
     ]) {
