@@ -110,7 +110,8 @@ export const reset = () => {
 }
 
 // `sid` is the session id Claude Code puts in a hook's environment; null leaves it unset. `env` replaces a variable (PATH);
-// `cwd` is the folder the session works in (#481), the project folder unless a test says otherwise.
+// `cwd` is the hook process's own folder, the project folder unless a test says otherwise; it is never the session's
+// folder, which the guard reads from the input (#506).
 export function run(hook, input = '{}', sid = SID, env = {}, cwd = work) {
   const cmd = commands.get(hook) ?? commands.get('lessons-first.sh').replace(/lessons-first\.sh$/, hook);
   const r = spawnSync('/bin/sh', ['-c', cmd], {
@@ -122,7 +123,8 @@ export function run(hook, input = '{}', sid = SID, env = {}, cwd = work) {
   return { status: r.status, out: `${r.stdout}${r.stderr}` };
 }
 export const BASE = git('-C', work, 'rev-parse', 'origin/HEAD');
-export const start = (sid = SID, source = 'startup') => run('session-state.sh', JSON.stringify({ session_id: sid, hook_event_name: 'SessionStart', source }), sid);
+// The input carries the session's folder (#506), as Claude Code's does: the main checkout here.
+export const start = (sid = SID, source = 'startup') => run('session-state.sh', JSON.stringify({ session_id: sid, cwd: work, hook_event_name: 'SessionStart', source }), sid);
 export const pinOf = (sid = SID) => join(STATE, sid, 'base');
 // A session pinned to `commit`, as its SessionStart would leave it: the base, and the tree it started in (#481).
 export const pinTo = (commit, tree = work) => {
