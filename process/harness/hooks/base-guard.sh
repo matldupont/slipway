@@ -54,7 +54,7 @@ nl='
 # Broken state: the Stop and SessionStart hooks say so where the owner sees it; the advisory hooks stay quiet.
 fail() {
   case "$hook" in
-    stop-verify.sh|session-state.sh) printf '{"systemMessage":"base-guard: %s, so no hook ran.%s"}\n' "$1" "${note:+ $note}" ;;
+    stop-verify.sh|session-state.sh) printf '{"systemMessage":"base-guard: %s, so no hook ran."}\n' "$1" ;;
     trust-gates) printf '{"systemMessage":"base-guard: %s, so no yes was recorded."}\n' "$1" ;;
   esac
   exit 0
@@ -62,8 +62,8 @@ fail() {
 
 input= flat= note=
 # The hook's input, read without parsing a string. A quote inside a JSON string is always \", so `"<name>":` after `{`
-# or `,` is a real member; `once` holds when there is exactly one, so one nested in another object is never taken for
-# the input's own.
+# or `,` is a real member, at any depth; `once` holds when there is exactly one. So a second one, nested in another
+# object, makes the member unreadable; a lone nested one is taken, and the SessionStart pin still checks its folder.
 m() { printf '%s' "$flat" | LC_ALL=C grep -Eq$2 "$1"; }
 once() { [ "$(printf '%s' "$flat" | LC_ALL=C grep -Eo "(^|[{,])[[:space:]]*\"$1\"[[:space:]]*:" | sed -n '$=')" = 1 ]; }
 case "$hook" in

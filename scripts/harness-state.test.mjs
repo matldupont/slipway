@@ -325,6 +325,7 @@ test('a cwd that is missing, relative, escaped or given twice pins the project f
     ['a relative cwd', opening('wt')],
     ['an escaped cwd', plain.replace(`"cwd":"${wt}"`, `"cwd":"${wt.replaceAll('/', '\\/')}"`)],
     ['a quote in the cwd', opening(`${wt}"x`)],
+    ['a backslash after the first character', opening(`${wt}\\x`)],
     ['two cwd members', plain.replace('"hook_event_name"', `"cwd":"${wt}","hook_event_name"`)],
     ['a cwd nested in another member', plain.replace('"hook_event_name"', `"extra":{"cwd":"${T}"},"hook_event_name"`)],
   ]) {
@@ -379,4 +380,18 @@ test('the fallback sentence is spliced, appended or sent to stderr by the shape 
     commit('session-state, real again');
     git('-C', work, 'push', '-q', 'origin', 'main');
   }
+});
+
+// A fallback session whose checkout's gate files differ from the base is held at SessionStart, the #506 symptom: the
+// held output carries the sentence too, as one JSON object.
+test('a held SessionStart in a fallback session says so in its systemMessage', () => {
+  worktree();
+  put('ci/extra.mjs', '// a gate file the base does not have\n');
+  const r = startWith(JSON.stringify({ session_id: SID, hook_event_name: 'SessionStart', source: 'startup' }));
+  const lines = r.out.split('\n').filter(Boolean);
+  assert.equal(lines.length, 1, r.out);
+  const out = JSON.parse(lines[0]);
+  assert.match(out.systemMessage, FALLBACK);
+  assert.match(out.hookSpecificOutput.additionalContext, /^session-state did not run: .*Gate files: ci\/extra\.mjs/);
+  rmSync(join(work, 'ci/extra.mjs'));
 });
