@@ -174,7 +174,8 @@ const designLines = (() => {
   return milestones
     .filter((m) => m.fm?.id && m.fm.status === 'shaping' && !(typeof m.fm.screens === 'string' && m.fm.screens.trim().toLowerCase() === 'none'))
     .flatMap((m) => {
-      const id = milestoneId(m.fm.id) ?? excerpt(m.fm.id, 20);
+      // An id is printed only in the shape the skills accept, else in words (milestoneRef below).
+      const id = milestoneId(m.fm.id) ?? 'A shaping milestone';
       const named = typeof m.fm.design === 'string' && resolveDecision(decisions, m.fm.design, { decided: true }).ok;
       return [
         ...(m.fm.kind !== 'skeleton' && !named && !designBefore(m, milestones, ['shaping', 'active', 'closed']) ? [`${id} has no design item before it: add one to an earlier milestone, or as its item 1`] : []),

@@ -58,6 +58,7 @@ const frameMd = frameWhy === null ? readFileSync(join(root, FRAME), 'utf8') : nu
 const { milestones, refused } = readMilestones(root);
 if (refused.length) stop(`${refused[0]} is a link, sits under one or is not a regular file, so it cannot be read as a milestone: make it a plain file in a plain folder`);
 const registryWhy = notPlainFile(root, REGISTRY);
+if (registryWhy !== null && registryWhy !== MISSING) stop(`${REGISTRY} ${registryWhy}, so its entries cannot be read: make it a regular file`);
 let registry = [];
 try {
   if (registryWhy !== MISSING) registry = loadRegistry(join(root, REGISTRY));
@@ -137,7 +138,7 @@ for (const m of active) {
     const r = resolveDecision(decisions, value, { decided: true });
     if (r.ok) design = value;
     else {
-      const why = { 'not-an-id': `"${excerpt(value, 40)}" is not a decision id (PD-<n> or D-<n>)`, missing: `${value} is not a heading in decisions.md`, open: `${value} is still open in decisions.md` }[r.why];
+      const why = { 'not-an-id': `"${excerpt(value, 40)}" is not a decision id (PD-<n> or D-<n>)`, missing: `${value} is not a heading in decisions.md`, open: `${value} is not marked decided or accepted in decisions.md` }[r.why];
       add(where(m, 'design/unresolved'), `design: ${why}: record the decision there, or remove the field`);
     }
   }

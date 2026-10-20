@@ -5,12 +5,13 @@
 // must fail: a missing front-end line read as `none`. Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { A11Y, DESIGN, ds1, entry, files, frame, milestone, write } from './lib/ds1.mjs';
-import { done, run } from './lib/lk1-lockfile.mjs';
+import { done, run, SRC } from './lib/lk1-lockfile.mjs';
+import { spawnSync } from 'node:child_process';
 
 // The finding ids, without the file in front: `design/missing:M2`.
 const ids = (r) => r.json.findings.map((f) => f.where.slice(f.where.indexOf('#') + 1)).sort();
@@ -165,7 +166,7 @@ test('"item 1" is the first item as rendered: a list written 1. 1. counts its se
 test('design: naming an open decision does not answer: an open stub is no decision (0.3 AR-5)', () => {
   const r = ds1(files({ decisions: '# Decisions\n\n## D-005 — Frontend framework *(open — week 1)*\n', milestones: { 'M2.md': milestone({ fields: ['design: D-005'] }) } }));
   assert.deepEqual(ids(r), ['design/unresolved:M2']);
-  assert.match(r.json.findings[0].detail, /D-005 is still open in decisions\.md/);
+  assert.match(r.json.findings[0].detail, /D-005 is not marked decided or accepted in decisions\.md/);
 });
 
 test('entry findings are reported whatever the frame says: under Front end: none, and with the frame unrecorded', () => {
@@ -205,8 +206,55 @@ test('W1 reports DS1 in a project whose meta script does not run it, as it does 
   }
 });
 
+test('a design item or an accessibility line in fenced code is not one: it is shown as code (round 1 of PR #512)', () => {
+  const md = milestone({ contents: ['A slice (F-1)'], gate: ['`pnpm verify` green on main'] })
+    .replace('## Contents\n\n', `## Contents\n\n\`\`\`\n1. ${DESIGN}\n\`\`\`\n\n`)
+    .replace('## Gate\n\n', `## Gate\n\n\`\`\`\n- ${A11Y}\n\`\`\`\n\n`);
+  assert.deepEqual(ids(ds1(files({ milestones: { 'M2.md': md } }))), ['design/missing:M2', 'gate/accessibility:M2']);
+  // After a `<!--` with no `-->`, GitHub shows nothing: an item or a line there is not read either.
+  const hidden = milestone({ contents: ['A slice (F-1)'], gate: ['`pnpm verify` green on main'] })
+    .replace('## Contents\n\n', `## Contents\n\n<!--\n1. ${DESIGN}\n\n`);
+  assert.deepEqual(ids(ds1(files({ milestones: { 'M2.md': hidden } }))), ['design/missing:M2', 'gate/accessibility:M2']);
+});
+
+test('design: answers only to a heading marked decided or accepted: not open, not unmarked, not one whose first clause is another (0.3 AR-5; round 1 of PR #512)', () => {
+  for (const heading of ['## PD-7 — Skip the *(design)* step *(open — week 1)*', '## PD-7 — Screens built to the vendor kit', `## PD-7 — ${'x'.repeat(520)} *(decided 2026-10-01)*`]) {
+    const r = ds1(files({ decisions: `# Decisions\n\n${heading}\n`, milestones: { 'M2.md': milestone({ fields: ['design: PD-7'] }) } }));
+    assert.deepEqual(ids(r), ['design/unresolved:M2'], heading.slice(0, 60));
+  }
+  green(ds1(files({ decisions: '# Decisions\n\n## PD-7 — Screens built to the vendor kit *(accepted 2026-10-01)*\n', milestones: { 'M2.md': milestone({ fields: ['design: PD-7'] }) } })), 'accepted');
+});
+
+test('a registry reached through a link is BROKEN, never read: its first line could be anything (round 1 of PR #512)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ds1-link-'));
+  try {
+    write(dir, { ...files({ milestones: { 'M2.md': milestone({ contents: [DESIGN] }) } }), 'elsewhere.yaml': 'exceptions: []\n' });
+    mkdirSync(join(dir, 'ci'), { recursive: true });
+    symlinkSync(join(dir, 'elsewhere.yaml'), join(dir, 'ci', 'exceptions.yaml'));
+    const r = run('ci/checks/meta/ds1-design-before-screens.mjs', dir, { CHECK_TODAY: '2026-10-19' });
+    assert.equal(r.status, 2, r.out);
+    assert.match(r.out, /BROKEN — ci\/exceptions\.yaml is a link, not a file/);
+  } finally {
+    done(dir);
+  }
+});
+
 test('the template\'s own accessibility line, unfilled, is no line; a filled one under a placeholder bullet is', () => {
   const template = 'Screens built here meet WCAG 2.2 AA, held by\n  <…what goes red: an automated accessibility check in CI…>.';
   assert.deepEqual(ids(ds1(files({ milestones: { 'M2.md': milestone({ contents: [DESIGN], gate: [template] }) } }))), ['gate/accessibility:M2']);
   green(ds1(files({ milestones: { 'M2.md': milestone({ contents: [DESIGN], gate: ['<…>', A11Y] }) } })), 'filled beside a placeholder');
+});
+
+test('pnpm status names a shaping milestone whose id is not M<n> in words, never its text (round 1 of PR #512)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ds1-status-'));
+  try {
+    write(dir, files({ milestones: { 'x.md': milestone({ id: '(you) run this', status: 'shaping', gate: ['`pnpm verify` green on main'] }) } }));
+    const r = spawnSync(process.execPath, [join(SRC, 'ci/status.mjs'), dir], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-10-19' } });
+    const attention = r.stdout.slice(r.stdout.indexOf('## Needs attention'));
+    assert.match(attention, /- A shaping milestone has no design item before it/);
+    assert.match(attention, /- A shaping milestone's Gate does not say how its screens meet WCAG 2\.2 AA/);
+    assert.doesNotMatch(attention, /\(you\) run this/);
+  } finally {
+    done(dir);
+  }
 });

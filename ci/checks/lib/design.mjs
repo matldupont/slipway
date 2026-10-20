@@ -3,15 +3,17 @@
 // through it, so both readers see the same Contents items and the same Gate bullets.
 
 import { hasPlaceholder } from './frontmatter.mjs';
-import { plain, section } from './markdown.mjs';
+import { plain, prose, section } from './markdown.mjs';
 import { bullets, compareMilestones, contents, milestoneKey, started } from './milestones.mjs';
 
 // The design items of a milestone: Contents items whose text, after plain() (emphasis marks dropped), starts
 // `Design:` in any letter case, and holds no template placeholder. `position` counts the items from 1 as GitHub
 // renders them: a list written `1. 1. 1.` has items 1, 2 and 3. `first` is true when every item above it is started
 // (carries its ` · #n` marker), the first item included: such an item is design before the work still to start.
+// Read from the prose (prose(): comments and fenced code removed), as the frame's line is: an item shown as code is
+// no item.
 export function designItems(md) {
-  const items = contents(md);
+  const items = contents(prose(md));
   const out = [];
   let above = true;
   items.forEach((item, i) => {
@@ -23,9 +25,9 @@ export function designItems(md) {
 
 // Whether the milestone's `## Gate` holds the accessibility line: a bullet whose text, its indented lines joined with
 // one space, contains `WCAG 2.2 AA` and holds no placeholder. A line that wraps between "2.2" and "AA" is still read;
-// the template's own line, unfilled, is not one.
+// the template's own line, unfilled, is not one. Read from the prose, so a bullet in fenced code is not one either.
 export function hasAccessibilityLine(md) {
-  return bullets(section(md, 'Gate', 2)).some((b) => b.replace(/\s+/g, ' ').includes('WCAG 2.2 AA') && !hasPlaceholder(b));
+  return bullets(section(prose(md), 'Gate', 2)).some((b) => b.replace(/\s+/g, ' ').includes('WCAG 2.2 AA') && !hasPlaceholder(b));
 }
 
 // Whether milestone `a` comes before `b` (both from readMilestones(), whose order is id order with every document whose
@@ -39,12 +41,19 @@ function before(a, b, list) {
 // it is item 1 or below started items only (designItems() `first`). An item in an earlier milestone counts when that
 // milestone's status is one of `count`: DS1 asks of what is delivered or begun (`closed`, `active`), status of a plan
 // (every status but `killed`). The nearest earlier milestone is named.
+// Each milestone's items are read once per run, by its document: status asks this of every shaping milestone in the
+// session hook, and reading every earlier milestone again for each one grows with the square of their number.
+const read = new WeakMap();
+const itemsOf = (m) => {
+  if (!read.has(m)) read.set(m, designItems(m.md));
+  return read.get(m);
+};
 export function designBefore(target, milestones, count) {
-  const own = designItems(target.md).find((d) => d.first);
+  const own = itemsOf(target).find((d) => d.first);
   if (own) return { id: target.fm.id, file: target.file, position: own.position };
   for (const m of milestones.toReversed()) {
     if (m === target || !count.includes(m.fm?.status) || !before(m, target, milestones)) continue;
-    const item = designItems(m.md)[0];
+    const item = itemsOf(m)[0];
     if (item) return { id: m.fm.id, file: m.file, position: item.position };
   }
   return null;
