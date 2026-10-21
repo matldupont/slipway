@@ -5,7 +5,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -23,12 +23,14 @@ test('the path table in SLIPWAY.md says each step as the list does: number, name
 
 test('no "Done when" cell of the path table holds a check id, and the gate table writes each id in a code span', () => {
   const lines = readFileSync(join(SRC, 'SLIPWAY.md'), 'utf8').split('\n');
+  // A check's id is the upper-cased prefix of its file name under ci/checks/meta/, as the Next-line form reads it.
+  const ids = readdirSync(join(SRC, 'ci', 'checks', 'meta')).filter((f) => f.endsWith('.mjs')).map((f) => f.split('-')[0].toUpperCase());
   const gate = lines.slice(lines.findIndex((l) => l === '### The gates')).map((l) => l.match(/^\| (`?)([A-Z]+\d+)(`?) \|/)).filter(Boolean);
   assert.ok(gate.length >= 12, `${gate.length} gate rows with an id`);
   for (const [row, open, id, close] of gate) assert.ok(open && close, `${id} is bare in the gate table: ${row}`);
-  const done = lines.filter((l) => /^\|\s*\*\*\d · /.test(l)).map((l) => l.split('|')[6]);
+  const done = lines.filter((l) => /^\|\s*\*\*\d · /.test(l)).map((l) => l.split(/(?<!\\)\|/)[6]);
   assert.equal(done.length, STEPS.length);
-  for (const cell of done) for (const [, , id] of gate) assert.ok(!new RegExp(`\\b${id}\\b`).test(cell), `${id} in a Done when cell: ${cell}`);
+  for (const cell of done) for (const id of ids) assert.ok(!new RegExp(`\\b${id}\\b`).test(cell), `${id} in a Done when cell: ${cell}`);
 });
 
 test('the who and how-long cells are plain text: no markup, no digits written as a range with a dash', () => {
