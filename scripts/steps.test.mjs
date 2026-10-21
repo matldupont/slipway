@@ -21,6 +21,16 @@ test('the path table in SLIPWAY.md says each step as the list does: number, name
   assert.deepEqual(rows, STEPS);
 });
 
+test('no "Done when" cell of the path table holds a check id, and the gate table writes each id in a code span', () => {
+  const lines = readFileSync(join(SRC, 'SLIPWAY.md'), 'utf8').split('\n');
+  const gate = lines.slice(lines.findIndex((l) => l === '### The gates')).map((l) => l.match(/^\| (`?)([A-Z]+\d+)(`?) \|/)).filter(Boolean);
+  assert.ok(gate.length >= 12, `${gate.length} gate rows with an id`);
+  for (const [row, open, id, close] of gate) assert.ok(open && close, `${id} is bare in the gate table: ${row}`);
+  const done = lines.filter((l) => /^\|\s*\*\*\d · /.test(l)).map((l) => l.split('|')[6]);
+  assert.equal(done.length, STEPS.length);
+  for (const cell of done) for (const [, , id] of gate) assert.ok(!new RegExp(`\\b${id}\\b`).test(cell), `${id} in a Done when cell: ${cell}`);
+});
+
 test('the who and how-long cells are plain text: no markup, no digits written as a range with a dash', () => {
   for (const { who, time } of STEPS) for (const cell of [who, time]) assert.match(cell, /^[a-z0-9][a-z0-9 ]*$/, cell);
 });
