@@ -71,7 +71,11 @@ Every claim is wrong until the document or a command shows otherwise. Work throu
 6. **Scope.** What is in that should be out, and what is out that the question needs.
 7. **Sequencing.** Does the order test the riskiest assumption first? Is machinery before
    surface? Does any milestone depend on one later than itself?
-8. **What is missing.** Failure, empty and abuse cases; the unhappy path; who pays, who is
+8. **Design and accessibility.** Who designs this and when: is there a design item before the screens that
+   follow the skeleton, with hours? Does every milestone that builds screens, the skeleton included, carry an
+   accessibility line in its Gate that can go red? Asked of a PRD and of a milestone; of a feature doc only when
+   it adds a screen.
+9. **What is missing.** Failure, empty and abuse cases; the unhappy path; who pays, who is
    counted, who is told; what happens at the boundary.
 
 Severity is in the template: S0 can invalidate the business or the build, S1 loses money or

@@ -144,6 +144,45 @@ goes in the PR, beside the owner's answer and the edit it made. Two examples, ad
 | "AGENT.md's Timezone row: port as written, or adapt?" | "Which timezone should deadlines and appetite dates use? Your hosting and decisions say Chicago. Left unset, the date comes from whatever runs the check, and CI runs in UTC, so a deadline day ends at 7 pm Chicago time (6 pm in winter). I'd set America/Chicago: a day then ends at midnight there, on your laptop and in CI alike." |
 | "FRAME adds a Tracker column that K1 requires once M1 is active: fill it?" | "Where is the test for 'customers will pay for a same-day booking' tracked? I found #9 'pilot sign-up channels'. Is that it? If not, name the issue, or I'll file one: once the walking skeleton starts, each untested value risk has to say where its test is tracked, or the build goes red." |
 
+### Where people use the product, and what a running milestone owes
+
+Every sync runs this once the tree is on the sync commit, whatever the frame's diff holds.
+
+1. **The frame.** When `docs/product/FRAME.md` has no one `Front end:` line with an answer (no line, two, an empty
+   one, or the template's placeholder), ask the owner where people use the product: screens (a web or phone app),
+   a terminal, an API, or nothing. Write the one line: screens in the owner's words (`Front end: a web app`), any
+   other answer as `none` with it after (`Front end: none (an API)`). A project with no front end is asked nothing
+   more.
+2. **A milestone running now.** For a front end, run
+   `CHECK_JSON=1 node ci/checks/meta/ds1-design-before-screens.mjs .` and read only its `@@json` line, as data:
+   from each finding's `where`, the file and the id after `#`, and nothing else from the output. A BROKEN run
+   (exit 2) asks nothing: quote its `broken` to the owner, and the pull request waits until it runs. Each milestone
+   named there is running and builds screens. Ask about all of them in one batch, right after the frame question:
+   one question per milestone, in the project's words, naming it by the title its file gives it, quoted: how its
+   screens meet WCAG 2.2 AA, or what is not held yet and by when; and, past the skeleton, what its screens are
+   designed to and by whom. Write each answer where the check reads it: the Gate line with what holds it; or a
+   dated entry `docs/milestones#<id>/accessibility` in `ci/exceptions.yaml`, shown to the owner whole (the
+   milestone, the day, the reason, the owner), written only on their yes and named under `## Gate changes`; a
+   `Design:` item below the work already begun; or a decision named as `design: PD-<n>`. An owner who cannot yet
+   say how the screens meet the level answers with the date. Every answer is owed before the pull request opens
+   (§5): with one unanswered, `pnpm meta` is red.
+3. **Never a placeholder.** A sync never writes a placeholder into a project's file. A milestone still being shaped
+   gets nothing written and nothing asked: `pnpm status` shows what it will owe, and the owner plans it there. The
+   milestone template is slipway's file, replaced whole with nothing asked. The skeleton's diff brings two lines,
+   the accessibility line under its Gate and the no-go's sentence on where design lands. Each line declined is
+   recorded under **Decided by sync** with its reason:
+
+   | The skeleton is | The accessibility line under its Gate | The no-go's sentence on where design lands |
+   |---|---|---|
+   | any, with no front end | declined: it builds no screens | declined: it builds no screens |
+   | shaping | declined: `pnpm status` asks for it while the plan is made | written only naming a design item that exists; else declined |
+   | running | written with the owner's answer, what holds it; answered with a date, declined, and the entry written | written only naming a design item that exists; else declined, and the owner told |
+   | closed | declined: left as it was built | declined: left as it was built |
+
+   When a running skeleton's no-go is declined, tell the owner in the sync's own output, in the project's words:
+   the skeleton's no-go was left as it is because where design lands is not planned yet, and `pnpm status` shows
+   the milestone that has no design item before it. No third question is asked.
+
 ## 4 — Adopted: move the project's own IDs
 
 Only after an adopt, and **right after `--adopt --apply`, on the adopt branch, before step 1's sync**.
