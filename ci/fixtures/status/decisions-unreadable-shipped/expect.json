@@ -4,6 +4,6 @@
   "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "nothing"
+    "(you) Run /review-doc dev/features/prices.md in a fresh session. F-7 at 0.1 has no review of that version. Its build tickets wait on that review."
   ]
 }

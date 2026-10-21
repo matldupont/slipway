@@ -102,6 +102,14 @@ export function decisionNote({ prose = [], issues = [] }) {
   const why = [p.length && 'nothing reads a prose condition until it is written as an event', i.length && 'check the issue by hand'].filter(Boolean).join('; ');
   return [`${parts.join(', and ')}: ${why}`];
 }
+// The feature docs owed a review of their current version (#493), counted by id: `ns` is each doc's F-<n> numbers, the
+// first one naming it. Status names each with its command; the note only counts them.
+export function reviewNote(docs) {
+  if (!docs.length) return [];
+  const ids = docs.map((ns) => `F-${ns[0]}`);
+  const shown = ids.length > CAP ? `${ids.slice(0, CAP).join(', ')} and ${ids.length - CAP} more` : ids.join(', ');
+  return [`${plural(docs.length, 'feature doc')} ${docs.length === 1 ? 'has' : 'have'} no review of ${docs.length === 1 ? 'its' : 'their'} current version (${shown}): pnpm status lists each with its /review-doc command, and ${docs.length === 1 ? 'its' : 'their'} build tickets wait on that review`];
+}
 // An error's code for a refusal, as ` (ENOENT)`, only when it is capitals, digits and underscores; else nothing.
 export const codeNote = (e) => (/^[A-Z][A-Z0-9_]{1,30}$/.test(e?.code ?? '') ? ` (${e.code})` : '');
 const countSection = (u, count, applied) => [u.section('◇', `${count.file} — count recorded${applied ? ` at ${count.n}` : ''}`), ...countLines(count).map((l) => u.line(l)), gap(u)];

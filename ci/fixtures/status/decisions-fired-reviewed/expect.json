@@ -4,6 +4,7 @@
   "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
+    "(you) Run /review-doc dev/features/walks.md in a fresh session. F-7 at 0.2 has no review of that version. Its build tickets wait on that review.",
     "(you or an agent) Write what the decision (PD-3) changes into dev/features/tips.md. It amends the feature (F-09), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature. It blocks the feature's review and build. It waits on nothing.",
     "(you) Re-read the decision (PD-2) and say whether it still holds. Its condition has happened (F-08 is reviewed, and that review already covers the decision). An agent or /clarify then writes the outcome in place of the condition, as \"Reopened 2026-03-10: <what changed>\", \"Closed 2026-03-10: <outcome>\" or \"Reviewed 2026-03-10: stands — <why>\". When it is open again, it writes \"open — reopened 2026-03-10\" as the heading status and \"Reopened 2026-03-10: open again\" in place of the condition. A decision that supersedes it settles it too. It blocks anything new built on the decision. It waits on nothing."
   ]

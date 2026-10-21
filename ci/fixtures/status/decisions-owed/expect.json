@@ -4,6 +4,8 @@
   "next": "Activate one of M2, or shape a new bet. Set its appetite dates when it goes active. You, an afternoon.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
+    "(you) Run /review-doc dev/features/booking-window.md in a fresh session. F-6 at 0.1 has no review of that version. Its build tickets wait on that review.",
+    "(you) Run /review-doc dev/features/prices.md in a fresh session. F-7 at 0.1 has no review of that version. Its build tickets wait on that review.",
     "(you or an agent) Write what the decision (PD-1) changes into dev/features/booking-window.md. It amends the feature (F-06), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature. It blocks the feature's review and build. It waits on nothing.",
     "(you or an agent) Name the decision (PD-4) in the doc for the feature (F-11) once it is written, or on the Contents line that builds the feature. The decision amends that feature, and no feature doc carries it yet. It blocks the feature's shaping. It waits on its doc."
   ]

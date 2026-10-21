@@ -4,6 +4,7 @@
   "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
+    "(you) Run /review-doc on the doc for F-6 (a file with an unusual name) in a fresh session. F-6 at 0.1 has no review of that version. Its build tickets wait on that review.",
     "(you or an agent) Write what the decision (PD-1) changes into the feature's doc. It amends the feature (F-06), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature. It blocks the feature's review and build. It waits on nothing."
   ]
 }
