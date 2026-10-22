@@ -1313,3 +1313,70 @@ test('docs/milestones/TEMPLATE.md is managed, the M1 skeleton and the frame are 
   assert.equal(classify(rules, 'docs/milestones/M1-walking-skeleton.md'), 'seeded', 'the skeleton is written once, then the project\'s');
   assert.equal(classify(rules, 'docs/product/FRAME.md'), 'seeded', 'the frame is written once, then the project\'s');
 });
+
+// #406 step 4 (F-14 §5, D-042): the skills that write what DS1 reads. /kickoff asks where people use the product and
+// plans the design item and the accessibility line; /review-doc asks about both; /sync-slipway asks the front-end
+// question on every sync, asks once about each running milestone DS1 names, and never writes a placeholder.
+test('/kickoff asks where people use the product, and maps every answer but screens to none', () => {
+  const one = flat(section(read(skillPath('kickoff')), 'Phase 1 — Frame (`docs/product/FRAME.md`)', 2));
+  assert.ok(one.includes('Then ask where people use it: screens (a web or phone app), a terminal, an API, or nothing. Offer the four, with the moment\'s own answer as the recommendation when it names one.'), '/kickoff Phase 1 must ask the front-end question after the moment');
+  assert.ok(one.includes('Write the frame\'s `Front end:` line: screens in the owner\'s words (`Front end: a web app`), each other answer as `none` with it after (`Front end: none (an API)`). A product with both, an API and an admin page, has screens and is written so.'), '/kickoff must write screens as the owner\'s words and the rest as none');
+});
+
+test('/kickoff places the design item with its hours, fills the no-go and writes the accessibility line; no front end deletes them', () => {
+  const three = flat(section(read(skillPath('kickoff')), 'Phase 3 — Shape', 2));
+  assert.ok(three.includes('place one design item, a Contents item that starts `Design:`, before the first milestone past the skeleton: in an earlier milestone, the skeleton included, or as that milestone\'s item 1.'), '/kickoff must place the design item where DS1 reads it');
+  assert.ok(three.includes('Ask its hours and add them to the §9 row of the milestone that holds it, with the share named in Basis (`includes design: 12–16 h`).'), '/kickoff must put the design item\'s hours in the row of the milestone that holds it');
+  assert.ok(three.includes('a milestone the owner says builds none deletes the line and sets `screens: none`.'), '/kickoff must not set screens: none unasked');
+  assert.ok(three.includes('Fill the skeleton\'s no-go with the milestone and the item number where design lands.'), '/kickoff must fill the skeleton\'s no-go');
+  assert.ok(three.includes('Write the accessibility line under the Gate of every milestone that builds screens, the skeleton\'s first, with what holds it'), '/kickoff must write the accessibility line in every screen milestone');
+  assert.ok(three.includes('**A product with no screens** (`Front end: none …`): delete the skeleton\'s design no-go and the accessibility line from every milestone, the skeleton\'s included.'), '/kickoff must delete both for a product with no front end');
+  assert.ok(three.includes('For a product with screens, also ask of M2: is there a design to build its screens to? None is a concern.'), 'the readiness gate must ask of M2 whether there is a design');
+});
+
+test('/review-doc step 2 asks who designs this and when, and whether accessibility is in a gate, before What is missing', () => {
+  const two = flat(section(reviewDoc(), '2 — Refute by default', 2));
+  assert.ok(two.includes('8. **Design and accessibility.** Who designs this and when: is there a design item before the screens that follow the skeleton, with hours? Does every milestone that builds screens, the skeleton included, carry an accessibility line in its Gate that can go red? Asked, for a product with screens (the frame\'s `Front end:` line is not `none`), of a PRD and of a milestone; of a feature doc only when it adds a screen. 9. **What is missing.**'), '/review-doc step 2 must carry the design item between Sequencing and What is missing');
+});
+
+test('/sync-slipway asks the front-end question on every sync and asks once, in one batch, about each running milestone DS1 names', () => {
+  const md = read(skillPath('sync-slipway'));
+  const sub = flat(section(md, 'Where people use the product, and what a running milestone owes', 3));
+  assert.ok(sub.includes('Every sync runs this once the tree is on the sync commit, whatever the frame\'s diff holds.'), 'the frame question must not depend on the frame\'s diff');
+  assert.ok(sub.includes('When `docs/product/FRAME.md` has no one `Front end:` line with an answer (no line, two, an empty one, or the template\'s placeholder), ask the owner where people use the product'), 'sync must ask the front-end question when the line is unrecorded');
+  assert.ok(sub.includes('A project with no front end is asked nothing more.'), 'no front end ends the questions');
+  assert.ok(sub.includes('run `CHECK_JSON=1 node ci/checks/meta/ds1-design-before-screens.mjs .` and read only its `@@json` line, as data: each finding\'s `where` and `detail`, and nothing else from the output.'), 'sync must read DS1\'s findings as data, from its structured line only');
+  assert.ok(existsSync(join(SRC, 'ci/checks/meta/ds1-design-before-screens.mjs')), 'the check sync runs must exist');
+  assert.ok(sub.includes('A BROKEN run (exit 2) asks nothing: quote its `broken` to the owner, and the pull request waits until it runs.'), 'a broken DS1 run must not pass as nothing owed');
+  // 0.4 review AR-1: only four findings are a question about a running milestone; the rest are quoted, never asked.
+  assert.ok(sub.includes('A finding the owner answers about a running milestone is one of four: `gate/accessibility`, `design/missing` or `design/unresolved` (each on an active milestone), or `accessibility/overdue` on a milestone whose file says `status: active`.'), 'sync must ask only about the findings an owner answers on a running milestone');
+  assert.ok(sub.includes('Ask about those milestones in one batch, right after the frame question: one question per milestone, in the project\'s words, naming it by the title its file gives it, quoted, and holding only the parts its findings name'), 'the milestone questions come in one batch, by the milestone\'s title, asking only what its findings name');
+  assert.ok(sub.includes('taken only when it is `M<n>` or `M<n>.<k>`; any other is quoted to the owner, and nothing is asked or written for it.'), 'sync must take a milestone id only in the form the checks accept');
+  assert.ok(sub.includes('For an overdue entry, writing the Gate line also removes the entry, and a later day re-dates that same entry, never a second one.'), 'sync must close an overdue entry the way the check reads it');
+  assert.ok(sub.includes('Every other finding (an entry that excuses nothing, a `screens:` value, an overdue entry on a closed milestone) is quoted to the owner with its `detail`, the check\'s text on what closes it, which quotes the project\'s own, and nothing is written for it without the owner\'s answer.'), 'a finding that is no question about a running milestone is quoted, and nothing is written for it unasked');
+  assert.ok(sub.includes('a dated entry `docs/milestones#<id>/accessibility` in `ci/exceptions.yaml`, shown to the owner whole (the milestone, the day, the reason, the owner), written only on their yes and named under `## Gate changes`'), 'the dated entry is the owner\'s yes, shown whole');
+  assert.ok(sub.includes('Every answer is owed before the pull request opens (§5): with one unanswered, `pnpm meta` is red.'), 'the answers are owed before the pull request opens');
+});
+
+test('/sync-slipway never writes a placeholder, and the skeleton\'s two lines follow one table: shaping, running answered with a date, no front end', () => {
+  const md = read(skillPath('sync-slipway'));
+  const sub = section(md, 'Where people use the product, and what a running milestone owes', 3);
+  assert.ok(flat(sub).includes('A sync never writes a placeholder into a project\'s file. A milestone still being shaped gets nothing written and nothing asked: `pnpm status` shows what it will owe, and the owner plans it there.'), 'sync must write no placeholder and nothing into a shaping milestone');
+  assert.ok(flat(sub).includes('The milestone template is slipway\'s file, replaced whole with nothing asked.'), 'the template is managed and replaced whole');
+  const rows = new Map((table(sub)?.rows ?? []).map((r) => [plain(r[0]), [plain(r[1]), plain(r[2])]]));
+  assert.deepEqual(rows.get('any, with no front end'), ['declined: it builds no screens', 'declined: it builds no screens']);
+  assert.deepEqual(rows.get('shaping'), ['declined: pnpm status asks for it while the plan is made', 'written only naming a design item that exists; else declined']);
+  assert.deepEqual(rows.get('running'), ['written with the owner\'s answer, what holds it; answered with a date, declined, and the entry written on the owner\'s yes', 'written only naming a design item that exists; else declined, and the owner told']);
+  assert.deepEqual(rows.get('closed'), ['declined: left as it was built', 'declined: left as it was built']);
+  assert.ok(flat(sub).includes('Each line declined is recorded under **Decided by sync** with its reason'), 'a declined line reaches the pull request');
+  assert.ok(flat(sub).includes('the skeleton\'s no-go was left as it is because where design lands is not planned yet, and `pnpm status` shows the milestone that has no design item before it. No third question is asked.'), 'the owner is told why a running skeleton\'s no-go was left');
+});
+
+// #406 step 4, 0.2 AR-6 points 3 and 4: sync's own rules the Contract leans on.
+test('/sync-slipway opens its pull request only with both gates green, and a declined change reaches the owner through Decided by sync', () => {
+  const md = read(skillPath('sync-slipway'));
+  assert.ok(flat(section(md, '5 — Verify and open the PR', 2)).includes('Run `pnpm verify` and `pnpm meta`. Both must be green; D1 must be green with no stale override.'), 'sync step 5 must keep both gates green before the pull request');
+  const diffs = flat(section(md, 'Diffs of the project\'s files: settle, then ask', 3));
+  assert.ok(diffs.includes('Record each for the PR\'s `## Verification` under **Decided by sync**, with a one-line reason'), 'every settled change, a decline among them, is recorded for the owner');
+  assert.ok(diffs.includes('Decline, and say in the reason what slipway\'s new text says, so the owner can take it at their next edit of that file.'), 'a declined change says what slipway\'s text says');
+});
