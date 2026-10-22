@@ -32,8 +32,9 @@ process.exit(
   report({
     id: 'V1',
     claim: 'every feature doc that is not shipped has a line starting `Version:`',
-    scanned: docs.length,
-    unit: `feature docs (${FEATURE_DIRS.map((d) => `${d}/`).join(' and ')})`,
+    // The two folders are always looked in, so a project with no feature doc yet is green, not unexamined.
+    scanned: FEATURE_DIRS.length + docs.length,
+    unit: `feature folders and feature docs (${FEATURE_DIRS.map((d) => `${d}/`).join(' and ')})`,
     findings: missing.filter((f) => !shipped(f)).map((f) => ({ where: `${f.path}#version/missing`, detail: DETAIL })),
     warnings: missing.filter(shipped).map((f) => ({ where: `${f.path}#version/missing`, detail: `${DETAIL}; it is shipped, so this is a warning` })),
     broken: unread.length ? `${unread.map((f) => f.path).join(', ')} ${unread.length === 1 ? 'is' : 'are'} a link or not a plain file or folder, so ${unread.length === 1 ? 'it is' : 'they are'} never read and a feature doc with no Version: line could sit there` : null,
