@@ -57,20 +57,20 @@ and `gh`: the commits of #458 and #460, PR #509's body, the subjects on `main..c
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | §6 still cuts `## Open questions` and pins 11 sections; #460 kept the section, and nothing pins a count | S1 | owner | #462 | |
-| AR-2 | §3's static test reads only `.push` calls, so the ratchet's finding and the prose check's escape it | S2 | owner | #457 | |
-| AR-3 | L-54 becomes a `check` lesson, so L1 never reads its review date, and nothing checks its rule | S2 | owner | #462 | |
-| AR-4 | The pr-body Vale steps landed with no test of their guard; that test waits for #461 | S2 | owner | #462 | |
-| AR-5 | §5 bans every word of the skill's `## Phase` headings, which bans "the" and "risk" in `/kickoff` | S2 | owner | #459 | |
-| AR-6 | Seams says no project's engineer meets a new rule; I1's new Seams shape and warning reach projects | S2 | owner | #462 | |
-| AR-7 | §3's one-sentence and no-id rules read quoted project text, which §2 removes first | S3 | owner | #457 | |
-| AR-8 | The Next-form check does not test that the first sentence ends with a period | S3 | owner | #462 | |
-| AR-9 | The Build map says "in this order"; the stages landed in another | S3 | owner | — | |
-| AR-10 | §4 promises `SLIPWAY.md`'s own warning count in Changes; Changes holds only the held-set total | S3 | owner | — | |
-| AR-11 | `SLIPWAY.md`'s step headings give a second set of times, one of which disagrees with `STEPS` | S3 | owner | — | |
-| AR-12 | §8 records a figure from a run on a real project's files; decision-defaults §9 puts it in the PR | S3 | owner | #462 | |
-| AR-13 | Stale or broken text: a code span, the Changes form, a tracker, a subject count, a pair | S3 | owner | #462 | |
-| AR-14 | The scope line says `decisions.md` and `process/intake.md` are agent text; §8 checks both | S3 | owner | — | |
+| AR-1 | §6 still cuts `## Open questions` and pins 11 sections; #460 kept the section, and nothing pins a count | S1 | owner | #462 | owner's call (D-046) |
+| AR-2 | §3's static test reads only `.push` calls, so the ratchet's finding and the prose check's escape it | S2 | owner | #457 | #457 |
+| AR-3 | L-54 becomes a `check` lesson, so L1 never reads its review date, and nothing checks its rule | S2 | owner | #462 | L-71 (#522) |
+| AR-4 | The pr-body Vale steps landed with no test of their guard; that test waits for #461 | S2 | owner | #462 | #522 |
+| AR-5 | §5 bans every word of the skill's `## Phase` headings, which bans "the" and "risk" in `/kickoff` | S2 | owner | #459 | #459 |
+| AR-6 | Seams says no project's engineer meets a new rule; I1's new Seams shape and warning reach projects | S2 | owner | #462 | #522 |
+| AR-7 | §3's one-sentence and no-id rules read quoted project text, which §2 removes first | S3 | owner | #457 | #457 |
+| AR-8 | The Next-form check does not test that the first sentence ends with a period | S3 | owner | #462 | #522 |
+| AR-9 | The Build map says "in this order"; the stages landed in another | S3 | owner | — | #524 |
+| AR-10 | §4 promises `SLIPWAY.md`'s own warning count in Changes; Changes holds only the held-set total | S3 | owner | — | #524 |
+| AR-11 | `SLIPWAY.md`'s step headings give a second set of times, one of which disagrees with `STEPS` | S3 | owner | — | #524 |
+| AR-12 | §8 records a figure from a run on a real project's files; decision-defaults §9 puts it in the PR | S3 | owner | #462 | next Version, with AR-1 |
+| AR-13 | Stale or broken text: a code span, the Changes form, a tracker, a subject count, a pair | S3 | owner | #462 | #522; the rest with AR-1 |
+| AR-14 | The scope line says `decisions.md` and `process/intake.md` are agent text; §8 checks both | S3 | owner | — | #524 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.

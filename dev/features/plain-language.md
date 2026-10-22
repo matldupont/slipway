@@ -429,9 +429,11 @@ written ahead of its build), 48 `expected.json` files under `ci/fixtures/known-b
 
 ## Seams
 
-none: no person, channel or promise is added. Every new rule runs in slipway's own repository until a project's text
-has been measured (D-046), so no project's engineer meets one. The time per step on the Next line is the path table's
-existing estimate, read from one list.
+none: no person, channel or promise is added. The prose job, the chatbot check on PR bodies and P1's title and subject
+rules run in slipway's own repository until a project's text has been measured (D-046). The rest reaches a project at
+its next sync: the Next line and the check messages change what its engineer reads, and I1 reads the merged Seams field
+(the project's owner is told by the sync's plan). The time per step on the Next line is the path table's existing
+estimate, read from one list.
 
 ## Threat model
 
@@ -462,7 +464,8 @@ Not defended: a sentence written to pass the rules while saying nothing. The own
 - The Next-line form is tested on fixtures; project text inside the quoted spans is excluded from the rules, so a
   milestone title with a semicolon is printed as written.
 - Only the Next line has a form test; the other status lines are held by the PR's before/after list and the owner's reading (§9).
-- This branch's own subjects were written before P1 holds them: one is 77 code points, and history is not rewritten.
+- The commit subjects of the stages built before P1 held them are not rewritten.
+- A project's open issues meet I1's merged Seams shape the next time they are edited after a sync (the issue-shape workflow runs on `edited`).
 - Existing history, issue titles and docs in `docs/reviews/` are never rewritten.
 
 ## Acceptance
@@ -625,7 +628,7 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
   `/pr-review`): one "edit against `writing.md`" line each, and `/pr-review`'s scripted casual phrases ("tiny thing",
   "take it or leave it"). A follow-up once stage 4 shows the line is read.
 - **Shipping the prose job, the body's chatbot check and P1's title rules to projects.** Slipway only until a real
-  project's docs have been measured once (D-046). Tracker: filed by step 7's PR.
+  project's docs have been measured once (D-046). Tracker: #521.
 - **`sync`'s output:** its own doc, F-08 (`dev/features/cli-output.md`).
 - **The site's copy** (`site/index.html`): #355 cut its catch-phrases; #287's run by an outside engineer is the test.
 - **`pnpm status` as a parallel plan** (#445): its lines take the §2 form when it is shaped; it follows stage 1.
@@ -639,4 +642,5 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
 - 2026-10-15 · REVIEWED · 0.2 review (`docs/reviews/2026-10-15-plain-language-0.2.md`), 13 findings, the last whole-document review. AR-1 (the placeholder rule read code spans) decided by the owner as a build line in #462: the rule skips code spans and fenced blocks, as the decisions reader does. AR-2 to AR-13 ride #456, #457, #461 and #462 as build lines; the Contract's wording is corrected at the end of the build, in #462's PR · #455
 - 2026-10-15 · MODIFIED · the owner's ask for #456: the decision lines `pnpm status` prints since PR #475 (`ci/checks/lib/decision-lines.mjs`) are status text too, so the standard applies to them; only their wording changes. Out of scope below is corrected here; §2's sentence that leaves them as written is corrected with the rest of the Contract at the end of the build, in #462's PR · #456
 - 2026-10-19 · MODIFIED · D-048: §9's measured readings are dropped (no baseline, no later readings); whether the writing improves is the owner's judgement, alongside the checks. §9's text is left for #462's PR, which carries the Contract corrections · #456
-- 2026-10-22 · MODIFIED · Version 0.3: the Contract corrected for the 0.2 review's AR-1 to AR-13 (`docs/reviews/2026-10-15-plain-language-0.2.md`), in #462's PR on the orchestrator's call. Against a landed build (#456, #458, #460, #462): AR-1, AR-3, AR-4, AR-6, AR-8, AR-9, AR-10, AR-12. Written ahead of their build: AR-2, AR-5, AR-11 (#457), AR-13 (#461). AR-7 is D-048: §9 has no readings and no stop rule, and the Acceptance line for them is gone. L-54 points at `process/writing.md` until #521 ships `ci/prose/` to projects, because lessons ship and that folder does not (the orchestrator's call). The prose ratchet starts at 136 warnings on the held set at 04b47c0 · #462 Shipping the prose job, the chatbot check on bodies and P1's title rules to projects is #521.
+- 2026-10-22 · MODIFIED · Version 0.3: the Contract corrected for the 0.2 review's AR-1 to AR-13 (`docs/reviews/2026-10-15-plain-language-0.2.md`), in #462's PR on the orchestrator's call. Against a landed build (#456, #458, #460, #462): AR-1, AR-3, AR-4, AR-6, AR-8, AR-9, AR-10, AR-12. Written ahead of their build: AR-2, AR-5, AR-11 (#457), AR-13 (#461). AR-7 is D-048: §9 has no readings and no stop rule, and the Acceptance line for them is gone. L-54 points at `process/writing.md` until #521 ships `ci/prose/` to projects, because lessons ship and that folder does not (the orchestrator's call). The prose ratchet starts at 136 warnings on the held set at 04b47c0. Shipping the prose job, the chatbot check on bodies and P1's title rules to projects is #521 · #462
+- 2026-10-22 · REVIEWED · 0.3 review (`docs/reviews/2026-10-22-plain-language-0.3.md`), 14 findings; AR-1 (S1: §6 and the Acceptance still cut `## Open questions`) is the owner's. Fixed in #462's PR outside the versioned sections: AR-3, AR-4, AR-6, AR-8 and the parts of AR-13 that sit outside them; AR-12 and the rest of AR-13 wait with AR-1 for the next Version. The other findings are tracked in the register · #462
