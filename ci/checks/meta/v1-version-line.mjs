@@ -9,7 +9,8 @@
 // line starting `Version:` (review-header.mjs → versionLines, the one R1 and P1 read).
 //
 // A feature folder that is a link, sits under one or is not a folder, and a doc in one that is a link or not a file, is
-// BROKEN: it is never read, so a doc with no line could hide there (F2 and ID1 name these too).
+// BROKEN: it is never read, so a doc with no line could hide there (F2 and ID1 name these too). So is a root with neither
+// feature folder: nothing was read.
 //
 // WHY: P1 holds a pull request that moves a feature doc's version with no review of the new one (#464). A doc with no
 // `Version:` line moves nothing, so its revisions were never held, and status could not say which version a review is
@@ -19,12 +20,15 @@
 
 import { FEATURE_DIRS, isFeatureDoc, readFeatureFiles } from '../lib/feature-docs.mjs';
 import { report } from '../lib/report.mjs';
+import { MISSING, notPlainFolder } from '../lib/review-header.mjs';
 import { isShipped as shipped, unversioned } from '../lib/spec-review.mjs';
 
 const root = process.argv[2] ?? '.';
 const files = readFeatureFiles(root);
 const unread = files.filter((f) => !f.regular);
 const docs = files.filter(isFeatureDoc);
+const present = FEATURE_DIRS.filter((d) => notPlainFolder(root, d) !== MISSING).length;
+const FOLDERS = FEATURE_DIRS.map((d) => `${d}/`).join(' nor ');
 const missing = unversioned(root);
 const DETAIL = 'has no line starting `Version:`, so no review can name the version it read and no change to it is held for one: add `Version: 0.1` below its title';
 
@@ -32,11 +36,12 @@ process.exit(
   report({
     id: 'V1',
     claim: 'every feature doc that is not shipped has a line starting `Version:`',
-    // The two folders are always looked in, so a project with no feature doc yet is green, not unexamined.
-    scanned: FEATURE_DIRS.length + docs.length,
+    // Each feature folder that is there counts, so a project with no feature doc yet (docs/features/ holds its template)
+    // is green; a root with neither folder read nothing, and is BROKEN below.
+    scanned: present + docs.length,
     unit: `feature folders and feature docs (${FEATURE_DIRS.map((d) => `${d}/`).join(' and ')})`,
     findings: missing.filter((f) => !shipped(f)).map((f) => ({ where: `${f.path}#version/missing`, detail: DETAIL })),
     warnings: missing.filter(shipped).map((f) => ({ where: `${f.path}#version/missing`, detail: `${DETAIL}; it is shipped, so this is a warning` })),
-    broken: unread.length ? `${unread.map((f) => f.path).join(', ')} ${unread.length === 1 ? 'is' : 'are'} a link or not a plain file or folder, so ${unread.length === 1 ? 'it is' : 'they are'} never read and a feature doc with no Version: line could sit there` : null,
+    broken: present === 0 ? `neither ${FOLDERS} is there, so nothing was read` : unread.length ? `${unread.map((f) => f.path).join(', ')} ${unread.length === 1 ? 'is' : 'are'} a link or not a plain file or folder, so ${unread.length === 1 ? 'it is' : 'they are'} never read and a feature doc with no Version: line could sit there` : null,
   })
 );

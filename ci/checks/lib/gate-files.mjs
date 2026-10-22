@@ -284,7 +284,8 @@ export function changes(base, head, cwd = process.cwd()) {
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
   // The feature docs whose `Version:` lines this pull request moves, for P1's spec-review rule (#464): a doc that is
   // gone at the head is not listed, and one the base lacks moves from no lines. A doc the base has with no `Version:`
-  // line that gains exactly one is not a move (D-049): V1 asks for that line, and adding it changes no version a review read.
+  // line that gains exactly one is not a move (D-049): V1 asks for that line. A review that quoted another line of the doc
+  // may go stale under R1 once it has one, which D-049 names as its cost.
   // Only when the base's file was already a feature doc by feature-docs.mjs's rule (an `F-<n>` heading, and a header that
   // reads and names no `companion-of:`): a notes file or a companion that becomes a feature doc is a new doc, and is held.
   const textAt = (rev, path) => {
@@ -306,9 +307,11 @@ export function changes(base, head, cwd = process.cwd()) {
   const specs = files.flatMap((path) => {
     if (!SPEC_PATH.test(path) || path.startsWith('ci/fixtures/')) return []; // a fixture's doc is test data, not a spec
     const now = versionsAt(head, path);
-    const base = versionsAt(from, path);
-    if (base !== null && base.length === 0 && now?.length === 1 && wasFeatureDoc(textAt(from, path))) return [];
-    const was = base ?? [];
+    const atFrom = versionsAt(from, path);
+    // The base branch's tip too: a branch cut before the tip gave the doc its line would otherwise add a second one unheld.
+    const tip = versionsAt(base, path);
+    if (atFrom !== null && atFrom.length === 0 && (tip === null || tip.length === 0) && now?.length === 1 && wasFeatureDoc(textAt(from, path))) return [];
+    const was = atFrom ?? [];
     return now && JSON.stringify(now) !== JSON.stringify(was) ? [{ path, versions: now }] : [];
   });
   return { files, scripts, globs, links, specs };

@@ -1,0 +1,1 @@
+A folder named like a feature doc: V1 cannot read it as one.

@@ -411,6 +411,14 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
   const [, t14] = step('a companion', () => put('docs/features/c.md', '---\ncompanion-of: docs/features/x.md\n---\n\n# F-1 — notes\n\nc\n'));
   const [, t15] = step('it becomes a primary with a Version line', () => put('docs/features/c.md', '# F-21 — c\n\nVersion: 0.1\n\nc\n'));
   assert.deepEqual(changes(t14, t15, repo).specs, [{ path: 'docs/features/c.md', versions: ['Version: 0.1'] }], 'a companion that becomes a primary is a new doc');
+  // The base branch's tip is read too: a branch cut before the tip gave a doc its first line adds a second one, and is held.
+  const [, t16] = step('a doc with no Version line', () => put('docs/features/u.md', '# F-4 — u\n\nu\n'));
+  const [, t17] = step('the base gives it its first line', () => put('docs/features/u.md', '# F-4 — u\n\nVersion: 0.1\n\nu\n'));
+  git('switch', '-q', '--detach', t16);
+  const [, t18] = step('a branch from before that gives it another', () => put('docs/features/u.md', '# F-4 — u\n\nu, rewritten\n\nVersion: 0.2\n'));
+  assert.deepEqual(changes(t17, t18, repo).specs, [{ path: 'docs/features/u.md', versions: ['Version: 0.2'] }], 'the tip has a Version line, so this is a move');
+  assert.deepEqual(changes(t16, t18, repo).specs, [], 'the same change on a base that has no line is not');
+  git('switch', '-q', 'specs');
   const run = (...flag) => spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), f3, t3, ...flag], { cwd: repo, encoding: 'utf8' });
   assert.equal('draft' in JSON.parse(run().stdout), false, 'no argument, no key: P1 reads that as ready');
   assert.equal(JSON.parse(run('true').stdout).draft, true);
