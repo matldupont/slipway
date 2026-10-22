@@ -1,0 +1,7 @@
+extends: existence
+message: "Recap opening: delete '%s'. The paragraph above already said it."
+level: error
+scope: raw
+nonword: true
+tokens:
+  - '(?<=\n\n|\A)(?:In summary|In conclusion|To summarize|To sum up|Overall,)'

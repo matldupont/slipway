@@ -61,6 +61,15 @@ paths:
   # the workflow that stages slipway's own releases at npm (F-10): a project publishes nothing of slipway's
   - glob: .github/workflows/release.yml
     class: internal
+  # the prose check (F-16 §8): slipway's own Vale rules, script and fixture. A project's docs are not measured yet (D-046)
+  - glob: .vale.ini
+    class: internal
+  - glob: ci/prose.mjs
+    class: internal
+  - glob: ci/prose/**
+    class: internal
+  - glob: ci/fixtures/known-bad/prose/**
+    class: internal
   # local secrets and settings, wherever they sit: a directory walk would otherwise ship them
   - glob: '**/.env*'
     class: internal

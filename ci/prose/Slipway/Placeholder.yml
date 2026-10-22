@@ -1,0 +1,10 @@
+extends: existence
+message: "Placeholder left in the text: '%s'. Write the real value, or move the format into a code span."
+level: error
+scope: raw
+nonword: true
+tokens:
+  - '<[a-z][a-z -]*>'
+  - '\bTBD\b'
+  - '\bXXX\b'
+  - '(?i)lorem ipsum'

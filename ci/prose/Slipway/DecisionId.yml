@@ -1,0 +1,7 @@
+extends: existence
+message: "'%s' is a decision id. Say what was decided, with the id in brackets after it."
+level: warning
+ignorecase: false
+nonword: true
+tokens:
+  - '(?<![\[(])\b(?:PD|D)-\d+\b(?![\])])'

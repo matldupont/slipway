@@ -1,0 +1,16 @@
+extends: existence
+message: "Chatbot phrasing: delete '%s'. Start with what the reader does next, or what changed."
+level: error
+scope: raw
+ignorecase: true
+nonword: true
+tokens:
+  - 'I hope this helps'
+  - 'Great question'
+  - 'Certainly!'
+  - 'As an AI'
+  - 'Let me know if'
+  - 'Happy to help'
+  - "I'd be happy to"
+  - 'Absolutely!'
+  - 'Of course!'

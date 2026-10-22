@@ -1,0 +1,6 @@
+extends: occurrence
+message: "A sentence of more than 34 words. Split it: one idea per sentence."
+level: warning
+scope: sentence
+max: 34
+token: '[^\s]+'
