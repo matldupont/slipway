@@ -1279,6 +1279,11 @@ stays held)."
 - **A doc that already exists at the base and gains its first `Version:` line is not a version move** for P1, so the
   pull request that adds the line, and a project's sync that brings this rule, are not held for a review. A doc new in
   the pull request is held as before.
+  Narrowed by the owner the same day, after two review rounds found ways around a wider reading: "exempt only when the
+  doc's sole change is one added Version: line, on a feature doc by readFeatureFiles' rule, with no Version line at the
+  merge base, the event base or the merge's first parent." A pull request checked before the base branch gave the doc
+  its line, and never checked again, can still merge a second line unheld: the repository setting "require branches to
+  be up to date" closes that.
 - **Status names each feature doc not shipped whose current version no review quotes,** and sync's note counts them and
   the docs a project must give a `Version:` line.
 - **Cost if wrong:** a project goes red on the sync that brings this until each unshipped feature doc has the line, one

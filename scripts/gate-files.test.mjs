@@ -418,6 +418,20 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
   assert.deepEqual(changes(t19, t20, repo).specs, [{ path: 'docs/features/e.md', versions: ['Version: 0.1'] }], 'a first line with another edit is a move');
   const [, t21] = step('only the line, and no blank line beside it', () => put('docs/features/e.md', '# F-5 — e\nVersion: 0.1\n\ne\n'));
   assert.deepEqual(changes(t19, t21, repo).specs, [], 'the line alone, with no blank line added');
+  // Only a feature doc at the merge base: a notes file or a companion given only a line is held.
+  const [, t26] = step('a notes file and a companion', () => {
+    put('docs/features/notes2.md', '# Notes\n\nn\n');
+    put('docs/features/comp.md', '---\ncompanion-of: docs/features/e.md\n---\n\n# F-5 — notes\n\nc\n');
+  });
+  const [, t27] = step('each gains only a line', () => {
+    put('docs/features/notes2.md', '# Notes\n\nVersion: 0.1\n\nn\n');
+    put('docs/features/comp.md', '---\ncompanion-of: docs/features/e.md\n---\n\n# F-5 — notes\n\nVersion: 0.1\n\nc\n');
+  });
+  assert.deepEqual(changes(t26, t27, repo).specs.map((x) => x.path).sort(), ['docs/features/comp.md', 'docs/features/notes2.md'], 'not a feature doc at the base');
+  // The line and one more line beside it that is not blank: held.
+  const [, t28] = step('a doc', () => put('docs/features/g.md', '# F-8 — g\n\ng\n'));
+  const [, t29] = step('its line and a sentence beside it', () => put('docs/features/g.md', '# F-8 — g\n\nVersion: 0.1\nA new rule.\ng\n'));
+  assert.deepEqual(changes(t28, t29, repo).specs, [{ path: 'docs/features/g.md', versions: ['Version: 0.1'] }], 'only a blank line may come with it');
   // A features/ folder other than the two is not one readFeatureFiles reads: held.
   const [, t22] = step('a doc in another features/ folder', () => put('app/features/old.md', '# F-6 — old\n\nold\n'));
   const [, t23] = step('it gains a line', () => put('app/features/old.md', '# F-6 — old\n\nVersion: 0.1\n\nold\n'));
