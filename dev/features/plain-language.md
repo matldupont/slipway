@@ -371,8 +371,7 @@ content: printed through `escapeControl`, length computed on the text as written
     which keeps its placeholders by design), both set in `.vale.ini`; never `[NEEDS CLARIFICATION]`, which is a marker
     checks read.
     Not an HTML tag a table cell or a details block uses (`<br>`, `<details>`, `<summary>`, `<kbd>` and the like, listed
-    in `Placeholder.yml`): a read-only run on a real project's docs found 29 errors on `<br>` alone, so `<br>` in a
-    table cell passes while `<date>` and `<your name>` still fail.
+    in `Placeholder.yml`): `<br>` in a table cell passes, while `<date>` and `<your name>` still fail.
   - `Recap.yml`: a paragraph starting `In summary`, `In conclusion`, `To summarize`, `To sum up`, `Overall,`.
 - **Warnings, which ratchet on the held set:** `CheckId.yml` (a check id as a word outside code and outside
   brackets), `DecisionId.yml` (`D-` or `PD-` and digits, outside code and outside brackets: §1 rule 2's one rule),
