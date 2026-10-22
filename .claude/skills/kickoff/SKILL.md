@@ -34,6 +34,10 @@ what is there.
 Work through, in order:
 
 1. **The moment.** "When does someone reach for this?" Get a situation, not a persona.
+   Then ask where people use it: screens (a web or phone app), a terminal, an API, or nothing. Offer the four,
+   with the moment's own answer as the recommendation when it names one. Write the frame's `Front end:` line:
+   screens in the owner's words (`Front end: a web app`), each other answer as `none` with it after
+   (`Front end: none (an API)`). A product with both, an API and an admin page, has screens and is written so.
 2. **The job story.** Draft "When …, I want to …, so I can …" and have the user correct it.
    The outcome is a change in their life, not a feature.
 3. **The question it answers.** One line, in the user's words — e.g. for a dog walkers'
@@ -131,8 +135,21 @@ anyway with a decision in `decisions.md` that says why.
    when a milestone's midpoint is more than its appetite holds (appetite days ÷ 7 × the top of
    Capacity). Show the user any warning and let them cut scope, lengthen the appetite or
    re-estimate — do not quietly shrink the estimate to fit.
+
+   **A product with screens** (the frame's `Front end:` line is not `none`): place one design item, a Contents item
+   that starts `Design:`, before the first milestone past the skeleton: in an earlier milestone, the skeleton
+   included, or as that milestone's item 1. Ask who or what does the work and what it delivers; offer direction, a
+   component set built to WCAG 2.2 AA and the flows for the screens to come as the usual answer, never as a
+   requirement. Ask its hours and add them to the §9 row of the milestone that holds it, with the share named in Basis
+   (`includes design: 12–16 h`). Fill the skeleton's no-go with the milestone and the item number where design lands.
+   Write the accessibility line under the Gate of every milestone that builds screens, the skeleton's first, with what
+   holds it (ask: an automated accessibility check in CI, a keyboard and screen-reader pass in `docs/qa/`); a
+   milestone the owner says builds none deletes the line and sets `screens: none`. **A product with no screens**
+   (`Front end: none …`): delete the skeleton's design no-go and the accessibility line from every milestone, the
+   skeleton's included.
 5. **Readiness gate.** Re-read M1 and M2 as the engineer who must build them. For each slice
-   ask: can it be built without inventing a decision nobody recorded? Report:
+   ask: can it be built without inventing a decision nobody recorded? For a product with screens, also ask of M2:
+   is there a design to build its screens to? None is a concern. Report:
 
    ```
    Readiness: PASS | CONCERNS | FAIL
