@@ -1,0 +1,10 @@
+{
+  "_note": "#493: walks (F-7) is at 0.2 and its only review quotes 0.1; tips (F-9) has no Version line, and a review that quotes a line of its text still leaves it owed: no review can name a version it lacks. Both are owed a review. done (F-3) is shipped, walks-notes is a companion, TEMPLATE.md is not a feature doc: none of them is listed.",
+  "today": "2026-03-10",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "(you) Run /review-doc docs/features/tips.md in a fresh session. F-9 has no Version: line, so no review can name its version: add Version: 0.1 first. Its build tickets wait on that review.",
+    "(you) Run /review-doc docs/features/walks.md in a fresh session. F-7 at 0.2 has no review of that version. Its build tickets wait on that review."
+  ]
+}

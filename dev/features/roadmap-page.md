@@ -5,6 +5,8 @@ status: draft
 
 # F-02 — Roadmap page: project state for people who don't read the repo
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 A project on slipway keeps its state in the repo, and `pnpm status` computes it for agents and the

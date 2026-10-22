@@ -5,6 +5,8 @@ status: draft
 
 # F-05 — Experience settles a value risk; `/kickoff` interviews for the why
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 K1 lets nothing past the walking skeleton until every **value** risk in `docs/product/FRAME.md` has a Result

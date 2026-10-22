@@ -21,7 +21,9 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rowValue } from './clock.mjs';
-import { versionLines } from './review-header.mjs';
+import { FEATURE_DIRS, LEAD, visible } from './feature-docs.mjs';
+import { frontmatter } from './frontmatter.mjs';
+import { docLines, versionLines } from './review-header.mjs';
 import { SPEC_PATH } from './spec-review.mjs';
 
 export const SETTINGS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'process', 'harness', 'settings.json');
@@ -282,18 +284,53 @@ export function changes(base, head, cwd = process.cwd()) {
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
   // The feature docs whose `Version:` lines this pull request moves, for P1's spec-review rule (#464): a doc that is
   // gone at the head is not listed, and one the base lacks moves from no lines.
-  const versionsAt = (rev, path) => {
+  // One change is not a move (D-049, narrowed by the owner 2026-10-22): a feature doc whose only change is one added
+  // `Version:` line. V1 asks for that line, so holding it would hold every project's sync. All of these hold, else the
+  // doc is listed as before:
+  //   - it sits directly in docs/features/ or dev/features/, and at the merge base it is a feature doc by readFeatureFiles'
+  //     rule (an `F-<n>` heading, no `companion-of:`);
+  //   - it has no `Version:` line at the merge base, at the base commit given, or at the base branch's tip as GitHub merged
+  //     into it (the checked-out merge's first parent, read as for AGENT.md above);
+  //   - its text at the head is its text at the merge base with that one line added, and at most one blank line beside it.
+  // So a first-line pull request carries no other change to the doc, and a notes file or companion that becomes a feature
+  // doc, or a doc that gains a line the tip already gave it, is held. A review that quoted another line of the doc may go
+  // stale under R1 once it has one, which D-049 names as its cost.
+  const textAt = (rev, path) => {
     try {
-      return versionLines(git('show', `${rev}:${path}`));
+      return git('show', `${rev}:${path}`);
     } catch {
       return null; // absent at that revision
     }
   };
+  const versionsAt = (rev, path) => {
+    const text = textAt(rev, path);
+    return text === null ? null : versionLines(text);
+  };
+  const FEATURE = new RegExp(`${LEAD}F-\\d+\\b`);
+  const isFeatureDocText = (text) => (frontmatter(text) ?? {})['companion-of'] == null && visible(text).some((l) => FEATURE.test(l.text));
+  const inFeatureFolder = (path) => FEATURE_DIRS.includes(path.slice(0, path.lastIndexOf('/')));
+  const onlyAddsVersionLine = (was, now) => {
+    const [b, h] = [docLines(was), docLines(now)];
+    const at = h.findIndex((l) => l.startsWith('Version:'));
+    const rest = [...h.slice(0, at), ...h.slice(at + 1)];
+    const same = (x) => x.length === b.length && x.every((l, k) => l === b[k]);
+    return same(rest) || [at - 1, at].some((k) => rest[k] === '' && same([...rest.slice(0, k), ...rest.slice(k + 1)]));
+  };
+  const noLine = (rev, path) => {
+    const v = versionsAt(rev, path);
+    return v === null || v.length === 0;
+  };
+  const mergeTip = parents.length === 2 && parents[1] === git('rev-parse', head).trim() ? parents[0] : null;
+  const firstLine = (path, was, now) =>
+    inFeatureFolder(path) && was !== null && now !== null && versionLines(was).length === 0 && versionLines(now).length === 1 &&
+    isFeatureDocText(was) && noLine(base, path) && (mergeTip === null || noLine(mergeTip, path)) && onlyAddsVersionLine(was, now);
   const specs = files.flatMap((path) => {
     if (!SPEC_PATH.test(path) || path.startsWith('ci/fixtures/')) return []; // a fixture's doc is test data, not a spec
-    const now = versionsAt(head, path);
-    const was = versionsAt(from, path) ?? [];
-    return now && JSON.stringify(now) !== JSON.stringify(was) ? [{ path, versions: now }] : [];
+    const [was, nowText] = [textAt(from, path), textAt(head, path)];
+    if (firstLine(path, was, nowText)) return [];
+    const now = nowText === null ? null : versionLines(nowText);
+    const before = was === null ? [] : versionLines(was);
+    return now && JSON.stringify(now) !== JSON.stringify(before) ? [{ path, versions: now }] : [];
   });
   return { files, scripts, globs, links, specs };
 }
