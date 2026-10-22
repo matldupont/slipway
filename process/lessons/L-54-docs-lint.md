@@ -5,7 +5,7 @@ rule: Lint docs for a declared reader, resolving citations, and generated-or-fro
 failure: deferred component, not yet built
 enforcement:
   status: check
-  pointer: ci/prose/
+  pointer: process/writing.md
   review-by: 2027-04-14
 ---
 

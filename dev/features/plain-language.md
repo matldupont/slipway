@@ -394,7 +394,7 @@ content: printed through `escapeControl`, length computed on the text as written
   shape. `scripts/prose.test.mjs` runs `ci/prose.mjs --dir` on the folder and expects each rule's name in the JSON
   once, the controls quiet, a 35-word sentence tripping the rule and a 34-word one not, and BROKEN (exit 2) without
   `vale`.
-- **Review date.** `process/lessons/L-54-docs-lint.md` moves to `enforcement: status: check`, `pointer: ci/prose/`,
+- **Review date.** `process/lessons/L-54-docs-lint.md` moves to `enforcement: status: check`, `pointer: process/writing.md`,
   `review-by: 2027-04-14`: L1 reads it, so a word list left alone comes back on that date. Shipping the check to
   projects is a follow-up issue filed by this stage's PR (D-046), linked from this doc's Changes.
 
@@ -563,7 +563,7 @@ Then  .vale.ini, ci/prose/**, ci/prose.mjs and the prose fixture are internal, a
 ```
 Given process/lessons/L-54-docs-lint.md after §8
 When  node ci/checks/meta/l1-lessons.mjs .
-Then  its status is check, its pointer is ci/prose/ and its review-by is 2027-04-14
+Then  its status is check, its pointer is process/writing.md (it moves to ci/prose/ when #521 ships that folder to projects) and its review-by is 2027-04-14
 ```
 
 ## Verify
@@ -636,4 +636,4 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
 - 2026-10-15 · REVIEWED · 0.2 review (`docs/reviews/2026-10-15-plain-language-0.2.md`), 13 findings, the last whole-document review. AR-1 (the placeholder rule read code spans) decided by the owner as a build line in #462: the rule skips code spans and fenced blocks, as the decisions reader does. AR-2 to AR-13 ride #456, #457, #461 and #462 as build lines; the Contract's wording is corrected at the end of the build, in #462's PR · #455
 - 2026-10-15 · MODIFIED · the owner's ask for #456: the decision lines `pnpm status` prints since PR #475 (`ci/checks/lib/decision-lines.mjs`) are status text too, so the standard applies to them; only their wording changes. Out of scope below is corrected here; §2's sentence that leaves them as written is corrected with the rest of the Contract at the end of the build, in #462's PR · #456
 - 2026-10-19 · MODIFIED · D-048: §9's measured readings are dropped (no baseline, no later readings); whether the writing improves is the owner's judgement, alongside the checks. §9's text is left for #462's PR, which carries the Contract corrections · #456
-- 2026-10-22 · MODIFIED · Version 0.3: the Contract corrected for the 0.2 review's AR-1 to AR-13 (`docs/reviews/2026-10-15-plain-language-0.2.md`), in #462's PR on the orchestrator's call. Against a landed build (#456, #458, #460, #462): AR-1, AR-3, AR-4, AR-6, AR-8, AR-9, AR-10, AR-12. Written ahead of their build: AR-2, AR-5, AR-11 (#457), AR-13 (#461). AR-7 is D-048: §9 has no readings and no stop rule, and the Acceptance line for them is gone. The prose ratchet starts at 136 warnings on the held set at 04b47c0 · #462 Shipping the prose job, the chatbot check on bodies and P1's title rules to projects is #521.
+- 2026-10-22 · MODIFIED · Version 0.3: the Contract corrected for the 0.2 review's AR-1 to AR-13 (`docs/reviews/2026-10-15-plain-language-0.2.md`), in #462's PR on the orchestrator's call. Against a landed build (#456, #458, #460, #462): AR-1, AR-3, AR-4, AR-6, AR-8, AR-9, AR-10, AR-12. Written ahead of their build: AR-2, AR-5, AR-11 (#457), AR-13 (#461). AR-7 is D-048: §9 has no readings and no stop rule, and the Acceptance line for them is gone. L-54 points at `process/writing.md` until #521 ships `ci/prose/` to projects, because lessons ship and that folder does not (the orchestrator's call). The prose ratchet starts at 136 warnings on the held set at 04b47c0 · #462 Shipping the prose job, the chatbot check on bodies and P1's title rules to projects is #521.

@@ -35,6 +35,7 @@ const CALLERS = [
   'ci/checks/meta/k1-frame.mjs',
   'ci/checks/meta/l1-lessons.mjs',
   'ci/checks/meta/ms1-milestones.mjs',
+  'ci/prose.mjs',
   'ci/status.mjs',
   'scripts/adopt.mjs',
 ];

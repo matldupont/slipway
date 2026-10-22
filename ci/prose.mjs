@@ -22,6 +22,7 @@ import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, w
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withoutHeader } from './checks/lib/frontmatter.mjs';
 import { report } from './checks/lib/report.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -49,9 +50,9 @@ const broken = (why) => process.exit(report({ id: ID, claim: '', scanned: 0, uni
 export function blank(text) {
   const out = [];
   let fence = null;
-  let lines = text.split('\n');
-  const close = lines[0] === '---' ? lines.indexOf('---', 1) : -1;
-  if (close > 0) lines = [...lines.slice(0, close + 1).map(() => ''), ...lines.slice(close + 1)];
+  // The header is cut by the one reader (ci/checks/lib/frontmatter.mjs) and its lines kept as empty ones.
+  const body = withoutHeader(text);
+  const lines = [...Array(text.split('\n').length - body.split('\n').length).fill(''), ...body.split('\n')];
   for (const line of lines) {
     const m = /^ {0,3}(`{3,}|~{3,})/.exec(line);
     if (fence === null && m) {
