@@ -12,6 +12,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { SPEC_PATH, unreviewedSpecs } from '../ci/checks/lib/spec-review.mjs';
+import { versionLines } from '../ci/checks/lib/review-header.mjs';
 import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateListed, gateMatcher, gateTouched, GUARD_GLOBS, SETTINGS, writeRules } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -394,11 +395,11 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
   assert.deepEqual(changes(f5, t5, repo).specs, []);
   const [f6, t6] = step('a fixture holds a feature doc', () => put('ci/fixtures/known-bad/p1/y.tree/docs/features/x.md', doc('0.1', 'a')));
   assert.deepEqual(changes(f6, t6, repo).specs, [], 'a fixture\'s doc is test data, not a spec');
-  // D-049: a doc already on the base with no Version line that gains its first one is not a move; a new doc still is,
-  // and so is a doc that gains two lines.
+  // D-049, narrowed 2026-10-22: a feature doc whose only change is one added Version line is not a move; a new doc still
+  // is, and so is a doc that gains two lines, or a line and any other edit.
   const [f8, t8] = step('a feature doc with no Version line', () => put('docs/features/z.md', '# F-2 — z\n\nz\n'));
   assert.deepEqual(changes(f8, t8, repo).specs, []);
-  const [f9, t9] = step('it gains its first Version line', () => put('docs/features/z.md', doc('0.1', 'z')));
+  const [f9, t9] = step('it gains its first Version line', () => put('docs/features/z.md', '# F-2 — z\n\nVersion: 0.1\n\nz\n'));
   assert.deepEqual(changes(f9, t9, repo).specs, [], 'an existing doc gaining its first Version line is not a move');
   assert.deepEqual(changes(f8, t9, repo).specs, [{ path: 'docs/features/z.md', versions: ['Version: 0.1'] }], 'a doc new since the base is held');
   const [, t10] = step('a second doc with none, given two lines at once', () => put('docs/features/w.md', '# F-3 — w\n\nw\n'));
@@ -411,14 +412,33 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
   const [, t14] = step('a companion', () => put('docs/features/c.md', '---\ncompanion-of: docs/features/x.md\n---\n\n# F-1 — notes\n\nc\n'));
   const [, t15] = step('it becomes a primary with a Version line', () => put('docs/features/c.md', '# F-21 — c\n\nVersion: 0.1\n\nc\n'));
   assert.deepEqual(changes(t14, t15, repo).specs, [{ path: 'docs/features/c.md', versions: ['Version: 0.1'] }], 'a companion that becomes a primary is a new doc');
-  // The base branch's tip is read too: a branch cut before the tip gave a doc its first line adds a second one, and is held.
+  // The line and any other edit to the doc: held.
+  const [, t19] = step('a doc with no line', () => put('docs/features/e.md', '# F-5 — e\n\ne\n'));
+  const [, t20] = step('its first line and a changed Contract', () => put('docs/features/e.md', '# F-5 — e\n\nVersion: 0.1\n\ne, rewritten\n'));
+  assert.deepEqual(changes(t19, t20, repo).specs, [{ path: 'docs/features/e.md', versions: ['Version: 0.1'] }], 'a first line with another edit is a move');
+  const [, t21] = step('only the line, and no blank line beside it', () => put('docs/features/e.md', '# F-5 — e\nVersion: 0.1\n\ne\n'));
+  assert.deepEqual(changes(t19, t21, repo).specs, [], 'the line alone, with no blank line added');
+  // A features/ folder other than the two is not one readFeatureFiles reads: held.
+  const [, t22] = step('a doc in another features/ folder', () => put('app/features/old.md', '# F-6 — old\n\nold\n'));
+  const [, t23] = step('it gains a line', () => put('app/features/old.md', '# F-6 — old\n\nVersion: 0.1\n\nold\n'));
+  assert.deepEqual(changes(t22, t23, repo).specs, [{ path: 'app/features/old.md', versions: ['Version: 0.1'] }], 'only docs/features/ and dev/features/ are feature folders');
+  // The base commit given, and the tip GitHub merged into, are read too. Each branch below adds only the line.
   const [, t16] = step('a doc with no Version line', () => put('docs/features/u.md', '# F-4 — u\n\nu\n'));
   const [, t17] = step('the base gives it its first line', () => put('docs/features/u.md', '# F-4 — u\n\nVersion: 0.1\n\nu\n'));
   git('switch', '-q', '--detach', t16);
-  const [, t18] = step('a branch from before that gives it another', () => put('docs/features/u.md', '# F-4 — u\n\nu, rewritten\n\nVersion: 0.2\n'));
-  assert.deepEqual(changes(t17, t18, repo).specs, [{ path: 'docs/features/u.md', versions: ['Version: 0.2'] }], 'the tip has a Version line, so this is a move');
-  assert.deepEqual(changes(t16, t18, repo).specs, [], 'the same change on a base that has no line is not');
+  const [, t18] = step('a branch from before that gives it another, at the end', () => put('docs/features/u.md', '# F-4 — u\n\nu\n\nVersion: 0.2\n'));
+  assert.deepEqual(changes(t17, t18, repo).specs, [{ path: 'docs/features/u.md', versions: ['Version: 0.2'] }], 'the base given has a Version line, so this is a move');
+  assert.deepEqual(changes(t16, t18, repo).specs, [], 'on a base with no line, and checked out as the branch, it is not');
+  // Checked out as GitHub's merge of the branch into the tip: the base given is stale, and the tip's line holds it.
+  git('switch', '-q', '--detach', t17);
+  git('merge', '-q', '--no-ff', '-m', 'merge', t18);
+  assert.equal(versionLines(readFileSync(join(repo, 'docs/features/u.md'), 'utf8')).length, 2, 'the merge holds both lines');
+  assert.deepEqual(changes(t16, t18, repo).specs, [{ path: 'docs/features/u.md', versions: ['Version: 0.2'] }], 'the tip merged into has a Version line, so this is a move');
   git('switch', '-q', 'specs');
+  // A header that cannot be read is still a feature doc by readFeatureFiles' rule: the line alone is not a move.
+  const [, t24] = step('a doc whose header reads two ways', () => put('docs/features/h.md', `---\nnote: x${String.fromCodePoint(13)}status: draft\n---\n\n# F-7 — h\n\nh\n`));
+  const [, t25] = step('it gains only a line', () => put('docs/features/h.md', `---\nnote: x${String.fromCodePoint(13)}status: draft\n---\n\n# F-7 — h\n\nVersion: 0.1\n\nh\n`));
+  assert.deepEqual(changes(t24, t25, repo).specs, []);
   const run = (...flag) => spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), f3, t3, ...flag], { cwd: repo, encoding: 'utf8' });
   assert.equal('draft' in JSON.parse(run().stdout), false, 'no argument, no key: P1 reads that as ready');
   assert.equal(JSON.parse(run('true').stdout).draft, true);
