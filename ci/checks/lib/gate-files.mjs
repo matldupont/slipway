@@ -21,6 +21,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rowValue } from './clock.mjs';
+import { LEAD, visible } from './feature-docs.mjs';
+import { frontmatter, isUnreadable } from './frontmatter.mjs';
 import { versionLines } from './review-header.mjs';
 import { SPEC_PATH } from './spec-review.mjs';
 
@@ -283,18 +285,29 @@ export function changes(base, head, cwd = process.cwd()) {
   // The feature docs whose `Version:` lines this pull request moves, for P1's spec-review rule (#464): a doc that is
   // gone at the head is not listed, and one the base lacks moves from no lines. A doc the base has with no `Version:`
   // line that gains exactly one is not a move (D-049): V1 asks for that line, and adding it changes no version a review read.
-  const versionsAt = (rev, path) => {
+  // Only when the base's file was already a feature doc by feature-docs.mjs's rule (an `F-<n>` heading, and a header that
+  // reads and names no `companion-of:`): a notes file or a companion that becomes a feature doc is a new doc, and is held.
+  const textAt = (rev, path) => {
     try {
-      return versionLines(git('show', `${rev}:${path}`));
+      return git('show', `${rev}:${path}`);
     } catch {
       return null; // absent at that revision
     }
+  };
+  const versionsAt = (rev, path) => {
+    const text = textAt(rev, path);
+    return text === null ? null : versionLines(text);
+  };
+  const FEATURE = new RegExp(`${LEAD}F-\\d+\\b`);
+  const wasFeatureDoc = (text) => {
+    const fm = frontmatter(text);
+    return !isUnreadable(fm) && (fm ?? {})['companion-of'] == null && visible(text).some((l) => FEATURE.test(l.text));
   };
   const specs = files.flatMap((path) => {
     if (!SPEC_PATH.test(path) || path.startsWith('ci/fixtures/')) return []; // a fixture's doc is test data, not a spec
     const now = versionsAt(head, path);
     const base = versionsAt(from, path);
-    if (base !== null && base.length === 0 && now?.length === 1) return [];
+    if (base !== null && base.length === 0 && now?.length === 1 && wasFeatureDoc(textAt(from, path))) return [];
     const was = base ?? [];
     return now && JSON.stringify(now) !== JSON.stringify(was) ? [{ path, versions: now }] : [];
   });

@@ -376,7 +376,7 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
     git('commit', '-q', '-m', what);
     return [from, git('rev-parse', 'HEAD')];
   };
-  const doc = (v, text) => `# F\n\nVersion: ${v}\n\n${text}\n`;
+  const doc = (v, text) => `# F-1 — f\n\nVersion: ${v}\n\n${text}\n`;
   const [f1, t1] = step('a feature doc added', () => put('docs/features/x.md', doc('0.1', 'a')));
   assert.deepEqual(changes(f1, t1, repo).specs, [{ path: 'docs/features/x.md', versions: ['Version: 0.1'] }]);
   const [f2, t2] = step('text moves, version does not', () => put('docs/features/x.md', doc('0.1', 'b')));
@@ -396,14 +396,21 @@ test('changes() lists a feature doc whose Version line moved, and the script pas
   assert.deepEqual(changes(f6, t6, repo).specs, [], 'a fixture\'s doc is test data, not a spec');
   // D-049: a doc already on the base with no Version line that gains its first one is not a move; a new doc still is,
   // and so is a doc that gains two lines.
-  const [f8, t8] = step('a feature doc with no Version line', () => put('docs/features/z.md', '# F\n\nz\n'));
+  const [f8, t8] = step('a feature doc with no Version line', () => put('docs/features/z.md', '# F-2 — z\n\nz\n'));
   assert.deepEqual(changes(f8, t8, repo).specs, []);
   const [f9, t9] = step('it gains its first Version line', () => put('docs/features/z.md', doc('0.1', 'z')));
   assert.deepEqual(changes(f9, t9, repo).specs, [], 'an existing doc gaining its first Version line is not a move');
   assert.deepEqual(changes(f8, t9, repo).specs, [{ path: 'docs/features/z.md', versions: ['Version: 0.1'] }], 'a doc new since the base is held');
-  const [, t10] = step('a second doc with none, given two lines at once', () => put('docs/features/w.md', '# F\n\nw\n'));
+  const [, t10] = step('a second doc with none, given two lines at once', () => put('docs/features/w.md', '# F-3 — w\n\nw\n'));
   const [, t11] = step('two lines', () => put('docs/features/w.md', '# F\n\nVersion: 0.1\nVersion: 0.2\n'));
   assert.deepEqual(changes(t10, t11, repo).specs, [{ path: 'docs/features/w.md', versions: ['Version: 0.1', 'Version: 0.2'] }]);
+  // Only a feature doc at the base: a notes file or a companion that becomes a feature doc with its first line is a new doc.
+  const [, t12] = step('a notes file in the folder', () => put('docs/features/n.md', '# Notes\n\nn\n'));
+  const [, t13] = step('it becomes a feature doc with a Version line', () => put('docs/features/n.md', doc('0.1', 'n')));
+  assert.deepEqual(changes(t12, t13, repo).specs, [{ path: 'docs/features/n.md', versions: ['Version: 0.1'] }], 'a file that was not a feature doc is a new doc');
+  const [, t14] = step('a companion', () => put('docs/features/c.md', '---\ncompanion-of: docs/features/x.md\n---\n\n# F-1 — notes\n\nc\n'));
+  const [, t15] = step('it becomes a primary with a Version line', () => put('docs/features/c.md', '# F-21 — c\n\nVersion: 0.1\n\nc\n'));
+  assert.deepEqual(changes(t14, t15, repo).specs, [{ path: 'docs/features/c.md', versions: ['Version: 0.1'] }], 'a companion that becomes a primary is a new doc');
   const run = (...flag) => spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/gate-files.mjs'), f3, t3, ...flag], { cwd: repo, encoding: 'utf8' });
   assert.equal('draft' in JSON.parse(run().stdout), false, 'no argument, no key: P1 reads that as ready');
   assert.equal(JSON.parse(run('true').stdout).draft, true);
