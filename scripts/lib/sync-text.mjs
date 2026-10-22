@@ -89,10 +89,8 @@ export function countLines({ n, noStatus = 0, drafts = 0, others = {}, notFiles 
 // waiting on an issue; one sentence, or none when both are empty.
 const DECISION_IDS = /^P?D-\d{1,9}$/;
 const CAP = 20;
-const idList = (ids) => {
-  const safe = ids.filter((id) => DECISION_IDS.test(id));
-  return safe.length > CAP ? `${safe.slice(0, CAP).join(', ')} and ${safe.length - CAP} more` : safe.join(', ');
-};
+const capped = (ids) => (ids.length > CAP ? `${ids.slice(0, CAP).join(', ')} and ${ids.length - CAP} more` : ids.join(', '));
+const idList = (ids) => capped(ids.filter((id) => DECISION_IDS.test(id)));
 export function decisionNote({ prose = [], issues = [] }) {
   const [p, i] = [prose, issues].map((ids) => ids.filter((id) => DECISION_IDS.test(id)));
   const parts = [];
@@ -101,6 +99,19 @@ export function decisionNote({ prose = [], issues = [] }) {
   if (!parts.length) return [];
   const why = [p.length && 'nothing reads a prose condition until it is written as an event', i.length && 'check the issue by hand'].filter(Boolean).join('; ');
   return [`${parts.join(', and ')}: ${why}`];
+}
+// The feature docs owed a review of their current version (#493), counted by id: `ns` is each doc's F-<n> numbers, the
+// first one naming it. Status names each with its command; the note only counts them.
+export function reviewNote(docs) {
+  if (!docs.length) return [];
+  const shown = capped(docs.map((ns) => `F-${ns[0]}`));
+  return [`${plural(docs.length, 'feature doc')} ${docs.length === 1 ? 'has' : 'have'} no review of ${docs.length === 1 ? 'its' : 'their'} current version (${shown}): pnpm status lists each with its /review-doc command, and ${docs.length === 1 ? 'its' : 'their'} build tickets wait on that review`];
+}
+// The feature docs not shipped that have no `Version:` line (D-049), counted by id: V1 fails on each until it has one.
+export function versionNote(docs) {
+  if (!docs.length) return [];
+  const shown = capped(docs.map((ns) => `F-${ns[0]}`));
+  return [`${plural(docs.length, 'feature doc')} not shipped ${docs.length === 1 ? 'has' : 'have'} no Version: line (${shown}): pnpm meta fails until each has one; add \`Version: 0.1\` below its title, which needs no review`];
 }
 // An error's code for a refusal, as ` (ENOENT)`, only when it is capitals, digits and underscores; else nothing.
 export const codeNote = (e) => (/^[A-Z][A-Z0-9_]{1,30}$/.test(e?.code ?? '') ? ` (${e.code})` : '');

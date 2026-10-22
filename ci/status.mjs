@@ -31,6 +31,7 @@ import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, miles
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { isPrdPath, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
+import { owedReviews } from './checks/lib/spec-review.mjs';
 import { readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
 import { stepLines, whoLine } from './checks/lib/steps.mjs';
 import { discoverWorkspace } from './checks/lib/workspace.mjs';
@@ -139,6 +140,20 @@ const registers = prdReviews.map((f) => {
   } catch {
     return { file: f, state: 'unparsed', rows: [], hasTracker: false };
   }
+});
+// Each feature doc not shipped whose current version no review names (#493), the way P1 holds a pull request to one
+// (spec-review.mjs → owedReviews): one line each. A doc's id, version and path are printed only in their plain shapes; a
+// doc with no `Version:` line, or several, is said so in words.
+const featureVersion = (md) => {
+  const lines = versionLines(md);
+  if (lines.length !== 1) return lines.length ? 'has several Version: lines, so no review can name one' : 'has no Version: line, so no review can name its version: add Version: 0.1 first';
+  const v = lines[0].match(/^Version:\s*(\d{1,4}(?:\.\d{1,4}){0,3})(?![\w.])/)?.[1];
+  return v ? `at ${v} has no review of that version` : 'has no review of its current Version: line';
+};
+const featureLines = owedReviews(root).map((f) => {
+  const ids = f.ns.slice(0, 3).map((n) => `F-${n}`).join(', ');
+  const doc = named(f.path) === f.path ? f.path : `on the doc for ${ids} (a file with an unusual name)`;
+  return `(you) Run /review-doc ${doc} in a fresh session. ${ids} ${featureVersion(f.md)}. Its build tickets wait on that review.`;
 });
 const decisions = read('decisions.md') ?? '';
 // Marker text, quoted through excerpt(); empty when nothing printable is left (or no text, or a cap `max` is given).
@@ -456,6 +471,7 @@ const attention = [
   ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result.`] : []),
   ...((riskNamed || (cur && untestedValue.length)) && untracked.length ? ['File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.'] : []),
   ...registerLines,
+  ...featureLines,
   ...designLines,
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions,

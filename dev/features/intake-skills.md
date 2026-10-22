@@ -5,6 +5,8 @@ status: draft
 
 # F-04 — Intake and ticket skills ship with slipway, and intake asks what else it changes
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 Step 5 of the path (the build loop) and the feature lane name `/log-feature`, `/log-bug`, `/log-followup` and

@@ -1,0 +1,6 @@
+{
+  "_note": "Neither docs/features/ nor dev/features/ is there: V1 read nothing, so it is BROKEN, never green.",
+  "exit": 2,
+  "broken": "neither docs/features/ nor dev/features/ is there",
+  "findings": []
+}

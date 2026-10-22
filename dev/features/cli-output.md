@@ -5,6 +5,8 @@ status: draft
 
 # F-08 — CLI output: sync answers what needs you and what to run next, first
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 **Job:** when I run `sync` to take a newer slipway, I want to see at once whether anything needs me, what

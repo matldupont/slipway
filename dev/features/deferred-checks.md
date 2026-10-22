@@ -5,6 +5,8 @@ status: draft
 
 # F-09 — Deferred checks: a check moved to after merge stays owed until its result is recorded
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 **Job:** when a pull request can only prove part of its issue after `main` deploys, I want the check it moves

@@ -5,6 +5,8 @@ status: draft
 
 # F-06 — Next slice: a milestone's Contents item starts from its line, and intake reads the decisions record
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 **Job:** when my milestone's next Contents item is due, I want to start it with one command that already

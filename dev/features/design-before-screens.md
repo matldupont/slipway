@@ -5,7 +5,7 @@ status: draft
 
 # F-14 — Design before screens: a front-end project plans a design item before the screens that follow its skeleton, and accessibility is a gate line from the skeleton on
 
-Version: 0.3 (2026-10-13)
+Version: 0.4 (2026-10-21)
 
 ## Problem
 
@@ -50,26 +50,26 @@ one feature, built beside a check that must not name it).
 
 ## Fit
 
-Nothing here is built yet: each line says what the spec plans to reuse, checked against the tree, not what a
-build was found to use.
+Built in steps 2 to 4 (PRs #508 and #512, and step 4's): each line says what the build uses, checked against the
+tree.
 
 Reuses:
-- Planned: DS1 will read every milestone through `readMilestones()`, its items through `contents()` and
-  `started()`, and its no-gos through `noGos()`, all in `ci/checks/lib/milestones.mjs`, the one reader of a
+- DS1 reads every milestone through `readMilestones()`, its items through `contents()` and `started()`, and its
+  Gate through `bullets()`, the reader `noGos()` uses, all in `ci/checks/lib/milestones.mjs`, the one reader of a
   milestone's items and sections.
-- Planned: will call `section()` and `plain()` in `ci/checks/lib/markdown.mjs`, and `PLACEHOLDER` in
+- `section()`, `prose()` and `plain()` in `ci/checks/lib/markdown.mjs`, and `hasPlaceholder()` in
   `ci/checks/lib/frontmatter.mjs`, the one definition of unfilled.
-- Planned: will order milestones with `milestoneNumber()` in `ci/checks/lib/risks.mjs`, the order K1 uses for the
-  PRD's deadlines.
-- Planned: MS1's `hasDecision` for `extended:` (`ci/checks/meta/ms1-milestones.mjs`) will be lifted into the lib
-  and held to an id first, so `design:` and `extended:` resolve the same way.
-- Planned: will call `loadRegistry()` and `expiryProblem()` in `ci/checks/lib/exceptions.mjs` for a dated entry in
+- Milestones are ordered with `compareMilestones()` in `ci/checks/lib/milestones.mjs`, by number, `M<n>.<k>`
+  between `M<n>` and `M<n+1>` (#476).
+- MS1's private `hasDecision` for `extended:` is now `resolveDecision()` in `ci/checks/lib/decision-ref.mjs`, held to
+  an id first, so `design:` and `extended:` resolve through one function.
+- `loadRegistry()`, `expiryProblem()` and `said()` in `ci/checks/lib/exceptions.mjs` for a dated entry in
   `ci/exceptions.yaml`, with the day from `today()` in `ci/checks/lib/clock.mjs`.
-- Planned: will report through `report()` in `ci/checks/lib/report.mjs`, with PC1's `expected.json` and its
-  `details` (`ci/checks/meta/pc1-positive-control.mjs`) for the known-bad cases.
-- Planned: the status fixtures S1 compares by their `attention` list (`ci/fixtures/status/`,
-  `ci/checks/meta/s1-status.mjs`) will hold the new Needs attention lines.
-- Planned: `scripts/skills.test.mjs` will pin every sentence a skill or template must keep.
+- `report()` in `ci/checks/lib/report.mjs`, with PC1's `expected.json` and its `details`
+  (`ci/checks/meta/pc1-positive-control.mjs`) for the known-bad cases.
+- The status fixtures S1 compares by their `attention` list (`ci/fixtures/status/`, `ci/checks/meta/s1-status.mjs`)
+  hold the Needs attention lines.
+- `scripts/skills.test.mjs` pins every sentence a skill or template must keep.
 
 Numbers:
 - How many units DS1 examined and how many findings it has will be printed by `report()` in
@@ -81,9 +81,11 @@ Numbers:
 
 New: the `Front end:` line in the frame and its reader, the `Design:` item label, the `screens:` and `design:`
 fields, the accessibility line under a milestone's Gate, the registry entry that stands in for it, the check DS1,
-and one predicate ("is there a design item before this milestone") that DS1 and `ci/status.mjs` will both call.
-Searched `ci/checks/lib/` for a reader of a labelled line in the frame: `readRisks()` in `ci/checks/lib/risks.mjs`
-reads the Risks table only, and `ci/checks/lib/milestones.mjs` has no design reader, so both are new.
+and one predicate ("is there a design item before this milestone") that DS1 and `ci/status.mjs` both call. The
+frame reader is `frontEnd()` in `ci/checks/lib/frame.mjs`; the design readers and the predicate are in
+`ci/checks/lib/design.mjs`, beside `ci/checks/lib/milestones.mjs`, which they read through. Searched `ci/checks/lib/`
+for a reader of a labelled line in the frame: `readRisks()` in `ci/checks/lib/risks.mjs` reads the Risks table only,
+and `ci/checks/lib/milestones.mjs` had no design reader, so both are new.
 
 ## Contract
 
@@ -100,13 +102,15 @@ Front end: <…where people use this: a web app, a phone app — or none, for an
   note starts with `>`). The template puts it under `## Job story`; the check finds it wherever the owner moved
   it. Its value is the text after the label, trimmed. A frame holds exactly one: with two or more the check
   cannot tell which is meant, and reads none.
-- **Two states and one unknown.** A value whose first word is `none` (any case) means the product has no front
-  end; what follows the word is for people (`Front end: none (a command-line tool)`). **Unrecorded** is no line,
+- **Two states and one unknown.** A value whose first word is `none` (any case, ended by anything that is not a
+  letter, digit or `_`, so `none.` and `none(an API)` count) means the product has no front end; what follows the
+  word is for people (`Front end: none (a command-line tool)`). The label is read exactly: `**Front end:**` and
+  `Front-end:` are no line, which fails closed with a finding that says to write it. **Unrecorded** is no line,
   more than one, an empty value, or a value still holding a template placeholder (`PLACEHOLDER`,
   `ci/checks/lib/frontmatter.mjs:30`) or a `[NEEDS CLARIFICATION: …]`: the finding then says to write the line,
   not to plan a design. Any other value means the product has a front end, an unknown word and a `[PARKED: …]`
   question among them: a parked answer is a front end until it is answered (decision-defaults §4).
-- `/kickoff` asks it in Phase 1, right after step 1, *the moment*: where people use this — screens (a web or phone
+- `/kickoff` asks it in Phase 1, inside step 1, *the moment*, once the moment is had: where people use this — screens (a web or phone
   app), a terminal, an API, nothing. The question offers the four, with the moment's own answer as the
   recommendation when it names one (a web app in the input is not asked again: "never ask what the input already
   answers"). It writes screens as the owner's words (`Front end: a web app`), and each of the other three as
@@ -140,7 +144,8 @@ for F1 and a ` · #n` marker once started. Example, in a project's words:
   product's first screens, sign-in and the one core action, to prove the path, and those are rebuilt to the design
   item. `/kickoff` offers the usual answer, direction plus an accessible component set plus the flows, as a
   prompt, never as a requirement.
-- **In a milestone already running.** Item 1, or any position when every item above it is started (each carries
+- **In a milestone already running.** Item 1 (the first item as GitHub renders the list, whatever number is
+  written), or any position when every item above it is started (each carries
   its ` · #n` marker, `started()` in `ci/checks/lib/milestones.mjs`): a milestone that was active when this rule
   arrived adds the item below the work already begun, and nothing is renumbered. The items still to start follow
   it.
@@ -173,8 +178,8 @@ for F1 and a ` · #n` marker once started. Example, in a project's words:
   migration, a billing back end). Every screen milestone owes the accessibility line; every one but the skeleton
   owes a design item before it (§2). `screens:` is a new
   optional field in the template's frontmatter, documented in its header note beside `kind`; its value is trimmed
-  and compared in any letter case, and any value other than `none` is a finding (`screens/unknown`), never a
-  pass. A milestone with no `kind` is not a skeleton, so it owes both. MS1's `template/fields` is not extended:
+  and compared in any letter case, and any value other than `none`, an empty one among them, is a finding
+  (`screens/unknown`), never a pass. A milestone with no `kind` is not a skeleton, so it owes both. MS1's `template/fields` is not extended:
   the field is optional, and a template that loses it loses nothing a check reads.
 - **The accessibility line.** The template's `## Gate` carries one more bullet:
 
@@ -224,16 +229,22 @@ for F1 and a ` · #n` marker once started. Example, in a project's words:
     milestone and one date, and the pull request names it under `## Gate changes`. One entry never covers two
     milestones.
 
-  An entry that excuses nothing is a finding too (`accessibility/entry`): no reason, owner or real day, or a
-  milestone that has the line, builds no screens, is shaping or killed, or is not there.
+  An entry that excuses nothing is a finding too (`accessibility/entry`): an id that starts `docs/milestones#` and
+  is not of the form `docs/milestones#<id>/accessibility`; no reason, owner or real day (`reason` and `owner` held
+  by `said()`, as LK1 holds them); or a milestone that has the line, builds no screens (`screens: none`, or the
+  frame says `Front end: none`), is shaping or killed, or is not there. An entry that is both incomplete and past
+  its day is `accessibility/entry` only, since it excuses nothing. Two entries for one milestone are each judged
+  alone. FO1 and LK1 leave every `docs/milestones#` entry to DS1 (0.3 AR-1).
 
 ### 4. The check — DS1, `ci/checks/meta/ds1-design-before-screens.mjs`
 
 Zero-dependency (D-004), reads committed files only: `docs/product/FRAME.md`, every milestone via
 `readMilestones()` (`ci/checks/lib/milestones.mjs:29`), `decisions.md` for ids, as MS1 does, and
-`ci/exceptions.yaml` through `loadRegistry()`, as LK1 does, with the day from `ci/checks/lib/clock.mjs`. A missing
-`docs/milestones/` or a missing frame compares nothing and says nothing (the frame is K1's to require: K1 is
-BROKEN without one). A milestone with no frontmatter, `id` or `status` is MS1's finding and DS1 leaves it.
+`ci/exceptions.yaml` through `loadRegistry()`, as LK1 does, with the day from `ci/checks/lib/clock.mjs`. With none of
+the frame, a milestone or the registry to read, DS1 is BROKEN, as every check with nothing to read is (`report()`).
+With the frame missing and milestones present, DS1 holds no milestone to anything and its view says
+`front end: not read` (the frame is K1's to require: K1 is BROKEN without one). A milestone with no frontmatter,
+`id` or `status` is MS1's finding and DS1 leaves it.
 
 **When it looks.** Only when a milestone is **active**, the skeleton included (it owes the accessibility line; K1
 asks for a finished frame from the same moment). Shaping milestones are drafts (as for MS1 and K1), and closed
@@ -252,31 +263,37 @@ the check prints its view and exits 0.
 | `design/unresolved:<id>` | `design:` holds a value that is not a decision id, or an id `decisions.md` does not hold (as MS1's `extended/unresolved`) | record the decision, or remove the field |
 | `gate/accessibility:<id>` | front end; `<id>` is active, builds screens (the skeleton included); no accessibility line (§3); and no live entry in `ci/exceptions.yaml` names it | the line under `## Gate`, with what holds it; or, where that cannot be held yet, a dated entry in `ci/exceptions.yaml` with the id `docs/milestones#<id>/accessibility`, a reason and an owner: the owner's to approve |
 | `accessibility/overdue:<id>` | an entry names `<id>`, active or closed; `<id>` has no accessibility line; the entry's `expires` is today or earlier | the line under `<id>`'s `## Gate`, with what holds it, and the entry removed; or a later day, with its reason |
-| `accessibility/entry:<id>` | an entry names `<id>` and excuses nothing: it has no reason, no owner, or an `expires` that is missing or not a real day; or `<id>` has the line, builds no screens, is shaping or killed, or is not a milestone | complete the entry, or remove it |
+| `accessibility/entry:<id>` | an entry starting `docs/milestones#` excuses nothing: its id is not of the form `docs/milestones#<id>/accessibility`; it has no reason, no owner, or an `expires` that is missing or not a real day; or `<id>` has the line, builds no screens (`screens: none`, or `Front end: none`), is shaping or killed, or is not a milestone | complete the entry, or remove it |
 
-- "Before" is by milestone number: `milestoneNumber(fm.id)` (`ci/checks/lib/risks.mjs`, the order K1 uses for the
-  PRD's deadlines), so M2 is before M10. File order as `readMilestones()` returns it sorts names as text and
-  puts `M10-…` ahead of `M2-…`; it is used only between two ids that are not `M<n>`, and an id that is not
-  `M<n>` is after every one that is.
+- "Before" is by milestone number: `compareMilestones()` (`ci/checks/lib/milestones.mjs`), so M2 is before M10 and
+  M1.1 sits between M1 and M2 (#476). Between two ids that are not `M<n>` or `M<n>.<k>`, the order is the one
+  `readMilestones()` returns, and such an id is after every one that is.
 - A design item counts when its milestone is `closed` or `active`. One in a `killed` milestone (its work
   stopped) or in a `shaping` one (its work has not started) is not design before the screens: the owner moves
   the item, or records the decision (`design: PD-<n>`).
 - A design item that is a placeholder (`PLACEHOLDER`) is no design item.
-- A front-end line that says `none` closes every finding but `screens/unknown`: a project with no front end gets
-  none of this, and no `screens:` field is needed.
+- A front-end line that says `none` closes every finding but `screens/unknown` and the entry findings, which are
+  read whatever the frame says: a project with no front end gets none of the rest, and no `screens:` field is
+  needed.
 - `design: PD-<n>` is read like `extended:` (MS1), with one hold added. The value must first be a decision id,
   `PD-<n>` or `D-<n>` and nothing else (`^P?D-\d+$`): any other text is unresolved, quoted in the finding, and
   is never looked up, so `design: .*` and `design: D` name no decision. Then the id must exist as a `## PD-<n>`
-  or `### PD-<n>` heading in `decisions.md`, matched as text, never as a pattern. The resolver is one function
-  in the lib and MS1's `extended:` is read through it, so `extended:` takes the same hold
-  (decision-defaults §5). The template's header note documents `design:` beside `extended:`.
+  or `### PD-<n>` heading in `decisions.md`, matched as text, never as a pattern; `D-<n>` answers only to a heading with that
+  exact id. For `design:` that heading must also be marked decided or accepted, read through `parseDecisions()` as
+  `testStart()` reads one, so an open stub (every project's `D-005` until it is decided) answers nothing. The
+  resolver is `resolveDecision()` in `ci/checks/lib/decision-ref.mjs`, and MS1's `extended:` is read through it, so
+  `extended:` takes the id hold (decision-defaults §5); it still lets an open decision answer, which #513 covers.
+  The template's header note documents `design:` beside `extended:`.
 - **Its view says what it skipped.** One word in a committed file turns a finding off (`Front end: none`,
   `screens: none`, `design: PD-<n>`), and a pull request can carry that word (decision-defaults §3); a live
   entry in the registry turns off the accessibility line for its milestone. So DS1's
-  printed view, on every run and at exit 0 too, names the front-end state it read and each milestone it
-  did not hold to a finding, with the reason: `front end: none`, `M3: screens: none`, `M3: design: PD-4`, `M3:
-  accessibility excused until 2026-12-01`, the last for a closed milestone too while its entry is live. No new
-  gate: the off state is in every `pnpm meta` output and in the Verification of the pull request that set it.
+  printed view, on every run and at exit 0 too, goes through `report()`'s existing fields, with no change to
+  `report()`. What a milestone was let off is in the exempted line, by the file that said it: `M3: front end:
+  none`, `M3: screens: none`, `M3: design: PD-4`, `M3: accessibility excused until 2026-12-01` (the last for a
+  closed milestone too while its entry is live), and an active `kind: skeleton` let off design. The front end it
+  read and what satisfied each active milestone's design are in the scanned line, which prints on red and green
+  alike: `front end: a web app · M3 satisfied by the design item in M1, item 2`. No new gate: the off state is in
+  every `pnpm meta` output and in the Verification of the pull request that set it.
 - Exit 1 on any finding. Exit 2 (BROKEN) when `docs/product/FRAME.md` or a milestone file exists and cannot be
   read as a file (a folder in its place, a read error), or `docs/milestones/` cannot be listed, or
   `ci/exceptions.yaml` cannot be read as the registry (`process/decision-defaults.md` §4). Output through
@@ -285,7 +302,8 @@ the check prints its view and exits 0.
   against `ci/fixtures/known-bad/<id>/`, so the fixture folder gives DS1 its positive control. Nothing runs a
   check on the tree by its filename: `pnpm meta` is a written chain in `package.json`, and CI runs `pnpm meta`.
   So `package.json`'s `meta` gains `node ci/checks/meta/ds1-design-before-screens.mjs .` and
-  `node scripts/ds1.test.mjs` (W1 fails a check, or a slipway test, that no workflow runs). `package.json`'s
+  `node scripts/ds1.test.mjs` (W1 fails a check, or a slipway test, that no workflow runs). PC1 reads the
+`@@json` line `report()` prints under `CHECK_JSON=1`; `/sync-slipway` reads the same line (§5). `package.json`'s
   scripts are owner-only and class `merged`: on sync a project whose `meta` line is unchanged gets the new one,
   and a project that changed its own keeps it and is told (`script kept, yours differs`). The check's file arrives
   all the same, so that project is red on W1 (a check no workflow runs) until the owner takes the line: it is
@@ -346,19 +364,18 @@ use the product: write its Front end: line`. A frame whose line still holds the 
 line from this: the frame is unfinished, and status already sends its owner to `/kickoff`, which asks. With the
 front end unrecorded, no milestone line is shown: there is nothing yet to hold a milestone to.
 
-**One predicate.** "Is there a design item before this milestone" is one function in
-`ci/checks/lib/milestones.mjs`, taking the milestone to ask about and which statuses of an earlier milestone
+**One predicate.** "Is there a design item before this milestone" is one function, `designBefore()` in
+`ci/checks/lib/design.mjs`, taking the milestone to ask about and which statuses of an earlier milestone
 count: `closed` and `active` for DS1, every one but `killed` for status. DS1 and `ci/status.mjs` both call it, so
-the two differ in that argument and nowhere else. It is computed over the same reader (a `designItems()` beside
-`noGos()`, and a frame reader in `ci/checks/lib/risks.mjs`'s file or a new `frame.mjs`, whichever K1 already uses
-for the frame's text). The lines are held by cases under `ci/fixtures/status/` (S1 compares its `attention`
+the two differ in that argument and nowhere else. It is computed over the same reader (`designItems()` in the
+same file, over `contents()`; and `frontEnd()` in `ci/checks/lib/frame.mjs`). The lines are held by cases under `ci/fixtures/status/` (S1 compares its `attention`
 list): a shaping M2 with no design item anywhere and no accessibility line (two lines); the design item as
 item 1 of a shaping M2 with M3 shaping after it (no design line for either); a frame with no front-end line
 (one line); a frame still the template (none).
 
 ### 5. The skills
 
-- **`/kickoff`.** Phase 1: the front-end question after step 1 (§1). Phase 3 step 4, for a front-end project:
+- **`/kickoff`.** Phase 1: the front-end question, inside step 1 (§1). Phase 3 step 4, for a front-end project:
   place one design item before the first screen milestone past the skeleton, or as that milestone's item 1 (§2),
   ask who or what does the work and what it delivers,
   offer direction plus an accessible component set plus flows as the usual answer, ask its hours and add them to
@@ -371,30 +388,43 @@ item 1 of a shaping M2 with M3 shaping after it (no design line for either); a f
   accessibility.** Who designs this and when: is there a design item before the screens that follow the skeleton,
   with hours? Does every milestone that builds screens, the skeleton included, carry an accessibility line in its
   Gate that can go red? Asked of a PRD and of a milestone; of a feature doc only when it adds a screen.
-- **`/sync-slipway`.** §3, *Diffs of the project's files*: the frame's new line is a value only the project has.
-  The skill asks every project one question, in the project's words (where do people use the product), and writes
-  the line. A project with no front end sees nothing more. For a front end, what follows is about the project's
-  own milestones, which no diff from slipway reaches (slipway ships only the template and the skeleton):
-  - **A milestone running now that builds screens** gets a second question, about that milestone, in the
-    project's words: how its screens meet WCAG 2.2 AA, or what is not held yet and by when; and, past the
-    skeleton, what its screens are designed to and by whom. The skill writes each answer where the check reads
-    it: the Gate line, or a dated entry in `ci/exceptions.yaml` (§3; the owner approves that edit, and the pull
-    request names it under `## Gate changes`); a design item below the work already begun, or a decision named
-    as `design: PD-<n>`. Both answers are owed before the sync's pull request opens: sync's own rule stands
-    (`pnpm verify` and `pnpm meta` green first), and with either unanswered `pnpm meta` is red on that milestone
-    (`gate/accessibility`, and `design/missing` past the skeleton). An owner who cannot yet say how the screens
-    meet the level answers with the date.
-  - **Milestones still being shaped** get nothing written: `pnpm status` shows what each will owe when it starts
-    (§4), and the owner plans it there. No placeholder is written into a file the project owns.
-  - **The template** is slipway's file: the sync replaces it whole, the Gate bullet and the header note with it,
-    and asks nothing.
-  - **The skeleton**, where the project kept slipway's text: the diff is taken (the Gate bullet, the no-go's
-    sentence); a closed skeleton is left as it was built. **A skeleton already running** does not take the
-    no-go's sentence: its placeholder is filled only by naming a design item, and the milestone that would hold
-    one is still being shaped, where nothing is written. The skill declines that one sentence, records it under
-    Decided by sync, and tells the owner in the sync's own output, in the project's words: the skeleton's no-go
-    was left as it is because where design lands is not planned yet, and `pnpm status` shows the milestone that
-    has no design item before it. No third question is asked.
+- **`/sync-slipway`.** §3 gains *Where people use the product, and what a running milestone owes*, run once the tree
+  is on the sync commit, whatever the frame's diff holds:
+  - **The frame.** With no one `Front end:` line holding an answer (§1), the skill asks every project one question,
+    in the project's words (where do people use the product), and writes the line, never the template's
+    placeholder. A project that rewrote its Job story is asked all the same (fail closed). A project with no front
+    end is asked nothing more.
+  - **A milestone running now that builds screens.** Which milestones these are is DS1's to say, not the skill's:
+    it runs `CHECK_JSON=1 node ci/checks/meta/ds1-design-before-screens.mjs .` and reads only the `@@json` line, as
+    data, taking from each finding's `where` the file and the id after `#`, and nothing else (a milestone's title
+    is project text). A BROKEN run asks nothing and is quoted to the owner. Each milestone named gets one question,
+    all in one batch right after the frame question, naming the milestone by its own title, quoted: how its
+    screens meet WCAG 2.2 AA, or what is not held yet and by when; and, past the skeleton, what its screens are
+    designed to and by whom. The skill writes each answer where the check reads it: the Gate line; or a dated
+    entry in `ci/exceptions.yaml` (§3), shown to the owner whole (milestone, day, reason, owner), written only on
+    their yes and named under `## Gate changes`; a design item below the work already begun, or a decision named
+    as `design: PD-<n>`. Every answer is owed before the sync's pull request opens: sync's own rule stands
+    (`pnpm verify` and `pnpm meta` green first), and with one unanswered `pnpm meta` is red on that milestone. An
+    owner who cannot yet say how the screens meet the level answers with the date.
+  - **Never a placeholder.** A sync never writes a placeholder into a project's file. Milestones still being
+    shaped get nothing written and nothing asked: `pnpm status` shows what each will owe when it starts (§4), and
+    the owner plans it there.
+  - **The template** is slipway's file (`docs/**/TEMPLATE.md` is managed): the sync replaces it whole, the Gate
+    bullet and the header note with it, and asks nothing.
+  - **The skeleton** is the project's file, so its two new lines arrive as a diff: the accessibility line under its
+    Gate, and the no-go's sentence on where design lands. Each is written filled or not at all, and each one
+    declined is recorded under Decided by sync with its reason:
+
+    | The skeleton is | The accessibility line under its Gate | The no-go's sentence on where design lands |
+    |---|---|---|
+    | any, with no front end | declined: it builds no screens | declined: it builds no screens |
+    | shaping | declined: `pnpm status` asks for it while the plan is made | written only naming a design item that exists; else declined |
+    | running | written with the owner's answer, what holds it; answered with a date, declined, and the entry written | written only naming a design item that exists; else declined, and the owner told |
+    | closed | declined: left as it was built | declined: left as it was built |
+
+    When a running skeleton's no-go is declined, the skill tells the owner in the sync's own output, in the
+    project's words: the skeleton's no-go was left as it is because where design lands is not planned yet, and
+    `pnpm status` shows the milestone that has no design item before it. No third question is asked.
 
   The PR's **Decided by sync** records each answer.
 - **`/close-milestone`.** No change: §2 already proves every Gate line with evidence.
@@ -414,21 +444,32 @@ entry that stands in for it, and DS1. Searched `ci/checks/lib/` for a reader of 
 Verified against: a76c489 2026-10-12 — `.claude/skills/kickoff/SKILL.md` (Phase 1 steps 1–7, Phase 3 step 4,
 readiness gate step 5, no design or accessibility wording), `.claude/skills/review-doc/SKILL.md` (step 2 items
 1–8), `.claude/skills/sync-slipway/SKILL.md` §3 (a change that needs a project value is asked), `docs/milestones/
-TEMPLATE.md` (Gate asks for something that goes red, no kind; frontmatter `id status kind appetite summary`),
+TEMPLATE.md` (Gate asks for something that goes red, no kind; frontmatter `id status kind appetite summary`;
+managed, as `docs/**/TEMPLATE.md` sits above `docs/milestones/**` in `dev/ownership.yaml`, corrected in 0.4),
 `docs/milestones/M1-walking-skeleton.md:38` (the no-go), `docs/product/FRAME.md` (no front-end line; K1 reads
 Job story, The question it answers, Risks), `ci/checks/lib/milestones.mjs` (`contents()`, `noGos()`,
 `readMilestones()`, no design reader), `ci/checks/meta/ms1-milestones.mjs` (`extended/unresolved` via
 `hasDecision`), `ci/checks/meta/pc1-positive-control.mjs` (runs each check in the folder against its fixtures,
 `details`),
-`package.json` (`meta` names each check and test; no `ds1`), `ci/checks/lib/risks.mjs` (`milestoneNumber()`),
+`package.json` (`meta` names each check and test; no `ds1`), `ci/checks/lib/risks.mjs` (`milestoneNumber()`, gone
+by 0.4: order is `compareMilestones()`),
 `docs/PRD.md` §9 (one row per milestone), `docs/milestones/M1-walking-skeleton.md:16,25` (the skeleton builds a
 screen), `ci/fixtures/known-bad/` (no `ds1`), `dev/ownership.yaml` (`docs/product/**` and `docs/milestones/**` seeded,
 `.claude/skills/**` managed), #94 open and parked.
 
+Verified against: cc75936 2026-10-21 — `ci/checks/lib/frame.mjs` (`frontEnd()`), `ci/checks/lib/design.mjs`
+(`designItems()`, `hasAccessibilityLine()`, `designBefore()`), `ci/checks/lib/decision-ref.mjs` (`resolveDecision()`,
+`decided`), `ci/checks/lib/milestones.mjs` (`compareMilestones()`, `bullets()`), `ci/checks/lib/exceptions.mjs`
+(`said()`, `MILESTONE_PREFIX`), `ci/checks/lib/report.mjs` (`@@json` under `CHECK_JSON=1`),
+`ci/checks/meta/ds1-design-before-screens.mjs` (the view: `front end: not read` with no frame), `ci/status.mjs`
+(the design lines), and the three skills as step 4 leaves them.
+
 ## Seams
 
-none: no person, channel or payment is added. A promise is: slipway asks for the design work and the
-accessibility gate up front, in the plan. The check holds that they are written, not that they are met.
+none: no channel or payment is added. A person is named but not told: a dated entry's `owner:` answers for it, and
+nothing tells them when its day passes until DS1 goes red (#519 shows a live entry in `pnpm status` before its day).
+A promise is: slipway asks for the design work and the accessibility gate up front, in the plan. The check holds
+that they are written, not that they are met.
 
 ## Threat model
 
@@ -452,8 +493,8 @@ line's way out is not such a word: it is a dated entry in an owner-only file (§
   that it has hours rests on `/kickoff` asking and on the review.
 - The skeleton's screens are built before the design and rebuilt to it. Nothing checks that they were rebuilt: the
   no-go says so, and the design item names the screens it covers.
-- A design item added below started work, in a milestone that was running when the rule arrived, is not design
-  before those screens. The check holds that the items still to start follow it.
+- A design item added below started work is not design before those screens. The check holds that the items
+  still to start follow it, never that the started ones did.
 - The dated entry is open to every milestone, a new project's skeleton included, and to each later one in turn:
   nothing tells a milestone that was running when the rule arrived from one that was not. What bounds it is that
   each entry is one milestone's, dated, the owner's to approve and red when its day passes, and that a later day
@@ -465,14 +506,19 @@ line's way out is not such a word: it is a dated entry in an owner-only file (§
   of the Contents. A milestone that builds a screen under `screens: none` is the owner's mistake, not a finding;
   DS1's view names the milestone as skipped, so it is seen.
 - A design item in a closed milestone counts as "before" without the check reading whether it was delivered; a
-  closed milestone's Retro and its proved Gate are where that lives. One in a killed milestone does not count,
-  delivered or not.
+  closed milestone's Retro and its proved Gate are where that lives, and DS1's scanned line names the item that
+  satisfied each active milestone, so it is seen. One in a killed milestone does not count, delivered or not.
 - Slipway's own tree never exercises the check beyond the control cases: it has no active milestone by design.
   Decision-defaults §9 is met by running DS1 once against a real project's files, the result recorded as a count.
 - A milestone closes under a live entry with no accessibility evidence; the line written later into the closed
-  file is proved by no skill; nothing shows the entry before its day. A `pnpm status` line for live entries is a
-  follow-up (0.3 AR-2).
+  file is proved by no skill; nothing shows the entry before its day. A `pnpm status` line for live entries is
+  #519 (0.3 AR-2, 0.4 AR-3).
 - One design item answers for every later milestone; any Contents item that starts `Design:` is one (0.3 AR-7).
+- Any active milestone marked `kind: skeleton` owes no design item, whatever it builds; DS1's view names it as let
+  off.
+- A project's decided week-1 records (`D-002` to `D-004`) answer `design:` as any decided decision does: whether
+  one says why the screens are built without a design is read in review.
+- A decided heading inside an HTML comment in `decisions.md` answers, as ID1 reads one.
 
 ## Acceptance
 
@@ -562,11 +608,13 @@ Given  /review-doc reviewing a PRD or a milestone
 Then   it asks who designs this and when, and whether accessibility is in a gate (skills.test.mjs pins it)
 
 Given  /sync-slipway bringing this release to a project
-Then   it asks the owner where people use the product and writes the frame's line; for a front end with a
-       milestone running that builds screens it asks once more, about that milestone, before its pull request
-       opens, and writes the answer as the line or a dated entry, the item or a named decision; it writes
-       nothing into a milestone still being shaped; a skeleton already running keeps its no-go as it is, and
-       the owner is told so in the sync's output (skills.test.mjs pins each sentence)
+Then   whatever the frame's diff holds, with no answered front-end line it asks the owner where people use the
+       product and writes the line; for a front end it asks, in one batch, once about each milestone DS1's
+       @@json line names, before its pull request opens, and writes the answer as the line or a dated entry
+       (shown whole, on the owner's yes), the item or a named decision; it never writes a placeholder, nor
+       anything into a milestone still being shaped; the skeleton's two lines follow one table (no front end,
+       shaping, running, closed), and a running skeleton's declined no-go is told to the owner in the sync's
+       output (skills.test.mjs pins each sentence and each row)
 
 Given  slipway's own tree
 When   pnpm meta runs
@@ -606,13 +654,15 @@ pull request, with one review of that revision before the release (0.3 AR-4).
 2. Templates: the front-end line in `docs/product/FRAME.md`; `screens:` and `design:` in
    `docs/milestones/TEMPLATE.md`'s header note and the accessibility line under its Gate;
    the skeleton's Gate gains the line and its no-go names where design lands. Pins in `scripts/skills.test.mjs`.
-   Nothing new fires yet: no check reads these lines until step 3.
+   No check of its own: K1 and MS1 read the new placeholders in a project created from this tree (an unanswered
+   front-end line, the Gate line), which is why steps 2 to 4 ship in one release.
    - Carried from the 0.2 review: AR-6 point 1, check what class `docs/milestones/TEMPLATE.md` has
      (`classify()`, `dev/ownership.yaml`: the Contract's "Verified against" says seeded, §3 speaks of a template
      that loses the field) against the code and pin it with a test.
    - 0.2 AR-12: reword "Nothing new fires yet" (K1 and MS1 read the new placeholders in a project created from
      this tree); the one-release hold is written in #379.
-3. The check: `ci/checks/lib/milestones.mjs` gains `designItems()` and the decision resolver; the frame line
+3. The check: `ci/checks/lib/design.mjs` holds `designItems()` and the predicate, `ci/checks/lib/decision-ref.mjs`
+   the decision resolver (built so; was planned in `ci/checks/lib/milestones.mjs`); the frame line
    reader; `ci/checks/meta/ds1-design-before-screens.mjs`; `ci/fixtures/known-bad/ds1/` (one case per id);
    `scripts/ds1.test.mjs` (controls, and the mutation run); `package.json`'s `meta` gains the check and the test;
    the `pnpm status` lines and their cases under `ci/fixtures/status/`. Run once against a real project's files
@@ -653,7 +703,7 @@ pull request, with one review of that revision before the release (0.3 AR-4).
      and pin each sentence with a test.
    - 0.2 AR-9: two `/kickoff` pins (the question and its `none` mapping; no front end deletes the no-go and
      the lines).
-   - 0.3 AR-3: a sync never writes a placeholder into a project's file. The Gate bullet is written filled with
+   - 0.3 AR-3 (made in 0.4, §5): a sync never writes a placeholder into a project's file. The Gate bullet is written filled with
      the owner's answer or not at all; the no-go's sentence only when a design item exists to name. Covers a
      shaping skeleton, a running one answered with a date, and no front end. The Contract's two passages are
      corrected in 0.4.
@@ -666,14 +716,15 @@ reads (4), so a skill never promises a line nothing holds.
 - A design tool, skill or component library: #94, parked, independent of this (D-042).
 - Judging a design, or whether WCAG 2.2 AA is met: the check sees that the item and the line exist. Proving the
   line is `/close-milestone`'s; arguing the item is `/review-doc`'s.
-- A project's own milestones: each re-plans from the rule, on its next kickoff or sync.
+- A project's own milestones still being shaped: each re-plans from the rule, on its next kickoff or from
+  `pnpm status`. A milestone running when the sync arrives is the one exception: the sync asks about it and writes the
+  answer (§5).
 - Reading which Contents items build a screen: "builds screens" is per milestone with an opt-out (§3).
 
 ## Open questions
 
 - Owner: none. The six choices are D-042.
-- Build (step 3): whether the frame reader lives in `ci/checks/lib/risks.mjs`'s file or a new `frame.mjs`; take
-  what K1 and `ci/status.mjs` already share, so there is one reader of the frame.
+- Build (step 3): answered. The frame reader is `ci/checks/lib/frame.mjs`, read by DS1 and `ci/status.mjs`.
 
 ## Changes
 
@@ -696,3 +747,13 @@ reads (4), so a skill never promises a line nothing holds.
   and a skeleton already running keeps its no-go, with the owner told (AR-6). The author's: the four passages
   that said "before the first screen" (AR-2), a decision reference held to an id (AR-4), and no claim about
   what meets WCAG 2.2 AA at the skeleton (AR-11, withdrawn from D-042's amendment too) · #406
+- 2026-10-21 · CHANGED · 0.4, the Contract corrections collected in steps 2 to 4 (PRs #508 and #512, and step 4's),
+  made once (0.3 AR-4). Fit says what the build uses. Order is `compareMilestones()`, with `M<n>.<k>` (#476). DS1 is
+  BROKEN with nothing to read, and says `front end: not read` with no frame. The predicate and the readers are in
+  `ci/checks/lib/design.mjs` and `ci/checks/lib/frame.mjs`. The view's channel is `report()`'s exempted and scanned
+  lines (0.2 AR-3, AR-8). `design:` answers only to a decided heading. `accessibility/entry` gains the wrong id
+  form and `Front end: none`. The `none` word, the label's exact form, an empty `screens:` and "item 1" as
+  rendered are written down. Known limitations: 0.2 AR-7's sentence, and three from PR #512's review. §5's sync
+  passage takes 0.3 AR-3's rule and table and 0.2 AR-6's corrections; by the orchestrator session's advice, the
+  sync reads DS1's `@@json` line for what a running milestone owes, asks in one batch, and writes a dated entry only
+  on the owner's yes · #406

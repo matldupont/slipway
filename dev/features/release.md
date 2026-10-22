@@ -5,6 +5,8 @@ status: draft
 
 # F-10 — Release: slipway is published to npm as `use-slipway`, staged from version tags in CI
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 Today a project starts with `npx github:matldupont/slipway acme` and takes updates from

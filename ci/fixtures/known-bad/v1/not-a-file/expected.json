@@ -1,0 +1,6 @@
+{
+  "_note": "A folder named odd.md in docs/features/ is not a file V1 can read, so a doc with no Version line could hide there: BROKEN, never green.",
+  "exit": 2,
+  "broken": "docs/features/odd.md is a link or not a plain file or folder",
+  "findings": []
+}

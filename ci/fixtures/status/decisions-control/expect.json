@@ -4,6 +4,7 @@
   "next": "Activate one of M4, or shape a new bet. Set its appetite dates when it goes active. You, an afternoon.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
+    "(you) Run /review-doc dev/features/prices.md in a fresh session. F-7 at 0.1 has no review of that version. Its build tickets wait on that review.",
     "(you) Decide \"Deposits are refundable\" (PD-1, open)"
   ]
 }

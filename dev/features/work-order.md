@@ -5,6 +5,8 @@ status: draft
 
 # F-07 — Work order: which sessions the owner can start now, rendered locally from the repo and GitHub
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 **Job:** when I sit down to start agent sessions on my active milestone, I want to see which pieces of work

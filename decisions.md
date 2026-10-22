@@ -1265,6 +1265,33 @@ reading stopping the next stage (F-16 §9). The owner dropped that on 2026-10-19
 Why: a reading by one person on a fixed set costs time every few PRs and yields a number that one judgement already
 covers; the owner would rather spend it on the text. Spec: F-16; #455, #456.
 
+## D-049 — A feature doc not yet shipped carries a `Version:` line, and gaining its first one is not a version move *(decided 2026-10-22)*
+
+A feature doc with no `Version:` line passed every check: P1 holds a pull request that moves a doc's version with no
+review of the new one (#464), and a doc with no line moves nothing, so its revisions were never held and status never
+said a review was owed. The owner, 2026-10-22: "fail for a feature doc whose status is not shipped and that has no
+Version: line (exit 1); warn for a shipped one. This PR adds Version: 0.1 to slipway's unshipped unversioned docs. Yes
+to the exemption in the pull-request check: an existing doc gaining its first Version: line is not a move (a new doc
+stays held)."
+
+- **A feature doc whose status is not `shipped` and that has no `Version:` line is a finding** of `pnpm meta`, which
+  fails; a shipped one is a warning. The finding says to add `Version: 0.1`.
+- **A doc that already exists at the base and gains its first `Version:` line is not a version move** for P1, so the
+  pull request that adds the line, and a project's sync that brings this rule, are not held for a review. A doc new in
+  the pull request is held as before.
+  Narrowed by the owner the same day, after two review rounds found ways around a wider reading: "exempt only when the
+  doc's sole change is one added Version: line, on a feature doc by readFeatureFiles' rule, with no Version line at the
+  merge base, the event base or the merge's first parent." A pull request checked before the base branch gave the doc
+  its line, and never checked again, can still merge a second line unheld: the repository setting "require branches to
+  be up to date" closes that.
+- **Status names each feature doc not shipped whose current version no review quotes,** and sync's note counts them and
+  the docs a project must give a `Version:` line.
+- **Cost if wrong:** a project goes red on the sync that brings this until each unshipped feature doc has the line, one
+  line per doc. A review written before its doc had a `Version:` line may go stale under R1 once the line is added,
+  unless the line holds the text it quotes; whether every reviewed document must carry the line stays with #416.
+
+Why: what a decision leaves owed comes up by itself. Spec: #493.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
