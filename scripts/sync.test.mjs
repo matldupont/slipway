@@ -2531,8 +2531,9 @@ const NOT_IN_FORM = /^sync: ci\/baselines\.json is not in the form slipway write
 const baselinesOf = (dir) => (existsSync(join(dir, BASELINES_FILE)) ? readFileSync(join(dir, BASELINES_FILE), 'utf8') : null);
 // A project with nothing else for the owner to settle, holding `files` (null removes one), committed.
 const counted = (files) => pristine((d) => put(d, files));
-// The notes about the Fit count, without the one that counts feature docs owed a review (#493), which its own test pins.
-const fitNotes = (notes) => notes.filter((n) => !/ no review of (?:its|their) current version /.test(n));
+// The notes about the Fit count, without the ones that count feature docs owed a Version: line or a review (#493, D-049),
+// which their own test pins.
+const fitNotes = (notes) => notes.filter((n) => !/ no review of (?:its|their) current version | not shipped ha(?:s|ve) no Version: line /.test(n));
 const syncBranch = `slipway/sync-${short(B)}`;
 
 test('no ci/baselines.json: the plan shows it as "count recorded" with the three sentences (3, 2, 1) and no check id, and writes nothing; --apply writes {"feature-fit": 3} and prints 3; a second sync shows the file unchanged', () => {
@@ -2605,8 +2606,9 @@ test('a project whose decisions.md has 3 prose-only conditions and 1 waiting on 
   assert.equal(bytes(dir, 'decisions.md').toString('utf8'), DECISIONS_MD, '--apply writes nothing to decisions.md');
 });
 
-// #493: the feature docs owed a review of their current version, counted by id in one note; status names each one.
-test('the feature docs with no review of their current version: one note counts them by id, shipped and reviewed docs left out, and none means no note', () => {
+// #493, D-049: the feature docs owed a Version: line, and those owed a review of their current version, each counted by id
+// in one note; status names each one.
+test('the feature docs with no Version: line, and with no review of their current version: a note each counts them by id, shipped and reviewed docs left out, and none means no note', () => {
   const doc = (status, n, version = '') => `---\nstatus: ${status}\n---\n\n# F-${n} — x\n\n${version}## Problem\n\nx\n`;
   const notes = (files) => JSON.parse(sync(counted(files), '--json').stdout).notes.filter((n) => !fitNotes([n]).length);
   const review = (path, version) => `# Review\n\nReviewed: ${path} @ abc1234\nVersion line: ${version}\n`;
@@ -2617,9 +2619,16 @@ test('the feature docs with no review of their current version: one note counts 
     'docs/features/d.md': doc('shipped', 2),
     'docs/reviews/a.md': review('docs/features/a.md', 'Version: 0.1'),
     'docs/reviews/c.md': review('docs/features/c.md', 'Version: 0.1'),
-  }), ['2 feature docs have no review of their current version (F-4, F-7): pnpm status lists each with its /review-doc command, and their build tickets wait on that review']);
-  assert.deepEqual(notes({ 'docs/features/b.md': doc('draft', 7) }), ['1 feature doc has no review of its current version (F-7): pnpm status lists each with its /review-doc command, and its build tickets wait on that review']);
-  assert.deepEqual(notes({ 'docs/features/d.md': doc('shipped', 2) }), []);
+  }), [
+    '1 feature doc not shipped has no Version: line (F-7): pnpm meta fails until each has one; add `Version: 0.1` below its title, which needs no review',
+    '2 feature docs have no review of their current version (F-4, F-7): pnpm status lists each with its /review-doc command, and their build tickets wait on that review',
+  ]);
+  assert.deepEqual(notes({ 'docs/features/b.md': doc('draft', 7), 'docs/features/e.md': doc('draft', 8) }), [
+    '2 feature docs not shipped have no Version: line (F-7, F-8): pnpm meta fails until each has one; add `Version: 0.1` below its title, which needs no review',
+    '2 feature docs have no review of their current version (F-7, F-8): pnpm status lists each with its /review-doc command, and their build tickets wait on that review',
+  ]);
+  assert.deepEqual(notes({ 'docs/features/c.md': doc('draft', 9, 'Version: 0.1\n\n') }), ['1 feature doc has no review of its current version (F-9): pnpm status lists each with its /review-doc command, and its build tickets wait on that review']);
+  assert.deepEqual(notes({ 'docs/features/d.md': doc('shipped', 2) }), [], 'a shipped doc is owed neither a line nor a review');
 });
 
 test('the decisions note names ids and nothing of the record; with none to count there is no note; each part reads alone', () => {

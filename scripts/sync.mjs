@@ -36,14 +36,14 @@ import { fileURLToPath } from 'node:url';
 import { hasReason, isTemplate, MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
 import { FEATURE_DIRS } from '../ci/checks/lib/feature-docs.mjs';
 import { readDecisions } from '../ci/checks/lib/decisions.mjs';
-import { owedReviews } from '../ci/checks/lib/spec-review.mjs';
+import { isShipped, owedReviews, unversioned } from '../ci/checks/lib/spec-review.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { BASELINES, FIT_KEY, isCount, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
-import { alreadyLine, alreadyText, appliedText, codeNote, CONVENTIONAL, countLines, decisionNote, pastLine, reviewNote, pastText, planText, targetName } from './lib/sync-text.mjs';
+import { alreadyLine, alreadyText, appliedText, codeNote, CONVENTIONAL, countLines, decisionNote, pastLine, reviewNote, versionNote, pastText, planText, targetName } from './lib/sync-text.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
@@ -340,8 +340,9 @@ function preflight(cwd) {
     const record = readDecisions(root);
     notes.push(...decisionNote({ prose: record.proseCount(), issues: record.awaitingIssue() }));
   } catch { /* a note, never a refusal */ }
-  // The feature docs owed a review (#493), which status names one by one.
+  // The feature docs that need a Version: line (D-049) and those owed a review (#493), which status names one by one.
   try {
+    notes.push(...versionNote(unversioned(root).filter((f) => !isShipped(f)).map((f) => f.ns)));
     notes.push(...reviewNote(owedReviews(root).map((f) => f.ns)));
   } catch { /* a note, never a refusal */ }
   return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha, targetVersion, past, absent };

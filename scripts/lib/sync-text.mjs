@@ -110,6 +110,13 @@ export function reviewNote(docs) {
   const shown = ids.length > CAP ? `${ids.slice(0, CAP).join(', ')} and ${ids.length - CAP} more` : ids.join(', ');
   return [`${plural(docs.length, 'feature doc')} ${docs.length === 1 ? 'has' : 'have'} no review of ${docs.length === 1 ? 'its' : 'their'} current version (${shown}): pnpm status lists each with its /review-doc command, and ${docs.length === 1 ? 'its' : 'their'} build tickets wait on that review`];
 }
+// The feature docs not shipped that have no `Version:` line (D-049), counted by id: V1 fails on each until it has one.
+export function versionNote(docs) {
+  if (!docs.length) return [];
+  const ids = docs.map((ns) => `F-${ns[0]}`);
+  const shown = ids.length > CAP ? `${ids.slice(0, CAP).join(', ')} and ${ids.length - CAP} more` : ids.join(', ');
+  return [`${plural(docs.length, 'feature doc')} not shipped ${docs.length === 1 ? 'has' : 'have'} no Version: line (${shown}): pnpm meta fails until each has one; add \`Version: 0.1\` below its title, which needs no review`];
+}
 // An error's code for a refusal, as ` (ENOENT)`, only when it is capitals, digits and underscores; else nothing.
 export const codeNote = (e) => (/^[A-Z][A-Z0-9_]{1,30}$/.test(e?.code ?? '') ? ` (${e.code})` : '');
 const countSection = (u, count, applied) => [u.section('◇', `${count.file} — count recorded${applied ? ` at ${count.n}` : ''}`), ...countLines(count).map((l) => u.line(l)), gap(u)];

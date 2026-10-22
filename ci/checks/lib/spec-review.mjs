@@ -43,8 +43,16 @@ export const reviewedNow = (doc, path, reviews, lines = versionLines(doc)) =>
 // version: readFeatureFiles' entries, in its order. Status names each and sync counts them (#493).
 export function owedReviews(root) {
   const reviews = readReviews(root);
-  return readFeatureFiles(root).filter(isFeatureDoc).filter((f) => String(frontmatter(f.md)?.status ?? '').trim().toLowerCase() !== 'shipped' && !reviewedNow(f.md, f.path, reviews));
+  return readFeatureFiles(root).filter(isFeatureDoc).filter((f) => !isShipped(f) && !reviewedNow(f.md, f.path, reviews));
 }
+
+// Whether a feature doc readFeatureFiles() lists is shipped: its header's `status:` reads `shipped`, in any case. A header
+// that cannot be read, or has no status, is not shipped.
+export const isShipped = (f) => String(frontmatter(f.md)?.status ?? '').trim().toLowerCase() === 'shipped';
+
+// The feature docs of the tree at `root` that have no line starting `Version:` (D-049): V1 fails on each one not shipped,
+// and sync counts those.
+export const unversioned = (root) => readFeatureFiles(root).filter(isFeatureDoc).filter((f) => versionLines(f.md).length === 0);
 
 // The findings for one sidecar `c` read against the tree at `root`: [{ id, detail }], ids as P1 prints them after
 // `#`. A draft is not held. A `draft` that is absent or not `true` is a ready pull request (the strict side).

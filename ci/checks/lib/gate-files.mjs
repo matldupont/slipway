@@ -281,7 +281,8 @@ export function changes(base, head, cwd = process.cwd()) {
   globs = [...new Set([...globs, ...named, ...namedDocs(tree, ' as checked out'), ...atTip])];
   const scripts = files.filter((f) => f.split('/').pop() === 'package.json' && scriptsAt(from, f) !== scriptsAt(head, f));
   // The feature docs whose `Version:` lines this pull request moves, for P1's spec-review rule (#464): a doc that is
-  // gone at the head is not listed, and one the base lacks moves from no lines.
+  // gone at the head is not listed, and one the base lacks moves from no lines. A doc the base has with no `Version:`
+  // line that gains exactly one is not a move (D-049): V1 asks for that line, and adding it changes no version a review read.
   const versionsAt = (rev, path) => {
     try {
       return versionLines(git('show', `${rev}:${path}`));
@@ -292,7 +293,9 @@ export function changes(base, head, cwd = process.cwd()) {
   const specs = files.flatMap((path) => {
     if (!SPEC_PATH.test(path) || path.startsWith('ci/fixtures/')) return []; // a fixture's doc is test data, not a spec
     const now = versionsAt(head, path);
-    const was = versionsAt(from, path) ?? [];
+    const base = versionsAt(from, path);
+    if (base !== null && base.length === 0 && now?.length === 1) return [];
+    const was = base ?? [];
     return now && JSON.stringify(now) !== JSON.stringify(was) ? [{ path, versions: now }] : [];
   });
   return { files, scripts, globs, links, specs };

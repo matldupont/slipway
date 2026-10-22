@@ -5,6 +5,8 @@ status: draft
 
 # F-01 — Template sync: projects take slipway updates without losing anything
 
+Version: 0.1 (2026-10-22)
+
 ## Problem
 
 A project built on slipway has no way to take a newer slipway except by hand. `new-project` copies the

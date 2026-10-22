@@ -1,0 +1,16 @@
+{
+  "_note": "D-049. Unshipped docs with no Version line fail (walks, no-header: no status reads as not shipped, dev/features x); shipped ones warn (done, old: status read in any case). tips has its line; walks-notes is a companion; TEMPLATE.md and notes.md are not feature docs.",
+  "exit": 1,
+  "findings": [
+    "docs/features/walks.md#version/missing",
+    "docs/features/no-header.md#version/missing",
+    "dev/features/x.md#version/missing"
+  ],
+  "warnings": [
+    "docs/features/done.md#version/missing",
+    "dev/features/old.md#version/missing"
+  ],
+  "details": {
+    "docs/features/walks.md#version/missing": "add `Version: 0.1`"
+  }
+}
