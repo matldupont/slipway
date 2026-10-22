@@ -370,6 +370,9 @@ content: printed through `escapeControl`, length computed on the text as written
     `docs/product/FRAME.md`, `docs/milestones/M1-walking-skeleton.md`: the `seeded` class in `dev/ownership.yaml`,
     which keeps its placeholders by design), both set in `.vale.ini`; never `[NEEDS CLARIFICATION]`, which is a marker
     checks read.
+    Not an HTML tag a table cell or a details block uses (`<br>`, `<details>`, `<summary>`, `<kbd>` and the like, listed
+    in `Placeholder.yml`): a read-only run on a real project's docs found 29 errors on `<br>` alone, so `<br>` in a
+    table cell passes while `<date>` and `<your name>` still fail.
   - `Recap.yml`: a paragraph starting `In summary`, `In conclusion`, `To summarize`, `To sum up`, `Overall,`.
 - **Warnings, which ratchet on the held set:** `CheckId.yml` (a check id as a word outside code and outside
   brackets), `DecisionId.yml` (`D-` or `PD-` and digits, outside code and outside brackets: §1 rule 2's one rule),
@@ -389,8 +392,8 @@ content: printed through `escapeControl`, length computed on the text as written
 - **Ownership.** `.vale.ini`, `ci/prose/**`, `ci/prose.mjs`, `ci/fixtures/known-bad/prose/**` and
   `scripts/prose.test.mjs` are classed `internal` in `dev/ownership.yaml`: slipway's own, shipped to no project.
 - **Known-bad fixture.** `ci/fixtures/known-bad/prose/` holds one file per rule with the line that trips it, and
-  four control lines that raise nothing: a `[NEEDS CLARIFICATION]` marker, a `<date>` in a file named `TEMPLATE.md`,
-  a check id in a code span, and a `<sha>` in a code span and a fenced block in a file that sits in the diff set's
+  five control lines that raise nothing: a `[NEEDS CLARIFICATION]` marker, a `<date>` in a file named `TEMPLATE.md`,
+  a `<br>` in a table cell, a check id in a code span, and a `<sha> in a code span and a fenced block in a file that sits in the diff set's
   shape. `scripts/prose.test.mjs` runs `ci/prose.mjs --dir` on the folder and expects each rule's name in the JSON
   once, the controls quiet, a 35-word sentence tripping the rule and a 34-word one not, and BROKEN (exit 2) without
   `vale`.
@@ -537,9 +540,9 @@ Then  the step that writes the title and commits files and the Vale install and 
 ```
 
 ```
-Given ci/fixtures/known-bad/prose/, one file per rule and four control lines
+Given ci/fixtures/known-bad/prose/, one file per rule and five control lines
 When  node scripts/prose.test.mjs
-Then  each error rule fails its file, each warning rule is counted once, the four controls raise nothing (a marker, a <date> in a TEMPLATE.md, a check id in a code span, a <sha> in a code span in the diff set's shape); with vale absent the script exits 2
+Then  each error rule fails its file, each warning rule is counted once, the five controls raise nothing (a marker, a <date> in a TEMPLATE.md, a <br> in a table cell, a check id in a code span, a <sha> in a code span in the diff set's shape); with vale absent the script exits 2
 ```
 
 ```

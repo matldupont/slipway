@@ -33,6 +33,7 @@ test('each rule trips its own file once, at the line that holds it', () => {
   assert.deepEqual(seen, {
     'chatbot.md': 'Slipway.Chatbot@3',
     'placeholder.md': 'Slipway.Placeholder@3',
+    'placeholder-two-words.md': 'Slipway.Placeholder@3',
     'recap.md': 'Slipway.Recap@3',
     'check-id.md': 'Slipway.CheckId@3',
     'decision-id.md': 'Slipway.DecisionId@3',
@@ -40,7 +41,7 @@ test('each rule trips its own file once, at the line that holds it', () => {
     'verb.md': 'Slipway.Verb@3',
     'sentence.md': 'Slipway.Sentence@3',
   });
-  assert.equal(alerts.length, 8, 'one alert per file, none more');
+  assert.equal(alerts.length, 9, 'one alert per file, none more');
   assert.equal(status, 1, 'an error rule fails the folder');
 });
 
@@ -50,8 +51,8 @@ test('the three error rules are errors and the five others are warnings', () => 
   assert.deepEqual(level, { Chatbot: 'error', Placeholder: 'error', Recap: 'error', CheckId: 'warning', DecisionId: 'warning', Hedge: 'warning', Verb: 'warning', Sentence: 'warning' });
 });
 
-test('the controls raise nothing: a marker, a placeholder in a template, a check id and a <sha> in code, a fenced block', () => {
-  const quiet = ['control-marker.md', 'TEMPLATE.md', 'control-code.md'];
+test('the controls raise nothing: a marker, a placeholder in a template, a check id and a <sha> in code, a fenced block, an HTML tag', () => {
+  const quiet = ['control-marker.md', 'TEMPLATE.md', 'control-code.md', 'control-html-tag.md'];
   const { alerts } = alertsIn(FIXTURE);
   assert.deepEqual(alerts.filter((a) => quiet.includes(a.file)), []);
   for (const f of quiet) assert.ok(readFileSync(join(FIXTURE, f), 'utf8').length > 0, `${f} exists and is not empty`);

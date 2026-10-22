@@ -4,7 +4,8 @@ level: error
 scope: raw
 nonword: true
 tokens:
-  - '<[a-z][a-z -]*>'
+  # `<` + lower-case words + `>`, except an HTML tag a table cell or a details block really uses.
+  - '<(?!(?:br|hr|p|b|i|u|s|em|strong|code|pre|kbd|sub|sup|del|ins|mark|small|details|summary|ul|ol|li|dl|dt|dd|table|thead|tbody|tr|td|th|div|span|center|blockquote|h[1-6])>)[a-z][a-z -]*>'
   - '\bTBD\b'
   - '\bXXX\b'
   - '(?i)lorem ipsum'
