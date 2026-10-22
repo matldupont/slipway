@@ -7,9 +7,6 @@ a project framework for Claude Code: one command sets up a repo with planning do
 and CI checks. The skills take you from a rough idea to a release, one step at a time. The checks fail when you
 or the agent skip one. It assumes an engineer is reading the diffs.
 
-One thesis runs through it: **a rule exists only where something fires.** Every step up to closing a
-milestone ends in something that goes red — a check, a hook, a clock — not in a promise.
-
 **Requires:** Node 24 + pnpm, GitHub, Claude Code. **Defaults**, decided in week 1 (D-005–D-008): TypeScript,
 React + Vite, Cloudflare.
 
@@ -69,10 +66,5 @@ place. Re-running fails once the GitHub repository exists, so finish from where 
 
 ## Then follow the path
 
-[`SLIPWAY.md`](SLIPWAY.md) is the guide, copied into every project:
-
-**0** Bootstrap → **1** Frame (`/kickoff`) → **2** Test the riskiest assumption → **3** Shape the PRD and
-milestones → **4** Walking skeleton → **5** Build loop → **6** Close the milestone (`/close-milestone`) →
-**7** Learn from users → back to 5.
-
-At any point, `pnpm status` says which step you are on and what to do next.
+[`SLIPWAY.md`](SLIPWAY.md) is the guide, copied into every project. Run `pnpm status` at any point: it names
+the step you are on and the one thing to do next.
