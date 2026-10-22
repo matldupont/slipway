@@ -91,12 +91,12 @@ No finding below is S0 or S1.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | The sync asks a screen question of every milestone DS1's `@@json` names, and calls each one running; DS1 also names closed, shaping and killed milestones, and ids that are not milestones, through its entry findings | S2 | author | — | |
-| AR-2 | "Status already sends its owner to `/kickoff`" for a frame whose line holds the placeholder: not when the frame is `framed`, so that project hears nothing until a milestone starts and goes red | S3 | author | — | |
-| AR-3 | A named follow-up and four carried items have no tracker: the status line for live entries (0.3 AR-2) and 0.3 AR-9's items 1, 2, 3 and 5 | S3 | owner | — | |
-| AR-4 | `**Design:**` is read and `**Front end:**` is not, and the finding for a bold label says the frame "has no Front end: line" | S3 | owner | — | |
-| AR-5 | Claims about the code that 4cc56c4 does not bear out: three line numbers, where the readers live, and "holds no milestone to anything" | S3 | author | — | |
-| AR-6 | Hygiene: two lists of what the build reuses, a "Verified against" line holding 0.4 text, the template note on `design:`, the status bullet's "own item 1", and Verify's "no control" | S3 | author | — | |
+| AR-1 | The sync asks a screen question of every milestone DS1's `@@json` names, and calls each one running; DS1 also names closed, shaping and killed milestones, and ids that are not milestones, through its entry findings | S2 | author | — | PR #516 (skill), #520 (spec wording) |
+| AR-2 | "Status already sends its owner to `/kickoff`" for a frame whose line holds the placeholder: not when the frame is `framed`, so that project hears nothing until a milestone starts and goes red | S3 | author | — | #520 |
+| AR-3 | A named follow-up and four carried items have no tracker: the status line for live entries (0.3 AR-2) and 0.3 AR-9's items 1, 2, 3 and 5 | S3 | owner | — | #519, #520 |
+| AR-4 | `**Design:**` is read and `**Front end:**` is not, and the finding for a bold label says the frame "has no Front end: line" | S3 | owner | — | #520 |
+| AR-5 | Claims about the code that 4cc56c4 does not bear out: three line numbers, where the readers live, and "holds no milestone to anything" | S3 | author | — | #520 |
+| AR-6 | Hygiene: two lists of what the build reuses, a "Verified against" line holding 0.4 text, the template note on `design:`, the status bullet's "own item 1", and Verify's "no control" | S3 | author | — | #520 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.

@@ -466,8 +466,10 @@ Verified against: cc75936 2026-10-21 — `ci/checks/lib/frame.mjs` (`frontEnd()`
 
 ## Seams
 
-none: no person, channel or payment is added. A promise is: slipway asks for the design work and the
-accessibility gate up front, in the plan. The check holds that they are written, not that they are met.
+none: no channel or payment is added. A person is named but not told: a dated entry's `owner:` answers for it, and
+nothing tells them when its day passes until DS1 goes red (#519 shows a live entry in `pnpm status` before its day).
+A promise is: slipway asks for the design work and the accessibility gate up front, in the plan. The check holds
+that they are written, not that they are met.
 
 ## Threat model
 
@@ -509,8 +511,8 @@ line's way out is not such a word: it is a dated entry in an owner-only file (§
 - Slipway's own tree never exercises the check beyond the control cases: it has no active milestone by design.
   Decision-defaults §9 is met by running DS1 once against a real project's files, the result recorded as a count.
 - A milestone closes under a live entry with no accessibility evidence; the line written later into the closed
-  file is proved by no skill; nothing shows the entry before its day. A `pnpm status` line for live entries is a
-  follow-up (0.3 AR-2).
+  file is proved by no skill; nothing shows the entry before its day. A `pnpm status` line for live entries is
+  #519 (0.3 AR-2, 0.4 AR-3).
 - One design item answers for every later milestone; any Contents item that starts `Design:` is one (0.3 AR-7).
 - Any active milestone marked `kind: skeleton` owes no design item, whatever it builds; DS1's view names it as let
   off.
@@ -659,7 +661,8 @@ pull request, with one review of that revision before the release (0.3 AR-4).
      that loses the field) against the code and pin it with a test.
    - 0.2 AR-12: reword "Nothing new fires yet" (K1 and MS1 read the new placeholders in a project created from
      this tree); the one-release hold is written in #379.
-3. The check: `ci/checks/lib/milestones.mjs` gains `designItems()` and the decision resolver; the frame line
+3. The check: `ci/checks/lib/design.mjs` holds `designItems()` and the predicate, `ci/checks/lib/decision-ref.mjs`
+   the decision resolver (built so; was planned in `ci/checks/lib/milestones.mjs`); the frame line
    reader; `ci/checks/meta/ds1-design-before-screens.mjs`; `ci/fixtures/known-bad/ds1/` (one case per id);
    `scripts/ds1.test.mjs` (controls, and the mutation run); `package.json`'s `meta` gains the check and the test;
    the `pnpm status` lines and their cases under `ci/fixtures/status/`. Run once against a real project's files
@@ -713,7 +716,9 @@ reads (4), so a skill never promises a line nothing holds.
 - A design tool, skill or component library: #94, parked, independent of this (D-042).
 - Judging a design, or whether WCAG 2.2 AA is met: the check sees that the item and the line exist. Proving the
   line is `/close-milestone`'s; arguing the item is `/review-doc`'s.
-- A project's own milestones: each re-plans from the rule, on its next kickoff or sync.
+- A project's own milestones still being shaped: each re-plans from the rule, on its next kickoff or from
+  `pnpm status`. A milestone running when the sync arrives is the one exception: the sync asks about it and writes the
+  answer (§5).
 - Reading which Contents items build a screen: "builds screens" is per milestone with an opt-out (§3).
 
 ## Open questions
