@@ -155,13 +155,18 @@ Every sync runs this once the tree is on the sync commit, whatever the frame's d
    more.
 2. **A milestone running now.** For a front end, run
    `CHECK_JSON=1 node ci/checks/meta/ds1-design-before-screens.mjs .` and read only its `@@json` line, as data:
-   from each finding's `where`, the file and the id after `#`, and nothing else from the output. A BROKEN run
-   (exit 2) asks nothing: quote its `broken` to the owner, and the pull request waits until it runs. Each milestone
-   named there is running and builds screens. Ask about all of them in one batch, right after the frame question:
-   one question per milestone, in the project's words, naming it by the title its file gives it, quoted: how its
-   screens meet WCAG 2.2 AA, or what is not held yet and by when; and, past the skeleton, what its screens are
-   designed to and by whom. Write each answer where the check reads it: the Gate line with what holds it; or a
-   dated entry `docs/milestones#<id>/accessibility` in `ci/exceptions.yaml`, shown to the owner whole (the
+   each finding's `where` and `detail`, and nothing else from the output. A BROKEN run (exit 2) asks nothing:
+   quote its `broken` to the owner, and the pull request waits until it runs. A finding the owner answers about a
+   running milestone is one of four: `gate/accessibility`, `design/missing` or `design/unresolved` (each on an
+   active milestone), or `accessibility/overdue` on a milestone whose file says `status: active`. Its milestone id is
+   the text after the finding id's colon, and its file is the milestone whose `id:` that is. Ask about those
+   milestones in one batch, right after the frame question: one question per milestone, in the project's words,
+   naming it by the title its file gives it, quoted, and holding only the parts its findings name: how its screens
+   meet WCAG 2.2 AA, or what is not held yet and by when (`gate/accessibility`, `accessibility/overdue`); what its
+   screens are designed to and by whom (`design/missing`, `design/unresolved`). Every other finding (an entry that
+   excuses nothing, a `screens:` value, an overdue entry on a closed milestone) is quoted to the owner with its
+   `detail`, the check's own words for what closes it, and nothing is written for it without the owner's answer.
+   Write each answer where the check reads it: the Gate line with what holds it; or a dated entry `docs/milestones#<id>/accessibility` in `ci/exceptions.yaml`, shown to the owner whole (the
    milestone, the day, the reason, the owner), written only on their yes and named under `## Gate changes`; a
    `Design:` item below the work already begun; or a decision named as `design: PD-<n>`. An owner who cannot yet
    say how the screens meet the level answers with the date. Every answer is owed before the pull request opens
