@@ -140,11 +140,11 @@ anyway with a decision in `decisions.md` that says why.
    that starts `Design:`, before the first milestone past the skeleton: in an earlier milestone, the skeleton
    included, or as that milestone's item 1. Ask who or what does the work and what it delivers; offer direction, a
    component set built to WCAG 2.2 AA and the flows for the screens to come as the usual answer, never as a
-   requirement. Ask its hours and add them to that milestone's §9 row, with the share named in Basis
+   requirement. Ask its hours and add them to the §9 row of the milestone that holds it, with the share named in Basis
    (`includes design: 12–16 h`). Fill the skeleton's no-go with the milestone and the item number where design lands.
    Write the accessibility line under the Gate of every milestone that builds screens, the skeleton's first, with what
    holds it (ask: an automated accessibility check in CI, a keyboard and screen-reader pass in `docs/qa/`); a
-   milestone that builds none deletes the line and sets `screens: none`. **A product with no screens**
+   milestone the owner says builds none deletes the line and sets `screens: none`. **A product with no screens**
    (`Front end: none …`): delete the skeleton's design no-go and the accessibility line from every milestone, the
    skeleton's included.
 5. **Readiness gate.** Re-read M1 and M2 as the engineer who must build them. For each slice

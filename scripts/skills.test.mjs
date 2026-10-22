@@ -1326,7 +1326,8 @@ test('/kickoff asks where people use the product, and maps every answer but scre
 test('/kickoff places the design item with its hours, fills the no-go and writes the accessibility line; no front end deletes them', () => {
   const three = flat(section(read(skillPath('kickoff')), 'Phase 3 — Shape', 2));
   assert.ok(three.includes('place one design item, a Contents item that starts `Design:`, before the first milestone past the skeleton: in an earlier milestone, the skeleton included, or as that milestone\'s item 1.'), '/kickoff must place the design item where DS1 reads it');
-  assert.ok(three.includes('Ask its hours and add them to that milestone\'s §9 row, with the share named in Basis (`includes design: 12–16 h`).'), '/kickoff must ask the design item\'s hours and name the share');
+  assert.ok(three.includes('Ask its hours and add them to the §9 row of the milestone that holds it, with the share named in Basis (`includes design: 12–16 h`).'), '/kickoff must put the design item\'s hours in the row of the milestone that holds it');
+  assert.ok(three.includes('a milestone the owner says builds none deletes the line and sets `screens: none`.'), '/kickoff must not set screens: none unasked');
   assert.ok(three.includes('Fill the skeleton\'s no-go with the milestone and the item number where design lands.'), '/kickoff must fill the skeleton\'s no-go');
   assert.ok(three.includes('Write the accessibility line under the Gate of every milestone that builds screens, the skeleton\'s first, with what holds it'), '/kickoff must write the accessibility line in every screen milestone');
   assert.ok(three.includes('**A product with no screens** (`Front end: none …`): delete the skeleton\'s design no-go and the accessibility line from every milestone, the skeleton\'s included.'), '/kickoff must delete both for a product with no front end');
@@ -1335,7 +1336,7 @@ test('/kickoff places the design item with its hours, fills the no-go and writes
 
 test('/review-doc step 2 asks who designs this and when, and whether accessibility is in a gate, before What is missing', () => {
   const two = flat(section(reviewDoc(), '2 — Refute by default', 2));
-  assert.ok(two.includes('8. **Design and accessibility.** Who designs this and when: is there a design item before the screens that follow the skeleton, with hours? Does every milestone that builds screens, the skeleton included, carry an accessibility line in its Gate that can go red? Asked of a PRD and of a milestone; of a feature doc only when it adds a screen. 9. **What is missing.**'), '/review-doc step 2 must carry the design item between Sequencing and What is missing');
+  assert.ok(two.includes('8. **Design and accessibility.** Who designs this and when: is there a design item before the screens that follow the skeleton, with hours? Does every milestone that builds screens, the skeleton included, carry an accessibility line in its Gate that can go red? Asked, for a product with screens (the frame\'s `Front end:` line is not `none`), of a PRD and of a milestone; of a feature doc only when it adds a screen. 9. **What is missing.**'), '/review-doc step 2 must carry the design item between Sequencing and What is missing');
 });
 
 test('/sync-slipway asks the front-end question on every sync and asks once, in one batch, about each running milestone DS1 names', () => {
@@ -1350,7 +1351,9 @@ test('/sync-slipway asks the front-end question on every sync and asks once, in 
   // 0.4 review AR-1: only four findings are a question about a running milestone; the rest are quoted, never asked.
   assert.ok(sub.includes('A finding the owner answers about a running milestone is one of four: `gate/accessibility`, `design/missing` or `design/unresolved` (each on an active milestone), or `accessibility/overdue` on a milestone whose file says `status: active`.'), 'sync must ask only about the findings an owner answers on a running milestone');
   assert.ok(sub.includes('Ask about those milestones in one batch, right after the frame question: one question per milestone, in the project\'s words, naming it by the title its file gives it, quoted, and holding only the parts its findings name'), 'the milestone questions come in one batch, by the milestone\'s title, asking only what its findings name');
-  assert.ok(sub.includes('Every other finding (an entry that excuses nothing, a `screens:` value, an overdue entry on a closed milestone) is quoted to the owner with its `detail`, the check\'s own words for what closes it, and nothing is written for it without the owner\'s answer.'), 'a finding that is no question about a running milestone is quoted, and nothing is written for it unasked');
+  assert.ok(sub.includes('taken only when it is `M<n>` or `M<n>.<k>`; any other is quoted to the owner, and nothing is asked or written for it.'), 'sync must take a milestone id only in the form the checks accept');
+  assert.ok(sub.includes('For an overdue entry, writing the Gate line also removes the entry, and a later day re-dates that same entry, never a second one.'), 'sync must close an overdue entry the way the check reads it');
+  assert.ok(sub.includes('Every other finding (an entry that excuses nothing, a `screens:` value, an overdue entry on a closed milestone) is quoted to the owner with its `detail`, the check\'s text on what closes it, which quotes the project\'s own, and nothing is written for it without the owner\'s answer.'), 'a finding that is no question about a running milestone is quoted, and nothing is written for it unasked');
   assert.ok(sub.includes('a dated entry `docs/milestones#<id>/accessibility` in `ci/exceptions.yaml`, shown to the owner whole (the milestone, the day, the reason, the owner), written only on their yes and named under `## Gate changes`'), 'the dated entry is the owner\'s yes, shown whole');
   assert.ok(sub.includes('Every answer is owed before the pull request opens (§5): with one unanswered, `pnpm meta` is red.'), 'the answers are owed before the pull request opens');
 });
@@ -1363,7 +1366,7 @@ test('/sync-slipway never writes a placeholder, and the skeleton\'s two lines fo
   const rows = new Map((table(sub)?.rows ?? []).map((r) => [plain(r[0]), [plain(r[1]), plain(r[2])]]));
   assert.deepEqual(rows.get('any, with no front end'), ['declined: it builds no screens', 'declined: it builds no screens']);
   assert.deepEqual(rows.get('shaping'), ['declined: pnpm status asks for it while the plan is made', 'written only naming a design item that exists; else declined']);
-  assert.deepEqual(rows.get('running'), ['written with the owner\'s answer, what holds it; answered with a date, declined, and the entry written', 'written only naming a design item that exists; else declined, and the owner told']);
+  assert.deepEqual(rows.get('running'), ['written with the owner\'s answer, what holds it; answered with a date, declined, and the entry written on the owner\'s yes', 'written only naming a design item that exists; else declined, and the owner told']);
   assert.deepEqual(rows.get('closed'), ['declined: left as it was built', 'declined: left as it was built']);
   assert.ok(flat(sub).includes('Each line declined is recorded under **Decided by sync** with its reason'), 'a declined line reaches the pull request');
   assert.ok(flat(sub).includes('the skeleton\'s no-go was left as it is because where design lands is not planned yet, and `pnpm status` shows the milestone that has no design item before it. No third question is asked.'), 'the owner is told why a running skeleton\'s no-go was left');
