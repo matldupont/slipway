@@ -32,6 +32,7 @@ const CALLERS = [
   'ci/checks/lib/fit.mjs',
   'ci/checks/lib/markdown.mjs',
   'ci/checks/lib/milestones.mjs',
+  'ci/checks/lib/spec-review.mjs',
   'ci/checks/meta/k1-frame.mjs',
   'ci/checks/meta/l1-lessons.mjs',
   'ci/checks/meta/ms1-milestones.mjs',
