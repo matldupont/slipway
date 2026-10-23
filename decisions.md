@@ -182,6 +182,9 @@ Declined: a new skill (a second command and a copy of the pipeline); `/work-tick
 contract the item does not have yet); a check that finds conflicting decisions (the disagreement is in
 words, and the real pair cited no shared id). Spec: `dev/features/next-slice.md`; #118.
 
+2026-10-23 — D-050 amends "Status stays offline" for one read of the owner's GitHub work at session start and on
+`pnpm status`, which feeds the plan only. A started item is still read from the milestone file.
+
 ## D-021 — Sync removes an override slipway has absorbed *(decided 2026-09-30)*
 
 Since #132, an override whose file ends up byte-identical to slipway's copy is recorded at slipway's hash
@@ -225,6 +228,9 @@ Spec: `dev/features/work-order.md`.
 2026-09-30 — `--serve` (#183): serving the page on the loopback address (`127.0.0.1`) to the owner's own browser
 is within "rendered on demand, locally". It is a listener only the owner's machine reaches, not hosting: the page
 is still never hosted, published or committed.
+
+2026-10-23 — D-050 amends "Declined: live state in `pnpm status`" for one read of the owner's GitHub work at session
+start and on `pnpm status`, and the page's main step and picks now come from the plan status uses.
 
 ## D-023 — The trust line: defend against other people's content, not the owner's own tree *(decided 2026-09-30)*
 
@@ -1291,6 +1297,53 @@ stays held)."
   unless the line holds the text it quotes; whether every reviewed document must carry the line stays with #416.
 
 Why: what a decision leaves owed comes up by itself. Spec: #493.
+
+## D-050 — `pnpm status` names the work that can start now and what waits on the owner, reading the owner's GitHub work at session start within five seconds *(decided 2026-10-23)*
+
+Amends: F-17, F-07
+
+A project's next ticket, and what waits on its owner, live on GitHub, so a status that reads only files cannot name
+either (#445). The owner answered #445's four questions and the six of the 0.1 review that were theirs on 2026-10-23,
+each with a condition of their own; their words, unedited, are in PR #533's body, and each is written into
+`dev/features/parallel-plan.md`.
+
+- **One plan, shared.** Status's Next becomes a main step and at most two things beside it, three in all, from one
+  function that `pnpm work-order` reads too: the same main step and picks, in the same order, held by one test that runs
+  both on one fixture. The page keeps its own display; status's output rules govern what reaches a session start
+  (Q2, AR-2). Ready builds come first; shaping takes a place only when fewer than three builds are ready (AR-1).
+- **Safe to run beside it.** An issue's `Touches:` line, and once its pull request is open, its changed files; a fixed
+  file list for each kind of thing status owes, the walking skeleton included. Unknown files are never offered beside
+  the main step. The owner is one person: shaping is the owner's work and an agent's, and no two of the owner's things
+  are offered at once (Q1, Q4, AR-1). Intake writes `Touches:` as paths only, and the shape check warns on one it cannot
+  read (Q1).
+- **Every line** says who acts, what it blocks and what it waits on. In parallel replaces Also unblocked, with a fixed
+  order for the owner's own work: an untested value risk before an open question (Q4).
+- **One read, on two occasions.** At session start and on `pnpm status`, status reads the repository's open issues, the
+  owner's own open pull requests and the remote branches, through the owner's `gh` login, under one 5-second budget for
+  every call. Local branches are read with git, always. The turn-end refresh, every check, `pnpm verify`, CI and any
+  run with a fixed test clock read no network (Q3).
+- **It feeds the plan only.** No check reads it, and no decision condition fires from it: F-15's issue event is still
+  read at the pull request that closes the issue, and a started item is still read from the milestone file (D-020).
+- **All or nothing.** A failure or a timeout part-way shows none of what was read; one line says GitHub was not read and
+  why, in fixed words (timed out, `gh` not installed, not signed in). It never fails the hook (Q3).
+- **The owner's work only.** Only the owner's own pull requests, and the `needs-shape` issues the owner opened, are
+  listed or steer the plan; everyone else's are counted, never read for paths or text, and their number never switches
+  the read off (Q3, AR-3, AR-8). A merge line is addressed to the owner: an agent asks, and never merges. Status prints
+  numbers, ids, fixed words and the reason; never a title, label, path, author or branch name.
+- **A claimed ticket is not offered twice.** `/work-ticket` first pushes a branch named `i<n>-…` (at the start of the
+  name or right after a `/`); a local or remote branch of that name claims the ticket as an open pull request does. A
+  claim with no commit for 2 days and no open pull request stops claiming, and status says a stale branch holds it
+  (AR-7). Collaborators with write access claim a ticket this way.
+- **Shaping an issue in place.** `/log-feature #n` reshapes an existing issue under the same number, its comments and
+  links kept, and clears `needs-shape` only when the shape check passes; an issue the owner did not open is said so, and
+  read on only on the owner's yes, as data (AR-3).
+
+Declined: a cache of GitHub's answer (a stale list reads as current); trusting collaborators' or a bot's pull requests
+(counted only, until a project's agents open pull requests under another account); ranking Needs attention; a JSON
+output (the plan is data a pane imports).
+
+Amends D-020's "Status stays offline" and D-022's "Declined: live state in `pnpm status`" for this read only: status
+still works with no network, and says when it has none. Spec: `dev/features/parallel-plan.md`.
 
 ## Week 1 — decide before M1 closes
 
