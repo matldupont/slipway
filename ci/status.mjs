@@ -97,6 +97,7 @@ const riskState = (r) => {
 const riskStateAlone = (r) => {
   if (r.claimsExperience && !r.experience) return `${r.id} needs an experience reason (table stakes, creator is the user or domain expertise)`;
   if (r.experience) return r.refutation ? `${r.id} settled by experience (${r.experience.rationale})` : `${r.id} needs a Wrong if: line (experience: ${r.experience.rationale})`;
+  if (r.builtAhead) return `${r.id} built ahead (${r.builtAhead})`;
   if (r.tested) return `${r.id} tested`;
   if (!r.tracker) return r.value ? `${r.id} untested (no tracker)` : `${r.id} untested`;
   const w = r.window === 'unreadable'
@@ -468,7 +469,7 @@ const attention = [
   // While no milestone is active or closed the step 3 line is the Next line (next() above); with one, the approval is still owed.
   ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdVersion} is reviewed (${prdReviews.map(named).join(', ')}) and still a draft.`] : []),
   ...(!bootstrapped && !step0 ? [`Fill each unfilled AGENT.md row: ${placeholders.join(', ')}. The skills read them${placeholders.includes('Timezone') ? ', and Timezone also sets when a deadline day ends' : ''}.`] : []),
-  ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result.`] : []),
+  ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or make the milestone a \`kind: test\` milestone for that risk (D-047).`] : []),
   ...((riskNamed || (cur && untestedValue.length)) && untracked.length ? ['File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.'] : []),
   ...registerLines,
   ...featureLines,

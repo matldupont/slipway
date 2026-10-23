@@ -1,0 +1,6 @@
+{
+  "_note": "A value risk whose Result is only a decision id was built ahead, not tested: RISK-5 prints 'built ahead (PD-3)', while RISK-1 and RISK-6, with a measured outcome, still print 'tested'. No risk is untested, so nothing is held.",
+  "today": "2026-03-10",
+  "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
+  "frame": "framed · risks: RISK-1 tested, RISK-5 built ahead (PD-3), RISK-6 tested"
+}

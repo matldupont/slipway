@@ -11,6 +11,9 @@ import { MILESTONE_ID, parseAppetite } from './milestones.mjs';
 // or a decision — slipway's (D-7) or the project's own (PD-7, D-015).
 export const TRACKER = /(?:[\w.-]+\/[\w.-]+)?#\d+|\b(?:OD|PD|D)-\d+\b/;
 
+// A Result that is only decision ids (`PD-3`, `D-12, PD-4`), the build-ahead override K1 asks for.
+const DECISIONS_ONLY = /^\W*(?:PD|D)-\d+(?:\W+(?:PD|D)-\d+)*\W*$/;
+
 export const filled = (c) => !!c && !hasPlaceholder(c);
 
 // Columns are found by their header, so a FRAME written before a column existed still parses. The
@@ -146,6 +149,8 @@ export function readRisks(root, frameMd) {
         ...row,
         value,
         tested: filled(row.result),
+        // A value risk whose Result holds only decision ids was built ahead, not tested.
+        builtAhead: value && filled(row.result) && !claimsExperience && DECISIONS_ONLY.test(result.slice(0, 200)) ? result.match(/\b(?:PD|D)-\d+\b/g).join(', ') : null,
         tracker: (filled(row.tracker) && row.tracker.match(TRACKER)?.[0]) || ev.tracker || null,
         window: ev.window ?? null,
         claimsExperience,
