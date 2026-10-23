@@ -1,11 +1,11 @@
 ---
-prd-ref: F-17
+prd-ref: D-050
 status: draft
 ---
 
 # F-17 — Parallel plan: `pnpm status` names the work that can start now, who does it, and what waits on you
 
-Version: 0.1 (2026-10-23)
+Version: 0.2 (2026-10-23)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner
@@ -44,13 +44,14 @@ lands in one of two places, and neither says what to do with it:
 build starts right after 0.1.6. Workaround today: the owner reads `pnpm work-order` (F-07), which picks ready issues
 from GitHub but knows nothing of what status owes, and Needs attention, which ranks nothing.
 
-**Verdict: PROCEED**, as #445's six proposals in the shapes the owner picked on 2026-10-23 (Open questions).
+**Verdict: PROCEED**, as #445's six proposals in the shapes the owner picked on 2026-10-23, recorded as D-050 (Open
+questions).
 
 | option | for | against | verdict |
 |---|---|---|---|
 | do nothing | nothing new | "what's next" stays the author's memory; agents ignore a flat list | rejected |
-| one plan from status's owed list and a short GitHub read (the ask, shaped) | answers "which ticket, and what waits on me" in one place, at session start | one network read in the hook; one more module | **proceeds** |
-| send people to `pnpm work-order` | exists; already picks ready issues | a page nobody opens at session start; it knows nothing status owes, so its picks and status's Next disagree | rejected: work-order reads the same picks instead (§3) |
+| one plan from status's owed list and a short read of the owner's GitHub work (the ask, shaped) | answers "which ticket, and what waits on me" in one place, at session start | one network read in the hook; one more module | **proceeds** |
+| send people to `pnpm work-order` | exists; already picks ready issues | a page nobody opens at session start; it knows nothing status owes, so its picks and status's Next disagree | rejected: the page reads the same plan instead (§3, §10) |
 | rank Needs attention, keep it offline | no network | the build loop's next ticket and every pull request waiting on the owner stay invisible | rejected |
 | cache GitHub's answer in a file | works with no network | a stale list reads as current; one more file to keep safe | rejected (the owner, Q3) |
 
@@ -61,13 +62,14 @@ What this feature takes from the product it joins.
 Reuses:
 - `collect()`, `realGh()` and their picks in `ci/work-order.mjs` (F-07): the active milestone's issues read through
   `gh` (fixed arguments, no shell, the trusted PATH), a leaf's state (open, done, dropped, in a pull request), its
-  `Blocked by:` and its readiness. The picks move to one shared function both read (§3).
+  `Blocked by:` and its readiness. The picks move to one shared function both read (§3, §10).
 - `touches()`, `overlap()` and `blockers()` in `ci/checks/lib/issue-body.mjs`: the `Touches:` line and the overlap
   rule (a false overlap is the safe mistake; unknown overlaps everything).
+- `trustedGit()` in `ci/checks/lib/manifest.mjs`: how a check runs git on the repository; the local branches are read
+  through it (§5).
 - `decisionLines()` in `ci/checks/lib/decision-lines.mjs` (F-15 §6): the line form this feature extends to every
   line, who first, "It blocks …. It waits on …." last.
-- `STEPS` and `whoLine()` in `ci/checks/lib/steps.mjs` (#385, F-16 §2): who does each step and how long; the main
-  step's person is read from there.
+- `STEPS` and `whoLine()` in `ci/checks/lib/steps.mjs` (#385, F-16 §2): who does each step and how long.
 - `nextFormBreaks()` in `ci/checks/lib/next-form.mjs` (F-16 §2): every new Next line holds the form.
 - `owedReviews()` and `SPEC_PATH` in `ci/checks/lib/spec-review.mjs`, `reviewProvenance()` and `quotedVersion()` in
   `ci/checks/lib/review-header.mjs`: whether a feature doc's version has a current review, as P1 and R1 read it;
@@ -76,38 +78,46 @@ Reuses:
   its issue.
 - The `--refresh` pattern in `ci/status.mjs:43`–`48`: work in a child process killed at a limit, so a read that
   never returns cannot hold the hook.
-- `escapeControl()` and `excerpt()` in `ci/checks/lib/report.mjs`, and status's `named()`: how status prints.
+- `escapeControl()` and `excerpt()` in `ci/checks/lib/report.mjs`, status's `named()`, and `escapeHtml()` in
+  `ci/checks/lib/html.mjs` for the page: how each prints.
+- The `needs-shape` label `.github/workflows/issue-shape.yml` sets on an issue whose body fails I1.
 - S1's `expect.json` form (`ci/checks/meta/s1-status.mjs`) and work-order's stubbed `gh` in
   `scripts/work-order.test.mjs`: fixtures and recorded GitHub answers, so no test calls GitHub.
 
 Numbers:
-- The counts on the GitHub line (open pull requests, how many by other people, issues marked `needs-shape`) and the
-  "and N more" counts are computed once, in `ci/checks/lib/github-state.mjs`; status prints them.
+- The counts on the GitHub line (the owner's open pull requests, everyone else's, the owner's and everyone else's
+  issues marked `needs-shape`) and the "and N more" counts are computed once, in `ci/checks/lib/github-state.mjs`;
+  status and the page print them.
 - The cap (3, the main step included) is one constant in `ci/checks/lib/plan.mjs`; work-order's `PICKS` becomes it.
+- The 2 days after which a branch's claim goes stale is one constant in `ci/checks/lib/github-state.mjs`.
 
 New: `ci/checks/lib/plan.mjs`, the planner. Nothing today ranks what status owes, judges whether two pieces of
 work collide, or tells the owner's work from an agent's: work-order judges collision for milestone issues only, and
-status not at all. `ci/checks/lib/github-state.mjs`, the read of open pull requests: work-order reads the issues of
-milestone items and which pull request names each, never a pull request's readiness, checks, author or changed
-files.
+status not at all. `ci/checks/lib/github-state.mjs`, the read of the owner's open pull requests and branches:
+work-order reads the issues of milestone items and which pull request names each, never a pull request's
+readiness, checks or changed files, nor a branch.
 
 ## Contract
 
 Verified against: bff0897 2026-10-23. The code-state claims below were re-read on `main` at that commit:
 `ci/status.mjs` (`next()` at `:379`, Also unblocked at `:422`–`:435`, Needs attention at `:467`–`:484`, `--refresh`
-at `:43`–`:48`, `--hook` at `:514`), `ci/work-order.mjs` (`PICKS = 3` at `:29`, `collect()` at `:91`, picks at
-`:140`–`:147`), `ci/checks/lib/issue-body.mjs` (`touches()`, `overlap()`), `ci/checks/lib/decision-lines.mjs`,
-`ci/checks/lib/steps.mjs`, `ci/checks/lib/next-form.mjs`, `ci/checks/lib/spec-review.mjs`,
-`process/harness/hooks/session-state.sh` (runs `ci/status.mjs --hook`), `package.json` (`status` runs
-`node ci/status.mjs --write`). On 2026-10-23 slipway had 63 open issues: 48 carry a `Touches:` line and 37 of those
-parse (`touches()` returns entries).
+at `:43`–`:48`, `--hook` at `:514`), `ci/work-order.mjs` (`PICKS = 3` at `:29`, `collect()` at `:91`, `gh pr list`
+at `:109`, picks at `:140`–`:147`), `ci/checks/lib/issue-body.mjs` (`touches()`, `overlap()`: null overlaps all),
+`ci/checks/lib/decision-lines.mjs`, `ci/checks/lib/steps.mjs` (`STEPS[4]` and `STEPS[5]` are `agent`),
+`ci/checks/lib/next-form.mjs`, `ci/checks/lib/spec-review.mjs`, `.github/workflows/issue-shape.yml` (labels any
+opened or edited issue whose body fails I1), `process/harness/hooks/session-state.sh` (runs `ci/status.mjs --hook`),
+`scripts/report.test.mjs:78` and `scripts/harness-base.test.mjs:221` (gate tests that run `--hook`), `package.json`
+(`status` runs `node ci/status.mjs --write`), `.claude/skills/work-ticket/SKILL.md` (296 lines),
+`.claude/skills/log-feature/SKILL.md` (300 lines; the cap is 300). On 2026-10-23 slipway had 63 open issues: 48
+carry a `Touches:` line and 37 of those parse (`touches()` returns entries).
 
 Decisions this rests on, in words: status is computed, never hand-kept, and runs in every session's hook [D-020];
-the work order is a local page over the milestone and live GitHub state, and parallel-safety is declared at intake on
-the `Touches:` line [D-022]; status reads no network [D-022, D-020], which this feature amends for one read, by the
-decision the owner records (§8); every status line says who acts, what it blocks and what it waits on [D-045, as
-F-15 §6 wrote it]; status's text follows `process/writing.md` and the Next line holds its form [D-046]; owners get
-product questions in the project's words [D-016]; project and GitHub text is printed only in safe shapes (#501).
+the work order is a local page over the milestone and GitHub state, and parallel-safety is declared at intake on the
+`Touches:` line [D-022]; status reads the owner's GitHub work once at session start and on `pnpm status`, for the plan
+only, all or nothing, and lists and steers by the owner's work alone [D-050, amending D-020 and D-022 for that read];
+every status line says who acts, what it blocks and what it waits on [D-045, as F-15 §6 wrote it]; status's text
+follows `process/writing.md` and the Next line holds its form [D-046]; owners get product questions in the project's
+words [D-016]; project and GitHub text is printed only in safe shapes (#501).
 
 ### §1 An owed thing
 
@@ -115,9 +125,9 @@ Every line status prints for a person, bar the Next line and the state lines, co
 
 ```js
 {
-  kind,      // a key from §2's table
+  kind,      // a key from §2's or §6's table
   key,       // unique in the run: kind plus the ids it names ("owed-check:M2:4")
-  who,       // 'you' | 'agent' | 'you or an agent' | 'fresh session' | 'nobody'
+  who,       // 'you' | 'you and an agent' | 'agent' | 'you or an agent' | 'fresh session' | 'nobody'
   text,      // the action and the reason: one to three sentences, as process/writing.md has it
   blocks: { rank, words, date },   // rank 1–5 (below); words: what it blocks, said in the line
   waits,     // null, or the key of another owed thing, or a fixed phrase ("its doc", "GitHub")
@@ -125,9 +135,10 @@ Every line status prints for a person, bar the Next line and the state lines, co
 }
 ```
 
-The line is `(who) {text} It blocks {words}. It waits on {waits in words, or nothing}.` A thing that can start
-now but was not picked adds `It can start now, after the steps above.` before `It blocks`. `who: 'nobody'` prints
-no parenthesis: a parked question reads `Parked: … — nothing to do now. It blocks nothing. It waits on #12.`
+Status prints `(who) {text} It blocks {words}. It waits on {waits in words, or nothing}.` A thing of rank 1 to 4
+that waits on nothing and was not taken adds `It can start now, after the steps above.` before `It blocks`; rank 5
+never does. `who: 'nobody'` prints no parenthesis: a parked question reads `Parked: … — nothing to do now. It blocks
+nothing. It waits on #12.` The page (§10) renders the same things in its own form.
 
 **Ranks**, soonest first:
 
@@ -143,9 +154,10 @@ Within a rank, the order is §2's table order, the order status prints kinds tod
 gives a fixed order (the owner, Q4): an untested value risk before an open question.
 
 **Who and the person rule.** `you` is the owner. `agent`, `fresh session` and `you or an agent` are agent work:
-agent sessions run side by side, so they collide by files only. The owner is one person: the owner is busy when
-the main step's `who` (from `STEPS`, or the row in §4) is `you`, `yours` or `you and an agent`, and status never
-offers two of the owner's things at once, the main step included (the owner, Q1).
+agent sessions run side by side, so they collide by files only. `you and an agent` is both. The owner is one person:
+the owner is busy when the main step's who, read from §4's table (never from `STEPS`), is `you`, `yours` or `you and
+an agent`. Status never offers two of the owner's things at once, the main step included (the owner, Q1). Shaping a
+Contents item is the owner's work and an agent's: the owner answers `/log-feature`'s questions (the owner, AR-1).
 
 ### §2 Who, blocks and waits for every line
 
@@ -155,7 +167,7 @@ in this table are the files the thing writes.
 | kind | the line today starts | who | blocks (rank) | waits on | files |
 |---|---|---|---|---|---|
 | `prd-review` | Run /review-doc docs/PRD.md | fresh session | the PRD's approval, which a milestone needs (2) | nothing | `docs/reviews/**` |
-| `prd-approve` | Resolve the review's findings | you | the PRD leaving draft (5) | nothing | `docs/PRD.md` |
+| `prd-approve` | Resolve the review's findings | you | the PRD's approval, which the next milestone needs (2) | nothing | `docs/PRD.md` |
 | `agent-rows` | Fill each unfilled AGENT.md row | you | the skills that read them (5) | nothing | `AGENT.md` |
 | `risk-test` | (from Also unblocked) Test the untested value risks | you | what `riskBlocksSentence` names (2) | nothing | `docs/product/evidence/**`, `docs/product/FRAME.md` |
 | `build-ahead` | To build ahead of the risk | you | nothing: it is a choice, not owed (5) | nothing | `decisions.md`, `docs/product/FRAME.md` |
@@ -174,7 +186,7 @@ in this table are the files the thing writes.
 | `owed-check`, `failed-check`, `unreadable-check` | Owed check / Failed check / Unreadable check line | you or an agent | the active milestone closing (1) | nothing | the active milestone's file |
 | `parked` | Parked: | nobody | nothing (5) | its tracker | none |
 | `lesson` | Review the lesson | you | its date (4) | nothing | that lesson's file |
-| `github-unread` | (§5) | you | nothing (5) | GitHub | none |
+| `github-unread`, `stale-claim`, `unplannable`, `review-unchecked` | (§5) | you | nothing (5), or §5's words | GitHub, or nothing | none |
 | `merge`, `review-owed`, `red-check`, `needs-shape` | (§6) | §6 | §6 | §6 | §6 |
 
 The F-15 lines keep their wording (three reviews fixed it); `decision-lines.mjs` returns each as an owed thing
@@ -182,47 +194,55 @@ whose `text` is today's line less its two closing sentences, which §1 rebuilds 
 words. Also unblocked's PRD review and open-questions summary are dropped: the `prd-review` and `open-question`
 lines already say them (the owner, Q4).
 
-**Files of agent work in progress.** A pull request's files are its issue's `Touches:` entries together with its
-changed paths, once it is open (the owner, Q1: `Touches:` is a guess made at filing; the diff is what happened).
-Paths read from GitHub feed the overlap test and are never printed (§7).
+**Work in progress** is an open pull request by the owner, or a ticket a branch claims (§5). An open pull request's
+files are its issue's `Touches:` entries together with its changed paths (the owner, Q1: `Touches:` is a guess made at
+filing; the diff is what happened). A claim with no pull request has its issue's `Touches:`, or unknown. Pull requests
+by anyone else are counted only: never read for files or text, and never in progress (the owner, AR-8). Paths read
+from GitHub feed the overlap test and are never printed (§7).
 
 ### §3 The planner — `ci/checks/lib/plan.mjs`
 
 One zero-dependency module with no `process.exit`. Status and `ci/work-order.mjs` both call it, so the page and
-status name the same work (the owner, Q2):
+status name the same main step and picks in the same order (the owner, Q2 and AR-2):
 
 ```js
-plan({ main, owed, leaves, inProgress, shape }) → { main, parallel: [...owed], rest: [...owed] }
+plan({ main, owed, leaves, inProgress, shape, online }) → { main, parallel: [...picks], rest: [...owed] }
 ```
 
-- `main`: the main step, `{ who, files, issue? }` (§4's table; `issue` when Next names a ticket).
-- `owed`: §1's things. `leaves`: work-order's leaves of the active milestone (ready or not, with `touches`), empty
-  offline. `inProgress`: the files of each open pull request (§2), empty offline. `shape`: the first unstarted
-  Contents item, or null.
+A pick is an owed thing or a ready leaf. `main`: the main step as §4 gives it, `{ who, files, issue? }`. `owed`: §1's
+things. `leaves`: the active milestone's leaves (ready or not, each with `touches` and whether it is claimed), empty
+offline. `inProgress`: the files of each piece of work in progress (§2), empty offline. `shape`: the first unstarted
+Contents item, or null. `online`: whether GitHub was read.
 
-**The main step**, on an active milestone with a numbered id, in this order: the first unstarted Contents item
-(`/log-feature M2#3`, as status names it today, so the online and offline Next agree); else the first ready leaf,
-in Contents then sub-issue order, that overlaps nothing in progress; else what §4 says when none is ready.
-Work-order today picks ready leaves before shaping; under one function it shapes first and builds beside it, so
-the agent sessions that build run while the owner answers the shaping questions. This amends F-07's "Next" rule:
-the decision of §8 carries `Amends: F-07`.
+**The main step, online,** on an active milestone with a numbered id, by work-order's order (the owner, AR-1): the
+first ready leaf, in Contents then sub-issue order, that nothing claims and that overlaps no work in progress. Shaping
+takes a place only when fewer than three builds are ready: with no ready leaf, the main step shapes the first unstarted
+item; with one or two, shaping is offered beside them while the owner is free. Shaping then sits among the three
+places as work-order's shaping pick does today, so nothing is lost.
+
+**The main step, offline,** is today's: shape the first unstarted item when there is one, since readiness cannot be
+read; else §4's "GitHub not read" row.
 
 **Safe to run beside it**, all of these at once (the owner, Q1):
 
 1. it waits on nothing open: its `waits` is null, or names a key no longer in the run;
 2. its `files` are known (an array). Unknown is never offered in parallel; it can still be the main step;
-3. its files overlap none of the main step's, none of any pull request in progress, and none of a thing already
-   taken, by `overlap()`. `[]` overlaps nothing;
-4. by the person rule (§1): a `you` thing is taken only when the owner is not busy and no `you` thing is taken yet;
+3. its files overlap none of the main step's, none of any work in progress, and none of a pick already taken, by
+   `overlap()`. `[]` overlaps nothing;
+4. by the person rule (§1): a thing whose who is `you` or `you and an agent` is taken only when the owner is not busy
+   and no such thing is taken yet;
 5. its rank is 1 to 4. Rank 5 blocks nothing and stays in Needs attention.
 
-Candidates are the owed things and the ready leaves other than the main step's, in rank order. A ready leaf ranks
-1 (it blocks the active milestone closing) and sorts after the rank-1 owed things, in Contents then sub-issue order. **At most 3 in all, the main step included** (the
-owner, Q2): In parallel holds at most 2. Work-order's page shows the same main step and parallel picks as its Next,
-and `PICKS` becomes this module's `CAP = 3`.
+Candidates are the owed things and the ready, unclaimed leaves other than the main step's, in rank order. A ready leaf
+ranks 1 (it blocks the active milestone closing) and sorts after the rank-1 owed things, in Contents then sub-issue
+order; shaping is offered after the ready leaves. **At most 3 in all, the main step included** (the owner, Q2): In
+parallel holds at most 2. `PICKS` in `ci/work-order.mjs` becomes this module's `CAP = 3`.
 
-`rest` is every owed thing not taken, in today's Needs attention order: a startable thing left out by the cap or the
-person rule carries `It can start now, after the steps above.`; it is never dropped (the owner, Q2 and Q4).
+**Offline,** work in progress is not known. A pick offered while `online` is false ends with `Status did not read open
+pull requests, so check them for the same files first.` before `It blocks`.
+
+`rest` is every owed thing not taken, in today's Needs attention order; a startable thing left out by the cap or the
+person rule carries `It can start now, after the steps above.`, and is never dropped (the owner, Q2 and Q4).
 
 ### §4 What status prints
 
@@ -230,14 +250,14 @@ person rule carries `It can start now, after the steps above.`; it is never drop
 **Next:** {main step: 2 to 4 sentences, held to the form}
 
 **In parallel:**
-- (agent) Start #15 in a fresh session with /work-ticket 15. It is ready and shares no file with work in progress. It blocks M2 closing. It waits on nothing.
-- (you) Run the owed check on M2 item 4 (#12) and post the result on #12. … It blocks M2 closing. It waits on nothing.
+- (agent) Start #15 in a fresh session with /work-ticket 15. It is ready, and it shares no file with work in progress. It blocks M2 closing. It waits on nothing.
+- (you or an agent) Run the owed check on M2 item 4 (#12) and post the result on #12. … It blocks M2 closing. It waits on nothing.
 
 ## Where things stand
 - Step 0 · Bootstrap: done.
 - Step 2 · Test the risk: in hand. Yours. It blocks every milestone past the skeleton. It waits on nothing.
 …
-- GitHub: read · 5 open pull requests, 2 of them by other people (counted, not listed) · 3 issues marked needs-shape
+- GitHub: read · 5 open pull requests of yours, 2 by other people (counted, not read) · 3 issues of yours marked needs-shape, 4 by other people
 
 ## Needs attention
 - {rest, each line in §1's form}
@@ -245,28 +265,28 @@ person rule carries `It can start now, after the steps above.`; it is never drop
 
 **In parallel** replaces Also unblocked, which is removed (the owner, Q4). With nothing taken it is not printed.
 
-**The Next line** keeps F-16 §2's text for every case, except on an active milestone with every item started:
+**The Next line** keeps F-16 §2's text for every case but these. The who column is what the person rule reads (§1):
 
-| case | Next line | the main step's files |
-|---|---|---|
-| a ready leaf (online) | `Start #{n} in a fresh session with /work-ticket {n}. It is ready, and it shares no file with work in progress. {whoLine(5)}` | the issue's `Touches:`, or unknown |
-| none ready, some in a pull request (online) | `Finish the open pull requests for {id} ({#a, #b and N more}). No other issue of {id} is ready yet. {whoLine(5)}` | those pull requests' files |
-| none ready, none in a pull request (online) | `Clear what holds {id}'s open issues. None is ready, and the lines below say what each waits on. {whoLine(5)}` | unknown |
-| every leaf done or dropped (online) | `Run /close-milestone for {id}. Every issue of it is closed. {whoLine(6)}` | `docs/**`, `decisions.md`, `process/lessons/**`, the feature docs folder |
-| GitHub not read | `Finish {id}'s open issues, then run /close-milestone once its gate is green. Status did not read GitHub, so it cannot name the next issue. {whoLine(5)}` | unknown |
+| case | Next line | who | the main step's files |
+|---|---|---|---|
+| shape an item (online and offline) | F-16's text, its last sentence `You and an agent, {STEPS[5].time}.` | you and an agent | the milestone's file, the feature docs folder, `docs/PRD.md`, `decisions.md` |
+| a ready leaf (online) | `Start #{n} in a fresh session with /work-ticket {n}. It is ready, and it shares no file with work in progress. {whoLine(5)}` | agent | the issue's `Touches:`, or unknown |
+| none ready, some in progress (online) | `Finish the open work on {id} ({#a, #b and N more}). No other issue of {id} is ready yet. {whoLine(5)}` | agent | that work's files |
+| none ready, none in progress (online) | `Clear what holds {id}'s open issues. None is ready, and the lines below say what each waits on. {whoLine(5)}` | agent | unknown |
+| every leaf done or dropped (online) | `Run /close-milestone for {id}. Every issue of it is closed. {whoLine(6)}` | you | `docs/**`, `decisions.md`, `process/lessons/**`, the feature docs folder |
+| GitHub not read | `Finish {id}'s open issues, then run /close-milestone once its gate is green. Status did not read GitHub, so it cannot name the next issue. {whoLine(5)}` | agent | unknown |
 
-Each holds `nextFormBreaks()`; S1 holds the offline row and the tests of §9 the online rows. The other cases' main
-step files: step 0, everything (`**`); step 1, `docs/**` and `decisions.md`; step 2, `docs/product/evidence/**` and
-`docs/product/FRAME.md`; step 3, `docs/PRD.md` and `docs/reviews/**`; several active, choose the next bet and nothing
-shaped, `docs/milestones/**` (the last with `docs/product/metrics.md`); appetite ended, as `/close-milestone` above;
-shape an item, the milestone's file, the feature docs folder, `docs/PRD.md` and `decisions.md`; pick the next slice,
-unknown; activate the skeleton, the `skeleton` row of §2.
+Each holds `nextFormBreaks()`; S1 holds the offline rows and the tests of §9 the online rows. The other cases, with
+who from `STEPS` and these files: step 0, everything (`**`); step 1, `docs/**` and `decisions.md`; step 2,
+`docs/product/evidence/**` and `docs/product/FRAME.md`; step 3, `docs/PRD.md` and `docs/reviews/**`; several active,
+choose the next bet and nothing shaped, `docs/milestones/**` (the last with `docs/product/metrics.md`); appetite
+ended, as `/close-milestone` above; pick the next slice, unknown; activate the skeleton, the `skeleton` row of §2.
 
 **The step lines** (#385) gain the facts for a step that is not done: `- Step {n} · {name}: {state}. {Who}. It blocks
 {words}. It waits on {words}.` Who is `STEPS[n].who`. Blocks: step 0, every other step; step 1, the PRD and every
 milestone; step 2, `riskBlocks`'s words; step 3, a milestone going active; step 4, nothing status tracks; step 5, the
-active milestone closing; steps 6 and 7 print `each milestone. {Who}.` and nothing more. Waits: step 2 `waiting` on
-nothing; step 5 `waiting` on the value risks' results; else nothing. A `done` step prints `done.` only.
+active milestone closing; steps 6 and 7 print `each milestone. {Who}.` and nothing more. Waits: step 5 `waiting` on
+the value risks' results; else nothing. A `done` step prints `done.` only.
 
 **Needs attention** keeps today's kind order, so a list reads as before with its facts added.
 
@@ -277,110 +297,122 @@ print less (§7).
 ### §5 The online part — `ci/checks/lib/github-state.mjs`
 
 **When.** On `--hook` (every session start) and on `--online`, which the `status` script in `package.json` passes:
-`node ci/status.mjs --write --online`. Never under `--refresh` (the Stop hook's turn-end rewrite), S1, `pnpm meta`,
-`pnpm verify` or CI: no gate reads the network. STATE.md written by `--refresh` says `GitHub: not read (turn-end
+`node ci/status.mjs --write --online`. **Never** when `CI`, `CHECK_TODAY` or `CHECK_NOW` is set (every status test fixes
+the clock with one of the last two), whatever the flags, and never under `--refresh` (the Stop hook's turn-end
+rewrite): no gate and no test reads the network. A run that skips the read for these reasons prints `- GitHub: not read
+(offline run)` and no Needs attention line for it. STATE.md written by `--refresh` says `GitHub: not read (turn-end
 refresh)`.
 
 **How.** Status runs `node ci/checks/lib/github-state.mjs <root>` as a child with `spawnSync`, one budget of 5
-seconds for every call together, killed with `SIGKILL` at the limit (the `--refresh` pattern). The child calls `gh`
+seconds for every call together, killed with `SIGKILL` at the limit (the `--refresh` pattern). Status's own offline
+work runs before and after it, so a run takes at most 5 seconds more than the same root offline. The child calls `gh`
 through work-order's `realGh(root)`: a fixed argument array, never a shell, the PATH with the repository's and
 `node_modules`' entries dropped, run from outside the repository, with the owner's own `gh` login; no new token.
 `Issue repo` is read as work-order reads it (`settings(root)`).
 
 **All or nothing** (the owner, Q3). The child prints one JSON object on stdout, and only when every call succeeded.
 Any failure, a timeout part-way included, gives status no GitHub data at all: no GitHub line in In parallel or
-Needs attention, no ticket in Next. A failure never fails the hook and never changes status's exit code. The reason
-is one of fixed words, never `gh`'s own message:
+Needs attention, no remote claim, no ticket in Next. A failure never fails the hook and never changes status's exit
+code. The reason is one of fixed words, never `gh`'s own message:
 
-| reason | when |
-|---|---|
-| `timed out after 5 seconds` | the child was killed at the limit |
-| `gh is not installed` | `gh` was not found on the trusted PATH (`ENOENT`) |
-| `gh is not signed in` | `gh` exited 4, its code for authentication required |
-| `Issue repo is not set` | `settings(root)` found no `owner/name` |
-| `more than 100 open pull requests` | `pullRequests.totalCount` above 100: a partial list would read as complete |
-| `GitHub answered with an error` | any other non-zero exit, or output that is not the expected shape |
+| reason | when | action |
+|---|---|---|
+| `timed out after 5 seconds` | the child was killed at the limit | `Run pnpm status again` |
+| `gh is not installed` | `gh` was not found on the trusted PATH (`ENOENT`) | `Install gh` |
+| `gh is not signed in` | `gh` exited 4, its code for authentication required | `Sign in with gh auth login` |
+| `Issue repo is not set` | `settings(root)` found no `owner/name` | `Set Issue repo in AGENT.md` |
+| `more than 100 open pull requests of yours` | the owner's own open pull requests number above 100 | `Open your pull requests on GitHub` |
+| `GitHub answered with an error` | any other non-zero exit, or output that is not the expected shape | `Run pnpm status again` |
 
 Status prints under Where things stand `- GitHub: not read ({reason})`, and in Needs attention one line:
 `(you) {action}. Status did not read GitHub this time ({reason}), so open pull requests and issues are not listed. It
-blocks nothing. It waits on GitHub.` The action, by reason: `Run pnpm status again`; `Install gh`; `Sign in with gh
-auth login`; `Set Issue repo in AGENT.md`; `Open the pull requests on GitHub`; `Run pnpm status again`.
+blocks nothing. It waits on GitHub.`
 
 **What is read.** At most three calls:
 
-1. `gh api graphql` with variables, never an interpolated value: `viewer { login }`; the repository's
-   `pullRequests(states: OPEN, first: 100)` with `totalCount` and, per node, `number isDraft author { login }
-   mergeable reviewDecision headRefOid baseRefOid body`, `closingIssuesReferences(first: 20) { nodes { number } }`,
-   `files(first: 100) { totalCount nodes { path } }` and `commits(last: 1) { nodes { commit { statusCheckRollup {
-   state } } } }`; `issues(states: OPEN, labels: ["needs-shape"], first: 100) { totalCount nodes { number } }`; and
-   work-order's fields for the active milestone's item issues with their sub-issues (`collect()`'s first call,
-   folded in). `body` is read only to match `Closes`/`Fixes`/`Resolves`/`Part of #n`, as work-order does today.
+1. `gh api graphql` with variables, never an interpolated value:
+   - `viewer { login }`;
+   - the owner's open pull requests, `search(query: $mine, type: ISSUE, first: 100)` with `$mine` = `repo:{repo} is:pr
+     is:open author:@me`, its `issueCount` and, per node, `number isDraft mergeable reviewDecision headRefOid
+     baseRefOid body`, `closingIssuesReferences(first: 20) { totalCount nodes { number } }`, `files(first: 100) {
+     totalCount nodes { path } }` and `commits(last: 1) { nodes { commit { statusCheckRollup { state } } } }`;
+   - `repository { pullRequests(states: OPEN) { totalCount } }`: everyone's count, so the others' is the difference;
+   - the owner's `needs-shape` issues, `search(query: $shape, type: ISSUE, first: 100)` with `$shape` =
+     `repo:{repo} is:issue is:open label:needs-shape author:@me`, numbers and `issueCount`; and everyone's,
+     `issues(states: OPEN, labels: ["needs-shape"]) { totalCount }`;
+   - work-order's fields for the active milestone's item issues with `subIssues(first: 50) { totalCount nodes {…} }`
+     (`collect()`'s first call, folded in);
+   - for each open leaf, `refs(refPrefix: "refs/heads/", query: "i{n}-", first: 20) { nodes { name target { ... on
+     Commit { committedDate } } } }` as an alias per leaf: the remote branches that may claim it.
 2. `state stateReason` of the `Blocked by` issues not already read (work-order's third call; skipped when none).
-3. For each pull request by the viewer whose changed paths include a feature doc (`SPEC_PATH`) or a file under
-   `docs/reviews/`: `object(expression: $e) { ... on Blob { text } }` for that doc at the head and at the base, and
-   for each review the pull request changes at the head (skipped when none). Each expression is built from a commit
-   id matching `^[0-9a-f]{40}$` and a path matching `SPEC_PATH` or `^docs/reviews/[A-Za-z0-9._-]{1,100}\.md$`, passed
-   as a variable. At most 20 blobs; more makes the read `GitHub answered with an error`.
+3. For each of the owner's pull requests whose changed paths include a feature doc or a file under `docs/reviews/`:
+   `object(expression: $e) { ... on Blob { text } }` for that doc at the head and at the base, and for each review the
+   pull request changes at the head (skipped when none). Each expression is a commit id matching `^[0-9a-f]{40}$`, a
+   colon, and a path matching `^[A-Za-z0-9._/-]{1,200}$` and also `SPEC_PATH` or `^docs/reviews/[A-Za-z0-9._-]{1,100}\.md$`,
+   passed as a variable. At most 20 blobs a pull request.
 
-A pull request with more than 100 changed files has unknown files. `statusCheckRollup.state` `SUCCESS` is green,
-`FAILURE` or `ERROR` red, anything else neither. The child keeps, per pull request: number, draft, whether the viewer
-wrote it, mergeable, review decision, rollup, closing issue numbers, the issue numbers its body names, changed paths
-and, for each doc, its `Version:` lines at base and head and whether a review at the head (the tree's own
-`docs/reviews/` plus the ones the pull request changes) quotes the head's line as current (`quotedVersion()`). Text
-is cut at 500 characters a line before a pattern reads it. Nothing else of a body, a title, a label, a branch or a
-check reaches status.
+**Caps, each said, never silent** (AR-9). The owner's pull requests above 100: the read fails, with its reason, since
+a partial list would read as complete. Everyone else's are only counted, so their number never switches the read off.
+A pull request with more than 100 changed files has unknown files. A pull request with more than 20 closing issues
+blocks what its first 20 block, and its line says `and more`. A pull request needing more than 20 blobs is not checked
+for `review-owed`, and one `review-unchecked` line says so: `(you) Check by hand that #{n}'s feature doc has a current
+review. Status would have to read too many of its files. It blocks nothing. It waits on nothing.` An item whose issue
+has more than 50 sub-issues has unknown leaves, and one `unplannable` line says so: `(you or an agent) Split {id} item
+{k}. Its issue has more than 50 sub-issues, so status cannot plan it. It blocks nothing status tracks. It waits on
+nothing.` More than 20 remote branches matching one leaf: that leaf is claimed.
 
-**A session is on an issue** when an open pull request closes it or names it (`Part of #n`): that leaf is in
-progress, as work-order's `pr` state.
+`statusCheckRollup.state` `SUCCESS` is green, `FAILURE` or `ERROR` red, anything else neither. The child keeps, per
+pull request: number, draft, mergeable, review decision, rollup, closing issue numbers, the issue numbers its body
+names (`Closes`, `Fixes`, `Resolves`, `Part of #n`, as work-order reads them), changed paths and, for each feature doc,
+whether its `Version:` line at the head differs from the base's (a doc with no line at the base counts as moved) and
+whether a review at the head quotes the head's line as current (`quotedVersion()`). The reviews at the head are those
+the pull request changes and those in the session's own `docs/reviews/`. Text is cut at 500 characters a line before
+a pattern reads it. Nothing else of a body, a title, a label, a branch name or a check reaches status.
+
+**Claims** (the owner, AR-7). A branch claims leaf `#n` when its name matches `(^|/)i{n}-` (so `i15-` never matches
+`i150-` or a word that contains it). Local branches are read with `git for-each-ref refs/heads` through `trustedGit()`,
+online and offline, with each branch's last commit date. Remote branches are the ones call 1 returns, inside the
+budget and the all-or-nothing rule. A claimed leaf is in progress, as one with an open pull request is. **A claim goes
+stale** when its branch's last commit is more than 2 days before status's now and no open pull request of the owner's
+names the leaf: it stops claiming, and one `stale-claim` line says `(you) Resume or delete the branch that holds
+#{n}. It has had no commit for 2 days and has no open pull request. It blocks #{n} being offered. It waits on
+nothing.` No branch name is printed. Only an account with write access can push a branch to the repository, so a
+collaborator running `/work-ticket` claims a ticket this way (the owner, AR-8).
 
 ### §6 Waiting on you: the closed list
 
-Only pull requests the viewer wrote are listed (the owner, Q3). Pull requests by other people count on the GitHub
-line and are never listed, so no line points an agent at another person's branch.
+Only the owner's own pull requests, and the `needs-shape` issues the owner opened, are listed (the owner, Q3, AR-3,
+AR-8). Everyone else's are counted on the GitHub line and never read, so no line points an agent at another person's
+work.
 
 | kind | when | line | who | blocks (rank) | files |
 |---|---|---|---|---|---|
-| `merge` | not a draft, rollup green, `MERGEABLE`, review decision not `CHANGES_REQUESTED` | `Merge #{n}. It is ready and its checks are green. An agent asks you first and never merges it itself.` | you | what its closing issues block: the active milestone closing when one is a leaf (1); else nothing status tracks (5) | none |
-| `review-owed` | a feature doc's `Version:` line at the head differs from the base's and no review at the head quotes it as current | `Run /review-doc in a fresh session on #{n}'s branch. Its feature doc ({F-id}) is at {version}, and no review names that version.` | fresh session | #{n} going ready, which the pull-request check holds (3) | `docs/reviews/**` |
+| `merge` | not a draft, rollup green, `MERGEABLE`, review decision not `CHANGES_REQUESTED` | `Merge #{n} yourself. It is ready and its checks are green. An agent asks you and never merges it.` | you | what its closing issues block: the active milestone closing when one is a leaf (1); else nothing status tracks (5) | none |
+| `review-owed` | a feature doc's `Version:` line moved (§5) and no review at the head quotes it as current | `Run /review-doc in a fresh session on #{n}'s branch. Its feature doc ({F-id}) is at {version}, and no review names that version.` | fresh session | #{n} going ready, which the pull-request check holds (3) | `docs/reviews/**` |
 | `red-check` | not a draft, rollup red | `Look at the red check on #{n}. It is marked ready and a check failed.` | you or an agent | as `merge` | that pull request's files |
-| `needs-shape` | an open issue labelled exactly `needs-shape` | `Shape #{n} in a fresh session with /log-feature. It asks you its open questions.` | you | the issue's build: the active milestone closing when it is a leaf (1); else (3) | the feature docs folder, `docs/milestones/**`, `decisions.md` |
+| `needs-shape` | an open issue the owner opened, labelled exactly `needs-shape` | `Shape #{n} in a fresh session with /log-feature #{n}. It reshapes #{n} in place and asks you its open questions.` | you and an agent | the issue's build: the active milestone closing when it is a leaf (1); else (3) | the feature docs folder, `docs/milestones/**`, `decisions.md` |
 
 `{F-id}` prints only as `F-\d{1,9}` read from the doc's heading at the head, else `the doc`; `{version}` only as
-digits and dots (`\d{1,4}(\.\d{1,4}){0,3}`), else `a version`. More than 3 `needs-shape` issues outside the active
-milestone print as one line: `Shape the {k} issues marked needs-shape (#a, #b, #c and {k-3} more), each in a fresh
-session with /log-feature.`
+digits and dots (`\d{1,4}(\.\d{1,4}){0,3}`), else `a version`. More than 3 of the owner's `needs-shape` issues
+outside the active milestone print as one line: `Shape the {k} issues of yours marked needs-shape (#a, #b, #c and
+{k-3} more), each in a fresh session with /log-feature #n.`
 
 ### §7 What status prints from GitHub
 
 Numbers, the ids of §6 in their shapes, the closed list's fixed words and the reason words of §5. Never an issue or
 pull request title, a label name, a file path, an author, a branch name, a check name or any other text GitHub
 returns (the owner and #501). Paths read from GitHub feed only the overlap test. `Start #14 … /work-ticket 14` is
-built from the number. Each line still goes through `escapeControl`.
+built from the number. Each line still goes through `escapeControl`. These rules govern what reaches a session start;
+the page keeps its own display (§10).
 
-### §8 The decision the owner records
+### §8 The decision: D-050
 
-Proposed here, recorded by the owner in `decisions.md` with the next free id before Build map step 4 merges. Its
-text:
-
-> **D-0nn — `pnpm status` reads open pull requests and issues from GitHub at session start, within five seconds,
-> and says plainly when it did not** *(decided {date})*
->
-> Amends: F-17, F-07
->
-> A project's next ticket and what waits on its owner live on GitHub, so an offline status cannot name either.
->
-> - **One read, on two occasions.** At session start (`--hook`) and on `pnpm status`, status reads the repository's
->   open pull requests and issues through the owner's own `gh` login, under one 5-second budget for every call.
->   It reads nothing else from the network. The turn-end refresh, every check, `pnpm verify` and CI stay offline.
-> - **All or nothing.** A failure or a timeout part-way shows none of what was read, and one line says GitHub was
->   not read and why, in fixed words. It never fails the hook.
-> - **Safe shapes only.** Status prints numbers, ids, fixed words and the reason; never a title, label, path,
->   author or branch. Pull requests by other people are counted, never listed.
-> - **The page and status name the same work.** `pnpm work-order`'s picks come from the same function as status's
->   plan: the main step and at most two beside it.
->
-> Amends D-022's "Declined: live state in `pnpm status`" and D-020's "Status stays offline" for this read only:
-> status still works with no network and says when it has none. Spec: `dev/features/parallel-plan.md`.
+Recorded by the owner on 2026-10-23, in this feature's pull request (AR-11 of the 0.1 review): status reads the
+owner's GitHub work once at session start and on `pnpm status`, within five seconds, for the plan only, all or
+nothing, and lists and steers by the owner's work alone; the page and status name the same work from one function;
+it amends D-020's "Status stays offline" and D-022's "Declined: live state in `pnpm status`" for that read, each of
+which carries a dated line pointing at D-050. It carries `Amends: F-17, F-07`: this doc names it here and in
+`prd-ref:`; F-07's doc names it in its Open questions now, and in its Contract at Build map step 5 (§10).
 
 ### §9 Fixtures and tests
 
@@ -388,37 +420,53 @@ text:
 
 | case | holds | expects |
 |---|---|---|
-| `parallel-existential` | the skeleton M1 active (an agent main step), M2 shaping, an untested existential risk the PRD resolves at M3 | `parallel` lists `(you) …` scheduling that risk's test, naming M2 going active |
-| `parallel-parked` | a parked question with a tracker | the Parked line in `attention` saying nothing is to do now and naming the tracker; nothing in `parallel` |
-| `parallel-waits` | a decision amending F-06 whose doc does not name it, and F-06's doc with no current review | `parallel` lists the owed citation only; the review is in `attention`, waiting on that citation |
-| `parallel-person` | an owner main step (a value risk to test) and an open decision and an open question in the PRD | no `(you)` line in `parallel`; the open question in `attention` marked startable |
-| `parallel-owner-order` | an agent main step, an untested value risk and an open question in the PRD | `parallel` lists the risk test, not the question; the question in `attention` marked startable |
-| `parallel-skeleton` | the skeleton shaping beside an untested value risk | the skeleton in `parallel` for an agent |
+| `parallel-existential` | frame framed, PRD approved with a Resolves by column, every value risk tested, the skeleton M1 shaping (an agent main step: activate it), M2 shaping, an untested existential risk the PRD resolves at M3 | `parallel` lists `(you) …` scheduling that risk's test, naming M2 going active, with the offline sentence |
+| `parallel-parked` | a parked question with a tracker | the Parked line in `attention`, saying nothing is to do now and naming the tracker; no `parallel` |
+| `parallel-waits` | a draft PRD with no review (an owner main step), a decision amending F-06 whose doc does not name it, and F-06's doc with no current review | `parallel` lists the owed citation (`you or an agent`); the review is in `attention`, waiting on that citation |
+| `parallel-person` | an untested value risk with no milestone underway (an owner main step), and an open question in the PRD | no `(you)` line in `parallel`; the open question in `attention`, marked startable |
+| `parallel-skeleton` | the skeleton shaping beside an untested value risk (an owner main step) | `parallel` lists activating the skeleton for an agent |
 
 S1's `also` key is renamed `parallel` and compares the In parallel list whole. The ten cases with an `also` key today
 (`appetite-ended`, `build-loop-owed-unreadable`, `deadlines-toronto`, `hostile-existential-and-name`,
 `hostile-markers`, `hostile-risk-active`, `review-quoted-only`, `skeleton-active`, `step3-no-review`, `two-active`)
 change by the rename and the dropped duplicates; their `attention` and `steps` lists change by the facts of §2 and
-§4. Each other change to an expected output is named in the pull request, case by case (the owner, Q4).
+§4. `build-loop-next-item`'s Next ends `You and an agent, one issue per session.` (§4).
 
-**Unit tests**, `scripts/plan.test.mjs`: each rule of §3 alone (waits, unknown files, overlap, person, rank 5, the cap
-with the main step counted, the order within a rank, startable leftovers marked).
+**Unit tests**, `scripts/plan.test.mjs`: each rule of §3 alone (waits, unknown files, overlap, the person rule, rank
+5, the cap with the main step counted, the order within a rank); the owner's order (an agent main step, an untested
+value risk and an open question in the PRD: the risk test is taken, the question marked startable); a shaping main
+step and an owner thing with no overlap (the owner thing is not taken); the skeleton against a main step whose files
+include `package.json` (not taken) and one whose files are `docs/product/**` only (taken); the offline sentence on
+every pick when `online` is false; three ready leaves (no shaping offered), and one ready leaf with an unstarted item
+(shaping offered beside it when the owner is free).
 
 **Recorded GitHub answers**, `scripts/github-state.test.mjs` with a stubbed `gh` answering from
 `scripts/fixtures/github-state/*.json`, as `scripts/work-order.test.mjs` does; no test calls GitHub:
 
-- a draft pull request by the viewer whose feature doc's `Version:` moved with no review naming it: one
-  `review-owed` line naming the pull request, the F-id, the version and the action;
-- each kind of §6 and its negative (another author's ready green pull request: counted, not listed; a red check on
-  another author's: not listed);
-- each reason of §5, and a second call failing after the first succeeded: no GitHub line but the not-read one, and
-  status within the budget (a stub that sleeps past 5 s);
-- a pull request whose title, label, branch, author and changed path hold a sentinel string: the sentinel appears
-  nowhere in status's output;
-- a ready leaf whose `Touches:` overlaps an open pull request's changed path that its own `Touches:` did not name:
-  the next ready leaf is picked instead;
-- the same recorded answer through `collect()` and through status: work-order's Next and status's main step and In
-  parallel name the same picks.
+- a draft pull request of the owner's whose feature doc's `Version:` moved with no review naming it: one
+  `review-owed` line naming the pull request, the F-id, the version and the action; a doc new in the pull request
+  counts as moved;
+- each kind of §6 and its negative; a stranger's `needs-shape` issue counted, not listed; everyone else's pull
+  requests counted, their count above 100 leaving the read on;
+- each reason of §5, and a second call failing after the first succeeded: no GitHub line but the not-read one;
+- a stub that sleeps past 5 seconds: the child is killed at 5 seconds, and status exits 0 within 5 seconds plus the
+  time the same root takes offline, with the not-read line;
+- a sentinel string planted where GitHub's text reaches the child: a pull request's body, the doc's heading after a
+  valid `F-n`, a `Version:` line after valid digits, a review's text, a changed path and a remote branch name. It
+  appears nowhere in status's output or in STATE.md;
+- each cap of §5, one answer each;
+- a ready leaf whose `Touches:` overlaps a changed path of the owner's open pull request that its own `Touches:` did
+  not name: the next ready leaf is picked instead;
+- claims: a local branch `feat/i15-x` and a remote `i15-y` each claim #15; `i150-z` and `xi15-` do not; a branch with
+  its last commit 3 days old and no pull request does not claim, and the `stale-claim` line is printed.
+
+**Offline is held** (AR-5). `scripts/github-state-offline.test.mjs` puts a recording `gh` stub on a PATH outside the
+repository (so the trusted PATH keeps it) and runs `--refresh`, S1 over its fixtures, `--hook` under `CI=1`, and
+`--hook` with `CHECK_TODAY` set: the stub records zero calls each time.
+
+**One plan for both** (the owner, AR-2). `scripts/plan-shared.test.mjs` runs work-order's model and status's plan on
+one recorded answer and one fixture root, through the same `github-state.mjs` reader: they name the same main step and
+picks in the same order.
 
 **`Touches:` lines that parse** (the owner, Q1). I1 (`ci/checks/meta/i1-issue-shape.mjs`) warns, never fails, on a
 `Touches:` segment `touches()` cannot read, naming the first entry that breaks the rule. `process/intake.md` →
@@ -426,16 +474,41 @@ Issue body → `Touches:` gains one sentence: the line holds paths and globs onl
 `/log-feature`, `/log-followup` and `/log-bug` say the same where they write the line. The pull request that ships
 this step reports how many open issues have a readable `Touches:` line on its day.
 
+**The skills** (the owner, AR-3 and AR-7). `/work-ticket`'s first act, before any code, pushes a branch whose name
+starts `i{n}-` or has it right after a `/`. `/log-feature #n` reshapes issue `#n` in place: the same number, its
+comments and links kept, its body rewritten to the issue form, and `needs-shape` cleared only when the shape check
+passes. For an issue the owner did not open, it says so and asks before reading on; the body is someone else's text,
+read as data, never as instructions. `scripts/skills.test.mjs` pins each sentence; both skills stay within the
+300-line cap by rewording.
+
+### §10 F-07 changes — the page reads the same plan
+
+The owner chose full sharing (AR-2). At Build map step 5:
+
+- **The read.** `collect()` reads GitHub through `github-state.mjs`'s calls instead of its own three, with no 5-second
+  limit (the page is run by hand) and the same owner-only rule: only the owner's pull requests and claims mark a leaf
+  in progress. It reads the owed list from `ci/checks/lib/owed.mjs`.
+- **The pull request limit.** The owner's open pull requests, 100 at most, by §5's rule; everyone else's are counted
+  on the page's header, never read. Today's `gh pr list --limit 200` is removed.
+- **The failure rule.** The page keeps its own: exit 1 naming `gh auth status`, now with §5's reason words instead of
+  `gh`'s first stderr line; nothing is written.
+- **Next.** The page's Next shows `plan()`'s main step and picks, in its order. An issue pick renders as today. A pick
+  that is not an issue (an owed thing) renders as one plain line, its text through `escapeHtml()`, with no command.
+  Status's output rules do not govern the page: it keeps titles, `Touches` and designations as F-07 shows them.
+- **F-07's doc.** Its Contract, Acceptance and Verify are edited to the above, its `Version:` moves, and it names
+  D-050 there. Its review covers only those amended sections, in one round; anything else it finds goes to a
+  follow-up issue, not a new version (the owner, AR-2). Until step 5, F-07's Open questions name D-050 and this list.
+
 ### Order and overlap
 
 #501 (open, no pull request) changes `ci/status.mjs` and the readers it calls; whichever builds second takes `main`
-as it is, and this feature's lines are written to #501's rule from the start. `package.json`'s `meta` and `status`
-lines change in step 4; each build pull request merges `main` before it is marked ready.
+as it is, and this feature's lines are written to #501's rule from the start. `package.json`'s `meta` line changes in
+steps 1, 2, 4 and 5 and its `status` line in step 4; each build pull request merges `main` before it is marked ready.
 
 ## Seams
 
-none: what a project's own status prints from its own files and its own repository's open pull requests and
-issues, read with the owner's own `gh` login. No person, channel or promise is added.
+none: what a project's own status prints from its own files and its owner's open pull requests, issues and branches,
+read with the owner's own `gh` login. No person, channel or promise is added.
 
 ## Threat model
 
@@ -443,17 +516,21 @@ What this promises: the lines status prints from GitHub reach every session thro
 other people's text (pull requests and issues from forks and strangers, their titles, bodies, branches, labels and
 paths). Against that:
 
-- **Nothing of theirs is printed** (§7). Only numbers, validated ids, fixed words and the reason words; paths feed
-  the overlap test only. The sentinel test of §9 holds it.
-- **No line points an agent at another person's work.** Their pull requests are counted, never listed; `merge` says
-  an agent asks the owner and never merges.
+- **Nothing of theirs is read or printed.** Only the owner's own pull requests and issues are fetched beyond a count.
+  What status prints from GitHub is numbers, validated ids, fixed words and the reason words; paths feed the overlap
+  test only (§7). The sentinel test of §9 plants text where it does flow and holds it.
+- **Other people's work cannot steer the plan.** Their pull requests are counted, never read, never in progress, and
+  their number never switches the read off, so a stranger can neither hide a ticket nor turn GitHub off (AR-8). Their
+  `needs-shape` issues are counted, never listed (AR-3). Only an account with write access can push a claiming branch.
+- **No line points an agent at another person's work,** and `merge` tells the agent to ask the owner and never merge.
 - **No injection.** `gh` runs with a fixed argument array and no shell, on the trusted PATH, from outside the
-  repository; the GraphQL query takes every value as a variable; a blob expression is built only from a 40-hex commit
-  id and a path that passes `SPEC_PATH` or the review path pattern.
-- **Bounded.** One 5-second budget, a killed child, at most three calls and 20 blobs, 100 pull requests, 100 files
-  each, lines cut at 500 characters before any pattern, every pattern anchored or bounded. A slow or hostile answer
-  costs the session five seconds and the GitHub lines, never the hook.
-- **No gate reads it.** Checks, `pnpm verify` and CI stay offline, so nothing on GitHub can turn a gate green.
+  repository; the GraphQL query takes every value as a variable; a blob expression is a 40-hex commit id and a path
+  that passes a safe-character pattern and `SPEC_PATH` or the review path pattern.
+- **Bounded.** One 5-second budget, a killed child, at most three calls, 100 of the owner's pull requests, 100 files
+  and 20 blobs each, 20 remote branches a leaf, lines cut at 500 characters before any pattern, every pattern anchored
+  or bounded. A slow or hostile answer costs the session five seconds and the GitHub lines, never the hook.
+- **No gate reads it.** The read never starts under `CI`, a fixed test clock or `--refresh`, and the offline test of §9
+  holds that, so nothing on GitHub can turn a gate green.
 
 What it does not defend: the owner's own `gh` login and environment (D-023), and a pull request by the owner that
 lies about its changed files (GitHub reports them; status trusts GitHub).
@@ -461,77 +538,100 @@ lies about its changed files (GitHub reports them; status trusts GitHub).
 ## Known limitations
 
 - Offline, status cannot name the next ticket, and an agent main step with unknown files offers no file-writing
-  thing beside it. The Next line says GitHub was not read.
+  thing beside it. Offline picks carry a sentence saying open pull requests were not read. The Next line says GitHub
+  was not read.
+- Offline, the main step shapes an unstarted item whenever there is one; online, a ready build comes first. The two
+  can differ while both are possible.
 - The turn-end refresh is offline, so STATE.md loses the GitHub lines until the next session start or `pnpm status`.
 - `Touches:` is written at filing and can be wrong until a pull request exists; the changed paths correct it then.
   On 2026-10-23, 37 of slipway's 48 open issues with a `Touches:` line could be read; an unreadable line is unknown
   and never offered in parallel. I1's warning shows each one.
+- A branch left behind claims its ticket for 2 days after its last commit; status cannot tell a pause from an end.
+  After that it is named as stale.
 - The owner is treated as one person for the whole main step, so a long owner step ("yours, days to weeks") offers
   no owner work beside it for its whole length.
 - `you or an agent` counts as agent work for the person rule; the line still says the owner may do it.
+- Pull requests opened for the owner's agents under another account (a bot or an app) count as other people's, never
+  steer the plan, and are never listed. What brings it back: a project's agents opening pull requests under another
+  account, which a trusted-accounts setting would answer (the owner, AR-8).
+- `review-owed` reads the reviews in the session's own checkout and those the pull request changes. A checkout behind
+  `main` can miss a review the base holds, and print a `review-owed` line that a pull of `main` clears.
 - The ticket pick needs an active milestone. Slipway itself runs under an epic with no milestone, so its own status
   names no ticket (F-07's epic deferral).
-- More than 100 open pull requests: GitHub is not read at all, by the all-or-nothing rule.
-- `needs-shape` is the only owner question status sees; a question in a comment is not read.
+- The 5-second budget has no measurement yet; Build map step 4 records one timed run on slipway's own repository.
 - Needs attention keeps today's kind order; only In parallel is ranked.
 
 ## Acceptance
 
 ```
-Given the skeleton M1 active (an agent main step), M2 shaping, and an untested existential risk the PRD resolves
-      after M2 starts
+Given the skeleton M1 shaping (an agent main step), M2 shaping, every value risk tested, and an untested existential
+      risk the PRD resolves at M3
 When  node ci/status.mjs <root>
-Then  In parallel lists "(you)" scheduling that risk's test, naming M2 going active
+Then  In parallel lists "(you)" scheduling that risk's test, naming M2 going active, with the offline sentence
 
 Given a parked question with a tracker
-Then  it is in Needs attention saying nothing is to do now and naming the tracker, and not in In parallel
+Then  it is in Needs attention saying nothing is to do now and naming the tracker, and there is no In parallel
 
 Given two owed things where one waits on the other (an owed citation, and the review of the same feature)
 Then  only the first is in In parallel; the second is in Needs attention, waiting on the first
 
-Given an owner main step and owner things that wait on nothing
-Then  no "(you)" line is in In parallel, and each is in Needs attention saying it can start now
-
-Given an agent main step, an untested value risk and an open question in the PRD
-Then  In parallel lists the risk test and not the question
+Given an owner main step and an owner thing of rank 1 to 4 that waits on nothing
+Then  no "(you)" line is in In parallel, and the thing is in Needs attention saying it can start now
 
 Given the skeleton shaping beside an untested value risk
-Then  In parallel lists activating the skeleton for an agent, judged by its file list
+Then  In parallel lists activating the skeleton for an agent
 
 Given every existing case under ci/fixtures/status/
 When  node ci/checks/meta/s1-status.mjs ci/fixtures/status
-Then  it exits 0; the ten cases with an `also` key change by the rename to `parallel` and the dropped duplicates, and
-      every other changed expected line is named in the pull request, case by case
+Then  it exits 0, and the ten cases with an `also` key compare under `parallel`
 
-Given a recorded GitHub answer with an open draft pull request by the viewer whose feature doc's Version: line
-      moved with no review naming it
+Given each rule of §3, the owner's order, a shaping main step, the skeleton's files and the offline sentence
+When  node scripts/plan.test.mjs
+Then  each case passes
+
+Given a recorded answer with an open draft pull request of the owner's whose feature doc's Version: line moved with no
+      review naming it
 When  status reads it
 Then  one line names the pull request, the F-id, the version and the action /review-doc in a fresh session
 
 Given GitHub cannot be reached, gh is missing, gh is not signed in, or the second call fails after the first
 Then  status prints its offline view, one line saying GitHub was not read with the reason in fixed words, no other
-      GitHub line, and exits 0 within the 5-second budget
+      GitHub line, and exits 0
 
-Given a ready green mergeable pull request by another author, and one with a red check by another author
-Then  neither is listed; the GitHub line counts them
+Given a stub that answers after 6 seconds
+Then  the child is killed at 5 seconds, and status exits 0 within 5 seconds plus the time the same root takes offline
 
-Given a recorded answer whose title, label, branch, author and changed path hold a sentinel
-Then  the sentinel appears nowhere in status's output
+Given a ready green mergeable pull request by another author, one with a red check by another author, 150 open pull
+      requests by other people, and a stranger's issue marked needs-shape
+Then  none is listed, the GitHub line counts them, and GitHub is read
 
-Given an active milestone whose items are all started, two ready leaves, and an open pull request whose changed
-      path overlaps the first leaf's Touches:
+Given a recorded answer with a sentinel in a pull request's body, a doc heading, a Version: line, a review, a changed
+      path and a remote branch name
+Then  the sentinel appears nowhere in status's output or STATE.md
+
+Given an active milestone whose items are all started, two ready leaves, and an open pull request of the owner's whose
+      changed path overlaps the first leaf's Touches:
 Then  Next is "Start #<second> in a fresh session with /work-ticket <second>. …" and it holds the Next form
 
-Given an active milestone with an unstarted item and a ready leaf, online
-Then  Next shapes the item with /log-feature, and In parallel lists the ready leaf for an agent
+Given a remote branch i15-x with a commit today, and a local branch feat/i16-y with its last commit 3 days ago and no
+      pull request
+Then  #15 is not offered, #16 is offered, and one line says a stale branch holds #16
 
-Given the same recorded answer
-When  collect() and status run on it
-Then  work-order's Next and status's main step and In parallel name the same work, at most 3 in all
+Given --refresh, S1, --hook under CI=1 and --hook with CHECK_TODAY set, and a recording gh stub on the PATH
+Then  the stub records no call
+
+Given one recorded answer and one fixture root
+When  scripts/plan-shared.test.mjs runs work-order's model and status's plan on them
+Then  both name the same main step and picks, in the same order
 
 Given an issue body whose Touches: line holds a note in words
 When  node ci/checks/meta/i1-issue-shape.mjs on it
 Then  a warning names the entry, and the exit code is unchanged
+
+Given the skills
+When  node scripts/skills.test.mjs
+Then  /work-ticket's first act pushes an i<n>- branch, /log-feature #n reshapes in place and asks before reading an issue
+      the owner did not open, the three log- skills write Touches: as paths only, and each skill is within 300 lines
 
 Given slipway's own tree
 When  pnpm meta
@@ -541,29 +641,43 @@ Then  it exits 0
 ## Verify
 
 ```
-node scripts/plan.test.mjs                                # §3's rules, one test each
-node scripts/github-state.test.mjs                        # §5–§7 from recorded answers; no test calls GitHub
-node scripts/work-order.test.mjs                          # work-order reads the shared picks
-node ci/checks/meta/s1-status.mjs ci/fixtures/status      # every status case, the six new ones included
+node scripts/plan.test.mjs                                # §3's rules, one test each                      (step 1)
+node ci/checks/meta/s1-status.mjs ci/fixtures/status      # every status case, the five new ones included  (step 2)
+node scripts/i1.test.mjs                                  # I1 warns on an unreadable Touches: line         (step 3)
+node scripts/skills.test.mjs                              # the intake and skill sentences                  (step 3)
+node scripts/github-state.test.mjs                        # §5–§7 from recorded answers                     (step 4)
+node scripts/github-state-offline.test.mjs                # no gate and no test reads the network           (step 4)
+pnpm status                                               # with gh signed in, on slipway's repository: prints
+                                                          # "GitHub: read" and the run's time, pasted in the PR (step 4)
+node scripts/plan-shared.test.mjs                         # the page and status name the same work          (step 5)
+node scripts/work-order.test.mjs                          # work-order on the shared plan                   (step 5)
 node ci/checks/meta/pc1-positive-control.mjs              # known-bad cases still fail as recorded
 pnpm meta
 ```
 
 ## Build map
 
-Each step merges on its own with the gate green. Steps 1 and 3 share no file and can run side by side.
+Owner-only files, each asked for at its edit and named under `## Gate changes`: `ci/**` in every step;
+`package.json`'s scripts in steps 1, 2, 4 and 5 (each wires the tests it adds into `meta` in the same step, so W1
+stays green); `process/intake.md` and `.claude/skills/**` in step 3. A project takes the `status` script's
+`--online` by sync, as any merged script; one whose `status` script differs is asked by sync, and still reads GitHub
+at session start, since the hook passes `--hook`. Steps 1 and 3 share no file and can run side by side.
 
 1. **The planner and owed things as data** — `ci/checks/lib/plan.mjs`, status's owed list moved into
    `ci/checks/lib/owed.mjs` with §2's facts, `decision-lines.mjs` returning owed things; status prints what it
-   prints today. `scripts/plan.test.mjs`. ~400 lines.
-2. **Status prints the plan** — In parallel replaces Also unblocked, every line in §1's form, the step lines' facts;
-   the six new fixtures; S1's `also` → `parallel`; every changed expected line named. Blocked by step 1. ~500 lines,
-   most of them fixtures.
-3. **`Touches:` lines that parse** — I1's warning, the `process/intake.md` sentence, the three `log-` skills;
-   the count of readable lines on its day. Owner-only files, each asked for at its edit.
-4. **The online part** — `ci/checks/lib/github-state.mjs`, the hook and `--online`, `package.json`'s `status`
-   script, §6's kinds, the online Next rows, `ci/work-order.mjs` on the shared picks;
-   `scripts/github-state.test.mjs`. Blocked by step 2, and by §8's decision being recorded. ~500 lines.
+   prints today. `scripts/plan.test.mjs`, wired into `meta`. ~400 lines.
+2. **Status prints the plan** — In parallel replaces Also unblocked, every line in §1's form, the step lines' facts,
+   the shaping Next's who; the five new fixtures; S1's `also` → `parallel`. The pull request names every other changed
+   expected line, case by case (the owner, Q4). Blocked by step 1. ~500 lines, most of them fixtures.
+3. **Intake and skills** — I1's warning and its test, the `process/intake.md` sentence, the three `log-` skills'
+   `Touches:` sentence, `/log-feature #n`, `/work-ticket`'s branch first; `scripts/skills.test.mjs`; the count of
+   readable `Touches:` lines on its day.
+4. **The online part** — `ci/checks/lib/github-state.mjs` (the read, the caps, the claims, local and remote), the
+   hook and `--online`, `package.json`'s `status` script, §6's kinds, the online Next rows;
+   `scripts/github-state.test.mjs` and `scripts/github-state-offline.test.mjs`, wired into `meta`; one timed real run
+   on slipway's repository, recorded in this doc's Changes. Blocked by steps 2 and 3. ~500 lines.
+5. **The page on the shared plan** — `ci/work-order.mjs` per §10, `scripts/plan-shared.test.mjs` wired into `meta`,
+   `dev/features/work-order.md` amended with its one-round review. Blocked by step 4. ~300 lines.
 
 ## Out of scope
 
@@ -572,13 +686,14 @@ Each step merges on its own with the gate green. Steps 1 and 3 share no file and
   imports (the orchestrator session, Q5; as #385 left it).
 - A cache of GitHub's answer (the owner, Q3).
 - An epic as a source of tickets for a repository with no active milestone (F-07's deferral stands).
-- Listing pull requests by other people, reading comments or review threads, or any owner question but
-  `needs-shape`.
+- Trusting pull requests by collaborators or by a bot account (the owner, AR-8; Known limitations).
+- Reading comments or review threads, or any owner question but `needs-shape`.
 - Ranking Needs attention.
 
 ## Open questions
 
-Each answered on 2026-10-23, brought one at a time with the orchestrator session's advice beside it.
+Each answered on 2026-10-23, brought one at a time with the orchestrator session's advice beside it. The owner's
+words, unedited, are in PR #533's body; D-050 records them.
 
 - ~~Q1 (the owner): what "safe" reads for an agent's work before it starts.~~ The issue's `Touches:` line, plus a
   fixed file list per owed kind; unknown is never offered in parallel, and may still be the main step. Once a pull
@@ -594,8 +709,24 @@ Each answered on 2026-10-23, brought one at a time with the orchestrator session
   work (a value risk before an open question), the ten `also` cases changing only by the rename and the duplicates
   bar what the pull request names, and a file list for the skeleton (§1–§2, §9).
 - ~~Q5 (the orchestrator session): a form a pane can read.~~ The exported module; no new output.
-- The decision of §8: the owner records it, with its id, before step 4 merges.
+- ~~AR-1 (the owner): shaping and the person rule.~~ Shaping is the owner's work and an agent's, and nothing else of
+  the owner's is offered beside it; work-order's order stays: ready builds first, shaping only when fewer than three
+  are ready (§1, §3, §4).
+- ~~AR-2 (the owner): what the page shares.~~ Full sharing of the choice, not of status's output rules; one test runs
+  both on one fixture; F-07's review covers only the amended sections, in one round (§3, §9, §10).
+- ~~AR-3 (the owner): `needs-shape`.~~ Only issues the owner opened are listed; `/log-feature #n` reshapes in place,
+  and asks before reading an issue the owner did not open (§6, §9).
+- ~~AR-7 (the owner): a ticket offered twice.~~ A branch named `i<n>-` claims it, matched strictly; a claim with no
+  commit for 2 days and no pull request goes stale and is said; remote branches share the budget and the
+  all-or-nothing rule, local ones are always read (§5).
+- ~~AR-8 (the owner): other people's pull requests.~~ The owner's account only; collaborators claim through branches;
+  a bot account is a known limitation (§2, §5, Known limitations).
+- ~~AR-11 (the owner): when to record the decision.~~ Now, as D-050, with `Amends: F-17, F-07` and every answer above
+  (§8).
 
 ## Changes
 
 - 2026-10-23 · ADDED · 0.1, shaped from #445
+- 2026-10-23 · MODIFIED · 0.2, from the 0.1 review (`docs/reviews/2026-10-23-parallel-plan-0.1.md`): the owner's
+  answers to AR-1, AR-2, AR-3, AR-7, AR-8 and AR-11 (D-050), and AR-4 to AR-6, AR-9, AR-10 and AR-12 to AR-17 taken as
+  spec corrections. #533

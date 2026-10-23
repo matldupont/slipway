@@ -52,23 +52,23 @@ read from a commit and were not checked.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | Shaping first is the main step, but `STEPS` calls it agent work, so the person rule offers owner work while the owner answers /log-feature | S1 | owner | step 1 | |
-| AR-2 | `Amends: F-07` is incomplete: the page cannot compute status's picks from what it reads, and F-07's contract, tests and doc are not amended | S1 | owner | step 4 | |
-| AR-3 | `needs-shape` lists strangers' issues (a workflow labels any opened issue) and sends the owner to a command that takes no issue | S1 | owner | step 4 | |
-| AR-4 | The first Acceptance line cannot pass: offline, the build loop's main step has unknown files, so nothing with files runs beside it | S1 | shaping session | step 2 | |
-| AR-5 | "No gate reads the network" has no test, and the read is keyed on `--hook`, which gate tests already pass | S2 | shaping session | step 4 | |
-| AR-6 | Offline, "overlaps no pull request in progress" is checked against an empty list and passes | S2 | shaping session | step 2 | |
-| AR-7 | Every session's hook now says "Start #n" until a draft PR exists, so parallel sessions start the same ticket | S2 | owner | step 4 | |
-| AR-8 | Other people's pull requests steer the plan: their bodies mark leaves in progress, their paths block picks, their count turns GitHub off | S2 | owner | step 4 | |
-| AR-9 | All-or-nothing turns one large owner PR into no GitHub data under a misleading reason; some caps are silent partials | S2 | shaping session | step 4 | |
-| AR-10 | The 5-second budget is measured on the wrong thing, and no real run shows the folded query fits in it | S2 | shaping session | step 4 | |
-| AR-11 | §8's decision is the owner's, but deferring it to step 4 breaks "record when made", and its text misses five things | S2 | owner | spec ready | |
-| AR-12 | Ranks contradict: the PRD's approval is rank 2 in §1 and rank 5 in §2; Acceptance marks rank-5 owner work startable, §3 does not | S2 | shaping session | step 1 | |
-| AR-13 | The sentinel test plants text in fields the query never reads and skips the text that does flow | S2 | shaping session | step 4 | |
-| AR-14 | Verify does not prove the Contract: no step-3 line, no offline-gate test, no real run, and W1 needs the new tests wired before step 4 | S2 | shaping session | spec ready | |
-| AR-15 | Acceptance and example lines that cannot fail or disagree with the Contract | S3 | shaping session | spec ready | |
-| AR-16 | The Build map marks only step 3 as owner-only; steps 1, 2 and 4 change `ci/**` and `package.json` | S3 | shaping session | spec ready | |
-| AR-17 | `review-owed` reads the local checkout's reviews; the blob-path promise is weaker than it reads | S3 | shaping session | step 4 | |
+| AR-1 | Shaping first is the main step, but `STEPS` calls it agent work, so the person rule offers owner work while the owner answers /log-feature | S1 | owner | step 1 | D-050 |
+| AR-2 | `Amends: F-07` is incomplete: the page cannot compute status's picks from what it reads, and F-07's contract, tests and doc are not amended | S1 | owner | step 4 | D-050 |
+| AR-3 | `needs-shape` lists strangers' issues (a workflow labels any opened issue) and sends the owner to a command that takes no issue | S1 | owner | step 4 | D-050 |
+| AR-4 | The first Acceptance line cannot pass: offline, the build loop's main step has unknown files, so nothing with files runs beside it | S1 | shaping session | step 2 | #445 (0.2) |
+| AR-5 | "No gate reads the network" has no test, and the read is keyed on `--hook`, which gate tests already pass | S2 | shaping session | step 4 | #445 (0.2) |
+| AR-6 | Offline, "overlaps no pull request in progress" is checked against an empty list and passes | S2 | shaping session | step 2 | #445 (0.2) |
+| AR-7 | Every session's hook now says "Start #n" until a draft PR exists, so parallel sessions start the same ticket | S2 | owner | step 4 | D-050 |
+| AR-8 | Other people's pull requests steer the plan: their bodies mark leaves in progress, their paths block picks, their count turns GitHub off | S2 | owner | step 4 | D-050 |
+| AR-9 | All-or-nothing turns one large owner PR into no GitHub data under a misleading reason; some caps are silent partials | S2 | shaping session | step 4 | #445 (0.2) |
+| AR-10 | The 5-second budget is measured on the wrong thing, and no real run shows the folded query fits in it | S2 | shaping session | step 4 | #445 (0.2) |
+| AR-11 | §8's decision is the owner's, but deferring it to step 4 breaks "record when made", and its text misses five things | S2 | owner | spec ready | D-050 |
+| AR-12 | Ranks contradict: the PRD's approval is rank 2 in §1 and rank 5 in §2; Acceptance marks rank-5 owner work startable, §3 does not | S2 | shaping session | step 1 | #445 (0.2) |
+| AR-13 | The sentinel test plants text in fields the query never reads and skips the text that does flow | S2 | shaping session | step 4 | #445 (0.2) |
+| AR-14 | Verify does not prove the Contract: no step-3 line, no offline-gate test, no real run, and W1 needs the new tests wired before step 4 | S2 | shaping session | spec ready | #445 (0.2) |
+| AR-15 | Acceptance and example lines that cannot fail or disagree with the Contract | S3 | shaping session | spec ready | #445 (0.2) |
+| AR-16 | The Build map marks only step 3 as owner-only; steps 1, 2 and 4 change `ci/**` and `package.json` | S3 | shaping session | spec ready | #445 (0.2) |
+| AR-17 | `review-owed` reads the local checkout's reviews; the blob-path promise is weaker than it reads | S3 | shaping session | step 4 | #445 (0.2) |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
