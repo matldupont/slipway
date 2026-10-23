@@ -75,12 +75,12 @@ and L1's code, not observed.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | L-71 ships to every project, and its date turns a project's L1 red over a check the project does not have | S2 | owner | #462 | |
-| AR-2 | §6 says Seams lines may be "in a list or not"; I1 fails `label: detail` lines with no list marker | S2 | owner | #462 | |
-| AR-3 | The test pins exactly 12 sections; §1, §6 and the Acceptance say it fails "a template with more" | S3 | owner | — | |
-| AR-4 | §6's count reads as meeting the bar on a generous reading; it leaves out #509's call that it does not | S3 | owner | — | |
-| AR-5 | The Build map still gives #460 the f2 test and `/review-doc`, and leaves the f2 test out of #462 | S3 | owner | — | |
-| AR-6 | Rule 7's pair now quotes `SLIPWAY.md`'s lesson table, whose counts are stale; L-71 adds one more | S3 | owner | — | |
+| AR-1 | L-71 ships to every project, and its date turns a project's L1 red over a check the project does not have | S2 | owner | #462 | #521 |
+| AR-2 | §6 says Seams lines may be "in a list or not"; I1 fails `label: detail` lines with no list marker | S2 | owner | #462 | #524 |
+| AR-3 | The test pins exactly 12 sections; §1, §6 and the Acceptance say it fails "a template with more" | S3 | owner | — | #524 |
+| AR-4 | §6's count reads as meeting the bar on a generous reading; it leaves out #509's call that it does not | S3 | owner | — | #524 |
+| AR-5 | The Build map still gives #460 the f2 test and `/review-doc`, and leaves the f2 test out of #462 | S3 | owner | — | #524 |
+| AR-6 | Rule 7's pair now quotes `SLIPWAY.md`'s lesson table, whose counts are stale; L-71 adds one more | S3 | owner | — | #524 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
