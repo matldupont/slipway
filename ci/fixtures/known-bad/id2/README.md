@@ -8,3 +8,7 @@ open pull request. Every file is inert text.
   no finding.
 - `heading-text`: #77 adds `## D-3 — SECRET-WORDS-FROM-ANOTHER-PR`; the finding names `#77` and `D-3` only.
   `scripts/id2.test.mjs` checks that none of the heading's other text reaches the output.
+- `space-in-name`: this pull request adds `F-12` in `docs/features/my queue.md`, whose `+++` line git ends with a tab;
+  the tab is not part of the name, so the clash with #52's `F-12` is found.
+- `binary`: #12's `decisions.md` diff is shown as binary, so its headings cannot be read: BROKEN, naming #12. The
+  collector diffs with `--text`, so this arises only if that is lost.
