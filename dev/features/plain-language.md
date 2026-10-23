@@ -431,7 +431,7 @@ Verified against: 04b47c0 2026-10-22 — re-read for 0.3. `ci/status.mjs:363–3
 written ahead of its build), 48 `expected.json` files under `ci/fixtures/known-bad/` hold `details`, `ci.yml` (the `prose` job), `pr-body.yml`
 (the Vale steps), `ci/prose.mjs` and `ci/baselines.json` (`prose` 136 then; 166 at 0.5). #457, #459 and #461 are open.
 
-Verified against: 2c71f61 2026-10-23 — re-read for 0.5: `ci/prose.mjs` copies every file under a `.txt` name and runs Placeholder on a blanked copy; `.vale.ini` has one `[*.txt]` section; a table row ends a Sentence run; `ci/baselines.json` holds `prose` 166. cf36893 2026-10-22 — re-read for 0.4. `docs/features/TEMPLATE.md` has 12 `##` sections and `## Open questions` among them; `scripts/f2.test.mjs` pinned no count before this PR; `README.md` has no "a rule exists only where" sentence and `SLIPWAY.md` line 9 has it; `process/lessons/L-54-docs-lint.md` is `declined` on `main`.
+Verified against: 4b0d3b6 2026-10-23 — re-read for 0.5: `ci/prose.mjs` copies every file under a `.txt` name and runs Placeholder on a blanked copy; `.vale.ini` has one `[*.txt]` section; a table row ends a Sentence run; `ci/baselines.json` holds `prose` 166. cf36893 2026-10-22 — re-read for 0.4. `docs/features/TEMPLATE.md` has 12 `##` sections and `## Open questions` among them; `scripts/f2.test.mjs` pinned no count before this PR; `README.md` has no "a rule exists only where" sentence and `SLIPWAY.md` line 9 has it; `process/lessons/L-54-docs-lint.md` is `declined` on `main`.
 
 ## Seams
 
@@ -467,7 +467,7 @@ Not defended: a sentence written to pass the rules while saying nothing. The own
   sentence. A warning, never an error.
 - A placeholder hidden in odd markup is not defended: Placeholder reads a copy with code spans and fences blanked by a
   small masker, and a fence or span GitHub does not open (inside a comment or an HTML block, across a block it does not
-  cross) can hide one. The Chatbot and Recap rules read the file as written and have no such gap.
+  cross) can hide one. The Chatbot and Recap rules read the file as written.
 - §3 may take two PRs under one issue; until the last check is rewritten, its findings print without a fix line
   and the static test names the sites owed.
 - The Next-line form is tested on fixtures; project text inside the quoted spans is excluded from the rules, so a
