@@ -52,9 +52,10 @@ const scratchDir = (name) => {
 };
 const broken = (why) => process.exit(report({ id: ID, claim: '', scanned: 0, unit: UNIT, broken: why }));
 
-// Text with the front matter, each fenced block and each inline code span replaced by filler that keeps its line
-// breaks: front matter and a fenced block become empty lines (Vale refuses front matter that is not YAML, and a
-// template's is not), a code span becomes one word of x. Exported for scripts/prose.test.mjs.
+// The copy the Placeholder rule reads: the front matter, each fenced block and each inline code span replaced by filler that
+// keeps its line breaks. Front matter and a fenced block become empty lines; a code span becomes one word of x. A
+// placeholder hidden in odd markup (a fence GitHub does not open, a span across a block it does not cross) is not defended:
+// F-16's Known limitations. Exported for scripts/prose.test.mjs.
 export function blank(raw) {
   const out = [];
   let fence = null;
@@ -75,11 +76,9 @@ export function blank(raw) {
       out.push('');
     } else out.push(line);
   }
-  // Vale obeys `<!-- vale off -->` and `<!-- vale Slipway.Chatbot = NO -->`, which GitHub does not show: they are blanked, so a
-  // comment cannot turn a rule off. A backslash before a backtick makes it text (CommonMark), so that one opens no span.
+  // A backslash before a backtick makes it text (CommonMark), so that one opens no span.
   return out
     .join('\n')
-    .replace(/<!--\s*vale\b[\s\S]*?-->/gi, (c) => c.replace(/[^\n]/g, 'x'))
     .replace(/(?<![`\\])(`+)(?!`)((?:(?!\n[ \t]*\n|\n {0,3}(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|>))[\s\S])+?)(?<!`)\1(?!`)/g, (span) => span.replace(/[^\n]/g, 'x'));
 }
 
@@ -95,16 +94,20 @@ const isPlainFile = (path) => {
   return st?.isFile() === true;
 };
 
-// Runs Vale over blanked copies of `files` (relative to `base`). Returns [{ file, line, rule, severity, message, match }].
+// Runs Vale over `files` (relative to `base`) twice, both times as plain text: each file is copied under a `.txt` name, so
+// Vale parses no markdown and honours no comment directive (`<!-- vale off -->`) or character reference. Every rule but
+// Placeholder reads the file as written. Placeholder reads a copy with the front matter, fenced blocks and code spans
+// blanked (blank()). Returns [{ file, line, rule, severity, message, match }].
 function vale(base, files) {
   if (files.length === 0) return [];
-  const dir = scratchDir('prose-');
-  try {
+  const root = scratchDir('prose-');
+  const run = (tree, filter, text) => {
+    const dir = join(root, tree);
     for (const f of files) {
-      mkdirSync(dirname(join(dir, f)), { recursive: true });
-      writeFileSync(join(dir, f), blank(readFileSync(join(base, f), 'utf8')));
+      mkdirSync(dirname(join(dir, `${f}.txt`)), { recursive: true });
+      writeFileSync(join(dir, `${f}.txt`), text(readFileSync(join(base, f), 'utf8')));
     }
-    const r = spawnSync('vale', ['--config', CONFIG, '--no-global', '--output=JSON', ...files], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const r = spawnSync('vale', ['--config', CONFIG, '--no-global', `--filter=${filter}`, '--output=JSON', ...files.map((f) => `${f}.txt`)], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     let json;
     try {
       json = JSON.parse(r.stdout);
@@ -112,11 +115,10 @@ function vale(base, files) {
       broken(`vale printed no JSON (exit ${r.status}) — run \`vale --config .vale.ini --output=JSON\` on a file to see why`); // never its message: it quotes the text
     }
     return Object.entries(json).flatMap(([file, alerts]) =>
-      alerts.map((a) => ({ file, line: a.Line, rule: a.Check, severity: a.Severity, message: a.Message, match: a.Match })),
+      alerts.map((a) => ({ file: file.replace(/\.txt$/, ''), line: a.Line, rule: a.Check, severity: a.Severity, message: a.Message, match: a.Match })),
     );
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
+  };
+  return [...run('raw', '.Name != "Slipway.Placeholder"', (t) => t), ...run('blanked', '.Name == "Slipway.Placeholder"', blank)];
 }
 
 const git = (args) => spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });

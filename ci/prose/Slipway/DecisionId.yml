@@ -4,4 +4,4 @@ level: warning
 ignorecase: false
 nonword: true
 tokens:
-  - '(?<![\[(])\b(?:PD|D)-\d+\b(?![\])])'
+  - '(?<![`\[(])\b(?:PD|D)-\d+\b(?![`\])])'

@@ -1,6 +1,9 @@
-extends: occurrence
-message: "A sentence of more than 34 words. Split it: one idea per sentence."
+extends: existence
+message: "A sentence of 35 words or more. Split it: one idea per sentence."
 level: warning
-scope: sentence
-max: 34
-token: '[^\s]+'
+scope: raw
+nonword: true
+# 34 words with no sentence end after them, then a 35th. A word ends a sentence when it ends in . ? or !; a table cell
+# divider (|) and a blank line end the run, so a table row is not one long sentence. Read as plain text.
+tokens:
+  - '(?:[^\s|]*[^\s.!?|](?:[ \t]+|[ \t]*\n[ \t]*)){34}[^\s|]+'

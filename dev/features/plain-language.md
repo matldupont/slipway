@@ -5,7 +5,7 @@ status: draft
 
 # F-16 — Plain language: slipway's own text says what to do next in short, plain terms
 
-Version: 0.4 (2026-10-22)
+Version: 0.5 (2026-10-23)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line.
@@ -359,14 +359,16 @@ content: printed through `escapeControl`, length computed on the text as written
   `dev/features/*.md`): errors fail on the lines a PR adds, warnings on those lines are printed and never counted.
   Not `.claude/**` (agent text), not fixtures. The base of "the lines a PR adds" is `PROSE_BASE` (the PR's base sha,
   or the push's `before`) or `--base`; a base git cannot resolve is BROKEN.
-- **What Vale reads.** `ci/prose.mjs` writes each file to a scratch folder with its front matter, fenced blocks and
-  code spans blanked and its lines kept, and Vale reads those copies. So a `<sha>` in a code span never fires, a
-  phrase a doc quotes in code never trips the chatbot rule, and a template's front matter is not parsed as YAML
-  (the owner, 2026-10-15, on AR-1 of the 0.2 review).
+- **What Vale reads.** Every file is read as plain text: `ci/prose.mjs` copies it to a scratch folder under a `.txt`
+  name, so Vale parses no markdown and honours no comment directive or character reference. Every rule but Placeholder
+  reads the copy as written, code spans and fenced blocks included. Placeholder reads a second copy with its front
+  matter, fenced blocks and code spans blanked and its lines kept, so a `<sha>` in a code span never fires (the owner,
+  2026-10-15, on AR-1 of the 0.2 review). So a doc cannot quote a chatbot phrase, in code or out of it, and a change that
+  adds one fails.
 - **Errors, which fail:** three rules under `ci/prose/Slipway/`, each with `scope: raw`, so a `<date>` is read as
   text and not as an HTML tag:
-  - `Chatbot.yml`: `I hope this helps`, `Great question`, `Certainly!`, `As an AI`, `Let me know if`, `Happy to help`,
-    `I'd be happy to`, `Absolutely!`, `Of course!`.
+  - `Chatbot.yml`: nine openers and sign-offs a chatbot adds (a thanks for the question, an offer of more help, a
+    statement about being an AI), the list in the rule file. Words may be split by a line wrap.
   - `Placeholder.yml`: `<` + lower-case words + `>` (`<date>`, `<main sha>`), `TBD`, `XXX`, `lorem ipsum`. Not in a
     template (a file whose name holds `TEMPLATE` or `_template`) and not in a seeded file (`docs/PRD.md`,
     `docs/product/FRAME.md`, `docs/milestones/M1-walking-skeleton.md`: the `seeded` class in `dev/ownership.yaml`,
@@ -378,12 +380,13 @@ content: printed through `escapeControl`, length computed on the text as written
 - **Warnings, which ratchet on the held set:** `CheckId.yml` (a check id as a word outside code and outside
   brackets), `DecisionId.yml` (`D-` or `PD-` and digits, outside code and outside brackets: §1 rule 2's one rule),
   `Hedge.yml` (`may possibly`, `might potentially`, `could perhaps`, `seems to suggest`), `Verb.yml` (`serves as`,
-  `boasts`, `showcases`, `delves`, `underscores`), `Sentence.yml` (a sentence of 35 words or more).
+  `boasts`, `showcases`, `delves`, `underscores`), `Sentence.yml` (a sentence of 35 words or more; a table divider and a
+  blank line end one). A check or decision id alone in backticks or in brackets is not counted.
 - **The ratchet.** `ci/prose.mjs` runs `vale --output=JSON` over the held set, fails on any error, writes
   `{ "warnings": n }` to a temp report and runs `ci/ratchet.mjs prose <report> warnings`; then runs the three error
   rules over the lines `git diff base...HEAD` adds in the diff set, failing on any, and prints that set's warnings.
-  The baseline key `prose` is recorded with `--update` by the PR that adds the check: 136 on the held set at 04b47c0
-  (#462's own run). The path table's rows and `README.md`'s "Then follow the path" section are held at 0 errors and 0
+  The baseline key `prose` is recorded by the PR that adds the check: 166 on the held set, read as plain text (#462's
+  own run on 2026-10-23). The path table's rows and `README.md`'s "Then follow the path" section are held at 0 errors and 0
   warnings by the same script, inside that count. `scripts/new-project.mjs` does not seed the `prose` key: a project
   runs no prose job.
 - **PR bodies.** In slipway only, the pr-body workflow runs `ci/prose.mjs --body` on `body.md` after P1, under the
@@ -394,8 +397,7 @@ content: printed through `escapeControl`, length computed on the text as written
   `scripts/prose.test.mjs` are classed `internal` in `dev/ownership.yaml`: slipway's own, shipped to no project.
 - **Known-bad fixture.** `ci/fixtures/known-bad/prose/` holds one file per rule with the line that trips it, and
   five control lines that raise nothing: a `[NEEDS CLARIFICATION]` marker, a `<date>` in a file named `TEMPLATE.md`,
-  a `<br>` in a table cell, a check id in a code span, and a `<sha>` in a code span and a fenced block in a file that sits in the diff set's
-  shape. `scripts/prose.test.mjs` runs `ci/prose.mjs --dir` on the folder and expects each rule's name in the JSON
+  a `<br>` in a table cell, a check id in a code span, and a `<sha>` and `<date>` in a code span and a fenced block. `scripts/prose.test.mjs` runs `ci/prose.mjs --dir` on the folder and expects each rule's name in the JSON
   once, the controls quiet, a 35-word sentence tripping the rule and a 34-word one not, and BROKEN (exit 2) without
   `vale`.
 - **Review date.** `process/lessons/L-71-word-lists-are-a-snapshot.md` is a `prose` lesson with `pointer: process/writing.md`
@@ -408,7 +410,7 @@ content: printed through `escapeControl`, length computed on the text as written
 Whether slipway's text got plainer is the owner's judgement, formed as the owner reads it, alongside what the checks
 hold (D-048). There is no baseline reading and no later one, and no stage waits on a reading. What the checks hold:
 the form test on the Next line (§2), the failure-message form (§3), the title and subject rules (§7) and the prose
-check (§8), whose ratchet starts at 136 warnings on the held set (04b47c0) and may only go down. The optional retro
+check (§8), whose ratchet starts at 166 warnings on the held set, read as plain text (2026-10-23) and may only go down. The optional retro
 line in `/close-milestone` (§5) is a project's own; nothing in slipway reads it.
 
 Verified against: 8a5205c 2026-10-14 — `ci/status.mjs:271–303` (`next()`'s fourteen branches), `ci/checks/lib/report.mjs`
@@ -427,9 +429,9 @@ Verified against: 04b47c0 2026-10-22 — re-read for 0.3. `ci/status.mjs:363–3
 (`STEPS` holds `who` and `time`; `whoLine`), `ci/checks/lib/next-form.mjs` and `ci/checks/meta/s1-status.mjs` (the form test), `SLIPWAY.md:19`
 (the path table's `Who` and `How long` columns), `ci/checks/lib/report.mjs` (findings are still `{where, detail}`: #457 is open, so §3 is
 written ahead of its build), 48 `expected.json` files under `ci/fixtures/known-bad/` hold `details`, `ci.yml` (the `prose` job), `pr-body.yml`
-(the Vale steps), `ci/prose.mjs` and `ci/baselines.json` (`prose` 136). #457, #459 and #461 are open.
+(the Vale steps), `ci/prose.mjs` and `ci/baselines.json` (`prose` 136 then; 166 at 0.5). #457, #459 and #461 are open.
 
-Verified against: cf36893 2026-10-22 — re-read for 0.4. `docs/features/TEMPLATE.md` has 12 `##` sections and `## Open questions` among them; `scripts/f2.test.mjs` pinned no count before this PR; `README.md` has no "a rule exists only where" sentence and `SLIPWAY.md` line 9 has it; `process/lessons/L-54-docs-lint.md` is `declined` on `main`.
+Verified against: 2c71f61 2026-10-23 — re-read for 0.5: `ci/prose.mjs` copies every file under a `.txt` name and runs Placeholder on a blanked copy; `.vale.ini` has one `[*.txt]` section; a table row ends a Sentence run; `ci/baselines.json` holds `prose` 166. cf36893 2026-10-22 — re-read for 0.4. `docs/features/TEMPLATE.md` has 12 `##` sections and `## Open questions` among them; `scripts/f2.test.mjs` pinned no count before this PR; `README.md` has no "a rule exists only where" sentence and `SLIPWAY.md` line 9 has it; `process/lessons/L-54-docs-lint.md` is `declined` on `main`.
 
 ## Seams
 
@@ -461,8 +463,11 @@ Not defended: a sentence written to pass the rules while saying nothing. The own
   the measure, and the rules are the floor.
 - Vale is a binary. `pnpm meta` stays zero-dependency, so the prose check is a CI job of its own and a local
   run needs Vale installed; without it the script is BROKEN, not green.
-- The sentence-length rule is a regex over markdown and will miscount a sentence that holds a code span with a
-  period in it. A warning, never an error.
+- The sentence-length rule is a regex over plain text: a code span with a period in it, or a list marker, can miscount a
+  sentence. A warning, never an error.
+- A placeholder hidden in odd markup is not defended: Placeholder reads a copy with code spans and fences blanked by a
+  small masker, and a fence or span GitHub does not open (inside a comment or an HTML block, across a block it does not
+  cross) can hide one. The Chatbot and Recap rules read the file as written and have no such gap.
 - §3 may take two PRs under one issue; until the last check is rewritten, its findings print without a fix line
   and the static test names the sites owed.
 - The Next-line form is tested on fixtures; project text inside the quoted spans is excluded from the rules, so a
@@ -559,7 +564,7 @@ Then  the path table and README's path section have 0 errors and 0 warnings; the
 ```
 
 ```
-Given a PR on slipway's repository whose body holds "I hope this helps"
+Given a PR on slipway's repository whose body holds a chatbot opener from Chatbot.yml
 When  the pr-body workflow runs
 Then  it fails on Chatbot, naming the phrase and the fix
 ```
@@ -649,3 +654,4 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
 - 2026-10-22 · MODIFIED · Version 0.3: the Contract corrected for the 0.2 review's AR-1 to AR-13 (`docs/reviews/2026-10-15-plain-language-0.2.md`), in #462's PR on the orchestrator's call. Against a landed build (#456, #458, #460, #462): AR-1, AR-3, AR-4, AR-6, AR-8, AR-9, AR-10, AR-12. Written ahead of their build: AR-2, AR-5, AR-11 (#457), AR-13 (#461). AR-7 is D-048: §9 has no readings and no stop rule, and the Acceptance line for them is gone. L-54 points at `process/writing.md` until #521 ships `ci/prose/` to projects, because lessons ship and that folder does not (the orchestrator's call). The prose ratchet starts at 136 warnings on the held set at 04b47c0. Shipping the prose job, the chatbot check on bodies and P1's title rules to projects is #521 · #462
 - 2026-10-22 · REVIEWED · 0.3 review (`docs/reviews/2026-10-22-plain-language-0.3.md`), 14 findings; AR-1 (S1: §6 and the Acceptance still cut `## Open questions`) is the owner's. Fixed in #462's PR outside the versioned sections: AR-3, AR-4, AR-6, AR-8 and the parts of AR-13 that sit outside them; AR-12 and the rest of AR-13 wait with AR-1 for the next Version. The other findings are tracked in the register · #462
 - 2026-10-22 · MODIFIED · Version 0.4: the owner's call on the 0.3 review, in their words: "fix it in this PR. Move F-16 to 0.4 with AR-1, the §8 figure removal, AR-12, the rest of AR-13 and L-54's flip, then one fresh review of the 0.4 changes only." AR-1: §1, §6 and the Acceptance say what #460 shipped (`## Open questions` stays, 12 sections, one Seams field) and `scripts/f2.test.mjs` fails a template with more. §8: a figure from a run on a real project's files is removed (AR-12); the unclosed code span is closed and §1 rule 7's pair points at `SLIPWAY.md` (AR-13). L-54 stays `declined`; L-71 carries the review date (AR-3, flipped back) · #462
+- 2026-10-23 · MODIFIED · Version 0.5: the owner's call on `blank()`, in their words: "B. Every rule reads files as plain text (.txt), so no comment directive or entity is honoured; only Placeholder runs on a blanked plain-text copy that skips code spans and fences. Paraphrase the quoted chatbot phrases in F-16 §8 and its Acceptance, and move F-16 to 0.5 with one fresh review of the 0.5 changes only. Recount the prose baseline and say the new number in the PR." §8's "What Vale reads" bullet, the Chatbot list, the sentence rule and the fixture's control lines say so, the Acceptance sentence on a chatbot opener is paraphrased, and a placeholder hidden in odd markup is a Known limitation. The prose baseline is 166 on the held set (136 under markdown parsing) · #462

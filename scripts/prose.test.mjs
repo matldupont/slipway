@@ -74,7 +74,7 @@ test('a PR body: a chatbot phrase fails and names the rule; a clean body passes'
   const dir = mkdtempSync(join(tmpdir(), 'prose-test-'));
   try {
     writeFileSync(join(dir, 'bad.md'), '## What\n\nCertainly! The check is added.\n');
-    writeFileSync(join(dir, 'good.md'), '## What\n\nThe check is added. Quote the phrase `Certainly!` in a code span.\n');
+    writeFileSync(join(dir, 'good.md'), '## What\n\nThe check is added. A format like `<sha>` sits in a code span.\n');
     const bad = run(['--body', join(dir, 'bad.md')]);
     assert.equal(bad.status, 1);
     assert.match(bad.stdout, /Slipway\.Chatbot/);
@@ -98,33 +98,49 @@ test('blank() keeps every line, and blanks front matter, fenced blocks and code 
   assert.match(out, /After <date>\./, 'prose outside code is kept');
 });
 
-test('blank() cannot be turned off or tricked by markup GitHub shows as text', () => {
+test('Chatbot and Recap read the file as plain text: no comment, entity, code span or line ending hides a phrase', () => {
   const dir = mkdtempSync(join(tmpdir(), 'prose-test-'));
   try {
     const put = (name, text) => writeFileSync(join(dir, name), text);
     put('comment-off.md', 'Open.\n\n<!-- vale off -->\nCertainly! Done.\n');
     put('comment-rule.md', 'Open.\n\n<!-- vale Slipway.Chatbot = NO -->\nCertainly! Done.\n');
-    put('fence-info.md', 'Open.\n\n```x`\nCertainly! Done.\n');
-    put('escaped.md', 'Open.\n\n\\`Certainly! Done.\\`\n');
+    put('comment-entity.md', 'Open.\n\n<!-- &#118;ale off -->\nCertainly! Done.\n');
+    put('comment-bang.md', 'Open.\n\n<!-- vale off --!>\nCertainly! Done.\n');
+    put('code-span.md', 'Open.\n\nThe phrase `Certainly! Done.` is quoted.\n');
+    put('fence.md', 'Open.\n\n```\nCertainly! Done.\n```\n');
     put('crlf.md', 'Open ` here.\r\n\r\nCertainly! Done.\r\n\r\nClose ` here.\r\n');
-    put('lone-cr.md', 'Open.\r\rCertainly! Done.\n');
     put('wrapped.md', 'Open.\n\nWe hope this is clear. I hope\nthis helps a lot.\n');
     put('wrapped-hedge.md', 'Open.\n\nIt may\npossibly work.\n');
-    put('heading-span.md', 'Open `a.\n## Certainly! Done.\nClose` here.\n');
     put('recap-spaces.md', 'Open.\n  \nIn summary, done.\n');
     const seen = Object.fromEntries(alertsIn(dir).alerts.map((a) => [a.file, `${a.rule}@${a.line}`]));
     assert.deepEqual(seen, {
       'comment-off.md': 'Slipway.Chatbot@4',
       'comment-rule.md': 'Slipway.Chatbot@4',
-      'fence-info.md': 'Slipway.Chatbot@4',
-      'escaped.md': 'Slipway.Chatbot@3',
+      'comment-entity.md': 'Slipway.Chatbot@4',
+      'comment-bang.md': 'Slipway.Chatbot@4',
+      'code-span.md': 'Slipway.Chatbot@3',
+      'fence.md': 'Slipway.Chatbot@4',
       'crlf.md': 'Slipway.Chatbot@3',
-      'lone-cr.md': 'Slipway.Chatbot@1',
-      'recap-spaces.md': 'Slipway.Recap@3',
       'wrapped.md': 'Slipway.Chatbot@3',
       'wrapped-hedge.md': 'Slipway.Hedge@3',
-      'heading-span.md': 'Slipway.Chatbot@2',
+      'recap-spaces.md': 'Slipway.Recap@3',
     });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('Placeholder reads a blanked copy: a format in a code span or a fence passes, one in prose fails, a directive changes nothing', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'prose-test-'));
+  try {
+    const put = (name, text) => writeFileSync(join(dir, name), text);
+    put('span.md', 'Open.\n\nThe format is `<sha>` and `TBD`.\n');
+    put('fence.md', 'Open.\n\n```\n<date> TBD\n```\n');
+    put('prose.md', 'Open.\n\nWrite <date> here.\n');
+    put('off.md', 'Open.\n\n<!-- vale Slipway.Placeholder = NO -->\nWrite <date> here.\n');
+    put('entity.md', 'Open.\n\n<!-- &#118;ale off -->\nWrite <date> here.\n');
+    const seen = Object.fromEntries(alertsIn(dir).alerts.map((a) => [a.file, `${a.rule}@${a.line}`]));
+    assert.deepEqual(seen, { 'prose.md': 'Slipway.Placeholder@3', 'off.md': 'Slipway.Placeholder@4', 'entity.md': 'Slipway.Placeholder@4' });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
