@@ -10,8 +10,9 @@
 // README.md's path section are held at 0 errors and 0 warnings. The diff set (every other markdown file a person
 // reads): an error on a line the change adds fails; a warning on one is printed and never counted.
 //
-// Vale reads a copy of each file with its code spans and fenced blocks blanked, so `<sha>` in a code span never
-// fires and a phrase a doc quotes in code never trips the chatbot rule. Line numbers are kept.
+// Every file is read as plain text: it is copied under a `.txt` name, so Vale parses no markdown and honours no comment
+// directive or character reference. Every rule but Placeholder reads the copy as written. Placeholder reads a second copy
+// with its front matter, fenced blocks and code spans blanked, so `<sha>` in a code span never fires. Line numbers are kept.
 //
 // Not a meta check: Vale is a binary, and ci/checks/ stays zero-dependency (D-004). With no `vale` on the path the
 // script exits BROKEN, never green (decision-defaults §4). CI installs Vale at a pinned version with its sha256
