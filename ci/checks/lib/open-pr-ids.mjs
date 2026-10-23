@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // The folder ID2 (meta/id2-open-prs.mjs) reads: this pull request's diff and every other open pull request's, of
-// decisions.md and the feature folders only. ci.yml's meta job runs it, then ID2, before anything the pull request can
-// change runs:
+// decisions.md and the feature folders only. ci.yml's ids job runs it, then ID2, in a job of their own:
 //
 //   node ci/checks/lib/open-pr-ids.mjs <out> <owner/repo> <pull request number, empty on a push> <base sha> <head sha>
 //   node ci/checks/lib/open-pr-ids.mjs <out> <owner/repo> --next <default branch>      (process/intake.md → Next free number)
@@ -31,6 +30,10 @@ const next = pr === '--next';
 const SHA = /^[0-9a-f]{40}$/;
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 const PATHS = ['decisions.md', ':(glob)docs/features/*.md', ':(glob)dev/features/*.md'];
+
+// The first line of a failed command's error that says what failed: git's `hint:` lines (a deprecation, a suggestion)
+// are skipped, so they never stand in for the `fatal:` after them.
+const reason = (e) => String(e.stderr || e.message).split('\n').find((l) => l.trim() !== '' && !l.startsWith('hint:')) ?? 'no message';
 
 function fail(why) {
   console.log(`ID2: BROKEN — ${escapeControl(why)}`);
@@ -65,7 +68,7 @@ try {
     maxBuffer: 64 << 20,
   });
 } catch (e) {
-  fail(`the open pull requests could not be listed (${String(e.stderr || e.message).split('\n')[0]})`);
+  fail(`the open pull requests could not be listed (${reason(e)})`);
 }
 const others = [];
 for (const line of list.split('\n').filter(Boolean)) {
@@ -110,5 +113,5 @@ try {
   }
 }
 // After the refs are gone: process.exit would skip a finally.
-if (failed) fail(`a pull request's diff could not be read (${String(failed.stderr || failed.message).split('\n')[0]})`);
+if (failed) fail(`a pull request's diff could not be read (${reason(failed)})`);
 console.log(`ID2: read ${others.length} ${next ? '' : 'other '}open pull request(s) of ${repo}`);

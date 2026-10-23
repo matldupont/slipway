@@ -241,6 +241,9 @@ test('the collector is BROKEN, never an empty folder, when the list or a fetch f
     const listed = collect(r, null, ['o/r', '11', r.base, r.mine]);
     assert.equal(listed.status, 2);
     assert.match(listed.stdout, /^ID2: BROKEN — the open pull requests could not be listed/);
+    writeFileSync(join(r.bin, 'gh'), '#!/bin/sh\necho "hint: a suggestion" >&2\necho "fatal: the real reason" >&2\nexit 1\n');
+    const hinted = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/open-pr-ids.mjs'), join(r.top, 'hinted'), 'o/r', '11', r.base, r.mine], { cwd: r.clone, encoding: 'utf8', env: { ...process.env, PATH: `${r.bin}:${process.env.PATH}` } });
+    assert.match(hinted.stdout, /could not be listed \(fatal: the real reason\)/, 'a hint: line never stands in for the error');
     const fetched = collect(r, [`99 ${r.base}`], ['o/r', '11', r.base, r.mine]);
     assert.equal(fetched.status, 2);
     assert.match(fetched.stdout, /a pull request's diff could not be read/);

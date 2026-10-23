@@ -153,6 +153,40 @@ test('ci.yml keeps what W1 does not read: both triggers, main, N1 before pnpm me
   broken('    name: meta\n', '    name: meta\n    if: false\n', /meta job is conditional/);
 });
 
+// ID2's job in ci.yml (#478): it exists, runs the collector and ID2 on every pull request and push, is not fail-open, and
+// stands alone: no job needs it and it needs none, so an open pull request ID2 cannot read holds ID2 only, never the
+// meta job. Only it holds pull-requests: read.
+function idsProblems(text) {
+  const problems = [];
+  const job = (id) => new RegExp(`^ {2}${id}:\\n((?:(?: {3}.*)?\\n)+)`, 'm').exec(text)?.[1] ?? null;
+  const ids = job('ids');
+  if (ids === null) return ['ci.yml has no ids job'];
+  const lines = ids.split('\n').filter((l) => !/^\s*#/.test(l));
+  if (!lines.some((l) => /^ {10}node ci\/checks\/lib\/open-pr-ids\.mjs "\$RUNNER_TEMP\/id2" "\$REPO" "\$PR" "\$BASE_SHA" "\$HEAD_SHA"\s*$/.test(l))) problems.push('ci.yml\'s ids job does not run the collector');
+  if (!lines.some((l) => /^ {10}node ci\/checks\/meta\/id2-open-prs\.mjs "\$RUNNER_TEMP\/id2"\s*$/.test(l))) problems.push('ci.yml\'s ids job does not run ID2');
+  if (lines.some((l) => /^\s+(if|continue-on-error)\s*:/.test(l))) problems.push('ci.yml\'s ids job is conditional or fail-open');
+  if (/^\s+needs\s*:.*\bids\b/m.test(text) || lines.some((l) => /^ {4}needs\s*:/.test(l))) problems.push('ci.yml\'s ids job is tied to another job by needs:');
+  if (/pull-requests\s*:/.test(job('meta') ?? '')) problems.push('ci.yml\'s meta job holds pull-requests: read');
+  return problems;
+}
+
+test('ci.yml runs ID2 in its own job, not fail-open, which no job needs; only it may read pull requests', () => {
+  const yml = readFileSync(join(SRC, '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.deepEqual(idsProblems(yml), []);
+  const broken = (from, to, expected) => {
+    assert.ok(yml.includes(from), `ci.yml no longer holds ${JSON.stringify(from)}`);
+    const found = idsProblems(yml.replace(from, to));
+    assert.ok(found.some((p) => expected.test(p)), `${JSON.stringify(to)} went unnoticed: ${JSON.stringify(found)}`);
+  };
+  broken('  ids:\n', '  other:\n', /has no ids job/);
+  broken('          node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2"\n', '          node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2" || true\n', /does not run ID2/);
+  broken('          node ci/checks/lib/open-pr-ids.mjs', '          echo node ci/checks/lib/open-pr-ids.mjs', /does not run the collector/);
+  broken('    name: ids\n', '    name: ids\n    continue-on-error: true\n', /conditional or fail-open/);
+  broken('    name: ids\n', '    name: ids\n    needs: meta\n', /tied to another job/);
+  broken('    name: verify\n', '    name: verify\n    needs: [ids]\n', /tied to another job/);
+  broken('    name: meta\n', '    name: meta\n    permissions:\n      pull-requests: read\n', /meta job holds pull-requests/);
+});
+
 // The case that moved to W1, on a copy of slipway's own workflows: with `pnpm meta` gone from ci.yml and
 // release.yml still running it on tags, nothing that runs on a pull request or a push to a branch runs a check.
 test('W1 fails a copy of the workflows whose ci.yml no longer runs pnpm meta, whatever release.yml runs', () => {
