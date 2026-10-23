@@ -113,6 +113,9 @@ test('Chatbot and Recap read the file as plain text: no comment, entity, code sp
     put('wrapped-hedge.md', 'Open.\n\nIt may\npossibly work.\n');
     put('lone-cr.md', 'Open.\r\rCertainly! Done.\n');
     put('recap-spaces.md', 'Open.\n  \nIn summary, done.\n');
+    put('recap-heading.md', 'Open.\n\n## Notes\nIn Summary, done.\n');
+    put('recap-indent.md', 'Open.\n\n  Overall, done.\n');
+    put('recap-fence.md', 'Open.\n\n```\nx\n```\nTo sum up, done.\n');
     const seen = Object.fromEntries(alertsIn(dir).alerts.map((a) => [a.file, `${a.rule}@${a.line}`]));
     assert.deepEqual(seen, {
       'comment-off.md': 'Slipway.Chatbot@4',
@@ -125,6 +128,9 @@ test('Chatbot and Recap read the file as plain text: no comment, entity, code sp
       'wrapped.md': 'Slipway.Chatbot@3',
       'wrapped-hedge.md': 'Slipway.Hedge@3',
       'recap-spaces.md': 'Slipway.Recap@3',
+      'recap-heading.md': 'Slipway.Recap@4',
+      'recap-indent.md': 'Slipway.Recap@3',
+      'recap-fence.md': 'Slipway.Recap@6',
       'lone-cr.md': 'Slipway.Chatbot@1',
     });
   } finally {

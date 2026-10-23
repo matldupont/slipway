@@ -54,4 +54,5 @@ jobs:
           "$RUNNER_TEMP/vale-bin/vale" --version | grep -qx "vale version ${VALE_VERSION}"
       - name: Check the PR body for chatbot phrasing
         if: ${{ github.event.repository.is_template }}
+        timeout-minutes: 5
         run: node ci/prose.mjs --body "$RUNNER_TEMP/pr/body.md"

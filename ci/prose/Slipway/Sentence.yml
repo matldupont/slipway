@@ -6,4 +6,4 @@ nonword: true
 # 34 words with no sentence end after them, then a 35th. A word ends a sentence when it ends in . ? or !; a table cell
 # divider (|) and a blank line end the run, so a table row is not one long sentence. Read as plain text.
 tokens:
-  - '(?:[^\s|]{0,80}[^\s.!?|](?:[ \t]+|[ \t]*\n[ \t]*)){34}[^\s|]{1,80}'
+  - '(?<![^\s|])(?:[^\s|]{0,80}[^\s.!?|](?:[ \t]+|[ \t]*\n[ \t]*)){34}[^\s|]{1,80}'

@@ -41,7 +41,7 @@ export const HELD = [
   'docs/milestones/TEMPLATE.md',
   '.github/pull_request_template.md',
 ];
-const DIFF_SET = [/^process\/[^/]+\.md$/, /^process\/lessons\/[^/]+\.md$/, /^decisions\.md$/, /^docs\/(?!reviews\/).+\.md$/, /^dev\/features\/[^/]+\.md$/];
+const DIFF_SET = [/^process\/[^/]+\.md$/, /^process\/lessons\/[^/]+\.md$/, /^decisions\.md$/, /^docs\/(?!reviews\/)[\s\S]+\.md$/, /^dev\/features\/[^/]+\.md$/];
 
 // Scratch folders hold a blanked copy of what was read (a PR body among them); every exit removes them, a BROKEN one too.
 const scratch = [];
@@ -110,7 +110,8 @@ function vale(base, files) {
       mkdirSync(dirname(join(dir, `${f}.txt`)), { recursive: true });
       writeFileSync(join(dir, `${f}.txt`), text(readFileSync(join(base, f), 'utf8')));
     }
-    const r = spawnSync('vale', ['--config', CONFIG, '--no-global', `--filter=${filter}`, '--output=JSON', ...files.map((f) => `${f}.txt`)], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const r = spawnSync('vale', ['--config', CONFIG, '--no-global', `--filter=${filter}`, '--output=JSON', '--', ...files.map((f) => `${f}.txt`)], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    if (r.status !== 0 && r.status !== 1) broken(`vale exited ${r.status}`);
     let json;
     try {
       json = JSON.parse(r.stdout);
