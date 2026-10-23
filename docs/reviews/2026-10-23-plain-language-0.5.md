@@ -63,17 +63,17 @@ read from its regex. `scripts/prose.test.mjs` was not run. The baseline of 166 w
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | Known limitations says the Chatbot and Recap rules "have no such gap"; that does not hold | S2 | owner | #462 | |
-| AR-2 | The 0.5 `Verified against:` line names 2c71f61, where none of its four claims is true | S2 | owner | #462 | |
-| AR-3 | No Acceptance line holds 0.5's behaviour: a directive or entity changes nothing, a phrase in code fails | S2 | owner | #462 | |
-| AR-4 | CheckId and DecisionId now read code; §1 rule 2's "one rule" and §8's "outside code" say they do not | S2 | owner | #462 | |
-| AR-5 | "A doc cannot quote a chatbot phrase" holds only for added lines in two sets; PR bodies go unsaid | S3 | owner | — | |
-| AR-6 | The Acceptance's fixture controls still read as 0.4's; §8 changed them | S3 | owner | — | |
-| AR-7 | The Sentence limitation leaves out fenced blocks, and "never an error" is false where warnings are held at 0 | S3 | owner | — | |
-| AR-8 | The Chatbot paraphrase leaves out three of the nine phrases' kind, and the list leaves the Contract | S3 | owner | — | |
-| AR-9 | The baseline of 166 names a date and no sha | S3 | owner | — | |
-| AR-10 | Markdown-era text survives: `ci/prose.mjs`'s header and §8's reason for `scope: raw` | S3 | owner | — | |
-| AR-11 | The masker's other direction: an indented code block is not blanked, so a format in it fails | S3 | owner | — | |
+| AR-1 | Known limitations says the Chatbot and Recap rules "have no such gap"; that does not hold | S2 | owner | #462 | fixed here (the claim is cut); the class is #530 |
+| AR-2 | The 0.5 `Verified against:` line names 2c71f61, where none of its four claims is true | S2 | owner | #462 | fixed here (sha 4b0d3b6) |
+| AR-3 | No Acceptance line holds 0.5's behaviour: a directive or entity changes nothing, a phrase in code fails | S2 | owner | #462 | #524 |
+| AR-4 | CheckId and DecisionId now read code; §1 rule 2's "one rule" and §8's "outside code" say they do not | S2 | owner | #462 | #524 |
+| AR-5 | "A doc cannot quote a chatbot phrase" holds only for added lines in two sets; PR bodies go unsaid | S3 | owner | — | #524 |
+| AR-6 | The Acceptance's fixture controls still read as 0.4's; §8 changed them | S3 | owner | — | #524 |
+| AR-7 | The Sentence limitation leaves out fenced blocks, and "never an error" is false where warnings are held at 0 | S3 | owner | — | #524 |
+| AR-8 | The Chatbot paraphrase leaves out three of the nine phrases' kind, and the list leaves the Contract | S3 | owner | — | #524 |
+| AR-9 | The baseline of 166 names a date and no sha | S3 | owner | — | #524 |
+| AR-10 | Markdown-era text survives: `ci/prose.mjs`'s header and §8's reason for `scope: raw` | S3 | owner | — | #524 |
+| AR-11 | The masker's other direction: an indented code block is not blanked, so a format in it fails | S3 | owner | — | #524 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
