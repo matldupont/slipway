@@ -16,9 +16,12 @@ import { run, SRC } from './lib/lk1-lockfile.mjs';
 const ID2 = 'ci/checks/meta/id2-open-prs.mjs';
 const header = (path) => `diff --git a/${path} b/${path}\nindex 1111111..2222222 100644\n--- a/${path}\n+++ b/${path}\n`;
 const adds = (path, ...lines) => `${header(path)}@@ -1,0 +2,${lines.length} @@\n${lines.map((l) => `+${l}`).join('\n')}\n`;
+// A folder the collector finished: `complete` is added unless the files name `'-complete'` (left out) or are a push's.
 const folder = (files) => {
   const dir = mkdtempSync(join(tmpdir(), 'id2-'));
-  for (const [p, body] of Object.entries(files)) {
+  const all = '-complete' in files || 'not-a-pull-request' in files ? files : { complete: '', ...files };
+  for (const [p, body] of Object.entries(all)) {
+    if (p === '-complete') continue;
     mkdirSync(dirname(join(dir, p)), { recursive: true });
     if (body !== null) writeFileSync(join(dir, p), body);
   }
@@ -136,6 +139,7 @@ test('a removed line that reads like a file header is content, and a heading aft
 test('a diff that cannot be read cleanly, or a folder that is not whole, is BROKEN', () => {
   const ok = adds('decisions.md', '## PD-7 — a');
   const cases = [
+    [{ '-complete': '', 'this.diff': ok, 'open/.keep': null }, /complete is missing/],
     [{ 'open/.keep': null }, /this\.diff is missing/],
     [{ 'this.diff': ok }, /open\/ is missing/],
     [{ 'this.diff': ok, 'open/x.diff': ok }, /not a <number>\.diff file/],
@@ -247,6 +251,10 @@ test('the collector is BROKEN, never an empty folder, when the list or a fetch f
     const fetched = collect(r, [`99 ${r.base}`], ['o/r', '11', r.base, r.mine]);
     assert.equal(fetched.status, 2);
     assert.match(fetched.stdout, /a pull request's diff could not be read/);
+    // Whatever a shell does with that exit code, the folder it left reads as BROKEN, never as no clash.
+    const after = run(ID2, fetched.out);
+    assert.equal(after.status, 2);
+    assert.match(after.json.broken, /complete is missing/);
     const odd = collect(r, ['12 not-a-sha'], ['o/r', '11', r.base, r.mine]);
     assert.equal(odd.status, 2);
     const push = collect(r, r.list, ['o/r', '', '', '']);

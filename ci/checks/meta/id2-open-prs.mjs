@@ -11,6 +11,7 @@
 //
 //   <dir>/this.diff        this pull request's diff, `git diff` of decisions.md and the feature folders
 //   <dir>/open/<n>.diff    each other open pull request's diff, the same paths; <n> is digits only
+//   <dir>/complete         written last, only when the collector read every pull request: BROKEN without it
 //   <dir>/not-a-pull-request   in place of both: a push, with no pull request to compare (said, and green)
 //
 // What counts as adding an id. An added line (`+`) of decisions.md that is a decision heading (`D-<n>`, `PD-<n>`), or of
@@ -122,6 +123,8 @@ if (typeof dir !== 'string' || dir === '') {
     scanned = 1;
     claim = 'not a pull request, so no open pull request was compared';
   }
+} else if (!isFile(join(dir, 'complete'))) {
+  broken = 'complete is missing, so the collector did not finish and the folder may hold only part of the open pull requests';
 } else if (!isFile(join(dir, 'this.diff'))) {
   broken = 'this.diff is missing or not a regular file, so the ids this pull request adds are unknown';
 } else if (lstatSync(join(dir, 'open'), { throwIfNoEntry: false })?.isDirectory() !== true) {

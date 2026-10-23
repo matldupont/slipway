@@ -119,6 +119,11 @@ test('release.mjs imports nothing but node: built-ins, so the identity job runs 
 // W1 counts either event, any branch, and the left side of `||`, and reads no step order and no `if:`. So this
 // still requires both triggers with the push on main, N1 before `pnpm meta`, `pnpm meta` alone on its line, and
 // a meta job nothing switches off.
+//
+// ID2 (#478) is the meta job's first step, before pnpm meta runs code the pull request can change, and in the meta job
+// because that is the check every project's branch protection requires. N1 and pnpm meta run `if: ${{ !cancelled() }}`,
+// so a red or BROKEN ID2 never stops them reporting and the job stays red: never `always()`, never `continue-on-error`.
+// Only the meta job reads pull requests, and only to read them.
 function ciProblems(text) {
   const problems = [];
   const on = /^on:\n((?:(?: .*)?\n)+)/m.exec(text)?.[1] ?? '';
@@ -130,13 +135,38 @@ function ciProblems(text) {
   // No `pnpm meta` step at all is W1's finding, not one of these.
   const gate = at(/^ {6,8}(?:- )?run: pnpm meta(\s|$)/);
   const n1 = at(/^ {8}run: node ci\/checks\/meta\/n1-node-modules\.mjs \.\s*$/);
+  const collect = at(/^ {10}node ci\/checks\/lib\/open-pr-ids\.mjs "\$RUNNER_TEMP\/id2" "\$REPO" "\$PR" "\$BASE_SHA" "\$HEAD_SHA"\s*$/);
+  const id2 = at(/^ {10}node ci\/checks\/meta\/id2-open-prs\.mjs "\$RUNNER_TEMP\/id2"\s*$/);
   if (gate >= 0 && !/run: pnpm meta\s*$/.test(lines[gate])) problems.push('ci.yml\'s meta job runs pnpm meta with something after it');
   if (n1 < 0 || (gate >= 0 && n1 > gate)) problems.push('ci.yml\'s meta job does not run N1 before pnpm meta');
+  if (collect < 0 || id2 < 0 || id2 < collect || (n1 >= 0 && id2 > n1) || (gate >= 0 && id2 > gate)) problems.push('ci.yml\'s meta job does not run the collector and ID2 first, before N1 and pnpm meta');
   if (/^ {4}(if|continue-on-error)\s*:/m.test(meta)) problems.push('ci.yml\'s meta job is conditional');
+  if (/^\s+continue-on-error\s*:/m.test(meta)) problems.push('ci.yml\'s meta job has a step that may fail and pass');
+  // Each step, from its `- ` line to the next: the ID2 step runs always and alone; N1 and pnpm meta run unless cancelled.
+  const steps = [];
+  for (const l of lines) {
+    if (/^ {6}- /.test(l)) steps.push([l]);
+    else if (steps.length && /^ {8}/.test(l)) steps.at(-1).push(l);
+  }
+  for (const step of steps) {
+    const conds = step.map((l) => /^ {6,8}(?:- )?if\s*:\s*(.*)$/.exec(l)?.[1]).filter((c) => c !== undefined);
+    const is = (re) => step.some((l) => re.test(l));
+    const later = is(/run: node ci\/checks\/meta\/n1-node-modules\.mjs/) || is(/run: pnpm meta/);
+    if (later && !(conds.length === 1 && conds[0].trim() === '${{ !cancelled() }}')) problems.push('ci.yml\'s meta job does not run N1 and pnpm meta exactly when the run is not cancelled');
+    if (!later && conds.length) problems.push('ci.yml\'s meta job has a conditional step');
+  }
+  const permissionsOf = (block) => /^( *)permissions:(.*)\n((?:\1 {2}.*\n)*)/m.exec(block);
+  const own = permissionsOf(meta);
+  if (!own || own[2].trim() !== '' || own[3].replace(/\s+/g, ' ').trim() !== 'contents: read pull-requests: read') problems.push('ci.yml\'s meta job does not hold exactly contents: read and pull-requests: read');
+  const top = text.slice(0, text.indexOf('\njobs:'));
+  if (/pull-requests|read-all|write-all|: *write/.test(permissionsOf(top)?.[0] ?? '')) problems.push('ci.yml grants a pull-request or wider scope to every job');
+  for (const [, id, body] of text.matchAll(/^ {2}([\w-]+):\n((?:(?: {3}.*)?\n)+)/gm)) {
+    if (id !== 'meta' && /pull-requests|read-all|write-all|: *write/.test(permissionsOf(body)?.[0] ?? '')) problems.push(`ci.yml's ${id} job holds a pull-request or wider scope`);
+  }
   return problems;
 }
 
-test('ci.yml keeps what W1 does not read: both triggers, main, N1 before pnpm meta, nothing after it, no condition', () => {
+test('ci.yml keeps what W1 does not read: both triggers, main, ID2 first, N1 before pnpm meta, nothing after it, only !cancelled()', () => {
   const yml = readFileSync(join(SRC, '.github', 'workflows', 'ci.yml'), 'utf8');
   assert.deepEqual(ciProblems(yml), []);
   const broken = (from, to, expected) => {
@@ -144,47 +174,31 @@ test('ci.yml keeps what W1 does not read: both triggers, main, N1 before pnpm me
     const found = ciProblems(yml.replace(from, to));
     assert.ok(found.some((p) => expected.test(p)), `${JSON.stringify(to)} went unnoticed: ${JSON.stringify(found)}`);
   };
-  broken('      - run: pnpm meta\n', '      - run: pnpm meta || true\n', /with something after it/);
-  broken('      - run: pnpm meta\n', '      - name: gate\n        run: pnpm meta || true\n', /with something after it/);
-  broken('        run: node ci/checks/meta/n1-node-modules.mjs .\n      - run: pnpm meta\n', '        run: echo skipped\n      - run: pnpm meta\n', /does not run N1 before/);
-  broken('        run: node ci/checks/meta/n1-node-modules.mjs .\n      - run: pnpm meta\n', '        run: echo skipped\n', /does not run N1 before/);
+  const META = '        run: pnpm meta\n';
+  const N1 = '        run: node ci/checks/meta/n1-node-modules.mjs .\n';
+  const ID2 = '          node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2"\n';
+  const ID2_STEP = yml.slice(yml.indexOf('      - name: No open pull request adds the same id\n'), yml.indexOf(ID2) + ID2.length);
+  broken(META, '        run: pnpm meta || true\n', /with something after it/);
+  broken(N1, '        run: echo skipped\n', /does not run N1 before/);
+  broken(ID2, '          node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2" || true\n', /collector and ID2 first/);
+  broken('          node ci/checks/lib/open-pr-ids.mjs', '          echo ci/checks/lib/open-pr-ids.mjs', /collector and ID2 first/);
+  broken(ID2_STEP, '', /collector and ID2 first/);
+  // ID2's step moved after pnpm meta, where code the pull request can change has run first.
+  const moved = yml.replace(ID2_STEP, '').replace(META, META + ID2_STEP);
+  assert.ok(ciProblems(moved).some((p) => /collector and ID2 first/.test(p)), `ID2 after pnpm meta went unnoticed: ${JSON.stringify(ciProblems(moved))}`);
+  broken('        if: ${{ !cancelled() }}\n        run: node ci/checks/meta/n1', '        if: always()\n        run: node ci/checks/meta/n1', /exactly when the run is not cancelled/);
+  broken('      - if: ${{ !cancelled() }}\n        run: pnpm meta\n', '      - run: pnpm meta\n', /exactly when the run is not cancelled/);
+  broken('      - if: ${{ !cancelled() }}\n        run: pnpm meta\n', '      - if: ${{ !cancelled() }}\n        if: success()\n        run: pnpm meta\n', /exactly when the run is not cancelled/);
+  broken('      - name: No open pull request adds the same id\n', '      - name: No open pull request adds the same id\n        if: false\n', /has a conditional step/);
+  broken('      - name: No open pull request adds the same id\n', '      - name: No open pull request adds the same id\n        continue-on-error: true\n', /may fail and pass/);
+  broken('    name: meta\n', '    name: meta\n    if: false\n', /meta job is conditional/);
+  broken('      pull-requests: read\n', '', /exactly contents: read and pull-requests: read/);
+  broken('      pull-requests: read\n', '      pull-requests: write\n', /exactly contents: read and pull-requests: read/);
+  broken('permissions:\n  contents: read\n', 'permissions:\n  contents: read\n  pull-requests: read\n', /to every job/);
+  broken('permissions:\n  contents: read\n', 'permissions: read-all\n', /to every job/);
+  broken('    name: verify\n', '    name: verify\n    permissions:\n      pull-requests: read\n', /verify job holds/);
   broken('  pull_request:\n', '', /does not run on pull requests/);
   broken('    branches: [main]', '    branches: [release]', /does not run on a push to main/);
-  broken('    name: meta\n', '    name: meta\n    if: false\n', /meta job is conditional/);
-});
-
-// ID2's job in ci.yml (#478): it exists, runs the collector and ID2 on every pull request and push, is not fail-open, and
-// stands alone: no job needs it and it needs none, so an open pull request ID2 cannot read holds ID2 only, never the
-// meta job. Only it holds pull-requests: read.
-function idsProblems(text) {
-  const problems = [];
-  const job = (id) => new RegExp(`^ {2}${id}:\\n((?:(?: {3}.*)?\\n)+)`, 'm').exec(text)?.[1] ?? null;
-  const ids = job('ids');
-  if (ids === null) return ['ci.yml has no ids job'];
-  const lines = ids.split('\n').filter((l) => !/^\s*#/.test(l));
-  if (!lines.some((l) => /^ {10}node ci\/checks\/lib\/open-pr-ids\.mjs "\$RUNNER_TEMP\/id2" "\$REPO" "\$PR" "\$BASE_SHA" "\$HEAD_SHA"\s*$/.test(l))) problems.push('ci.yml\'s ids job does not run the collector');
-  if (!lines.some((l) => /^ {10}node ci\/checks\/meta\/id2-open-prs\.mjs "\$RUNNER_TEMP\/id2"\s*$/.test(l))) problems.push('ci.yml\'s ids job does not run ID2');
-  if (lines.some((l) => /^\s+(if|continue-on-error)\s*:/.test(l))) problems.push('ci.yml\'s ids job is conditional or fail-open');
-  if (/^\s+needs\s*:.*\bids\b/m.test(text) || lines.some((l) => /^ {4}needs\s*:/.test(l))) problems.push('ci.yml\'s ids job is tied to another job by needs:');
-  if (/pull-requests\s*:/.test(job('meta') ?? '')) problems.push('ci.yml\'s meta job holds pull-requests: read');
-  return problems;
-}
-
-test('ci.yml runs ID2 in its own job, not fail-open, which no job needs; only it may read pull requests', () => {
-  const yml = readFileSync(join(SRC, '.github', 'workflows', 'ci.yml'), 'utf8');
-  assert.deepEqual(idsProblems(yml), []);
-  const broken = (from, to, expected) => {
-    assert.ok(yml.includes(from), `ci.yml no longer holds ${JSON.stringify(from)}`);
-    const found = idsProblems(yml.replace(from, to));
-    assert.ok(found.some((p) => expected.test(p)), `${JSON.stringify(to)} went unnoticed: ${JSON.stringify(found)}`);
-  };
-  broken('  ids:\n', '  other:\n', /has no ids job/);
-  broken('          node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2"\n', '          node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2" || true\n', /does not run ID2/);
-  broken('          node ci/checks/lib/open-pr-ids.mjs', '          echo node ci/checks/lib/open-pr-ids.mjs', /does not run the collector/);
-  broken('    name: ids\n', '    name: ids\n    continue-on-error: true\n', /conditional or fail-open/);
-  broken('    name: ids\n', '    name: ids\n    needs: meta\n', /tied to another job/);
-  broken('    name: verify\n', '    name: verify\n    needs: [ids]\n', /tied to another job/);
-  broken('    name: meta\n', '    name: meta\n    permissions:\n      pull-requests: read\n', /meta job holds pull-requests/);
 });
 
 // The case that moved to W1, on a copy of slipway's own workflows: with `pnpm meta` gone from ci.yml and
@@ -200,8 +214,8 @@ test('W1 fails a copy of the workflows whose ci.yml no longer runs pnpm meta, wh
   assert.match(readFileSync(join(dir, WORKFLOW), 'utf8'), /^ +- run: pnpm meta$/m);
   const whole = w1();
   assert.doesNotMatch(whole.stdout, /check:w1-declared-vs-invoked\.mjs/, whole.stdout);
-  assert.ok(yml.includes('      - run: pnpm meta\n'));
-  writeFileSync(ci, yml.replace('      - run: pnpm meta\n', ''));
+  assert.ok(yml.includes('      - if: ${{ !cancelled() }}\n        run: pnpm meta\n'));
+  writeFileSync(ci, yml.replace('      - if: ${{ !cancelled() }}\n        run: pnpm meta\n', ''));
   const cut = w1();
   assert.equal(cut.status, 1, cut.stdout + cut.stderr);
   assert.match(cut.stdout, /check:w1-declared-vs-invoked\.mjs: the check exists, but no CI workflow runs it on a pull request or a push to a branch/);

@@ -14,7 +14,8 @@
 // too, diffed against its own base, so a pull request stacked on another adds only what it adds, and the refs are
 // deleted after. Nothing is checked out, run or sourced from another pull request; git runs with its external diff and
 // text conversion off, and `--text`, so a file git would call binary still shows its lines. A failed list, fetch or diff
-// exits 2 with ID2's BROKEN line, never an empty folder that would read as no clash.
+// exits 2 with ID2's BROKEN line, and `complete` is written last, only when every diff was: ID2 is BROKEN without it, so
+// a folder left part-way never reads as no clash, whatever the shell does with the exit code.
 //
 // On a push (GITHUB_EVENT_NAME is `push`) there is no pull request: it writes `not-a-pull-request`, and ID2 says it
 // compared nothing.
@@ -33,7 +34,8 @@ const PATHS = ['decisions.md', ':(glob)docs/features/*.md', ':(glob)dev/features
 
 // The first line of a failed command's error that says what failed: git's `hint:` lines (a deprecation, a suggestion)
 // are skipped, so they never stand in for the `fatal:` after them.
-const reason = (e) => String(e.stderr || e.message).split('\n').find((l) => l.trim() !== '' && !l.startsWith('hint:')) ?? 'no message';
+const reason = (e) =>
+  [e.stderr, e.message].flatMap((t) => String(t ?? '').split('\n')).find((l) => l.trim() !== '' && !l.startsWith('hint:')) ?? 'no message';
 
 function fail(why) {
   console.log(`ID2: BROKEN — ${escapeControl(why)}`);
@@ -114,4 +116,5 @@ try {
 }
 // After the refs are gone: process.exit would skip a finally.
 if (failed) fail(`a pull request's diff could not be read (${reason(failed)})`);
+writeFileSync(join(out, 'complete'), '');
 console.log(`ID2: read ${others.length} ${next ? '' : 'other '}open pull request(s) of ${repo}`);
