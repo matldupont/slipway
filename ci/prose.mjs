@@ -80,7 +80,7 @@ export function blank(raw) {
   // A backslash before a backtick makes it text (CommonMark), so that one opens no span.
   return out
     .join('\n')
-    .replace(/(?<![`\\])(`+)(?!`)((?:(?!\n[ \t]*\n|\n {0,3}(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|>))[\s\S])+?)(?<!`)\1(?!`)/g, (span) => span.replace(/[^\n]/g, 'x'));
+    .replace(/(?<!`)(?<!(?<!\\)(?:\\\\)*\\)(`+)(?!`)((?:(?!\n[ \t]*\n|\n {0,3}(?:#{1,6}\s|[-*+]\s|1[.)]\s|>))[\s\S])+?)(?<!`)\1(?!`)/g, (span) => span.replace(/[^\n]/g, 'x'));
 }
 
 function haveVale() {
@@ -95,6 +95,8 @@ const isPlainFile = (path) => {
   return st?.isFile() === true;
 };
 
+// A line ends at LF or CRLF, as git counts lines; a lone CR (which Vale and GitHub read as a line end) becomes a space, so
+// Vale's line numbers are git's.
 // Runs Vale over `files` (relative to `base`) twice, both times as plain text: each file is copied under a `.txt` name, so
 // Vale parses no markdown and honours no comment directive (`<!-- vale off -->`) or character reference. Every rule but
 // Placeholder reads the file as written. Placeholder reads a copy with the front matter, fenced blocks and code spans
@@ -113,13 +115,13 @@ function vale(base, files) {
     try {
       json = JSON.parse(r.stdout);
     } catch {
-      broken(`vale printed no JSON (exit ${r.status}) — run \`vale --config .vale.ini --output=JSON\` on a file to see why`); // never its message: it quotes the text
+      broken(`vale printed no JSON (exit ${r.status}) — run \`vale --config .vale.ini --no-global --output=JSON\` on a file to see why`); // never its message: it quotes the text
     }
     return Object.entries(json).flatMap(([file, alerts]) =>
       alerts.map((a) => ({ file: file.replace(/\.txt$/, ''), line: a.Line, rule: a.Check, severity: a.Severity, message: a.Message, match: a.Match })),
     );
   };
-  return [...run('raw', '.Name != "Slipway.Placeholder"', (t) => t), ...run('blanked', '.Name == "Slipway.Placeholder"', blank)];
+  return [...run('raw', '.Name != "Slipway.Placeholder"', (t) => t.replace(/\r\n/g, '\n').replace(/\r/g, ' ')), ...run('blanked', '.Name == "Slipway.Placeholder"', blank)];
 }
 
 const git = (args) => spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });

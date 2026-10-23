@@ -111,6 +111,7 @@ test('Chatbot and Recap read the file as plain text: no comment, entity, code sp
     put('crlf.md', 'Open ` here.\r\n\r\nCertainly! Done.\r\n\r\nClose ` here.\r\n');
     put('wrapped.md', 'Open.\n\nWe hope this is clear. I hope\nthis helps a lot.\n');
     put('wrapped-hedge.md', 'Open.\n\nIt may\npossibly work.\n');
+    put('lone-cr.md', 'Open.\r\rCertainly! Done.\n');
     put('recap-spaces.md', 'Open.\n  \nIn summary, done.\n');
     const seen = Object.fromEntries(alertsIn(dir).alerts.map((a) => [a.file, `${a.rule}@${a.line}`]));
     assert.deepEqual(seen, {
@@ -124,6 +125,7 @@ test('Chatbot and Recap read the file as plain text: no comment, entity, code sp
       'wrapped.md': 'Slipway.Chatbot@3',
       'wrapped-hedge.md': 'Slipway.Hedge@3',
       'recap-spaces.md': 'Slipway.Recap@3',
+      'lone-cr.md': 'Slipway.Chatbot@1',
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -137,10 +139,12 @@ test('Placeholder reads a blanked copy: a format in a code span or a fence passe
     put('span.md', 'Open.\n\nThe format is `<sha>` and `TBD`.\n');
     put('fence.md', 'Open.\n\n```\n<date> TBD\n```\n');
     put('prose.md', 'Open.\n\nWrite <date> here.\n');
+    put('escaped-backslash.md', 'Open \\\\`a` <date> TBD `b` end.\n');
+    put('ordered-two.md', 'Open `a\n2. x` <date> TBD `c` end.\n');
     put('off.md', 'Open.\n\n<!-- vale Slipway.Placeholder = NO -->\nWrite <date> here.\n');
     put('entity.md', 'Open.\n\n<!-- &#118;ale off -->\nWrite <date> here.\n');
     const seen = Object.fromEntries(alertsIn(dir).alerts.map((a) => [a.file, `${a.rule}@${a.line}`]));
-    assert.deepEqual(seen, { 'prose.md': 'Slipway.Placeholder@3', 'off.md': 'Slipway.Placeholder@4', 'entity.md': 'Slipway.Placeholder@4' });
+    assert.deepEqual(seen, { 'prose.md': 'Slipway.Placeholder@3', 'escaped-backslash.md': 'Slipway.Placeholder@1', 'ordered-two.md': 'Slipway.Placeholder@2', 'off.md': 'Slipway.Placeholder@4', 'entity.md': 'Slipway.Placeholder@4' });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
