@@ -1,0 +1,7 @@
+diff --git a/dev/features/cache.md b/dev/features/cache.md
+new file mode 100644
+index 0000000..5555555
+--- /dev/null
++++ b/dev/features/cache.md
+@@ -0,0 +1 @@
++# F-12 — Cache

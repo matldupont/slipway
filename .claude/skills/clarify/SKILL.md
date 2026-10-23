@@ -38,7 +38,7 @@ For each question, in the order they block things (frame before PRD before evide
    "what do you want?" — the user's time is the scarce thing.
 3. Take the answer and sort it:
    - **Answered** → write it into the text, delete the marker. If it rules something out for good,
-     add a line to `decisions.md` (an ID, why, consequences), with an `Amends: F-<n>` line when it changes a
+     add a line to `decisions.md` (an ID, the next free one: `process/intake.md` → Next free number; why, consequences), with an `Amends: F-<n>` line when it changes a
      feature and a `Reopens when:` or `Closes when:` line when something should bring it back or end it. A heading clause no event fits is
      removed from the heading, and the condition kept as body prose beneath, where the sync note counts it. A re-read
      that leaves the decision open writes `open — reopened YYYY-MM-DD` as the heading's status and

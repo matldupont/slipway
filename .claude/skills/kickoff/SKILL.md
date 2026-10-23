@@ -156,7 +156,7 @@ anyway with a decision in `decisions.md` that says why.
    - <slice>: <decision that would have to be invented> → recorded as an open question in the PRD (OD-n) or a decision in decisions.md
    ```
 
-   Every concern becomes an OD- in the PRD (with a working assumption) or a PD- entry in decisions.md. FAIL
+   Every concern becomes an OD- in the PRD (with a working assumption) or a PD- entry in decisions.md, numbered by `process/intake.md` → Next free number. FAIL
    means a BLOCKING question is open; say who must answer it.
 
 ## Hand-off

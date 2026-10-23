@@ -1,0 +1,9 @@
+{
+  "_note": "PD-7 is added here and as PD-007 by #41 (ids compare by number); F-12 is added here and by #52 in the other feature folder. #63 adds PD-8 and only rewords PD-7's heading (a line removed and added), which adds no id.",
+  "exit": 1,
+  "findings": ["open-pr/41/PD-7", "open-pr/52/F-12"],
+  "details": {
+    "open-pr/41/PD-7": "#41 also adds PD-7",
+    "open-pr/52/F-12": "#52 also adds F-12"
+  }
+}

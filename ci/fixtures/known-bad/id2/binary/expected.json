@@ -1,0 +1,5 @@
+{
+  "_note": "#12's decisions.md diff is shown as binary, so the headings it adds cannot be read: BROKEN, never a pass. The collector diffs with --text, so this arises only if that is lost.",
+  "exit": 2,
+  "broken": "the diff of #12 holds a file git shows as binary"
+}

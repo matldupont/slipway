@@ -1380,3 +1380,18 @@ test('/sync-slipway opens its pull request only with both gates green, and a dec
   assert.ok(diffs.includes('Record each for the PR\'s `## Verification` under **Decided by sync**, with a one-line reason'), 'every settled change, a decline among them, is recorded for the owner');
   assert.ok(diffs.includes('Decline, and say in the reason what slipway\'s new text says, so the owner can take it at their next edit of that file.'), 'a declined change says what slipway\'s text says');
 });
+
+// process/intake.md defines the next free number once; each skill that takes a decision or feature id cites it.
+const RULE = 'Next free number';
+test(`process/intake.md → ${RULE} names main, every open pull request, the no-network ask and ID2`, () => {
+  const intake = read('process/intake.md');
+  const at = intake.indexOf(`## ${RULE}\n`);
+  assert.ok(at >= 0, `process/intake.md has no ## ${RULE}`);
+  const body = intake.slice(at, intake.indexOf('\n## ', at + 3));
+  for (const must of [/one past the highest/, /`main`/, /every open pull request/, /open-pr-ids\.mjs "\$d" \{checkout\} --next \{base\}/, /id2-open-prs\.mjs "\$d" --next/, /never reach the session/, /no network/i, /ask the owner/, /ID2/, /both go red/]) assert.match(body, must);
+});
+for (const s of ['clarify', 'kickoff', 'close-milestone', 'log-feature', 'log-bug']) {
+  test(`${s} cites process/intake.md → ${RULE}`, () => {
+    assert.match(read(`.claude/skills/${s}/SKILL.md`), new RegExp(`\`process/intake\\.md\` → ${RULE}`));
+  });
+}

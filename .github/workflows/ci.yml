@@ -20,6 +20,11 @@ jobs:
   meta:
     name: meta
     runs-on: ubuntu-latest
+    # pull-requests: read lets ID2 list the open pull requests; a job's permissions replace the workflow's, so
+    # contents: read is restated.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -28,12 +33,29 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+      # ID2: no id this pull request adds is added by another open one (#478). First, before pnpm meta runs code the
+      # pull request can change, which could write ID2's folder or its PATH. In the meta job, the check every project's
+      # branch protection requires, so a red ID2 blocks the merge; the steps after it run unless the run is cancelled,
+      # so a red or BROKEN ID2 never stops N1 and pnpm meta from reporting, and the job stays red. Other pull requests
+      # are fetched as refs and diffed, never checked out; on a push it says it compared nothing.
+      - name: No open pull request adds the same id
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node ci/checks/lib/open-pr-ids.mjs "$RUNNER_TEMP/id2" "$REPO" "$PR" "$BASE_SHA" "$HEAD_SHA"
+          node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2"
       # Before pnpm runs anything: `pnpm run` and the install's lifecycle scripts put the repository's
       # node_modules/.bin first on PATH, so N1 runs here, with the runner's node, before a tracked program
       # there could stand in for node or a gate tool (#133).
       - name: Nothing under node_modules/ is tracked
+        if: ${{ !cancelled() }}
         run: node ci/checks/meta/n1-node-modules.mjs .
-      - run: pnpm meta
+      - if: ${{ !cancelled() }}
+        run: pnpm meta
 
   verify:
     name: verify

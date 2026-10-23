@@ -183,7 +183,7 @@ extend it (a Changes line, an acceptance line) instead of starting another. Any 
   `New:`, what only its code has), the short answers plain. What the trace did not read goes above `Reuses:`,
   an Open question the review asks, as is a `why` the code does not show. D-040's block leaves Fit as it is.
 - **C also adds the PRD entry** (in slipway's own settings the F-ID goes in the doc's title, no PRD edit, no
-  schedule question: `process/intake.md` → Settings in slipway itself): `### F-{nn} — {name}` in §5 (the next free number; the template's whole
+  schedule question: `process/intake.md` → Settings in slipway itself): `### F-{nn} — {name}` in §5 (the next free number, `process/intake.md` → Next free number; the template's whole
   placeholder block is replaced), a one-paragraph what and the doc's path, and the `Version:` bump and Change
   log line (`process/intake.md` → PRD entry). Then ask: "Is fixing this part of what you are building now ({active milestone's summary}), or a
   later milestone?"; with no active milestone, name the one being shaped next instead. Add a Contents item

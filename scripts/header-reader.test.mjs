@@ -48,6 +48,7 @@ const OWN_READER = /---|-\{3/;
 const NOT_A_HEADER = {
   'ci/status.mjs': [/'\|---\|---\|---\|---\|---\|'/], // a markdown table's rule row, written out
   'ci/checks/lib/workflow-yaml.mjs': [/^\s*if \(\/\^\[ \\t\]\+---/], // a YAML document marker, in a workflow
+  'ci/checks/meta/id2-open-prs.mjs': [/raw\.startsWith\('--- '\)\)\) \{$/], // a unified diff's `--- a/<path>` file header
   'ci/checks/lib/vendor/js-yaml.mjs': [/./], // the vendored YAML parser: YAML's own document markers
 };
 const ownReaders = (p, js) => js.split('\n').flatMap((line, i) => {

@@ -1,0 +1,7 @@
+diff --git a/decisions.md b/decisions.md
+index 1111111..4444444 100644
+--- a/decisions.md
++++ b/decisions.md
+@@ -40,0 +41,2 @@
++### PD-007 — Pick a cache
++

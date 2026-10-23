@@ -1,0 +1,6 @@
+{
+  "_note": "#77's heading carries text after the id; the finding names #77 and D-3, and scripts/id2.test.mjs checks the rest of the heading is never printed.",
+  "exit": 1,
+  "findings": ["open-pr/77/D-3"],
+  "details": { "open-pr/77/D-3": "#77 also adds D-3" }
+}

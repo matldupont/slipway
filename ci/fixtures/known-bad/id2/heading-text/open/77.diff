@@ -1,0 +1,6 @@
+diff --git a/decisions.md b/decisions.md
+index 1111111..7777777 100644
+--- a/decisions.md
++++ b/decisions.md
+@@ -40,0 +41 @@
++## D-3 — SECRET-WORDS-FROM-ANOTHER-PR
