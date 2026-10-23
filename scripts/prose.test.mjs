@@ -108,6 +108,9 @@ test('blank() cannot be turned off or tricked by markup GitHub shows as text', (
     put('escaped.md', 'Open.\n\n\\`Certainly! Done.\\`\n');
     put('crlf.md', 'Open ` here.\r\n\r\nCertainly! Done.\r\n\r\nClose ` here.\r\n');
     put('lone-cr.md', 'Open.\r\rCertainly! Done.\n');
+    put('wrapped.md', 'Open.\n\nWe hope this is clear. I hope\nthis helps a lot.\n');
+    put('wrapped-hedge.md', 'Open.\n\nIt may\npossibly work.\n');
+    put('heading-span.md', 'Open `a.\n## Certainly! Done.\nClose` here.\n');
     put('recap-spaces.md', 'Open.\n  \nIn summary, done.\n');
     const seen = Object.fromEntries(alertsIn(dir).alerts.map((a) => [a.file, `${a.rule}@${a.line}`]));
     assert.deepEqual(seen, {
@@ -118,6 +121,9 @@ test('blank() cannot be turned off or tricked by markup GitHub shows as text', (
       'crlf.md': 'Slipway.Chatbot@3',
       'lone-cr.md': 'Slipway.Chatbot@1',
       'recap-spaces.md': 'Slipway.Recap@3',
+      'wrapped.md': 'Slipway.Chatbot@3',
+      'wrapped-hedge.md': 'Slipway.Hedge@3',
+      'heading-span.md': 'Slipway.Chatbot@2',
     });
   } finally {
     rmSync(dir, { recursive: true, force: true });

@@ -4,4 +4,4 @@ level: error
 scope: raw
 nonword: true
 tokens:
-  - '(?<=\n[ \t]*\n|\A)(?:In summary|In conclusion|To summarize|To sum up|Overall,)'
+  - '(?<=\n[ \t]*\n|\A)(?:In\s+summary|In\s+conclusion|To\s+summarize|To\s+sum\s+up|Overall,)'

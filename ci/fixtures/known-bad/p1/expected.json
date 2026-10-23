@@ -18,6 +18,7 @@
     "gate-claude-local.md#gate-changes/missing",
     "gate-comment-mark.md#body/comment-mark-crosses-heading",
     "gate-gitattributes.md#gate-changes/missing",
+    "gate-vale-ini.md#gate-changes/missing",
     "gate-gitmodules.md#gate-changes/missing",
     "gate-glob-everything.md#gate-changes/unmentioned:ci/verify.mjs",
     "gate-glob-loosens.md#gate-changes/loosens-uncited:ci/fixtures/x.json",

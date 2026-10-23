@@ -5,12 +5,12 @@ scope: raw
 ignorecase: true
 nonword: true
 tokens:
-  - 'I hope this helps'
-  - 'Great question'
+  - 'I\s+hope\s+this\s+helps'
+  - 'Great\s+question'
   - 'Certainly!'
-  - 'As an AI'
-  - 'Let me know if'
-  - 'Happy to help'
-  - "I'd be happy to"
+  - 'As\s+an\s+AI'
+  - 'Let\s+me\s+know\s+if'
+  - 'Happy\s+to\s+help'
+  - "I'd\\s+be\\s+happy\\s+to"
   - 'Absolutely!'
-  - 'Of course!'
+  - 'Of\s+course!'

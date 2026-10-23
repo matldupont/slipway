@@ -3,7 +3,7 @@ message: "'%s' is a showy verb. Use 'is', 'has' or the plain verb."
 level: warning
 ignorecase: true
 tokens:
-  - serves as
+  - serves\s+as
   - boasts
   - showcases
   - delves

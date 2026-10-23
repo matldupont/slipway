@@ -51,6 +51,7 @@ jobs:
           mkdir "$RUNNER_TEMP/vale-bin"
           tar -xzf "$RUNNER_TEMP/vale.tar.gz" -C "$RUNNER_TEMP/vale-bin" vale
           echo "$RUNNER_TEMP/vale-bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/vale-bin/vale" --version | grep -qx "vale version ${VALE_VERSION}"
       - name: Check the PR body for chatbot phrasing
         if: ${{ github.event.repository.is_template }}
         run: node ci/prose.mjs --body "$RUNNER_TEMP/pr/body.md"

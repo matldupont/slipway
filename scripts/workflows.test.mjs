@@ -283,7 +283,7 @@ const stepsOf = (text) => {
   ]);
 };
 // The names of the steps (or jobs) that mention Vale and carry no is_template guard.
-const unguarded = (text, mention) => stepsOf(text).filter((s) => mention.test(s.text) && !String(s.node.entries.get('if')?.value ?? '').includes(GUARD)).map((s) => s.text.split('\n')[0]);
+const unguarded = (text, mention) => stepsOf(text).filter((s) => mention.test(s.text) && !new RegExp(`^(?:\\$\\{\\{\\s*${GUARD.replace(/\./g, '\\.')}\\s*\\}\\}|${GUARD.replace(/\./g, '\\.')})$`).test(String(s.node.entries.get('if')?.value ?? '').trim())).map((s) => s.text.split('\n')[0]);
 
 test('every Vale step in pr-body.yml, and the prose job in ci.yml, is under the is_template guard', () => {
   const body = readFileSync(join(SRC, '.github', 'workflows', 'pr-body.yml'), 'utf8');

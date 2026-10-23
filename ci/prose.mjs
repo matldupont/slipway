@@ -80,7 +80,7 @@ export function blank(raw) {
   return out
     .join('\n')
     .replace(/<!--\s*vale\b[\s\S]*?-->/gi, (c) => c.replace(/[^\n]/g, 'x'))
-    .replace(/(?<![`\\])(`+)(?!`)((?:(?!\n[ \t]*\n)[\s\S])+?)(?<!`)\1(?!`)/g, (span) => span.replace(/[^\n]/g, 'x'));
+    .replace(/(?<![`\\])(`+)(?!`)((?:(?!\n[ \t]*\n|\n {0,3}(?:#{1,6}\s|[-*+]\s|\d+[.)]\s|>))[\s\S])+?)(?<!`)\1(?!`)/g, (span) => span.replace(/[^\n]/g, 'x'));
 }
 
 function haveVale() {

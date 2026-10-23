@@ -98,6 +98,7 @@ jobs:
           mkdir "$RUNNER_TEMP/vale-bin"
           tar -xzf "$RUNNER_TEMP/vale.tar.gz" -C "$RUNNER_TEMP/vale-bin" vale
           echo "$RUNNER_TEMP/vale-bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/vale-bin/vale" --version | grep -qx "vale version ${VALE_VERSION}"
       # Before pnpm runs anything: `pnpm run` puts the repository's node_modules/.bin first on PATH, so N1 runs here, with the
       # runner's node, before a tracked program there could stand in for `vale` (#133).
       - name: Nothing under node_modules/ is tracked
