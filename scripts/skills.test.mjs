@@ -1388,7 +1388,7 @@ test(`process/intake.md → ${RULE} names main, every open pull request, the no-
   const at = intake.indexOf(`## ${RULE}\n`);
   assert.ok(at >= 0, `process/intake.md has no ## ${RULE}`);
   const body = intake.slice(at, intake.indexOf('\n## ', at + 3));
-  for (const must of [/one past the highest/, /`main`/, /every open pull request/, /gh pr list --state open/, /no network/i, /ask/, /ID2/, /both go red/]) assert.match(body, must);
+  for (const must of [/one past the highest/, /`main`/, /every open pull request/, /open-pr-ids\.mjs "\$d" \{checkout\} --next \{base\}/, /id2-open-prs\.mjs "\$d" --next/, /never reach the session/, /no network/i, /ask the owner/, /ID2/, /both go red/]) assert.match(body, must);
 });
 for (const s of ['clarify', 'kickoff', 'close-milestone', 'log-feature', 'log-bug']) {
   test(`${s} cites process/intake.md → ${RULE}`, () => {

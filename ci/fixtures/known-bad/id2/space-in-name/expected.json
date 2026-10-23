@@ -1,0 +1,6 @@
+{
+  "_note": "A feature doc whose name has a space: git ends its +++ line with a tab, which is not part of the name. Its F-12 still clashes with #52's.",
+  "exit": 1,
+  "findings": ["open-pr/52/F-12"],
+  "details": { "open-pr/52/F-12": "#52 also adds F-12" }
+}

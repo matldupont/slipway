@@ -38,9 +38,9 @@ jobs:
       # there could stand in for node or a gate tool (#133).
       - name: Nothing under node_modules/ is tracked
         run: node ci/checks/meta/n1-node-modules.mjs .
-      - run: pnpm meta
-      # ID2: no id this pull request adds is added by another open one (#478). Other pull requests are fetched as refs
-      # and diffed, never checked out; on a push it says it compared nothing.
+      # ID2: no id this pull request adds is added by another open one (#478). Before pnpm meta, as N1 is: code the
+      # pull request can change runs there, and could write ID2's folder or its PATH first. Other pull requests are
+      # fetched as refs and diffed, never checked out; on a push it says it compared nothing.
       - name: No open pull request adds the same id
         env:
           GH_TOKEN: ${{ github.token }}
@@ -51,6 +51,7 @@ jobs:
         run: |
           node ci/checks/lib/open-pr-ids.mjs "$RUNNER_TEMP/id2" "$REPO" "$PR" "$BASE_SHA" "$HEAD_SHA"
           node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2"
+      - run: pnpm meta
 
   verify:
     name: verify
