@@ -20,6 +20,11 @@ jobs:
   meta:
     name: meta
     runs-on: ubuntu-latest
+    # pull-requests: read lets ID2 list the open pull requests; a job's permissions replace the workflow's, so
+    # contents: read is restated.
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,6 +39,18 @@ jobs:
       - name: Nothing under node_modules/ is tracked
         run: node ci/checks/meta/n1-node-modules.mjs .
       - run: pnpm meta
+      # ID2: no id this pull request adds is added by another open one (#478). Other pull requests are fetched as refs
+      # and diffed, never checked out; on a push it says it compared nothing.
+      - name: No open pull request adds the same id
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node ci/checks/lib/open-pr-ids.mjs "$RUNNER_TEMP/id2" "$REPO" "$PR" "$BASE_SHA" "$HEAD_SHA"
+          node ci/checks/meta/id2-open-prs.mjs "$RUNNER_TEMP/id2"
 
   verify:
     name: verify

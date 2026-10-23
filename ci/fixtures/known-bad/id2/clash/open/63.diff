@@ -1,0 +1,9 @@
+diff --git a/decisions.md b/decisions.md
+index 1111111..6666666 100644
+--- a/decisions.md
++++ b/decisions.md
+@@ -10 +10 @@
+-## PD-7 — Pick a queue
++## PD-7 — Pick a queue, reworded
+@@ -40,0 +41 @@
++## PD-8 — Pick a log

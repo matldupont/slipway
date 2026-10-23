@@ -137,7 +137,7 @@ and say so. Hold any settings answers until the doc's first commit, then commit 
 feature, not the slice: later iterations extend the same doc. If that file exists, extend it instead (Edge
 cases). Fill every section:
 
-- Frontmatter `prd-ref:` the new F-ID, `status: draft`. Title `# F-{nn} — {name}`, and under it `Version: 0.1 ({date})`, the line a `/review-doc` review quotes (D-041).
+- Frontmatter `prd-ref:` the new F-ID, `status: draft`. Title `# F-{nn} — {name}`, and under it `Version: 0.1 ({date})`, the line a `/review-doc` review quotes (D-041). `{nn}` is the next free number (`process/intake.md` → Next free number).
 - **Problem:** the job story, the evidence, the PRD ids it serves, and the verdict with the alternatives table.
 - **Fit:** filled from Phase 3's search before anything new is proposed, never from memory (`Reuses:`, `Numbers:`, `New:`).
 - **Contract:** decisions, not questions: data shapes, states and transitions, error cases, the files,
@@ -155,7 +155,7 @@ cases). Fill every section:
 With a `Domain invariants doc` and checked math touched: an acceptance line says which rule holds across all
 legal inputs, and Verify names the property test that proves it.
 
-**PRD.** Where `PRD path` says `none` and why, skip this and Schedule (`process/intake.md` → Settings in slipway itself). Otherwise add `### F-{nn} — {name}` to §5 (next number after the highest real one, replacing `F-01 — <name>`): a
+**PRD.** Where `PRD path` says `none` and why, skip this and Schedule (`process/intake.md` → Settings in slipway itself). Otherwise add `### F-{nn} — {name}` to §5 (the next free number, `process/intake.md` → Next free number, replacing `F-01 — <name>`): a
 one-paragraph what, its acceptance, the doc's path. Version bump and Change log: `process/intake.md` → PRD entry.
 
 **Schedule.** A §5 feature that no live milestone cites is unscheduled, and the repository's checks fail on it.

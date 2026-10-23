@@ -23,7 +23,7 @@ A GitHub milestone exists only when `Issue milestone` is `active` and one was cr
 - Gate evidence exists → **close**.
 - Appetite over, gate not green → ask the user: cut the remaining slices and close with what
   shipped, kill, or extend. **Extending needs a `decisions.md` entry** (why, new last day, what
-  was cut to fit, and a `Closes when: M<n> is closed` line) and `extended: PD-<n>` in the milestone frontmatter. Recommend cutting; that
+  was cut to fit, and a `Closes when: M<n> is closed` line) and `extended: PD-<n>` in the milestone frontmatter, `<n>` the next free number (`process/intake.md` → Next free number). Recommend cutting; that
   is the default the appetite exists to enforce.
 - Kill criteria observed → **kill**. Not a failure: the milestone did its job.
 
