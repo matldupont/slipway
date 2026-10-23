@@ -171,7 +171,7 @@ for (const r of risks) {
   const holders = pastSkeleton.filter((m) => !starts.get(m)?.released.includes((r.id ?? '').toUpperCase()));
   if (holders.length && r.value && !r.tested) {
     unresolved.add((r.id ?? '').toUpperCase());
-    add(`${r.id}#risk/unresolved`, `value risk untested while ${holders.map((m) => m.fm.id).join(', ')} is underway: record its Result in FRAME's Risks table, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result`);
+    add(`${r.id}#risk/unresolved`, `value risk untested while ${holders.map((m) => m.fm.id).join(', ')} is underway: record its Result in FRAME's Risks table, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in the Result, or run its test in a \`kind: test\` milestone (the owner\'s call, D-047)`);
   }
   if (underway.length && r.value && !r.tested && !r.tracker) {
     add(`${r.id}#risk/untracked`, `value risk has no Result and no tracker while ${underway.map((m) => m.fm.id).join(', ')} ${underway.length > 1 ? 'are' : 'is'} underway: name the issue running its test in FRAME's Tracker column (#n), or in a \`Tracked: #n\` line in its docs/product/evidence/ file`);
