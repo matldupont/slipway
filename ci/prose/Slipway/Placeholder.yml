@@ -1,0 +1,11 @@
+extends: existence
+message: "Placeholder left in the text: '%s'. Write the real value, or move the format into a code span."
+level: error
+scope: raw
+nonword: true
+tokens:
+  # `<` + lower-case words + `>`, except an HTML tag a table cell or a details block really uses.
+  - '<(?!(?:br|hr|p|b|i|u|s|em|strong|code|pre|kbd|sub|sup|del|ins|mark|small|details|summary|ul|ol|li|dl|dt|dd|table|thead|tbody|tr|td|th|div|span|center|blockquote|h[1-6])>)[a-z][a-z -]*(?:\n[a-z -]*)?>'
+  - '\bTBD\b'
+  - '\bXXX\b'
+  - '(?i)lorem\s+ipsum'

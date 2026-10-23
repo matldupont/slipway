@@ -70,6 +70,7 @@ Each is a gate file here and in the PR check:
 | `**/node_modules/**` | `pnpm run` puts `node_modules/.bin` first on PATH, installed or not: a committed program there runs in place of the tool a gate command calls, node included. N1 fails when git tracks any file under it, or under a folder that only reads as node_modules (below); CI runs it with the runner's node before pnpm installs or runs anything, since inside `pnpm meta` a tracked `node` would run N1 itself |
 | `**/.npmrc` | pnpm reads its settings from it, among them the shell scripts run in and the options node starts with |
 | `**/.pnpmfile.cjs` | pnpm runs it as code on every install |
+| `**/.vale.ini` | Vale's config for the prose check: it turns a rule off or lowers what counts, and the check still passes, so a change is a gate change |
 | `**/pnpm-workspace.yaml` | holds pnpm's settings as well as the package list; the whole file, since any key may change how pnpm runs |
 | `**/.envrc` | direnv runs it as shell once trusted, and can set PATH or `NODE_OPTIONS` for every command |
 | `**/mise.toml`, `**/.mise.toml`, `**/mise.*.toml`, `**/.mise.*.toml`, `**/.config/mise.toml`, `**/.config/mise.*.toml`, `**/.config/mise/**`, `**/mise/*.toml`, `**/.mise/*.toml` | the names mise reads its settings from; once trusted, each can set PATH, environment variables and tasks |

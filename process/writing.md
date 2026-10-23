@@ -15,7 +15,7 @@ For text a person reads or edits: what an agent shows or posts (status, check me
 6. **Keep the owner's words.** Quote what the owner said in an issue or a conversation. Do not paraphrase it.
    Pair: `dev/features/owed-decisions.md` quotes "the owner's word, #440: anything a decision leaves owed must come up by itself". A paraphrase, "the owner wants owed decisions to be visible", loses the part that matters.
 7. **Length matches the need.** No recap endings, no throat-clearing, no epigrams.
-   Pair: `README.md` says "a rule exists only where something fires." The row in `SLIPWAY.md`'s status table says it with a count: "`check` | 12 | a check or harness rule fires on violation".
+   Pair: `SLIPWAY.md` says "a rule exists only where something fires." The row in `SLIPWAY.md`'s status table says it with a count: "`check` | 12 | a check or harness rule fires on violation".
 8. **Subjects and titles.** A commit subject, a PR title and an issue title are 72 characters or fewer, in plain words, saying what changed for the reader. Review rounds and ids go in the body.
    Pair: commit `3d74d36`, which touched `ci/checks/lib/ratchet.mjs`, has a 147-character subject starting "fix(checks): review round 2 — the id scan's comment says what it takes". It should be "fix(checks): say what the id scan takes (#430)".
 

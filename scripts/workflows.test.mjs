@@ -6,10 +6,12 @@
 // Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { readWorkflow } from '../ci/checks/lib/workflow-yaml.mjs';
 import { workflowCommands, workflowTrigger } from '../ci/checks/lib/workflows.mjs';
 
 const JOB = 'jobs:\n  a:\n    steps:\n      - run: pnpm test\n';
@@ -267,4 +269,36 @@ test('only a job\'s own uses: calls a workflow: not a step, a with: value, a run
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+// The prose check runs in slipway only (F-16 §8, D-046). pr-body.yml ships to projects and ci/prose.mjs does not, so a
+// step that installs Vale or runs the script without the `is_template` guard would fail every project's PR-body check.
+const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const GUARD = 'github.event.repository.is_template';
+const stepsOf = (text) => {
+  const { root } = readWorkflow(text);
+  return [...root.entries.get('jobs').entries.values()].flatMap((job) => [
+    { name: 'job', node: job, text: String(job.entries.get('name')?.value ?? '') },
+    ...(job.entries.get('steps')?.items ?? []).map((step) => ({ node: step, text: `${step.entries.get('name')?.value ?? ''}\n${step.entries.get('run')?.value ?? ''}` })),
+  ]);
+};
+// The names of the steps (or jobs) that mention Vale and carry no is_template guard.
+const unguarded = (text, mention) => stepsOf(text).filter((s) => mention.test(s.text) && !new RegExp(`^(?:\\$\\{\\{\\s*${GUARD.replace(/\./g, '\\.')}\\s*\\}\\}|${GUARD.replace(/\./g, '\\.')})$`).test(String(s.node.entries.get('if')?.value ?? '').trim())).map((s) => s.text.split('\n')[0]);
+
+test('every Vale step in pr-body.yml, and the prose job in ci.yml, is under the is_template guard', () => {
+  const body = readFileSync(join(SRC, '.github', 'workflows', 'pr-body.yml'), 'utf8');
+  const ci = readFileSync(join(SRC, '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.ok(stepsOf(body).filter((s) => /vale|prose\.mjs/i.test(s.text)).length >= 2, 'the install and the body step exist');
+  assert.deepEqual(unguarded(body, /vale|prose\.mjs/i), []);
+  assert.ok(stepsOf(ci).some((s) => s.name === 'job' && s.text === 'prose'), 'the prose job exists');
+  assert.deepEqual(unguarded(ci, /^prose$/), []);
+});
+
+test('the guard test fails when one guard is removed', () => {
+  const body = readFileSync(join(SRC, '.github', 'workflows', 'pr-body.yml'), 'utf8');
+  const lines = body.split('\n');
+  const at = lines.findIndex((l) => l.includes('name: Check the PR body for chatbot phrasing'));
+  assert.ok(at > 0 && lines[at + 1].includes(GUARD), 'the body step is guarded');
+  lines.splice(at + 1, 1);
+  assert.deepEqual(unguarded(lines.join('\n'), /vale|prose\.mjs/i), ['Check the PR body for chatbot phrasing']);
 });

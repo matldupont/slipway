@@ -1,6 +1,6 @@
 // The form of the Next line `pnpm status` prints (F-16 §2, process/writing.md), as a function S1 holds every fixture to and
 // scripts/steps.test.mjs holds clause by clause. With the quoted spans (`"…"`: a risk's assumption, a Contents item, project
-// text the rules cannot govern) removed: 2 to 4 sentences, the first of 14 words or fewer, none holding `;` or ` — `, "Step n",
+// text the rules cannot govern) removed: 2 to 4 sentences, the first of 14 words or fewer and ending in a period, none holding `;` or ` — `, "Step n",
 // a check id or a decision id, the last naming who, and the whole line 260 characters or fewer, the quoted spans included.
 // A sentence ends at `.`, `?` or `!` followed by white space or the end of the line.
 
@@ -20,6 +20,7 @@ export function nextFormBreaks(line) {
   const breaks = [];
   if (sentences.length < 2 || sentences.length > 4) breaks.push(`${sentences.length} sentences, not 2 to 4`);
   if (sentences[0] && sentences[0].split(/\s+/).length > 14) breaks.push('a first sentence over 14 words');
+  if (sentences[0] && !sentences[0].endsWith('.')) breaks.push('a first sentence that does not end with a period');
   if (text.includes(';')) breaks.push('a semicolon');
   if (text.includes(' — ')) breaks.push('a dash between clauses');
   if (/\bStep \d/.test(text)) breaks.push('a step number');

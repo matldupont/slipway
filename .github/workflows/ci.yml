@@ -93,3 +93,38 @@ jobs:
       - name: Project setup for tests
         run: if [ -f ci/before-verify.sh ]; then bash ci/before-verify.sh; fi
       - run: pnpm verify
+
+  # Vale is a binary, so the prose check is a job of its own: `meta` installs nothing (F-16 §8, D-004). Slipway only: a
+  # project's docs are not measured yet (D-046). The version and its sha256 are pinned here and in pr-body.yml;
+  # scripts/prose.test.mjs fails if the two differ.
+  prose:
+    name: prose
+    if: ${{ github.event.repository.is_template }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VALE_VERSION: 3.24.0
+      VALE_SHA256: 867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214
+      PROSE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the lines a change adds need the base commit
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Install Vale at the pinned version, sha256 checked
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/vale.tar.gz" "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          echo "${VALE_SHA256}  $RUNNER_TEMP/vale.tar.gz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/vale-bin"
+          tar -xzf "$RUNNER_TEMP/vale.tar.gz" -C "$RUNNER_TEMP/vale-bin" vale
+          echo "$RUNNER_TEMP/vale-bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/vale-bin/vale" --version | grep -qx "vale version ${VALE_VERSION}"
+      # Before pnpm runs anything: `pnpm run` puts the repository's node_modules/.bin first on PATH, so N1 runs here, with the
+      # runner's node, before a tracked program there could stand in for `vale` (#133).
+      - name: Nothing under node_modules/ is tracked
+        run: node ci/checks/meta/n1-node-modules.mjs .
+      - run: pnpm check:prose
+      - run: node scripts/prose.test.mjs
