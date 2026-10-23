@@ -38,3 +38,21 @@ jobs:
           printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr/body.md"
           node ci/checks/lib/gate-files.mjs "$BASE_SHA" "$HEAD_SHA" "$DRAFT" > "$RUNNER_TEMP/pr/body.changes.json"
           node ci/checks/meta/p1-pr-body.mjs "$RUNNER_TEMP/pr" .
+      # Slipway only (F-16 §8): the chatbot, placeholder and recap rules run on the body after P1; warnings print and never fail.
+      # The Vale pin matches ci.yml's: scripts/prose.test.mjs fails if the two differ.
+      - name: Install Vale at the pinned version, sha256 checked
+        if: ${{ github.event.repository.is_template }}
+        env:
+          VALE_VERSION: 3.24.0
+          VALE_SHA256: 867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/vale.tar.gz" "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          echo "${VALE_SHA256}  $RUNNER_TEMP/vale.tar.gz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/vale-bin"
+          tar -xzf "$RUNNER_TEMP/vale.tar.gz" -C "$RUNNER_TEMP/vale-bin" vale
+          echo "$RUNNER_TEMP/vale-bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/vale-bin/vale" --version | grep -qx "vale version ${VALE_VERSION}"
+      - name: Check the PR body for chatbot phrasing
+        if: ${{ github.event.repository.is_template }}
+        timeout-minutes: 5
+        run: node ci/prose.mjs --body "$RUNNER_TEMP/pr/body.md"

@@ -45,6 +45,7 @@
     "gate-tool-settings.md#gate-changes/missing",
     "gate-unmentioned.md#gate-changes/unmentioned:.github/workflows/ci.yml",
     "gate-unreadable.md#gate-changes/unreadable",
+    "gate-vale-ini.md#gate-changes/missing",
     "heading-repeated-cold-review.md#headings/repeated:cold review",
     "heading-repeated-verification.md#headings/repeated:verification",
     "missing-verification.md#verification/missing",

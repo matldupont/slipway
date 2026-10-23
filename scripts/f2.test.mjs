@@ -217,6 +217,14 @@ test('a file name that carries a control character is printed escaped, on one li
   assert.match(r.lines[1], /docs\/features\/a\\u001b\[31m\\u202eb\.md#not-a-feature-doc/);
 });
 
+// "No template gains a section" (F-16 §1, §6): the feature template has 12 sections today, and a template with more fails.
+test('docs/features/TEMPLATE.md has no more than 12 sections', () => {
+  const template = readFileSync(join(SRC, 'docs', 'features', 'TEMPLATE.md'), 'utf8');
+  const headings = template.split('\n').filter((l) => l.startsWith('## '));
+  assert.ok(headings.length <= 12, `${headings.length} sections: ${headings.join(', ')}`);
+  assert.ok(headings.length >= 12, 'a section was cut: lower this number on purpose, in a reviewed change');
+});
+
 // docs/features/TEMPLATE.md and the fixture that is its section byte for byte.
 test("the template has `## Fit` after `## Problem` and before `## Contract`, and the fixture template-untouched holds that section byte for byte", () => {
   const template = readFileSync(join(SRC, 'docs', 'features', 'TEMPLATE.md'), 'utf8');

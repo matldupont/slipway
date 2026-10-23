@@ -26,7 +26,7 @@ const ASK_PATHS = [
   '**/.github/workflows/**', '**/ci/**', '**/process/harness/**', '**/.claude/settings*.json', '**/.slipway/**',
   '**/.claude/**', '**/AGENT.md', '**/CLAUDE.md', '**/CLAUDE.local.md', '**/process/slipway-rules.md',
   '**/process/intake.md', '**/dev/skill-configuration.md', '**/dev/ownership.yaml', '**/scripts/new-project.mjs',
-  '**/docs/reviews/**/*.md', '**/.npmrc', '**/.pnpmfile.cjs', '**/pnpm-workspace.yaml', '**/node_modules/**', '**/.envrc', '**/mise.toml',
+  '**/docs/reviews/**/*.md', '**/.npmrc', '**/.pnpmfile.cjs', '**/.vale.ini', '**/pnpm-workspace.yaml', '**/node_modules/**', '**/.envrc', '**/mise.toml',
   '**/.mise.toml', '**/package.yaml', '**/package.json5', '**/mise.*.toml', '**/.mise.*.toml',
   '**/.config/mise.toml', '**/.config/mise.*.toml', '**/.config/mise/**', '**/mise/*.toml', '**/.mise/*.toml',
   '~/.claude/slipway/**',

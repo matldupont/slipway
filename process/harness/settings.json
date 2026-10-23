@@ -60,6 +60,7 @@
       "Edit(**/docs/reviews/**/*.md)",
       "Edit(**/.npmrc)",
       "Edit(**/.pnpmfile.cjs)",
+      "Edit(**/.vale.ini)",
       "Edit(**/pnpm-workspace.yaml)",
       "Edit(**/node_modules/**)",
       "Edit(**/.envrc)",

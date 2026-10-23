@@ -1,0 +1,9 @@
+extends: existence
+message: "Stacked hedge '%s'. Pick one: say it, or cut it."
+level: warning
+ignorecase: true
+tokens:
+  - may\s+possibly
+  - might\s+potentially
+  - could\s+perhaps
+  - seems\s+to\s+suggest

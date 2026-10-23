@@ -59,6 +59,7 @@ test('the Next-line form: a good line passes, and each clause trips alone', () =
     'too few sentences': ['Run /kickoff now.', /sentences/],
     'too many sentences': ['Run /kickoff. Its questions wait. Nothing else waits. The frame is next. You, an afternoon.', /5 sentences/],
     'first sentence': [`Run the kickoff and then finish every part of the frame document with real people today please. Its open questions wait. You, an afternoon.`, /first sentence/],
+    'first sentence period': ['Is the frame done? Its questions wait. You, an afternoon.', /does not end with a period/],
     'semicolon': ['Run /kickoff; it finishes the frame. Its questions wait. You, an afternoon.', /semicolon/],
     'dash': ['Run /kickoff — it finishes the frame. Its questions wait. You, an afternoon.', /dash/],
     'step number': ['Run /kickoff for Step 1. Its questions wait. You, an afternoon.', /step number/],
