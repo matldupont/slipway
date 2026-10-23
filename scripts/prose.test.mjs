@@ -98,6 +98,32 @@ test('blank() keeps every line, and blanks front matter, fenced blocks and code 
   assert.match(out, /After <date>\./, 'prose outside code is kept');
 });
 
+test('blank() cannot be turned off or tricked by markup GitHub shows as text', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'prose-test-'));
+  try {
+    const put = (name, text) => writeFileSync(join(dir, name), text);
+    put('comment-off.md', 'Open.\n\n<!-- vale off -->\nCertainly! Done.\n');
+    put('comment-rule.md', 'Open.\n\n<!-- vale Slipway.Chatbot = NO -->\nCertainly! Done.\n');
+    put('fence-info.md', 'Open.\n\n```x`\nCertainly! Done.\n');
+    put('escaped.md', 'Open.\n\n\\`Certainly! Done.\\`\n');
+    put('crlf.md', 'Open ` here.\r\n\r\nCertainly! Done.\r\n\r\nClose ` here.\r\n');
+    put('lone-cr.md', 'Open.\r\rCertainly! Done.\n');
+    put('recap-spaces.md', 'Open.\n  \nIn summary, done.\n');
+    const seen = Object.fromEntries(alertsIn(dir).alerts.map((a) => [a.file, `${a.rule}@${a.line}`]));
+    assert.deepEqual(seen, {
+      'comment-off.md': 'Slipway.Chatbot@4',
+      'comment-rule.md': 'Slipway.Chatbot@4',
+      'fence-info.md': 'Slipway.Chatbot@4',
+      'escaped.md': 'Slipway.Chatbot@3',
+      'crlf.md': 'Slipway.Chatbot@3',
+      'lone-cr.md': 'Slipway.Chatbot@1',
+      'recap-spaces.md': 'Slipway.Recap@3',
+    });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('both workflows install the same Vale, at a version and a sha256, never latest', () => {
   const pins = ['ci.yml', 'pr-body.yml'].map((f) => {
     const text = readFileSync(join(SRC, '.github', 'workflows', f), 'utf8');

@@ -42,20 +42,32 @@ export const HELD = [
 ];
 const DIFF_SET = [/^process\/[^/]+\.md$/, /^process\/lessons\/[^/]+\.md$/, /^decisions\.md$/, /^docs\/(?!reviews\/).+\.md$/, /^dev\/features\/[^/]+\.md$/];
 
+// Scratch folders hold a blanked copy of what was read (a PR body among them); every exit removes them, a BROKEN one too.
+const scratch = [];
+process.on('exit', () => scratch.forEach((d) => rmSync(d, { recursive: true, force: true })));
+const scratchDir = (name) => {
+  const d = mkdtempSync(join(tmpdir(), name));
+  scratch.push(d);
+  return d;
+};
 const broken = (why) => process.exit(report({ id: ID, claim: '', scanned: 0, unit: UNIT, broken: why }));
 
 // Text with the front matter, each fenced block and each inline code span replaced by filler that keeps its line
 // breaks: front matter and a fenced block become empty lines (Vale refuses front matter that is not YAML, and a
 // template's is not), a code span becomes one word of x. Exported for scripts/prose.test.mjs.
-export function blank(text) {
+export function blank(raw) {
   const out = [];
   let fence = null;
+  // A line ends at LF or CRLF, as git counts lines; a lone CR (which Vale and GitHub read as a line end) is a space, so
+  // Vale's line numbers are git's. A body edited in the web form arrives with CRLF.
+  const text = raw.replace(/\r\n/g, '\n').replace(/\r/g, ' ');
   // The header is cut by the one reader (ci/checks/lib/frontmatter.mjs) and its lines kept as empty ones.
   const body = withoutHeader(text);
   const lines = [...Array(text.split('\n').length - body.split('\n').length).fill(''), ...body.split('\n')];
   for (const line of lines) {
     const m = /^ {0,3}(`{3,}|~{3,})/.exec(line);
-    if (fence === null && m) {
+    // CommonMark: the info string of a backtick fence holds no backtick, so such a line is text, not a fence.
+    if (fence === null && m && !(m[1][0] === '`' && line.slice(m[0].length).includes('`'))) {
       fence = m[1];
       out.push('');
     } else if (fence !== null) {
@@ -63,9 +75,12 @@ export function blank(text) {
       out.push('');
     } else out.push(line);
   }
+  // Vale obeys `<!-- vale off -->` and `<!-- vale Slipway.Chatbot = NO -->`, which GitHub does not show: they are blanked, so a
+  // comment cannot turn a rule off. A backslash before a backtick makes it text (CommonMark), so that one opens no span.
   return out
     .join('\n')
-    .replace(/(?<!`)(`+)(?!`)((?:(?!\n[ \t]*\n)[\s\S])+?)(?<!`)\1(?!`)/g, (span) => span.replace(/[^\n]/g, 'x'));
+    .replace(/<!--\s*vale\b[\s\S]*?-->/gi, (c) => c.replace(/[^\n]/g, 'x'))
+    .replace(/(?<![`\\])(`+)(?!`)((?:(?!\n[ \t]*\n)[\s\S])+?)(?<!`)\1(?!`)/g, (span) => span.replace(/[^\n]/g, 'x'));
 }
 
 function haveVale() {
@@ -83,13 +98,13 @@ const isPlainFile = (path) => {
 // Runs Vale over blanked copies of `files` (relative to `base`). Returns [{ file, line, rule, severity, message, match }].
 function vale(base, files) {
   if (files.length === 0) return [];
-  const dir = mkdtempSync(join(tmpdir(), 'prose-'));
+  const dir = scratchDir('prose-');
   try {
     for (const f of files) {
       mkdirSync(dirname(join(dir, f)), { recursive: true });
       writeFileSync(join(dir, f), blank(readFileSync(join(base, f), 'utf8')));
     }
-    const r = spawnSync('vale', ['--config', CONFIG, '--output=JSON', ...files], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    const r = spawnSync('vale', ['--config', CONFIG, '--no-global', '--output=JSON', ...files], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
     let json;
     try {
       json = JSON.parse(r.stdout);
@@ -139,7 +154,7 @@ function runAll(argv) {
   if (!/^[A-Za-z0-9._/~^-]+$/.test(baseRef ?? '') || git(['rev-parse', '--verify', '--quiet', `${baseRef}^{commit}`]).status !== 0) {
     broken(`the base ${JSON.stringify(baseRef)} is not a commit here, so the lines this change adds were not found — fetch it (git fetch origin main) or pass --base <ref>`);
   }
-  const changed = git(['diff', '-z', '--name-only', '--no-renames', '--diff-filter=ACMR', `${baseRef}...HEAD`]);
+  const changed = git(['diff', '-z', '--name-only', '--no-renames', '--diff-filter=ACMRT', `${baseRef}...HEAD`]);
   if (changed.status !== 0) broken(`git could not list the files changed since ${baseRef}`);
   const diffFiles = changed.stdout
     .split('\0')
@@ -169,7 +184,7 @@ function runAll(argv) {
     findings,
     warnings,
   });
-  const dir = mkdtempSync(join(tmpdir(), 'prose-ratchet-'));
+  const dir = scratchDir('prose-ratchet-');
   try {
     writeFileSync(join(dir, 'report.json'), `${JSON.stringify({ warnings: count })}\n`);
     const r = spawnSync(process.execPath, [join(ROOT, 'ci', 'ratchet.mjs'), 'prose', join(dir, 'report.json'), 'warnings', ...(argv.includes('--update') ? ['--update'] : [])], { cwd: ROOT, stdio: 'inherit' });
@@ -181,7 +196,7 @@ function runAll(argv) {
 
 function runBody(file) {
   if (!file || !isPlainFile(resolve(file))) broken('--body takes the path of a PR body file');
-  const dir = mkdtempSync(join(tmpdir(), 'prose-body-'));
+  const dir = scratchDir('prose-body-');
   try {
     writeFileSync(join(dir, 'body.md'), readFileSync(resolve(file), 'utf8'));
     const alerts = vale(dir, ['body.md']);
