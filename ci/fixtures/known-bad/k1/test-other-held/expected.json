@@ -3,7 +3,7 @@
   "exit": 1,
   "findings": ["RISK-1#risk/unresolved", "RISK-4#risk/unresolved"],
   "details": {
-    "RISK-1#risk/unresolved": "untested while M2 is underway",
+    "RISK-1#risk/unresolved": "or run its test in a `kind: test` milestone (the owner's call, D-047)",
     "RISK-4#risk/unresolved": "untested while M1.1, M2 is underway"
   }
 }

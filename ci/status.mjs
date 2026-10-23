@@ -212,7 +212,7 @@ const riskBlocks = pastSkeletonUnderway.length
 const milestoneRef = (m, fallback) => (MID.test(String(m.id)) ? m.id : fallback);
 // What an untested value risk holds back, as a sentence; a milestone id is printed only in the shape the skills accept.
 const riskBlocksSentence = pastSkeletonUnderway.length
-  ? `${idList(pastSkeletonUnderway, MID, 'A milestone')} ${pastSkeletonUnderway.length > 1 ? 'are' : 'is'} underway with it untested, so the checks stay red until it has a result.`
+  ? `${idList(pastSkeletonUnderway, MID, 'A milestone')} ${pastSkeletonUnderway.length > 1 ? 'are' : 'is'} underway with it untested, so the checks stay red until it has a result${pastSkeletonUnderway.some((m) => m.status === 'active') ? ', or until its test runs in a \`kind: test\` milestone (the owner\'s call, D-047)' : ''}.`
   : `It blocks ${blockedByRisk.length ? `${idList(ms.filter((m) => blockedByRisk.includes(m.id)), MID, 'a milestone')} activation` : 'every milestone past the skeleton'}.`;
 // An existential risk — any category, so K1's value gate may not cover it — whose test the PRD schedules
 // after the first milestone past the skeleton starts, or at no milestone at all. A warning, not a K1
@@ -469,7 +469,7 @@ const attention = [
   // While no milestone is active or closed the step 3 line is the Next line (next() above); with one, the approval is still owed.
   ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdVersion} is reviewed (${prdReviews.map(named).join(', ')}) and still a draft.`] : []),
   ...(!bootstrapped && !step0 ? [`Fill each unfilled AGENT.md row: ${placeholders.join(', ')}. The skills read them${placeholders.includes('Timezone') ? ', and Timezone also sets when a deadline day ends' : ''}.`] : []),
-  ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or make the milestone a \`kind: test\` milestone for that risk (D-047).`] : []),
+  ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or run its test in a \`kind: test\` milestone (the owner's call, D-047).`] : []),
   ...((riskNamed || (cur && untestedValue.length)) && untracked.length ? ['File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.'] : []),
   ...registerLines,
   ...featureLines,

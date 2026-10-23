@@ -12,7 +12,7 @@ import { MILESTONE_ID, parseAppetite } from './milestones.mjs';
 export const TRACKER = /(?:[\w.-]+\/[\w.-]+)?#\d+|\b(?:OD|PD|D)-\d+\b/;
 
 // A Result that is only decision ids (`PD-3`, `D-12, PD-4`), the build-ahead override K1 asks for.
-const DECISIONS_ONLY = /^\W*(?:PD|D)-\d+(?:\W+(?:PD|D)-\d+)*\W*$/;
+const DECISIONS_ONLY = /^[\s,;&+/.-]*(?:PD|D)-\d{1,9}(?:[\s,;&+/.-]+(?:PD|D)-\d{1,9})*[\s,;&+/.-]*$/;
 
 export const filled = (c) => !!c && !hasPlaceholder(c);
 
@@ -150,7 +150,7 @@ export function readRisks(root, frameMd) {
         value,
         tested: filled(row.result),
         // A value risk whose Result holds only decision ids was built ahead, not tested.
-        builtAhead: value && filled(row.result) && !claimsExperience && DECISIONS_ONLY.test(result.slice(0, 200)) ? result.match(/\b(?:PD|D)-\d+\b/g).join(', ') : null,
+        builtAhead: value && !claimsExperience && filled(row.result) && result.length <= 200 && DECISIONS_ONLY.test(result) ? result.match(/\b(?:PD|D)-\d{1,9}\b/g).join(', ') : null,
         tracker: (filled(row.tracker) && row.tracker.match(TRACKER)?.[0]) || ev.tracker || null,
         window: ev.window ?? null,
         claimsExperience,
