@@ -155,15 +155,28 @@ test('asSeen() keeps every line and makes each change the error rules need, one 
     ['a hex reference is decoded', 'I&#x20;hope', 'I hope'],
     ['a named reference is decoded; an unknown or inherited name is kept', 'Of course&excl; &rsquo; &bogus; &constructor;', "Of course! ' &bogus; &constructor;"],
     ['a decoded line break is a space', 'a&#10;b&#13;c', 'a b c'],
+    ['a number GitHub replaces is U+FFFD', 'a&#0;b&#xD800;c&#x110000;d', `a${cp(0xfffd)}b${cp(0xfffd)}c${cp(0xfffd)}d`],
     ['a Unicode space is a plain space', `As${cp(0xa0)}an${cp(0x2003)}AI${cp(0x3000)}x`, 'As an AI x'],
+    ['a vertical tab, form feed, NEL and line or paragraph separator is a space', `a${cp(0xb)}b${cp(0xc)}c${cp(0x85)}d${cp(0x2028)}e${cp(0x2029)}f`, 'a b c d e f'],
+    ['a character that prints as a blank is a space', `I${cp(0x3164)}hope${cp(0x2800)}this${cp(0x115f)}x${cp(0x1160)}y${cp(0xffa0)}z`, 'I hope this x y z'],
     ['a character that prints as nothing is taken out', `Let me${cp(0x200b)} kn${cp(0xad)}ow${cp(0x2060)} if`, 'Let me know if'],
-    ['a curly apostrophe is a straight one', `I${cp(0x2019)}d ${cp(0x2018)}x${cp(0x2032)}`, "I'd 'x'"],
+    ['a curly apostrophe is a straight one', `I${cp(0x2019)}d ${cp(0x2018)}x${cp(0x2032)} ${cp(0x2bc)}y${cp(0xff07)}`, "I'd 'x' 'y'"],
     ['a quote mark before the first word is taken off', '> > I hope\n> this helps', 'I hope\nthis helps'],
     ['a list mark before the first word is taken off', '- Overall, x\n* y\n12. In summary\n3) z\n-x', 'Overall, x\ny\nIn summary\nz\n-x'],
     ['every emphasis mark is taken out', '**In summary** x\n_Overall,_ y\nI *hope* ~~this~~ helps', 'In summary x\nOverall, y\nI hope this helps'],
     ['spaces and tabs before the first word are taken off', '\tOverall, x\n      In summary', 'Overall, x\nIn summary'],
     ['a lone CR is a form feed, and a line starts after it', 'a\r> In summary\r\nb', 'a\fIn summary\nb'],
   ];
+  // Every HTML5 name for a character the error rules act on (the WHATWG table) is decoded, never left as written.
+  const named = [
+    'AMP', 'ApplyFunction', 'CloseCurlyQuote', 'GT', 'InvisibleComma', 'InvisibleTimes', 'LT', 'MediumSpace',
+    'NegativeMediumSpace', 'NegativeThickSpace', 'NegativeThinSpace', 'NegativeVeryThinSpace', 'NewLine', 'NoBreak',
+    'NonBreakingSpace', 'OpenCurlyQuote', 'QUOT', 'Tab', 'ThickSpace', 'ThinSpace', 'VeryThinSpace', 'ZeroWidthSpace',
+    'af', 'amp', 'apos', 'colon', 'comma', 'emsp13', 'emsp14', 'emsp', 'ensp', 'excl', 'gt', 'hairsp', 'ic', 'it',
+    'lrm', 'lsquo', 'lt', 'nbsp', 'numsp', 'period', 'prime', 'puncsp', 'quest', 'quot', 'rlm', 'rsquo', 'rsquor',
+    'semi', 'shy', 'thinsp', 'zwj', 'zwnj',
+  ];
+  for (const n of named) assert.notEqual(asSeen(`a&${n};b`), `a&${n};b`, `&${n}; is decoded`);
   for (const [what, input, want] of cases) {
     const out = asSeen(input);
     assert.equal(out, want, what);
@@ -198,11 +211,13 @@ test('the diff set reads .MD and .markdown docs, and a doc git reads as binary i
     mkdirSync(join(dir, 'docs'));
     copyFileSync(join(FIXTURE, 'diff-upper.MD'), join(dir, 'docs', 'upper.MD'));
     copyFileSync(join(FIXTURE, 'diff-long.markdown'), join(dir, 'docs', 'long.markdown'));
+    mkdirSync(join(dir, 'docs', 'Reviews'));
+    copyFileSync(join(FIXTURE, 'diff-upper.MD'), join(dir, 'docs', 'Reviews', 'case.md'));
     sh('add', '.');
     sh('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '-m', 'docs');
     const listed = diffSetIn();
     assert.equal(listed.status, 0, listed.stdout + listed.stderr);
-    assert.deepEqual(JSON.parse(listed.stdout).sort(), ['docs/long.markdown', 'docs/upper.MD']);
+    assert.deepEqual(JSON.parse(listed.stdout).sort(), ['docs/Reviews/case.md', 'docs/long.markdown', 'docs/upper.MD'], 'a folder is matched as written: docs/Reviews/ is not docs/reviews/');
 
     copyFileSync(join(FIXTURE, 'diff-utf16.md.utf16'), join(dir, 'docs', 'wide.md'));
     sh('add', '.');
