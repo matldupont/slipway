@@ -70,19 +70,19 @@ Each was checked against 0.2 and its Tracker column.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | A claim branch pushed before any code takes `main`'s commit date, so it can be stale the moment it is pushed | S1 | shaping session | step 3 | |
-| AR-2 | The stale-claim line is false offline and for a collaborator's pull request, and tells the owner to delete a branch under review | S2 | shaping session | step 4 | |
-| AR-3 | The per-leaf branch read cannot be in call 1: the leaves are what call 1 returns | S2 | shaping session | step 4 | |
-| AR-4 | Shaping has no rank, so which owner thing takes the owner's one place is not defined | S2 | shaping session | step 1 | |
-| AR-5 | The threat model says only the owner's issues are read, but every leaf's title and body are, and the sentinel plants none there | S2 | shaping session | step 4 | |
-| AR-6 | The one timed run is on a repository with no active milestone, so the budget is never measured where it bites | S2 | shaping session | step 4 | |
-| AR-7 | Step 3 adds `scripts/i1.test.mjs`, which W1 makes it wire into `meta`, so steps 1 and 3 share `package.json` | S2 | shaping session | step 3 | |
-| AR-8 | D-050 misses two of the owner's conditions, and turns the owner's `Reopens when:` into a parenthesis without saying why | S2 | shaping session | spec ready | |
-| AR-9 | F-07 has no filled Fit, so the one-round review of F-07 that step 5 needs cannot run, and no step fills it | S2 | owner | step 5 | |
-| AR-10 | `/log-feature` is at its 300-line cap, and step 3 adds a whole mode "by rewording" | S3 | shaping session | step 3 | |
-| AR-11 | `review-owed` compares the head with the base branch's tip, not where the pull request left it | S3 | shaping session | step 4 | |
-| AR-12 | The owner's `needs-shape` issues above 100 have no stated behaviour | S3 | shaping session | step 4 | |
-| AR-13 | Contract lines that contradict each other or a table they point at | S3 | shaping session | spec ready | |
+| AR-1 | A claim branch pushed before any code takes `main`'s commit date, so it can be stale the moment it is pushed | S1 | shaping session | step 3 | D-050, #445 (0.3) |
+| AR-2 | The stale-claim line is false offline and for a collaborator's pull request, and tells the owner to delete a branch under review | S2 | shaping session | step 4 | #445 (0.3) |
+| AR-3 | The per-leaf branch read cannot be in call 1: the leaves are what call 1 returns | S2 | shaping session | step 4 | #445 (0.3) |
+| AR-4 | Shaping has no rank, so which owner thing takes the owner's one place is not defined | S2 | shaping session | step 1 | #445 (0.3) |
+| AR-5 | The threat model says only the owner's issues are read, but every leaf's title and body are, and the sentinel plants none there | S2 | shaping session | step 4 | #445 (0.3) |
+| AR-6 | The one timed run is on a repository with no active milestone, so the budget is never measured where it bites | S2 | shaping session | step 4 | #445 (0.3) |
+| AR-7 | Step 3 adds `scripts/i1.test.mjs`, which W1 makes it wire into `meta`, so steps 1 and 3 share `package.json` | S2 | shaping session | step 3 | #445 (0.3) |
+| AR-8 | D-050 misses two of the owner's conditions, and turns the owner's `Reopens when:` into a parenthesis without saying why | S2 | shaping session | spec ready | D-050 |
+| AR-9 | F-07 has no filled Fit, so the one-round review of F-07 that step 5 needs cannot run, and no step fills it | S2 | owner | step 5 | D-050, #445 (0.3, step 5) |
+| AR-10 | `/log-feature` is at its 300-line cap, and step 3 adds a whole mode "by rewording" | S3 | shaping session | step 3 | #445 (0.3) |
+| AR-11 | `review-owed` compares the head with the base branch's tip, not where the pull request left it | S3 | shaping session | step 4 | #445 (0.3) |
+| AR-12 | The owner's `needs-shape` issues above 100 have no stated behaviour | S3 | shaping session | step 4 | #445 (0.3) |
+| AR-13 | Contract lines that contradict each other or a table they point at | S3 | shaping session | spec ready | #445 (0.3; wording in steps 1 and 4) |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
