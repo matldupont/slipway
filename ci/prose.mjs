@@ -11,8 +11,11 @@
 // reads): an error on a line the change adds fails; a warning on one is printed and never counted.
 //
 // Every file is read as plain text: it is copied under a `.txt` name, so Vale parses no markdown and honours no comment
-// directive or character reference. Every rule but Placeholder reads the copy as written. Placeholder reads a second copy
-// with its front matter, fenced blocks and code spans blanked, so `<sha>` in a code span never fires. Line numbers are kept.
+// directive or character reference. The warning rules read the copy as written. Chatbot and Recap read a copy with each
+// phrase as a reader sees it (asSeen()): escapes and character references decoded, odd spaces, invisible characters and
+// curly apostrophes made plain, emphasis marks dropped, and the marks before a line's first word taken off. Placeholder
+// reads a third copy with its front matter, fenced blocks and code spans blanked, so `<sha>` in a code span never fires.
+// Line numbers are kept.
 //
 // Not a meta check: Vale is a binary, and ci/checks/ stays zero-dependency (D-004). With no `vale` on the path the
 // script exits BROKEN, never green (decision-defaults §4). CI installs Vale at a pinned version with its sha256
@@ -23,6 +26,7 @@ import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, w
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { unseen } from './checks/lib/feature-docs.mjs';
 import { withoutHeader } from './checks/lib/frontmatter.mjs';
 import { report } from './checks/lib/report.mjs';
 
@@ -42,6 +46,8 @@ export const HELD = [
   '.github/pull_request_template.md',
 ];
 const DIFF_SET = [/^process\/[^/]+\.md$/, /^process\/lessons\/[^/]+\.md$/, /^decisions\.md$/, /^docs\/(?!reviews\/)[\s\S]+\.md$/, /^dev\/features\/[^/]+\.md$/];
+// A doc's name ends .md or .markdown, in any case; the folders are matched as written.
+const inDiffSet = (f) => DIFF_SET.some((re) => re.test(f.replace(/\.(?:md|markdown)$/i, '.md')));
 
 // Scratch folders hold a blanked copy of what was read (a PR body among them); every exit removes them, a BROKEN one too.
 const scratch = [];
@@ -83,6 +89,51 @@ export function blank(raw) {
     .replace(/(?<!`)(?<!(?<!\\)(?:\\\\)*\\)(`+)(?!`)((?:(?!\n[ \t]*\n|\n {0,3}(?:#{1,6}\s|[-*+]\s|1[.)]\s|>))[\s\S])+?)(?<!`)\1(?!`)/g, (span) => span.replace(/[^\n]/g, 'x'));
 }
 
+// The named character references asSeen() decodes: every HTML5 name (the WHATWG table) whose value is ASCII
+// punctuation the two error rules match, an apostrophe, a space, a tab or a character that prints as nothing. NewLine is
+// a space, so lines keep their numbers. Any other name is left as written.
+const NAMED = {
+  AMP: '&', ApplyFunction: '\u2061', CloseCurlyQuote: '\u2019', GT: '>', InvisibleComma: '\u2063',
+  InvisibleTimes: '\u2062', LT: '<', MediumSpace: '\u205f', NegativeMediumSpace: '\u200b',
+  NegativeThickSpace: '\u200b', NegativeThinSpace: '\u200b', NegativeVeryThinSpace: '\u200b', NewLine: ' ',
+  NoBreak: '\u2060', NonBreakingSpace: '\u00a0', OpenCurlyQuote: '\u2018', QUOT: '"', Tab: '\t',
+  ThickSpace: '\u205f\u200a', ThinSpace: '\u2009', VeryThinSpace: '\u200a', ZeroWidthSpace: '\u200b', af: '\u2061',
+  amp: '&', apos: '\'', colon: ':', comma: ',', emsp13: '\u2004', emsp14: '\u2005', emsp: '\u2003', ensp: '\u2002',
+  excl: '!', gt: '>', hairsp: '\u200a', ic: '\u2063', it: '\u2062', lrm: '\u200e', lsquo: '\u2018', lt: '<',
+  nbsp: '\u00a0', numsp: '\u2007', period: '.', prime: '\u2032', puncsp: '\u2008', quest: '?', quot: '"',
+  rlm: '\u200f', rsquo: '\u2019', rsquor: '\u2019', semi: ';', shy: '\u00ad', thinsp: '\u2009', zwj: '\u200d',
+  zwnj: '\u200c',
+};
+// A number GitHub replaces (zero, a surrogate, past U+10FFFF) is U+FFFD; a decoded line break is a space, so lines keep
+// their numbers.
+const decode = (n) => (n === 0 || n >= 0x110000 || (n >= 0xd800 && n <= 0xdfff) ? '\ufffd' : n === 10 || n === 13 ? ' ' : String.fromCodePoint(n));
+
+// The copy the Chatbot and Recap rules read: the text as a reader sees the phrase, with every line break kept, so Vale's
+// line numbers are git's. Character-level only, never markdown read: a backslash before ASCII punctuation is dropped
+// (CommonMark), a character reference is decoded (a number, or a name in NAMED), a Unicode space or a character that
+// prints as a blank is a plain space, a character that prints as nothing is taken out (unseen()), a curly apostrophe is
+// a straight one, every emphasis mark (`*`, `_`, `~`) is taken out, and the quote and list marks, spaces and tabs
+// before a line's first word are taken off, so a phrase wrapped across quoted lines reads as one. A lone CR (which GitHub reads as a line end) becomes a form feed: Vale counts no line for it, Recap reads
+// a line start after it, and Chatbot's \s+ crosses it. Exported for scripts/prose.test.mjs.
+export function asSeen(raw) {
+  return raw
+    .replace(/\r\n/g, '\n')
+    .split('\r')
+    .map((part) =>
+      unseen(
+        part
+          .replace(/\\([!-\/:-@[-`{-~])|&(?:#(\d{1,7})|#[xX]([\da-fA-F]{1,6})|([A-Za-z][A-Za-z\d]{0,31}));/g, (all, esc, dec, hex, name) =>
+            esc ?? (dec ? decode(Number(dec)) : hex ? decode(parseInt(hex, 16)) : (Object.hasOwn(NAMED, name) ? NAMED[name] : all)),
+          )
+          .replace(/[\p{Zs}\r\v\f\u0085\u2028\u2029\u115f\u1160\u2800\u3164\uffa0]/gu, ' '),
+      )
+        .replace(/[\u2018\u2019\u02bc\u2032\uff07]/g, "'")
+        .replace(/[*_~]/g, '')
+        .replace(/^(?:[ \t>]|[-+](?=[ \t])|\d{1,9}[.)](?=[ \t]))+/gm, ''),
+    )
+    .join('\f');
+}
+
 function haveVale() {
   const r = spawnSync('vale', ['--version'], { encoding: 'utf8' });
   if (r.error || r.status !== 0) {
@@ -95,12 +146,12 @@ const isPlainFile = (path) => {
   return st?.isFile() === true;
 };
 
-// A line ends at LF or CRLF, as git counts lines; a lone CR (which Vale and GitHub read as a line end) becomes a space, so
-// Vale's line numbers are git's.
-// Runs Vale over `files` (relative to `base`) twice, both times as plain text: each file is copied under a `.txt` name, so
-// Vale parses no markdown and honours no comment directive (`<!-- vale off -->`) or character reference. Every rule but
-// Placeholder reads the file as written. Placeholder reads a copy with the front matter, fenced blocks and code spans
-// blanked (blank()). Returns [{ file, line, rule, severity, message, match }].
+// Runs Vale over `files` (relative to `base`) three times, each time as plain text: each file is copied under a `.txt` name,
+// so Vale parses no markdown and honours no comment directive (`<!-- vale off -->`) or character reference. The warning
+// rules read the file as written, a line ending at LF or CRLF as git counts lines, and a lone CR (which Vale and GitHub
+// read as a line end) a space, so Vale's line numbers are git's. Chatbot and Recap read the copy asSeen() makes.
+// Placeholder reads a copy with the front matter, fenced blocks and code spans blanked (blank()).
+// Returns [{ file, line, rule, severity, message, match }].
 function vale(base, files) {
   if (files.length === 0) return [];
   const root = scratchDir('prose-');
@@ -122,10 +173,14 @@ function vale(base, files) {
       alerts.map((a) => ({ file: file.replace(/\.txt$/, ''), line: a.Line, rule: a.Check, severity: a.Severity, message: a.Message, match: a.Match })),
     );
   };
-  return [...run('raw', '.Name != "Slipway.Placeholder"', (t) => t.replace(/\r\n/g, '\n').replace(/\r/g, ' ')), ...run('blanked', '.Name == "Slipway.Placeholder"', blank)];
+  return [
+    ...run('raw', '.Name not in ["Slipway.Placeholder", "Slipway.Chatbot", "Slipway.Recap"]', (t) => t.replace(/\r\n/g, '\n').replace(/\r/g, ' ')),
+    ...run('seen', '.Name in ["Slipway.Chatbot", "Slipway.Recap"]', asSeen),
+    ...run('blanked', '.Name == "Slipway.Placeholder"', blank),
+  ];
 }
 
-const git = (args) => spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+const git = (args, cwd = ROOT) => spawnSync('git', args, { cwd, encoding: 'utf8' });
 const where = (a) => `${a.file}:${a.line}`;
 const finding = (a) => ({ where: where(a), detail: `${a.rule}: ${a.message}` });
 const isError = (a) => a.severity === 'error';
@@ -155,16 +210,26 @@ function zeroRanges() {
   return { 'SLIPWAY.md': rows.map((n) => [n, n]), 'README.md': [[start + 1, next < 0 ? readme.length : next]] };
 }
 
+// The diff set: the files changed since `baseRef` that a person reads, outside the held set. A doc git reads as binary
+// (UTF-16, or one with a NUL byte) has no lines git can add, so it is BROKEN, named, never passed unread. Exported for
+// scripts/prose.test.mjs, which runs it in a scratch repository (`cwd`).
+export function diffSet(baseRef, cwd = ROOT) {
+  const changed = git(['diff', '-z', '--numstat', '--no-renames', '--diff-filter=ACMRT', `${baseRef}...HEAD`], cwd);
+  if (changed.status !== 0) broken(`git could not list the files changed since ${baseRef}`);
+  const rows = changed.stdout.split('\0').filter(Boolean).map((row) => /^(-|\d+)\t(-|\d+)\t([\s\S]*)$/.exec(row));
+  if (rows.some((m) => m === null)) broken(`git printed a changed-file row this script cannot read`);
+  const files = rows.filter(([, , , f]) => !HELD.includes(f) && inDiffSet(f) && isPlainFile(join(cwd, f)));
+  const binary = files.filter(([, add, del]) => add === '-' && del === '-').map(([, , , f]) => f);
+  if (binary.length > 0) broken(`git reads ${binary.map((f) => JSON.stringify(f)).join(', ')} as binary, so its added lines were not found — save it as UTF-8 text`);
+  return files.map(([, , , f]) => f);
+}
+
 function runAll(argv) {
   const baseRef = argv.includes('--base') ? argv[argv.indexOf('--base') + 1] : (process.env.PROSE_BASE || 'origin/main');
   if (!/^[A-Za-z0-9._/~^-]+$/.test(baseRef ?? '') || git(['rev-parse', '--verify', '--quiet', `${baseRef}^{commit}`]).status !== 0) {
     broken(`the base ${JSON.stringify(baseRef)} is not a commit here, so the lines this change adds were not found — fetch it (git fetch origin main) or pass --base <ref>`);
   }
-  const changed = git(['diff', '-z', '--name-only', '--no-renames', '--diff-filter=ACMRT', `${baseRef}...HEAD`]);
-  if (changed.status !== 0) broken(`git could not list the files changed since ${baseRef}`);
-  const diffFiles = changed.stdout
-    .split('\0')
-    .filter((f) => f && !HELD.includes(f) && DIFF_SET.some((re) => re.test(f)) && isPlainFile(join(ROOT, f)));
+  const diffFiles = diffSet(baseRef);
 
   const held = HELD.filter((f) => isPlainFile(join(ROOT, f)));
   if (held.length !== HELD.length) broken(`held files missing or not plain files: ${HELD.filter((f) => !held.includes(f)).join(', ')}`);
@@ -230,7 +295,7 @@ function runDir(folder) {
   process.exit(alerts.some(isError) ? 1 : 0);
 }
 
-// Only when run, so scripts/prose.test.mjs can import `blank`.
+// Only when run, so scripts/prose.test.mjs can import `blank`, `asSeen` and `diffSet`.
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const argv = process.argv.slice(2);
   haveVale();

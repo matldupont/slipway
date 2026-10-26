@@ -5,5 +5,5 @@ scope: raw
 ignorecase: true
 nonword: true
 tokens:
-  # A line that starts (up to three spaces in) with a recap opener: after a blank line, a heading, a comment or a fence.
-  - '(?m)^ {0,3}(?:In\s+summary|In\s+conclusion|To\s+summarize|To\s+sum\s+up|Overall,)'
+  # A line that starts (up to three spaces in) with a recap opener; a form feed is where ci/prose.mjs put a lone CR.
+  - '(?m)(?:^|\f) {0,3}(?:In\s+summary|In\s+conclusion|To\s+summarize|To\s+sum\s+up|Overall,)'

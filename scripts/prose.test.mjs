@@ -5,12 +5,12 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { blank } from '../ci/prose.mjs';
+import { asSeen, blank } from '../ci/prose.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROSE = join(SRC, 'ci', 'prose.mjs');
@@ -40,8 +40,17 @@ test('each rule trips its own file once, at the line that holds it', () => {
     'hedge.md': 'Slipway.Hedge@3',
     'verb.md': 'Slipway.Verb@3',
     'sentence.md': 'Slipway.Sentence@3',
+    'chatbot-escape.md': 'Slipway.Chatbot@3',
+    'chatbot-reference.md': 'Slipway.Chatbot@3',
+    'chatbot-space.md': 'Slipway.Chatbot@3',
+    'chatbot-invisible.md': 'Slipway.Chatbot@3',
+    'chatbot-apostrophe.md': 'Slipway.Chatbot@3',
+    'chatbot-quote-wrap.md': 'Slipway.Chatbot@3',
+    'chatbot-emphasis.md': 'Slipway.Chatbot@3',
+    'recap-marker.md': 'Slipway.Recap@3',
+    'recap-lone-cr.md': 'Slipway.Recap@3',
   });
-  assert.equal(alerts.length, 9, 'one alert per file, none more');
+  assert.equal(alerts.length, 18, 'one alert per file, none more');
   assert.equal(status, 1, 'an error rule fails the folder');
 });
 
@@ -133,6 +142,89 @@ test('Chatbot and Recap read the file as plain text: no comment, entity, code sp
       'recap-fence.md': 'Slipway.Recap@6',
       'lone-cr.md': 'Slipway.Chatbot@1',
     });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('asSeen() keeps every line and makes each change the error rules need, one case per change', () => {
+  const cp = (...c) => String.fromCodePoint(...c);
+  const cases = [
+    ['a backslash escape is dropped', 'Certainly\\! x \\\\ y \\a', 'Certainly! x \\ y \\a'],
+    ['a decimal reference is decoded', 'I&#32;hope', 'I hope'],
+    ['a hex reference is decoded', 'I&#x20;hope', 'I hope'],
+    ['a named reference is decoded; an unknown or inherited name is kept', 'Of course&excl; &rsquo; &bogus; &constructor;', "Of course! ' &bogus; &constructor;"],
+    ['a decoded line break is a space', 'a&#10;b&#13;c', 'a b c'],
+    ['a number GitHub replaces is U+FFFD', 'a&#0;b&#xD800;c&#x110000;d', `a${cp(0xfffd)}b${cp(0xfffd)}c${cp(0xfffd)}d`],
+    ['a Unicode space is a plain space', `As${cp(0xa0)}an${cp(0x2003)}AI${cp(0x3000)}x`, 'As an AI x'],
+    ['a vertical tab, form feed, NEL and line or paragraph separator is a space', `a${cp(0xb)}b${cp(0xc)}c${cp(0x85)}d${cp(0x2028)}e${cp(0x2029)}f`, 'a b c d e f'],
+    ['a character that prints as a blank is a space', `I${cp(0x3164)}hope${cp(0x2800)}this${cp(0x115f)}x${cp(0x1160)}y${cp(0xffa0)}z`, 'I hope this x y z'],
+    ['a character that prints as nothing is taken out', `Let me${cp(0x200b)} kn${cp(0xad)}ow${cp(0x2060)} if`, 'Let me know if'],
+    ['a curly apostrophe is a straight one', `I${cp(0x2019)}d ${cp(0x2018)}x${cp(0x2032)} ${cp(0x2bc)}y${cp(0xff07)}`, "I'd 'x' 'y'"],
+    ['a quote mark before the first word is taken off', '> > I hope\n> this helps', 'I hope\nthis helps'],
+    ['a list mark before the first word is taken off', '- Overall, x\n* y\n12. In summary\n3) z\n-x', 'Overall, x\ny\nIn summary\nz\n-x'],
+    ['every emphasis mark is taken out', '**In summary** x\n_Overall,_ y\nI *hope* ~~this~~ helps', 'In summary x\nOverall, y\nI hope this helps'],
+    ['spaces and tabs before the first word are taken off', '\tOverall, x\n      In summary', 'Overall, x\nIn summary'],
+    ['a lone CR is a form feed, and a line starts after it', 'a\r> In summary\r\nb', 'a\fIn summary\nb'],
+  ];
+  // Every HTML5 name for a character the error rules act on (the WHATWG table) is decoded, never left as written.
+  const named = [
+    'AMP', 'ApplyFunction', 'CloseCurlyQuote', 'GT', 'InvisibleComma', 'InvisibleTimes', 'LT', 'MediumSpace',
+    'NegativeMediumSpace', 'NegativeThickSpace', 'NegativeThinSpace', 'NegativeVeryThinSpace', 'NewLine', 'NoBreak',
+    'NonBreakingSpace', 'OpenCurlyQuote', 'QUOT', 'Tab', 'ThickSpace', 'ThinSpace', 'VeryThinSpace', 'ZeroWidthSpace',
+    'af', 'amp', 'apos', 'colon', 'comma', 'emsp13', 'emsp14', 'emsp', 'ensp', 'excl', 'gt', 'hairsp', 'ic', 'it',
+    'lrm', 'lsquo', 'lt', 'nbsp', 'numsp', 'period', 'prime', 'puncsp', 'quest', 'quot', 'rlm', 'rsquo', 'rsquor',
+    'semi', 'shy', 'thinsp', 'zwj', 'zwnj',
+  ];
+  for (const n of named) assert.notEqual(asSeen(`a&${n};b`), `a&${n};b`, `&${n}; is decoded`);
+  for (const [what, input, want] of cases) {
+    const out = asSeen(input);
+    assert.equal(out, want, what);
+    assert.equal(out.split('\n').length, input.replace(/\r\n/g, '\n').split('\n').length, `${what}: the line count is kept`);
+  }
+});
+
+test('Recap reads a line start after a list, quote or emphasis mark or a tab, as GitHub shows it', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'prose-test-'));
+  try {
+    const put = (name, text) => writeFileSync(join(dir, name), text);
+    put('list.md', 'Open.\n\n- In summary, done.\n');
+    put('quote.md', 'Open.\n\n> Overall, done.\n');
+    put('italic.md', 'Open.\n\n*To sum up*, done.\n');
+    put('tab.md', 'Open.\n\n\tIn conclusion, done.\n');
+    put('control.md', 'Open.\n\n- The summary is done. Overall, fine.\n');
+    const seen = Object.fromEntries(alertsIn(dir).alerts.map((a) => [a.file, `${a.rule}@${a.line}`]));
+    assert.deepEqual(seen, { 'list.md': 'Slipway.Recap@3', 'quote.md': 'Slipway.Recap@3', 'italic.md': 'Slipway.Recap@3', 'tab.md': 'Slipway.Recap@3' });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the diff set reads .MD and .markdown docs, and a doc git reads as binary is BROKEN, named', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'prose-test-'));
+  try {
+    const sh = (...args) => assert.equal(spawnSync('git', args, { cwd: dir, encoding: 'utf8' }).status, 0, `git ${args.join(' ')}`);
+    const diffSetIn = () =>
+      spawnSync(process.execPath, ['--input-type=module', '-e', `import { diffSet } from ${JSON.stringify(PROSE)}; console.log(JSON.stringify(diffSet('HEAD~1', process.cwd())));`], { cwd: dir, encoding: 'utf8' });
+    sh('init', '-q', '-b', 'main');
+    sh('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'base');
+    mkdirSync(join(dir, 'docs'));
+    copyFileSync(join(FIXTURE, 'diff-upper.MD'), join(dir, 'docs', 'upper.MD'));
+    copyFileSync(join(FIXTURE, 'diff-long.markdown'), join(dir, 'docs', 'long.markdown'));
+    mkdirSync(join(dir, 'docs', 'Reviews'));
+    copyFileSync(join(FIXTURE, 'diff-upper.MD'), join(dir, 'docs', 'Reviews', 'case.md'));
+    sh('add', '.');
+    sh('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '-m', 'docs');
+    const listed = diffSetIn();
+    assert.equal(listed.status, 0, listed.stdout + listed.stderr);
+    assert.deepEqual(JSON.parse(listed.stdout).sort(), ['docs/Reviews/case.md', 'docs/long.markdown', 'docs/upper.MD'], 'a folder is matched as written: docs/Reviews/ is not docs/reviews/');
+
+    copyFileSync(join(FIXTURE, 'diff-utf16.md.utf16'), join(dir, 'docs', 'wide.md'));
+    sh('add', '.');
+    sh('-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '-m', 'wide');
+    const wide = diffSetIn();
+    assert.equal(wide.status, 2, 'a binary doc is BROKEN, never passed');
+    assert.match(wide.stdout, /docs\/wide\.md/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
