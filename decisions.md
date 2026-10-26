@@ -1374,6 +1374,17 @@ session: "Yes, as written", to this amendment of D-046:
   the project's `ci/baselines.json`).
 - **`.vale.ini` and `ci/prose/**` are gate files in a project** (owner-only, with the other gate files): a project's
   agent cannot loosen its own linter (#462's review; the orchestrator, 2026-10-22).
+- **The project's count is recorded, red until, on the owner's call of 2026-10-26:** "Record it, red until, with three
+  details: 1. --record writes a baseline only when none exists. With one in place it refuses, like --update, so it can
+  never raise a number. 2. With no baseline, the three error rules still run and still fail on their own. Only the
+  warning count waits for the number. 3. The red message states the count CI measured and the one command to record it,
+  so a project without Vale installed locally can still record it. The change to ci/baselines.json goes under Gate
+  changes in that PR."
+- **F-16 0.6 carries #524's spec items, capped, on the owner's call of 2026-10-26:** "Fold into 0.6, capped: one review
+  round, scoped to 0.6's changes (#521's section plus #524's corrections). What it finds rides the build tickets or the
+  as-built correction, never a 0.7. Where a #524 correction describes code not yet built (AR-4's blanked copy for the id
+  rules), the spec words it as the rule that build must meet."
+- **The title rules wait for #461.** The prose part ships in 0.1.6; P1's title and subject rules come after #461 (0.1.7).
 - **Unchanged from D-046:** a check fails only on unambiguous junk, and the ratchet counts what a person reads cold.
 
 Why: D-046 named the measurement as the one thing between these checks and a project; it is done. Spec: F-16 (0.6),
