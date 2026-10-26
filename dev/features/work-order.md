@@ -348,7 +348,10 @@ Reload stays the `--watch` refresh tag: no websockets, no HTTPS, no opening the 
 
 ## Open questions
 
-none
+- D-050 (2026-10-23) amends this page: its Next comes from the plan `pnpm status` uses (F-17,
+  `dev/features/parallel-plan.md` §10), with ready builds first, shaping only when fewer than three are ready, and only
+  the owner's pull requests and branches marking a leaf in progress. F-17's Build map step 5 edits this Contract,
+  Acceptance and Verify to match, and this doc's review covers only those sections, in one round. Owner: F-17's step 5.
 
 ## Changes
 
