@@ -80,14 +80,14 @@ Each was checked against 0.3 and the 0.2 review's Tracker column.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | A finished ticket's leftover branch still claims it: it stays work in progress, holds back every leaf that overlaps it, and is called stale | S1 | shaping session | step 4 | |
-| AR-2 | The claim branch's name breaks `process/intake.md`'s branch rule, which `/work-ticket` follows, and the claim is pushed before the start checks and never checked for | S2 | shaping session | step 3 | |
-| AR-3 | Sessions that never build a ticket claim it: the app names a session's branch `<user>/i<n>-…` | S2 | owner | step 4 | |
-| AR-4 | "Fewer than three builds are ready" is not work-order's rule, so shaping disappears while every ready build is taken | S2 | shaping session | step 1 | |
-| AR-5 | A red check on the owner's pull request can never be offered in parallel: its files overlap the pull request itself | S2 | shaping session | step 4 | |
-| AR-6 | Rank 1's order is said twice and differently, so `merge` against shaping is not defined | S3 | shaping session | step 1 | |
+| AR-1 | A finished ticket's leftover branch still claims it: it stays work in progress, holds back every leaf that overlaps it, and is called stale | S1 | shaping session | step 4 | #541 |
+| AR-2 | The claim branch's name breaks `process/intake.md`'s branch rule, which `/work-ticket` follows, and the claim is pushed before the start checks and never checked for | S2 | shaping session | step 3 | #540 |
+| AR-3 | Sessions that never build a ticket claim it: the app names a session's branch `<user>/i<n>-…` | S2 | owner | step 4 | #541 |
+| AR-4 | "Fewer than three builds are ready" is not work-order's rule, so shaping disappears while every ready build is taken | S2 | shaping session | step 1 | #538 |
+| AR-5 | A red check on the owner's pull request can never be offered in parallel: its files overlap the pull request itself | S2 | shaping session | step 4 | #541 |
+| AR-6 | Rank 1's order is said twice and differently, so `merge` against shaping is not defined | S3 | shaping session | step 1 | #538 |
 | AR-7 | The `other-account` line fires on Dependabot and on every collaborator's pull request, and nothing clears it | S2 | owner | step 4 (#535) | #535 |
-| AR-8 | Wording and residuals: line forms, the GitHub line, where the timed run is recorded, a stale Verified line, and links GitHub does not keep | S3 | shaping session | steps 1, 2 and 4 | |
+| AR-8 | Wording and residuals: line forms, the GitHub line, where the timed run is recorded, a stale Verified line, and links GitHub does not keep | S3 | shaping session | steps 1, 2 and 4 | #538, #539, #541 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
