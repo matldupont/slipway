@@ -86,7 +86,7 @@ Each was checked against 0.3 and the 0.2 review's Tracker column.
 | AR-4 | "Fewer than three builds are ready" is not work-order's rule, so shaping disappears while every ready build is taken | S2 | shaping session | step 1 | |
 | AR-5 | A red check on the owner's pull request can never be offered in parallel: its files overlap the pull request itself | S2 | shaping session | step 4 | |
 | AR-6 | Rank 1's order is said twice and differently, so `merge` against shaping is not defined | S3 | shaping session | step 1 | |
-| AR-7 | The `other-account` line fires on Dependabot and on every collaborator's pull request, and nothing clears it | S2 | owner | step 4 (#535) | |
+| AR-7 | The `other-account` line fires on Dependabot and on every collaborator's pull request, and nothing clears it | S2 | owner | step 4 (#535) | #535 |
 | AR-8 | Wording and residuals: line forms, the GitHub line, where the timed run is recorded, a stale Verified line, and links GitHub does not keep | S3 | shaping session | steps 1, 2 and 4 | |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
