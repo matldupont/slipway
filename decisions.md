@@ -1355,6 +1355,30 @@ builds that line; this decision is re-read once when it closes, and the line is 
 Amends D-020's "Status stays offline" and D-022's "Declined: live state in `pnpm status`" for this read only: status
 still works with no network, and says when it has none. Spec: `dev/features/parallel-plan.md`.
 
+## D-051 — The prose job, the chatbot check on PR bodies and P1's title and subject rules ship to projects with #521 *(decided 2026-10-22)*
+
+Amends: F-16
+
+D-046 held these in slipway's own repository until a real project's text had been measured once (AR-2). The measurement
+ran once, read-only, on a real project; the result went to the owner. The owner, 2026-10-22, in the orchestrator
+session: "Yes, as written", to this amendment of D-046:
+
+> **Amended 2026-10-22:** the prose job, the chatbot check on PR bodies and P1's title and subject rules ship to
+> projects with #521, in the release after 0.1.5. One read-only run on a real project, result given to the owner, found
+> nothing that fails once the placeholder rule allows real HTML tags. Its warnings start from the project's own count
+> and may only go down.
+
+- **What ships:** `.vale.ini`, `ci/prose/**`, `ci/prose.mjs`, the `prose` job without its `is_template` guard, the body
+  step in `pr-body.yml`, and the title and subject rules of P1. A project receives them by sync.
+- **The warning count starts from the project's own held set** and may only go down (`ci/ratchet.mjs`, key `prose` in
+  the project's `ci/baselines.json`).
+- **`.vale.ini` and `ci/prose/**` are gate files in a project** (owner-only, with the other gate files): a project's
+  agent cannot loosen its own linter (#462's review; the orchestrator, 2026-10-22).
+- **Unchanged from D-046:** a check fails only on unambiguous junk, and the ratchet counts what a person reads cold.
+
+Why: D-046 named the measurement as the one thing between these checks and a project; it is done. Spec: F-16 (0.6),
+#521.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
