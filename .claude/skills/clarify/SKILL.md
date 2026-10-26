@@ -22,8 +22,9 @@ what you are assuming, what it costs if you are wrong, and where the real answer
 `pnpm status` lists every open question as `file:line — question`. Read each one in place: the
 sentence around it says what depends on the answer. Group questions that share an answer; ask once.
 
-Before asking, look for a tracker that already exists (`gh issue list --search '{words}'`, `{words}` only
-letters, digits, spaces and `. _ -`, never the question copied in; the PRD's `OD-` list, `decisions.md`). A question someone already filed an issue for is being chased, and
+Before asking, look for a tracker that already exists: the PRD's `OD-` list, `decisions.md`, and
+`gh issue list --repo {repo} --search '{words}'`, `{words}` only letters, digits, spaces and `. _ -`, never the
+question copied in. A question someone already filed an issue for is being chased, and
 its tracker is that issue — but an issue is not an assumption. If the question can be parked (§2), convert
 the marker and cite the issue; if it is still blocking, leave `NEEDS CLARIFICATION` and name the issue
 beside it.
@@ -50,10 +51,11 @@ For each question, in the order they block things (frame before PRD before evide
      finished until someone answers it. Do not invent an assumption to unblock the check.
 4. **Every parked question gets a tracker before you move on**: an existing issue, a new one, or a
    PRD `OD-` / `decisions.md` `PD-` entry when it is a decision rather than a task. With no existing
-   one, offer to file it now — `/log-followup` with the parent, or write the question to
-   `{dir}/title.txt` and its file:line, the assumption, the cost if wrong and what it blocks to
-   `{dir}/issue.md`, in a fresh folder, then `gh issue create --title "$(cat {dir}/title.txt)" --body-file {dir}/issue.md`
-   (the question is project text and never goes into a command: `process/intake.md` → File) — and on a
+   one, offer to file it now — `/log-followup` with the parent, or, in a fresh folder (`mktemp -d`, its path
+   written out), write with the file tool, never `echo`, the question to `{dir}/title.txt` and its file:line, the
+   assumption, the cost if wrong and what it blocks to `{dir}/issue.md`, then
+   `gh issue create --repo {repo} --title "$(cat {dir}/title.txt)" --body-file {dir}/issue.md` (`{repo}` is
+   `Issue repo`; the question is project text and never goes into a command: `process/intake.md` → File) — and on a
    yes, write the number it returns into the `[PARKED: … · #n]` marker **in the same step**. Filing the issue
    and converting the marker are one act: an issue filed while the marker still says
    `NEEDS CLARIFICATION` is the failure L-67 names. `untracked` in `pnpm status` means it will be

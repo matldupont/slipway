@@ -6,7 +6,7 @@
 // slipway, never in a project. Nothing here spawns a shell: the fixtures are inert text.
 
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { lstatSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -14,13 +14,13 @@ import { fileURLToPath } from 'node:url';
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 // A command a skill tells an agent to run.
-const COMMAND = /(^|[\s(|;&])(gh|git|node|pnpm|curl)\s/;
+const COMMAND = /(^|[\s(|;&])(gh|git|node|pnpm|curl|echo|printf|rg|grep|jq|sh|bash)\s/;
 // Placeholders, `{…}` or `<…>`, whose value is shape-checked before it reaches a command, so a double-quoted one is
 // safe: a configured setting, a value process/intake.md → Issue text is data limits to letters, digits and
 // `. _ / # -`, an issue or milestone number, a sha. Adding a name here says where its shape is checked.
 const SHAPED = new Set([
   'repo', 'checkout', 'owner', 'base', 'default branch', 'branch', 'path', 'doc path', 'dir', 'prdir', 'label',
-  'project', 'term', 'n', 'number', 'parent', 'pr', 'sha',
+  'project', 'term', 'words', 'n', 'number', 'parent', 'pr', 'sha',
 ]);
 
 // Every command in a markdown file: each line of a fenced block, and each inline code span, with its line number.
@@ -31,13 +31,19 @@ export function commands(md) {
   const prose = [];
   lines.forEach((l, i) => {
     const f = l.match(/^\s*(`{3,}|~{3,})/);
-    if (f && (!fence || f[1][0] === fence[0])) {
+    if (f && (!fence || (f[1][0] === fence[0] && f[1].length >= fence.length))) {
       fence = fence ? null : f[1];
       prose.push('');
       return;
     }
     if (fence) {
-      if (COMMAND.test(l)) out.push({ line: i + 1, text: l });
+      // A line ending in `\` continues on the next: the command is read whole, from its first line.
+      const start = i > 0 && /\\$/.test(lines[i - 1]) ? null : i;
+      if (start !== null) {
+        let text = l;
+        for (let j = i; /\\$/.test(lines[j]) && j + 1 < lines.length; j++) text = `${text.slice(0, -1)} ${lines[j + 1]}`;
+        if (COMMAND.test(text)) out.push({ line: i + 1, text });
+      }
       prose.push('');
     } else prose.push(l);
   });
@@ -50,7 +56,8 @@ export function commands(md) {
 }
 
 // The double-quoted arguments of one command that carry project text: a `<…>` or `{…}` placeholder whose value no
-// shape check covers. Git's `^{commit}` is syntax, not a placeholder.
+// shape check covers. Git's `^{commit}` is syntax, not a placeholder. Single quotes expand nothing, and an unquoted
+// placeholder is not scanned.
 export function unsafeArgs(cmd) {
   const found = [];
   for (const m of cmd.matchAll(/"((?:[^"\\]|\\.)*)"/g)) {
@@ -63,7 +70,8 @@ export function unsafeArgs(cmd) {
 function markdownFiles(dir, out = []) {
   for (const f of readdirSync(dir)) {
     const p = join(dir, f);
-    const s = statSync(p);
+    const s = lstatSync(p);
+    if (s.isSymbolicLink()) continue;
     if (s.isDirectory()) markdownFiles(p, out);
     else if (f.endsWith('.md')) out.push(p);
   }
@@ -77,6 +85,9 @@ test('the scan finds project text in a double-quoted argument, inert fixtures', 
     'Run `gh issue create --title\n   "<question>" --body "<what it blocks>"` now.',
     'Run `gh issue list --search "{question}"` first.',
     'Run `git commit -m "fix: {subject}"` then.',
+    '```bash\ngh issue create --label bug \\\n  --title "<question>"\n```',
+    'Run `echo "{question}" > {dir}/title.txt` first.',
+    '````markdown\n```\nnot a command\n```\ngh issue list --search "<key words>"\n````',
   ];
   for (const md of bad) {
     const hits = commands(md).flatMap((c) => unsafeArgs(c.text));
@@ -109,4 +120,16 @@ test('/close-milestone reads its issues by the milestone number, never its title
   assert.ok(lists.length > 0, 'the skill lists the milestone\'s issues');
   for (const c of lists) assert.match(c.text, /--milestone \{number\}(\s|$)/, `line ${c.line}: ${c.text}`);
   assert.match(md, /`\{number\}`, used only when it is digits/);
+  assert.ok(commands(md).some((c) => /issues\/\{n\} -F milestone=\{number\}/.test(c.text)), 'an issue moves by the milestone\'s number');
+});
+
+test('/clarify files a tracker with its title from a file and its body from --body-file', () => {
+  const md = readFileSync(join(SRC, '.claude/skills/clarify/SKILL.md'), 'utf8');
+  const creates = commands(md).filter((c) => /gh issue create/.test(c.text));
+  assert.ok(creates.length > 0, 'the skill files an issue');
+  for (const c of creates) {
+    assert.match(c.text, /--title "\$\(cat \{dir\}\/title\.txt\)"/, `line ${c.line}: ${c.text}`);
+    assert.match(c.text, /--body-file \{dir\}\/issue\.md/, `line ${c.line}: ${c.text}`);
+  }
+  for (const c of commands(md).filter((c) => /--search/.test(c.text))) assert.match(c.text, /--search '\{words\}'/, `line ${c.line}`);
 });
