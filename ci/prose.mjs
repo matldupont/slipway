@@ -28,7 +28,7 @@
 // checked (.github/workflows/ci.yml); locally, `brew install vale` or the release page.
 
 import { spawnSync } from 'node:child_process';
-import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -215,6 +215,7 @@ const git = (args, cwd = ROOT) => spawnSync('git', args, { cwd, encoding: 'utf8'
 const where = (a) => `${a.file}:${a.line}`;
 const finding = (a) => ({ where: where(a), detail: `${a.rule}: ${a.message}` });
 const isError = (a) => a.severity === 'error';
+const warningsWord = (n) => `${n} warning${n === 1 ? '' : 's'}`;
 
 // The lines a change adds to `file`, as a Set of line numbers.
 function addedLines(base, file) {
@@ -320,7 +321,7 @@ async function runAll(argv) {
   const update = argv.includes('--update');
   // No count yet: the error rules above have run and failed on their own; only the count waits for its number.
   if (!update && !Object.hasOwn(baselines, KEY)) {
-    report({ id: ID, claim: '', scanned: held.filter((f) => !notOwn.has(f)).length, unit: 'own files', broken: `no ${KEY} count in ${BASELINES} yet. This run measured ${count} warnings on this project's own text, the held set less slipway's managed files. Record that number in a reviewed PR, listed under Gate changes: ${recordCommand(count)}` });
+    report({ id: ID, claim: '', scanned: held.filter((f) => !notOwn.has(f)).length, unit: 'own files', broken: `no ${KEY} count in ${BASELINES} yet. This run measured ${warningsWord(count)} on this project's own text, the held set less slipway's managed files. Record that number in a reviewed PR, listed under Gate changes: ${recordCommand(count)}` });
     process.exit(2);
   }
   // A change that sets the count (adds it, lowers it, or raises it by hand) sets the one this run measures, so a number
@@ -332,7 +333,7 @@ async function runAll(argv) {
       claim: `the ${KEY} count this change records is the one measured`,
       scanned: 1,
       unit: 'count',
-      findings: recorded === count ? [] : [{ where: `${BASELINES} ${KEY}`, detail: `this change records ${JSON.stringify(recorded)}, and this run measured ${count} warnings on this project's own text: a recorded count must be the measured one — record ${count}` }],
+      findings: recorded === count ? [] : [{ where: `${BASELINES} ${KEY}`, detail: `this change records ${JSON.stringify(recorded)}, and this run measured ${warningsWord(count)} on this project's own text: a recorded count must be the measured one — record ${count}` }],
     })));
   }
   const dir = scratchDir('prose-ratchet-');
@@ -398,8 +399,9 @@ function runDir(folder) {
   process.exit(alerts.some(isError) ? 1 : 0);
 }
 
-// Only when run, so scripts/prose.test.mjs, sync and new-project can import what they use.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Only when run, so scripts/prose.test.mjs, sync and new-project can import what they use. Node runs the real path, so
+// the path it was given is compared as a real path too: a checkout under a link (macOS's /var) still runs.
+if (process.argv[1] && realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url)) {
   const argv = process.argv.slice(2);
   if (argv.includes('--record')) runRecord(argv[argv.indexOf('--record') + 1]);
   haveVale();

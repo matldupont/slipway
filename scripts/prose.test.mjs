@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 // The prose check (ci/prose.mjs, F-16 §8): each rule trips its own file once, the controls raise nothing, a missing
-// Vale is BROKEN, and the two workflows pin the same Vale. Internal: the `prose` CI job runs it in slipway, never a
+// Vale is BROKEN, and the two workflows pin the same Vale. From #549 (F-16 §10): the held set covers every file slipway
+// ships that a person reads, and a project made by new-project counts its own text, records it with --record <n>, and
+// fails when a change records a number other than the one measured. Internal: the `prose` CI job runs it in slipway, never a
 // project, and never `pnpm meta`, which installs nothing. With no `vale` on the path it exits 2 (BROKEN) at once.
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { asSeen, blank } from '../ci/prose.mjs';
+import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
+import { asSeen, blank, HELD, personReads, slipwaysFiles } from '../ci/prose.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROSE = join(SRC, 'ci', 'prose.mjs');
@@ -258,4 +261,138 @@ test('both workflows install the same Vale, at a version and a sha256, never lat
     return `${version} ${sha}`;
   });
   assert.equal(pins[0], pins[1]);
+});
+
+test('Chatbot.yml holds nine phrases, as F-16 §8 says', () => {
+  const text = readFileSync(join(SRC, 'ci', 'prose', 'Slipway', 'Chatbot.yml'), 'utf8');
+  const tokens = text.slice(text.indexOf('tokens:')).split('\n').filter((l) => /^ {2}- /.test(l));
+  assert.equal(tokens.length, 9);
+});
+
+test('CheckId and DecisionId read the blanked copy: an id in a fence or front matter passes, one in prose is counted', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'prose-test-'));
+  try {
+    const put = (name, text) => writeFileSync(join(dir, name), text);
+    put('fence.md', 'Open.\n\n```\nP1 and D-12 run here.\n```\n');
+    put('header.md', '---\nnote: P1 and D-12\n---\n\nOpen.\n');
+    put('prose.md', 'Open.\n\nP1 and D-12 run here.\n');
+    const seen = alertsIn(dir).alerts.map((a) => `${a.file} ${a.rule}@${a.line}`).sort();
+    assert.deepEqual(seen, ['prose.md Slipway.CheckId@3', 'prose.md Slipway.DecisionId@3']);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('slipway\'s held set covers every file it ships as managed that a person reads: only agent text and fixtures are left out', async () => {
+  const rules = loadOwnership(SRC);
+  const managed = shippedPaths(SRC, rules).filter((p) => /\.(?:md|markdown)$/i.test(p) && classify(rules, p) === 'managed');
+  const held = new Set([...HELD, ...(await slipwaysFiles(SRC))]);
+  const out = managed.filter((p) => !held.has(p));
+  assert.deepEqual(out.filter((p) => !p.startsWith('.claude/') && !p.startsWith('ci/fixtures/')), [], 'a managed file a person reads is not held');
+  assert.ok(managed.some((p) => p.startsWith('process/lessons/') && held.has(p)), 'the lessons are held');
+  assert.equal(personReads('.claude/skills/x/SKILL.md'), false);
+  assert.equal(personReads('ci/fixtures/known-bad/x/README.md'), false);
+  assert.equal(personReads('process/lessons/L-1.MD'), true);
+});
+
+// A project made by new-project, `withVale` on the path or not; its main branch holds one commit.
+const NO_VALE = { ...process.env, PATH: `${dirname(process.execPath)}:/usr/bin:/bin` };
+function newProject(withVale) {
+  const dir = join(mkdtempSync(join(tmpdir(), 'prose-project-')), 'p');
+  const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), dir, '--no-github', '--no-harness'], { encoding: 'utf8', env: withVale ? process.env : NO_VALE });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  return { dir, out: r.stdout };
+}
+const inProject = (dir, args, env = process.env) => spawnSync(process.execPath, [join(dir, 'ci', 'prose.mjs'), ...args], { cwd: dir, encoding: 'utf8', env });
+const sh = (dir, ...args) => assert.equal(spawnSync('git', args, { cwd: dir, encoding: 'utf8' }).status, 0, `git ${args.join(' ')}`);
+const commitAll = (dir, msg) => {
+  sh(dir, 'add', '-A');
+  sh(dir, '-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '-m', msg);
+};
+const counts = (dir) => JSON.parse(readFileSync(join(dir, 'ci', 'baselines.json'), 'utf8'));
+const LONG = `${Array.from({ length: 40 }, () => 'word').join(' ')}.\n`;
+
+test('a project made by new-project with the pinned Vale records its own count, and its check is never BROKEN on README', () => {
+  const { dir, out } = newProject(true);
+  try {
+    assert.equal(counts(dir).prose, 0, out);
+    const r = inProject(dir, ['--base', 'HEAD']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.doesNotMatch(r.stdout, /BROKEN/);
+  } finally {
+    rmSync(dirname(dir), { recursive: true, force: true });
+  }
+});
+
+test('with no count, the error rules still fail on their own, and the run exits 2 naming the count it measured and the one command', () => {
+  const { dir, out } = newProject(false);
+  try {
+    assert.equal(Object.hasOwn(counts(dir), 'prose'), false, out);
+    assert.match(out, /node ci\/prose\.mjs --record <n>/);
+    appendFileSync(join(dir, 'README.md'), `\nCertainly! Done.\n\n${LONG}`);
+    commitAll(dir, 'readme');
+    const r = inProject(dir, ['--base', 'HEAD']);
+    assert.equal(r.status, 2, r.stdout);
+    assert.match(r.stdout, /README\.md:\d+: Slipway\.Chatbot/, 'the error rule fails on its own');
+    assert.match(r.stdout, /This run measured 1 warning on this project's own text/);
+    assert.match(r.stdout, /node ci\/prose\.mjs --record 1$/m);
+  } finally {
+    rmSync(dirname(dir), { recursive: true, force: true });
+  }
+});
+
+test('--record <n> runs no Vale and writes the count once; with one in place it refuses and changes nothing', () => {
+  const { dir } = newProject(false);
+  try {
+    const first = inProject(dir, ['--record', '12'], NO_VALE);
+    assert.equal(first.status, 0, first.stdout);
+    assert.equal(counts(dir).prose, 12);
+    const before = readFileSync(join(dir, 'ci', 'baselines.json'));
+    const again = inProject(dir, ['--record', '3'], NO_VALE);
+    assert.equal(again.status, 1, again.stdout);
+    assert.match(again.stdout, /never raises one — nothing was written/);
+    assert.deepEqual(readFileSync(join(dir, 'ci', 'baselines.json')), before);
+    assert.equal(inProject(dir, ['--record', '-1'], NO_VALE).status, 2, 'a count is a whole number');
+  } finally {
+    rmSync(dirname(dir), { recursive: true, force: true });
+  }
+});
+
+test('a PR recording a number different from CI\'s count fails; the measured number passes', () => {
+  const { dir } = newProject(false);
+  try {
+    appendFileSync(join(dir, 'README.md'), `\n${LONG}`);
+    commitAll(dir, 'readme, one warning');
+    sh(dir, 'checkout', '-q', '-b', 'wrong');
+    assert.equal(inProject(dir, ['--record', '12'], NO_VALE).status, 0);
+    commitAll(dir, 'record 12');
+    const wrong = inProject(dir, ['--base', 'main']);
+    assert.equal(wrong.status, 1, wrong.stdout);
+    assert.match(wrong.stdout, /this change records 12, and this run measured 1 warning on .* record 1$/m);
+    sh(dir, 'checkout', '-q', 'main');
+    sh(dir, 'checkout', '-q', '-b', 'right');
+    assert.equal(inProject(dir, ['--record', '1'], NO_VALE).status, 0);
+    commitAll(dir, 'record 1');
+    const right = inProject(dir, ['--base', 'main']);
+    assert.equal(right.status, 0, right.stdout);
+  } finally {
+    rmSync(dirname(dir), { recursive: true, force: true });
+  }
+});
+
+test('a project counts its own text only: a warning in slipway\'s managed SLIPWAY.md is not counted, one in README is', () => {
+  const { dir } = newProject(true);
+  try {
+    appendFileSync(join(dir, 'SLIPWAY.md'), `\n${LONG}`);
+    commitAll(dir, 'slipway text');
+    const managed = inProject(dir, ['--base', 'HEAD~1']);
+    assert.equal(managed.status, 0, managed.stdout);
+    appendFileSync(join(dir, 'README.md'), `\n${LONG}`);
+    commitAll(dir, 'own text');
+    const own = inProject(dir, ['--base', 'HEAD~1']);
+    assert.equal(own.status, 1, own.stdout);
+    assert.match(own.stdout, /prose: 1 is above the baseline 0/);
+  } finally {
+    rmSync(dirname(dir), { recursive: true, force: true });
+  }
 });
