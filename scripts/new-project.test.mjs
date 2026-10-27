@@ -638,6 +638,12 @@ test('status in a project notes slipway\'s lesson past its date and asks for no 
     assert.equal(note.test(r.stdout), noted, `${day}: ${r.stdout}`);
     assert.doesNotMatch(r.stdout, review, `${day}: ${r.stdout}`);
   }
+  // An overrides file reached through a link: status follows none, so no lesson is slipway's and L-71 is asked for as before.
+  writeFileSync(join(dest, 'kept.yaml'), 'overrides: []\n');
+  symlinkSync(join(dest, 'kept.yaml'), join(dest, '.slipway', 'overrides.yaml'));
+  assert.match(status('2027-04-14').stdout, /^- Review the lesson \(L-71\) by 2027-04-14\.$/m, 'a linked overrides file was read');
+  unlinkSync(join(dest, '.slipway', 'overrides.yaml'));
+  assert.match(status('2027-04-14').stdout, note);
   appendFileSync(join(dest, 'process', 'lessons', 'L-71-word-lists-are-a-snapshot.md'), '\nedited\n');
   const r = status('2027-04-14');
   assert.match(r.stdout, /^- Review the lesson \(L-71\) by 2027-04-14\.$/m);

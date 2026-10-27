@@ -28,7 +28,7 @@ import { designBefore, hasAccessibilityLine } from './checks/lib/design.mjs';
 import { frontEnd } from './checks/lib/frame.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { slipwayLessons, slipwaysDate } from './checks/lib/lessons.mjs';
-import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
+import { MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
 import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
@@ -379,9 +379,9 @@ const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
 // The lessons whose fixed review date is slipway's in this project (#555, D-052), read through lessons.mjs, the reader L1
 // uses, never a second list: L1 leaves their dates to slipway, so status asks the project for no review of one, and once
-// the date has passed, says a sync brings the reviewed copy. A .slipway file that is a link or not a regular file counts as
-// unreadable, as every file status reads: no lesson is slipway's, and each date prints as before.
-const slipways = ['.slipway/manifest.json', '.slipway/overrides.yaml'].every((p) => [null, MISSING].includes(notPlainFile(root, p))) ? slipwayLessons(root) : new Set();
+// the date has passed, says a sync brings the reviewed copy. A .slipway file that is a link or not a regular file, or a
+// lessons folder that is not plain, gives slipway no lesson, and each date prints as before: a line here follows no link.
+const slipways = plainFolder('process/lessons') && [MANIFEST, OVERRIDES].every((p) => [null, MISSING].includes(notPlainFile(root, p))) ? slipwayLessons(root) : new Set();
 const dueSoon = plainFolder('process/lessons')
   ? readdirSync(lessonsDir).sort().filter((f) => /^P?L-.*\.md$/.test(f) && notPlainFile(root, `process/lessons/${f}`) === null).flatMap((f) => {
       const fm = frontmatter(readFileSync(join(lessonsDir, f), 'utf8'));
