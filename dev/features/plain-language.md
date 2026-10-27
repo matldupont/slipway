@@ -5,7 +5,7 @@ status: draft
 
 # F-16 — Plain language: slipway's own text says what to do next in short, plain terms
 
-Version: 0.5 (2026-10-23)
+Version: 0.6 (2026-10-26)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line.
@@ -118,7 +118,8 @@ The unit of execution, in the order the stages land. "A person reads it" means: 
 a check's output, `README.md`, `SLIPWAY.md`, `BOOTSTRAP.md`, `process/*.md`, the feature and milestone docs,
 the questions a skill asks, a PR or issue body, a commit subject, an issue or PR title. Skills, `process/intake.md`,
 `decisions.md` and the checks' own source comments are agent text and are not held to the form; what they show or
-post is. Every stage changes a gate file (`ci/**`, `process/**`, `.claude/skills/**`, the forms, the workflows), so
+post is. The three error rules of §8 apply to agent text too, since junk is junk: `process/*.md` and `decisions.md` are
+in §8's diff set, and an error on a line a change adds fails. Every stage changes a gate file (`ci/**`, `process/**`, `.claude/skills/**`, the forms, the workflows), so
 every PR carries `## Gate changes` and `/work-ticket` reviews each on the strongest tier at `xhigh` (D-035).
 
 ### §1 The standard: `process/writing.md`
@@ -140,14 +141,15 @@ from slipway's own text on `main`, cited by file. The rules, in this order:
 6. **Keep the owner's words.** Quote what the owner said in an issue or a conversation; do not paraphrase it. Pair:
    #440's "the owner's word" line against its paraphrase in an earlier draft.
 7. **Length matches the need.** No recap endings, no throat-clearing, no epigrams. Pair: "a rule exists only where
-   something fires" (`SLIPWAY.md`) against the gate table's row that says what fires.
+   something fires" (`SLIPWAY.md`) against the gate table's row that says what fires. The pair's second half carries no count: a count in an example goes
+   stale and nothing holds it (the 0.4 review's AR-6), so `process/writing.md`'s rule 7 pair is held to this.
 8. **Subjects and titles.** A commit subject, a PR title and an issue title are 72 characters or fewer, in plain
    words, saying what changed for the reader. Review rounds and ids go in the body. Pair: the `#385` subject above.
 
 Two lines of scope at the top: who it is for (what an agent shows or posts, and what a person edits) and what it is
 not for (skills, `process/intake.md`, `decisions.md`). One line at the end: no template gains a section without the
 owner's yes, and a section cut never comes back; the feature template has 12 sections, and `scripts/f2.test.mjs`
-fails a template with more (§6).
+pins the count at 12 (§6).
 
 Two pointers so the standard is read: `process/intake.md` → Issue body, "In the project's words" gains one
 sentence, "The form follows `process/writing.md`."; `process/slipway-rules.md` → Working rules gains one line,
@@ -279,8 +281,9 @@ Until then the static test names the sites still owed, so the gap is visible, ne
   the thesis sentence, which moves to `SLIPWAY.md` where the gate table shows what fires. The option table and the
   failure paragraphs stay.
 - The path table and `README.md`'s path section are held at 0 errors and 0 warnings by §8's script; the rest of
-  `SLIPWAY.md` (117 bare check ids at 3e532a9, most in the gate table and the Validation section) is counted once
-  the gate table is in code spans, and the number goes in this doc's Changes and the ratchet's baseline.
+  `SLIPWAY.md` (117 bare check ids at 3e532a9, most in the gate table and the Validation section) is read
+  as part of the held set: the held-set total, recorded in the ratchet's baseline (`prose`), is the number. `SLIPWAY.md`'s
+  own count is not recorded apart.
 
 The gate table's `verify` and FO1 rows are #444's; this stage leaves them to it, whichever lands second rebases.
 
@@ -306,14 +309,16 @@ doc on `main`: a section is cut when it holds `none`, a restatement of another s
 16 of 20 (or in four of five docs); below that it stays and the PR says so. The candidates:
 
 - `.github/ISSUE_TEMPLATE/feature.yml` and `bug.yml`: `Seams detail` merges into `Seams`, one field (one `### Seams`
-  heading in the issue). Its lines are `<label>: <detail>`, in a list or not, one per seam (who pays, who is counted,
+  heading in the issue). Its lines are `<label>: <detail>`, each a list item, one per seam (who pays, who is counted,
   who is told, what is promised), or the single line `none: <reason>`. I1 reads the merged field; its
   `seams/none-without-reason` and `seams/unenumerated` findings stay, on the one field; a body on the old form, with
   both headings, still passes (the issue-shape workflow runs on `edited`, so old issues meet the new I1).
   `process/intake.md`, `/log-feature`, `/log-bug`, `/log-followup` and `scripts/skills.test.mjs` write the one heading.
 - `docs/features/TEMPLATE.md`: `## Open questions` stays. The count the PR records put it at 10 of 15 feature docs
-  with the section empty or restating another (12 only on a generous reading), against the bar of 12 of 15. The
-  template keeps its 12 sections, and `scripts/f2.test.mjs` fails a template with more: no template gains a section.
+  with the section empty or restating another (12 only on a generous reading), against the bar of 12 of 15; the 15 are
+  the docs that hold the section. A count reached only on a generous reading does not meet the bar, so the section
+  stays (#509, on the orchestrator's advice). The template keeps its 12 sections, and `scripts/f2.test.mjs` pins the
+  count at 12: no template gains a section.
   In a project, a question with an owner is a `[NEEDS CLARIFICATION]` marker where it sits, which `/clarify` and
   `pnpm status` read under `docs/`; in slipway's own tree nothing reads a marker under `dev/features/`, so a question
   there is a line under Known limitations naming its owner, or an issue.
@@ -328,10 +333,10 @@ Nothing is added. Existing issues and docs are not edited, and merged PR bodies 
 
 ### §7 P1 reads the PR title and every commit subject (`ci/checks/meta/p1-pr-body.mjs`, `.github/workflows/pr-body.yml`)
 
-In slipway's own repository only (D-046): the workflow writes `title.txt` (the PR title) and `commits.txt` (one
+In slipway's own repository until §10 (D-046, then D-051): the workflow writes `title.txt` (the PR title) and `commits.txt` (one
 subject per line, `git log --format=%s base..head`) beside the body when `github.event.repository.is_template` is
 true, the inverse of `verify`'s guard. With neither file present the rules below do not run, as the gate-changes
-rules do without their sidecar, so a project's P1 is unchanged until a decision ships them. Findings, each with its
+rules do without their sidecar, so a project's P1 is unchanged until §10 lifts the guard. Findings, each with its
 `fix`:
 
 - `title/long`, `commit/long:<sha7>`: more than 72 code points.
@@ -348,27 +353,35 @@ content: printed through `escapeControl`, length computed on the text as written
 
 - **Where it runs.** A `prose` job in `ci.yml`, on the same two triggers as `meta`, that installs Vale at a pinned
   version with its sha256 checked (`VALE_VERSION`, `VALE_SHA256`, Linux 64-bit, v3.24.0), runs
-  `scripts/prose.test.mjs`, then `pnpm check:prose`. The job runs only in slipway's own repository
-  (`if: github.event.repository.is_template`): a project's docs are not measured yet (D-046), so a project installs
-  nothing. Locally, `pnpm check:prose` with no `vale` on the path exits BROKEN, saying `brew install vale` or the
+  `scripts/prose.test.mjs`, then `pnpm check:prose`. The job runs in slipway's repository and, from 0.6, in every
+  project (§10, D-051); the test step runs in slipway only. Locally, `pnpm check:prose` with no `vale` on the path exits BROKEN, saying `brew install vale` or the
   release URL: never green (decision-defaults §4). It is not a meta check: `ci/checks/` stays zero-dependency (D-004).
 - **Two sets of files.** The **held set**, where errors fail and warnings ratchet: `README.md`, `SLIPWAY.md`,
   `BOOTSTRAP.md`, `process/writing.md`, `docs/features/TEMPLATE.md`, `docs/reviews/TEMPLATE.md`,
   `docs/milestones/TEMPLATE.md`, `.github/pull_request_template.md`. The **diff set**, every other markdown file a
   person reads (`process/*.md`, `process/lessons/*.md`, `decisions.md`, `docs/**/*.md` except `docs/reviews/**`,
-  `dev/features/*.md`): errors fail on the lines a PR adds, warnings on those lines are printed and never counted.
+  `dev/features/*.md`; a name ending `.md` or `.markdown` in any letter case, the folders as written; a file git reads
+  as binary fails the check instead of passing): errors fail on the lines a PR adds, warnings on those lines are printed and never counted.
   Not `.claude/**` (agent text), not fixtures. The base of "the lines a PR adds" is `PROSE_BASE` (the PR's base sha,
   or the push's `before`) or `--base`; a base git cannot resolve is BROKEN.
 - **What Vale reads.** Every file is read as plain text: `ci/prose.mjs` copies it to a scratch folder under a `.txt`
-  name, so Vale parses no markdown and honours no comment directive or character reference. Every rule but Placeholder
-  reads the copy as written, code spans and fenced blocks included. Placeholder reads a second copy with its front
-  matter, fenced blocks and code spans blanked and its lines kept, so a `<sha>` in a code span never fires (the owner,
-  2026-10-15, on AR-1 of the 0.2 review). So a doc cannot quote a chatbot phrase, in code or out of it, and a change that
-  adds one fails.
+  name, so Vale parses no markdown and honours no comment directive or character reference. Three copies exist. The
+  warning rules read the copy as written, code spans and fenced blocks included. Chatbot and Recap read a normalised
+  copy: character references decoded, escapes dropped, invisible characters deleted, odd spaces and curly apostrophes
+  made plain, line-start markers and emphasis characters removed, so a phrase reads as a reader sees it. Placeholder
+  reads a third copy with its front matter, fenced blocks and code spans blanked and its lines kept, so a `<sha>` in a
+  code span never fires (the owner, 2026-10-15, on AR-1 of the 0.2 review). **The rule the build must meet (the 0.5
+  review's AR-4, on the owner's preference):** `CheckId.yml` and `DecisionId.yml` read the blanked copy too, as
+  Placeholder does, so §1 rule 2 keeps one rule; the warning count only goes down from that fix, and the `prose`
+  baseline is lowered then. So no file the check reads can add a chatbot phrase, in code or out of it, and neither can
+  a PR body. `scope: raw` stays on the three error rules because Recap anchors on a paragraph start and Chatbot allows a
+  line wrap inside a phrase; neither is about HTML, which no longer parses.
 - **Errors, which fail:** three rules under `ci/prose/Slipway/`, each with `scope: raw`, so a `<date>` is read as
   text and not as an HTML tag:
-  - `Chatbot.yml`: nine openers and sign-offs a chatbot adds (a thanks for the question, an offer of more help, a
-    statement about being an AI), the list in the rule file. Words may be split by a line wrap.
+  - `Chatbot.yml`: nine openers and sign-offs a chatbot adds, of five kinds: a sign-off hoping it helped, praise for
+    the question, a one-word exclamation of agreement, an offer of more help, and a statement about being an AI. The
+    list is in the rule file, and `scripts/prose.test.mjs` pins its count at nine, so this sentence can fail. Words
+    may be split by a line wrap.
   - `Placeholder.yml`: `<` + lower-case words + `>` (`<date>`, `<main sha>`), `TBD`, `XXX`, `lorem ipsum`. Not in a
     template (a file whose name holds `TEMPLATE` or `_template`) and not in a seeded file (`docs/PRD.md`,
     `docs/product/FRAME.md`, `docs/milestones/M1-walking-skeleton.md`: the `seeded` class in `dev/ownership.yaml`,
@@ -385,25 +398,24 @@ content: printed through `escapeControl`, length computed on the text as written
 - **The ratchet.** `ci/prose.mjs` runs `vale --output=JSON` over the held set, fails on any error, writes
   `{ "warnings": n }` to a temp report and runs `ci/ratchet.mjs prose <report> warnings`; then runs the three error
   rules over the lines `git diff base...HEAD` adds in the diff set, failing on any, and prints that set's warnings.
-  The baseline key `prose` is recorded by the PR that adds the check: 166 on the held set, read as plain text (#462's
+  The baseline key `prose` is recorded by the PR that adds the check: 166 on the held set at 4b0d3b6, read as plain text (#462's
   own run on 2026-10-23). The path table's rows and `README.md`'s "Then follow the path" section are held at 0 errors and 0
-  warnings by the same script, inside that count. `scripts/new-project.mjs` does not seed the `prose` key: a project
-  runs no prose job.
-- **PR bodies.** In slipway only, the pr-body workflow runs `ci/prose.mjs --body` on `body.md` after P1, under the
-  same `is_template` guard, with the same pinned Vale; errors fail, warnings are printed. Issue bodies stay with I1:
+  warnings by the same script, inside that count. §10 says how a project's `prose` key is recorded.
+- **PR bodies.** The pr-body workflow runs `ci/prose.mjs --body` on `body.md` after P1, with the same pinned Vale (§10:
+  in projects too); errors fail, warnings are printed. Issue bodies stay with I1:
   the issue-shape workflow does not install Vale. `scripts/prose.test.mjs` fails if the two workflows pin
   different versions or hashes.
-- **Ownership.** `.vale.ini`, `ci/prose/**`, `ci/prose.mjs`, `ci/fixtures/known-bad/prose/**` and
-  `scripts/prose.test.mjs` are classed `internal` in `dev/ownership.yaml`: slipway's own, shipped to no project.
+- **Ownership.** `ci/fixtures/known-bad/prose/**` and `scripts/prose.test.mjs` are `internal`: slipway's own, shipped
+  to no project. `.vale.ini`, `ci/prose.mjs` and `ci/prose/**` were `internal` until 0.6 and are `managed` from it (§10).
 - **Known-bad fixture.** `ci/fixtures/known-bad/prose/` holds one file per rule with the line that trips it, and
   five control lines that raise nothing: a `[NEEDS CLARIFICATION]` marker, a `<date>` in a file named `TEMPLATE.md`,
-  a `<br>` in a table cell, a check id in a code span, and a `<sha>` and `<date>` in a code span and a fenced block. `scripts/prose.test.mjs` runs `ci/prose.mjs --dir` on the folder and expects each rule's name in the JSON
+  a `<br>` in a table cell, a check id in a code span, a `<sha>` in a code span, and a `<date>` and a `TBD` in a fenced block. `scripts/prose.test.mjs` runs `ci/prose.mjs --dir` on the folder and expects each rule's name in the JSON
   once, the controls quiet, a 35-word sentence tripping the rule and a 34-word one not, and BROKEN (exit 2) without
   `vale`.
 - **Review date.** `process/lessons/L-71-word-lists-are-a-snapshot.md` is a `prose` lesson with `pointer: process/writing.md`
   and `review-by: 2027-04-14`: L1 reads it, so a word list left alone comes back on that date. `L-54-docs-lint.md`
   stays `declined`: its rule (a declared reader, resolving citations, generated or frozen status) is not what Vale checks.
-  Shipping the check to projects is a follow-up issue filed by this stage's PR (D-046), linked from this doc's Changes.
+  Shipping the check to projects is §10 (D-051, #521).
 
 ### §9 What proves it worked
 
@@ -431,13 +443,65 @@ Verified against: 04b47c0 2026-10-22 — re-read for 0.3. `ci/status.mjs:363–3
 written ahead of its build), 48 `expected.json` files under `ci/fixtures/known-bad/` hold `details`, `ci.yml` (the `prose` job), `pr-body.yml`
 (the Vale steps), `ci/prose.mjs` and `ci/baselines.json` (`prose` 136 then; 166 at 0.5). #457, #459 and #461 are open.
 
+Verified against: a4af263 2026-10-26 — re-read for 0.6. `ci.yml` `prose` job and `pr-body.yml` Vale and body steps carry `is_template`; `pr-body.yml` has no title-and-commits step yet and #461 is open; `.vale.ini`, `ci/prose.mjs` and `ci/prose/**` are `internal` and `scripts/**` is `internal` in `dev/ownership.yaml`; `**/.vale.ini` is in `process/harness/settings.json` and `**/ci/**` covers the rest; `ci/ratchet.mjs` exits 2 with no baseline; `sync.mjs` records only `feature-fit`; `new-project.mjs` seeds no `prose` key; L-71 points at `process/writing.md`.
+
 Verified against: 4b0d3b6 2026-10-23 — re-read for 0.5: `ci/prose.mjs` copies every file under a `.txt` name and runs Placeholder on a blanked copy; `.vale.ini` has one `[*.txt]` section; a table row ends a Sentence run; `ci/baselines.json` holds `prose` 166. cf36893 2026-10-22 — re-read for 0.4. `docs/features/TEMPLATE.md` has 12 `##` sections and `## Open questions` among them; `scripts/f2.test.mjs` pinned no count before this PR; `README.md` has no "a rule exists only where" sentence and `SLIPWAY.md` line 9 has it; `process/lessons/L-54-docs-lint.md` is `declined` on `main`.
+
+### §10 Shipping the prose check and P1's title rules to projects (D-051, #521)
+
+D-046 held these in slipway until a real project's text had been measured once. That run is done: "Ran once, read-only,
+on a real project; result given to the owner." The owner then amended D-046 (D-051, 2026-10-22: "Yes, as written").
+From the release after 0.1.5 a project receives, by sync:
+
+- **Ownership.** `.vale.ini`, `ci/prose.mjs` and `ci/prose/**` change from `internal` to `managed` in
+  `dev/ownership.yaml`. `ci/fixtures/known-bad/prose/**` and `scripts/prose.test.mjs` stay `internal` (`scripts/**`),
+  so a project has no prose fixture and PC1 has nothing to run for it there. The `prose` script already ships with
+  `package.json`'s `check:prose`.
+- **Workflows.** The `prose` job in `ci.yml` and the Vale install and body steps in `pr-body.yml` lose their
+  `if: github.event.repository.is_template`. The `ci.yml` step that runs `node scripts/prose.test.mjs` keeps a guard,
+  since that file does not ship. The title-and-commits step of `pr-body.yml` (§7, #461) loses its guard too, once #461
+  has built it. `scripts/workflows.test.mjs` pins which steps are guarded: only the ones that read a file a project
+  lacks. A project's pinned Vale is the template's: one version and one sha256, in both workflows.
+- **No Vale installed.** `pnpm check:prose` says in one line how to install it, as before (exit 2, BROKEN); the CI job
+  installs the pinned version with its sha256 checked.
+- **The project's own count.** The `prose` key is the warning count on the project's own held set, recorded once and
+  only ever lowered (`ci/ratchet.mjs`). The owner, 2026-10-26: "Record it, red until, with three details: 1. --record
+  writes a baseline only when none exists. With one in place it refuses, like --update, so it can never raise a number.
+  2. With no baseline, the three error rules still run and still fail on their own. Only the warning count waits for the
+  number. 3. The red message states the count CI measured and the one command to record it, so a project without Vale
+  installed locally can still record it. The change to ci/baselines.json goes under Gate changes in that PR." So
+  `node ci/prose.mjs --record` runs Vale on the held set and writes the key when none exists. `scripts/new-project.mjs`
+  and `scripts/sync.mjs` call it when `vale` is on the path and the key is absent (sync's row is `computed: count
+  recorded`, as for `feature-fit`); when `vale` is not there they write nothing and print the one command. With no key
+  the job exits 2 on the warning count only, with the three error rules run first and failing on their own, and its
+  message names the count it measured and `node ci/prose.mjs --record`. Slipway's own `ci/baselines.json` still never travels.
+- **Gate files in a project.** `.vale.ini` and `ci/prose/**` are owner-only: a project's agent cannot loosen its own
+  linter. `**/.vale.ini` is already in `process/harness/settings.json`, in `process/harness/README.md`'s table and in
+  the list `scripts/gate-files.test.mjs` pins, and `ci/prose/**` and `ci/prose.mjs` sit under `**/ci/**`; the pull-request
+  check reads the same list (`ci/checks/lib/gate-files.mjs`). No new rule is added. A test pins that a project's
+  harness asks before an edit to `.vale.ini`, `ci/prose.mjs` and a file under `ci/prose/Slipway/`, and that P1 names
+  each as a gate change.
+- **L-71 in a project.** Lessons ship, so L-71 does too, with `pointer: process/writing.md` and
+  `review-by: 2027-04-14`. `process/writing.md` is managed and ships, so L1 resolves the pointer in every project,
+  whether or not it has the word lists; a project that has them is held to the same date, and a sync moves the date
+  with the lists. L-54 stays declined.
+- **The warnings start from the project's count.** The held set is the one in §8. A project's own docs are in the diff set:
+  errors fail on lines a PR adds, warnings print and never count.
+- **Folded in, capped.** The owner, 2026-10-26: "Fold into 0.6, capped: one review round, scoped to 0.6's changes
+  (#521's section plus #524's corrections). What it finds rides the build tickets or the as-built correction, never a
+  0.7. Where a #524 correction describes code not yet built (AR-4's blanked copy for the id rules), the spec words it as
+  the rule that build must meet." #524's spec items are in §1, §4, §6, §8, the Known limitations, the Acceptance and the
+  Build map above; it keeps `SLIPWAY.md`'s step times and `scripts/steps.test.mjs`.
+- **Not here.** #536 (what the prose check reads, and what it says when it cannot read a file) changes `ci/prose.mjs` and
+  is taken on its own.
 
 ## Seams
 
-none: no person, channel or promise is added. The prose job, the chatbot check on PR bodies and P1's title and subject
-rules run in slipway's own repository until a project's text has been measured (D-046). The rest reaches a project at
-its next sync: the Next line and the check messages change what its engineer reads, and I1 reads the merged Seams field
+From 0.6 (§10, D-051) a person is added: a project's owner gets a check that can fail their pull request on a chatbot
+phrase, a leftover placeholder or a recap opener, and on a title or subject over 72 characters. The sync's plan tells them
+the checks arrive and, when Vale is not on their path, the one command that records the starting count. The promise:
+the check fails only on unambiguous junk, and the warnings start from the project's own count and may only go down.
+The rest reaches a project at its next sync: the Next line and the check messages change what its engineer reads, and I1 reads the merged Seams field
 (the project's owner is told by the sync's plan). The time per step on the Next line is the path table's existing
 estimate, read from one list.
 
@@ -452,6 +516,10 @@ Beyond baseline, two things read other people's content and one runs a binary:
   names, as a change to P1 is today. The binary is pinned by version and sha256 in the workflow, never fetched as
   `latest`.
 - `ci/prose.mjs` prints file text in findings: through `escapeOutput`, as every check does.
+- From 0.6 (§10) the prose job and the body step run on a project's pull requests, so they read a contributor's text
+  and run a binary there. Nothing changes in how: the pinned, sha256-checked Vale; rule files from the tree only; the
+  PR body written to a file and never interpolated into a command. A project's agent that edits `.vale.ini` or
+  `ci/prose/**` makes a gate change that the pull-request check names, and the harness asks the owner first.
 
 Not defended: a sentence written to pass the rules while saying nothing. The owner's reading (§9) is for that.
 
@@ -463,11 +531,13 @@ Not defended: a sentence written to pass the rules while saying nothing. The own
   the measure, and the rules are the floor.
 - Vale is a binary. `pnpm meta` stays zero-dependency, so the prose check is a CI job of its own and a local
   run needs Vale installed; without it the script is BROKEN, not green.
-- The sentence-length rule is a regex over plain text: a code span with a period in it, or a list marker, can miscount a
-  sentence. A warning, never an error.
+- The sentence-length rule is a regex over plain text: a code span, a fenced block with a period in it, or a list marker,
+  can miscount a sentence. A warning, which fails only inside the text held at 0 warnings.
 - A placeholder hidden in odd markup is not defended: Placeholder reads a copy with code spans and fences blanked by a
   small masker, and a fence or span GitHub does not open (inside a comment or an HTML block, across a block it does not
-  cross) can hide one. The Chatbot and Recap rules read the file as written.
+  cross) can hide one. The reverse also holds: an indented code block is not blanked, so a `<date>` in one fails
+  Placeholder, and the message's advice to use a code span is the fix; use a fence.
+- The error rules read text after character-level normalising. So some written forms of a phrase can still pass. Tracked as a class, with no fix planned.
 - §3 may take two PRs under one issue; until the last check is rewritten, its findings print without a fix line
   and the static test names the sites owed.
 - The Next-line form is tested on fixtures; project text inside the quoted spans is excluded from the rules, so a
@@ -476,6 +546,10 @@ Not defended: a sentence written to pass the rules while saying nothing. The own
 - The commit subjects of the stages built before P1 held them are not rewritten.
 - A project's open issues meet I1's merged Seams shape the next time they are edited after a sync (the issue-shape workflow runs on `edited`).
 - Existing history, issue titles and docs in `docs/reviews/` are never rewritten.
+- A project with no `vale` on its path and no `prose` key in `ci/baselines.json` sees the prose job exit 2 until it runs
+  one command and commits the result. That is the ratchet's rule (no baseline is never green), not a new failure mode.
+- A project's `docs/` text was measured once, on one project. Another project's first count may be high; the count
+  starts there and only goes down, so a high start blocks nothing.
 
 ## Acceptance
 
@@ -546,15 +620,21 @@ Then  it exits 1 with title/long, commit/long, commit/id and commit/review-round
 ```
 
 ```
-Given .github/workflows/pr-body.yml after §7 and §8
-When  node scripts/workflows.test.mjs, which parses the workflow with ci/checks/lib/workflow-yaml.mjs
-Then  the step that writes the title and commits files and the Vale install and body steps each carry if: github.event.repository.is_template, and a copy of the workflow with one guard removed fails the test
+Given .github/workflows/ci.yml and pr-body.yml after §10
+When  node scripts/workflows.test.mjs, which parses the workflows with ci/checks/lib/workflow-yaml.mjs
+Then  the prose job, the Vale install step and the body step carry no is_template guard; the step that runs scripts/prose.test.mjs, and the title-and-commits step until #461 builds it, still do; a copy with a guard put back on the prose job fails the test
 ```
 
 ```
 Given ci/fixtures/known-bad/prose/, one file per rule and five control lines
 When  node scripts/prose.test.mjs
 Then  each error rule fails its file, each warning rule is counted once, the five controls raise nothing (a marker, a <date> in a TEMPLATE.md, a <br> in a table cell, a check id in a code span, a <sha> in a code span in the diff set's shape); with vale absent the script exits 2
+```
+
+```
+Given a file holding a chatbot phrase after a vale off comment, after a comment written with a character reference, in a code span and in a fenced block, and a placeholder after the same comments
+When  node scripts/prose.test.mjs
+Then  each phrase fails on Chatbot at its line, and the placeholder after the same comments still fails on Placeholder
 ```
 
 ```
@@ -570,10 +650,47 @@ Then  it fails on Chatbot, naming the phrase and the fix
 ```
 
 ```
-Given dev/ownership.yaml after §8
+Given dev/ownership.yaml after §10
 When  node ci/checks/meta/o1-ownership.mjs . and node scripts/new-project.test.mjs
-Then  .vale.ini, ci/prose/**, ci/prose.mjs and the prose fixture are internal, and a new project's ci/baselines.json has no prose key
+Then  .vale.ini, ci/prose.mjs and ci/prose/** are managed and appear in a new project; ci/fixtures/known-bad/prose/** and scripts/prose.test.mjs are internal and do not
 ```
+
+```
+Given a project that syncs from the release with §10, with vale on the path and no prose key
+When  node scripts/sync.mjs --plan, then --apply
+Then  the plan has one computed: count recorded row for ci/baselines.json, --apply writes the prose key equal to node ci/prose.mjs's count on that project's held set, and a second --apply is unchanged; a key already there is never raised
+```
+
+```
+Given a project with more warnings on its held set than the prose key in ci/baselines.json
+When  pnpm check:prose
+Then  it exits 1, naming the two counts
+```
+
+```
+Given a project with no vale on its path, and then a project with vale and no prose key
+When  pnpm check:prose
+Then  the first exits 2 with one line saying how to install vale (brew install vale or the release URL); the second exits 2 with one line naming node ci/prose.mjs --record; neither is green
+```
+
+```
+Given a new project made from the release that ships ci/prose/** (D-051)
+When  pnpm meta
+Then  L1 resolves L-71's pointer (process/writing.md), so the lesson's review-by date (2027-04-14) never fails a project, whether or not ci/prose/ exists in it; L-54 is still declined
+```
+
+```
+Given a project's harness (process/harness/settings.json) and the pull-request check, after §10
+When  node scripts/harness-gate-files.test.mjs and node scripts/gate-files.test.mjs
+Then  an edit to .vale.ini, ci/prose.mjs and ci/prose/Slipway/Chatbot.yml is asked about by the harness, and a diff touching each is named as a gate change by ci/checks/lib/gate-files.mjs; the list pinned in the test holds .vale.ini
+```
+
+```
+Given a project's pull request whose title is 73 code points or whose body opens with a chatbot phrase, once #461 has built the title step
+When  the pr-body workflow runs
+Then  P1 fails on the title, and the prose body step fails on Chatbot, naming the phrase and the fix
+```
+
 
 ```
 Given process/lessons/L-71-word-lists-are-a-snapshot.md after §8, and L-54-docs-lint.md
@@ -594,16 +711,21 @@ node scripts/skills.test.mjs                                     # §5: the ques
 node ci/checks/meta/i1-issue-shape.mjs ci/fixtures/known-bad/i1  # §6: one Seams field, old form still passes
 node scripts/f2.test.mjs                                         # §6: the template's section count
 node ci/checks/meta/p1-pr-body.mjs ci/fixtures/known-bad/p1      # §7: title and subject findings
-node scripts/prose.test.mjs                                      # §8: each rule trips once; controls quiet; BROKEN without vale
+node scripts/prose.test.mjs                                      # §8: each rule trips once; controls quiet; a phrase after a comment, a reference, in a span or a fence still fails; BROKEN without vale
 pnpm check:prose                                                 # §8: 0 errors; warnings not above the baseline
 node ci/checks/meta/o1-ownership.mjs .                           # §8: the new files are classed internal
 node ci/checks/meta/l1-lessons.mjs .                             # §8: L-71 is a prose lesson with a review date
-node scripts/workflows.test.mjs                                  # §7, §8: the is_template guard on each Slipway-only step
+node scripts/workflows.test.mjs                                  # §7, §8, §10: the is_template guard on each Slipway-only step, none on the prose steps
+node scripts/sync.test.mjs                                       # §10: the prose count row, written once, never raised
+node scripts/new-project.test.mjs                                # §10: the shipped files and the key
+node scripts/harness-gate-files.test.mjs                         # §10: the harness asks before .vale.ini and ci/prose
+node ci/checks/meta/pk1-packed.mjs .                             # §10: what npm packs matches the ownership map
 ```
 
 ## Build map
 
-One PR per stage, in this order; each merges on its own with `pnpm meta` green. Every step changes a gate file
+The stages are independent of one another except where a step names a dependency (§8's guard test sits in step 6; step 8
+follows 6 for its title-rules part). Each merges on its own with `pnpm meta` green. Every step changes a gate file
 and is reviewed on the strongest tier at `xhigh` (D-035).
 
 1. #456 · `process/writing.md`, its test, the two pointer lines, the status rewrite and the who-and-how-long
@@ -617,13 +739,24 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
    spans. ~150 lines.
 4. #459 · The three skills' questions (§5): `.claude/skills/{kickoff,bootstrap,close-milestone}/SKILL.md`,
    `scripts/skills.test.mjs`. ~200 lines.
-5. #460 · The templates (§6): two forms, `TEMPLATE.md`, `process/intake.md`, I1 and its fixtures, `scripts/f2.test.mjs`,
-   `/log-feature`, `/review-doc`. ~200 lines.
+5. #460 · The templates (§6): the two forms, `TEMPLATE.md`, `process/intake.md`, I1 and its fixtures, `/log-feature`,
+   `/log-bug`, `/log-followup`, `scripts/skills.test.mjs`. ~200 lines.
 6. #461 · P1 on titles and subjects (§7): P1, `pr-body.yml`, `ci/fixtures/known-bad/p1/**`; files the two P1 rules
    that wait as a follow-up. ~200 lines.
 7. #462 · Vale (§8): `.vale.ini`, `ci/prose/**`, `ci/prose.mjs`, `package.json`, `ci.yml`, `pr-body.yml`,
-   `dev/ownership.yaml`, `scripts/new-project.mjs`, the fixture, `scripts/prose.test.mjs`, `ci/baselines.json`,
+   `dev/ownership.yaml`, `scripts/new-project.mjs`, the fixture, `scripts/prose.test.mjs`, `scripts/f2.test.mjs`, `ci/baselines.json`,
    `process/lessons/L-71-word-lists-are-a-snapshot.md`; files the shipping follow-up. ~350 lines.
+
+8. #521 · Ship to projects (§10). The prose part ships in 0.1.6; the title-rules part comes after #461 (0.1.7). The
+   sub-issues are filed after the 0.6 review:
+   (a) **prose, 0.1.6:** `dev/ownership.yaml`, `scripts/new-project.test.mjs`, the gate-file and harness tests: the
+   classes and the pins. ~150 lines.
+   (b) **prose, 0.1.6:** `ci.yml`, the Vale and body steps of `pr-body.yml`, `scripts/workflows.test.mjs`: the guards.
+   ~120 lines.
+   (c) **prose, 0.1.6:** `ci/prose.mjs --record`, the red message, `scripts/sync.mjs`, `scripts/new-project.mjs`, their
+   tests: the project's count. ~250 lines. The change to `ci/baselines.json` goes under Gate changes in its PR.
+   (d) **title rules, after #461:** lift the guard on the title-and-commits step of `pr-body.yml` and pin it in
+   `scripts/workflows.test.mjs`. Blocked by #461. ~50 lines.
 
 ## Out of scope
 
@@ -636,8 +769,9 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
 - **The other eight skills' output sections** (`/clarify`, `/log-*`, `/work-ticket`, `/review-doc`, `/sync-slipway`,
   `/pr-review`): one "edit against `writing.md`" line each, and `/pr-review`'s scripted casual phrases ("tiny thing",
   "take it or leave it"). A follow-up once stage 4 shows the line is read.
-- **Shipping the prose job, the body's chatbot check and P1's title rules to projects.** Slipway only until a real
-  project's docs have been measured once (D-046). Tracker: #521.
+- **Building P1's title and subject rules.** They are §7, #461, still open at 0.6; §10 only lifts their guard.
+- **#536** (the prose check reads every file it is given, or says which it could not): it touches `ci/prose.mjs` and is
+  taken on its own. **#524**'s spec items are folded into 0.6; its other half (`SLIPWAY.md`'s step times, `scripts/steps.test.mjs`) stays there.
 - **`sync`'s output:** its own doc, F-08 (`dev/features/cli-output.md`).
 - **The site's copy** (`site/index.html`): #355 cut its catch-phrases; #287's run by an outside engineer is the test.
 - **`pnpm status` as a parallel plan** (#445): its lines take the §2 form when it is shaped; it follows stage 1.
@@ -655,3 +789,4 @@ and is reviewed on the strongest tier at `xhigh` (D-035).
 - 2026-10-22 · REVIEWED · 0.3 review (`docs/reviews/2026-10-22-plain-language-0.3.md`), 14 findings; AR-1 (S1: §6 and the Acceptance still cut `## Open questions`) is the owner's. Fixed in #462's PR outside the versioned sections: AR-3, AR-4, AR-6, AR-8 and the parts of AR-13 that sit outside them; AR-12 and the rest of AR-13 wait with AR-1 for the next Version. The other findings are tracked in the register · #462
 - 2026-10-22 · MODIFIED · Version 0.4: the owner's call on the 0.3 review, in their words: "fix it in this PR. Move F-16 to 0.4 with AR-1, the §8 figure removal, AR-12, the rest of AR-13 and L-54's flip, then one fresh review of the 0.4 changes only." AR-1: §1, §6 and the Acceptance say what #460 shipped (`## Open questions` stays, 12 sections, one Seams field) and `scripts/f2.test.mjs` fails a template with more. §8: a figure from a run on a real project's files is removed (AR-12); the unclosed code span is closed and §1 rule 7's pair points at `SLIPWAY.md` (AR-13). L-54 stays `declined`; L-71 carries the review date (AR-3, flipped back) · #462
 - 2026-10-23 · MODIFIED · Version 0.5: the owner's call on `blank()`, in their words: "B. Every rule reads files as plain text (.txt), so no comment directive or entity is honoured; only Placeholder runs on a blanked plain-text copy that skips code spans and fences. Paraphrase the quoted chatbot phrases in F-16 §8 and its Acceptance, and move F-16 to 0.5 with one fresh review of the 0.5 changes only. Recount the prose baseline and say the new number in the PR." §8's "What Vale reads" bullet, the Chatbot list, the sentence rule and the fixture's control lines say so, the Acceptance sentence on a chatbot opener is paraphrased, and a placeholder hidden in odd markup is a Known limitation. The prose baseline is 166 on the held set (136 under markdown parsing) · #462
+- 2026-10-26 · MODIFIED · Version 0.6: §10 ships the prose job, the chatbot check on PR bodies and P1's title and subject rules to projects, on the owner's amendment of D-046 (D-051, 2026-10-22: "Yes, as written"). Ran once, read-only, on a real project; result given to the owner. §8's "Where it runs", ratchet, PR-bodies, ownership and review-date bullets, Seams, Threat model, Known limitations, Acceptance, Verify, Build map and Out of scope say so. and the owner's two calls of 2026-10-26, in their words: "Fold into 0.6, capped: one review round, scoped to 0.6's changes (#521's section plus #524's corrections). What it finds rides the build tickets or the as-built correction, never a 0.7. Where a #524 correction describes code not yet built (AR-4's blanked copy for the id rules), the spec words it as the rule that build must meet." and "Record it, red until, with three details" (§10 has the three). Folded in from #524: the 0.3 review's AR-9, AR-10, AR-14, the 0.4 review's AR-2 to AR-6, the 0.5 review's AR-3 to AR-11 and the section added by #530 · #521, #524
