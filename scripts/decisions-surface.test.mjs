@@ -241,5 +241,8 @@ test("slipway's own record: §10's Amends lines are in place, and status owes no
   for (const [id, fs] of Object.entries(want)) assert.deepEqual(amends[id], fs, id);
   assert.deepEqual([r.strays, r.unreadable(), r.fired('2999-01-01').map((f) => f.id), r.unreadFolders()], [[], [], [], []]);
   // D-044's citations are the honest debt its prose records; one in each doc clears them, and nothing else may be owed.
-  assert.deepEqual([...new Set(r.owed().map((o) => o.id))].filter((id) => id !== 'D-044'), []);
+  // D-052 amends F-16, which stays at 0.6 until its as-built rewrite (#552) names it (the owner, 2026-10-27): pinned
+  // exactly, so the rewrite fails this line and drops it.
+  const later = r.owed().filter((o) => o.id !== 'D-044');
+  assert.deepEqual(later.map((o) => [o.id, o.feature, o.docs]), [['D-052', 16, ['dev/features/plain-language.md']]]);
 });
