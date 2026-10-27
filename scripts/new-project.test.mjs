@@ -184,6 +184,18 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
   // The same folder spelled in another case, where the disk ignores case (macOS, Windows).
   const otherCase = join(dirname(dest), 'FAKER', 'tools');
   if (existsSync(otherCase)) assert.equal(check(dest, 'd1-drift.mjs', { PATH: onPath(otherCase) }).status, 2, 'git on a PATH entry spelled in another case');
+  // A PATH entry inside the project that links out, as its last folder or as one on the way: it still passes through the
+  // project, so the link the project holds would choose the git (#564).
+  const outside = tmp();
+  fakeGit(join(outside, 'git'));
+  fakeGit(join(outside, 'tools', 'git'));
+  symlinkSync(outside, join(dest, 'linked'));
+  symlinkSync(outside, join(dest, 'via'));
+  for (const entry of [join(dest, 'linked'), join(dest, 'via', 'tools')]) {
+    const r = check(dest, 'd1-drift.mjs', { PATH: onPath(entry) });
+    assert.equal(r.status, 2, `git through the link ${entry}:\n${r.stdout}`);
+    assert.match(r.stdout, /BROKEN — manifest\/missing/);
+  }
   // With the fixture switch, D1 on a folder inside the project: a git elsewhere in the project, outside
   // that folder, that names slipway as the top of the checkout.
   const sub = join(dest, 'sub');
@@ -203,7 +215,7 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
   const tmpGit = tmp();
   fakeGit(join(tmpGit, 'git'), dest);
   assert.equal(check(dest, 'd1-drift.mjs', { PATH: '', TMPDIR: tmpGit }).status, 2, 'empty PATH, a git in TMPDIR');
-  for (const d of ['node_modules', 'tools', 'sub']) rmSync(join(dest, d), { recursive: true });
+  for (const d of ['node_modules', 'tools', 'sub', 'linked', 'via']) rmSync(join(dest, d), { recursive: true });
 
   // A graft can give the project's HEAD slipway's root as its only parent; git here reads no grafts file.
   git(dest, 'fetch', '-q', SRC, 'HEAD');

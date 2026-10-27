@@ -415,6 +415,13 @@ test('every library ci/prose.mjs reads is an input in PROSE_INPUTS, or named her
     'ci/checks/lib/ratchet.mjs': 'it stores the count, it does not take it',
     'ci/checks/lib/report.mjs': 'it prints',
   };
+  // The feature-docs.mjs and report.mjs reasons hold only while the rules that read asSeen() are errors: a warning rule
+  // reading it would let those libraries move the count (#564).
+  const seen = readFileSync(join(SRC, 'ci', 'prose.mjs'), 'utf8').match(/run\('seen', '\.Name in \[([^\]]*)\]'/);
+  assert.equal(seen?.[1], '"Slipway.Chatbot", "Slipway.Recap"', 'the rules that read asSeen() changed: the exemptions above no longer hold');
+  for (const rule of ['Chatbot', 'Recap']) {
+    assert.match(readFileSync(join(SRC, 'ci', 'prose', 'Slipway', `${rule}.yml`), 'utf8'), /^level: error$/m, `${rule} is no longer an error rule: the exemptions above no longer hold`);
+  }
   const inputs = new Set(PROSE_INPUTS.map((i) => i.path));
   // Each library it imports by name, static (`from '…'`) or dynamic (`import('…')`); what those import in turn is theirs.
   const libs = [...readFileSync(join(SRC, 'ci', 'prose.mjs'), 'utf8').matchAll(/(?:from |import\()'\.\/(checks\/lib\/[^']+)'/g)].map((m) => `ci/${m[1]}`);

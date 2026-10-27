@@ -16,14 +16,15 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { classify, loadOwnership } from '../ci/checks/lib/ownership.mjs';
-import { MANIFEST, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { MANIFEST, readManifest, readOverrides, readProjectFile, sha256 } from '../ci/checks/lib/manifest.mjs';
+import { ownHeld } from '../ci/prose.mjs';
 import { ownDecisions } from './adopt.mjs';
 import { bashAsks } from './ask-rules.mjs';
-import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
+import { readBlob, releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, codeNote, countLines, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
-import { KINDS, checkWrites, nothingToTake, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
+import { KINDS, Refusal, checkWrites, history, nothingToTake, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -1742,6 +1743,27 @@ test('every value a refusal in sync.mjs or adopt.mjs interpolates is shown throu
   assert.deepEqual([...NOT_OUTSIDE_TEXT.keys()].filter((k) => !used.has(k)), [], 'a listed expression no refusal interpolates any more');
 });
 
+// Git's words about slipway's clone reach the owner only through history(), which redacts the source and makes them a
+// refusal: anything else is rethrown, and Node prints git's message raw (#564).
+test('every read of slipway\'s clone in sync.mjs goes through history(), directly or by read()', () => {
+  const src = readFileSync(join(SRC, 'scripts', 'sync.mjs'), 'utf8');
+  const calls = src.split('\n').map((l, i) => ({ line: i + 1, text: l })).filter(({ text }) => /\breadBlob\(/.test(text));
+  assert.ok(calls.length >= 5, `found only ${calls.length} reads: the scan lost its footing`);
+  const bare = calls.filter(({ text }) => !/\b(?:read\(|history\(source, )\(\) => readBlob\(/.test(text));
+  assert.deepEqual(bare.map(({ line, text }) => `scripts/sync.mjs:${line} ${text.trim()}`), [], 'wrap the read in history(source, () => …)');
+});
+
+test('a failed read of slipway\'s clone is a refusal that names the source without its query', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sync-history-'));
+  try {
+    execFileSync('git', ['init', '-q', '--bare', dir]);
+    const source = 'https://example.invalid/slipway.git?token=NOT-A-SECRET';
+    assert.throws(() => history(source, () => readBlob(dir, '0'.repeat(40))), (e) => e instanceof Refusal && /^cannot read slipway's history from https:\/\/example\.invalid\/slipway\.git/.test(e.message) && !e.message.includes('NOT-A-SECRET'));
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('sourceClone names a source holding a line break on one line in its fetch failure', () => {
   assert.throws(() => sourceClone('nowhere\nx\n└ forged'), (e) => !e.message.includes('\n') && e.message.includes('nowhere x └ forged'));
 });
@@ -3049,9 +3071,16 @@ test('sync never raises a prose count in place, and names each file that becomes
     'The prose check changed (Vale 3.24.0 → 3.25.0) and may raise your prose count.',
     'These are the only two ways your prose count rises, and sync never raises it itself. If the prose job on the sync PR measures more, record CI\'s number in ci/baselines.json under Gate changes, with your yes.',
   ]);
+  const before = ownHeld(readManifest(dir).files);
   const applied = proseSync(dir, { ...valeAt('3.25.0'), CLAUDECODE: '' }, '--apply');
   assert.ok([0, 1].includes(applied.status), applied.stderr);
   assert.deepEqual(proseBaselines(dir), { 'feature-fit': 0, prose: 2 }, 'sync wrote nothing in ci/baselines.json');
+  // Sync names what becomes the project's from the target's classes; the prose check counts what the manifest sync
+  // wrote says. The two readers agree: the held files that joined the count are exactly the ones sync named (#564).
+  const joined = ownHeld(readManifest(dir).files).filter((f) => !before.includes(f));
+  const named = notes.map((n) => n.match(/^(.+) becomes your own text,/)?.[1]).filter(Boolean);
+  assert.ok(named.length > 0, 'the fixture moves no held file: the agreement is not tested');
+  assert.deepEqual(joined, named, 'sync named one set of files as becoming the project\'s, and the manifest it wrote says another');
 });
 
 test('/sync-slipway keeps the two ways a prose count rises in one place, recorded under Gate changes with the owner\'s yes (#549)', () => {
