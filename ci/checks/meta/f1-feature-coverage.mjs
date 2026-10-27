@@ -10,9 +10,16 @@
 //   contents/uncited/<n>    item n of an active or closed milestone's Contents cites no F-ID
 //                           and does not say `(no feature: <reason>)`
 //   contents/unknown/<F-n>  a milestone cites an F-ID that PRD §5 does not define
+//   docs/PRD.md#placeholder/present  a line of the PRD still holds a template placeholder (`<…>`), a
+//                           TBD or an open [NEEDS CLARIFICATION] (lib/markdown.mjs, the reader K1 uses)
+//   docs/PRD.md#comment/unclosed     a `<!--` no `-->` closes: GitHub hides the rest of the PRD, so it is a
+//                           finding, never a skip
 //
-// Runs once the PRD has left draft (`Status:` anything but draft). Before that the features
-// are still being written, and only the PRD's presence is checked. F-IDs compare by number:
+// Runs once the PRD has left draft. Draft is `Status: draft`, case ignored, or no `Status:` line;
+// every other value is past draft: `approved`, the one /kickoff and status ask for, and `review` or any
+// other word too. Before that the features are still being written, and only the PRD's presence is
+// checked. In a project the PRD is the project's own, and .vale.ini turns the prose check's Placeholder
+// rule off for it, so these two rules are what holds its placeholders (#548). F-IDs compare by number:
 // F-2 and F-02 are the same feature. Shaping milestones are drafts; their Contents are not
 // checked, but their citations still schedule a feature.
 //
@@ -22,7 +29,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { section } from '../lib/markdown.mjs';
+import { placeholderLines, placeholderText, section, unclosedComment } from '../lib/markdown.mjs';
 import { citedFeatures, contents, readMilestones } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
 
@@ -47,6 +54,10 @@ let slices = 0;
 const scheduled = new Set();
 
 if (status !== 'draft') {
+  const unclosed = unclosedComment(prd);
+  if (unclosed) findings.push({ where: 'docs/PRD.md#comment/unclosed', detail: `line ${unclosed} opens a comment that no --> closes, so GitHub hides the rest of the PRD: close it, or remove it` });
+  const open = placeholderLines(placeholderText(prd));
+  if (open.length) findings.push({ where: 'docs/PRD.md#placeholder/present', detail: `line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/PRD.md still hold${open.length > 1 ? '' : 's'} a placeholder or [NEEDS CLARIFICATION], and its Status is past draft: answer or park each (/clarify), or set Status: draft` });
   for (const { file, md, fm } of milestones) {
     if (!fm?.status || fm.status === 'killed') continue;
     for (const item of contents(md)) {
@@ -72,7 +83,7 @@ process.exit(
     id: 'F1',
     claim: status === 'draft'
       ? 'the PRD is still a draft, so feature coverage is not checked yet'
-      : `every PRD feature is scheduled by a live milestone, and every active or closed slice cites a feature (${features.size} features, ${slices} slices)`,
+      : `the PRD holds no placeholder and no unclosed comment, every PRD feature is scheduled by a live milestone, and every active or closed slice cites a feature (${features.size} features, ${slices} slices)`,
     scanned: 1 + features.size + slices,
     unit: `${UNIT} (PRD ${status})`,
     findings,

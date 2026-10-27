@@ -1,0 +1,7 @@
+{
+  "_note": "An approved PRD: lines 8 (TBD), 16 (a template <…> slot) and 18 (an open [NEEDS CLARIFICATION]) still hold a placeholder. The <…> inside the comment on line 10 and the marker inside a code span on line 12 are the template's explanation, not text, so neither is named.",
+  "exit": 1,
+  "findings": [
+    "docs/PRD.md#placeholder/present"
+  ]
+}

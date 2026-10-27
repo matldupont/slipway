@@ -76,8 +76,8 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frontmatter, hasPlaceholder, isUnreadable } from '../lib/frontmatter.mjs';
-import { commentLines, plain, replaceComments, section } from '../lib/markdown.mjs';
+import { frontmatter, isUnreadable } from '../lib/frontmatter.mjs';
+import { placeholderLines, placeholderText, plain, section } from '../lib/markdown.mjs';
 import { readDecisions, testStart } from '../lib/decisions.mjs';
 import { compareMilestones, readMilestones, TESTS_MAX, testsLine } from '../lib/milestones.mjs';
 import { report } from '../lib/report.mjs';
@@ -100,10 +100,8 @@ if (!existsSync(path)) {
 }
 
 const md = readFileSync(path, 'utf8');
-// Comments are blanked (not removed) so line numbers hold. A marker sitting whole inside inline code is
-// the template's explanation of the syntax, not a question; an escaped backtick is not code. Every span is
-// matched so that the gap between two spans is never read as one.
-const text = replaceComments(md, commentLines).replace(/(?<!\\)`[^`\n]*`/g, (span) => (/\[(?:NEEDS CLARIFICATION|PARKED)[^\]]*\]/.test(span) ? '' : span));
+// Comments blanked, a marker whole inside inline code dropped (lib/markdown.mjs, shared with F1).
+const text = placeholderText(md);
 const fm = frontmatter(md) ?? {};
 const { milestones } = readMilestones(root);
 const underway = milestones.filter((m) => m.fm && (m.fm.status === 'active' || m.fm.status === 'closed'));
@@ -145,7 +143,7 @@ if (underway.length) {
   if (job && !/\bwhen\b[\s\S]*\bwant\b[\s\S]*\bso\b/i.test(job)) {
     add('FRAME.md#job/shape', 'the job story must read "When …, I want to …, so I can …"');
   }
-  const open = text.split(/\r?\n/).map((l, i) => (hasPlaceholder(l) ? i + 1 : 0)).filter(Boolean);
+  const open = placeholderLines(text);
   if (open.length) add('FRAME.md#placeholder/present', `line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/product/FRAME.md still hold${open.length > 1 ? '' : 's'} a placeholder or [NEEDS CLARIFICATION]: answer or park each (/clarify), then set status: framed`);
 }
 

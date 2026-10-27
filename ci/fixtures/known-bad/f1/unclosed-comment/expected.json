@@ -1,0 +1,7 @@
+{
+  "_note": "A PRD at Status: review is past draft. Line 10 opens a comment no --> closes, so GitHub hides the rest of the PRD from its reader and from this check: a finding, never a skip.",
+  "exit": 1,
+  "findings": [
+    "docs/PRD.md#comment/unclosed"
+  ]
+}
