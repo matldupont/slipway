@@ -65,16 +65,16 @@ Nothing was run on a project.
 
 | ID | Finding | Sev | Owner | Blocks | Tracker |
 |---|---|---|---|---|---|
-| AR-1 | In a project the prose check is BROKEN: it holds README's "Then follow the path" section at 0, and a project's README has none | S1 | owner | #521 (c), before (b) | |
-| AR-2 | The one command that records a project's count runs Vale, so a project without Vale cannot record it, against the owner's third detail | S1 | owner | #521 (c) | |
-| AR-3 | A sync can raise a project's count on text the project does not own, and no command lets it record the new number | S1 | owner | #521 (c) | |
-| AR-4 | The title and subject rules reach projects on a measurement the record ties to `docs/`; Seams names only the length rule | S2 | owner | #521 (d) | |
-| AR-5 | Three "rules the build must meet" have no build step: the id rules' blanked copy, the Chatbot count pin, rule 7's pair | S2 | owner | #521 (c), (a) | |
-| AR-6 | The Acceptance says L-71's date "never fails a project"; L1 fails it on that date in every project | S2 | owner | #521 (a) | |
-| AR-7 | Placeholder is off for a project's own PRD, frame and first milestone, against §10's "errors fail on lines a PR adds" | S2 | owner | #521 (a) | |
-| AR-8 | Step (b) lifts the guards, but nothing orders it after (a) and (c); the "step 6" dependency names the wrong step | S3 | owner | #521 sub-issue filing | |
-| AR-9 | Acceptance and Verify lines 0.6 left behind or garbled | S3 | owner | #521 (a), (b); as-built correction | |
-| AR-10 | Prose that no longer matches the tree or itself | S3 | owner | #521 (a); as-built correction | |
+| AR-1 | In a project the prose check is BROKEN: it holds README's "Then follow the path" section at 0, and a project's README has none | S1 | owner | #521 (c), before (b) | #549 |
+| AR-2 | The one command that records a project's count runs Vale, so a project without Vale cannot record it, against the owner's third detail | S1 | owner | #521 (c) | #549 |
+| AR-3 | A sync can raise a project's count on text the project does not own, and no command lets it record the new number | S1 | owner | #521 (c) | #549 |
+| AR-4 | The title and subject rules reach projects on a measurement the record ties to `docs/`; Seams names only the length rule | S2 | owner | #521 (d) | #551 |
+| AR-5 | Three "rules the build must meet" have no build step: the id rules' blanked copy, the Chatbot count pin, rule 7's pair | S2 | owner | #521 (c), (a) | #549, #548 |
+| AR-6 | The Acceptance says L-71's date "never fails a project"; L1 fails it on that date in every project | S2 | owner | #521 (a) | #548 |
+| AR-7 | Placeholder is off for a project's own PRD, frame and first milestone, against §10's "errors fail on lines a PR adds" | S2 | owner | #521 (a) | #548 |
+| AR-8 | Step (b) lifts the guards, but nothing orders it after (a) and (c); the "step 6" dependency names the wrong step | S3 | owner | #521 sub-issue filing | #550 |
+| AR-9 | Acceptance and Verify lines 0.6 left behind or garbled | S3 | owner | #521 (a), (b); as-built correction | #548, #550 |
+| AR-10 | Prose that no longer matches the tree or itself | S3 | owner | #521 (a); as-built correction | #548 |
 
 Tracker is the issue (`#n`), `OD-` or `D-` id a finding became, filled when the owner files it — so the
 finding and the work that resolves it point at each other.
