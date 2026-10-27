@@ -170,10 +170,12 @@ test('a turn-end refresh that never returns is cut off after 20 s, and the Stop 
   start();
   const base = stop();
   assert.equal(`${base.status} ${base.out}`, '0 ');
-  const fifo = join(work, 'docs/PRD.md');
+  // process/anchor, since status stopped reading anything but a regular file under docs/ (#501). A follow-up closes the
+  // read status still makes here and moves this test to a stand-in that hangs, in the same pull request.
+  const fifo = join(work, 'process/anchor');
   rmSync(fifo, { force: true });
   assert.equal(spawnSync('mkfifo', [fifo]).status, 0); // a read of a pipe with no writer never returns
-  appendFileSync(join(work, '.git/info/exclude'), 'docs/PRD.md\n'); // git and the gate never read it; only status does
+  appendFileSync(join(work, '.git/info/exclude'), 'process/anchor\n'); // git and the gate never read it; only status does
   try {
     // Run here rather than through run(): with no limit the hook never returns, and the test must fail, not hang.
     const t0 = Date.now();

@@ -42,9 +42,11 @@ export const escapeControl = (s) => String(s).replace(inField, hex);
 export const escapeOutput = (s) => String(s).replace(inOutput, hex);
 // Project text quoted inside a sentence (status's Next and Needs attention lines, the work-order page): one line,
 // at most `max` characters, cut at a word boundary. The characters of the list above are dropped, not shown, and
-// `"` becomes `'`, so the text cannot close its own quotes.
+// `"` and every mark that looks like a quote (curly, full-width, angle and corner quotes, primes) becomes `'`, so the
+// text cannot close its own quotes, or seem to.
+const QUOTE_LIKE = /[\p{Quotation_Mark}\u02ba\u02dd\u2033\u2036\u3003]/gu;
 export const excerpt = (text, max = 60) => {
-  const flat = String(text).replace(/\s+/g, ' ').replace(inOutput, '').replace(/"/g, "'").trim();
+  const flat = String(text).replace(/\s+/g, ' ').replace(inOutput, '').replace(QUOTE_LIKE, "'").trim();
   if (flat.length <= max) return flat;
   const cut = flat.slice(0, max - 1);
   return `${(cut.lastIndexOf(' ') > 0 ? cut.slice(0, cut.lastIndexOf(' ')) : cut).trimEnd()}…`;

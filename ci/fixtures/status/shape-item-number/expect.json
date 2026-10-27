@@ -1,0 +1,10 @@
+{
+  "_note": "#501. The active milestone's first item is numbered with 24 digits, which reads as 1e+23. Next does not build a command from it and says the number is too long.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Pick the next slice from M1's Contents. Its next item's number is too long to read. Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}

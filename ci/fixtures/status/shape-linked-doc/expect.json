@@ -1,0 +1,10 @@
+{
+  "_note": "#501. docs/borrowed.md is a link to another case's FRAME.md, which holds open questions. Status never follows a link, so none of them is listed.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}

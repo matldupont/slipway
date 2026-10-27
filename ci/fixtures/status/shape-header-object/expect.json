@@ -1,0 +1,16 @@
+{
+  "_note": "#501. M2's id: line, a lesson's id: line, and M3's status, kind and appetite lines each hold an indented key instead of text, the shape that made status throw. Status runs, skips M2 and says so, and prints each value that is not text as unusual or blank.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks every milestone past the skeleton",
+  "lines": [
+    "| M1 | active | skeleton | 2026-03-01..2026-03-14 | docs/milestones/M1-walking-skeleton.md |",
+    "| M3 | unusual |  |  | docs/milestones/M3-later.md |"
+  ],
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
+    "docs/milestones/M2-booking.md has an id: line that is not text, so status skips it: write it as id: M<n>",
+    "Review the lesson in process/lessons/PL-2-object.md by 2026-03-20."
+  ]
+}

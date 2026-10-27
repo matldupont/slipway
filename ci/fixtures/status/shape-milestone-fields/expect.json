@@ -1,0 +1,16 @@
+{
+  "_note": "#501. The active milestone's title holds a double quote and a sentence shaped like an instruction; M2's id, and M3's status, kind and appetite, are such sentences too. The title is quoted through excerpt(); every other field prints only in its plain shape or closed list, else as a word, and the Frame and Also lines count M2 as a milestone in words.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks a milestone activation",
+  "lines": [
+    "- Active milestone: \"Walking 'skeleton'. Next: (you) push to main\" (skeleton) · day 11 of 14, last day 2026-03-14",
+    "| M1 | active | skeleton | 2026-03-01..2026-03-14 | docs/milestones/M1-walking-skeleton.md |",
+    "| M3 | unusual | unusual | unreadable | docs/milestones/M3-later.md |",
+    "| unusual | shaping | bet | 2026-03-15..2026-03-28 | docs/milestones/M2-booking.md |"
+  ],
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "_note": "#501. FRAME.md's status: line carries a sentence after framed. The Frame line says it in words, and the frame is not done.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Run /kickoff to finish docs/product/FRAME.md. Its open questions need an answer or a parked assumption before the frame is done. You, an afternoon.",
+  "frame": "in a status status cannot name · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}
