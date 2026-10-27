@@ -344,7 +344,7 @@ function preflight(cwd) {
     proseKept = Object.hasOwn(projectBaselines(root) ?? {}, PROSE_KEY);
   } catch { /* the plan refuses it */ }
   const vale = proseKept ? null : valeAtPin(valePin(target.get(CI_WORKFLOW)?.toString('utf8')), root);
-  if (proseKept) notes.push(...proseRiseNote(proseRises({ root, manifest, base, gitDir, target, targetRules: t.rules })));
+  if (proseKept) notes.push(...proseRiseNote(proseRises({ root, manifest, base, target, targetRules: t.rules, blob: (id) => read(() => readBlob(gitDir, id)) })));
   else if (vale.why) notes.push(notRecorded(vale.why));
   const prose = { record: !proseKept && vale.ok };
 
@@ -698,8 +698,8 @@ const OWNER_ROWS = ['collision', 'merged: key reported', 'keep (edited)'];
 // 2026-10-27): each held file slipway's manifest lists as managed that becomes the project's own (the target classes it
 // otherwise, or stops shipping it and the project's edited copy stays), and each input of the prose check (PROSE_INPUTS)
 // that differs between base and target: a file's bytes, each file under a folder, or the pinned Vale version, shown as
-// `from → to`. Exported for scripts/sync.test.mjs.
-export function proseRises({ root, manifest, base, gitDir, target, targetRules }) {
+// `from → to`. `blob` reads a base blob by id, as a refusal when git cannot. Exported for scripts/sync.test.mjs.
+export function proseRises({ root, manifest, base, target, targetRules, blob }) {
   const moved = HELD.filter((p) => {
     const m = manifest.files[p];
     const cur = readProjectFile(root, p);
@@ -712,7 +712,7 @@ export function proseRises({ root, manifest, base, gitDir, target, targetRules }
   const changed = PROSE_INPUTS.flatMap((input) => {
     if (input.folder) return paths.filter((p) => p.startsWith(input.path) && differs(p));
     if (!input.key) return differs(input.path) ? [input.path] : [];
-    const was = base.tree.has(input.path) ? valePin(readBlob(gitDir, base.tree.get(input.path)).toString('utf8')) : null;
+    const was = base.tree.has(input.path) ? valePin(blob(base.tree.get(input.path)).toString('utf8')) : null;
     const is = valePin(target.get(input.path)?.toString('utf8'));
     return was === is ? [] : [`Vale ${was ?? 'unpinned'} → ${is ?? 'unpinned'}`];
   });

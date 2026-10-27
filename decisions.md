@@ -1411,8 +1411,8 @@ and #548's build, in their words. F-16 names this decision in its as-built rewri
   on the same day, what counts as a changed rule: "Yes, name all of them. Two adjustments. Word the plan line as "the
   prose check changed and may raise the count", not "this rule changed", since a Vale version bump isn't a rule. Keep
   the four paths in one list that sync's plan and the skill text both read, not two copies, so a fourth input added
-  later lands in one place." The list is `PROSE_INPUTS` in `ci/prose.mjs`: `ci/prose/Slipway/`, `.vale.ini`,
-  `ci/prose.mjs` and CI's pinned Vale version.
+  later lands in one place." The list is `PROSE_INPUTS` in `ci/prose.mjs`, with each input that decides the count;
+  `scripts/prose.test.mjs` fails on a library `ci/prose.mjs` imports that is in neither the list nor its exemptions.
 - **L-71's date in a project, 2026-10-27 (AR-6), lands in #548 (L1) and #555 (the status note):** "Only slipway fails,
   with two details: 1. Which lessons are slipway's comes from the same ownership list sync uses (the manifest), as with
   the prose count. 2. In a project whose copy is past its review date, status shows a note, not a red: "slipway's L-71

@@ -61,7 +61,8 @@ export const VALE_PIN = { path: '.github/workflows/ci.yml', key: 'VALE_VERSION' 
 // What decides a project's prose count besides its own text, the one list: a change to any of them may raise the count.
 // Sync's plan names each that changed (scripts/sync.mjs, proseRises), and /sync-slipway points here (the owner,
 // 2026-10-27: "Keep the four paths in one list that sync's plan and the skill text both read").
-export const PROSE_INPUTS = [{ path: 'ci/prose/Slipway/', folder: true }, { path: '.vale.ini' }, { path: 'ci/prose.mjs' }, VALE_PIN];
+// ci/checks/lib/frontmatter.mjs cuts the header from the copy CheckId and DecisionId read (blank()), so it is one too.
+export const PROSE_INPUTS = [{ path: 'ci/prose/Slipway/', folder: true }, { path: '.vale.ini' }, { path: 'ci/prose.mjs' }, { path: 'ci/checks/lib/frontmatter.mjs' }, VALE_PIN];
 
 // A file a person reads: a markdown file, not agent text (`.claude/**`) and not a fixture (F-16 §8).
 export const personReads = (f) => /\.(?:md|markdown)$/i.test(f) && !f.startsWith('.claude/') && !f.startsWith('ci/fixtures/');
@@ -287,7 +288,7 @@ async function runAll(argv) {
   const inSlipway = isTemplate(ROOT);
   // Each fails closed: the held set and what counts as the project's own are read from these.
   if (!inSlipway && hasTemplateMarkers(ROOT)) broken(`this checkout holds slipway's own files, but its history could not be read as slipway's (a shallow clone?), so its held set was not found — fetch the full history: git fetch --unshallow`);
-  if (!inSlipway && !isPlainFile(join(ROOT, MANIFEST))) broken(`there is no ${MANIFEST}, so slipway's files could not be told from this project's own — adopt sync once: pnpm -s use-slipway sync --adopt`);
+  if (!inSlipway && !isPlainFile(join(ROOT, MANIFEST))) broken(`there is no ${MANIFEST}, or it is not a plain file, so slipway's files could not be told from this project's own — adopt sync once (pnpm -s use-slipway sync --adopt), or make it a plain file`);
   let slipways;
   try {
     slipways = await slipwaysFiles(ROOT);
@@ -374,7 +375,7 @@ function runRecord(arg) {
   // The key is added to a file in the one form its writer writes, so no other line changes, as sync does.
   const file = join(ROOT, BASELINES);
   if (isPlainFile(file) && !readFileSync(file).equals(Buffer.from(serialiseBaselines(baselines)))) {
-    process.exit(report({ id: ID, claim: '', scanned: 1, unit: 'count', findings: [{ where: BASELINES, detail: 'is not in the form slipway writes it in (two-space JSON, each entry once, one final newline), and --record adds its key without rewriting the other lines — put the file back in that form, commit, then record; nothing was written' }] }));
+    process.exit(report({ id: ID, claim: '', scanned: 1, unit: 'count', findings: [{ where: BASELINES, detail: 'is not in the form slipway writes it in (two-space JSON, each entry once, one final newline), and --record adds its key without rewriting the other lines — put the file back in that form in a reviewed PR listed under Gate changes, then record; nothing was written' }] }));
   }
   try {
     writeBaselines(ROOT, { ...baselines, [KEY]: n });

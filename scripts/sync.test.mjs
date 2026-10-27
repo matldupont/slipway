@@ -2953,8 +2953,8 @@ console.log(JSON.stringify(out));
 `);
 chmodSync(join(fakeBin, 'vale'), 0o755);
 const valeAt = (version) => ({ ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, FAKE_VALE_VERSION: version });
-// ci/prose.mjs is managed here, as in slipway, so a change to it is one the plan can name.
-const PROSE_MAP = (slipwayMd) => `${MAP_YAML.replace('- glob: ci/prose.mjs\n    class: internal', '- glob: ci/prose.mjs\n    class: managed')}  - glob: .github/**
+// ci/prose.mjs and ci/checks/lib/frontmatter.mjs are managed here, as in slipway, so a change to either is one the plan can name.
+const PROSE_MAP = (slipwayMd) => `${MAP_YAML.replace('- glob: ci/prose.mjs\n    class: internal', '- glob: ci/prose.mjs\n    class: managed').replace('  - glob: ci/checks/**\n', '  - glob: ci/checks/lib/frontmatter.mjs\n    class: managed\n  - glob: ci/checks/**\n')}  - glob: .github/**
     class: managed
   - glob: ci/prose/**
     class: managed

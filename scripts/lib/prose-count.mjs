@@ -15,9 +15,10 @@ export const CI_WORKFLOW = VALE_PIN.path;
 // The Vale version a workflow's text pins, or null.
 export const valePin = (text) => new RegExp(`${VALE_PIN.key}: (\\d+\\.\\d+\\.\\d+)\\b`).exec(text ?? '')?.[1] ?? null;
 
-// Vale is found as git and gh are (lib/manifest.mjs): on PATH's absolute entries outside the project at `root` and outside
-// any node_modules, from a folder outside the project, so no program the project holds can stand in for it (#133).
-// null when no such entry is left.
+// Vale is found as git and gh are (lib/manifest.mjs): on PATH's absolute entries outside the checkout that holds `root`
+// and outside any node_modules, from a folder outside it, so no program a project holds can stand in for it (#133). For
+// new-project, `root` is not a checkout yet: it holds only slipway's own files, and the checkout above it, if any, is left
+// out. null when no such entry is left.
 const valeEnv = (root) => {
   try {
     return trustedEnvAt(root);

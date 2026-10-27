@@ -407,6 +407,19 @@ test('a project counts its own text only: a warning in slipway\'s managed SLIPWA
   }
 });
 
+test('every library ci/prose.mjs reads is an input in PROSE_INPUTS, or named here with why it cannot move the count', () => {
+  const exempt = {
+    'ci/checks/lib/feature-docs.mjs': 'unseen() feeds asSeen(), which only the error rules read',
+    'ci/checks/lib/manifest.mjs': 'it reads which files are slipway\'s; a file that becomes the project\'s is the other way the count rises',
+    'ci/checks/lib/ratchet.mjs': 'it stores the count, it does not take it',
+    'ci/checks/lib/report.mjs': 'it prints',
+  };
+  const inputs = new Set(PROSE_INPUTS.map((i) => i.path));
+  const libs = [...readFileSync(join(SRC, 'ci', 'prose.mjs'), 'utf8').matchAll(/from '\.\/(checks\/lib\/[^']+)'/g)].map((m) => `ci/${m[1]}`);
+  assert.ok(libs.length > 0);
+  assert.deepEqual(libs.filter((l) => !inputs.has(l) && !Object.hasOwn(exempt, l)), [], 'a library the prose check reads is neither an input nor exempt');
+});
+
 test('each input of the prose check in PROSE_INPUTS is in slipway: the folder, the files and the pin', () => {
   for (const input of PROSE_INPUTS) {
     const at = join(SRC, input.path);
