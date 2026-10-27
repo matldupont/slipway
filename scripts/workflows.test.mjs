@@ -288,7 +288,7 @@ const GUARDED = {
 // Every job and step of a workflow, named by its job id, or its step name or first run line, with its `if:` as written.
 const partsOf = (text) => [...readWorkflow(text).root.entries.get('jobs').entries].flatMap(([id, job]) => [
   { what: `job ${id}`, if: job.entries.get('if')?.value },
-  ...(job.entries.get('steps')?.items ?? []).map((step) => ({ what: `step ${String(step.entries.get('name')?.value ?? step.entries.get('run')?.value ?? step.entries.get('uses')?.value).split('\n')[0]}`, if: step.entries.get('if')?.value })),
+  ...(job.entries.get('steps')?.items ?? []).map((step) => ({ what: `step ${String(step.entries.get('name')?.value ?? step.entries.get('run')?.value ?? step.entries.get('uses')?.value).split('\n')[0]}`, if: step.entries.get('if')?.value, run: String(step.entries.get('run')?.value ?? '') })),
 ]);
 const guardsIn = (text) => partsOf(text).filter((p) => /is_template/.test(String(p.if ?? ''))).map((p) => ({ what: p.what, if: String(p.if).trim() }));
 const read = (p) => readFileSync(join(SRC, p), 'utf8');
@@ -299,13 +299,15 @@ test('a shipped workflow guards only the steps named here, each slipway-only one
     assert.deepEqual(guardsIn(read(p)), (GUARDED[p] ?? []).map(({ what, if: cond }) => ({ what, if: cond })), p);
     for (const g of (GUARDED[p] ?? []).filter((g) => g.if === TEMPLATE)) {
       for (const f of g.reads) assert.equal(classify(RULES, f), 'internal', `${g.what} reads ${f}, which a project lacks`);
-      assert.ok(partsOf(read(p)).some((s) => s.what === g.what), `${p} has ${g.what}`);
+      const step = partsOf(read(p)).find((s) => s.what === g.what);
+      assert.deepEqual(step?.run.split('\n').filter(Boolean), g.reads.map((f) => `node ${f}`), `${p} ${g.what} runs only what it reads`);
     }
   }
   const ci = partsOf(read('.github/workflows/ci.yml'));
   const body = partsOf(read('.github/workflows/pr-body.yml'));
-  const prose = [...ci.filter((s) => s.what === 'job prose' || s.what === 'step pnpm check:prose'), ...body.filter((s) => /Vale|chatbot/.test(s.what))];
-  assert.deepEqual(prose.map((s) => s.what), ['job prose', 'step pnpm check:prose', 'step Install Vale at the pinned version, sha256 checked', 'step Check the PR body for chatbot phrasing']);
+  const prose = [...ci.filter((s) => s.what === 'job prose' || s.what === 'step pnpm check:prose'), ...body.filter((s) => s.what === 'job pr-body' || /Vale|chatbot/.test(s.what))];
+  assert.deepEqual(prose.map((s) => s.what), ['job prose', 'step pnpm check:prose', 'job pr-body', 'step Install Vale at the pinned version, sha256 checked', 'step Check the PR body for chatbot phrasing']);
+  // No condition of any kind: a skipped job reads as a pass to a required check.
   for (const s of prose) assert.equal(s.if, undefined, `${s.what} runs in every project`);
 });
 

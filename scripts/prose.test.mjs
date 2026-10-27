@@ -296,7 +296,6 @@ test('slipway\'s held set covers every file it ships as managed that a person re
   assert.equal(personReads('process/lessons/L-1.MD'), true);
 });
 
-
 test('a project made by new-project with the pinned Vale records its own count, and its check is never BROKEN on README', () => {
   const { dir, out } = newProject(true);
   try {

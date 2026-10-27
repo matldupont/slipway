@@ -105,8 +105,9 @@ jobs:
       VALE_VERSION: 3.24.0
       VALE_SHA256: 867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214
       # The first push of a new repository has no commit before it (`before` is all zeros), so its base is the commit
-      # itself: the diff set is empty and the held set is still read. Any other base is passed as it is.
-      PROSE_BASE: ${{ github.event.pull_request.base.sha || (github.event.before == '0000000000000000000000000000000000000000' && github.sha) || github.event.before }}
+      # itself: the diff set is empty and the held set is still read. Any other base is passed as it is. `before &&` comes
+      # first because GitHub reads an absent value as 0 beside a text, and the zeros as 0 too: unset must not match.
+      PROSE_BASE: ${{ github.event.pull_request.base.sha || (github.event.before && github.event.before == '0000000000000000000000000000000000000000' && github.sha) || github.event.before }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

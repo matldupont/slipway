@@ -20,8 +20,15 @@ if (spawnSync('vale', ['--version']).status !== 0) {
 }
 
 // GitHub's expression syntax as far as these workflows' env uses it: context paths, '…' strings, ==, !=, !, &&, || and
-// brackets. && and || return an operand, as GitHub's do; '', null, false and 0 are false; == on strings ignores case. Any
+// brackets. && and || return an operand, as GitHub's do; '', null, false and 0 are false. == on two texts ignores case;
+// on two values of different types it compares them as numbers, as GitHub's does: null is 0, a text of zeros is 0. Any
 // other token throws, so a new form in a workflow fails here instead of being read wrong.
+const asNumber = (v) => (v === null ? 0 : typeof v === 'boolean' ? Number(v) : typeof v === 'string' ? (v.trim() === '' ? 0 : Number(v)) : v);
+const equal = (a, b) => {
+  if (typeof a === 'string' && typeof b === 'string') return a.toLowerCase() === b.toLowerCase();
+  if (a === null && b === null) return true;
+  return asNumber(a) === asNumber(b);
+};
 function evaluate(expr, ctx) {
   const tokens = expr.match(/'(?:[^']|'')*'|==|!=|&&|\|\||[()!]|[A-Za-z_][\w.-]*|\S/g);
   const truthy = (v) => v !== '' && v !== null && v !== false && v !== 0;
@@ -42,7 +49,7 @@ function evaluate(expr, ctx) {
     let v = primary();
     while (tokens[i] === '==' || tokens[i] === '!=') {
       const op = tokens[i++];
-      const same = String(v ?? '').toLowerCase() === String(primary() ?? '').toLowerCase();
+      const same = equal(v, primary());
       v = op === '==' ? same : !same;
     }
     return v;
@@ -127,6 +134,9 @@ test('PROSE_BASE: a pull request\'s base, a push\'s before, the commit itself on
   assert.equal(base({ before: ZEROS }), 'c'.repeat(40), 'the first push of a new repository');
   assert.equal(base({ before: 'garbage' }), 'garbage', 'any other value is passed as it is');
   assert.equal(base({}), '', 'an unset before is not the commit');
+  // The reader compares as GitHub does: an absent value equals a text of zeros, so a guard on `before` itself is needed.
+  assert.equal(evaluate(`github.event.before == '${ZEROS}'`, ctx({})), true);
+  assert.equal(evaluate(`github.event.before == '${ZEROS}'`, ctx({ before: 'b'.repeat(40) })), false);
 });
 
 test('a new project\'s first push passes the prose job; a base that is not a commit, or none, is BROKEN', () => {
