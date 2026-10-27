@@ -34,7 +34,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { unseen } from './checks/lib/feature-docs.mjs';
 import { withoutHeader } from './checks/lib/frontmatter.mjs';
-import { isTemplate, readManifest } from './checks/lib/manifest.mjs';
+import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest } from './checks/lib/manifest.mjs';
 import { BASELINES, parseBaselines, readBaselines, serialiseBaselines, writeBaselines } from './checks/lib/ratchet.mjs';
 import { report } from './checks/lib/report.mjs';
 
@@ -56,6 +56,13 @@ export const HELD = [
   'docs/milestones/TEMPLATE.md',
   '.github/pull_request_template.md',
 ];
+// Where CI pins Vale's version (scripts/prose.test.mjs keeps pr-body.yml's pin equal to it).
+export const VALE_PIN = { path: '.github/workflows/ci.yml', key: 'VALE_VERSION' };
+// What decides a project's prose count besides its own text, the one list: a change to any of them may raise the count.
+// Sync's plan names each that changed (scripts/sync.mjs, proseRises), and /sync-slipway points here (the owner,
+// 2026-10-27: "Keep the four paths in one list that sync's plan and the skill text both read").
+export const PROSE_INPUTS = [{ path: 'ci/prose/Slipway/', folder: true }, { path: '.vale.ini' }, { path: 'ci/prose.mjs' }, VALE_PIN];
+
 // A file a person reads: a markdown file, not agent text (`.claude/**`) and not a fixture (F-16 §8).
 export const personReads = (f) => /\.(?:md|markdown)$/i.test(f) && !f.startsWith('.claude/') && !f.startsWith('ci/fixtures/');
 
@@ -278,6 +285,9 @@ async function runAll(argv) {
     broken(`the base ${JSON.stringify(baseRef)} is not a commit here, so the lines this change adds were not found — fetch it (git fetch origin main) or pass --base <ref>`);
   }
   const inSlipway = isTemplate(ROOT);
+  // Each fails closed: the held set and what counts as the project's own are read from these.
+  if (!inSlipway && hasTemplateMarkers(ROOT)) broken(`this checkout holds slipway's own files, but its history could not be read as slipway's (a shallow clone?), so its held set was not found — fetch the full history: git fetch --unshallow`);
+  if (!inSlipway && !isPlainFile(join(ROOT, MANIFEST))) broken(`there is no ${MANIFEST}, so slipway's files could not be told from this project's own — adopt sync once: pnpm -s use-slipway sync --adopt`);
   let slipways;
   try {
     slipways = await slipwaysFiles(ROOT);

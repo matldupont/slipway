@@ -245,12 +245,13 @@ resolutions on the sync branch, then open one PR (`Lane: bounded`) whose body ha
 
   **The prose count rises only two ways, both through the owner** (the owner, 2026-10-27). Sync never raises the
   `prose` count in `ci/baselines.json`. Its plan finds what may raise it from the files, never from a release note,
-  and its notes name each: a held file that becomes the project's own (`… becomes your own text`), and a changed rule
-  under `ci/prose/Slipway/` (`The rule … changed and may raise your prose count`). Those are the only two ways. When
-  the plan names either and the PR's `prose` job measures a higher count, ask the owner: "This sync makes <the file
-  your own text | the rule stricter>, and CI now counts <n> prose warnings in your own text, up from <m>. Record
-  <n>?" On their yes, set `prose` to CI's number in `ci/baselines.json`, and add one line under `## Gate changes`:
-  `ci/baselines.json — loosens: prose <m> → <n>, <the file or rule>; the owner's yes, quoted (D-052)`. CI fails
+  and its notes name each: a held file that becomes the project's own (`… becomes your own text`), and a change to the
+  prose check, any input in the one list `PROSE_INPUTS` in `ci/prose.mjs` (`The prose check changed (…) and may
+  raise your prose count`). Those are the only two ways. When the plan names either and the PR's `prose` job
+  measures a higher count, ask the owner: "This sync <makes the file your own text | changes the prose check>, and CI
+  now counts <n> prose warnings in your own text, up from <m>. Record <n>?" On their yes, set `prose` to CI's number
+  in `ci/baselines.json`, and add one line under `## Gate changes`:
+  `ci/baselines.json — loosens: prose <m> → <n>, <the file or the change>; the owner's yes, quoted (D-052)`. CI fails
   unless the number is the one it measures. With no count yet, sync records one at the Vale version CI pins, or
   says why not and names `node ci/prose.mjs --record <n>`, with `<n>` from the job's message.
 

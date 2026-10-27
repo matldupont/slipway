@@ -94,13 +94,14 @@ export function countLines({ n, noStatus = 0, drafts = 0, others = {}, notFiles 
   return lines;
 }
 // What the owner reads when a sync may raise the prose count (F-16 §10, #549): each held file that becomes the project's
-// own, each changed rule, and that these are the only two ways the count rises. Sync never raises it; the owner records
-// CI's number under Gate changes. Paths are slipway's, never the project's text. None when nothing may raise it.
-export function proseRiseNote({ moved = [], rules = [] }) {
-  if (moved.length === 0 && rules.length === 0) return [];
+// own, each change to the prose check, and that these are the only two ways the count rises. Sync never raises it; the
+// owner records CI's number under Gate changes. Paths and versions are slipway's, never the project's text. None when
+// nothing may raise it.
+export function proseRiseNote({ moved = [], changed = [] }) {
+  if (moved.length === 0 && changed.length === 0) return [];
   return [
     ...moved.map((p) => `${p} becomes your own text, so its warnings join your prose count.`),
-    ...rules.map((p) => `The rule ${p} changed and may raise your prose count.`),
+    ...changed.map((c) => `The prose check changed (${c}) and may raise your prose count.`),
     "These are the only two ways your prose count rises, and sync never raises it itself. If the prose job on the sync PR measures more, record CI's number in ci/baselines.json under Gate changes, with your yes.",
   ];
 }

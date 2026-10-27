@@ -2953,9 +2953,12 @@ console.log(JSON.stringify(out));
 `);
 chmodSync(join(fakeBin, 'vale'), 0o755);
 const valeAt = (version) => ({ ...process.env, PATH: `${fakeBin}:${process.env.PATH}`, FAKE_VALE_VERSION: version });
-const PROSE_MAP = (slipwayMd) => `${MAP_YAML}  - glob: .github/**
+// ci/prose.mjs is managed here, as in slipway, so a change to it is one the plan can name.
+const PROSE_MAP = (slipwayMd) => `${MAP_YAML.replace('- glob: ci/prose.mjs\n    class: internal', '- glob: ci/prose.mjs\n    class: managed')}  - glob: .github/**
     class: managed
   - glob: ci/prose/**
+    class: managed
+  - glob: .vale.ini
     class: managed
   - glob: SLIPWAY.md
     class: ${slipwayMd}
@@ -2972,11 +2975,19 @@ put(proseSlip, {
   '.github/workflows/ci.yml': 'env:\n  VALE_VERSION: 3.24.0\n',
   'ci/prose/Slipway/Hedge.yml': 'v1\n',
   'ci/prose/Slipway/Verb.yml': 'same\n',
+  '.vale.ini': 'MinAlertLevel = warning\n',
   'process/same.md': 'same\n',
   'docs/PRD.md': '# PRD\n',
 });
 const PA = commit(proseSlip, 'A');
-put(proseSlip, { 'dev/ownership.yaml': PROSE_MAP('seeded'), 'ci/prose/Slipway/Hedge.yml': 'v2\n' });
+// At B every input of the prose check changes: a rule, .vale.ini, ci/prose.mjs and the pinned Vale.
+put(proseSlip, {
+  'dev/ownership.yaml': PROSE_MAP('seeded'),
+  'ci/prose/Slipway/Hedge.yml': 'v2\n',
+  '.vale.ini': 'MinAlertLevel = suggestion\n',
+  'ci/prose.mjs': `${readFileSync(join(proseSlip, 'ci', 'prose.mjs'), 'utf8')}// B\n`,
+  '.github/workflows/ci.yml': 'env:\n  VALE_VERSION: 3.25.0\n',
+});
 commit(proseSlip, 'B');
 git(proseSlip, 'checkout', '-q', PA);
 const proseBase = join(root, 'prose-project');
@@ -2998,10 +3009,10 @@ function proseProject(baselines) {
 }
 const proseSync = (dir, env, ...args) => spawnBin(process.execPath, [join(proseSlip, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8', env });
 const proseBaselines = (dir) => JSON.parse(readFileSync(join(dir, 'ci/baselines.json'), 'utf8'));
-const NOT_RECORDED = 'no prose count was recorded: Vale here is 3.0.0, not the 3.24.0 CI pins. CI\'s prose job measures it and prints the one command to record it, node ci/prose.mjs --record <n>, to run in a reviewed PR and list under Gate changes.';
+const NOT_RECORDED = 'no prose count was recorded: Vale here is 3.0.0, not the 3.25.0 CI pins. CI\'s prose job measures it and prints the one command to record it, node ci/prose.mjs --record <n>, to run in a reviewed PR and list under Gate changes.';
 
 test('new-project with a Vale other than the pinned one records no prose count and prints the one command (#549)', () => {
-  assert.ok(proseNp.stdout.includes(NOT_RECORDED), proseNp.stdout);
+  assert.ok(proseNp.stdout.includes(NOT_RECORDED.replace('3.25.0', '3.24.0')), proseNp.stdout);
   assert.equal(Object.hasOwn(proseBaselines(proseBase), 'prose'), false);
 });
 
@@ -3017,25 +3028,28 @@ test('sync with a Vale other than the pinned one writes no prose count, and says
 
 test('sync at the pinned Vale records the prose count once, on the project\'s own text as it is after the sync (#549)', () => {
   const dir = proseProject();
-  const plan = JSON.parse(proseSync(dir, valeAt('3.24.0'), '--json').stdout);
+  const plan = JSON.parse(proseSync(dir, valeAt('3.25.0'), '--json').stdout);
   // README.md's two, and SLIPWAY.md's one: slipway classes it seeded at the target, so it is the project's own after.
   assert.ok(plan.notes.includes('Your own text has 3 prose warnings, counted with Vale at the version CI pins. The prose count is recorded at 3 and may only go down.'), plan.notes.join('\n'));
-  const applied = proseSync(dir, { ...valeAt('3.24.0'), CLAUDECODE: '' }, '--apply');
+  const applied = proseSync(dir, { ...valeAt('3.25.0'), CLAUDECODE: '' }, '--apply');
   assert.ok([0, 1].includes(applied.status), applied.stderr);
   assert.equal(proseBaselines(dir).prose, 3);
   assert.equal(proseBaselines(dir)['feature-fit'], 0, 'the Fit count is kept');
 });
 
-test('sync never raises a prose count in place, and names each file and rule that may raise it: the only two ways (#549)', () => {
+test('sync never raises a prose count in place, and names each file that becomes the project\'s and each change to the prose check: the only two ways (#549)', () => {
   const dir = proseProject({ 'feature-fit': 0, prose: 2 });
-  const plan = JSON.parse(proseSync(dir, valeAt('3.24.0'), '--json').stdout);
+  const plan = JSON.parse(proseSync(dir, valeAt('3.25.0'), '--json').stdout);
   const notes = plan.notes.filter((n) => /prose count/.test(n));
   assert.deepEqual(notes, [
     'SLIPWAY.md becomes your own text, so its warnings join your prose count.',
-    'The rule ci/prose/Slipway/Hedge.yml changed and may raise your prose count.',
+    'The prose check changed (ci/prose/Slipway/Hedge.yml) and may raise your prose count.',
+    'The prose check changed (.vale.ini) and may raise your prose count.',
+    'The prose check changed (ci/prose.mjs) and may raise your prose count.',
+    'The prose check changed (Vale 3.24.0 → 3.25.0) and may raise your prose count.',
     'These are the only two ways your prose count rises, and sync never raises it itself. If the prose job on the sync PR measures more, record CI\'s number in ci/baselines.json under Gate changes, with your yes.',
   ]);
-  const applied = proseSync(dir, { ...valeAt('3.24.0'), CLAUDECODE: '' }, '--apply');
+  const applied = proseSync(dir, { ...valeAt('3.25.0'), CLAUDECODE: '' }, '--apply');
   assert.ok([0, 1].includes(applied.status), applied.stderr);
   assert.deepEqual(proseBaselines(dir), { 'feature-fit': 0, prose: 2 }, 'sync wrote nothing in ci/baselines.json');
 });
@@ -3044,8 +3058,10 @@ test('/sync-slipway keeps the two ways a prose count rises in one place, recorde
   const skill = readFileSync(join(SRC, '.claude/skills/sync-slipway/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
   assert.ok(skill.includes('**The prose count rises only two ways, both through the owner**'), 'the skill no longer holds the rule');
   assert.ok(skill.includes('Sync never raises the `prose` count'), 'the skill no longer says sync never raises it');
-  assert.ok(skill.includes('a held file that becomes the project\'s own') && skill.includes('a changed rule under `ci/prose/Slipway/`'), 'the skill no longer names both ways');
+  assert.ok(skill.includes('a held file that becomes the project\'s own') && skill.includes('the one list `PROSE_INPUTS` in `ci/prose.mjs`'), 'the skill no longer names both ways');
   assert.equal(skill.match(/only two ways/g)?.length, 2, 'the two ways are written in one place');
+  // The skill reads the list; it holds no second copy of it (the owner, 2026-10-27).
+  for (const input of ['.vale.ini', 'ci/prose/Slipway/', 'VALE_VERSION']) assert.ok(!skill.includes(input), `the skill copies ${input} from PROSE_INPUTS`);
 });
 
 test('sync never takes a vale the project holds, even on PATH: it is found outside the project, as git is (#549)', () => {
@@ -3054,7 +3070,7 @@ test('sync never takes a vale the project holds, even on PATH: it is found outsi
   copyFileSync(join(fakeBin, 'vale'), join(dir, 'bin', 'vale'));
   chmodSync(join(dir, 'bin', 'vale'), 0o755);
   commit(dir, 'a vale of the project\'s');
-  const env = { ...process.env, PATH: `${join(dir, 'bin')}:.:${process.env.PATH}`, FAKE_VALE_VERSION: '3.24.0' };
+  const env = { ...process.env, PATH: `${join(dir, 'bin')}:.:${process.env.PATH}`, FAKE_VALE_VERSION: '3.25.0' };
   const notes = JSON.parse(proseSync(dir, env, '--json').stdout).notes;
   assert.ok(!notes.some((n) => /recorded at 3\b/.test(n)), `the project's own vale counted: ${notes.join('\n')}`);
 });

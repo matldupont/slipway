@@ -1407,7 +1407,12 @@ and #548's build, in their words. F-16 names this decision in its as-built rewri
   never raises the number itself. The plan should find the changed rule mechanically: any changed file under
   ci/prose/Slipway/ gets named as "this rule changed and may raise the count". Don't rely on a hand-written release
   note. Then I record CI's new count under Gate changes with my yes, the same way as a moved file. Write both cases in
-  one place so they stay the only two ways the count rises." The one place is `/sync-slipway`'s Gate changes rule.
+  one place so they stay the only two ways the count rises." The one place is `/sync-slipway`'s Gate changes rule. Then,
+  on the same day, what counts as a changed rule: "Yes, name all of them. Two adjustments. Word the plan line as "the
+  prose check changed and may raise the count", not "this rule changed", since a Vale version bump isn't a rule. Keep
+  the four paths in one list that sync's plan and the skill text both read, not two copies, so a fourth input added
+  later lands in one place." The list is `PROSE_INPUTS` in `ci/prose.mjs`: `ci/prose/Slipway/`, `.vale.ini`,
+  `ci/prose.mjs` and CI's pinned Vale version.
 - **L-71's date in a project, 2026-10-27 (AR-6), lands in #548 (L1) and #555 (the status note):** "Only slipway fails,
   with two details: 1. Which lessons are slipway's comes from the same ownership list sync uses (the manifest), as with
   the prose count. 2. In a project whose copy is past its review date, status shows a note, not a red: "slipway's L-71

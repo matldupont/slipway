@@ -7,13 +7,13 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
-import { asSeen, blank, HELD, personReads, slipwaysFiles } from '../ci/prose.mjs';
+import { asSeen, blank, HELD, personReads, PROSE_INPUTS, slipwaysFiles } from '../ci/prose.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROSE = join(SRC, 'ci', 'prose.mjs');
@@ -295,8 +295,8 @@ test('slipway\'s held set covers every file it ships as managed that a person re
   assert.equal(personReads('process/lessons/L-1.MD'), true);
 });
 
-// new-project commits, so a runner with no git identity (CI's) is given one.
-Object.assign(process.env, { GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com' });
+// new-project commits, so a runner with no git identity (CI's) is given one, and no one's global git config is read.
+Object.assign(process.env, { GIT_CONFIG_GLOBAL: '/dev/null', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com' });
 // A project made by new-project, `withVale` on the path or not; its main branch holds one commit.
 const NO_VALE = { ...process.env, PATH: `${dirname(process.execPath)}:/usr/bin:/bin` };
 function newProject(withVale) {
@@ -402,6 +402,33 @@ test('a project counts its own text only: a warning in slipway\'s managed SLIPWA
     const own = inProject(dir, ['--base', 'HEAD~1']);
     assert.equal(own.status, 1, own.stdout);
     assert.match(own.stdout, /prose: 1 is above the baseline 0/);
+  } finally {
+    rmSync(dirname(dir), { recursive: true, force: true });
+  }
+});
+
+test('each input of the prose check in PROSE_INPUTS is in slipway: the folder, the files and the pin', () => {
+  for (const input of PROSE_INPUTS) {
+    const at = join(SRC, input.path);
+    if (input.folder) assert.ok(readdirSync(at).length > 0, input.path);
+    else if (input.key) assert.match(readFileSync(at, 'utf8'), new RegExp(`${input.key}: \\d+\\.\\d+\\.\\d+`), input.path);
+    else assert.ok(readFileSync(at).length > 0, input.path);
+  }
+});
+
+test('the check fails closed where it cannot tell slipway\'s files from a project\'s: no manifest, or slipway with no history', () => {
+  const { dir } = newProject(true);
+  const shallow = join(dirname(dir), 'shallow');
+  try {
+    rmSync(join(dir, '.slipway', 'manifest.json'));
+    commitAll(dir, 'no manifest');
+    const none = inProject(dir, ['--base', 'HEAD']);
+    assert.equal(none.status, 2, none.stdout);
+    assert.match(none.stdout, /sync --adopt/);
+    sh(dirname(dir), 'clone', '-q', '--depth', '1', `file://${SRC}`, shallow);
+    const cut = inProject(shallow, ['--base', 'HEAD']);
+    assert.equal(cut.status, 2, cut.stdout);
+    assert.match(cut.stdout, /git fetch --unshallow/);
   } finally {
     rmSync(dirname(dir), { recursive: true, force: true });
   }

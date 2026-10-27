@@ -40,7 +40,7 @@ import { isShipped, owedReviews, unversioned } from '../ci/checks/lib/spec-revie
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { BASELINES, FIT_KEY, isCount, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
-import { HELD, KEY as PROSE_KEY, ownHeld } from '../ci/prose.mjs';
+import { HELD, KEY as PROSE_KEY, ownHeld, PROSE_INPUTS } from '../ci/prose.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
@@ -62,8 +62,6 @@ export const KINDS = [
 // `feature-fit` count once, from the project's own feature docs, and its `prose` count once, from its own text with
 // Vale at the version CI pins (F-16 §10, #549). Sync never raises either. Slipway's copy of the file never travels.
 const COUNT_ROW = 'computed: count recorded';
-// The prose check's rules: a change to any of them may raise a project's count.
-const PROSE_RULES = 'ci/prose/Slipway/';
 
 // A named reason to stop: printed as `sync: <reason>`, exit 1. Adopt (adopt.mjs) throws it too.
 export class Refusal extends Error {}
@@ -346,7 +344,7 @@ function preflight(cwd) {
     proseKept = Object.hasOwn(projectBaselines(root) ?? {}, PROSE_KEY);
   } catch { /* the plan refuses it */ }
   const vale = proseKept ? null : valeAtPin(valePin(target.get(CI_WORKFLOW)?.toString('utf8')), root);
-  if (proseKept) notes.push(...proseRiseNote(proseRises({ root, manifest, base, target, targetRules: t.rules })));
+  if (proseKept) notes.push(...proseRiseNote(proseRises({ root, manifest, base, gitDir, target, targetRules: t.rules })));
   else if (vale.why) notes.push(notRecorded(vale.why));
   const prose = { record: !proseKept && vale.ok };
 
@@ -698,9 +696,10 @@ const OWNER_ROWS = ['collision', 'merged: key reported', 'keep (edited)'];
 
 // What may raise the project's prose count in this sync, found from the files, never from a release note (the owner,
 // 2026-10-27): each held file slipway's manifest lists as managed that becomes the project's own (the target classes it
-// otherwise, or stops shipping it and the project's edited copy stays), and each rule under ci/prose/Slipway/ whose bytes
-// differ between base and target. Exported for scripts/sync.test.mjs.
-export function proseRises({ root, manifest, base, target, targetRules }) {
+// otherwise, or stops shipping it and the project's edited copy stays), and each input of the prose check (PROSE_INPUTS)
+// that differs between base and target: a file's bytes, each file under a folder, or the pinned Vale version, shown as
+// `from → to`. Exported for scripts/sync.test.mjs.
+export function proseRises({ root, manifest, base, gitDir, target, targetRules }) {
   const moved = HELD.filter((p) => {
     const m = manifest.files[p];
     const cur = readProjectFile(root, p);
@@ -708,8 +707,16 @@ export function proseRises({ root, manifest, base, target, targetRules }) {
     return target.has(p) ? classify(targetRules, p) !== 'managed' : sha256(cur) !== m.sha256;
   });
   const now = (p) => (target.has(p) ? blobSha(target.get(p)) : null);
-  const rules = [...new Set([...base.tree.keys(), ...target.keys()])].filter((p) => p.startsWith(PROSE_RULES) && (base.tree.get(p) ?? null) !== now(p)).sort();
-  return { moved, rules };
+  const differs = (p) => (base.tree.get(p) ?? null) !== now(p);
+  const paths = [...new Set([...base.tree.keys(), ...target.keys()])].sort();
+  const changed = PROSE_INPUTS.flatMap((input) => {
+    if (input.folder) return paths.filter((p) => p.startsWith(input.path) && differs(p));
+    if (!input.key) return differs(input.path) ? [input.path] : [];
+    const was = base.tree.has(input.path) ? valePin(readBlob(gitDir, base.tree.get(input.path)).toString('utf8')) : null;
+    const is = valePin(target.get(input.path)?.toString('utf8'));
+    return was === is ? [] : [`Vale ${was ?? 'unpinned'} → ${is ?? 'unpinned'}`];
+  });
+  return { moved, changed };
 }
 
 /**

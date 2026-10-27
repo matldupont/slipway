@@ -7,13 +7,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { trustedEnvAt } from '../../ci/checks/lib/manifest.mjs';
-import { recordCommand } from '../../ci/prose.mjs';
+import { recordCommand, VALE_PIN } from '../../ci/prose.mjs';
 
-// The workflow that pins Vale; scripts/prose.test.mjs keeps pr-body.yml's pin equal to it.
-export const CI_WORKFLOW = '.github/workflows/ci.yml';
+// The workflow that pins Vale (ci/prose.mjs, VALE_PIN).
+export const CI_WORKFLOW = VALE_PIN.path;
 
 // The Vale version a workflow's text pins, or null.
-export const valePin = (text) => /VALE_VERSION: (\d+\.\d+\.\d+)\b/.exec(text ?? '')?.[1] ?? null;
+export const valePin = (text) => new RegExp(`${VALE_PIN.key}: (\\d+\\.\\d+\\.\\d+)\\b`).exec(text ?? '')?.[1] ?? null;
 
 // Vale is found as git and gh are (lib/manifest.mjs): on PATH's absolute entries outside the project at `root` and outside
 // any node_modules, from a folder outside the project, so no program the project holds can stand in for it (#133).
