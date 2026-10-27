@@ -1,6 +1,6 @@
 // Minimal markdown reading for body and document checks.
 
-import { withoutHeader } from './frontmatter.mjs';
+import { hasPlaceholder, withoutHeader } from './frontmatter.mjs';
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -35,6 +35,24 @@ export const replaceComments = (md, by, { unclosed = false } = {}) => {
 };
 // A comment's line breaks, and nothing else of it: the lines around it keep their numbers.
 export const commentLines = (c) => c.replace(/[^\n]/g, '');
+
+// A document as the placeholder rules read it (K1 on FRAME.md, F1 on an approved PRD): comments blanked so line
+// numbers hold, and a code span holding a [NEEDS CLARIFICATION] or [PARKED] marker dropped, since a marker whole
+// inside inline code is the template explaining the syntax, not a question. An escaped backtick is not code. Every
+// span is matched, so the gap between two spans is never read as one.
+export const placeholderText = (md) =>
+  replaceComments(md, commentLines).replace(/(?<!\\)`[^`\n]*`/g, (span) => (/\[(?:NEEDS CLARIFICATION|PARKED)[^\]]*\]/.test(span) ? '' : span));
+
+// The 1-based numbers of the lines of placeholderText(md) that still hold a placeholder (hasPlaceholder).
+export const placeholderLines = (text) => text.split(/\r?\n/).flatMap((l, i) => (hasPlaceholder(l) ? [i + 1] : []));
+
+// The 1-based line of a `<!--` that no `-->` closes, or null. commentSpans() reads the rest of the document as that
+// comment, so every check that skips comments skips it too. Read as text, as commentSpans() reads it: one in inline
+// code or a fence counts as well, though GitHub shows it.
+export function unclosedComment(md) {
+  const last = commentSpans(md, { unclosed: true }).at(-1);
+  return last && md.indexOf('-->', last[0] + 4) < 0 ? md.slice(0, last[0]).split('\n').length : null;
+}
 const withoutComments = (md) => replaceComments(md, () => '');
 
 // The text under a heading with this exact title (case-insensitive), up to the next

@@ -26,11 +26,16 @@
 // Pointers: a check id (`w1`, `ms1` …), a repo path, or `path#Heading text` (the heading must
 // start with that text). review-by: `YYYY-MM-DD`, or `+<N>d` counted from the date in
 // process/anchor, which bootstrap sets to the project's start.
+//
+// In a project, a fixed date on one of slipway's lessons, as its manifest lists them and unedited, is slipway's
+// clock: review/due skips it, and the report lists it as exempted (lib/lessons.mjs, #548). Slipway
+// itself has no manifest, so every date fails there.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, isUnreadable } from '../lib/frontmatter.mjs';
 import { today as localToday } from '../lib/clock.mjs';
+import { dueDate, slipwayLessons, slipwaysDate } from '../lib/lessons.mjs';
 import { report } from '../lib/report.mjs';
 
 const STATUSES = new Set(['check', 'structural', 'artifact', 'prose', 'declined']);
@@ -52,16 +57,6 @@ function resolves(root, pointer) {
     .some((l) => /^#{1,6}\s/.test(l) && l.replace(/^#{1,6}\s+/, '').startsWith(anchor));
 }
 
-function dueDate(value, anchor) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-  const m = value.match(/^\+(\d+)d$/);
-  if (!m) return 'invalid';
-  if (!anchor) return null;
-  const d = new Date(`${anchor}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + Number(m[1]));
-  return d.toISOString().slice(0, 10);
-}
-
 const root = process.argv[2] ?? '.';
 const today = localToday(root);
 const dir = join(root, 'process', 'lessons');
@@ -69,6 +64,8 @@ const files = existsSync(dir) ? readdirSync(dir).filter((f) => f.endsWith('.md')
 const anchorPath = join(root, 'process', 'anchor');
 const anchor = existsSync(anchorPath) ? readFileSync(anchorPath, 'utf8').trim() : null;
 
+const held = slipwayLessons(root);
+const leftToSlipway = [];
 const findings = [];
 const seen = new Map();
 const counts = Object.fromEntries([...STATUSES].map((s) => [s, 0]));
@@ -101,6 +98,7 @@ for (const f of files) {
       const due = dueDate(enf['review-by'], anchor);
       if (due === 'invalid') add('review/invalid', `"${enf['review-by']}" is neither YYYY-MM-DD nor +<N>d`);
       else if (due === null) add('anchor/missing', `"${enf['review-by']}" counts from the project's start date in process/anchor, which is missing — write that date there (YYYY-MM-DD), or a date in review-by`);
+      else if (due <= today && slipwaysDate(held, f, fm.id, enf['review-by'])) leftToSlipway.push(fm.id);
       else if (due <= today) add('review/due', `review was due ${due}: mechanise it, extend it with a reason, or delete it`);
     }
   }
@@ -110,9 +108,11 @@ const mix = Object.entries(counts).filter(([, n]) => n).map(([s, n]) => `${n} ${
 process.exit(
   report({
     id: 'L1',
-    claim: `every lesson points at a home that exists, and none is past its review date (${mix || 'none'})`,
+    claim: `every lesson points at a home that exists, and none is past its review date (${mix || 'none'})${leftToSlipway.length ? ', bar the ones exempted above, which are past slipway\'s own date' : ''}`,
     scanned: files.length,
     unit: 'lessons',
     findings,
+    exempted: leftToSlipway,
+    exemptedBy: "slipway's own review date, which a sync moves",
   })
 );

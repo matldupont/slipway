@@ -7,12 +7,13 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readDecisions } from '../ci/checks/lib/decisions.mjs';
+import { gateGlobs, globToRegExp } from '../ci/checks/lib/gate-files.mjs';
 import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest, sha256, SLIPWAY_ROOT_COMMIT, TEMPLATE_MARKERS } from '../ci/checks/lib/manifest.mjs';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
 import { blobSha, derivePackageJson, publicSource, resolveSlipway } from './lib/install.mjs';
@@ -524,6 +525,103 @@ test('the harness note says what the Stop hook does: it blocks the first stop, a
   const note = r.stdout.replace(/\s+/g, ' ');
   assert.match(note, /blocks the first stop of a turn while `pnpm verify:fast` is red \(a second stop ends it red, with the agent asked to say what is failing\)/);
   assert.doesNotMatch(note, /blocks a turn from ending/);
+});
+
+// #548 (F-16 §10, D-051): the prose check's files ship as managed, with the script that runs them and the harness rules
+// that ask before an edit to them. Its fixture and its test stay slipway's, so PC1 has no prose case to run in a project.
+test('the prose check ships: .vale.ini, ci/prose.mjs and ci/prose/** are managed and in a new project, with check:prose and the harness asks; its fixture and test do not', () => {
+  const shipped = shippedPaths(SRC, rules);
+  const prose = shipped.filter((p) => p === '.vale.ini' || p === 'ci/prose.mjs' || p.startsWith('ci/prose/'));
+  const kept = shipped.filter((p) => p.startsWith('ci/fixtures/known-bad/prose/') || p === 'scripts/prose.test.mjs');
+  assert.ok(prose.includes('.vale.ini') && prose.includes('ci/prose.mjs') && prose.some((p) => p.startsWith('ci/prose/Slipway/')), `the prose files slipway has: ${prose}`);
+  assert.ok(kept.includes('scripts/prose.test.mjs') && kept.length > 1, `the prose fixture and test slipway has: ${kept}`);
+  for (const p of prose) assert.equal(classify(rules, p), 'managed', p);
+  for (const p of kept) assert.equal(classify(rules, p), 'internal', p);
+
+  const dest = join(tmp(), 'probe');
+  const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), dest, '--no-github'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: '' } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const manifest = JSON.parse(readFileSync(join(dest, MANIFEST), 'utf8'));
+  for (const p of prose) {
+    assert.equal(manifest.files[p]?.class, 'managed', `${p} in the manifest`);
+    assert.ok(readFileSync(join(dest, p)).equals(readFileSync(join(SRC, p))), `${p} is slipway's copy`);
+  }
+  for (const p of kept) {
+    assert.equal(existsSync(join(dest, p)), false, `${p} reached a project`);
+    assert.equal(p in manifest.files, false, `${p} in the manifest`);
+  }
+  assert.equal(JSON.parse(readFileSync(join(dest, 'package.json'), 'utf8')).scripts['check:prose'], 'node ci/prose.mjs', 'pnpm run lists check:prose');
+
+  const settings = readFileSync(join(dest, '.claude', 'settings.json'), 'utf8');
+  assert.equal(settings, readFileSync(join(SRC, 'process', 'harness', 'settings.json'), 'utf8'), "the project's harness is slipway's");
+  const asks = gateGlobs(settings).map(globToRegExp);
+  for (const p of ['.vale.ini', 'ci/prose.mjs', 'ci/prose/Slipway/Chatbot.yml']) assert.ok(asks.some((re) => re.test(p)), `the project's harness does not ask before ${p}`);
+
+  // L-71 ships with the lessons, and L1 resolves its pointer in the project.
+  assert.ok(existsSync(join(dest, 'process', 'lessons', 'L-71-word-lists-are-a-snapshot.md')) && existsSync(join(dest, 'process', 'writing.md')));
+  const before = check(dest, 'l1-lessons.mjs', { CHECK_TODAY: '2027-04-13' }).stdout;
+  assert.match(before, /^L1: scanned \d+ lessons$/m, 'L1 did not run');
+  assert.doesNotMatch(before, /L-71-word-lists-are-a-snapshot\.md#/);
+});
+
+// #548, AR-6 of the 0.6 review: the owner, 2026-10-27, "Only slipway fails". In a project, a fixed review date on a
+// lesson the manifest lists as slipway's, unedited and not overridden, is left to slipway; everything else fails.
+test('L1 in a project leaves slipway\'s fixed lesson dates to slipway, and fails every date the project owns', () => {
+  const dest = join(tmp(), 'probe');
+  newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
+  const L71 = 'process/lessons/L-71-word-lists-are-a-snapshot.md';
+  const l1 = (day = '2027-04-14') => check(dest, 'l1-lessons.mjs', { CHECK_TODAY: day });
+  const due = (r, file) => new RegExp(`${file.split('/').pop().replaceAll('.', '\\.')}#review/due`).test(r.stdout);
+
+  // Slipway's own copy, as installed: no finding on its date, and the claim says it was left to slipway.
+  let r = l1();
+  assert.ok(!due(r, L71), r.stdout);
+  assert.match(r.stdout, /^L1: \d+ exempted by slipway's own review date, which a sync moves: [^\n]*\bL-71\b/m);
+  // A +Nd clock counts from the project's start, so it is the project's: still due.
+  const relative = readdirSync(join(dest, 'process', 'lessons')).find((f) => /review-by: \+\d+d/.test(readFileSync(join(dest, 'process', 'lessons', f), 'utf8')));
+  assert.ok(relative && due(l1('2099-01-01'), relative), `a +Nd lesson (${relative}) stopped failing in a project`);
+
+  // Edited, it is the project's: its date fails, override or not.
+  const was = readFileSync(join(dest, L71));
+  appendFileSync(join(dest, L71), '\nedited\n');
+  assert.ok(due(l1(), L71), 'an edited copy of slipway\'s lesson was left to slipway');
+  writeFileSync(join(dest, L71), was);
+  writeFileSync(join(dest, '.slipway', 'overrides.yaml'), `overrides:\n  - path: ${L71}\n    reason: kept\n`);
+  assert.ok(due(l1(), L71), 'an overridden lesson was left to slipway');
+  rmSync(join(dest, '.slipway', 'overrides.yaml'));
+  assert.ok(!due(l1(), L71));
+
+  // A project's own lesson with a fixed date fails, and so does one that takes a slipway id the manifest does not list.
+  for (const [file, id] of [['PL-1-own.md', 'PL-1'], ['L-999-unlisted.md', 'L-999']]) {
+    writeFileSync(join(dest, 'process', 'lessons', file), `---\nid: ${id}\nrule: x\nenforcement:\n  status: prose\n  pointer: process/writing.md\n  review-by: 2027-01-01\n---\n`);
+    assert.ok(due(l1(), file), `${file} was left to slipway`);
+    rmSync(join(dest, 'process', 'lessons', file));
+  }
+
+  // A project's PL-<n> id is never slipway's, even with a manifest entry that calls it managed (a hand edit of .slipway/).
+  const own = 'process/lessons/PL-2-listed.md';
+  const ownText = '---\nid: PL-2\nrule: x\nenforcement:\n  status: prose\n  pointer: process/writing.md\n  review-by: 2027-01-01\n---\n';
+  writeFileSync(join(dest, own), ownText);
+  const listed = JSON.parse(readFileSync(join(dest, MANIFEST), 'utf8'));
+  listed.files[own] = { class: 'managed', sha256: sha256(Buffer.from(ownText)), blob: blobSha(Buffer.from(ownText)) };
+  const manifest = readFileSync(join(dest, MANIFEST));
+  writeFileSync(join(dest, MANIFEST), JSON.stringify(listed, null, 2));
+  assert.ok(due(l1(), own), 'a PL lesson listed as managed was left to slipway');
+  writeFileSync(join(dest, MANIFEST), manifest);
+  rmSync(join(dest, own));
+
+  // A lesson the manifest records under any class but managed is not slipway's to move.
+  const seeded = JSON.parse(readFileSync(join(dest, MANIFEST), 'utf8'));
+  seeded.files[L71].class = 'seeded';
+  writeFileSync(join(dest, MANIFEST), JSON.stringify(seeded, null, 2));
+  assert.ok(due(l1(), L71), 'a lesson recorded as seeded was left to slipway');
+  writeFileSync(join(dest, MANIFEST), manifest);
+
+  // A manifest L1 cannot read leaves nothing to slipway.
+  writeFileSync(join(dest, MANIFEST), '{');
+  assert.ok(due(l1(), L71), 'an unreadable manifest let a date through');
+  writeFileSync(join(dest, MANIFEST), manifest);
+  assert.ok(!due(l1(), L71));
 });
 
 // F-12 (dev/features/feature-fit.md §3): the count a new project starts from is its own, written, never copied.

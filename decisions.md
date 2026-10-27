@@ -1390,6 +1390,53 @@ session: "Yes, as written", to this amendment of D-046:
 Why: D-046 named the measurement as the one thing between these checks and a project; it is done. Spec: F-16 (0.6),
 #521.
 
+## D-052 — Building F-16 0.6 in projects: own text only, slipway's dates stay slipway's, approved PRDs hold their placeholders *(decided 2026-10-27)*
+
+Amends: F-16
+
+The owner's calls on building F-16 0.6's §10 (#521), from the 0.6 review (`docs/reviews/2026-10-26-plain-language-0.6.md`)
+and #548's build, in their words. F-16 names this decision in its as-built rewrite (#552), not by an edit now.
+
+- **The warning count, 2026-10-26 (AR-3), lands in #549:** "Count only own text, with three edges: 1. Which files are
+  slipway's comes from the same ownership list sync uses (the manifest), never a second list in the prose check. 2. If a
+  sync moves a file from slipway-managed into the project's own, that sync PR records the new number under Gate changes
+  with my yes. That's the one case where the count can rise, and only through me. 3. Check that slipway's own held set
+  covers every file it ships as managed. Otherwise that text goes unchecked anywhere. Say so in the PR with the count of
+  files covered."
+- **L-71's date in a project, 2026-10-27 (AR-6), lands in #548 (L1) and #555 (the status note):** "Only slipway fails,
+  with two details: 1. Which lessons are slipway's comes from the same ownership list sync uses (the manifest), as with
+  the prose count. 2. In a project whose copy is past its review date, status shows a note, not a red: "slipway's L-71
+  word lists passed their review date; a sync brings the reviewed ones." The project learns its copy is old without a
+  check it can't fix."
+- **Its scope, 2026-10-27, fixed dates in #548, `+Nd` dates in #554:** "Fixed dates only, but first check the +90d side.
+  1. Fixed dates (L-69, L-70, L-71): only slipway fails, plus the status note per lesson, as proposed. 2. Before keeping
+  +90d failing in projects, check whether a project can clear one without editing a managed file. process/** is
+  managed, and L1's three ways out (mechanise, extend with a reason, delete) are all edits to the lesson. Find out what
+  D1 and the next sync do with that edit. 3. If the project can't clear it cleanly, keep the 90-day review as the
+  project's question, but give the answer a project-owned home that L1 reads (a seeded file of review lines). Then the
+  red is one the project can actually fix. Put that in its own follow-up issue, not this PR. 4. If it can, keep +90d
+  failing as today and say in the PR how a project clears one." #548's probe found case 3: every way out edits a managed
+  lesson and needs an override.
+- **The L1 change itself, 2026-10-27, #548:** "Skip the fixed date only when the lesson's sha256 matches the manifest's
+  and it isn't in .slipway/overrides.yaml. A lesson the project edited or overrides is the project's, and its date fails
+  as usual."
+- **Placeholder in a project's planning docs, 2026-10-27 (AR-7), lands in #548:** "Keep the switch-off in projects, but
+  as "K1 and MS1 own placeholders in these files", not a known limitation: 1. Placeholders in a project's FRAME and
+  milestones are K1's and MS1's job. They know where the doc is in kickoff; the prose rule doesn't, and would fail a
+  fresh project during kickoff when placeholders are expected. 2. Check whether anything already catches a placeholder
+  in a project's PRD once it's approved. If nothing does, that's the one gap: add it to the check that reads the PRD's
+  status, not to the prose rule. 3. The spec says which check owns placeholders in each of the three files." Nothing
+  did, so F1 holds an approved PRD. On F1, the same day: "An unclosed <!-- in docs/PRD.md is a finding, not a skip. It
+  hides the rest of the doc from both the reader and this check, as you ruled for the Fit in #430. Closed comments can
+  stay skipped."
+- **The spec's wording, 2026-10-27, #552:** "File the as-built rewrite now as its own sub-issue of #455, blocked by every
+  open F-16 build, so status shows it when the last one closes. Same terms as F-17: one review checking text against
+  the code, one round. A code bug found then becomes a bug issue, never a 1.1. Until then, each ticket's acceptance
+  lines are the record, and F-16 stays at 0.6."
+
+Why: §10 ships slipway's files into a project, and a check there must fail only on text and dates the project owns and
+can fix. Spec: F-16 (0.6), #521.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
