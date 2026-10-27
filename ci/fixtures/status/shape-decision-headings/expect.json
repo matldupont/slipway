@@ -1,5 +1,5 @@
 {
-  "_note": "#501. decisions.md holds an open heading whose id has 2000 digits, a heading split across a line break, and one with 100000 spaces after its dash, which the old pattern took minutes to read. The first is listed without its id, the other two not at all, and status finishes within the case's time.",
+  "_note": "#501. decisions.md holds an open heading whose id has 2000 digits, a heading split across a line break, one with 100000 spaces after its dash, which the old pattern took minutes to read, and one whose week has 9 digits. The first is listed without its id, the next two not at all, the last as open with no week, and status finishes within the case's time.",
   "today": "2026-03-11",
   "now": "2026-03-10T22:00:00-04:00",
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
@@ -8,6 +8,7 @@
   "attention": [
     "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
     "(you) Decide \"a long id\" (open since week 2)",
-    "(you) Answer \"Which walkers first?\" (PD-9, open since week 3)"
+    "(you) Answer \"Which walkers first?\" (PD-9, open since week 3)",
+    "(you) Decide \"A long week\" (PD-10, open)"
   ]
 }

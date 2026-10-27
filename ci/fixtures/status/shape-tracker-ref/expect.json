@@ -1,5 +1,5 @@
 {
-  "_note": "#501. A parked marker's tracker is in the owner/repo#n shape, but 61 characters long and made of words. It prints as tracked; a real reference beside it prints as written.",
+  "_note": "#501. Two parked markers carry a tracker in the owner/repo#n shape that GitHub would not accept: one 61 characters long and made of words, one whose owner starts with a hyphen. Each prints as tracked; a real reference beside them prints as written.",
   "today": "2026-03-11",
   "now": "2026-03-10T22:00:00-04:00",
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
@@ -7,6 +7,7 @@
   "attention": [
     "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
     "Parked: docs/product/FRAME.md:25 — \"which walkers first\" (tracked)",
-    "Parked: docs/product/FRAME.md:26 — \"which clients\" (acme/research#3)"
+    "Parked: docs/product/FRAME.md:26 — \"which clients\" (acme/research#3)",
+    "Parked: docs/product/FRAME.md:27 — \"which hours\" (tracked)"
   ]
 }

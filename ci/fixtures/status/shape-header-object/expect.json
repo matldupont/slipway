@@ -1,5 +1,5 @@
 {
-  "_note": "#501. M2's id: line, a lesson's id: line, and M3's status, kind and appetite lines each hold an indented key instead of text, the shape that made status throw. Status runs, skips M2 and says so, and prints each value that is not text as unusual or blank.",
+  "_note": "#501. M2's id: line, a lesson's id: line, M3's status, kind and appetite lines, and a feature doc's status: line each hold an indented key instead of text, the shape that made status throw. Status runs, skips M2 and says so, prints each value that is not text as unusual or blank, and reads the feature doc as not shipped. A second feature doc's id has 400 digits, and is named in words.",
   "today": "2026-03-11",
   "now": "2026-03-10T22:00:00-04:00",
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
@@ -10,6 +10,8 @@
   ],
   "attention": [
     "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
+    "(you) Run /review-doc docs/features/F-1-booking.md in a fresh session. F-1 at 0.1 has no review of that version. Its build tickets wait on that review.",
+    "(you) Run /review-doc docs/features/F-2-long.md in a fresh session. Its feature at 0.1 has no review of that version. Its build tickets wait on that review.",
     "docs/milestones/M2-booking.md has an id: line that is not text, so status skips it: write it as id: M<n>",
     "Review the lesson in process/lessons/PL-2-object.md by 2026-03-20."
   ]

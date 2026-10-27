@@ -6,9 +6,10 @@
 // a project.
 
 import assert from 'node:assert/strict';
-import { appendFileSync, chmodSync, unlinkSync, closeSync, openSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, unlinkSync, cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { gitignoreText } from './lib/install.mjs';
 import test from 'node:test';
@@ -170,28 +171,21 @@ test('a turn-end refresh that never returns is cut off after 20 s, and the Stop 
   start();
   const base = stop();
   assert.equal(`${base.status} ${base.out}`, '0 ');
-  // process/anchor, since status stopped reading anything but a regular file under docs/ (#501). A follow-up closes the
-  // read status still makes here and moves this test to a stand-in that hangs, in the same pull request.
-  const fifo = join(work, 'process/anchor');
-  rmSync(fifo, { force: true });
-  assert.equal(spawnSync('mkfifo', [fifo]).status, 0); // a read of a pipe with no writer never returns
-  appendFileSync(join(work, '.git/info/exclude'), 'process/anchor\n'); // git and the gate never read it; only status does
-  try {
-    // Run here rather than through run(): with no limit the hook never returns, and the test must fail, not hang.
-    const t0 = Date.now();
-    const spawned = spawnSync('/bin/sh', ['-c', commands.get('stop-verify.sh')], {
-      input: '{}', encoding: 'utf8', cwd: work, timeout: 30000, killSignal: 'SIGKILL',
-      env: { PATH, HOME: T, CLAUDE_PROJECT_DIR: work, CLAUDE_CODE_SESSION_ID: SID },
-    });
-    const took = Date.now() - t0;
-    assert.ok(took >= 19000 && took <= 25000, `the refresh ran ${took} ms, not the 20 s limit`);
-    assert.equal(spawned.status, 0);
-    assert.equal(`${spawned.stdout}${spawned.stderr}`, base.out);
-  } finally {
-    try { closeSync(openSync(fifo, 'r+')); } catch { /* lets a reader a failed run left behind see the end of the file */ }
-    rmSync(fifo, { force: true });
-    writeFileSync(join(work, '.git/info/exclude'), '');
-  }
+  // A stand-in that never returns: a module Node loads before status, which sleeps only in the refresh's child. The limit
+  // is held on what the hook runs, not on any file status reads, since status reads no planning file that is not a
+  // regular one (#501). It sits outside the checkout, so git and the gate never see it.
+  const hang = join(T, 'hang-refresh.mjs');
+  writeFileSync(hang, "if (process.argv.includes('--refresh-run')) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 120000);\n");
+  // Run here rather than through run(): with no limit the hook never returns, and the test must fail, not hang.
+  const t0 = Date.now();
+  const spawned = spawnSync('/bin/sh', ['-c', commands.get('stop-verify.sh')], {
+    input: '{}', encoding: 'utf8', cwd: work, timeout: 30000, killSignal: 'SIGKILL',
+    env: { PATH, HOME: T, CLAUDE_PROJECT_DIR: work, CLAUDE_CODE_SESSION_ID: SID, NODE_OPTIONS: `--import=${pathToFileURL(hang).href}` },
+  });
+  const took = Date.now() - t0;
+  assert.ok(took >= 19000 && took <= 25000, `the refresh ran ${took} ms, not the 20 s limit`);
+  assert.equal(spawned.status, 0);
+  assert.equal(`${spawned.stdout}${spawned.stderr}`, base.out);
 });
 
 // #481 — a session in a git worktree of the project. Claude Code names the main checkout in CLAUDE_PROJECT_DIR; the

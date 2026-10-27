@@ -32,7 +32,7 @@ import { commentLines, replaceComments, section } from './checks/lib/markdown.mj
 import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
-import { isPrdPath, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
+import { isPrdPath, notPlainFile, notPlainFolder, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
 import { owedReviews } from './checks/lib/spec-review.mjs';
 import { readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
 import { stepLines, whoLine } from './checks/lib/steps.mjs';
@@ -56,15 +56,20 @@ try {
   process.stderr.write(`status: ${escapeControl(e.message)}\n`);
   process.exit(2);
 }
-const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
-// A file name printed in a line: only in the plain shape (folders and a name that each start with a letter or a digit,
+// A file is read only when it is a regular file reached through no link, as readPlain() reads one; a folder is listed only
+// when it is a folder reached through no link. Anything else is read as absent: a link out of the tree would bring
+// another file's text in, a pipe would never return, and a file where a folder belongs would throw.
+const read = (p) => (notPlainFile(root, p) === null ? readFileSync(join(root, p), 'utf8') : null);
+const plainFolder = (p) => notPlainFolder(root, p) === null;
+// A file name printed in a line: only in the plain shape (folders and a name that each start with a letter, a digit or `_`,
 // at most 100 characters in all), else in words: a name a pull request carries is project text.
-const named = (f) => (typeof f === 'string' && f.length <= 100 && /^[A-Za-z0-9][\w.-]*(?:\/[A-Za-z0-9][\w.-]*)*$/.test(f) ? f : 'a file with an unusual name');
+const named = (f) => (typeof f === 'string' && f.length <= 100 && /^\w[\w.-]*(?:\/\w[\w.-]*)*$/.test(f) ? f : 'a file with an unusual name');
 // Ids read from files no check shapes: printed only as M<n> or RISK-n (at most 9 digits), else counted in words.
 const MID = new RegExp(`^${MILESTONE_ID}$`);
 // A tracker reference is printed only in the shapes the checks read (`owner/repo#n`, `#n`, a decision id), held to
 // GitHub's own names (an owner of letters, digits and single inner hyphens, at most 39; a repository of at most 100)
-// and to 48 characters in all, as long as a real one needs. Anything else prints as "tracked".
+// and to 48 characters in all, a cap shorter than GitHub's own: a longer reference prints as "tracked", as anything
+// else does.
 const trackerRef = (t) => (typeof t === 'string' && t.length <= 48 && /^(?:[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}\/(?!\.\.?#)[A-Za-z0-9._-]{1,100})?#\d{1,9}$|^(?:OD|PD|D)-\d{1,9}$/.test(t) ? t : 'tracked');
 const RID = /^RISK-\d{1,9}$/i;
 // The other fields printed as read before (#501): each in its plain shape, or a closed list of words, else in words.
@@ -144,7 +149,7 @@ const prdAt = (at, none) => (prdVersion === null ? none : VERSION.test(prdVersio
 // it quotes with the PRD's version line, through lib/review-header.mjs; and it names that version, as it always had to.
 const prdVersionLines = versionLines(prd);
 const reviewsDir = join(root, 'docs', 'reviews');
-const prdReviews = existsSync(reviewsDir)
+const prdReviews = plainFolder('docs/reviews')
   ? readdirSync(reviewsDir).filter((f) => f.endsWith('.md') && f !== 'TEMPLATE.md').filter((f) => {
       const text = readPlain(root, `docs/reviews/${f}`);
       if (text === null) return false;
@@ -171,7 +176,7 @@ const featureVersion = (md) => {
   return v ? `at ${v} has no review of that version` : 'has no review of its current Version: line';
 };
 const featureLines = owedReviews(root).map((f) => {
-  const ids = f.ns.slice(0, 3).map((n) => `F-${n}`).join(', ');
+  const ids = f.ns.filter((n) => Number.isSafeInteger(n) && n <= 9999).slice(0, 3).map((n) => `F-${n}`).join(', ') || 'Its feature';
   const doc = named(f.path) === f.path ? f.path : `on the doc for ${ids} (a file with an unusual name)`;
   return `(you) Run /review-doc ${doc} in a fresh session. ${ids} ${featureVersion(f.md)}. Its build tickets wait on that review.`;
 });
@@ -183,7 +188,7 @@ const quoted = (t, max) => {
 };
 // A heading's title is project text: quoted through excerpt(), and its status is said only in the two shapes the record uses.
 const openSince = (status) => {
-  const m = status.match(/^open — (week \d+|reopened \d{4}-\d{2}-\d{2})$/);
+  const m = status.match(/^open — (week \d{1,3}|reopened \d{4}-\d{2}-\d{2})$/);
   return m ? (m[1].startsWith('week') ? `open since ${m[1]}` : `open, ${m[1]}`) : 'open';
 };
 // Read one line at a time, by position after the id: a pattern that ran across a line break and retried from every
@@ -321,7 +326,7 @@ const registerStanding = (r) => {
 // A link is never followed, as DS1 refuses a linked registry: a link to a folder above it loops, and one out of the
 // tree would bring another folder's markers in. Only a regular file is read: a pipe would never return.
 function walk(dir, out = []) {
-  if (!existsSync(dir) || lstatSync(dir).isSymbolicLink()) return out;
+  if (!existsSync(dir) || !lstatSync(dir).isDirectory()) return out;
   for (const f of readdirSync(dir)) {
     const p = join(dir, f);
     const s = lstatSync(p);
@@ -344,7 +349,9 @@ for (const file of walk(join(root, 'docs'))) {
   lines.forEach((line, i) => {
     for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${quoted(body) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
-      const found = body.match(TRACKER)?.[0];
+      // The tracker sits at the marker's end; its last 200 characters are read, as register.mjs reads a cell, so the
+      // unanchored pattern never retries along a long body.
+      const found = body.slice(-200).match(TRACKER)?.[0];
       const ref = found ? trackerRef(found) : 'untracked';
       parked_.push(`${rel_}:${i + 1} — ${quoted(body.split('·')[0]) || 'no text'} (${ref})`);
     }
@@ -370,17 +377,19 @@ for (const item of cur ? contents(cur.md) : []) {
 
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
-const dueSoon = existsSync(lessonsDir)
+const dueSoon = plainFolder('process/lessons')
   ? readdirSync(lessonsDir).filter((f) => /^P?L-.*\.md$/.test(f) && lstatSync(join(lessonsDir, f)).isFile()).flatMap((f) => {
       const fm = frontmatter(readFileSync(join(lessonsDir, f), 'utf8'));
       const rb = asText(fm?.enforcement?.['review-by']);
       if (!rb) return [];
       let due = rb;
-      const rel = rb.match(/^\+(\d+)d$/);
-      if (rel && anchor) {
+      // A day count of at most five digits from an anchor that is a date; anything else leaves no date to compare, and a
+      // date out of range never throws.
+      const rel = rb.match(/^\+(\d{1,5})d$/);
+      if (rel && /^\d{4}-\d{2}-\d{2}$/.test(anchor)) {
         const d = new Date(`${anchor}T00:00:00Z`);
         d.setUTCDate(d.getUTCDate() + Number(rel[1]));
-        due = d.toISOString().slice(0, 10);
+        due = Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
       }
       return /^\d{4}-\d{2}-\d{2}$/.test(due) && days(today, due) <= 14 ? [`Review the lesson ${LESSON_ID.test(asText(fm.id) ?? '') ? `(${fm.id})` : `in process/lessons/${named(f)}`} by ${due}.`] : [];
     })
@@ -531,9 +540,9 @@ L.push('## Needs attention', '');
 // One at a time: a list spread into one call overflows the stack when it is long enough.
 for (const a of attention.length ? attention : ['nothing']) L.push(`- ${a}`);
 L.push('');
-// Project text is printed as read (milestone titles, ids, deadlines, file names): each line is escaped on its own,
-// so a line break a file name or a value carries is shown as \u000a and never starts a line (a forged Next:, a CI
-// log command), here and in the hook's context.
+// Every field above is shaped or quoted; each line is still escaped on its own, as a last guard, so a line break or a
+// control character a value might carry is shown as \u000a and never starts a line (a forged Next:, a CI log
+// command), here and in the hook's context.
 const text = L.map(escapeControl).join('\n');
 
 // The two hook modes keep STATE.md current (#374). The guard runs them only from the working tree it has cleared, so a

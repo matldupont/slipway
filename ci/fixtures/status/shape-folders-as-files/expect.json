@@ -1,0 +1,14 @@
+{
+  "_note": "#501. process/lessons and docs/reviews are plain files where folders belong. Status reads neither as a folder, runs, and lists no lesson and no review.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "lines": [
+    "- PRD: draft 0.1.0 · review: none for this version"
+  ],
+  "attention": [
+    "Run /review-doc docs/PRD.md in a fresh session. PRD 0.1.0 has no adversarial review, and it needs one before it leaves draft.",
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "_note": "#501. M1 is active with a kind that is a sentence, and a closed milestone before it has an id that is one too. The Frame and Also lines count the closed milestone in words, and the Active milestone line and the table say the kind is unusual.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, one issue per session.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · M1 and 1 more underway with it untested — pnpm meta is red until it has a Result",
+  "lines": [
+    "- Active milestone: \"Walking skeleton\" (an unusual kind) · day 11 of 14, last day 2026-03-14",
+    "| M1 | active | unusual | 2026-03-01..2026-03-14 | docs/milestones/M1-walking-skeleton.md |",
+    "| unusual | closed | bet | 2026-02-01..2026-02-14 | docs/milestones/M0-earlier.md |"
+  ],
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}

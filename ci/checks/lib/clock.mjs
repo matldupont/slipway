@@ -8,7 +8,7 @@
 // the date outright; CHECK_NOW (an ISO instant) fixes the clock and still applies the zone, so a fixture
 // can prove the zone is read.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { lstatSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { strictSection } from './markdown.mjs';
 
@@ -28,9 +28,13 @@ export function rowValue(text, row, within) {
 
 // The same, from a file under `root`: AGENT.md, or another file with the same table (slipway's own
 // dev/skill-configuration.md).
+// A file that is not a regular one, a link among them, reads as absent: a link could bring another file's row in, and a
+// pipe would never return.
 export function agentRow(root, row, within, file = 'AGENT.md') {
   const p = join(root, file);
-  return rowValue(existsSync(p) ? readFileSync(p, 'utf8') : '', row, within);
+  let plain = false;
+  try { plain = lstatSync(p).isFile(); } catch { /* absent */ }
+  return rowValue(plain ? readFileSync(p, 'utf8') : '', row, within);
 }
 
 export function zone(root) {

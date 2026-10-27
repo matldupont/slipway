@@ -1,5 +1,5 @@
 {
-  "_note": "#501. The PRD's Version and Status lines, and an OD heading's 9-digit id, carry text past their shape. Each prints in words.",
+  "_note": "#501. The PRD's Version and Status lines, and an OD heading's 9-digit id, carry text past their shape, and a second OD heading is split across a line break. Each field prints in words, and the split heading is not read.",
   "today": "2026-03-11",
   "now": "2026-03-10T22:00:00-04:00",
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",

@@ -1,5 +1,5 @@
 {
-  "_note": "#501. A lesson's id: line carries a sentence after its id. The review line names the lesson's file instead.",
+  "_note": "#501. A lesson's id: line carries a sentence after its id, and the review line names the lesson's file instead. process/anchor is not a date, and another lesson's review-by: counts 999999999 days: neither leaves a date to print, and status runs.",
   "today": "2026-03-11",
   "now": "2026-03-10T22:00:00-04:00",
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
