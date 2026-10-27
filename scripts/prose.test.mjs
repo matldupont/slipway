@@ -295,6 +295,8 @@ test('slipway\'s held set covers every file it ships as managed that a person re
   assert.equal(personReads('process/lessons/L-1.MD'), true);
 });
 
+// new-project commits, so a runner with no git identity (CI's) is given one.
+Object.assign(process.env, { GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@example.com', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@example.com' });
 // A project made by new-project, `withVale` on the path or not; its main branch holds one commit.
 const NO_VALE = { ...process.env, PATH: `${dirname(process.execPath)}:/usr/bin:/bin` };
 function newProject(withVale) {
