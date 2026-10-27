@@ -94,18 +94,20 @@ jobs:
         run: if [ -f ci/before-verify.sh ]; then bash ci/before-verify.sh; fi
       - run: pnpm verify
 
-  # Vale is a binary, so the prose check is a job of its own: `meta` installs nothing (F-16 §8, D-004). Slipway only: a
-  # project's docs are not measured yet (D-046). The version and its sha256 are pinned here and in pr-body.yml;
+  # Vale is a binary, so the prose check is a job of its own: `meta` installs nothing (F-16 §8, D-004). It runs in slipway
+  # and in every project (F-16 §10, D-051). The version and its sha256 are pinned here and in pr-body.yml;
   # scripts/prose.test.mjs fails if the two differ.
   prose:
     name: prose
-    if: ${{ github.event.repository.is_template }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
       VALE_VERSION: 3.24.0
       VALE_SHA256: 867534ddb678abca7f214bc4706ead0922bd5252ffe8035fc227013f66c8b214
-      PROSE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+      # The first push of a new repository has no commit before it (`before` is all zeros), so its base is the commit
+      # itself: the diff set is empty and the held set is still read. Any other base is passed as it is. `before &&` comes
+      # first because GitHub reads an absent value as 0 beside a text, and the zeros as 0 too: unset must not match.
+      PROSE_BASE: ${{ github.event.pull_request.base.sha || (github.event.before && github.event.before == '0000000000000000000000000000000000000000' && github.sha) || github.event.before }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -116,7 +118,7 @@ jobs:
           node-version: 24
       - name: Install Vale at the pinned version, sha256 checked
         run: |
-          curl -fsSL -o "$RUNNER_TEMP/vale.tar.gz" "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
+          curl -fsSL --max-time 120 -o "$RUNNER_TEMP/vale.tar.gz" "https://github.com/errata-ai/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_Linux_64-bit.tar.gz"
           echo "${VALE_SHA256}  $RUNNER_TEMP/vale.tar.gz" | sha256sum --check -
           mkdir "$RUNNER_TEMP/vale-bin"
           tar -xzf "$RUNNER_TEMP/vale.tar.gz" -C "$RUNNER_TEMP/vale-bin" vale
@@ -127,4 +129,8 @@ jobs:
       - name: Nothing under node_modules/ is tracked
         run: node ci/checks/meta/n1-node-modules.mjs .
       - run: pnpm check:prose
-      - run: node scripts/prose.test.mjs
+      # scripts/ never ships to a project (dev/ownership.yaml), so its tests run in slipway only.
+      - if: ${{ github.event.repository.is_template }}
+        run: |
+          node scripts/prose.test.mjs
+          node scripts/prose-job.test.mjs
