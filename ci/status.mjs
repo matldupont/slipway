@@ -27,12 +27,13 @@ import { readDecisions, testStart } from './checks/lib/decisions.mjs';
 import { designBefore, hasAccessibilityLine } from './checks/lib/design.mjs';
 import { frontEnd } from './checks/lib/frame.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
-import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
+import { slipwayLessons, slipwaysDate } from './checks/lib/lessons.mjs';
+import { MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
 import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
-import { isPrdPath, notPlainFile, notPlainFolder, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
+import { isPrdPath, MISSING, notPlainFile, notPlainFolder, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
 import { owedReviews } from './checks/lib/spec-review.mjs';
 import { readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
 import { stepLines, whoLine } from './checks/lib/steps.mjs';
@@ -376,11 +377,18 @@ for (const item of cur ? contents(cur.md) : []) {
 
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
+// The lessons whose fixed review date is slipway's in this project (#555, D-052), read through lessons.mjs, the reader L1
+// uses, never a second list: L1 leaves their dates to slipway, so status asks the project for no review of one, and once
+// the date has passed, says a sync brings the reviewed copy. A .slipway file that is a link or not a regular file, or a
+// lessons folder that is not plain, gives slipway no lesson, and each date prints as before: a line here follows no link.
+const slipways = plainFolder('process/lessons') && [MANIFEST, OVERRIDES].every((p) => [null, MISSING].includes(notPlainFile(root, p))) ? slipwayLessons(root) : new Set();
 const dueSoon = plainFolder('process/lessons')
-  ? readdirSync(lessonsDir).filter((f) => /^P?L-.*\.md$/.test(f) && notPlainFile(root, `process/lessons/${f}`) === null).flatMap((f) => {
+  ? readdirSync(lessonsDir).sort().filter((f) => /^P?L-.*\.md$/.test(f) && notPlainFile(root, `process/lessons/${f}`) === null).flatMap((f) => {
       const fm = frontmatter(readFileSync(join(lessonsDir, f), 'utf8'));
       const rb = asText(fm?.enforcement?.['review-by']);
       if (!rb) return [];
+      const id = asText(fm.id) ?? '';
+      if (slipwaysDate(slipways, f, id, rb)) return rb <= today ? [`slipway's ${LESSON_ID.test(id) ? id : `lesson in process/lessons/${named(f)}`} passed its review date; a sync brings the reviewed one.`] : [];
       let due = rb;
       // An anchor that is not a date, or a day count that runs past any date, leaves no date to compare, and never throws.
       const rel = rb.match(/^\+(\d+)d$/);
@@ -389,7 +397,7 @@ const dueSoon = plainFolder('process/lessons')
         d.setUTCDate(d.getUTCDate() + Number(rel[1]));
         due = Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
       }
-      return /^\d{4}-\d{2}-\d{2}$/.test(due) && days(today, due) <= 14 ? [`Review the lesson ${LESSON_ID.test(asText(fm.id) ?? '') ? `(${fm.id})` : `in process/lessons/${named(f)}`} by ${due}.`] : [];
+      return /^\d{4}-\d{2}-\d{2}$/.test(due) && days(today, due) <= 14 ? [`Review the lesson ${LESSON_ID.test(id) ? `(${id})` : `in process/lessons/${named(f)}`} by ${due}.`] : [];
     })
   : [];
 
