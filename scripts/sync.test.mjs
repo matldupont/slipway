@@ -3047,3 +3047,14 @@ test('/sync-slipway keeps the two ways a prose count rises in one place, recorde
   assert.ok(skill.includes('a held file that becomes the project\'s own') && skill.includes('a changed rule under `ci/prose/Slipway/`'), 'the skill no longer names both ways');
   assert.equal(skill.match(/only two ways/g)?.length, 2, 'the two ways are written in one place');
 });
+
+test('sync never takes a vale the project holds, even on PATH: it is found outside the project, as git is (#549)', () => {
+  const dir = proseProject();
+  mkdirSync(join(dir, 'bin'));
+  copyFileSync(join(fakeBin, 'vale'), join(dir, 'bin', 'vale'));
+  chmodSync(join(dir, 'bin', 'vale'), 0o755);
+  commit(dir, 'a vale of the project\'s');
+  const env = { ...process.env, PATH: `${join(dir, 'bin')}:.:${process.env.PATH}`, FAKE_VALE_VERSION: '3.24.0' };
+  const notes = JSON.parse(proseSync(dir, env, '--json').stdout).notes;
+  assert.ok(!notes.some((n) => /recorded at 3\b/.test(n)), `the project's own vale counted: ${notes.join('\n')}`);
+});

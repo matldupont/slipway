@@ -343,9 +343,17 @@ test('with no count, the error rules still fail on their own, and the run exits 
   }
 });
 
-test('--record <n> runs no Vale and writes the count once; with one in place it refuses and changes nothing', () => {
+test('--record <n> runs no Vale and writes the count once; with one in place, or a file in another form, it refuses and changes nothing', () => {
   const { dir } = newProject(false);
   try {
+    const file = join(dir, 'ci', 'baselines.json');
+    const formed = readFileSync(file);
+    writeFileSync(file, JSON.stringify(counts(dir)));
+    const unformed = inProject(dir, ['--record', '12'], NO_VALE);
+    assert.equal(unformed.status, 1, unformed.stdout);
+    assert.match(unformed.stdout, /not in the form slipway writes it in/);
+    assert.equal(readFileSync(file, 'utf8'), JSON.stringify(counts(dir)), 'a file in another form is not rewritten');
+    writeFileSync(file, formed);
     const first = inProject(dir, ['--record', '12'], NO_VALE);
     assert.equal(first.status, 0, first.stdout);
     assert.equal(counts(dir).prose, 12);

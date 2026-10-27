@@ -345,7 +345,7 @@ function preflight(cwd) {
   try {
     proseKept = Object.hasOwn(projectBaselines(root) ?? {}, PROSE_KEY);
   } catch { /* the plan refuses it */ }
-  const vale = proseKept ? null : valeAtPin(valePin(target.get(CI_WORKFLOW)?.toString('utf8')));
+  const vale = proseKept ? null : valeAtPin(valePin(target.get(CI_WORKFLOW)?.toString('utf8')), root);
   if (proseKept) notes.push(...proseRiseNote(proseRises({ root, manifest, base, target, targetRules: t.rules })));
   else if (vale.why) notes.push(notRecorded(vale.why));
   const prose = { record: !proseKept && vale.ok };
@@ -904,7 +904,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
     if (proseDue) {
       const own = ownHeld(next.files).filter((f) => Buffer.isBuffer(after(f)));
       try {
-        json[PROSE_KEY] = countWarnings(join(SRC, 'ci', 'prose.mjs'), own.map((f) => [f, after(f)]));
+        json[PROSE_KEY] = countWarnings(join(SRC, 'ci', 'prose.mjs'), own.map((f) => [f, after(f)]), root);
       } catch (e) {
         throw new Refusal(`could not count the prose warnings in your own text (${oneLine(e.message)}) — nothing was written`);
       }

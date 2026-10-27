@@ -5,7 +5,8 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { delimiter, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { trustedEnvAt } from '../../ci/checks/lib/manifest.mjs';
 import { recordCommand } from '../../ci/prose.mjs';
 
 // The workflow that pins Vale; scripts/prose.test.mjs keeps pr-body.yml's pin equal to it.
@@ -14,30 +15,41 @@ export const CI_WORKFLOW = '.github/workflows/ci.yml';
 // The Vale version a workflow's text pins, or null.
 export const valePin = (text) => /VALE_VERSION: (\d+\.\d+\.\d+)\b/.exec(text ?? '')?.[1] ?? null;
 
-// PATH without its node_modules folders: under `pnpm run`, a project's node_modules/.bin comes first, and a program there
-// must not stand in for `vale` (#133).
-const cleanEnv = (env) => ({ ...env, PATH: (env.PATH ?? '').split(delimiter).filter((d) => d && !d.split(/[\\/]/).includes('node_modules')).join(delimiter) });
+// Vale is found as git and gh are (lib/manifest.mjs): on PATH's absolute entries outside the project at `root` and outside
+// any node_modules, from a folder outside the project, so no program the project holds can stand in for it (#133).
+// null when no such entry is left.
+const valeEnv = (root) => {
+  try {
+    return trustedEnvAt(root);
+  } catch {
+    return null;
+  }
+};
 
 // Whether `vale` on the path is the pinned version: `{ ok, why }`, where `why` says in the owner's words why no count is
-// taken. With no pin there is no prose job to count for, and `why` is null: nothing to say.
-export function valeAtPin(pin, env = process.env) {
+// taken. With no pin there is no prose job to count for, and `why` is null: nothing to say. `root` is the project's folder.
+export function valeAtPin(pin, root) {
   if (!pin) return { ok: false, why: null };
-  const r = spawnSync('vale', ['--version'], { encoding: 'utf8', env: cleanEnv(env) });
+  const env = valeEnv(root);
+  if (!env) return { ok: false, why: 'Vale is not installed here' };
+  const r = spawnSync('vale', ['--version'], { cwd: tmpdir(), encoding: 'utf8', env });
   if (r.error || r.status !== 0) return { ok: false, why: 'Vale is not installed here' };
   const version = /^vale version (\S+)\s*$/.exec(r.stdout)?.[1];
   return version === pin ? { ok: true } : { ok: false, why: `Vale here is ${version ?? 'a version it does not name'}, not the ${pin} CI pins` };
 }
 
-// The warnings Vale finds in `files` ([path, bytes]), read by `prose` (a ci/prose.mjs) with that copy's rules. Throws
-// when the check cannot run.
-export function countWarnings(prose, files, env = process.env) {
+// The warnings Vale finds in `files` ([path, bytes]), read by `prose` (a ci/prose.mjs) with that copy's rules, with Vale
+// found as valeAtPin finds it for the project at `root`. Throws when the check cannot run.
+export function countWarnings(prose, files, root) {
+  const env = valeEnv(root);
+  if (!env) throw new Error('no PATH entry outside the project to find Vale on');
   const dir = mkdtempSync(join(tmpdir(), 'prose-count-'));
   try {
     for (const [p, bytes] of files) {
       mkdirSync(dirname(join(dir, p)), { recursive: true });
       writeFileSync(join(dir, p), bytes);
     }
-    const r = spawnSync(process.execPath, [prose, '--dir', dir], { encoding: 'utf8', env: cleanEnv(env), maxBuffer: 64 * 1024 * 1024 });
+    const r = spawnSync(process.execPath, [prose, '--dir', dir], { cwd: tmpdir(), encoding: 'utf8', env, maxBuffer: 64 * 1024 * 1024 });
     if (r.status !== 0 && r.status !== 1) throw new Error(`the prose check could not run (exit ${r.status})`);
     return JSON.parse(r.stdout).alerts.filter((a) => a.severity !== 'error').length;
   } finally {

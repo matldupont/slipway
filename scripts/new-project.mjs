@@ -187,7 +187,7 @@ note(`package.json name → ${slug}; start date ${today} → process/anchor; ci/
 // The project's own prose count (F-16 §10, #549): the warnings in its own held files, the held set less slipway's managed
 // ones, counted after every write above. Only with Vale at the version CI pins, so the number is the one CI measures;
 // otherwise nothing is written and CI's prose job prints the count and the one command.
-const vale = valeAtPin(valePin(existsSync(join(SRC, CI_WORKFLOW)) ? readFileSync(join(SRC, CI_WORKFLOW), 'utf8') : null));
+const vale = valeAtPin(valePin(existsSync(join(SRC, CI_WORKFLOW)) ? readFileSync(join(SRC, CI_WORKFLOW), 'utf8') : null), dest);
 if (!vale.ok) {
   if (vale.why) note(notRecorded(vale.why));
 }
@@ -196,7 +196,7 @@ else {
   const own = ownHeld(Object.fromEntries(COPY.map((p) => [p, { class: classify(rules, p) }])));
   let n = null;
   try {
-    n = countWarnings(join(SRC, 'ci', 'prose.mjs'), own.map((p) => [p, readFileSync(join(dest, p))]));
+    n = countWarnings(join(SRC, 'ci', 'prose.mjs'), own.map((p) => [p, readFileSync(join(dest, p))]), dest);
   } catch (e) {
     note(notRecorded(e.message));
   }

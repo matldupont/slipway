@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { unseen } from './checks/lib/feature-docs.mjs';
 import { withoutHeader } from './checks/lib/frontmatter.mjs';
 import { isTemplate, readManifest } from './checks/lib/manifest.mjs';
-import { BASELINES, parseBaselines, readBaselines, writeBaselines } from './checks/lib/ratchet.mjs';
+import { BASELINES, parseBaselines, readBaselines, serialiseBaselines, writeBaselines } from './checks/lib/ratchet.mjs';
 import { report } from './checks/lib/report.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -360,6 +360,11 @@ function runRecord(arg) {
   }
   if (Object.hasOwn(baselines, KEY)) {
     process.exit(report({ id: ID, claim: '', scanned: 1, unit: 'count', findings: [{ where: `${BASELINES} ${KEY}`, detail: `a count is already recorded (${JSON.stringify(baselines[KEY])}); --record writes one only when none exists and never raises one — nothing was written` }] }));
+  }
+  // The key is added to a file in the one form its writer writes, so no other line changes, as sync does.
+  const file = join(ROOT, BASELINES);
+  if (isPlainFile(file) && !readFileSync(file).equals(Buffer.from(serialiseBaselines(baselines)))) {
+    process.exit(report({ id: ID, claim: '', scanned: 1, unit: 'count', findings: [{ where: BASELINES, detail: 'is not in the form slipway writes it in (two-space JSON, each entry once, one final newline), and --record adds its key without rewriting the other lines — put the file back in that form, commit, then record; nothing was written' }] }));
   }
   try {
     writeBaselines(ROOT, { ...baselines, [KEY]: n });
