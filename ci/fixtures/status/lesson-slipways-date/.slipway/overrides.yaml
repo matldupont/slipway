@@ -1,0 +1,3 @@
+overrides:
+  - path: process/lessons/L-72-overridden.md
+    reason: The project keeps its own copy.

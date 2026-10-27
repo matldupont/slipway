@@ -1,0 +1,15 @@
+{
+  "_note": "#555, D-052. A project whose manifest lists slipway's lessons. L-68 and L-71 are slipway's unedited copies, on or past their fixed dates: one note each, no review asked. L-70 is slipway's, 6 days before its date: no line. L-69 was edited, L-72 is in .slipway/overrides.yaml, L-73's date counts from process/anchor and PL-1 is the project's own: each is asked for a review as before.",
+  "today": "2027-04-14",
+  "next": "Close M1 with /close-milestone, kill it, or record an extension. Its appetite ended 2026-03-14. You.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
+    "slipway's L-68 passed its review date; a sync brings the reviewed one.",
+    "Review the lesson (L-69) by 2027-01-12.",
+    "slipway's L-71 passed its review date; a sync brings the reviewed one.",
+    "Review the lesson (L-72) by 2027-04-01.",
+    "Review the lesson (L-73) by 2027-04-11.",
+    "Review the lesson (PL-1) by 2027-04-10."
+  ]
+}

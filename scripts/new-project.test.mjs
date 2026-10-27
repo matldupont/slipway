@@ -624,6 +624,26 @@ test('L1 in a project leaves slipway\'s fixed lesson dates to slipway, and fails
   assert.ok(!due(l1(), L71));
 });
 
+// #555, D-052 (AR-6): in a project, status asks for no review of a lesson whose fixed date is slipway's, and once the date
+// has passed, says a sync brings the reviewed copy. An edited copy is the project's, and status asks for its review as before.
+test('status in a project notes slipway\'s lesson past its date and asks for no review of it; an edited copy is asked for as before', () => {
+  const dest = join(tmp(), 'probe');
+  newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
+  const status = (day) => spawnSync(process.execPath, [join(dest, 'ci', 'status.mjs'), dest], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: day } });
+  const note = /^- slipway's L-71 passed its review date; a sync brings the reviewed one\.$/m;
+  const review = /^- Review the lesson \(L-71\)/m;
+  for (const [day, noted] of [['2027-04-01', false], ['2027-04-13', false], ['2027-04-14', true], ['2027-06-01', true]]) {
+    const r = status(day);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.equal(note.test(r.stdout), noted, `${day}: ${r.stdout}`);
+    assert.doesNotMatch(r.stdout, review, `${day}: ${r.stdout}`);
+  }
+  appendFileSync(join(dest, 'process', 'lessons', 'L-71-word-lists-are-a-snapshot.md'), '\nedited\n');
+  const r = status('2027-04-14');
+  assert.match(r.stdout, /^- Review the lesson \(L-71\) by 2027-04-14\.$/m);
+  assert.doesNotMatch(r.stdout, note);
+});
+
 // F-12 (dev/features/feature-fit.md §3): the count a new project starts from is its own, written, never copied.
 test('ci/baselines.json: a new project gets {"feature-fit": 0} whatever slipway\'s own copy holds; the path is seeded, and O1 passes with slipway holding one', () => {
   assert.equal(classify(rules, 'ci/baselines.json'), 'seeded');

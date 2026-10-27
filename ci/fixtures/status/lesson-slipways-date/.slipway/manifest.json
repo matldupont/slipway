@@ -1,0 +1,28 @@
+{
+  "files": {
+    "process/lessons/L-68-past.md": {
+      "class": "managed",
+      "sha256": "271ee7a63a67cb3afa9ea2ee3353222e1fa8b962bfb3d6125e05cce21ca62719"
+    },
+    "process/lessons/L-69-edited.md": {
+      "class": "managed",
+      "sha256": "8cc17f73888bdc2749f263e39e0aae4c5ce6ee165f333e87db10f8c449eafb22"
+    },
+    "process/lessons/L-70-soon.md": {
+      "class": "managed",
+      "sha256": "469f99f7639d8a2fe8f64dcd87d11c38e9605a593c519b2b76c76ab87ab8341f"
+    },
+    "process/lessons/L-71-today.md": {
+      "class": "managed",
+      "sha256": "ff55808b24657faf29dbc925f1694c76ddacda1ac383bd87ddf1a2ff09db90fd"
+    },
+    "process/lessons/L-72-overridden.md": {
+      "class": "managed",
+      "sha256": "c96e60391fbb29b1cc285ff4ffbea227f2fa4b382a96d0e73afdbe05fb5059d2"
+    },
+    "process/lessons/L-73-relative.md": {
+      "class": "managed",
+      "sha256": "fbf23b13ef1f5e383d4ef0dcb8640596beefef9a7a42518ec1b14aa27d466ac5"
+    }
+  }
+}
