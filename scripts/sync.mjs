@@ -437,9 +437,9 @@ function rewrittenHistory({ root, gitDir, read, managed, best, source }) {
  * One row per path, by the target's classes: `{ kind, path }`, sorted by path. Pure but for reads of
  * the project and the base commit.
  */
-export function plan({ root, manifest, overrides, base, gitDir, target, targetRules, prose = { record: false } }) {
+export function plan({ root, manifest, overrides, source, base, gitDir, target, targetRules, prose = { record: false } }) {
   const overridden = new Set(overrides.filter(hasReason).map((o) => o.path));
-  const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
+  const baseBytes = (p) => (base.tree.has(p) ? history(source, () => readBlob(gitDir, base.tree.get(p))) : null);
   const rows = [];
   const add = (kind, path) => rows.push({ kind, path });
 
@@ -785,9 +785,9 @@ function verboseFirst(out, ctx, rows) {
 // the invariant or that git cannot do: a changed file, a failed merge. It writes only inside the clone's temp
 // dir, so the plan calls it too. Where each write lands is not checked here: --apply does that (checkWrites),
 // once it knows there is something to write.
-function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha, prose = { record: false } }, rows) {
+function compute({ root, manifest, overrides, source, base, gitDir, target, targetRules, targetSha, prose = { record: false } }, rows) {
   const tmp = mkdtempSync(join(dirname(gitDir), 'apply-')); // inside the clone's temp dir: removed on exit
-  const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
+  const baseBytes = (p) => (base.tree.has(p) ? history(source, () => readBlob(gitDir, base.tree.get(p))) : null);
   const pristine = (p) => {
     const cur = readProjectFile(root, p);
     return Buffer.isBuffer(cur) && sha256(cur) === manifest.files[p]?.sha256;

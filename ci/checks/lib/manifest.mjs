@@ -56,6 +56,14 @@ const inside = (dir, p) => {
   const r = relative(dir, real(p));
   return r === '' || (r !== '..' && !r.startsWith(`..${sep}`) && !isAbsolute(r));
 };
+// Whether any folder on the way to `p` is `dir` or inside it, each as the disk resolves it: an entry that passes through the
+// repository is inside it even when its last folder links out, so a link the repository holds never chooses the program.
+// The prefixes are `p` as written, `..` and all: the disk resolves each one as it does when it looks a program up, and the
+// last is `p` itself.
+const through = (dir, p) => {
+  const parts = p.split(sep);
+  return parts.some((_, i) => i > 0 && inside(dir, parts.slice(0, i + 1).join(sep) || sep));
+};
 function diskTop(dir) {
   for (let d = dir; ; d = dirname(d)) {
     if (existsSync(join(d, '.git'))) return d;
@@ -63,13 +71,13 @@ function diskTop(dir) {
   }
 }
 // The environment for a program looked up on PATH (git, gh): every GIT_* variable dropped, PATH cut to absolute
-// entries outside the repository `top` (when there is one) and outside any node_modules. Throws when nothing is left.
+// entries that never pass through the repository `top` (when there is one) and outside any node_modules. Throws when nothing is left.
 export function trustedEnv(top) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^GIT_/i.test(k)));
   const key = Object.keys(env).find((k) => k.toUpperCase() === 'PATH') ?? 'PATH';
   env[key] = (env[key] ?? '')
     .split(delimiter)
-    .filter((p) => isAbsolute(p) && !p.split(/[\\/]/).some((s) => s.toLowerCase() === 'node_modules') && !(top && inside(top, p)))
+    .filter((p) => isAbsolute(p) && !p.split(/[\\/]/).some((s) => s.toLowerCase() === 'node_modules') && !(top && through(top, p)))
     .join(delimiter);
   if (!env[key]) throw new Error('no PATH entry outside the repository');
   return env;
