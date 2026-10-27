@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -557,12 +557,51 @@ test('the prose check ships: .vale.ini, ci/prose.mjs and ci/prose/** are managed
   const asks = gateGlobs(settings).map(globToRegExp);
   for (const p of ['.vale.ini', 'ci/prose.mjs', 'ci/prose/Slipway/Chatbot.yml']) assert.ok(asks.some((re) => re.test(p)), `the project's harness does not ask before ${p}`);
 
-  // L-71 ships with the lessons: L1 resolves its pointer in the project, and fails its review date there as in slipway,
-  // from that day until a sync moves it (F-16's Known limitations).
-  const l1 = (day) => check(dest, 'l1-lessons.mjs', { CHECK_TODAY: day }).stdout;
+  // L-71 ships with the lessons, and L1 resolves its pointer in the project.
   assert.ok(existsSync(join(dest, 'process', 'lessons', 'L-71-word-lists-are-a-snapshot.md')) && existsSync(join(dest, 'process', 'writing.md')));
-  assert.doesNotMatch(l1('2027-04-13'), /L-71-word-lists-are-a-snapshot\.md#/, 'L1 names L-71 before its date');
-  assert.match(l1('2027-04-14'), /L-71-word-lists-are-a-snapshot\.md#review\/due: review was due 2027-04-14/);
+  assert.doesNotMatch(check(dest, 'l1-lessons.mjs', { CHECK_TODAY: '2027-04-13' }).stdout, /L-71-word-lists-are-a-snapshot\.md#/);
+});
+
+// #548, AR-6 of the 0.6 review: the owner, 2026-10-27, "Only slipway fails". In a project, a fixed review date on a
+// lesson the manifest lists as slipway's, unedited and not overridden, is left to slipway; everything else fails.
+test('L1 in a project leaves slipway\'s fixed lesson dates to slipway, and fails every date the project owns', () => {
+  const dest = join(tmp(), 'probe');
+  newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
+  const L71 = 'process/lessons/L-71-word-lists-are-a-snapshot.md';
+  const l1 = (day = '2027-04-14') => check(dest, 'l1-lessons.mjs', { CHECK_TODAY: day });
+  const due = (r, file) => new RegExp(`${file.split('/').pop().replaceAll('.', '\\.')}#review/due`).test(r.stdout);
+
+  // Slipway's own copy, as installed: no finding on its date, and the claim says it was left to slipway.
+  let r = l1();
+  assert.ok(!due(r, L71), r.stdout);
+  assert.match(r.stdout, /^L1: \d+ exempted by slipway's own review date, which a sync moves: [^\n]*\bL-71\b/m);
+  // A +Nd clock counts from the project's start, so it is the project's: still due.
+  const relative = readdirSync(join(dest, 'process', 'lessons')).find((f) => /review-by: \+\d+d/.test(readFileSync(join(dest, 'process', 'lessons', f), 'utf8')));
+  assert.ok(relative && due(l1('2099-01-01'), relative), `a +Nd lesson (${relative}) stopped failing in a project`);
+
+  // Edited, it is the project's: its date fails, override or not.
+  const was = readFileSync(join(dest, L71));
+  appendFileSync(join(dest, L71), '\nedited\n');
+  assert.ok(due(l1(), L71), 'an edited copy of slipway\'s lesson was left to slipway');
+  writeFileSync(join(dest, L71), was);
+  writeFileSync(join(dest, '.slipway', 'overrides.yaml'), `overrides:\n  - path: ${L71}\n    reason: kept\n`);
+  assert.ok(due(l1(), L71), 'an overridden lesson was left to slipway');
+  rmSync(join(dest, '.slipway', 'overrides.yaml'));
+  assert.ok(!due(l1(), L71));
+
+  // A project's own lesson with a fixed date fails, and so does one that takes a slipway id the manifest does not list.
+  for (const [file, id] of [['PL-1-own.md', 'PL-1'], ['L-999-unlisted.md', 'L-999']]) {
+    writeFileSync(join(dest, 'process', 'lessons', file), `---\nid: ${id}\nrule: x\nenforcement:\n  status: prose\n  pointer: process/writing.md\n  review-by: 2027-01-01\n---\n`);
+    assert.ok(due(l1(), file), `${file} was left to slipway`);
+    rmSync(join(dest, 'process', 'lessons', file));
+  }
+
+  // A manifest L1 cannot read leaves nothing to slipway.
+  const manifest = readFileSync(join(dest, MANIFEST));
+  writeFileSync(join(dest, MANIFEST), '{');
+  assert.ok(due(l1(), L71), 'an unreadable manifest let a date through');
+  writeFileSync(join(dest, MANIFEST), manifest);
+  assert.ok(!due(l1(), L71));
 });
 
 // F-12 (dev/features/feature-fit.md §3): the count a new project starts from is its own, written, never copied.
