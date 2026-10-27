@@ -44,7 +44,7 @@ export const escapeOutput = (s) => String(s).replace(inOutput, hex);
 // at most `max` characters, cut at a word boundary. The characters of the list above are dropped, not shown, and
 // `"` and the marks that look like one (curly, full-width, angle, corner and ornament quotes, primes, gershayim)
 // become `'`, so the text cannot close its own quotes, or seem to.
-const QUOTE_LIKE = /[\p{Quotation_Mark}\u02ba\u02dd\u02ee\u05f4\u2033\u2034\u2036\u2037\u275d\u275e\u3003\u{1f676}-\u{1f678}]/gu;
+const QUOTE_LIKE = /[\p{Quotation_Mark}\u02ba\u02dd\u02ee\u02f6\u05f2\u05f4\u1cd3\u2033\u2034\u2036\u2037\u2057\u275d\u275e\u2760\u3003\u{1f676}-\u{1f678}]/gu;
 export const excerpt = (text, max = 60) => {
   const flat = String(text).replace(/\s+/g, ' ').replace(inOutput, '').replace(QUOTE_LIKE, "'").trim();
   if (flat.length <= max) return flat;

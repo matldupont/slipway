@@ -1,9 +1,9 @@
 {
-  "_note": "#501. process/lessons and docs/reviews are plain files where folders belong. Status reads neither as a folder, runs, and lists no lesson and no review.",
+  "_note": "#501. process/lessons, docs/reviews and docs/product/evidence are plain files where folders belong. Status reads none of them as a folder, runs, and lists no lesson, no review and no evidence, so RISK-2 loses its tracker.",
   "today": "2026-03-11",
   "now": "2026-03-10T22:00:00-04:00",
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
-  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 untested (no tracker), RISK-3 untested (no tracker) · blocks M2 activation",
   "lines": [
     "- PRD: draft 0.1.0 · review: none for this version"
   ],

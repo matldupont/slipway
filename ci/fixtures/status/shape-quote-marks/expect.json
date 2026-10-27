@@ -1,5 +1,5 @@
 {
-  "_note": "#501. Open questions hold curly, full-width, double-prime, gershayim, ornament and triple-prime quote marks. excerpt() turns each into an apostrophe, so none looks like the end of the quote.",
+  "_note": "#501. Open questions hold curly, full-width, double-prime, gershayim, ornament, triple- and quadruple-prime and other look-alike quote marks. excerpt() turns each into an apostrophe, so none looks like the end of the quote.",
   "today": "2026-03-11",
   "now": "2026-03-10T22:00:00-04:00",
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
@@ -7,6 +7,7 @@
   "attention": [
     "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
     "Open question: docs/notes.md:3 — \"which 'walkers' 'first' or 'last'?\"",
-    "Open question: docs/notes.md:5 — \"'one' 'two' 'three' four'\""
+    "Open question: docs/notes.md:5 — \"'one' 'two' 'three' four'\"",
+    "Open question: docs/notes.md:7 — \"'five' 'six' 'seven\""
   ]
 }

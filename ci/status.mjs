@@ -329,7 +329,8 @@ function walk(dir, out = []) {
   if (!existsSync(dir) || !lstatSync(dir).isDirectory()) return out;
   for (const f of readdirSync(dir)) {
     const p = join(dir, f);
-    const s = lstatSync(p);
+    let s;
+    try { s = lstatSync(p); } catch { continue; } // a name the file system cannot give back as read, as notPlainFile skips it
     if (s.isDirectory()) walk(p, out);
     else if (s.isFile() && f.endsWith('.md') && f !== 'TEMPLATE.md') out.push(p);
   }
@@ -349,9 +350,7 @@ for (const file of walk(join(root, 'docs'))) {
   lines.forEach((line, i) => {
     for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${quoted(body) || 'no question written'}`);
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
-      // The tracker sits at the marker's end; its last 200 characters are read, as register.mjs reads a cell, so the
-      // unanchored pattern never retries along a long body.
-      const found = body.slice(-200).match(TRACKER)?.[0];
+      const found = body.match(TRACKER)?.[0];
       const ref = found ? trackerRef(found) : 'untracked';
       parked_.push(`${rel_}:${i + 1} — ${quoted(body.split('·')[0]) || 'no text'} (${ref})`);
     }
@@ -378,15 +377,14 @@ for (const item of cur ? contents(cur.md) : []) {
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
 const dueSoon = plainFolder('process/lessons')
-  ? readdirSync(lessonsDir).filter((f) => /^P?L-.*\.md$/.test(f) && lstatSync(join(lessonsDir, f)).isFile()).flatMap((f) => {
+  ? readdirSync(lessonsDir).filter((f) => /^P?L-.*\.md$/.test(f) && notPlainFile(root, `process/lessons/${f}`) === null).flatMap((f) => {
       const fm = frontmatter(readFileSync(join(lessonsDir, f), 'utf8'));
       const rb = asText(fm?.enforcement?.['review-by']);
       if (!rb) return [];
       let due = rb;
-      // A day count of at most five digits from an anchor that is a date; anything else leaves no date to compare, and a
-      // date out of range never throws.
-      const rel = rb.match(/^\+(\d{1,5})d$/);
-      if (rel && /^\d{4}-\d{2}-\d{2}$/.test(anchor)) {
+      // An anchor that is not a date, or a day count that runs past any date, leaves no date to compare, and never throws.
+      const rel = rb.match(/^\+(\d+)d$/);
+      if (rel && anchor) {
         const d = new Date(`${anchor}T00:00:00Z`);
         d.setUTCDate(d.getUTCDate() + Number(rel[1]));
         due = Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
