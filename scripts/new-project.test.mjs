@@ -556,6 +556,13 @@ test('the prose check ships: .vale.ini, ci/prose.mjs and ci/prose/** are managed
   assert.equal(settings, readFileSync(join(SRC, 'process', 'harness', 'settings.json'), 'utf8'), "the project's harness is slipway's");
   const asks = gateGlobs(settings).map(globToRegExp);
   for (const p of ['.vale.ini', 'ci/prose.mjs', 'ci/prose/Slipway/Chatbot.yml']) assert.ok(asks.some((re) => re.test(p)), `the project's harness does not ask before ${p}`);
+
+  // L-71 ships with the lessons: L1 resolves its pointer in the project, and fails its review date there as in slipway,
+  // from that day until a sync moves it (F-16's Known limitations).
+  const l1 = (day) => check(dest, 'l1-lessons.mjs', { CHECK_TODAY: day }).stdout;
+  assert.ok(existsSync(join(dest, 'process', 'lessons', 'L-71-word-lists-are-a-snapshot.md')) && existsSync(join(dest, 'process', 'writing.md')));
+  assert.doesNotMatch(l1('2027-04-13'), /L-71-word-lists-are-a-snapshot\.md#/, 'L1 names L-71 before its date');
+  assert.match(l1('2027-04-14'), /L-71-word-lists-are-a-snapshot\.md#review\/due: review was due 2027-04-14/);
 });
 
 // F-12 (dev/features/feature-fit.md §3): the count a new project starts from is its own, written, never copied.

@@ -37,6 +37,20 @@ test("the eight rules carry the Contract's titles, in the Contract's order", () 
   assert.deepEqual(titles, ['Action first', "The project's words", 'One idea per sentence', 'Something concrete behind every claim', 'Say what was not done or checked', "Keep the owner's words", 'Length matches the need', 'Subjects and titles']);
 });
 
+// F-16 §1: rule 7's pair carries no count, since a count in an example goes stale and nothing holds it. Each phrase it
+// quotes is still in SLIPWAY.md, so a reworded row fails here.
+test("rule 7's pair carries no count, and quotes SLIPWAY.md as it reads", () => {
+  const lines = read('process/writing.md').split('\n');
+  const at = lines.findIndex((l) => l.startsWith('7. **'));
+  const next = lines.findIndex((l, i) => i > at && RULES.test(l));
+  const pair = lines.slice(at, next).join(' ').split('Pair:')[1];
+  assert.ok(pair, 'rule 7 has no Pair:');
+  assert.doesNotMatch(pair, /\d/, `rule 7's pair holds a count: ${pair}`);
+  const quoted = [...pair.matchAll(/"([^"]+)"/g)].map((m) => m[1].replace(/\.$/, ''));
+  assert.equal(quoted.length, 2, `rule 7's pair quotes ${quoted.length} phrases`);
+  for (const q of quoted) assert.ok(read('SLIPWAY.md').includes(q), `SLIPWAY.md no longer says "${q}"`);
+});
+
 test('process/intake.md and process/slipway-rules.md each point to it', () => {
   assert.ok(read('process/intake.md').includes('The form follows `process/writing.md`.'));
   assert.ok(read('process/slipway-rules.md').includes("What a person reads follows `process/writing.md`: action first, the project's words, one idea per sentence."));
