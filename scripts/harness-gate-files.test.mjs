@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, rmSync, symlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
+import { gateGlobs, globToRegExp } from '../ci/checks/lib/gate-files.mjs';
 import { bashAsks } from './ask-rules.mjs';
 import { SETTINGS, HOOKS, TRUST, REFUSE, LOAD, commands, origin, work, git, put, stub, marks, reset, run, clean, commitAll } from './harness-fixture.mjs';
 
@@ -134,6 +135,19 @@ test('each kind of gate file stops the hooks: a hook, ci/, a package.json, .npmr
     change();
     for (const h of HOOKS) run(h);
     assert.deepEqual(marks(), [], `case ${i}: a hook ran`);
+  }
+});
+
+// #548 (F-16 §10, D-051): the prose check ships to projects, whose harness is this settings.json, copied as it is. A
+// project's agent is asked before it loosens its own linter, and a branch that changes the linter runs none of its hooks.
+test('the harness asks before an edit to the prose check\'s config, script and rules, and a change to each stops the hooks', () => {
+  const asks = gateGlobs(JSON.stringify(SETTINGS)).map((g) => [g, globToRegExp(g)]);
+  for (const p of ['.vale.ini', 'ci/prose.mjs', 'ci/prose/Slipway/Chatbot.yml']) {
+    assert.ok(asks.some(([, re]) => re.test(p)), `no Edit(...) ask rule matches ${p}`);
+    clean();
+    put(p, '# inert\n');
+    for (const h of HOOKS) run(h);
+    assert.deepEqual(marks(), [], `${p} let a hook run`);
   }
 });
 
