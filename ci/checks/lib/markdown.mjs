@@ -46,11 +46,12 @@ export const placeholderText = (md) =>
 // The 1-based numbers of the lines of placeholderText(md) that still hold a placeholder (hasPlaceholder).
 export const placeholderLines = (text) => text.split(/\r?\n/).flatMap((l, i) => (hasPlaceholder(l) ? [i + 1] : []));
 
-// The 1-based line of a `<!--` that no `-->` closes, or null. GitHub hides the rest of the document after it, so a
-// reader that skips comments would skip it too.
+// The 1-based line of a `<!--` that no `-->` closes, or null. commentSpans() reads the rest of the document as that
+// comment, so every check that skips comments skips it too. Read as text, as commentSpans() reads it: one in inline
+// code or a fence counts as well, though GitHub shows it.
 export function unclosedComment(md) {
   const last = commentSpans(md, { unclosed: true }).at(-1);
-  return last && last[1] === md.length && md.indexOf('-->', last[0] + 4) < 0 ? md.slice(0, last[0]).split('\n').length : null;
+  return last && md.indexOf('-->', last[0] + 4) < 0 ? md.slice(0, last[0]).split('\n').length : null;
 }
 const withoutComments = (md) => replaceComments(md, () => '');
 

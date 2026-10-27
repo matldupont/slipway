@@ -559,7 +559,9 @@ test('the prose check ships: .vale.ini, ci/prose.mjs and ci/prose/** are managed
 
   // L-71 ships with the lessons, and L1 resolves its pointer in the project.
   assert.ok(existsSync(join(dest, 'process', 'lessons', 'L-71-word-lists-are-a-snapshot.md')) && existsSync(join(dest, 'process', 'writing.md')));
-  assert.doesNotMatch(check(dest, 'l1-lessons.mjs', { CHECK_TODAY: '2027-04-13' }).stdout, /L-71-word-lists-are-a-snapshot\.md#/);
+  const before = check(dest, 'l1-lessons.mjs', { CHECK_TODAY: '2027-04-13' }).stdout;
+  assert.match(before, /^L1: scanned \d+ lessons$/m, 'L1 did not run');
+  assert.doesNotMatch(before, /L-71-word-lists-are-a-snapshot\.md#/);
 });
 
 // #548, AR-6 of the 0.6 review: the owner, 2026-10-27, "Only slipway fails". In a project, a fixed review date on a
@@ -607,6 +609,13 @@ test('L1 in a project leaves slipway\'s fixed lesson dates to slipway, and fails
   assert.ok(due(l1(), own), 'a PL lesson listed as managed was left to slipway');
   writeFileSync(join(dest, MANIFEST), manifest);
   rmSync(join(dest, own));
+
+  // A lesson the manifest records under any class but managed is not slipway's to move.
+  const seeded = JSON.parse(readFileSync(join(dest, MANIFEST), 'utf8'));
+  seeded.files[L71].class = 'seeded';
+  writeFileSync(join(dest, MANIFEST), JSON.stringify(seeded, null, 2));
+  assert.ok(due(l1(), L71), 'a lesson recorded as seeded was left to slipway');
+  writeFileSync(join(dest, MANIFEST), manifest);
 
   // A manifest L1 cannot read leaves nothing to slipway.
   writeFileSync(join(dest, MANIFEST), '{');

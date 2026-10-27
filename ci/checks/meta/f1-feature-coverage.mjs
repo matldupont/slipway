@@ -12,8 +12,8 @@
 //   contents/unknown/<F-n>  a milestone cites an F-ID that PRD §5 does not define
 //   docs/PRD.md#placeholder/present  a line of the PRD still holds a template placeholder (`<…>`), a
 //                           TBD or an open [NEEDS CLARIFICATION] (lib/markdown.mjs, the reader K1 uses)
-//   docs/PRD.md#comment/unclosed     a `<!--` no `-->` closes: GitHub hides the rest of the PRD, so it is a
-//                           finding, never a skip
+//   docs/PRD.md#comment/unclosed     a `<!--` no `-->` closes, wherever it sits: the comment reader skips the rest
+//                           of the PRD, so it is a finding, never a skip (the owner, D-052)
 //
 // Runs once the PRD has left draft. Draft is `Status: draft`, case ignored, or no `Status:` line;
 // every other value is past draft: `approved`, the one /kickoff and status ask for, and `review` or any
@@ -55,9 +55,9 @@ const scheduled = new Set();
 
 if (status !== 'draft') {
   const unclosed = unclosedComment(prd);
-  if (unclosed) findings.push({ where: 'docs/PRD.md#comment/unclosed', detail: `line ${unclosed} opens a comment that no --> closes, so GitHub hides the rest of the PRD: close it, or remove it` });
+  if (unclosed) findings.push({ where: 'docs/PRD.md#comment/unclosed', detail: `line ${unclosed} holds a <!-- that no --> closes, so every reader that skips comments skips the rest of the PRD, this check too: close it, or remove it` });
   const open = placeholderLines(placeholderText(prd));
-  if (open.length) findings.push({ where: 'docs/PRD.md#placeholder/present', detail: `line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/PRD.md still hold${open.length > 1 ? '' : 's'} a placeholder or [NEEDS CLARIFICATION], and its Status is past draft: answer or park each (/clarify), or set Status: draft` });
+  if (open.length) findings.push({ where: 'docs/PRD.md#placeholder/present', detail: `line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/PRD.md still hold${open.length > 1 ? '' : 's'} a placeholder or [NEEDS CLARIFICATION], and its Status is past draft: answer or park each (/clarify)` });
   for (const { file, md, fm } of milestones) {
     if (!fm?.status || fm.status === 'killed') continue;
     for (const item of contents(md)) {

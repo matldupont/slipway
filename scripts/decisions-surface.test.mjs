@@ -234,7 +234,7 @@ test("status lines: AR-1, the current review is said to cover the decision only 
   assert.match(out[1], /^\(you\) Re-read the decision \(PD-2\) and say whether it still holds\. Its condition has happened \(F-08 is reviewed, and that review already covers the decision\)\. /);
 });
 
-test("slipway's own record: §10's Amends lines are in place, and status owes nothing from it but D-044's two citations", () => {
+test("slipway's own record: §10's Amends lines are in place, and status owes nothing from it but D-044's two citations and D-052's one", () => {
   const r = readDecisions(SRC);
   const amends = Object.fromEntries(r.entries.map((e) => [e.id, e.conditions.filter((c) => c.kind === 'changes').flatMap((c) => c.features)]));
   const want = { 'D-015': [1], 'D-017': [2], 'D-018': [4], 'D-019': [5], 'D-020': [6], 'D-022': [7], 'D-024': [9], 'D-027': [10], 'D-036': [12], 'D-037': [13], 'D-042': [14], 'D-044': [4, 6], 'D-045': [15], 'D-046': [16] };

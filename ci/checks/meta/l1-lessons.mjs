@@ -108,7 +108,7 @@ const mix = Object.entries(counts).filter(([, n]) => n).map(([s, n]) => `${n} ${
 process.exit(
   report({
     id: 'L1',
-    claim: `every lesson points at a home that exists, and none is past its review date (${mix || 'none'})`,
+    claim: `every lesson points at a home that exists, and none is past its review date (${mix || 'none'})${leftToSlipway.length ? ', bar the ones exempted above, which are past slipway\'s own date' : ''}`,
     scanned: files.length,
     unit: 'lessons',
     findings,
