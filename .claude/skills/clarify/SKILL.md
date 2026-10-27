@@ -53,7 +53,9 @@ For each question, in the order they block things (frame before PRD before evide
    PRD `OD-` / `decisions.md` `PD-` entry when it is a decision rather than a task. With no existing
    one, offer to file it now — `/log-followup` with the parent, or, in a fresh folder (`mktemp -d`, its path
    written out), write with the file tool, never `echo`, the question to `{dir}/title.txt` and its file:line, the
-   assumption, the cost if wrong and what it blocks to `{dir}/issue.md`, then
+   assumption, the cost if wrong and what it blocks to `{dir}/issue.md`, in the issue form's shape
+   (`process/intake.md` → Issue body). Run the issue check, `node ci/checks/meta/i1-issue-shape.mjs {dir}`, and fix
+   every finding first: nothing is filed red. Then
    `gh issue create --repo {repo} --title "$(cat {dir}/title.txt)" --body-file {dir}/issue.md` (`{repo}` is
    `Issue repo`; the question is project text and never goes into a command: `process/intake.md` → File) — and on a
    yes, write the number it returns into the `[PARKED: … · #n]` marker **in the same step**. Filing the issue
