@@ -6,7 +6,8 @@
 // slipway, never in a project. Nothing here spawns a shell: the fixtures are inert text.
 
 import assert from 'node:assert/strict';
-import { lstatSync, readdirSync, readFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -24,8 +25,8 @@ const SHAPED = new Set([
 ]);
 
 // Every command in a markdown file: each line of a fenced block, and each inline code span, with its line number.
-// As in CommonMark, a fence opens with an info string or none, and closes only with a bare run of its own character
-// at least as long.
+// A fence opens with an info string or none, and, as in CommonMark, closes only with a bare run of its own character
+// at least as long. Indentation and a backtick in the info string are not read as CommonMark reads them.
 export function commands(md) {
   const out = [];
   const lines = md.split('\n');
@@ -74,7 +75,7 @@ export function unsafeArgs(cmd) {
 
 // Every markdown file under dir. A symbolic link is never followed, and is listed in `links` so the scan fails on
 // it rather than leave what it points at unread.
-function markdownFiles(dir, out = [], links = []) {
+export function markdownFiles(dir, out = [], links = []) {
   for (const f of readdirSync(dir)) {
     const p = join(dir, f);
     const s = lstatSync(p);
@@ -115,6 +116,19 @@ test('the scan finds project text in a double-quoted argument, inert fixtures', 
   for (const md of good) assert.deepEqual(commands(md).flatMap((c) => unsafeArgs(c.text)), [], md);
 });
 
+test('the scan lists a symbolic link rather than skip it, an inert link in a temporary folder', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'skill-shell-args-'));
+  try {
+    mkdirSync(join(dir, 'skill'));
+    writeFileSync(join(dir, 'skill/SKILL.md'), 'text\n');
+    symlinkSync(join(dir, 'skill/SKILL.md'), join(dir, 'skill/linked.md'));
+    const { files, links } = markdownFiles(dir);
+    assert.deepEqual([files.map((f) => relative(dir, f)), links.map((f) => relative(dir, f))], [['skill/SKILL.md'], ['skill/linked.md']]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('no skill or process doc puts project text inside a double-quoted shell argument', () => {
   const read = [markdownFiles(join(SRC, '.claude/skills')), markdownFiles(join(SRC, 'process'))];
   const files = read.flatMap((r) => r.files);
@@ -134,11 +148,16 @@ test('/close-milestone reads its issues by the milestone number, never its title
   assert.match(md, /`\{number\}`, `\{next\}` and `\{n\}` are each used only when they are digits/);
   assert.ok(commands(md).some((c) => /issues\/\{n\} -F milestone=\{next\}(\s|$)/.test(c.text)), 'an issue moves by the next milestone\'s number');
   assert.ok(commands(md).some((c) => /milestones -F title=@\{dir\}\/milestone-title\.txt/.test(c.text)), 'a new milestone\'s title comes from a file');
+  const step = md.replace(/\s+/g, ' ');
+  assert.match(step, /When `Issue milestone` is `active` and the next milestone has no GitHub milestone, say which and ask whether to create it now\. On a yes,/, 'a milestone is created only on the owner\'s yes');
+  assert.match(step, /On a no, the issue stays where it is, the GitHub milestone stays open, and the close says so in one line\./, 'a no leaves the issue and the milestone, and says so');
+  assert.match(step, /once no open issue is left in it, close the GitHub milestone/, 'a milestone closes only when empty');
+  assert.match(step, /`\{repo\}` is `Issue repo`, used only when it is `owner\/name`/, 'the repository is shape-checked');
 });
 
 test('/close-milestone names the issue repository in every gh command', () => {
   const md = readFileSync(join(SRC, '.claude/skills/close-milestone/SKILL.md'), 'utf8');
-  const gh = commands(md).filter((c) => /(^|\s)gh (issue|api)\s/.test(c.text));
+  const gh = commands(md).filter((c) => /(^|\s)gh\s/.test(c.text) && !/gh repo view --json nameWithOwner/.test(c.text));
   assert.ok(gh.length >= 5, 'the skill\'s gh commands were read');
   for (const c of gh) assert.match(c.text, /--repo \{repo\}(\s|$)|\srepos\/\{repo\}\//, `line ${c.line}: ${c.text}`);
   assert.match(md, /ask the owner to confirm `\{repo\}`\s+before the first write/);
@@ -155,4 +174,5 @@ test('/clarify files a tracker with its title from a file and its body from --bo
   for (const c of commands(md).filter((c) => /--search/.test(c.text))) assert.match(c.text, /--search '\{words\}'/, `line ${c.line}`);
   const check = md.indexOf('node ci/checks/meta/i1-issue-shape.mjs {dir}');
   assert.ok(check >= 0 && check < md.indexOf('gh issue create'), 'the issue check runs before the issue is filed');
+  assert.match(md.replace(/\s+/g, ' '), /ask the owner to confirm `\{repo\}` first/, '/clarify confirms the repository before it files');
 });
