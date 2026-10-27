@@ -596,8 +596,19 @@ test('L1 in a project leaves slipway\'s fixed lesson dates to slipway, and fails
     rmSync(join(dest, 'process', 'lessons', file));
   }
 
-  // A manifest L1 cannot read leaves nothing to slipway.
+  // A project's PL-<n> id is never slipway's, even with a manifest entry that calls it managed (a hand edit of .slipway/).
+  const own = 'process/lessons/PL-2-listed.md';
+  const ownText = '---\nid: PL-2\nrule: x\nenforcement:\n  status: prose\n  pointer: process/writing.md\n  review-by: 2027-01-01\n---\n';
+  writeFileSync(join(dest, own), ownText);
+  const listed = JSON.parse(readFileSync(join(dest, MANIFEST), 'utf8'));
+  listed.files[own] = { class: 'managed', sha256: sha256(Buffer.from(ownText)), blob: blobSha(Buffer.from(ownText)) };
   const manifest = readFileSync(join(dest, MANIFEST));
+  writeFileSync(join(dest, MANIFEST), JSON.stringify(listed, null, 2));
+  assert.ok(due(l1(), own), 'a PL lesson listed as managed was left to slipway');
+  writeFileSync(join(dest, MANIFEST), manifest);
+  rmSync(join(dest, own));
+
+  // A manifest L1 cannot read leaves nothing to slipway.
   writeFileSync(join(dest, MANIFEST), '{');
   assert.ok(due(l1(), L71), 'an unreadable manifest let a date through');
   writeFileSync(join(dest, MANIFEST), manifest);
