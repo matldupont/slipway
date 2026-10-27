@@ -33,9 +33,11 @@ import { fileURLToPath } from 'node:url';
 import { today as localToday } from '../ci/checks/lib/clock.mjs';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { MANIFEST } from '../ci/checks/lib/manifest.mjs';
-import { listSource, MAP } from '../ci/checks/lib/ownership.mjs';
-import { FIT_KEY, writeBaselines } from '../ci/checks/lib/ratchet.mjs';
+import { classify, listSource, MAP } from '../ci/checks/lib/ownership.mjs';
+import { FIT_KEY, readBaselines, writeBaselines } from '../ci/checks/lib/ratchet.mjs';
+import { KEY as PROSE_KEY, ownHeld } from '../ci/prose.mjs';
 import { buildManifest, derivePackageJson, gitignoreText, publicSource, resolveSlipway, SOURCE, templateFiles } from './lib/install.mjs';
+import { CI_WORKFLOW, countWarnings, notRecorded, valeAtPin, valePin } from './lib/prose-count.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // `sync` is its own command (F-01 step 3), dispatched here so the package's one bin runs it: the sync
@@ -182,6 +184,27 @@ To take a newer slipway later: \`pnpm -s use-slipway sync\` prints the plan; \`/
 }
 note(`<Product> → ${name}${repo ? `, <owner/repo> → ${repo}` : ''} in ${PLACEHOLDER_FILES.join(', ')}`);
 note(`package.json name → ${slug}; start date ${today} → process/anchor; ci/baselines.json → its counts start at 0; README.md → product stub; .gitignore written`);
+// The project's own prose count (F-16 §10, #549): the warnings in its own held files, the held set less slipway's managed
+// ones, counted after every write above. Only with Vale at the version CI pins, so the number is the one CI measures;
+// otherwise nothing is written and CI's prose job prints the count and the one command.
+const vale = valeAtPin(valePin(existsSync(join(SRC, CI_WORKFLOW)) ? readFileSync(join(SRC, CI_WORKFLOW), 'utf8') : null));
+if (!vale.ok) {
+  if (vale.why) note(notRecorded(vale.why));
+}
+else if (opts.dryRun) note('would record the prose count: the warnings in your own text, counted with Vale at the version CI pins');
+else {
+  const own = ownHeld(Object.fromEntries(COPY.map((p) => [p, { class: classify(rules, p) }])));
+  let n = null;
+  try {
+    n = countWarnings(join(SRC, 'ci', 'prose.mjs'), own.map((p) => [p, readFileSync(join(dest, p))]));
+  } catch (e) {
+    note(notRecorded(e.message));
+  }
+  if (n !== null) {
+    writeBaselines(dest, { ...readBaselines(dest), [PROSE_KEY]: n });
+    note(`ci/baselines.json → prose count ${n}: the warnings in your own text (${own.join(', ')}); it may only go down`);
+  }
+}
 
 // ---- 2b. harness
 step('2b', opts.harness ? 'Install the agent harness' : 'Agent harness — skipped (--no-harness)');
