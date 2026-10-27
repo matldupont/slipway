@@ -1,0 +1,10 @@
+{
+  "_note": "#501. docs/borrowed.md, decisions.md and an evidence file are links: to other cases' files holding open questions and an open decision, and to a file outside docs that names RISK-3's tracker. Status follows no link, so none of them is listed, and RISK-3 stays untracked. A folder that is a link is refused by the same guard as a folder that is a file (shape-folders-as-files, shape-docs-is-file); a linked folder is not committed, since the template is copied file by file.",
+  "today": "2026-03-11",
+  "now": "2026-03-10T22:00:00-04:00",
+  "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
+  "attention": [
+    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+  ]
+}

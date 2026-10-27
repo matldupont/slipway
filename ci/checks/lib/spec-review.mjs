@@ -7,11 +7,11 @@
 // so R1 and P1 cannot disagree. A pull request that only adds a review of a doc already on the base moves no
 // version, so it lists no spec and is not held.
 
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { posix } from 'node:path';
 import { isFeatureDoc, readFeatureFiles } from './feature-docs.mjs';
 import { frontmatter } from './frontmatter.mjs';
-import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
+import { notPlainFile, notPlainFolder, quotedVersion, readPlain, reviewProvenance, versionLines } from './review-header.mjs';
 
 // What marks a path as a feature doc: the folder name, not a setting, so the sidecar writer needs no config.
 // TEMPLATE.md and README.md, named in exactly that case, are not feature docs (feature-docs.mjs skips only those two names; a
@@ -19,11 +19,12 @@ import { notPlainFile, quotedVersion, readPlain, reviewProvenance, versionLines 
 export const SPEC_PATH = /(^|\/)features\/(?!(?-i:TEMPLATE|README)\.md$)[^/]*\.md$/i;
 
 // Each review in `docs/reviews/` of the tree at `root` that names a document and quotes a version line:
-// [{ path, version }], the path normalised. A review that cannot be read is left out: R1 reports it.
+// [{ path, version }], the path normalised. A review that cannot be read is left out: R1 reports it. A folder that is a
+// link, sits under one or is not a folder holds no review.
 export function readReviews(root) {
   const dir = 'docs/reviews';
   const reviews = [];
-  if (!existsSync(`${root}/${dir}`)) return reviews;
+  if (notPlainFolder(root, dir) !== null) return reviews;
   for (const f of readdirSync(`${root}/${dir}`).filter((n) => n.endsWith('.md')).sort()) {
     const text = readPlain(root, `${dir}/${f}`);
     if (text === null) continue;
@@ -47,8 +48,11 @@ export function owedReviews(root) {
 }
 
 // Whether a feature doc readFeatureFiles() lists is shipped: its header's `status:` reads `shipped`, in any case. A header
-// that cannot be read, or has no status, is not shipped.
-export const isShipped = (f) => String(frontmatter(f.md)?.status ?? '').trim().toLowerCase() === 'shipped';
+// that cannot be read, has no status, or holds keys under `status:` instead of text, is not shipped.
+export const isShipped = (f) => {
+  const status = frontmatter(f.md)?.status;
+  return typeof status === 'string' && status.trim().toLowerCase() === 'shipped';
+};
 
 // The feature docs of the tree at `root` that have no line starting `Version:` (D-049): V1 fails on each one not shipped,
 // and sync counts those.

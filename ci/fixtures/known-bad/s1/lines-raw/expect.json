@@ -1,0 +1,9 @@
+{
+  "_note": "Next and Frame are right; the PRD line it lists is not printed (there is no PRD), so the case fails on its lines.",
+  "today": "2026-03-10",
+  "next": "Finish testing RISK-1, \"Walkers will pay monthly\". Its test is already scheduled. Nothing past the skeleton can start until every value risk has a result in docs/product/evidence/. Yours, days to weeks.",
+  "frame": "framed · risks: RISK-1 scheduled (#8, window 2026-02-01..2026-02-28 — overran) · blocks every milestone past the skeleton",
+  "lines": [
+    "- PRD: draft 0.1.0 · review: none for this version"
+  ]
+}

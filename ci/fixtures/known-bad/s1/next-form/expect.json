@@ -1,5 +1,5 @@
 {
-  "_note": "Every line is right except the Next line, which holds a semicolon and a check id outside any quoted span. The PRD's Version line is printed as read (a known, older exposure; when it is shaped, this case needs another route to a bad Next line).",
+  "_note": "Every line is right except the Next line, which holds a semicolon and a check id outside any quoted span. The bad line came from the PRD's Version line, printed as read; #501 shapes that field, and no planning file can now put text outside a Next line's quotes. So the case holds status.txt, status's output recorded before that fix, and S1 checks the form on it: red for next-form, and for recorded, which S1 always reports.",
   "today": "2026-03-10",
   "next": "Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0; K1 has its review, and a milestone can go active once the PRD is approved. You, 1 to 2 days.",
   "frame": "framed · risks: RISK-1 tested",

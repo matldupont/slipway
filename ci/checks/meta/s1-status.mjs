@@ -9,12 +9,15 @@
 //   { "today": "yyyy-mm-dd", "next": "<text after **Next:**>", "frame": "<text after - Frame:>",
 //     "now": "<ISO instant, optional>", "attention": ["<a Needs attention bullet>", …] (optional),
 //     "also": ["<an Also unblocked bullet>", …] (optional),
-//     "steps": ["<a step line under Where things stand>", …] (optional) }
+//     "steps": ["<a step line under Where things stand>", …] (optional),
+//     "lines": ["<a whole line of the output>", …] (optional), "maxMs": <a whole number of milliseconds> (optional) }
 //
 // Without `now`, the clock is fixed to `today` (CHECK_TODAY). With `now`, the instant is fixed instead
 // (CHECK_NOW) and status must work out `today` itself in the case's AGENT.md Timezone — so a case at
 // 23:30 in Toronto, 03:30 UTC the next day, proves the zone is read. `attention` and `also`, when given, are the whole
-// Needs attention and Also unblocked lists, in order; `steps`, the eight `- Step n · name: state` lines, in order.
+// Needs attention and Also unblocked lists, in order; `steps`, the eight `- Step n · name: state` lines, in order;
+// `lines`, lines that must each be printed whole, anywhere (the PRD and Active milestone lines, a Milestones row);
+// `maxMs`, how long status may run on the case before it is stopped (a reader whose cost grows with the square of a line).
 //
 //   node ci/checks/meta/s1-status.mjs <dir>    every subdirectory of <dir> is a case
 //
@@ -25,6 +28,12 @@
 //   <case>#attention            the Needs attention list differs from `attention`
 //   <case>#also                 the Also unblocked list differs from `also`
 //   <case>#steps                the step lines under Where things stand differ from `steps`
+//   <case>#lines                a line `lines` lists is not one of the lines status printed
+//   <case>#time                 status ran past `maxMs` and was stopped
+//   <case>#recorded             the case holds status.txt, output recorded earlier: S1 reads it in place of running status,
+//                               and always says so, so a case can never pass on output status did not print. Only a
+//                               known-bad case uses it: one that must hand S1 a Next line no planning file can make status
+//                               print any more (#501), so the form check stays proven on output
 //   <case>#expect               expect.json is missing, unreadable, lacks next or frame, or has no
 //                               yyyy-mm-dd today — without a fixed clock, overran depends on the run date
 //   <case>#run                  status exited non-zero
@@ -90,6 +99,8 @@ for (const name of cases) {
     ...(/^\d{4}-\d{2}-\d{2}$/.test(expect.today ?? '') ? [] : ['yyyy-mm-dd today']),
     ...LINES.map(([key]) => key).filter((k) => typeof expect[k] !== 'string'),
     ...(expect.now === undefined || (typeof expect.now === 'string' && !Number.isNaN(Date.parse(expect.now))) ? [] : ['ISO instant now']),
+    ...(expect.maxMs === undefined || (Number.isSafeInteger(expect.maxMs) && expect.maxMs > 0) ? [] : ['whole number maxMs']),
+    ...(expect.lines === undefined || (Array.isArray(expect.lines) && expect.lines.every((a) => typeof a === 'string')) ? [] : ['list of strings lines']),
     ...(expect.steps === undefined || (Array.isArray(expect.steps) && expect.steps.every((a) => typeof a === 'string')) ? [] : ['list of strings steps']),
     ...(expect.also === undefined || (Array.isArray(expect.also) && expect.also.every((a) => typeof a === 'string')) ? [] : ['list of strings also']),
     ...(expect.attention === undefined || (Array.isArray(expect.attention) && expect.attention.every((a) => typeof a === 'string')) ? [] : ['list of strings attention']),
@@ -98,11 +109,17 @@ for (const name of cases) {
     findings.push({ where: `${name}#expect`, detail: `expect.json has no ${absent.join(', ')}` });
     continue;
   }
+  const recorded = join(root, 'status.txt');
+  if (existsSync(recorded)) findings.push({ where: `${name}#recorded`, detail: 'the case hands S1 output recorded earlier, not output status printed now' });
   // TZ is pinned, so a case proves the Timezone row is read even on a machine already in that zone.
   const env = { ...process.env, CHECK_TODAY: undefined, CHECK_NOW: undefined, TZ: 'UTC' };
   if (expect.now) env.CHECK_NOW = expect.now;
   else env.CHECK_TODAY = expect.today;
-  const r = spawnSync(process.execPath, [status, root], { encoding: 'utf8', env: Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined)) });
+  const r = existsSync(recorded) ? { status: 0, stdout: readFileSync(recorded, 'utf8'), stderr: '' } : spawnSync(process.execPath, [status, root], { encoding: 'utf8', env: Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined)), ...(expect.maxMs ? { timeout: expect.maxMs, killSignal: 'SIGKILL' } : {}) });
+  if (expect.maxMs && r.error?.code === 'ETIMEDOUT') {
+    findings.push({ where: `${name}#time`, detail: `status ran past ${expect.maxMs} ms and was stopped` });
+    continue;
+  }
   if (r.status !== 0) {
     const tail = (r.stderr || r.stdout || '').trim().split('\n').pop();
     findings.push({ where: `${name}#run`, detail: `status exited ${r.status}: ${tail}` });
@@ -131,6 +148,9 @@ for (const name of cases) {
       findings.push({ where: `${name}#steps`, detail: `expected ${JSON.stringify(expect.steps)} · got ${JSON.stringify(got)}` });
     }
   }
+  for (const line of expect.lines ?? []) {
+    if (!out.includes(line)) findings.push({ where: `${name}#lines`, detail: `status printed no line "${line}"` });
+  }
   if (expect.also) {
     const from = out.indexOf('**Also unblocked:**');
     const got = from < 0 ? [] : out.slice(from + 1).filter((l, i, rest) => rest.slice(0, i).every((x) => x.startsWith('- ')) && l.startsWith('- ')).map((l) => l.slice(2));
@@ -150,7 +170,7 @@ for (const name of cases) {
 process.exit(
   report({
     id: 'S1',
-    claim: `status prints the expected date, Next and Frame lines — the FRAME risk states — and the step lines and Needs attention where a case lists them, for ${cases.length} status fixtures`,
+    claim: `status prints the expected date, Next and Frame lines — the FRAME risk states — and the step lines, Needs attention and whole lines where a case lists them, within the time a case gives, for ${cases.length} status fixtures`,
     scanned: cases.length,
     unit: UNIT,
     findings,

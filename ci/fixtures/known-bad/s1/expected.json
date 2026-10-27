@@ -1,12 +1,16 @@
 {
-  "_note": "Seven case roots, each wrong in one way: status disagrees on the Frame line, on the Next line only, an expect.json with a blank clock, a folder whose expect.json is misnamed, a clock read in UTC instead of the configured Timezone, a Needs attention list missing the existential warnings, and a Next line holding a semicolon and a check id outside any quoted span.",
+  "_note": "Ten case roots, each wrong in one way: status disagrees on the Frame line, on the Next line only, an expect.json with a blank clock, a folder whose expect.json is misnamed, a clock read in UTC instead of the configured Timezone, a Needs attention list missing the existential warnings, a Next line holding a semicolon and a check id outside any quoted span (in output recorded before #501, which S1 also reports), a line it lists that status does not print, a line it lists that is only the start of one status prints, and a case that gives status less time than it needs.",
   "exit": 1,
   "findings": [
     "bad-expect#expect",
     "existential-ignored#attention",
+    "lines-part#lines",
+    "lines-raw#lines",
     "misnamed#expect",
     "next-form#next-form",
+    "next-form#recorded",
     "next-only#next",
+    "slow#time",
     "window-ignored#frame",
     "zone-ignored#frame",
     "zone-ignored#today"

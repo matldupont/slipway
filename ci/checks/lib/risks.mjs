@@ -1,11 +1,12 @@
 // The FRAME Risks table, the evidence files behind it, and the PRD's deadlines for it. Shared by K1 and
 // `pnpm status`, so the two can never disagree about whether a risk is tested, scheduled or untested.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { hasPlaceholder, lineRest } from './frontmatter.mjs';
 import { cells, plain, replaceComments, section } from './markdown.mjs';
 import { MILESTONE_ID, parseAppetite } from './milestones.mjs';
+import { notPlainFile, notPlainFolder } from './review-header.mjs';
 
 // Where the real answer is being chased: an issue (#14, owner/repo#14), a PRD open decision (OD-3)
 // or a decision — slipway's (D-7) or the project's own (PD-7, D-015).
@@ -63,12 +64,13 @@ function trimWith(s, drop) {
 // that risk, until a heading at the same or a higher level closes it; `Tracked: #n`,
 // `Window: <from>..<to>` and `Wrong if: <what would prove it wrong>` lines inside belong to it. The first
 // of each wins. A window that does not parse is kept as 'unreadable' so status can say so. A `Wrong if:`
-// with no letter or digit, or only a placeholder, is no refutation, so the next one counts instead.
+// with no letter or digit, or only a placeholder, is no refutation, so the next one counts instead. A folder or a file
+// reached through a link, or one that is not regular, is never read: it holds no evidence.
 function readEvidence(root) {
   const dir = join(root, 'docs', 'product', 'evidence');
   const out = {};
-  if (!existsSync(dir)) return out;
-  for (const f of readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md').sort()) {
+  if (notPlainFolder(root, 'docs/product/evidence') !== null) return out;
+  for (const f of readdirSync(dir).filter((f) => f.endsWith('.md') && f !== 'README.md' && notPlainFile(root, `docs/product/evidence/${f}`) === null).sort()) {
     const fileId = f.match(/^(RISK-\d+)\b/i)?.[1].toUpperCase() ?? null;
     let id = fileId;
     let level = 0; // 0: opened by the file name, so no heading closes it

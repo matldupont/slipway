@@ -11,11 +11,13 @@
 //
 // Free text a document carries (a risk's assumption and a decision's title in a line, a Contents item, a [NEEDS CLARIFICATION] or
 // [PARKED] marker) is quoted through excerpt(): one line, cut at a word, unsafe characters dropped, in double
-// quotes the text cannot close. Identifiers read from a file that no check shapes (a risk or milestone id, a file name) print only in their plain shape, else in words. The few that print as read (the Active milestone line's title, a lesson id, the PRD version), each line passed through escapeControl at
-// the end. Anything a session must act on (a command, an id) is built from validated values, never from the text.
+// quotes the text cannot close. Every other field read from a file (an id, a status word, a version, an appetite, a
+// file name, an item number) prints only in its plain shape, else as a fixed phrase in words, and each line passes
+// through escapeControl at the end. Anything a session must act on (a command, an id) is built from validated values,
+// never from the text. A value a file's header holds is read only when it is a string: a nested key is not text.
 
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
@@ -27,10 +29,10 @@ import { frontEnd } from './checks/lib/frame.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { NOT_A_FILE, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
-import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
-import { isPrdPath, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
+import { isPrdPath, notPlainFile, notPlainFolder, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
 import { owedReviews } from './checks/lib/spec-review.mjs';
 import { readDeadlines, readRisks, settled, TRACKER } from './checks/lib/risks.mjs';
 import { stepLines, whoLine } from './checks/lib/steps.mjs';
@@ -54,14 +56,32 @@ try {
   process.stderr.write(`status: ${escapeControl(e.message)}\n`);
   process.exit(2);
 }
-const read = (p) => (existsSync(join(root, p)) ? readFileSync(join(root, p), 'utf8') : null);
-// A file name printed in a line: only in the plain shape, else in words (a name a pull request carries is project text).
-const named = (f) => (/^[A-Za-z0-9._\/-]{1,100}$/.test(String(f)) ? f : 'a file with an unusual name');
+// A file is read only when it is a regular file reached through no link, as readPlain() reads one; a folder is listed only
+// when it is a folder reached through no link. Anything else is read as absent: a link out of the tree would bring
+// another file's text in, a pipe would never return, and a file where a folder belongs would throw.
+const read = (p) => (notPlainFile(root, p) === null ? readFileSync(join(root, p), 'utf8') : null);
+const plainFolder = (p) => notPlainFolder(root, p) === null;
+// A file name printed in a line: only in the plain shape (folders and a name that each start with a letter, a digit or `_`,
+// at most 100 characters in all), else in words: a name a pull request carries is project text.
+const named = (f) => (typeof f === 'string' && f.length <= 100 && /^\w[\w.-]*(?:\/\w[\w.-]*)*$/.test(f) ? f : 'a file with an unusual name');
 // Ids read from files no check shapes: printed only as M<n> or RISK-n (at most 9 digits), else counted in words.
 const MID = new RegExp(`^${MILESTONE_ID}$`);
-// A tracker reference is printed only in the shapes the checks read (`owner/repo#n`, `#n`, a decision id), else as "tracked".
-const trackerRef = (t) => (/^(?:[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100})?#\d{1,9}$|^(?:OD|PD|D)-\d{1,9}$/.test(String(t)) ? t : 'tracked');
+// A tracker reference is printed only in the shapes the checks read (`owner/repo#n`, `#n`, a decision id), held to
+// GitHub's own names (an owner of letters, digits and single inner hyphens, at most 39; a repository of at most 100)
+// and to 48 characters in all, a cap shorter than GitHub's own: a longer reference prints as "tracked", as anything
+// else does.
+const trackerRef = (t) => (typeof t === 'string' && t.length <= 48 && /^(?:[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}\/(?!\.\.?#)[A-Za-z0-9._-]{1,100})?#\d{1,9}$|^(?:OD|PD|D)-\d{1,9}$/.test(t) ? t : 'tracked');
 const RID = /^RISK-\d{1,9}$/i;
+// The other fields printed as read before (#501): each in its plain shape, or a closed list of words, else in words.
+const VERSION = /^\d{1,4}(?:\.\d{1,4}){0,3}$/;
+const LESSON_ID = /^P?L-\d{1,4}$/;
+const OD_ID = /^OD-\d{1,4}$/;
+const DECISION_ID = /^P?D-\d{1,4}$/;
+const word = (v, list, odd) => (typeof v === 'string' && list.includes(v) ? v : odd);
+// A Contents item's number, printed and put in a command only when it is a whole number of at most four digits.
+const itemNumber = (item) => (Number.isSafeInteger(item.n) && item.n <= 9999 ? item.n : null);
+// A header value, only when it is text: `id:` with indented keys under it is an object, and printing one can throw.
+const asText = (v) => (typeof v === 'string' ? v : undefined);
 const idList = (list, ref, more) => {
   const ok = list.filter((x) => ref.test(String(x.id))).map((x) => x.id);
   const odd = list.length - ok.length;
@@ -79,7 +99,7 @@ let packages = 0;
 try { packages = discoverWorkspace(root).packages.length; } catch { /* reported as 0 */ }
 
 const frameMd = read('docs/product/FRAME.md');
-const frame = frameMd ? frontmatter(frameMd)?.status ?? 'unknown' : 'missing';
+const frame = frameMd ? asText(frontmatter(frameMd)?.status) ?? 'unknown' : 'missing';
 const risks = frameMd ? readRisks(root, frameMd).rows : [];
 // A value risk with no Result is scheduled when a tracker names where its test is being run, untested
 // otherwise. K1 needs the tracker once any milestone is underway.
@@ -87,23 +107,24 @@ const untestedValue = risks.filter((r) => r.value && !r.tested);
 const untracked = untestedValue.filter((r) => !r.tracker);
 // The test milestones, shaping or active, that the owner's decision started for the risk (#477, decisions.mjs → testStart):
 // K1 and status read one answer. Read at call time: `ms` is below.
-const testedIn = (r) => ms.filter((m) => (m.status === 'shaping' || m.status === 'active') && frees(m, r)).map((m) => m.id);
+const testedIn = (r) => ms.filter((m) => (m.status === 'shaping' || m.status === 'active') && frees(m, r));
 const riskState = (r) => {
   const state = riskStateAlone(r);
   const tests = !r.tested && r.value ? testedIn(r) : [];
-  return tests.length ? `${state}, being tested in ${tests.join(', ')}` : state;
+  return tests.length ? `${state}, being tested in ${idList(tests, MID, 'a test milestone')}` : state;
 };
 // Settled by experience only when K1 would pass it: a missing `Wrong if:` line is said, never "settled".
 const riskStateAlone = (r) => {
-  if (r.claimsExperience && !r.experience) return `${r.id} needs an experience reason (table stakes, creator is the user or domain expertise)`;
-  if (r.experience) return r.refutation ? `${r.id} settled by experience (${r.experience.rationale})` : `${r.id} needs a Wrong if: line (experience: ${r.experience.rationale})`;
-  if (r.builtAhead) return `${r.id} built ahead (${r.builtAhead})`;
-  if (r.tested) return `${r.id} tested`;
-  if (!r.tracker) return r.value ? `${r.id} untested (no tracker)` : `${r.id} untested`;
+  const id = riskRef(r);
+  if (r.claimsExperience && !r.experience) return `${id} needs an experience reason (table stakes, creator is the user or domain expertise)`;
+  if (r.experience) return r.refutation ? `${id} settled by experience (${r.experience.rationale})` : `${id} needs a Wrong if: line (experience: ${r.experience.rationale})`;
+  if (r.builtAhead) return `${id} built ahead (${r.builtAhead})`;
+  if (r.tested) return `${id} tested`;
+  if (!r.tracker) return r.value ? `${id} untested (no tracker)` : `${id} untested`;
   const w = r.window === 'unreadable'
     ? ', window unreadable — write yyyy-mm-dd..yyyy-mm-dd'
     : r.window && `, window ${r.window.start}..${r.window.end}${r.window.end < today ? ' — overran' : ''}`;
-  return `${r.id} scheduled (${trackerRef(r.tracker)}${w || ''})`;
+  return `${id} scheduled (${trackerRef(r.tracker)}${w || ''})`;
 };
 
 // A seeded file nobody has edited yet: its bytes are the ones the install manifest recorded. Without a readable manifest
@@ -117,15 +138,18 @@ const touched = (p) => {
 
 const prd = readPlain(root, 'docs/PRD.md') ?? '';
 const prdStatus = (prd.match(/^Status:\s*(.+)$/m) ?? [])[1]?.trim() ?? 'missing';
-const ods = [...prd.matchAll(/^###\s+(OD-\d+)\s+—\s+(.+)$/gm)]
+const prdStatusShown = /^(?:draft|approved|missing)$/i.test(prdStatus) ? prdStatus : 'in a status status cannot name';
+const ods = [...prd.matchAll(/^###[ \t]+(OD-\d+)[ \t]+—[ \t]+(.+)$/gm)]
   .map((m) => ({ id: m[1], title: m[2].trim(), blocking: /BLOCKING/.test(section(prd, `${m[1]} — ${m[2].trim()}`, 3) ?? '') }))
   .filter((o) => !o.title.startsWith('<'));
 const prdVersion = (prd.match(/^Version:\s*(.+)$/m) ?? [])[1]?.trim() ?? null;
+// The PRD's version as a sentence prints it: `at` before it when it is in its plain shape, `none` when there is no line.
+const prdAt = (at, none) => (prdVersion === null ? none : VERSION.test(prdVersion) ? `${at}${prdVersion}` : 'with an unusual Version: line');
 // A review of the PRD's current version, the way R1 counts one: both read the review's header, and compare the line
 // it quotes with the PRD's version line, through lib/review-header.mjs; and it names that version, as it always had to.
 const prdVersionLines = versionLines(prd);
 const reviewsDir = join(root, 'docs', 'reviews');
-const prdReviews = existsSync(reviewsDir)
+const prdReviews = plainFolder('docs/reviews')
   ? readdirSync(reviewsDir).filter((f) => f.endsWith('.md') && f !== 'TEMPLATE.md').filter((f) => {
       const text = readPlain(root, `docs/reviews/${f}`);
       if (text === null) return false;
@@ -152,7 +176,7 @@ const featureVersion = (md) => {
   return v ? `at ${v} has no review of that version` : 'has no review of its current Version: line';
 };
 const featureLines = owedReviews(root).map((f) => {
-  const ids = f.ns.slice(0, 3).map((n) => `F-${n}`).join(', ');
+  const ids = f.ns.filter((n) => Number.isSafeInteger(n) && n <= 9999).slice(0, 3).map((n) => `F-${n}`).join(', ') || 'Its feature';
   const doc = named(f.path) === f.path ? f.path : `on the doc for ${ids} (a file with an unusual name)`;
   return `(you) Run /review-doc ${doc} in a fresh session. ${ids} ${featureVersion(f.md)}. Its build tickets wait on that review.`;
 });
@@ -164,10 +188,22 @@ const quoted = (t, max) => {
 };
 // A heading's title is project text: quoted through excerpt(), and its status is said only in the two shapes the record uses.
 const openSince = (status) => {
-  const m = status.match(/^open — (week \d+|reopened \d{4}-\d{2}-\d{2})$/);
+  const m = status.match(/^open — (week \d{1,3}|reopened \d{4}-\d{2}-\d{2})$/);
   return m ? (m[1].startsWith('week') ? `open since ${m[1]}` : `open, ${m[1]}`) : 'open';
 };
-const openDecisions = [...decisions.matchAll(/^##\s+(P?D-\d+)\s+—\s+(.+?)\s*\*\((open[^)\n]*)\)\*/gm)].map((m) => `(you) ${m[2].endsWith('?') ? 'Answer' : 'Decide'} ${quoted(m[2]) || 'the open decision'} (${m[1]}, ${openSince(m[3])})`);
+// Read one line at a time, by position after the id: a pattern that ran across a line break and retried from every
+// space took the square of a long run of spaces, and the hook has no time limit. An id prints only in its plain shape.
+const openDecisions = decisions.split(/\r?\n/).flatMap((line) => {
+  const head = line.match(/^##[ \t]+(P?D-\d+)[ \t]+—[ \t]/);
+  if (!head) return [];
+  const rest = line.slice(head[0].length);
+  const at = rest.indexOf('*(open');
+  const close = at < 0 ? -1 : rest.indexOf(')', at);
+  const title = at < 0 ? '' : rest.slice(0, at).trim();
+  if (!title || close < 0 || rest[close + 1] !== '*') return [];
+  const id = DECISION_ID.test(head[1]) ? `${head[1]}, ` : '';
+  return [`(you) ${title.endsWith('?') ? 'Answer' : 'Decide'} ${quoted(title) || 'the open decision'} (${id}${openSince(rest.slice(at + 2, close))})`];
+});
 // What a decision still owes, which condition fired and what cannot be read (F-15 §6): ids, event words and paths only.
 const owedDecisions = decisionLines(readDecisions(root), today);
 
@@ -176,7 +212,11 @@ let decisionsByKey;
 const decisionOf = (key) => (decisionsByKey ??= new Map(readDecisions(root).entries.map((e) => [e.key, e]))).get(key);
 // Whether a test milestone is started, by the owner's decision, for this risk.
 const frees = (m, r) => Boolean(testStart(m, decisionOf)?.released.includes((r.id ?? '').toUpperCase()));
-const ms = milestones.filter((m) => m.fm?.id).map((m) => ({ ...m.fm, file: m.file, md: m.md, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));
+const ms = milestones
+  .filter((m) => typeof m.fm?.id === 'string' && m.fm.id)
+  .map((m) => ({ ...m.fm, status: asText(m.fm.status), kind: asText(m.fm.kind), appetite: asText(m.fm.appetite), file: m.file, md: m.md, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));
+// A milestone whose id: line holds keys under it, not text: never read as a milestone, and said so.
+const oddIds = milestones.filter((m) => m.fm?.id && typeof m.fm.id !== 'string').map((m) => `docs/milestones/${named(m.file)} has an id: line that is not text, so status skips it: write it as id: M<n>`);
 const active = ms.filter((m) => m.status === 'active');
 const cur = active[0];
 // Design before screens (F-14 §4), asked of a plan: DS1 holds the active milestone, status says what each shaping one in a
@@ -206,8 +246,8 @@ const held = (m) => m.kind !== 'skeleton' && untestedValue.some((r) => m.status 
 const pastSkeletonUnderway = ms.filter((m) => held(m) && (m.status === 'active' || m.status === 'closed'));
 const blockedByRisk = ms.filter((m) => held(m) && m.status === 'shaping').map((m) => m.id);
 const riskBlocks = pastSkeletonUnderway.length
-  ? `${pastSkeletonUnderway.map((m) => m.id).join(', ')} underway with it untested — pnpm meta is red until it has a Result`
-  : `blocks ${blockedByRisk.length ? `${blockedByRisk.join(', ')} activation` : 'every milestone past the skeleton'}`;
+  ? `${idList(pastSkeletonUnderway, MID, 'a milestone')} underway with it untested — pnpm meta is red until it has a Result`
+  : `blocks ${blockedByRisk.length ? `${idList(ms.filter((m) => blockedByRisk.includes(m.id)), MID, 'a milestone')} activation` : 'every milestone past the skeleton'}`;
 // A milestone id is printed only in the shape the skills accept; any other is said in words.
 const milestoneRef = (m, fallback) => (MID.test(String(m.id)) ? m.id : fallback);
 // What an untested value risk holds back, as a sentence; a milestone id is printed only in the shape the skills accept.
@@ -283,12 +323,16 @@ const registerStanding = (r) => {
   return `${named(r.file)}: ${sevs.map((s) => `${s} ${r.rows.filter((f) => f.sev === s && f.tracked).length} with a tracker, ${r.rows.filter((f) => f.sev === s && !f.tracked).length} without`).join(' · ')}`;
 };
 
+// A link is never followed, as DS1 refuses a linked registry: a link to a folder above it loops, and one out of the
+// tree would bring another folder's markers in. Only a regular file is read: a pipe would never return.
 function walk(dir, out = []) {
-  if (!existsSync(dir)) return out;
+  if (!existsSync(dir) || !lstatSync(dir).isDirectory()) return out;
   for (const f of readdirSync(dir)) {
     const p = join(dir, f);
-    if (statSync(p).isDirectory()) walk(p, out);
-    else if (f.endsWith('.md') && f !== 'TEMPLATE.md') out.push(p);
+    let s;
+    try { s = lstatSync(p); } catch { continue; } // a name the file system cannot give back as read, as notPlainFile skips it
+    if (s.isDirectory()) walk(p, out);
+    else if (s.isFile() && f.endsWith('.md') && f !== 'TEMPLATE.md') out.push(p);
   }
   return out;
 }
@@ -322,7 +366,7 @@ const owed_ = [];
 for (const item of cur ? contents(cur.md) : []) {
   const owes = owing(item);
   const issue = marker(item.text)?.issue;
-  const where = `${MID.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${item.n}`;
+  const where = `${MID.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${itemNumber(item) ?? 'with an unreadable number'}`;
   const file = `docs/milestones/${named(cur.file)}`;
   const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
   if (owed.length) owed_.push(`Owed check: ${where} (#${issue}) — ${owed.length} check(s) moved to after merge with no run recorded (the Owed: lines under it in ${file}): run each, post the result as a comment on #${issue}, then change the Owed line to Ran with that comment's link; #${issue} stays open until then (reopen it if it was closed)`);
@@ -332,19 +376,20 @@ for (const item of cur ? contents(cur.md) : []) {
 
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');
-const dueSoon = existsSync(lessonsDir)
-  ? readdirSync(lessonsDir).filter((f) => /^P?L-.*\.md$/.test(f)).flatMap((f) => {
+const dueSoon = plainFolder('process/lessons')
+  ? readdirSync(lessonsDir).filter((f) => /^P?L-.*\.md$/.test(f) && notPlainFile(root, `process/lessons/${f}`) === null).flatMap((f) => {
       const fm = frontmatter(readFileSync(join(lessonsDir, f), 'utf8'));
-      const rb = fm?.enforcement?.['review-by'];
+      const rb = asText(fm?.enforcement?.['review-by']);
       if (!rb) return [];
       let due = rb;
+      // An anchor that is not a date, or a day count that runs past any date, leaves no date to compare, and never throws.
       const rel = rb.match(/^\+(\d+)d$/);
       if (rel && anchor) {
         const d = new Date(`${anchor}T00:00:00Z`);
         d.setUTCDate(d.getUTCDate() + Number(rel[1]));
-        due = d.toISOString().slice(0, 10);
+        due = Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
       }
-      return /^\d{4}-\d{2}-\d{2}$/.test(due) && days(today, due) <= 14 ? [`Review the lesson (${fm.id}) by ${due}.`] : [];
+      return /^\d{4}-\d{2}-\d{2}$/.test(due) && days(today, due) <= 14 ? [`Review the lesson ${LESSON_ID.test(asText(fm.id) ?? '') ? `(${fm.id})` : `in process/lessons/${named(f)}`} by ${due}.`] : [];
     })
   : [];
 
@@ -386,7 +431,7 @@ function next() {
   if (!ms.some((m) => m.status !== 'shaping') && untestedValue.length) return testTheRisk();
   if (prdStatus === 'draft' && !cur && !ms.some((m) => m.status === 'closed')) {
     return prdReviews.length
-      ? `Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdVersion} has its review, and a milestone can go active once the PRD is approved. ${whoLine(3)}`
+      ? `Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdAt('', '')} has its review, and a milestone can go active once the PRD is approved. ${whoLine(3)}`
       : `Finish /kickoff, then run /review-doc docs/PRD.md in a new session. The PRD needs a review before it is approved, or the checks go red. ${whoLine(3)}`;
   }
   if (active.length > 1) return `Set every milestone but one to shaping or closed. ${idList(active, MID, 'Several milestones')} are all active, and the checks stay red until one is. You.`;
@@ -400,6 +445,7 @@ function next() {
     const items = contents(cur.md).filter((i) => !i.text.trim().startsWith('<'));
     if (items.length && MID.test(String(cur.id))) {
       const item = items.find((i) => !started(i.text));
+      if (item && itemNumber(item) === null) return `Pick the next slice from ${cur.id}'s Contents. Its next item's number is too long to read. ${whoLine(stepN)}`;
       if (!item) return `Finish ${cur.id}'s open issues, then run /close-milestone once its gate is green. Every item has an issue. ${whoLine(stepN)}`;
       return `Start item ${item.n} of ${cur.id} in a fresh session with /log-feature ${cur.id}#${item.n}. It reads "${excerpt(item.text)}". ${whoLine(stepN)}`;
     }
@@ -429,7 +475,7 @@ if (frame === 'framed' && !cur) {
 }
 if (cur && untestedValue.length) also.push(`(you) Test the untested value risks (${idList(untestedValue, RID, 'the risks')}). ${riskBlocksSentence}`);
 if (prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft')) {
-  also.push(`(fresh session) Run /review-doc docs/PRD.md. The PRD at ${prdVersion ?? '?'} has no adversarial review, and it needs one before Status: approved.`);
+  also.push(`(fresh session) Run /review-doc docs/PRD.md. The PRD ${prdAt('at ', 'at ?')} has no adversarial review, and it needs one before Status: approved.`);
 }
 if (open_.length) also.push(`(you) Answer the ${open_.length} open question(s) below, or park each with an assumption, the cost if wrong, and a tracker.`);
 if (also.length) L.push('**Also unblocked:**', ...also.map((a) => `- ${a}`), '');
@@ -450,30 +496,36 @@ L.push(...stepLines({
   milestones: ms,
 }), '');
 L.push(`- Bootstrap: ${bootstrapped ? 'AGENT.md filled' : 'AGENT.md has placeholders'} · ${packages} workspace package(s)`);
-L.push(`- Frame: ${frame}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · ${riskBlocks}` : ''}` : ''}`);
-L.push(`- PRD: ${prdStatus}${prdVersion ? ` ${prdVersion}` : ''} · review: ${prdReviews.length ? prdReviews.map(named).join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => o.id + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
+L.push(`- Frame: ${word(frame, ['draft', 'framed', 'missing', 'unknown'], 'in a status status cannot name')}${risks.length ? ` · risks: ${risks.map(riskState).join(', ')}${untestedValue.length ? ` · ${riskBlocks}` : ''}` : ''}`);
+L.push(`- PRD: ${prdStatusShown}${prdVersion ? ` ${prdAt('', '')}` : ''} · review: ${prdReviews.length ? prdReviews.map(named).join(', ') : 'none for this version'}${ods.length ? ` · open questions: ${ods.map((o) => (OD_ID.test(o.id) ? o.id : 'one with an unusual id') + (o.blocking ? ' (BLOCKING)' : '')).join(', ')}` : ''}`);
 for (const r of registers) if (r.state === 'ok' && r.hasTracker && r.rows.length) L.push(`- Review register: ${registerStanding(r)}`);
 if (cur) {
   const c = curAppetite && appetiteClock(curAppetite, today);
   const clock = c ? `day ${c.day} of ${c.of}, last day ${c.end}${c.overrun ? ' — OVERRUN' : ''}` : 'no appetite';
-  L.push(`- Active milestone: **${cur.title}** (${cur.kind ?? 'no kind'}) · ${clock}`);
+  // The title is project text: quoted through excerpt(), like a Contents item.
+  L.push(`- Active milestone: ${quoted(cur.title) || milestoneRef(cur, 'one with an unusual id')} (${cur.kind ? word(cur.kind, MILESTONE_KINDS, 'an unusual kind') : 'no kind'}) · ${clock}`);
 } else L.push('- Active milestone: none');
 L.push('');
 if (ms.length) {
   L.push('## Milestones', '', '| id | status | kind | appetite | file |', '|---|---|---|---|---|');
-  for (const m of ms) L.push(`| ${m.id} | ${m.status} | ${m.kind ?? ''} | ${m.appetite ?? ''} | docs/milestones/${named(m.file)} |`);
+  for (const m of ms) {
+    const a = parseAppetite(m.appetite);
+    const appetite = a ? `${a.start}..${a.end}` : m.appetite ? 'unreadable' : '';
+    L.push(`| ${milestoneRef(m, 'unusual')} | ${word(m.status, MILESTONE_STATUSES, 'unusual')} | ${m.kind ? word(m.kind, MILESTONE_KINDS, 'unusual') : ''} | ${appetite} | docs/milestones/${named(m.file)} |`);
+  }
   L.push('');
 }
 const attention = [
-  ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`Run /review-doc docs/PRD.md in a fresh session. PRD ${prdVersion ?? ''} has no adversarial review, and it needs one before it leaves draft.`] : []),
+  ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`Run /review-doc docs/PRD.md in a fresh session. PRD ${prdAt('', '')} has no adversarial review, and it needs one before it leaves draft.`] : []),
   // While no milestone is active or closed the step 3 line is the Next line (next() above); with one, the approval is still owed.
-  ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdVersion} is reviewed (${prdReviews.map(named).join(', ')}) and still a draft.`] : []),
+  ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdAt('', '')} is reviewed (${prdReviews.map(named).join(', ')}) and still a draft.`] : []),
   ...(!bootstrapped && !step0 ? [`Fill each unfilled AGENT.md row: ${placeholders.join(', ')}. The skills read them${placeholders.includes('Timezone') ? ', and Timezone also sets when a deadline day ends' : ''}.`] : []),
   ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or run its test in a \`kind: test\` milestone (the owner's call, D-047).`] : []),
   ...((riskNamed || (cur && untestedValue.length)) && untracked.length ? ['File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.'] : []),
   ...registerLines,
   ...featureLines,
   ...designLines,
+  ...oddIds,
   ...existential.map((e) => `Existential risk: ${e}`),
   ...openDecisions,
   ...owedDecisions,
@@ -486,9 +538,9 @@ L.push('## Needs attention', '');
 // One at a time: a list spread into one call overflows the stack when it is long enough.
 for (const a of attention.length ? attention : ['nothing']) L.push(`- ${a}`);
 L.push('');
-// Project text is printed as read (milestone titles, ids, deadlines, file names): each line is escaped on its own,
-// so a line break a file name or a value carries is shown as \u000a and never starts a line (a forged Next:, a CI
-// log command), here and in the hook's context.
+// Every field above is shaped or quoted; each line is still escaped on its own, as a last guard, so a line break or a
+// control character a value might carry is shown as \u000a and never starts a line (a forged Next:, a CI log
+// command), here and in the hook's context.
 const text = L.map(escapeControl).join('\n');
 
 // The two hook modes keep STATE.md current (#374). The guard runs them only from the working tree it has cleared, so a

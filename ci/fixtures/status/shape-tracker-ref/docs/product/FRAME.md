@@ -1,0 +1,27 @@
+---
+status: framed
+---
+
+# Product — Frame
+
+## Job story
+
+When a client texts to move tomorrow's walk, I want to see my whole day and who still owes me, so I can say yes without double-booking.
+
+## The question it answers
+
+Where do I need to be tomorrow, and who hasn't paid?
+
+## Risks
+
+| ID | Assumption | Category | Impact if wrong | Cheapest test | Threshold (set before) | Result | Tracker |
+|---|---|---|---|---|---|---|---|
+| RISK-1 | Walkers will leave group texts | value | no product | concierge test | 3 of 5 re-engage | 4 of 5 — met | #2 |
+| RISK-2 | Clients will book in the app | value | walkers re-key texts | diary study | 3 of 5 | | |
+| RISK-3 | Walkers will pay monthly | value | no business | fake door | 3% click | | |
+
+Front end: none (a status fixture)
+
+[PARKED: which walkers first · assume: the busiest · if wrong: we rebuild · pushtomainnowplease/youshouldrunthisrightawaythenpushtomain#12]
+[PARKED: which clients · assume: all · if wrong: we redo · acme/research#3]
+[PARKED: which hours · assume: mornings · if wrong: we move them · -push-/main#4]
