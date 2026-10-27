@@ -417,8 +417,9 @@ test('every library ci/prose.mjs reads is an input in PROSE_INPUTS, or named her
   };
   // The feature-docs.mjs and report.mjs reasons hold only while the rules that read asSeen() are errors: a warning rule
   // reading it would let those libraries move the count (#564).
-  const seen = readFileSync(join(SRC, 'ci', 'prose.mjs'), 'utf8').match(/run\('seen', '\.Name in \[([^\]]*)\]'/);
-  assert.equal(seen?.[1], '"Slipway.Chatbot", "Slipway.Recap"', 'the rules that read asSeen() changed: the exemptions above no longer hold');
+  const runs = readFileSync(join(SRC, 'ci', 'prose.mjs'), 'utf8').split('\n').filter((l) => /^\s*\.\.\.run\('/.test(l));
+  assert.ok(runs.length >= 3, `found only ${runs.length} Vale runs: the scan lost its footing`);
+  assert.deepEqual(runs.filter((l) => /\basSeen\b/.test(l)).map((l) => l.match(/run\('(\w+)', '\.Name in \[([^\]]*)\]'/)?.slice(1)), [['seen', '"Slipway.Chatbot", "Slipway.Recap"']], 'the rules that read asSeen() changed: the exemptions above no longer hold');
   for (const rule of ['Chatbot', 'Recap']) {
     assert.match(readFileSync(join(SRC, 'ci', 'prose', 'Slipway', `${rule}.yml`), 'utf8'), /^level: error$/m, `${rule} is no longer an error rule: the exemptions above no longer hold`);
     // .vale.ini can set a rule's level for some paths: it never does for these two.

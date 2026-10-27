@@ -20,11 +20,11 @@ import { MANIFEST, readManifest, readOverrides, readProjectFile, sha256 } from '
 import { ownHeld } from '../ci/prose.mjs';
 import { ownDecisions } from './adopt.mjs';
 import { bashAsks } from './ask-rules.mjs';
-import { readBlob, releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
+import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, codeNote, countLines, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
-import { KINDS, Refusal, checkWrites, history, nothingToTake, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
+import { KINDS, Refusal, checkWrites, nothingToTake, plan, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const EXPECTED = join(SRC, 'scripts', 'fixtures', 'sync-plan.txt');
@@ -1755,14 +1755,22 @@ test('every read of slipway\'s clone in sync.mjs goes through history(), directl
   assert.equal(all, wrapped, 'a read of slipway\'s clone in sync.mjs is not wrapped: wrap it in history(source, () => …)');
 });
 
-test('a failed read of slipway\'s clone is a refusal that names the source without its query', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'sync-history-'));
+test('a failed read of slipway\'s clone in the plan is a refusal that names the source without its query', () => {
+  // A partial clone whose remote is a closed local port: git fetches the missing blob, fails at once, and names the URL,
+  // query and all. Nothing leaves the machine, and the token is a fake.
+  const gitDir = mkdtempSync(join(tmpdir(), 'sync-history-'));
+  const project = mkdtempSync(join(tmpdir(), 'sync-history-root-'));
+  const source = 'http://127.0.0.1:1/slipway.git?token=NOT-A-SECRET';
   try {
-    execFileSync('git', ['init', '-q', '--bare', dir]);
-    const source = 'https://example.invalid/slipway.git?token=NOT-A-SECRET';
-    assert.throws(() => history(source, () => readBlob(dir, '0'.repeat(40))), (e) => e instanceof Refusal && /^cannot read slipway's history from https:\/\/example\.invalid\/slipway\.git/.test(e.message) && !e.message.includes('NOT-A-SECRET'));
+    execFileSync('git', ['init', '-q', '--bare', gitDir]);
+    for (const [k, v] of [['core.repositoryformatversion', '1'], ['extensions.partialClone', 'origin'], ['remote.origin.url', source], ['remote.origin.promisor', 'true']]) {
+      execFileSync('git', ['--git-dir', gitDir, 'config', k, v]);
+    }
+    const ctx = { root: project, manifest: { files: { 'package.json': { class: 'merged' } } }, overrides: [], source, base: { tree: new Map([['package.json', '1'.repeat(40)]]), rules: [] }, gitDir, target: new Map(), targetRules: [] };
+    assert.throws(() => plan(ctx), (e) => e instanceof Refusal && /^cannot read slipway's history from http:\/\/127\.0\.0\.1:1\/slipway\.git/.test(e.message) && !e.message.includes('NOT-A-SECRET'));
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    rmSync(gitDir, { recursive: true, force: true });
+    rmSync(project, { recursive: true, force: true });
   }
 });
 
@@ -2959,7 +2967,8 @@ test('/sync-slipway reads the plan as JSON and is told to say each note to the o
 // The prose count (F-16 §10, #549), on a slipway of its own so the checked-in plan above stays as it is. Its Vale is a
 // stand-in on PATH: it names the version it is asked to be, and finds one warning per `WARN` in a file, in the pass that
 // reads the copy as written. SLIPWAY.md is held and managed at A; at B slipway classes it seeded, so it becomes the
-// project's own, and one rule under ci/prose/Slipway/ changes.
+// project's own, and one rule under ci/prose/Slipway/ changes. process/writing.md is held and managed at A and gone at B,
+// so a project that edited it keeps it as its own.
 const proseSlip = join(root, 'slipway-prose');
 const fakeBin = join(root, 'fake-vale');
 mkdirSync(fakeBin);
@@ -3001,6 +3010,7 @@ put(proseSlip, {
   'ci/prose/Slipway/Verb.yml': 'same\n',
   '.vale.ini': 'MinAlertLevel = warning\n',
   'process/same.md': 'same\n',
+  'process/writing.md': 'words\n',
   'docs/PRD.md': '# PRD\n',
 });
 const PA = commit(proseSlip, 'A');
@@ -3012,6 +3022,7 @@ put(proseSlip, {
   'ci/prose.mjs': `${readFileSync(join(proseSlip, 'ci', 'prose.mjs'), 'utf8')}// B\n`,
   '.github/workflows/ci.yml': 'env:\n  VALE_VERSION: 3.25.0\n',
 });
+git(proseSlip, 'rm', '-q', 'process/writing.md');
 commit(proseSlip, 'B');
 git(proseSlip, 'checkout', '-q', PA);
 const proseBase = join(root, 'prose-project');
@@ -3063,10 +3074,13 @@ test('sync at the pinned Vale records the prose count once, on the project\'s ow
 
 test('sync never raises a prose count in place, and names each file that becomes the project\'s and each change to the prose check: the only two ways (#549)', () => {
   const dir = proseProject({ 'feature-fit': 0, prose: 2 });
+  put(dir, { 'process/writing.md': 'our words\n', '.slipway/overrides.yaml': 'overrides:\n  - path: process/writing.md\n    reason: our own words\n' });
+  commit(dir, 'edit a file slipway stops shipping');
   const plan = JSON.parse(proseSync(dir, valeAt('3.25.0'), '--json').stdout);
   const notes = plan.notes.filter((n) => /prose count/.test(n));
   assert.deepEqual(notes, [
     'SLIPWAY.md becomes your own text, so its warnings join your prose count.',
+    'process/writing.md becomes your own text, so its warnings join your prose count.',
     'The prose check changed (ci/prose/Slipway/Hedge.yml) and may raise your prose count.',
     'The prose check changed (.vale.ini) and may raise your prose count.',
     'The prose check changed (ci/prose.mjs) and may raise your prose count.',
@@ -3081,7 +3095,7 @@ test('sync never raises a prose count in place, and names each file that becomes
   // wrote says. The two readers agree: the held files that joined the count are exactly the ones sync named (#564).
   const joined = ownHeld(readManifest(dir).files).filter((f) => !before.includes(f));
   const named = notes.map((n) => n.match(/^(.+) becomes your own text,/)?.[1]).filter(Boolean);
-  assert.ok(named.length > 0, 'the fixture moves no held file: the agreement is not tested');
+  assert.deepEqual(named, ['SLIPWAY.md', 'process/writing.md'], 'the fixture moves a held file both ways: reclassed, and gone but edited');
   assert.deepEqual(joined, named, 'sync named one set of files as becoming the project\'s, and the manifest it wrote says another');
 });
 
