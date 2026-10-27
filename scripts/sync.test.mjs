@@ -1746,11 +1746,13 @@ test('every value a refusal in sync.mjs or adopt.mjs interpolates is shown throu
 // Git's words about slipway's clone reach the owner only through history(), which redacts the source and makes them a
 // refusal: anything else is rethrown, and Node prints git's message raw (#564).
 test('every read of slipway\'s clone in sync.mjs goes through history(), directly or by read()', () => {
-  const src = readFileSync(join(SRC, 'scripts', 'sync.mjs'), 'utf8');
-  const calls = src.split('\n').map((l, i) => ({ line: i + 1, text: l })).filter(({ text }) => /\breadBlob\(/.test(text));
-  assert.ok(calls.length >= 5, `found only ${calls.length} reads: the scan lost its footing`);
-  const bare = calls.filter(({ text }) => !/\b(?:read\(|history\(source, )\(\) => readBlob\(/.test(text));
-  assert.deepEqual(bare.map(({ line, text }) => `scripts/sync.mjs:${line} ${text.trim()}`), [], 'wrap the read in history(source, () => …)');
+  // The whole file, not line by line: every mention of readBlob but its import is a wrapped call, so one split across
+  // lines, a second on a wrapped line, or readBlob passed as a value all fail.
+  const src = readFileSync(join(SRC, 'scripts', 'sync.mjs'), 'utf8').replace(/^import \{[^}]*\} from '\.\/lib\/base\.mjs';$/m, '');
+  const all = [...src.matchAll(/\breadBlob\b/g)].length;
+  const wrapped = [...src.matchAll(/\b(?:read\(|history\(source, )\(\) => readBlob\(/g)].length;
+  assert.ok(wrapped >= 5, `found only ${wrapped} wrapped reads: the scan lost its footing`);
+  assert.equal(all, wrapped, 'a read of slipway\'s clone in sync.mjs is not wrapped: wrap it in history(source, () => …)');
 });
 
 test('a failed read of slipway\'s clone is a refusal that names the source without its query', () => {

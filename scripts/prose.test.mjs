@@ -421,6 +421,8 @@ test('every library ci/prose.mjs reads is an input in PROSE_INPUTS, or named her
   assert.equal(seen?.[1], '"Slipway.Chatbot", "Slipway.Recap"', 'the rules that read asSeen() changed: the exemptions above no longer hold');
   for (const rule of ['Chatbot', 'Recap']) {
     assert.match(readFileSync(join(SRC, 'ci', 'prose', 'Slipway', `${rule}.yml`), 'utf8'), /^level: error$/m, `${rule} is no longer an error rule: the exemptions above no longer hold`);
+    // .vale.ini can set a rule's level for some paths: it never does for these two.
+    assert.doesNotMatch(readFileSync(join(SRC, '.vale.ini'), 'utf8'), new RegExp(`^\\s*Slipway\\.${rule}\\s*=`, 'm'), `.vale.ini sets ${rule}'s level: the exemptions above no longer hold`);
   }
   const inputs = new Set(PROSE_INPUTS.map((i) => i.path));
   // Each library it imports by name, static (`from '…'`) or dynamic (`import('…')`); what those import in turn is theirs.

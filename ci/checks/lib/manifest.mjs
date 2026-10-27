@@ -58,8 +58,10 @@ const inside = (dir, p) => {
 };
 // Whether any folder on the way to `p` is `dir` or inside it, each as the disk resolves it: an entry that passes through the
 // repository is inside it even when its last folder links out, so a link the repository holds never chooses the program.
+// The prefixes are `p` as written, `..` and all: the disk resolves each one as it does when it looks a program up, and the
+// last is `p` itself.
 const through = (dir, p) => {
-  const parts = resolve(p).split(sep);
+  const parts = p.split(sep);
   return parts.some((_, i) => i > 0 && inside(dir, parts.slice(0, i + 1).join(sep) || sep));
 };
 function diskTop(dir) {

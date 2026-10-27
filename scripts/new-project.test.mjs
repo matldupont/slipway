@@ -191,7 +191,11 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
   fakeGit(join(outside, 'tools', 'git'));
   symlinkSync(outside, join(dest, 'linked'));
   symlinkSync(outside, join(dest, 'via'));
-  for (const entry of [join(dest, 'linked'), join(dest, 'via', 'tools')]) {
+  // And one spelled outside the project whose `..` climbs back in through a link outside it, as the disk reads it.
+  fakeGit(join(dest, 'deep', 'git'));
+  mkdirSync(join(dest, 'deep', 'sub'));
+  symlinkSync(join(dest, 'deep', 'sub'), join(outside, 'up'));
+  for (const entry of [join(dest, 'linked'), join(dest, 'via', 'tools'), `${outside}/up/..`]) {
     const r = check(dest, 'd1-drift.mjs', { PATH: onPath(entry) });
     assert.equal(r.status, 2, `git through the link ${entry}:\n${r.stdout}`);
     assert.match(r.stdout, /BROKEN — manifest\/missing/);
@@ -215,7 +219,7 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
   const tmpGit = tmp();
   fakeGit(join(tmpGit, 'git'), dest);
   assert.equal(check(dest, 'd1-drift.mjs', { PATH: '', TMPDIR: tmpGit }).status, 2, 'empty PATH, a git in TMPDIR');
-  for (const d of ['node_modules', 'tools', 'sub', 'linked', 'via']) rmSync(join(dest, d), { recursive: true });
+  for (const d of ['node_modules', 'tools', 'sub', 'linked', 'via', 'deep']) rmSync(join(dest, d), { recursive: true });
 
   // A graft can give the project's HEAD slipway's root as its only parent; git here reads no grafts file.
   git(dest, 'fetch', '-q', SRC, 'HEAD');
