@@ -40,10 +40,12 @@ import { isShipped, owedReviews, unversioned } from '../ci/checks/lib/spec-revie
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { classify, MAP } from '../ci/checks/lib/ownership.mjs';
 import { BASELINES, FIT_KEY, isCount, parseBaselines, serialiseBaselines } from '../ci/checks/lib/ratchet.mjs';
+import { HELD, KEY as PROSE_KEY, ownHeld, PROSE_INPUTS } from '../ci/prose.mjs';
 import { readList, skippable } from '../ci/checks/lib/yaml-list.mjs';
 import { commitFiles, readBlob, releaseTag, resolveBase, resolveTarget, sourceClone } from './lib/base.mjs';
 import { BASE_WHY } from './lib/summary.mjs';
-import { alreadyLine, alreadyText, appliedText, codeNote, CONVENTIONAL, countLines, decisionNote, pastLine, reviewNote, versionNote, pastText, planText, targetName } from './lib/sync-text.mjs';
+import { alreadyLine, alreadyText, appliedText, codeNote, CONVENTIONAL, countLines, decisionNote, pastLine, proseRiseNote, reviewNote, versionNote, pastText, planText, targetName } from './lib/sync-text.mjs';
+import { CI_WORKFLOW, countWarnings, notRecorded, valeAtPin, valePin } from './lib/prose-count.mjs';
 import { clean, oneLine, ui } from './lib/ui.mjs';
 import { blobSha, buildManifest, derivePackageJson, git, gitignoreText, gitReason, publicSource, redactUrls, resolveSlipway, shippedDiffer, SOURCE, syncCommand, templateFiles } from './lib/install.mjs';
 
@@ -57,7 +59,8 @@ export const KINDS = [
   'seeded: upstream changed', 'no longer tracked', 'merged: key updated', 'merged: key reported', 'computed: count recorded', 'unchanged',
 ];
 // The one file sync computes (F-12, dev/features/feature-fit.md §3): the project's ci/baselines.json gets its
-// `feature-fit` count once, from the project's own feature docs. Slipway's copy of the file never travels.
+// `feature-fit` count once, from the project's own feature docs, and its `prose` count once, from its own text with
+// Vale at the version CI pins (F-16 §10, #549). Sync never raises either. Slipway's copy of the file never travels.
 const COUNT_ROW = 'computed: count recorded';
 
 // A named reason to stop: printed as `sync: <reason>`, exit 1. Adopt (adopt.mjs) throws it too.
@@ -334,6 +337,17 @@ function preflight(cwd) {
     }
   }
 
+  // The prose count (F-16 §10, #549). With none yet, sync records it, but only with Vale at the version the target's CI
+  // pins; otherwise it says why and names the one command. With one in place, sync never raises it, and names what may.
+  let proseKept = true; // a ci/baselines.json sync cannot read is refused by the plan, by name
+  try {
+    proseKept = Object.hasOwn(projectBaselines(root) ?? {}, PROSE_KEY);
+  } catch { /* the plan refuses it */ }
+  const vale = proseKept ? null : valeAtPin(valePin(target.get(CI_WORKFLOW)?.toString('utf8')), root);
+  if (proseKept) notes.push(...proseRiseNote(proseRises({ root, manifest, base, target, targetRules: t.rules, blob: (id) => read(() => readBlob(gitDir, id)) })));
+  else if (vale.why) notes.push(notRecorded(vale.why));
+  const prose = { record: !proseKept && vale.ok };
+
   // The decisions status cannot see (F-15 §7), last so the notes about the plan itself come first: counted from the
   // project's decisions.md, which sync never writes; a record that cannot be read adds no note.
   try {
@@ -345,7 +359,7 @@ function preflight(cwd) {
     notes.push(...versionNote(unversioned(root).filter((f) => !isShipped(f)).map((f) => f.ns)));
     notes.push(...reviewNote(owedReviews(root).map((f) => f.ns)));
   } catch { /* a note, never a refusal */ }
-  return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha, targetVersion, past, absent };
+  return { notes, log, commits, root, branch, remote, manifest, overrides, source, base: { sha: r.exact, ...base }, gitDir, target, targetRules: t.rules, targetSha, targetVersion, past, absent, prose };
 }
 
 /**
@@ -423,7 +437,7 @@ function rewrittenHistory({ root, gitDir, read, managed, best, source }) {
  * One row per path, by the target's classes: `{ kind, path }`, sorted by path. Pure but for reads of
  * the project and the base commit.
  */
-export function plan({ root, manifest, overrides, base, gitDir, target, targetRules }) {
+export function plan({ root, manifest, overrides, base, gitDir, target, targetRules, prose = { record: false } }) {
   const overridden = new Set(overrides.filter(hasReason).map((o) => o.path));
   const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
   const rows = [];
@@ -434,7 +448,8 @@ export function plan({ root, manifest, overrides, base, gitDir, target, targetRu
     if (p === BASELINES) {
       // Before any other rule, so it is never a collision and never "slipway's template changed": the row depends
       // on the project's file alone. A count already there is the project's, and nothing is written.
-      add(isCount(projectBaselines(root)?.[FIT_KEY]) ? 'unchanged' : COUNT_ROW, p);
+      const counts = projectBaselines(root);
+      add(isCount(counts?.[FIT_KEY]) && !(prose.record && !Object.hasOwn(counts, PROSE_KEY)) ? 'unchanged' : COUNT_ROW, p);
       continue;
     }
     const m = manifest.files[p];
@@ -679,6 +694,31 @@ const UPSTREAM = '.slipway/upstream';
 // The rows that leave the owner something to do: sync exits 1 on any of them.
 const OWNER_ROWS = ['collision', 'merged: key reported', 'keep (edited)'];
 
+// What may raise the project's prose count in this sync, found from the files, never from a release note (the owner,
+// 2026-10-27): each held file slipway's manifest lists as managed that becomes the project's own (the target classes it
+// otherwise, or stops shipping it and the project's edited copy stays), and each input of the prose check (PROSE_INPUTS)
+// that differs between base and target: a file's bytes, each file under a folder, or the pinned Vale version, shown as
+// `from → to`. `blob` reads a base blob by id, as a refusal when git cannot. Exported for scripts/sync.test.mjs.
+export function proseRises({ root, manifest, base, target, targetRules, blob }) {
+  const moved = HELD.filter((p) => {
+    const m = manifest.files[p];
+    const cur = readProjectFile(root, p);
+    if (m?.class !== 'managed' || !Buffer.isBuffer(cur)) return false;
+    return target.has(p) ? classify(targetRules, p) !== 'managed' : sha256(cur) !== m.sha256;
+  });
+  const now = (p) => (target.has(p) ? blobSha(target.get(p)) : null);
+  const differs = (p) => (base.tree.get(p) ?? null) !== now(p);
+  const paths = [...new Set([...base.tree.keys(), ...target.keys()])].sort();
+  const changed = PROSE_INPUTS.flatMap((input) => {
+    if (input.folder) return paths.filter((p) => p.startsWith(input.path) && differs(p));
+    if (!input.key) return differs(input.path) ? [input.path] : [];
+    const was = base.tree.has(input.path) ? valePin(blob(base.tree.get(input.path)).toString('utf8')) : null;
+    const is = valePin(target.get(input.path)?.toString('utf8'));
+    return was === is ? [] : [`Vale ${was ?? 'unpinned'} → ${is ?? 'unpinned'}`];
+  });
+  return { moved, changed };
+}
+
 /**
  * Carry out `rows` (plan's, not recomputed): compute every write, then branch, write and commit. Every
  * refusal compute() and the checks here can foresee comes before the branch; a failure after it (a
@@ -745,7 +785,7 @@ function verboseFirst(out, ctx, rows) {
 // the invariant or that git cannot do: a changed file, a failed merge. It writes only inside the clone's temp
 // dir, so the plan calls it too. Where each write lands is not checked here: --apply does that (checkWrites),
 // once it knows there is something to write.
-function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha }, rows) {
+function compute({ root, manifest, overrides, base, gitDir, target, targetRules, targetSha, prose = { record: false } }, rows) {
   const tmp = mkdtempSync(join(dirname(gitDir), 'apply-')); // inside the clone's temp dir: removed on exit
   const baseBytes = (p) => (base.tree.has(p) ? readBlob(gitDir, base.tree.get(p)) : null);
   const pristine = (p) => {
@@ -802,7 +842,9 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       // put back: sync never rewrites it, and refuses before any write (the owner, 2026-10-13). Nothing is
       // decoded to decide: the bytes are equal or they are not.
       const was = projectBaselines(root, { bytes: true });
-      if (was && isCount(was.json[FIT_KEY])) throw moved(p);
+      const fitDue = !(was && isCount(was.json[FIT_KEY]));
+      const proseDue = prose.record && !(was && Object.hasOwn(was.json, PROSE_KEY));
+      if (!fitDue && !proseDue) throw moved(p);
       let inForm = !was;
       try {
         inForm ||= was.bytes.equals(Buffer.from(serialiseBaselines(was.json)));
@@ -812,6 +854,8 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
       if (!inForm) {
         throw new Refusal(`${BASELINES} is not in the form slipway writes it in (two-space JSON, each entry once and as slipway would write it, one final newline), and sync does not rewrite a file of yours to record a count in it — put the file back in that form (if a formatter changed it, keep the formatter off this file), commit, then sync again; nothing was written`);
       }
+      todo.baselines = { path: p, json: { ...was?.json }, prose: proseDue };
+      if (!fitDue) continue;
       let fit;
       try {
         fit = fitCount(root);
@@ -824,8 +868,7 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
         const where = [...new Set(fit.unread.map((u) => `${u.endsWith('.md') ? u.slice(0, u.lastIndexOf('/')) : u}/`))].join(' and ');
         throw new Refusal(`${oneLine(where)} holds, or is, a link, an entry under a link, or an entry that is not a plain folder or file, so the feature docs and milestones cannot all be read to count the feature docs with no Fit section — make each a plain folder or file, commit, then sync again; nothing was written`);
       }
-      const bytes = serialiseBaselines({ ...was?.json, [FIT_KEY]: fit.count });
-      todo.writes.set(p, { bytes: Buffer.from(bytes) });
+      todo.baselines.json[FIT_KEY] = fit.count;
       todo.count = {
         file: p,
         n: fit.count,
@@ -860,6 +903,22 @@ function compute({ root, manifest, overrides, base, gitDir, target, targetRules,
   const next = nextManifest({ manifest, target, targetRules, targetSha }, rows, after);
   const print = (m) => Buffer.from(`${JSON.stringify(m, null, 2)}\n`);
   todo.manifest = print(next);
+  // ci/baselines.json, once every other write is known: the prose count is taken on the project's own held files as they
+  // will be, by the target's classes, with the target's rules. Sync adds the key only when the project has none.
+  if (todo.baselines) {
+    const { path: p, json, prose: proseDue } = todo.baselines;
+    delete todo.baselines;
+    if (proseDue) {
+      const own = ownHeld(next.files).filter((f) => Buffer.isBuffer(after(f)));
+      try {
+        json[PROSE_KEY] = countWarnings(join(SRC, 'ci', 'prose.mjs'), own.map((f) => [f, after(f)]), root);
+      } catch (e) {
+        throw new Refusal(`could not count the prose warnings in your own text (${oneLine(e.message)}) — nothing was written`);
+      }
+      todo.count = { file: p, ...todo.count, prose: json[PROSE_KEY] };
+    }
+    todo.writes.set(p, { bytes: Buffer.from(serialiseBaselines(json)) });
+  }
   todo.unrecorded = print({ ...next, slipway: null }); // the same manifest for a project that records no commit
   // D1 was green, so every override named a managed file that differed from its hash. D1's own rule on
   // the new manifest: one that names no managed file now is stale, and the owner decides it; one whose

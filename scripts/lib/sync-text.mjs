@@ -61,17 +61,26 @@ export const targetName = (version, sha) => (version ? `use-slipway ${oneLine(ve
 // noStatus, drafts, others }` — the held docs with no filled Fit, how many of them are counted for a missing
 // status line, how many drafts not yet held lack Fit, how many files in each of the two folders are not
 // feature docs, having no F-number heading (`{ 'docs/features/': 1 }`), and how many `*.md` in each are a link or
-// a folder, not a file (`notFiles`, the same shape). The plan, --apply and --json's notes carry the same lines.
+// a folder, not a file (`notFiles`, the same shape). `n` is absent when the Fit count was already recorded. `prose` is the
+// prose count recorded on the project's own text, when sync recorded one (F-16 §10, #549). The plan, --apply and --json's
+// notes carry the same lines.
 //
 // No text of the project's reaches a line: no file name, no path, no error text. The notes are read to the owner
 // by an agent, and a file name is a sentence someone else wrote. The folders are named from this list alone.
 const FEATURE_FOLDERS = ['docs/features/', 'dev/features/'];
-export function countLines({ n, noStatus = 0, drafts = 0, others = {}, notFiles = {} }) {
-  const lines = [
+export function countLines({ n, noStatus = 0, drafts = 0, others = {}, notFiles = {}, prose }) {
+  const lines = [];
+  if (Number.isInteger(prose)) {
+    lines.push(prose === 0
+      ? 'Your own text has no prose warning, counted with Vale at the version CI pins. The prose count is recorded at 0 and may not go up.'
+      : `Your own text has ${plural(prose, 'prose warning')}, counted with Vale at the version CI pins. The prose count is recorded at ${prose} and may only go down.`);
+  }
+  if (!Number.isInteger(n)) return lines;
+  lines.unshift(
     n === 0
       ? 'No feature doc that is shipped, reviewed or scheduled is missing its Fit section. The count is recorded at 0 and may not go up.'
       : `${plural(n, 'feature doc')} that ${n === 1 ? 'is' : 'are'} shipped, reviewed or scheduled ${n === 1 ? 'has' : 'have'} no Fit section filled in yet. The count is recorded at ${n} and may only go down.`,
-  ];
+  );
   if (noStatus) lines.push(`Of these, ${noStatus} ${noStatus === 1 ? 'has' : 'have'} no readable status line in ${noStatus === 1 ? 'its' : 'their'} header, so ${noStatus === 1 ? 'it is' : 'they are'} counted whatever ${noStatus === 1 ? 'its' : 'their'} Fit says; give ${noStatus === 1 ? 'it' : 'each'} one and it is read normally.`);
   if (drafts) lines.push(`${plural(drafts, 'feature doc')} still being drafted ${drafts === 1 ? 'has' : 'have'} no Fit section filled in yet; ${drafts === 1 ? 'it' : 'each'} needs one before it is reviewed, scheduled or shipped.`);
   const byFolder = (counts) => {
@@ -83,6 +92,18 @@ export function countLines({ n, noStatus = 0, drafts = 0, others = {}, notFiles 
   const entries = byFolder(notFiles);
   if (entries.n) lines.push(`${plural(entries.n, 'entry', 'entries')} named \`*.md\` in ${entries.folders.join(' and ')} ${entries.n === 1 ? 'is a link or a folder, not a file, so it is' : 'are links or folders, not files, so they are'} not read and not counted.`);
   return lines;
+}
+// What the owner reads when a sync may raise the prose count (F-16 §10, #549): each held file that becomes the project's
+// own, each change to the prose check, and that these are the only two ways the count rises. Sync never raises it; the
+// owner records CI's number under Gate changes. Paths and versions are slipway's, never the project's text. None when
+// nothing may raise it.
+export function proseRiseNote({ moved = [], changed = [] }) {
+  if (moved.length === 0 && changed.length === 0) return [];
+  return [
+    ...moved.map((p) => `${p} becomes your own text, so its warnings join your prose count.`),
+    ...changed.map((c) => `The prose check changed (${c}) and may raise your prose count.`),
+    "These are the only two ways your prose count rises, and sync never raises it itself. If the prose job on the sync PR measures more, record CI's number in ci/baselines.json under Gate changes, with your yes.",
+  ];
 }
 // What the owner reads of the decisions whose conditions status cannot see (F-15 §7): ids only, from `readDecisions`, never
 // a decision's own words. `prose` are the decisions that say when they reopen or close in prose alone, `issues` those
@@ -115,7 +136,13 @@ export function versionNote(docs) {
 }
 // An error's code for a refusal, as ` (ENOENT)`, only when it is capitals, digits and underscores; else nothing.
 export const codeNote = (e) => (/^[A-Z][A-Z0-9_]{1,30}$/.test(e?.code ?? '') ? ` (${e.code})` : '');
-const countSection = (u, count, applied) => [u.section('◇', `${count.file} — count recorded${applied ? ` at ${count.n}` : ''}`), ...countLines(count).map((l) => u.line(l)), gap(u)];
+// The title names the one number recorded, once applied; with both counts, each line names its own.
+const countTitle = (count, applied) => {
+  const both = Number.isInteger(count.n) && Number.isInteger(count.prose);
+  const one = Number.isInteger(count.n) ? count.n : count.prose;
+  return both ? 'counts recorded' : `count recorded${applied ? ` at ${one}` : ''}`;
+};
+const countSection = (u, count, applied) => [u.section('◇', `${count.file} — ${countTitle(count, applied)}`), ...countLines(count).map((l) => u.line(l)), gap(u)];
 
 const gap = (u) => u.style('dim', '│');
 const remoteAndNotes = (u, { remote, notes = [] }) => [
