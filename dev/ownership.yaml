@@ -6,7 +6,8 @@
 #
 #   managed   slipway's; a sync replaces it
 #   seeded    written once by new-project, then the project's. For ci/baselines.json alone, sync adds the
-#             `feature-fit` key once, counted from the project's own feature docs, and writes nothing else in it
+#             `feature-fit` key once, counted from the project's own feature docs, and the `prose` key once,
+#             counted from its own text with Vale at the version CI pins; it writes nothing else in it
 #   merged    package.json scripts only
 #   internal  never shipped
 #
@@ -83,7 +84,8 @@ paths:
   - glob: ci/before-verify.sh
     class: seeded
   # the project's counts that may only go down. Slipway's own copy is its own live count and never travels:
-  # new-project writes the project's file, and sync records the Fit count in it once (F-12, feature-fit.md §3)
+  # new-project writes the project's file, and sync records the Fit count in it once (F-12, feature-fit.md §3) and
+  # the prose count once (F-16 §10, #549)
   - glob: ci/baselines.json
     class: seeded
 

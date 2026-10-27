@@ -3039,3 +3039,11 @@ test('sync never raises a prose count in place, and names each file and rule tha
   assert.ok([0, 1].includes(applied.status), applied.stderr);
   assert.deepEqual(proseBaselines(dir), { 'feature-fit': 0, prose: 2 }, 'sync wrote nothing in ci/baselines.json');
 });
+
+test('/sync-slipway keeps the two ways a prose count rises in one place, recorded under Gate changes with the owner\'s yes (#549)', () => {
+  const skill = readFileSync(join(SRC, '.claude/skills/sync-slipway/SKILL.md'), 'utf8').replace(/\s+/g, ' ');
+  assert.ok(skill.includes('**The prose count rises only two ways, both through the owner**'), 'the skill no longer holds the rule');
+  assert.ok(skill.includes('Sync never raises the `prose` count'), 'the skill no longer says sync never raises it');
+  assert.ok(skill.includes('a held file that becomes the project\'s own') && skill.includes('a changed rule under `ci/prose/Slipway/`'), 'the skill no longer names both ways');
+  assert.equal(skill.match(/only two ways/g)?.length, 2, 'the two ways are written in one place');
+});

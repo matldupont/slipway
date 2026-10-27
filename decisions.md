@@ -1403,6 +1403,11 @@ and #548's build, in their words. F-16 names this decision in its as-built rewri
   with my yes. That's the one case where the count can rise, and only through me. 3. Check that slipway's own held set
   covers every file it ships as managed. Otherwise that text goes unchecked anywhere. Say so in the PR with the count of
   files covered."
+- **A changed rule raises the count as a moved file does, 2026-10-27, lands in #549:** "Same as a moved file. The sync
+  never raises the number itself. The plan should find the changed rule mechanically: any changed file under
+  ci/prose/Slipway/ gets named as "this rule changed and may raise the count". Don't rely on a hand-written release
+  note. Then I record CI's new count under Gate changes with my yes, the same way as a moved file. Write both cases in
+  one place so they stay the only two ways the count rises." The one place is `/sync-slipway`'s Gate changes rule.
 - **L-71's date in a project, 2026-10-27 (AR-6), lands in #548 (L1) and #555 (the status note):** "Only slipway fails,
   with two details: 1. Which lessons are slipway's comes from the same ownership list sync uses (the manifest), as with
   the prose count. 2. In a project whose copy is past its review date, status shows a note, not a red: "slipway's L-71
