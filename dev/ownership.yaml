@@ -61,13 +61,8 @@ paths:
   # the workflow that stages slipway's own releases at npm (F-10): a project publishes nothing of slipway's
   - glob: .github/workflows/release.yml
     class: internal
-  # the prose check (F-16 §8): slipway's own Vale rules, script and fixture. A project's docs are not measured yet (D-046)
-  - glob: .vale.ini
-    class: internal
-  - glob: ci/prose.mjs
-    class: internal
-  - glob: ci/prose/**
-    class: internal
+  # the prose check's fixture stays slipway's: PC1 has nothing to run for it in a project (F-16 §10, D-051).
+  # .vale.ini, ci/prose.mjs and ci/prose/** ship as managed
   - glob: ci/fixtures/known-bad/prose/**
     class: internal
   # local secrets and settings, wherever they sit: a directory walk would otherwise ship them
@@ -109,6 +104,8 @@ paths:
   - glob: BOOTSTRAP.md
     class: managed
   - glob: .gitattributes
+    class: managed
+  - glob: .vale.ini
     class: managed
   - glob: docs/**/TEMPLATE.md
     class: managed
