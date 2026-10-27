@@ -288,7 +288,7 @@ async function runAll(argv) {
   const inSlipway = isTemplate(ROOT);
   // Each fails closed: the held set and what counts as the project's own are read from these.
   if (!inSlipway && hasTemplateMarkers(ROOT)) broken(`this checkout holds slipway's own files, but its history could not be read as slipway's (a shallow clone?), so its held set was not found — fetch the full history: git fetch --unshallow`);
-  if (!inSlipway && !isPlainFile(join(ROOT, MANIFEST))) broken(`there is no ${MANIFEST}, or it is not a plain file, so slipway's files could not be told from this project's own — adopt sync once (pnpm -s use-slipway sync --adopt), or make it a plain file`);
+  if (!inSlipway && !isPlainFile(join(ROOT, MANIFEST))) broken(`there is no ${MANIFEST}, or it is not a plain file, so slipway's files could not be told from this project's own — adopt sync once (pnpm -s use-slipway sync --adopt), or have the owner make it a plain file, an owner-only change`);
   let slipways;
   try {
     slipways = await slipwaysFiles(ROOT);
