@@ -55,7 +55,8 @@ if (process.argv[2] === 'sync') {
 } else {
 
 const PLACEHOLDER_FILES = ['AGENT.md', 'docs/PRD.md', 'docs/product/FRAME.md', 'docs/product/metrics.md'];
-const REQUIRED_CHECKS = ['meta', 'verify', 'pr-body'];
+// A red prose job blocks a merge too (D-053): the pull request that records the project's count turns it green.
+const REQUIRED_CHECKS = ['meta', 'verify', 'pr-body', 'prose'];
 
 // ---- arguments
 let onGitHub = false; // set once step 4 starts: from then on, re-running fails on the existing repository

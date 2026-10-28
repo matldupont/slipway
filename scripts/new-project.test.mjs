@@ -333,6 +333,19 @@ test('issue-shape: a repository without the needs-shape label still labels the i
   assert.notEqual(broken.status, 0, 'and the step still reports the label failure');
 });
 
+// D-053 (#565): a red prose job blocks a merge in a new project, as meta, verify and pr-body do.
+test('main is protected with meta, verify, pr-body and prose, each the name of a job a shipped workflow runs', () => {
+  const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), join(tmp(), 'probe'), '--dry-run', '--repo', 'acme/probe'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: '' } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const required = r.stdout.match(/branches\/main\/protection {2}\(([^;]+);/)?.[1].split(', ');
+  assert.deepEqual(required, ['meta', 'verify', 'pr-body', 'prose'], r.stdout);
+
+  // A required check no job reports would hold every merge as pending.
+  const jobs = shippedPaths(SRC, rules).filter((p) => /^\.github\/workflows\/[^/]+\.yml$/.test(p))
+    .flatMap((p) => [...readFileSync(join(SRC, p), 'utf8').matchAll(/^ {4}name: (\S+)$/gm)].map((m) => m[1]));
+  for (const c of required) assert.ok(jobs.includes(c), `no shipped workflow runs a job named ${c}: ${jobs}`);
+});
+
 test('the created decisions.md holds the header and D-001–D-014 only: no slipway record, no citation of one', () => {
   const dest = join(tmp(), 'probe');
   newProject(SRC, dest, { SLIPWAY_SOURCE: '' });

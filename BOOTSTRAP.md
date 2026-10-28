@@ -32,7 +32,7 @@ to exempt. The cheapest moment to install the spine is before there is anything 
      `/sync-slipway` takes a newer slipway later, and `pnpm -s use-slipway sync` prints its plan (SLIPWAY.md, *Taking slipway updates*);
    - creates the GitHub repository and pushes;
    - creates the `needs-shape` label that `.github/workflows/issue-shape.yml` applies;
-   - **attempts** to protect `main` — pull request required; required checks `meta`, `verify`, `pr-body`;
+   - **attempts** to protect `main` — pull request required; required checks `meta`, `verify`, `pr-body`, `prose`;
      branches up to date before merging (the only fix for "green on both branches, red on merged main");
      administrators included — and writes the outcome into `decisions.md` as D-001. Private repositories on
      free plans may refuse; the entry then records the accepted risk and the fallback.
