@@ -1448,6 +1448,25 @@ and #548's build, in their words. F-16 names this decision in its as-built rewri
 Why: §10 ships slipway's files into a project, and a check there must fail only on text and dates the project owns and
 can fix. Spec: F-16 (0.6), #521.
 
+## D-053 — A red prose job blocks a merge in a project *(decided 2026-10-27)*
+
+Amends: F-16
+
+F-16 names this decision in its as-built rewrite (#552), as it does D-052, not by an edit now.
+
+The owner, 2026-10-27, in #565's session, to "Should a project's pull request be unable to merge while the
+plain-language check is red?": "Yes, required". And to how an existing project learns of it: "In this PR".
+
+- **A new project** protects `main` with `prose` beside `meta`, `verify` and `pr-body` (`scripts/new-project.mjs`).
+- **An existing project:** `/sync-slipway` reads the project's protection in each sync whose branch has the `prose` job.
+  When `prose` is not required there, it asks the owner once in that sync whether to require it now, and shows the one
+  command. No agent
+  runs it, and sync itself never changes protection.
+
+Why: D-051 keeps a project's prose job red until its count is recorded, and that red means something only if it blocks
+a merge. The pull request that records the count turns the job green, so a project never locks itself out. The cost: a
+new project cannot merge until its owner records the count once; CI's red message gives the command. Spec: F-16, #565.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,

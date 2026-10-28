@@ -165,7 +165,7 @@ process/decision-defaults.md        the ten defaults a session applies before as
 process/harness/                    permissions and hooks — installed into .claude/ by new-project
 .claude/skills/                     /bootstrap, /kickoff, /clarify, /review-doc, /close-milestone and /sync-slipway
 .slipway/                           in a project, not here: manifest.json (what slipway wrote, hashed) · overrides.yaml
-.github/                            CI (meta · verify), pr-body (re-runs on description edits), issue-shape, issue forms, PR template
+.github/                            CI (meta · verify · prose), pr-body (re-runs on description edits), issue-shape, issue forms, PR template
 ci/verify.mjs · ci/status.mjs       the gate · the state
 ci/ratchet.mjs                      code-health ratchets against ci/baselines.json
 docs/conventions.md                 the one way to do each recurring thing, with its canonical example
