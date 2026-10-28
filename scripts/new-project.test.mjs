@@ -712,6 +712,33 @@ function unpinnedVale() {
   return { PATH: `${bin}${delimiter}${process.env.PATH}` };
 }
 
+// A `vale` at the version CI pins, first on PATH, that finds a warning in each file it is given: new-project then records the
+// prose count beside feature-fit (#549). The pin is read from the workflow, so the stub follows it (#571).
+function pinnedVale() {
+  const pin = /VALE_VERSION: (\d+\.\d+\.\d+)/.exec(readFileSync(join(SRC, '.github', 'workflows', 'ci.yml'), 'utf8'))?.[1];
+  assert.ok(pin, 'ci.yml pins a Vale version');
+  const bin = tmp();
+  writeFileSync(join(bin, 'vale'), `#!/usr/bin/env node
+const a = process.argv.slice(2);
+if (a[0] === '--version') { console.log('vale version ${pin}'); process.exit(0); }
+const out = {};
+for (const f of a.slice(a.indexOf('--') + 1)) out[f] = [{ Line: 1, Check: 'Slipway.Sentence', Severity: 'warning', Message: 'm', Match: 'x' }];
+console.log(JSON.stringify(out));
+`, { mode: 0o755 });
+  return { PATH: `${bin}${delimiter}${process.env.PATH}` };
+}
+
+test('new-project at the pinned Vale records the prose count beside feature-fit, and says so (#571)', () => {
+  const dest = join(tmp(), 'probe');
+  const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), dest, '--no-github', '--no-harness'], { encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: '', ...pinnedVale() } });
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  const note = /ci\/baselines\.json → prose count (\d+): the warnings in your own text \(([^)]*)\)/.exec(r.stdout);
+  assert.ok(note, r.stdout);
+  const n = Number(note[1]);
+  assert.ok(n > 0, `a count was taken: ${note[0]}`);
+  assert.deepEqual(JSON.parse(readFileSync(join(dest, 'ci', 'baselines.json'), 'utf8')), { 'feature-fit': 0, prose: n });
+});
+
 // F-12 (dev/features/feature-fit.md §3): the count a new project starts from is its own, written, never copied.
 test('ci/baselines.json: a new project gets {"feature-fit": 0} whatever slipway\'s own copy holds; the path is seeded, and O1 passes with slipway holding one', () => {
   assert.equal(classify(rules, 'ci/baselines.json'), 'seeded');
