@@ -35,9 +35,10 @@ Why it matters, in two or three sentences.
 `+Nd` dates count from `process/anchor`, which bootstrap sets to the project's start. When a review date
 passes, L1 fails until the review is answered.
 
-A `+Nd` review is answered in `process/lesson-reviews.yaml`, a file the project owns. Add one line per review; the
-lesson file stays as it is, so answering one of slipway's lessons is never drift (D1). The next review falls N days
-after the latest `reviewed` day:
+A `+Nd` review is answered in `process/lesson-reviews.yaml`, a file the project owns. Changing it needs the owner's
+yes, as for any owner-only file (`process/slipway-rules.md` → Gates). Add one entry per review; the lesson file stays as
+it is, so answering one of slipway's lessons is never drift (D1). The next review falls N days after the latest
+`reviewed` day:
 
 ```yaml
 reviews:
@@ -47,7 +48,9 @@ reviews:
 ```
 
 The lessons check fails a line with no reason, a day that is not real or is after today, an id no lesson has, or a lesson whose
-`review-by` is a fixed date. A project's own lesson can also be mechanised, extended with a reason, or deleted.
+`review-by` is a fixed date. An entry for one of slipway's lessons that a sync gave a fixed date stays, and counts for
+nothing. A project's own lesson can also be mechanised, extended with a reason, or deleted. Slipway's own copy of the
+file stays empty: it is the one every project starts from.
 
 The seed lessons L-01 to L-43 are failure patterns common to agent-assisted projects; L-50 to L-60 are
 deferred components; L-61 onward came with the kickoff workflow (frame, milestones, the Stop gate, analytics).

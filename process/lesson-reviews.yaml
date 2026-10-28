@@ -1,12 +1,14 @@
 # Lesson reviews: this project's answers to the +<N>d review dates in process/lessons/.
 #
-# When a lesson's review falls due, L1 fails until a line here answers it. Add one line per review and keep the old
+# When a lesson's review falls due, L1 fails until an entry here answers it. Add one entry per review and keep the old
 # ones: the next review falls N days after the latest `reviewed` day for that lesson. The lesson file stays as it is.
+# This file is owner-only: an edit needs the owner's yes. Slipway's own copy stays empty.
 #
 #   - lesson: L-04
 #     reviewed: 2026-12-20
 #     reason: still holds        # or what changed, or why it does not apply here
 #
-# Write the first one by turning `reviews: []` below into `reviews:`. Every key is required. `reviewed` is a real day, not after today. A lesson with a fixed review-by date is not
-# answered here. process/lessons/README.md has the rules.
+# Write the first one by turning `reviews: []` below into `reviews:`. Every key is required. `reviewed` is a real
+# day, not after today. A lesson with a fixed review-by date is not answered here. process/lessons/README.md has the
+# rules.
 reviews: []

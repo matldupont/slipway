@@ -45,7 +45,7 @@ export function dueDate(value, anchor, reviewed = null) {
 // a project made before #554 has none until a sync adds slipway's empty copy. A file that is there but cannot be read
 // (a mistyped key, a directory, a link: it is read only as a regular file) gives `error`, the reason with its line, and never reads as
 // no answers.
-export function readReviews(root) {
+export function readLessonReviews(root) {
   const p = join(root, REVIEWS);
   try {
     if (!lstatSync(p).isFile()) return { exists: true, reviews: [], error: 'not a regular file' };
@@ -60,24 +60,27 @@ export function readReviews(root) {
   }
 }
 
-// What is wrong with one review line, as [rule, detail], or null. `lessons` maps each lesson id to its review-by.
-export function reviewProblem(r, lessons, today) {
+// What is wrong with one review line, as [rule, detail], or null. `lessons` maps each lesson id to its review-by;
+// `slipways` holds the ids whose fixed date is slipway's in this project (slipwaysDate). A line for one of those is
+// inert, not wrong: a sync that gives a +<N>d lesson a fixed date leaves the project's earlier review standing.
+export function reviewProblem(r, lessons, today, slipways = new Set()) {
   if (!r.lesson || !r.reviewed || !said(r.reason)) return ['reviews/invalid', 'needs lesson, reviewed (YYYY-MM-DD) and reason ("still holds", or what changed)'];
   if (!isDay(r.reviewed)) return ['reviews/invalid', `reviewed "${r.reviewed}" is not a real YYYY-MM-DD day`];
-  if (!lessons.has(r.lesson)) return ['reviews/unknown-lesson', `no lesson in process/lessons has the id ${r.lesson}`];
+  if (!lessons.has(r.lesson)) return ['reviews/unknown-lesson', `no lesson in process/lessons has the id ${r.lesson}: fix the id, or remove the line if the lesson is gone`];
   const rb = String(lessons.get(r.lesson) ?? '');
   if (!FIXED_DATE.test(rb) && !RELATIVE.test(rb)) return ['reviews/invalid', `${r.lesson} has no +<N>d review-by, so there is no review to answer`];
-  if (!RELATIVE.test(rb)) return ['reviews/fixed-date', `${r.lesson}'s review-by is a fixed date, not +<N>d, so no review line moves it: in a project, slipway's fixed dates are slipway's to move by sync (#548), and a project's own lesson moves its date in the lesson`];
+  if (!RELATIVE.test(rb) && slipways.has(r.lesson)) return null;
+  if (!RELATIVE.test(rb)) return ['reviews/fixed-date', `${r.lesson}'s review-by is a fixed date, not +<N>d, so no review line moves it: move the date in the lesson, or remove the line`];
   if (r.reviewed > today) return ['reviews/future', `reviewed ${r.reviewed} is after today (${today}): record a review on the day it was made`];
   return null;
 }
 
 // The latest review day per lesson id, from the lines with no problem. Latest by date, not by place in the file, so a
 // line added later for an earlier day never moves a clock back.
-export function latestReviews(reviews, lessons, today) {
+export function latestReviews(reviews, lessons, today, slipways = new Set()) {
   const latest = new Map();
   for (const r of reviews) {
-    if (reviewProblem(r, lessons, today)) continue;
+    if (reviewProblem(r, lessons, today, slipways)) continue;
     if (!latest.has(r.lesson) || r.reviewed >= latest.get(r.lesson)) latest.set(r.lesson, r.reviewed);
   }
   return latest;

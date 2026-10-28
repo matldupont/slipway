@@ -25,7 +25,7 @@ const ASK_PATHS = [
   '**/prettier.config.*', '**/vitest.config.*', '**/vite.config.*', '**/.oxlintrc*', '**/oxlint.config.*',
   '**/.github/workflows/**', '**/ci/**', '**/process/harness/**', '**/.claude/settings*.json', '**/.slipway/**',
   '**/.claude/**', '**/AGENT.md', '**/CLAUDE.md', '**/CLAUDE.local.md', '**/process/slipway-rules.md',
-  '**/process/intake.md', '**/dev/skill-configuration.md', '**/dev/ownership.yaml', '**/scripts/new-project.mjs',
+  '**/process/intake.md', '**/process/lesson-reviews.yaml', '**/dev/skill-configuration.md', '**/dev/ownership.yaml', '**/scripts/new-project.mjs',
   '**/docs/reviews/**/*.md', '**/.npmrc', '**/.pnpmfile.cjs', '**/.vale.ini', '**/pnpm-workspace.yaml', '**/node_modules/**', '**/.envrc', '**/mise.toml',
   '**/.mise.toml', '**/package.yaml', '**/package.json5', '**/mise.*.toml', '**/.mise.*.toml',
   '**/.config/mise.toml', '**/.config/mise.*.toml', '**/.config/mise/**', '**/mise/*.toml', '**/.mise/*.toml',
@@ -46,7 +46,7 @@ test('the matcher covers the harness paths, at any depth, and nothing else', () 
     assert.ok(gate(p), `${p} should be a gate file`);
   }
   // #163: owner-only markdown is a gate file; other markdown, even under a gate directory, is not.
-  for (const p of ['CLAUDE.md', 'CLAUDE.local.md', 'apps/web/CLAUDE.local.md', 'apps/web/AGENT.md', 'process/slipway-rules.md', 'process/intake.md', '.claude/skills/work-ticket/SKILL.md', '.claude/agents/x.md']) assert.ok(gate(p), `${p} should be a gate file`);
+  for (const p of ['CLAUDE.md', 'CLAUDE.local.md', 'apps/web/CLAUDE.local.md', 'apps/web/AGENT.md', 'process/slipway-rules.md', 'process/intake.md', 'process/lesson-reviews.yaml', '.claude/skills/work-ticket/SKILL.md', '.claude/agents/x.md']) assert.ok(gate(p), `${p} should be a gate file`);
   assert.equal(gate.lookalike('.CLAUDE/skills/x/SKILL.md'), '**/.claude/**', 'a case-folded .claude/ is a lookalike, not a document');
   assert.equal(gate.lookalike('docs/Claude.md'), '**/CLAUDE.md', 'a case-folded CLAUDE.md is a lookalike, not a document');
   assert.equal(gate.lookalike('docs/Claude.Local.md'), '**/CLAUDE.local.md', 'a case-folded CLAUDE.local.md is a lookalike, not a document');
