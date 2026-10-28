@@ -121,31 +121,31 @@ in `scripts/milestones.test.mjs`, which `pnpm meta` runs (one more entry in the 
 
 ### 3. `pnpm status` — `ci/status.mjs`
 
-For the active milestone, each item that owes adds Needs attention lines, after the open questions: one per
-kind, with a count.
+For the active milestone, each kind of owed check adds a header to Needs attention, after the open questions, saying
+once what to do and naming the milestone file; one short line per item follows it (#537).
 
-- `Owed check: {id} item {n} (#{issue}) — {count} check(s) moved to after merge with no run recorded (the
-  Owed: lines under it in docs/milestones/{file}): run each, post the result as a comment on #{issue}, then
-  change the Owed line to Ran with that comment's link; #{issue} stays open until then (reopen it if it was
-  closed)`
-- `Failed check: {id} item {n} (#{issue}) — {count} run(s) failed on {dates} (the Ran: lines under it in
-  docs/milestones/{file}): fix and run it again, file the bug and name it on the line, or, when the owner
-  accepts the result, remove its line in a pull request that records that decision`
-- `Unreadable check line: {id} item {n} — {count} line(s) under it start owed: or ran: and cannot be read, so
-  each counts as owed: write it as Owed: or Ran: (docs/milestones/{file})`
+- `Owed checks ({file}): run each, comment the result on its issue, then change Owed to Ran with that comment's
+  link. An item's issue stays open until then; reopen it if it was closed.` then `#{issue} · item {n} · {count} owed`
+- `Failed checks ({file}): fix and run each again, file the bug and name it on the Ran line, or, when the owner
+  accepts the result, remove its line in a pull request that records that decision.` then
+  `#{issue} · item {n} · {count} failed ({the latest two dates})`
+- `Unreadable check lines ({file}): each counts as owed. Write it as Owed: or Ran:.` then
+  `item {n} · {count} unreadable`, with `#{issue}` first when the item has one
+
+A line ends with the item's environment when it is `staging` or `production`, in that order; any other value is left
+out. An item number that cannot be read prints `item number unreadable`.
 
 **Status prints no project text from a check line.** Its output enters every session through the hook, and a
 milestone doc is text a pull request can carry. These lines hold only values status validated or computed: the
-item's number, the issue's number, a count, a date that is a calendar day, and the file. `{id}` is printed only
-when it is `M<n>`, the shape the skills accept; otherwise the line says `the active milestone`. `{file}` is the
-one project-supplied value left: it is printed as the Milestones table already prints it, through the per-line
-escape. The owner opens the file or the work-order page to see which check. `excerpt()` still moves from
-`ci/status.mjs` to `ci/checks/lib/report.mjs`, beside the list it drops, for MS1 and the work-order page, which
-quote a check's text, escaped. The Next line is unchanged.
+item's number, the issue's number, a count, a date that is a calendar day, an environment from the fixed list, and
+the file. `{file}` is the one project-supplied value left: it is printed as the Milestones table already prints it,
+through the per-line escape. The owner opens the file or the work-order page to see which check. `excerpt()` still
+moves from `ci/status.mjs` to `ci/checks/lib/report.mjs`, beside the list it drops, for MS1 and the work-order page,
+which quote a check's text, escaped. The Next line is unchanged.
 
 S1 case `ci/fixtures/status/build-loop-owed`: item 1 started with an `Owed:` line, item 2 with a `Ran: … pass`
 line, item 3 with a `Ran: … fail` line and no bug, item 4 with a fail then a later pass for the same check; its
-`attention` list is exactly the lines for items 1 and 3. S1 case `build-loop-owed-unreadable` holds hostile
+`attention` list is exactly an owed header, item 1's line, a failed header and item 3's line. S1 case `build-loop-owed-unreadable` holds hostile
 check lines (an address, one split by an invisible character, an instruction-shaped sentence, a hidden line);
 `scripts/milestones.test.mjs` asserts none of it reaches status's output.
 
@@ -272,8 +272,8 @@ changes when an issue closes and what the milestone doc records.
 
 none beyond baseline. It adds no network call, cache, subprocess, secret or deletion. The only input is text
 in milestone docs. Status, which every session's hook reads, prints no project text from a check line: only
-the item and issue numbers, a count, a validated date, the milestone's id when it is `M<n>`, and the milestone
-file's path, which it prints as it already does in its Milestones table. MS1 and the work-order page quote a check's text through `excerpt()` and
+the item and issue numbers, a count, a validated date, an environment from the fixed list (`staging`, `production`), and the
+milestone file's path, which it prints as it already does in its Milestones table. MS1 and the work-order page quote a check's text through `excerpt()` and
 their own escapes; neither is read by every session.
 
 ## Known limitations
@@ -305,8 +305,8 @@ their own escapes; neither is read by every session.
   reads `Part of #n` from everything but comments, so a body that only quotes one as an example is reported too.
 - An `## Owed after merge` section with any text in it answers the rule, "none" included; one "leaves #n open"
   answers it for every `Part of` in the body, and the number is compared, not its repository.
-- From the day a split writes the `Owed:` line, status lists the item under Needs attention as a check "moved
-  to after merge", before any step is built: true to the record, early in its wording (`ci/status.mjs`, unchanged).
+- From the day a split writes the `Owed:` line, status lists the item under Needs attention under the owed-checks header,
+  before any step is built: true to the record, early in its wording (`ci/status.mjs`).
 - `fail` and `pass` pair by exact check text and by line order: a reworded check reads as a new one, and a
   pass written above its fail does not clear it. The environment is not compared: a pass anywhere clears it.
 - MS1's finding and the work-order page quote a check's text as written, an address in it included; both
@@ -337,7 +337,7 @@ Then  each is kind 'unreadable', owing() returns all three, and the item's text 
 ```
 Given ci/fixtures/status/build-loop-owed (items: 1 Owed, 2 Ran pass, 3 Ran fail with no bug, 4 fail then pass)
 When  node ci/checks/meta/s1-status.mjs ci/fixtures/status runs
-Then  Needs attention lists "Owed check: M2 item 1 (#12) …" and "Failed check: M2 item 3 (#14) …", and nothing for items 2 and 4
+Then  Needs attention lists an owed header with "#12 · item 1 …" and a failed header with "#14 · item 3 …", and nothing for items 2 and 4
 ```
 
 ```
@@ -435,6 +435,9 @@ none
 
 ## Changes
 
+- 2026-10-27 · CHANGED · built (#537): status prints each owed-check instruction once as a header, then one short
+  line per item, and names an item's environment only when it is `staging` or `production` (§3). The reader is
+  unchanged
 - 2026-10-08 · CHANGED · built (#282, D-038): every journey in a plan runs in the environment its check names;
   one that runs elsewhere is run in the PR that adds it, or gets its own plan and `Owed:` line (§6, Known
   limitations). The reader is unchanged. After review: the split is on whether the PR that adds the journey can

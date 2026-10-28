@@ -361,19 +361,28 @@ for (const file of walk(join(root, 'docs'))) {
 // Checks the active milestone's items still owe (F-09): moved to after merge and not recorded, failed with no bug
 // named, or written in a way nothing can read. These lines enter every session through the hook, and a milestone
 // doc is text a pull request can carry, so they print no project text from a check line: only the item's number,
-// its issue's number, a count, a date that is a calendar day, and the file to open. The milestone's id is printed
-// only in the shape the skills accept.
-const owed_ = [];
+// its issue's number, a count, a date that is a calendar day, an environment from the fixed list, and the file to
+// open. Each kind prints its instruction once, then one short line per item (#537).
+const CHECK_ENVS = ['staging', 'production'];
+const checkRows = { owed: [], failed: [], unreadable: [] };
 for (const item of cur ? contents(cur.md) : []) {
   const owes = owing(item);
   const issue = marker(item.text)?.issue;
-  const where = `${MID.test(String(cur.id)) ? cur.id : 'the active milestone'} item ${itemNumber(item) ?? 'with an unreadable number'}`;
-  const file = `docs/milestones/${named(cur.file)}`;
+  const at = `${issue === undefined ? '' : `#${issue} · `}item ${itemNumber(item) ?? 'number unreadable'}`;
   const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
-  if (owed.length) owed_.push(`Owed check: ${where} (#${issue}) — ${owed.length} check(s) moved to after merge with no run recorded (the Owed: lines under it in ${file}): run each, post the result as a comment on #${issue}, then change the Owed line to Ran with that comment's link; #${issue} stays open until then (reopen it if it was closed)`);
-  if (failed.length) owed_.push(`Failed check: ${where} (#${issue}) — ${failed.length} run(s) failed on ${[...new Set(failed.map((c) => c.date))].join(', ')} (the Ran: lines under it in ${file}): fix and run it again, file the bug and name it on the line, or, when the owner accepts the result, remove its line in a pull request that records that decision`);
-  if (unreadable.length) owed_.push(`Unreadable check line: ${where} — ${unreadable.length} line(s) under it start owed: or ran: and cannot be read, so each counts as owed: write it as Owed: or Ran: (${file})`);
+  const envs = (cs) => CHECK_ENVS.filter((e) => cs.some((c) => c.env === e));
+  const row = (cs, what) => [at, what, ...envs(cs)].join(' · ');
+  if (owed.length) checkRows.owed.push(row(owed, `${owed.length} owed`));
+  if (failed.length) checkRows.failed.push(row(failed, `${failed.length} failed (${[...new Set(failed.map((c) => c.date))].sort().reverse().slice(0, 2).join(', ')})`));
+  if (unreadable.length) checkRows.unreadable.push(row([], `${unreadable.length} unreadable`));
 }
+const checkFile = cur ? `docs/milestones/${named(cur.file)}` : '';
+const checkHeads = {
+  owed: `Owed checks (${checkFile}): run each, comment the result on its issue, then change Owed to Ran with that comment's link. An item's issue stays open until then; reopen it if it was closed.`,
+  failed: `Failed checks (${checkFile}): fix and run each again, file the bug and name it on the Ran line, or, when the owner accepts the result, remove its line in a pull request that records that decision.`,
+  unreadable: `Unreadable check lines (${checkFile}): each counts as owed. Write it as Owed: or Ran:.`,
+};
+const owed_ = Object.entries(checkRows).flatMap(([k, rows]) => (rows.length ? [checkHeads[k], ...rows] : []));
 
 const anchor = (read('process/anchor') ?? '').trim();
 const lessonsDir = join(root, 'process', 'lessons');

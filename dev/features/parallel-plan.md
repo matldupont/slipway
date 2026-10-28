@@ -188,7 +188,7 @@ in this table are the files the thing writes.
 | `decision-reopens` | (F-15) Re-read the decision | you | anything new built on it (3) | nothing | `decisions.md` |
 | `decision-closes`, `decision-unreadable`, `decision-stray`, `decision-folder` | (F-15) | as printed | nothing (5) | nothing | `decisions.md` |
 | `open-question` | Open question: {file}:{line} | you | by file: the frame (2) for `docs/product/FRAME.md`; the PRD's approval (2) for `docs/PRD.md`; the feature's review (3) for a feature doc; else nothing (5) | nothing | that file |
-| `owed-check`, `failed-check`, `unreadable-check` | Owed check / Failed check / Unreadable check line | you or an agent | the active milestone closing (1) | nothing | the active milestone's file |
+| `owed-check`, `failed-check`, `unreadable-check` | Owed checks / Failed checks / Unreadable check lines (a header, then `#n · item k` lines) | you or an agent | the active milestone closing (1) | nothing | the active milestone's file |
 | `parked` | Parked: | nobody | nothing (5) | its tracker | none |
 | `lesson` | Review the lesson | you | its date (4) | nothing | that lesson's file |
 | `shape` | (§3) Shape item {k} of {id} with /log-feature {id}#{k} | you and an agent | the milestone's next builds (1, sorted as §3 says) | nothing | the milestone's file, the feature docs folder, `docs/PRD.md`, `decisions.md` |
