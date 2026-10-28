@@ -77,6 +77,10 @@ paths:
   # seeded exceptions inside managed trees
   - glob: process/anchor
     class: seeded
+  # the project's answers to its +<N>d lesson reviews (#554): L1 reads them, so a review of one of slipway's lessons
+  # never edits the lesson, and D1 never reads an answer as drift
+  - glob: process/lesson-reviews.yaml
+    class: seeded
   - glob: ci/exceptions.yaml
     class: seeded
   # the project's own setup before verify runs in CI (a service its tests need, an env var). Slipway ships no

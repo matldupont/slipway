@@ -13,12 +13,23 @@
 //                         a lesson whose home was deleted is a lesson enforced by nothing
 //   review/missing        prose and declined lessons must carry `review-by`
 //   review/invalid        review-by is neither YYYY-MM-DD nor +<N>d
-//   review/due            the review date has passed: mechanise it, extend it with a reason,
-//                         or delete it
+//   review/due            the review date has passed: a +<N>d lesson takes a review line in
+//                         process/lesson-reviews.yaml; a project's own may instead be mechanised,
+//                         extended with a reason, or deleted
 //   trigger/missing       a declined lesson must name the event that should reopen it
 //   anchor/missing        a relative date (+90d) with no process/anchor to count from
 //   id/format             the id is not L-<n> (slipway's) or PL-<n> (the project's own, D-015)
 //   id/duplicate
+//   reviews/unreadable    process/lesson-reviews.yaml is there but cannot be read (the line is named)
+//   reviews/invalid       a review line lacks its lesson, a real reviewed day or a reason
+//   reviews/unknown-lesson a review line names a lesson id no lesson file has
+//   reviews/fixed-date    a review line names a lesson whose review-by is a fixed date
+//   reviews/future        a review line's day is after today
+//   reviews/in-slipway    slipway's own copy holds a line: it ships to every project, where it would answer
+//                         that project's reviews for it, so slipway answers a review in the lesson
+//
+// A review line (#554) is the project's answer to a +<N>d review, in a file the project owns, so answering one of
+// slipway's lessons never edits it and D1 never sees drift. The clock then counts N days from the latest review day.
 //
 // Deferred work lives here as `declined` lessons, so the review clock is its detector.
 // Deferral with nothing that fires is indistinguishable from closing it.
@@ -35,7 +46,8 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, isUnreadable } from '../lib/frontmatter.mjs';
 import { today as localToday } from '../lib/clock.mjs';
-import { dueDate, slipwayLessons, slipwaysDate } from '../lib/lessons.mjs';
+import { dueDate, latestReviews, readLessonReviews, RELATIVE, REVIEWS, reviewProblem, slipwayLessons, slipwaysDate } from '../lib/lessons.mjs';
+import { isTemplate } from '../lib/manifest.mjs';
 import { report } from '../lib/report.mjs';
 
 const STATUSES = new Set(['check', 'structural', 'artifact', 'prose', 'declined']);
@@ -70,9 +82,31 @@ const findings = [];
 const seen = new Map();
 const counts = Object.fromEntries([...STATUSES].map((s) => [s, 0]));
 
-for (const f of files) {
+// Every lesson's frontmatter, read once: the review lines are judged against all of them before any date is.
+const read = files.map((f) => ({ f, fm: frontmatter(readFileSync(join(dir, f), 'utf8')) }));
+const lessons = new Map();
+const slipways = new Set(); // the ids whose fixed date is slipway's here: a review line for one is inert
+for (const { f, fm } of read) {
+  if (!fm || isUnreadable(fm) || !fm.id || lessons.has(String(fm.id))) continue;
+  const rb = typeof fm.enforcement === 'object' ? fm.enforcement?.['review-by'] : undefined;
+  lessons.set(String(fm.id), rb);
+  if (slipwaysDate(held, f, fm.id, rb)) slipways.add(String(fm.id));
+}
+// In slipway itself the file is the copy every project starts from, so it stays `reviews: []`; slipway moves a date
+// in the lesson.
+const inSlipway = isTemplate(root);
+const answers = readLessonReviews(root);
+const where = REVIEWS.split('/').pop();
+if (inSlipway) for (const r of answers.reviews) findings.push({ where: `${where}#reviews/in-slipway`, detail: `line ${r.line}: slipway's copy ships to every project, where this line would answer that project's review: remove it, and move the lesson's review-by instead` });
+if (answers.error) findings.push({ where: `${where}#reviews/unreadable`, detail: `${REVIEWS} cannot be read (${answers.error}), so no review in it counts: fix that line, in the shape process/lessons/README.md shows` });
+for (const r of answers.reviews) {
+  const problem = reviewProblem(r, lessons, today, slipways);
+  if (problem) findings.push({ where: `${where}#${problem[0]}`, detail: `line ${r.line}: ${problem[1]}` });
+}
+const reviewed = inSlipway ? new Map() : latestReviews(answers.reviews, lessons, today, slipways);
+
+for (const { f, fm } of read) {
   const add = (rule, detail) => findings.push({ where: `${f}#${rule}`, detail });
-  const fm = frontmatter(readFileSync(join(dir, f), 'utf8'));
   if (!fm) { add('frontmatter/missing', 'no YAML frontmatter: start the file with the block shown in process/lessons/README.md'); continue; }
   if (isUnreadable(fm)) { add('frontmatter/unreadable', 'a line in its frontmatter holds a carriage return with no line feed after it, so readers disagree on its keys: save the file with LF or CRLF line endings'); continue; }
 
@@ -95,13 +129,28 @@ for (const f of files) {
     if (!enf['review-by']) {
       add('review/missing', `a ${status} lesson must carry review-by`);
     } else {
-      const due = dueDate(enf['review-by'], anchor);
-      if (due === 'invalid') add('review/invalid', `"${enf['review-by']}" is neither YYYY-MM-DD nor +<N>d`);
+      const relative = RELATIVE.test(String(enf['review-by']));
+      const last = relative ? reviewed.get(String(fm.id)) ?? null : null;
+      const due = dueDate(String(enf['review-by']), anchor, last);
+      if (due === 'invalid' && relative) add('review/invalid', `"${enf['review-by']}" counts from process/anchor, which is not a YYYY-MM-DD date: write the project's start date there`);
+      else if (due === 'invalid') add('review/invalid', `"${enf['review-by']}" is neither YYYY-MM-DD nor +<N>d`);
       else if (due === null) add('anchor/missing', `"${enf['review-by']}" counts from the project's start date in process/anchor, which is missing — write that date there (YYYY-MM-DD), or a date in review-by`);
       else if (due <= today && slipwaysDate(held, f, fm.id, enf['review-by'])) leftToSlipway.push(fm.id);
+      else if (due <= today && relative && !inSlipway) add('review/due', reviewDue(f, String(fm.id), due, last));
       else if (due <= today) add('review/due', `review was due ${due}: mechanise it, extend it with a reason, or delete it`);
     }
   }
+}
+
+// The review entry that answers a due +<N>d review, and, for a lesson the project may edit, the other ways out. A
+// lesson slipway maintains here (held) is answered only by the entry: an edit to it is drift (D1). The entry's three
+// keys go on their own lines, as process/lessons/README.md shows; a finding is one line, so it lists them.
+function reviewDue(f, id, due, last) {
+  const entry = `an entry with lesson: ${id}, reviewed: ${today} and reason: still holds (or what changed), each key on its own line as process/lessons/README.md shows`;
+  const file = answers.exists ? `add to ${REVIEWS}` : `create ${REVIEWS} with a "reviews:" line, then add`;
+  const since = last ? ` (last reviewed ${last})` : '';
+  const edit = held.has(f) ? '' : '; or mechanise the lesson, extend it with a reason, or delete it';
+  return `review was due ${due}${since}: ${file} ${entry}${edit}`;
 }
 
 const mix = Object.entries(counts).filter(([, n]) => n).map(([s, n]) => `${n} ${s}`).join(', ');

@@ -1266,6 +1266,25 @@ test('adopt: a lesson the target ships under another file name (same id, same ru
   assert.match(own.stdout, /^ {2}L-05 {2}process\/lessons\/L-05-old-name\.md$/m);
 });
 
+// #554: a project made before slipway shipped process/lesson-reviews.yaml gets slipway's empty copy at its next sync, as
+// its own (seeded) file: the plan adds it, --apply writes it and the manifest records it seeded, so D1 never reads it.
+test('sync adds a seeded file new upstream, such as process/lesson-reviews.yaml, to a project made before it; the manifest records it seeded', () => {
+  const later = join(root, 'slipway-lesson-reviews');
+  git(root, 'clone', '-q', slip, later);
+  const REV = 'process/lesson-reviews.yaml';
+  put(later, { 'dev/ownership.yaml': MAP_YAML.replace('  - glob: process/**\n', `  - glob: ${REV}\n    class: seeded\n  - glob: process/**\n`), [REV]: 'reviews: []\n' });
+  commit(later, 'the review file');
+  git(later, 'push', '-q', 'origin', 'HEAD:refs/heads/lesson-reviews'); // on a side branch: the cases after this one keep slipway's main
+  const run = (dir, ...args) => spawnBin(process.execPath, [join(later, 'scripts', 'new-project.mjs'), 'sync', ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, SLIPWAY_SOURCE: slip } });
+  const dir = project((d) => git(d, 'reset', '-q', '--hard', 'HEAD~1')); // as new-project left it: nothing needs the owner
+  const planned = run(dir, '--verbose');
+  assert.equal(rows(planned.stdout)[REV], 'add', planned.stdout + planned.stderr);
+  const applied = run(dir, '--apply');
+  assert.equal(applied.status, 0, applied.stderr);
+  assert.equal(readFileSync(join(dir, REV), 'utf8'), 'reviews: []\n');
+  assert.equal(manifestOf(dir).files[REV]?.class, 'seeded');
+});
+
 // ---- the remote check (#61): a warning, never a gate
 
 // A project cloned from its own upstream, so a case can move the upstream without touching `base`.

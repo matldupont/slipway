@@ -1,0 +1,11 @@
+{
+  "_note": "A mistyped key makes the file unreadable: that is a finding, and its review answers nothing, so answered.md (+30d from 2026-06-01) is due (#554).",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "lesson-reviews.yaml#reviews/unreadable",
+    "answered.md#review/due"
+  ]
+}
