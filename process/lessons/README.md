@@ -33,7 +33,21 @@ Why it matters, in two or three sentences.
 | `declined` | deliberately not built yet: deferred work, with the trigger that should reopen it |
 
 `+Nd` dates count from `process/anchor`, which bootstrap sets to the project's start. When a review date
-passes, L1 fails until the lesson is mechanised, extended with a reason, or deleted.
+passes, L1 fails until the review is answered.
+
+A `+Nd` review is answered in `process/lesson-reviews.yaml`, a file the project owns. Add one line per review; the
+lesson file stays as it is, so answering one of slipway's lessons is never drift (D1). The next review falls N days
+after the latest `reviewed` day:
+
+```yaml
+reviews:
+  - lesson: L-04
+    reviewed: 2026-12-20
+    reason: still holds        # or what changed, or why it does not apply here
+```
+
+L1 fails a line with no reason, a day that is not real or is after today, an id no lesson has, or a lesson whose
+`review-by` is a fixed date. A project's own lesson can also be mechanised, extended with a reason, or deleted.
 
 The seed lessons L-01 to L-43 are failure patterns common to agent-assisted projects; L-50 to L-60 are
 deferred components; L-61 onward came with the kickoff workflow (frame, milestones, the Stop gate, analytics).

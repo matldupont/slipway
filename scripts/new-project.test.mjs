@@ -704,6 +704,82 @@ test('status in a project notes slipway\'s lesson past its date and asks for no 
   assert.doesNotMatch(r.stdout, note);
 });
 
+// #554: a project answers a +<N>d review of one of slipway's lessons in process/lesson-reviews.yaml, a file of its own, so
+// L1 clears with no edit to the lesson and D1 never sees drift. Status counts the next review from the same answer.
+test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.yaml: L1 reads it, D1 sees no drift, status counts from it', () => {
+  assert.equal(classify(rules, 'process/lesson-reviews.yaml'), 'seeded', 'the seeded line lost to process/**');
+  const dest = join(tmp(), 'probe');
+  const { manifest } = newProject(SRC, dest, { SLIPWAY_SOURCE: '', CHECK_TODAY: '2026-10-01' });
+  assert.equal(readFileSync(join(dest, 'process', 'anchor'), 'utf8'), '2026-10-01\n');
+  const REV = join(dest, 'process', 'lesson-reviews.yaml');
+  assert.equal(manifest.files['process/lesson-reviews.yaml']?.class, 'seeded', 'the manifest records the file as managed');
+  assert.ok(readFileSync(REV).equals(readFileSync(join(SRC, 'process', 'lesson-reviews.yaml'))), "the project starts from slipway's empty copy");
+  const l1 = (day) => check(dest, 'l1-lessons.mjs', { CHECK_TODAY: day });
+  const due = (r) => r.stdout.match(/^L1: L-04-mutate-the-specific-test\.md#review\/due: .*$/m)?.[0];
+  const answer = (lines) => writeFileSync(REV, `reviews:\n${lines}`);
+  const line = (lesson, reviewed, reason = 'still holds') => `  - lesson: ${lesson}\n    reviewed: ${reviewed}\n    reason: ${reason}\n`;
+
+  // Due on anchor+90 with no answer: L1 names the lesson and the line to add, and offers no edit to slipway's lesson.
+  assert.equal(due(l1('2026-12-29')), undefined);
+  let r = l1('2026-12-30');
+  assert.equal(r.status, 1);
+  assert.match(due(r) ?? '', /review was due 2026-12-30: add this line to process\/lesson-reviews\.yaml: - lesson: L-04 \/ reviewed: 2026-12-30 \/ reason: still holds/, r.stdout);
+  assert.doesNotMatch(due(r), /mechanise/, "slipway's lesson was offered an edit");
+
+  // One line answers it with the lesson untouched, D1 stays green, and the clock restarts from the review day.
+  answer(line('L-04', '2027-01-05'));
+  assert.equal(due(l1('2027-01-05')), undefined, l1('2027-01-05').stdout);
+  assert.equal(due(l1('2027-04-04')), undefined);
+  assert.match(due(l1('2027-04-05')) ?? '', /review was due 2027-04-05 \(last reviewed 2027-01-05\)/);
+  const d1 = check(dest, 'd1-drift.mjs');
+  assert.equal(d1.status, 0, d1.stdout);
+
+  // Latest by day, not by place in the file: an earlier day written below it moves nothing back.
+  answer(line('L-04', '2027-01-05') + line('L-04', '2026-12-31', 'backfilled'));
+  assert.equal(due(l1('2027-04-04')), undefined);
+
+  // A bad line fails on its line and answers nothing.
+  for (const [lines, rule] of [
+    [line('L-9999', '2027-01-05'), 'unknown-lesson'],
+    [line('L-04', '2027-02-01'), 'future'],
+    [line('L-04', '2027-02-30'), 'invalid'],
+    [line('L-04', '2027-01-05', '"  "'), 'invalid'],
+    [line('L-71', '2027-01-05'), 'fixed-date'],
+    ['  - lesson: L-04\n    reviewd: 2027-01-05\n    reason: still holds\n', 'unreadable'],
+  ]) {
+    answer(lines);
+    r = l1('2027-01-10');
+    assert.equal(r.status, 1, `${rule}: ${r.stdout}`);
+    assert.match(r.stdout, new RegExp(`^L1: lesson-reviews\\.yaml#reviews/${rule}: ${rule === 'unreadable' ? '' : 'line 2: '}`, 'm'), r.stdout);
+    assert.ok(due(r), `${rule}: the bad line answered L-04's review`);
+  }
+
+  // A file that is there and cannot be read is never "no reviews".
+  rmSync(REV);
+  mkdirSync(REV);
+  r = l1('2026-11-01');
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /^L1: lesson-reviews\.yaml#reviews\/unreadable: .*not a regular file/m);
+  rmSync(REV, { recursive: true });
+
+  // No file, as in a project made before #554, is no answers, and the line says to create it.
+  r = l1('2026-12-30');
+  assert.doesNotMatch(r.stdout, /reviews\/unreadable/);
+  assert.match(due(r) ?? '', /create process\/lesson-reviews\.yaml with a "reviews:" line, then this one: - lesson: L-04/);
+
+  // Status reads the same answer, and says when the file cannot be read.
+  const status = (day) => spawnSync(process.execPath, [join(dest, 'ci', 'status.mjs'), dest], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: day } });
+  assert.match(status('2026-12-20').stdout, /^- Review the lesson \(L-04\) by 2026-12-30\.$/m);
+  answer(line('L-04', '2026-12-20'));
+  assert.doesNotMatch(status('2026-12-20').stdout, /Review the lesson \(L-04\)/);
+  assert.match(status('2027-03-10').stdout, /^- Review the lesson \(L-04\) by 2027-03-20\.$/m);
+  answer('  - lesson: L-04\n    oops\n');
+  const s = status('2026-12-20');
+  assert.equal(s.status, 0, s.stderr);
+  assert.match(s.stdout, /^- process\/lesson-reviews\.yaml cannot be read \(line 3: /m);
+  assert.match(s.stdout, /^- Review the lesson \(L-04\) by 2026-12-30\.$/m, 'an unreadable file answered the review in status');
+});
+
 // A `vale` that names a version CI does not pin, first on PATH: new-project then records no prose count (#549), on a machine
 // with the pinned Vale as on one without, so the baselines a case reads are the same everywhere (#568).
 function unpinnedVale() {

@@ -27,7 +27,7 @@ import { readDecisions, testStart } from './checks/lib/decisions.mjs';
 import { designBefore, hasAccessibilityLine } from './checks/lib/design.mjs';
 import { frontEnd } from './checks/lib/frame.mjs';
 import { frontmatter } from './checks/lib/frontmatter.mjs';
-import { slipwayLessons, slipwaysDate } from './checks/lib/lessons.mjs';
+import { latestReviews, readReviews, REVIEWS, slipwayLessons, slipwaysDate } from './checks/lib/lessons.mjs';
 import { MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
 import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
@@ -382,9 +382,18 @@ const lessonsDir = join(root, 'process', 'lessons');
 // the date has passed, says a sync brings the reviewed copy. A .slipway file that is a link or not a regular file, or a
 // lessons folder that is not plain, gives slipway no lesson, and each date prints as before: a line here follows no link.
 const slipways = plainFolder('process/lessons') && [MANIFEST, OVERRIDES].every((p) => [null, MISSING].includes(notPlainFile(root, p))) ? slipwayLessons(root) : new Set();
-const dueSoon = plainFolder('process/lessons')
-  ? readdirSync(lessonsDir).sort().filter((f) => /^P?L-.*\.md$/.test(f) && notPlainFile(root, `process/lessons/${f}`) === null).flatMap((f) => {
-      const fm = frontmatter(readFileSync(join(lessonsDir, f), 'utf8'));
+const lessonFiles = plainFolder('process/lessons')
+  ? readdirSync(lessonsDir).sort().filter((f) => /^P?L-.*\.md$/.test(f) && notPlainFile(root, `process/lessons/${f}`) === null).map((f) => ({ f, fm: frontmatter(readFileSync(join(lessonsDir, f), 'utf8')) }))
+  : null;
+// The project's answers to +<N>d reviews (#554), through the reader and the rules L1 uses: a +<N>d clock counts from the
+// latest review day. A file that is a link or not a regular file, or that cannot be read, answers nothing and says so.
+const answers = [null, MISSING].includes(notPlainFile(root, REVIEWS)) ? readReviews(root) : { exists: true, reviews: [], error: 'not a regular file' };
+const lessonIds = new Map((lessonFiles ?? []).filter(({ fm }) => asText(fm?.id)).map(({ fm }) => [asText(fm.id), asText(fm?.enforcement?.['review-by'])]).reverse());
+const reviewed = latestReviews(answers.reviews, lessonIds, today);
+const dueSoon = lessonFiles
+  ? [
+    ...(answers.error ? [`${REVIEWS} cannot be read (${excerpt(answers.error, 80)}), so no review in it counts: pnpm meta's L1 names the line.`] : []),
+    ...lessonFiles.flatMap(({ f, fm }) => {
       const rb = asText(fm?.enforcement?.['review-by']);
       if (!rb) return [];
       const id = asText(fm.id) ?? '';
@@ -392,13 +401,15 @@ const dueSoon = plainFolder('process/lessons')
       let due = rb;
       // An anchor that is not a date, or a day count that runs past any date, leaves no date to compare, and never throws.
       const rel = rb.match(/^\+(\d+)d$/);
-      if (rel && anchor) {
-        const d = new Date(`${anchor}T00:00:00Z`);
+      const from = rel ? reviewed.get(id) ?? anchor : null;
+      if (rel && from) {
+        const d = new Date(`${from}T00:00:00Z`);
         d.setUTCDate(d.getUTCDate() + Number(rel[1]));
         due = Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
       }
       return /^\d{4}-\d{2}-\d{2}$/.test(due) && days(today, due) <= 14 ? [`Review the lesson ${LESSON_ID.test(id) ? `(${id})` : `in process/lessons/${named(f)}`} by ${due}.`] : [];
-    })
+    }),
+  ]
   : [];
 
 // Step 0 while there is no app, or while rows are unfilled and no milestone is underway yet. A running project
