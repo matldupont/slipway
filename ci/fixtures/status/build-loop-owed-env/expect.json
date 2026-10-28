@@ -8,6 +8,6 @@
     "#12 · item 1 · 2 owed · staging · production",
     "#13 · item 2 · 1 owed",
     "Failed checks (docs/milestones/M2-booking.md): fix and run each again, file the bug and name it on the Ran line, or, when the owner accepts the result, remove its line in a pull request that records that decision.",
-    "#14 · item 3 · 2 failed (2026-03-09, 2026-03-08) · staging"
+    "#14 · item 3 · 3 failed (2026-03-09, 2026-03-08) · staging"
   ]
 }

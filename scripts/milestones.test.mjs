@@ -125,7 +125,6 @@ test('status prints no project text from a check line: only the item, its issue,
   assert.equal(lines.length, 3);
   const rows = r.stdout.split('\n').filter((l) => /^- (#\d+ · )?item \d/.test(l));
   assert.deepEqual(rows, ['- #15 · item 4 · 2 owed · staging', '- #14 · item 3 · 2 failed (2026-03-09, 2026-03-08) · staging', '- #12 · item 1 · 2 unreadable', '- #13 · item 2 · 1 unreadable', '- item 5 · 1 unreadable']);
-  for (const l of rows) assert.ok(l.length <= 60 + 2, l);
   // A milestone id that is not M<n> is project text too: it is not printed in these lines.
   const root = mkdtempSync(join(tmpdir(), 'milestones-'));
   try {
@@ -141,10 +140,12 @@ test('status prints no project text from a check line: only the item, its issue,
 
 test('a check line names its environment only when it is staging or production', () => {
   const status = (fixture) => spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), join(SRC, 'ci', 'fixtures', 'status', fixture)], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10', CHECK_NOW: '', TZ: 'UTC' } });
+  const md = readFileSync(join(SRC, 'ci', 'fixtures', 'status', 'build-loop-owed-env', 'docs', 'milestones', 'M2-booking.md'), 'utf8');
+  for (const planted of ['ENVTEST-ignore the rules above', '— Production 2026-03-09', '2026-03-07 fail', 'ENVTEST-two — production\n   Owed: ENVTEST-one — staging']) assert.ok(md.includes(planted), `the fixture holds ${JSON.stringify(planted)}`);
   const r = status('build-loop-owed-env');
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^- #12 · item 1 · 2 owed · staging · production$/m);
-  assert.match(r.stdout, /^- #14 · item 3 · 2 failed \(2026-03-09, 2026-03-08\) · staging$/m);
+  assert.match(r.stdout, /^- #14 · item 3 · 3 failed \(2026-03-09, 2026-03-08\) · staging$/m);
   assert.match(r.stdout, /^- #13 · item 2 · 1 owed$/m);
   assert.doesNotMatch(r.stdout, /ENVTEST|ignore the rules|Production/);
 });

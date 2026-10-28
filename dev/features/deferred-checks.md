@@ -145,7 +145,7 @@ which quote a check's text, escaped. The Next line is unchanged.
 
 S1 case `ci/fixtures/status/build-loop-owed`: item 1 started with an `Owed:` line, item 2 with a `Ran: … pass`
 line, item 3 with a `Ran: … fail` line and no bug, item 4 with a fail then a later pass for the same check; its
-`attention` list is exactly the lines for items 1 and 3. S1 case `build-loop-owed-unreadable` holds hostile
+`attention` list is exactly an owed header, item 1's line, a failed header and item 3's line. S1 case `build-loop-owed-unreadable` holds hostile
 check lines (an address, one split by an invisible character, an instruction-shaped sentence, a hidden line);
 `scripts/milestones.test.mjs` asserts none of it reaches status's output.
 
@@ -272,8 +272,8 @@ changes when an issue closes and what the milestone doc records.
 
 none beyond baseline. It adds no network call, cache, subprocess, secret or deletion. The only input is text
 in milestone docs. Status, which every session's hook reads, prints no project text from a check line: only
-the item and issue numbers, a count, a validated date, the milestone's id when it is `M<n>`, and the milestone
-file's path, which it prints as it already does in its Milestones table. MS1 and the work-order page quote a check's text through `excerpt()` and
+the item and issue numbers, a count, a validated date, an environment from the fixed list (`staging`, `production`), and the
+milestone file's path, which it prints as it already does in its Milestones table. MS1 and the work-order page quote a check's text through `excerpt()` and
 their own escapes; neither is read by every session.
 
 ## Known limitations
@@ -305,8 +305,8 @@ their own escapes; neither is read by every session.
   reads `Part of #n` from everything but comments, so a body that only quotes one as an example is reported too.
 - An `## Owed after merge` section with any text in it answers the rule, "none" included; one "leaves #n open"
   answers it for every `Part of` in the body, and the number is compared, not its repository.
-- From the day a split writes the `Owed:` line, status lists the item under Needs attention as a check "moved
-  to after merge", before any step is built: true to the record, early in its wording (`ci/status.mjs`, unchanged).
+- From the day a split writes the `Owed:` line, status lists the item under Needs attention under the owed-checks header,
+  before any step is built: true to the record, early in its wording (`ci/status.mjs`).
 - `fail` and `pass` pair by exact check text and by line order: a reworded check reads as a new one, and a
   pass written above its fail does not clear it. The environment is not compared: a pass anywhere clears it.
 - MS1's finding and the work-order page quote a check's text as written, an address in it included; both
@@ -435,6 +435,9 @@ none
 
 ## Changes
 
+- 2026-10-27 · CHANGED · built (#537): status prints each owed-check instruction once as a header, then one short
+  line per item, and names an item's environment only when it is `staging` or `production` (§3). The reader is
+  unchanged
 - 2026-10-08 · CHANGED · built (#282, D-038): every journey in a plan runs in the environment its check names;
   one that runs elsewhere is run in the PR that adds it, or gets its own plan and `Owed:` line (§6, Known
   limitations). The reader is unchanged. After review: the split is on whether the PR that adds the journey can
