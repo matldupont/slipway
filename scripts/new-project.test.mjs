@@ -13,6 +13,7 @@ import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readDecisions } from '../ci/checks/lib/decisions.mjs';
+import { readWorkflow } from '../ci/checks/lib/workflow-yaml.mjs';
 import { gateGlobs, globToRegExp } from '../ci/checks/lib/gate-files.mjs';
 import { hasTemplateMarkers, isTemplate, MANIFEST, readManifest, sha256, SLIPWAY_ROOT_COMMIT, TEMPLATE_MARKERS } from '../ci/checks/lib/manifest.mjs';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
@@ -335,7 +336,7 @@ test('issue-shape: a repository without the needs-shape label still labels the i
 
 // D-053 (#565): a red prose job blocks a merge in a new project, as meta, verify and pr-body do. A stand-in `gh` keeps
 // the preflight, the push and the protection call off the network, and keeps the body new-project sends.
-test('main is protected with meta, verify, pr-body and prose, each the name of a job a shipped workflow runs', () => {
+test('main is protected with meta, verify, pr-body and prose, each a job a shipped workflow runs on every pull request; BOOTSTRAP names them', () => {
   const dir = tmp();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
@@ -359,10 +360,15 @@ test('main is protected with meta, verify, pr-body and prose, each the name of a
   const required = JSON.parse(readFileSync(join(dir, 'protection.json'), 'utf8')).required_status_checks.contexts;
   assert.deepEqual(required, ['meta', 'verify', 'pr-body', 'prose']);
 
-  // A required check no job reports would hold every merge as pending.
+  // A required check no job reports would hold every merge as pending: each is a job, by its name or id, of a shipped
+  // workflow that runs on pull_request.
   const jobs = shippedPaths(SRC, rules).filter((p) => /^\.github\/workflows\/[^/]+\.yml$/.test(p))
-    .flatMap((p) => [...readFileSync(join(SRC, p), 'utf8').matchAll(/^ {4}name: (\S+)$/gm)].map((m) => m[1]));
-  for (const c of required) assert.ok(jobs.includes(c), `no shipped workflow runs a job named ${c}: ${jobs}`);
+    .map((p) => readWorkflow(readFileSync(join(SRC, p), 'utf8')).root)
+    .filter((w) => w.entries.get('on')?.entries?.has('pull_request'))
+    .flatMap((w) => [...w.entries.get('jobs').entries].map(([id, job]) => job.entries.get('name')?.value ?? id));
+  for (const c of required) assert.ok(jobs.includes(c), `no shipped workflow runs a job named ${c} on a pull request: ${jobs}`);
+  const list = required.map((c) => `\`${c}\``).join(', ');
+  assert.ok(readFileSync(join(SRC, 'BOOTSTRAP.md'), 'utf8').includes(`required checks ${list};`), `BOOTSTRAP.md names ${list}`);
 });
 
 test('the created decisions.md holds the header and D-001–D-014 only: no slipway record, no citation of one', () => {

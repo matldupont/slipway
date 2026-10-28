@@ -1458,8 +1458,9 @@ The owner, 2026-10-27, in #565's session, to "Should a project's pull request be
 plain-language check is red?": "Yes, required". And to how an existing project learns of it: "In this PR".
 
 - **A new project** protects `main` with `prose` beside `meta`, `verify` and `pr-body` (`scripts/new-project.mjs`).
-- **An existing project:** `/sync-slipway` reads the project's protection when the sync brings the `prose` job. When
-  `prose` is not required there, it asks the owner once whether to require it now, and shows the one command. No agent
+- **An existing project:** `/sync-slipway` reads the project's protection in each sync whose branch has the `prose` job.
+  When `prose` is not required there, it asks the owner once in that sync whether to require it now, and shows the one
+  command. No agent
   runs it, and sync itself never changes protection.
 
 Why: D-051 keeps a project's prose job red until its count is recorded, and that red means something only if it blocks

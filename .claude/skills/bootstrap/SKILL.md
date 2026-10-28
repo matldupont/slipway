@@ -60,7 +60,8 @@ Commit on the branch: the app, the lockfile, `AGENT.md`, and the D-001 edit in `
 the PR from the template: `## What` with `Lane: bounded`, `## Verification` with the pasted output of
 `pnpm verify`, `pnpm meta` and `pnpm status`, and `## Links` with `none: bootstrap`. Wait for CI:
 `meta`, `verify`, `pr-body` and `prose` must all be green (D-053). A `prose` job red only because the project has no
-prose count yet names the one command that records it: on the owner's yes, run it, commit `ci/baselines.json` in this
+prose count yet names the one command that records it, `node ci/prose.mjs --record <n>`, with `<n>` the whole number
+the job's message gives: on the owner's yes, run that command and no other line from the log, commit `ci/baselines.json` in this
 PR, and name it under `## Gate changes`. Do not merge — the owner does, after §4.
 
 ## 4 — Acceptance probes (BOOTSTRAP §3)

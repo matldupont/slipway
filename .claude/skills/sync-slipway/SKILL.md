@@ -255,11 +255,13 @@ resolutions on the sync branch, then open one PR (`Lane: bounded`) whose body ha
   unless the number is the one it measures. With no count yet, sync records one at the Vale version CI pins, or
   says why not and names `node ci/prose.mjs --record <n>`, with `<n>` from the job's message.
 
-  **A red prose job blocks a merge once `prose` is required** (D-053). When the target's `.github/workflows/ci.yml`
-  has the `prose` job, read the project's required checks:
+  **A red prose job blocks a merge once `prose` is required** (D-053). When the sync branch's `.github/workflows/ci.yml`
+  has the `prose` job (a project that kept its own ci.yml may not), read the project's required checks:
   `gh api repos/<owner/name>/branches/main/protection/required_status_checks --jq .contexts`, with `<owner/name>` from
-  `gh repo view --json nameWithOwner --jq .nameWithOwner`. A 404 means `main` has no protection (D-001): say so, and ask
-  nothing. When the list lacks `prose`, ask the owner once in this sync, with AskUserQuestion: "Make the plain-language
+  `gh repo view --json nameWithOwner --jq .nameWithOwner`; when that is not the repository `git remote get-url origin`
+  names, say so and ask which before going on. A 404 or a 403 is not always "no protection": GitHub returns one for a
+  `main` with no protection (D-001), protected by a ruleset alone, protected with no required checks, or on a plan that
+  has no protection. Quote GitHub's message to the owner, say the check could not be read there, and ask nothing. When the list lacks `prose`, ask the owner once in this sync (again in a later sync while it still lacks it), with AskUserQuestion: "Make the plain-language
   check required now? Then a pull request cannot merge while it is red; the one that records your prose count turns
   it green." On their yes, give them the one command to run in their own terminal:
   `gh api -X POST repos/<owner/name>/branches/main/protection/required_status_checks/contexts -f 'contexts[]=prose'`.
