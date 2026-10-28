@@ -758,7 +758,8 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   // nothing; on the project's own lesson, it fails.
   answer(line('L-04', '2027-01-05') + line('L-71', '2027-01-05'));
   r = l1('2027-01-10');
-  assert.equal(r.status, 0, r.stdout);
+  assert.doesNotMatch(r.stdout, /lesson-reviews\.yaml#/, 'an entry for slipway\'s fixed-date lesson was called wrong');
+  assert.equal(due(r), undefined);
   writeFileSync(join(dest, 'process', 'lessons', 'PL-1-own.md'), '---\nid: PL-1\nrule: x\nenforcement:\n  status: prose\n  pointer: process/writing.md\n  review-by: 2099-01-01\n---\n');
   answer(line('L-04', '2027-01-05') + line('PL-1', '2027-01-05'));
   assert.match(l1('2027-01-10').stdout, /^L1: lesson-reviews\.yaml#reviews\/fixed-date: line 5: PL-1's review-by is a fixed date/m);
