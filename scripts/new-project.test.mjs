@@ -666,13 +666,21 @@ test('status in a project notes slipway\'s lesson past its date and asks for no 
   assert.doesNotMatch(r.stdout, note);
 });
 
+// A `vale` that names a version CI does not pin, first on PATH: new-project then records no prose count (#549), on a machine
+// with the pinned Vale as on one without, so the baselines a case reads are the same everywhere (#568).
+function unpinnedVale() {
+  const bin = tmp();
+  writeFileSync(join(bin, 'vale'), "#!/usr/bin/env node\nconsole.log('vale version 0.0.0');\n", { mode: 0o755 });
+  return { PATH: `${bin}${delimiter}${process.env.PATH}` };
+}
+
 // F-12 (dev/features/feature-fit.md §3): the count a new project starts from is its own, written, never copied.
 test('ci/baselines.json: a new project gets {"feature-fit": 0} whatever slipway\'s own copy holds; the path is seeded, and O1 passes with slipway holding one', () => {
   assert.equal(classify(rules, 'ci/baselines.json'), 'seeded');
   const zero = '{\n  "feature-fit": 0\n}\n';
 
   const plain = join(tmp(), 'probe');
-  newProject(SRC, plain, { SLIPWAY_SOURCE: '' });
+  newProject(SRC, plain, { SLIPWAY_SOURCE: '', ...unpinnedVale() });
   assert.equal(readFileSync(join(plain, 'ci', 'baselines.json'), 'utf8'), zero);
   assert.equal(git(plain, 'status', '--porcelain'), '', 'the file is in the first commit');
 
@@ -683,7 +691,7 @@ test('ci/baselines.json: a new project gets {"feature-fit": 0} whatever slipway\
   const o1 = check(src, 'o1-ownership.mjs');
   assert.equal(o1.status, 0, o1.stdout);
   const dest = join(tmp(), 'probe');
-  const { manifest } = newProject(src, dest, { SLIPWAY_SOURCE: '' });
+  const { manifest } = newProject(src, dest, { SLIPWAY_SOURCE: '', ...unpinnedVale() });
   const written = readFileSync(join(dest, 'ci', 'baselines.json'));
   assert.equal(written.toString('utf8'), zero, "slipway's own count reached a project");
   assert.deepEqual(manifest.files['ci/baselines.json'], { class: 'seeded', sha256: sha256(written), blob: blobSha(written) }, 'recorded as the project wrote it');
