@@ -1452,6 +1452,8 @@ can fix. Spec: F-16 (0.6), #521.
 
 Amends: F-16
 
+F-16 names this decision in its as-built rewrite (#552), as it does D-052, not by an edit now.
+
 The owner, 2026-10-27, in #565's session, to "Should a project's pull request be unable to merge while the
 plain-language check is red?": "Yes, required". And to how an existing project learns of it: "In this PR".
 
