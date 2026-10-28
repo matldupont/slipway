@@ -745,6 +745,7 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
     [line('L-04', '2027-02-30'), 'invalid'],
     [line('L-04', '2027-01-05', '"  "'), 'invalid'],
     [line('L-71', '2027-01-05'), 'fixed-date'],
+    [line('L-01', '2027-01-05'), 'invalid'], // L-01 has no review-by: nothing to answer, and not called a fixed date
     ['  - lesson: L-04\n    reviewd: 2027-01-05\n    reason: still holds\n', 'unreadable'],
   ]) {
     answer(lines);
@@ -776,7 +777,7 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   answer('  - lesson: L-04\n    oops\n');
   const s = status('2026-12-20');
   assert.equal(s.status, 0, s.stderr);
-  assert.match(s.stdout, /^- process\/lesson-reviews\.yaml cannot be read \(line 3: /m);
+  assert.match(s.stdout, /^- process\/lesson-reviews\.yaml cannot be read at line 3, so no review in it counts: pnpm meta's L1 names the problem\.$/m, 'status quoted the project\'s line');
   assert.match(s.stdout, /^- Review the lesson \(L-04\) by 2026-12-30\.$/m, 'an unreadable file answered the review in status');
 });
 

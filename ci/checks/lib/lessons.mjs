@@ -65,7 +65,9 @@ export function reviewProblem(r, lessons, today) {
   if (!r.lesson || !r.reviewed || !said(r.reason)) return ['reviews/invalid', 'needs lesson, reviewed (YYYY-MM-DD) and reason ("still holds", or what changed)'];
   if (!isDay(r.reviewed)) return ['reviews/invalid', `reviewed "${r.reviewed}" is not a real YYYY-MM-DD day`];
   if (!lessons.has(r.lesson)) return ['reviews/unknown-lesson', `no lesson in process/lessons has the id ${r.lesson}`];
-  if (!RELATIVE.test(String(lessons.get(r.lesson)))) return ['reviews/fixed-date', `${r.lesson}'s review-by is a fixed date, not +<N>d, so no review line moves it: in a project, slipway's fixed dates are slipway's to move by sync (#548), and a project's own lesson moves its date in the lesson`];
+  const rb = String(lessons.get(r.lesson) ?? '');
+  if (!FIXED_DATE.test(rb) && !RELATIVE.test(rb)) return ['reviews/invalid', `${r.lesson} has no +<N>d review-by, so there is no review to answer`];
+  if (!RELATIVE.test(rb)) return ['reviews/fixed-date', `${r.lesson}'s review-by is a fixed date, not +<N>d, so no review line moves it: in a project, slipway's fixed dates are slipway's to move by sync (#548), and a project's own lesson moves its date in the lesson`];
   if (r.reviewed > today) return ['reviews/future', `reviewed ${r.reviewed} is after today (${today}): record a review on the day it was made`];
   return null;
 }

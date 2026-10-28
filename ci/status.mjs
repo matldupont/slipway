@@ -388,11 +388,13 @@ const lessonFiles = plainFolder('process/lessons')
 // The project's answers to +<N>d reviews (#554), through the reader and the rules L1 uses: a +<N>d clock counts from the
 // latest review day. A file that is a link or not a regular file, or that cannot be read, answers nothing and says so.
 const answers = [null, MISSING].includes(notPlainFile(root, REVIEWS)) ? readReviews(root) : { exists: true, reviews: [], error: 'not a regular file' };
+// Only the line number of the reader's error: its text quotes the project's line, which no quotes here could hold.
+const unreadableAt = (error) => { const n = String(error).match(/^line (\d{1,6}):/)?.[1]; return n ? ` at line ${n}` : ''; };
 const lessonIds = new Map((lessonFiles ?? []).filter(({ fm }) => asText(fm?.id)).map(({ fm }) => [asText(fm.id), asText(fm?.enforcement?.['review-by'])]).reverse());
 const reviewed = latestReviews(answers.reviews, lessonIds, today);
 const dueSoon = lessonFiles
   ? [
-    ...(answers.error ? [`${REVIEWS} cannot be read (${excerpt(answers.error, 80)}), so no review in it counts: pnpm meta's L1 names the line.`] : []),
+    ...(answers.error ? [`${REVIEWS} cannot be read${unreadableAt(answers.error)}, so no review in it counts: pnpm meta's L1 names the problem.`] : []),
     ...lessonFiles.flatMap(({ f, fm }) => {
       const rb = asText(fm?.enforcement?.['review-by']);
       if (!rb) return [];

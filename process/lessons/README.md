@@ -46,7 +46,7 @@ reviews:
     reason: still holds        # or what changed, or why it does not apply here
 ```
 
-L1 fails a line with no reason, a day that is not real or is after today, an id no lesson has, or a lesson whose
+The lessons check fails a line with no reason, a day that is not real or is after today, an id no lesson has, or a lesson whose
 `review-by` is a fixed date. A project's own lesson can also be mechanised, extended with a reason, or deleted.
 
 The seed lessons L-01 to L-43 are failure patterns common to agent-assisted projects; L-50 to L-60 are
