@@ -1,0 +1,14 @@
+{
+  "_note": "answered.md: +30d answered on 2026-09-01, due again 2026-10-01, passes. unanswered.md: +30d from 2026-06-01 = 2026-07-01, and none of its lines counts (one is after today, one is not a real day). L-99 names no lesson; L-3's date is fixed (#554).",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "lesson-reviews.yaml#reviews/unknown-lesson",
+    "lesson-reviews.yaml#reviews/future",
+    "lesson-reviews.yaml#reviews/invalid",
+    "lesson-reviews.yaml#reviews/fixed-date",
+    "unanswered.md#review/due"
+  ]
+}
