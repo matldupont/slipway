@@ -1,0 +1,13 @@
+{
+  "_note": "#537. Check lines whose environment is staging or production name it on the item's line, in that order; an environment outside the list (a different case, an instruction-shaped sentence) is left out. The instruction-shaped text never reaches the output; scripts/milestones.test.mjs asserts that. Each kind prints one header, then one line per item.",
+  "today": "2026-03-10",
+  "next": "Finish M2's open issues, then run /close-milestone once its gate is green. Every item has an issue. Agent, one issue per session.",
+  "frame": "framed · risks: RISK-1 tested",
+  "attention": [
+    "Owed checks (docs/milestones/M2-booking.md): run each, comment the result on its issue, then change Owed to Ran with that comment's link. An item's issue stays open until then; reopen it if it was closed.",
+    "#12 · item 1 · 2 owed · staging · production",
+    "#13 · item 2 · 1 owed",
+    "Failed checks (docs/milestones/M2-booking.md): fix and run each again, file the bug and name it on the Ran line, or, when the owner accepts the result, remove its line in a pull request that records that decision.",
+    "#14 · item 3 · 2 failed (2026-03-09, 2026-03-08) · staging"
+  ]
+}
