@@ -284,12 +284,13 @@ test('work-ticket Phase 6 runs P1 on the final body before `gh pr ready`, and in
 
 // #471: /log-bug opened its doc PR ready with the pr-body check unrun; the chain runs P1 on the final body first. /log-feature opens a draft.
 test('/log-bug runs P1 on the final body before `gh pr create` opens the doc PR ready, and /log-feature opens its draft with --draft', () => {
-  const flatText = (t) => t.replace(/\s+/g, ' ');
-  const bug = flatText(read(skillPath('log-bug')));
+  const bug = flat(read(skillPath('log-bug')));
   assert.equal(bug.split('gh pr create').length - 1, 3, '/log-bug has the one `gh pr create` in the chain, and two named in prose');
   assert.ok(bug.includes('d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" . && gh pr create --repo {checkout} --title "$(cat {prdir}/title.txt)" --body-file "{prdir}/pr.md"'), '/log-bug must chain the changed-files list, P1 and `gh pr create` with &&, so a finding stops it');
   assert.match(bug, /stops at a finding: fix `\{prdir\}\/pr\.md` and run it again, so the body checked is the body posted; a finding the body cannot clear is not opened ready: use `gh pr create --draft` and tell the owner which finding it is\./, '/log-bug must say what a finding leads to');
-  assert.match(flatText(read(skillPath('log-feature'))), /gh pr create --draft --repo \{checkout\}/, '/log-feature must open its doc PR with --draft, so it never opens ready');
+  const feature = flat(read(skillPath('log-feature')));
+  assert.equal(feature.split('gh pr create').length - 1, 1, '/log-feature must have exactly one `gh pr create`, so none can open ready');
+  assert.match(feature, /gh pr create --draft --repo \{checkout\}/, '/log-feature must open its doc PR with --draft, so it never opens ready');
 });
 
 // F-15 §8 (#440 step 5): the ready step reads decisions at the pull request, and asks before a condition line is touched.
