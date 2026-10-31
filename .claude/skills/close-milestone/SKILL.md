@@ -71,7 +71,7 @@ Keep it to one screen. Opinions about quality go in lessons, not the retro.
 1. Milestone frontmatter: `status: closed` (or `killed`).
 2. Each feature doc the milestone shipped: `status: shipped`, and a fresh
    `Verified against: <main sha> <date>`. Behaviour that differs from its Contract becomes a
-   `## Changes` line, not a rewrite, and that line moves the doc's `Version:` (`process/intake.md` → Feature doc version).
+   `## Changes` line, not a rewrite, and that line moves the doc's `Version:` (`process/intake.md` → Feature doc version). A pull request that moves a feature doc's `Version:` (the PRD's bump in step 4 is not one) is opened with `--draft`, and its `## What` says it stays a draft until a current review of that version (`/review-doc`) is merged into its branch: P1 holds a ready one. Its body carries `Owed: review of {version} (owner, fresh session)`, and the session ends its turn with a `Yours:` block naming that review and the prompt `/review-doc {doc path}`, one for each doc that moves.
    A doc marked shipped has its `## Fit` filled first, from a search of the code as it shipped, since the check
    holds it from that commit; a Fit edit moves no `Version:`.
 3. Open issues still in the GitHub milestone: move each to the next milestone, to a declined
