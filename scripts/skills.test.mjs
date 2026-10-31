@@ -282,6 +282,17 @@ test('work-ticket Phase 6 runs P1 on the final body before `gh pr ready`, and in
   assert.match(pr, /\*\*Before ready,\*\* a PR opened ready or marked ready by hand has the `pr-body` check run on its final body .*node ci\/checks\/lib\/gate-files\.mjs "\$\(git rev-parse origin\/\{base\}\)" "\$\(git rev-parse HEAD\)" > "\{dir\}\/body\.changes\.json"` and `node ci\/checks\/meta\/p1-pr-body\.mjs "\{dir\}" \.` \(the `\.` is the root it reads `decisions\.md` from\), and is not marked ready while that reports a finding\./, 'intake.md → Pull request must say P1 runs before ready, with both commands and the sidecar name');
 });
 
+// #471: /log-bug opened its doc PR ready with the pr-body check unrun; the chain runs P1 on the final body first. /log-feature opens a draft.
+test('/log-bug runs P1 on the final body before `gh pr create` opens the doc PR ready, and /log-feature opens its draft with --draft', () => {
+  const bug = flat(read(skillPath('log-bug')));
+  assert.equal(bug.split('gh pr create').length - 1, 3, '/log-bug has the one `gh pr create` in the chain, and two named in prose');
+  assert.ok(bug.includes('d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" . && gh pr create --repo {checkout} --title "$(cat {prdir}/title.txt)" --body-file "{prdir}/pr.md"'), '/log-bug must chain the changed-files list, P1 and `gh pr create` with &&, so a finding stops it');
+  assert.match(bug, /stops at a finding: fix `\{prdir\}\/pr\.md` and run it again, so the body checked is the body posted; a finding the body cannot clear is not opened ready: use `gh pr create --draft` and tell the owner which finding it is\./, '/log-bug must say what a finding leads to');
+  const feature = flat(read(skillPath('log-feature')));
+  assert.equal(feature.split('gh pr create').length - 1, 1, '/log-feature must have exactly one `gh pr create`, so none can open ready');
+  assert.match(feature, /gh pr create --draft --repo \{checkout\}/, '/log-feature must open its doc PR with --draft, so it never opens ready');
+});
+
 // F-15 §8 (#440 step 5): the ready step reads decisions at the pull request, and asks before a condition line is touched.
 test('work-ticket asks the owner before a condition line in decisions.md is removed, edited or added to a decided entry, and its ready step passes P1 the root', () => {
   const md = flat(read(skillPath('work-ticket')));
