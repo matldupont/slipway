@@ -249,7 +249,7 @@ per `Issue milestone` only.
    `docs({scope}): draft {feature} for #{n}`; body `## What` (`Lane: bounded`, a draft for review, or one block the owner confirmed, the bug
    in one line), `## Verification` (`pnpm meta` as run, in a code block), `## Links` (`Part of #{n}`, or
    `Part of {repo}#{n}` when the two repositories differ), with no closing keyword in any form (close, fix,
-   resolve, and their -s and -d forms): this PR must not close the bug, and its body says it "leaves #{n} open" (the PR check asks for that). `gh pr create` prints its URL; its number is `{pr}`.
+   resolve, and their -s and -d forms): this PR must not close the bug, and its body says it "leaves #{n} open" (the PR check asks for that). `gh pr create` prints its URL; its number is `{pr}`. Where the diff to the default branch moves or adds a doc's `Version:` line (a confirmed single block moves none), add `--draft`: its `## What` says it stays a draft until a current review of that version (`/review-doc`) is merged into its branch, since P1 holds a ready pull request that moves a `Version:` with no such review; the body carries `Owed: review of {version} (owner, fresh session)`, and the session ends its turn with a `Yours:` block naming that review and the prompt `/review-doc {doc path}` (`process/intake.md` → Feature doc version, Owed review).
 
    ```bash
    git push -u origin docs/bug-{name}

@@ -1277,6 +1277,14 @@ test('the session that moves a spec\'s Version ends with a Yours: block naming t
   assert.match(flat(section(read('process/intake.md'), 'Feature doc version', 2)), /\*\*Owed review\.\*\* The session that moves the line \(`\/log-feature`, or a revision after a review\) ends its turn with a `Yours:` block that names the owed review and gives the prompt `\/review-doc \{doc path\}` for the new version, and the doc pull request's body carries `Owed: review of \{version\} \(owner, fresh session\)`/, 'intake.md → Feature doc version must say who hands the owed review over, and how');
 });
 
+// #472: /log-bug (cases B and C) and /close-milestone open a doc PR that moves a Version: line; #464's wording, as for /log-feature.
+test('/log-bug and /close-milestone open a PR that moves a spec\'s Version: as a draft, with the Owed line and the Yours: block', () => {
+  const bug = flat(read(skillPath('log-bug')));
+  assert.match(bug, /Where the diff to the default branch moves or adds a doc's `Version:` line \(a confirmed single block moves none\), add `--draft`: its `## What` says it stays a draft until a current review of that version \(`\/review-doc`\) is merged into its branch, since P1 holds a ready pull request that moves a `Version:` with no such review; the body carries `Owed: review of \{version\} \(owner, fresh session\)`, and the session ends its turn with a `Yours:` block naming that review and the prompt `\/review-doc \{doc path\}`/, '/log-bug must open a version-moving doc PR with --draft, with the Owed line and the Yours: block');
+  const cm = flat(read(skillPath('close-milestone')));
+  assert.match(cm, /A pull request that moves a `Version:` is opened with `--draft`, and its `## What` says it stays a draft until a current review of that version \(`\/review-doc`\) is merged into its branch: P1 holds a ready one\. Its body carries `Owed: review of \{version\} \(owner, fresh session\)`, and the session ends its turn with a `Yours:` block naming that review and the prompt `\/review-doc \{doc path\}`\./, '/close-milestone step 4.2 must open a version-moving PR with --draft, with the Owed line and the Yours: block');
+});
+
 // #406 step 2 (F-14, D-042): the templates carry the front-end line, the screens and design fields, and the
 // accessibility line. Each placeholder is whole on one line, in the form PLACEHOLDER matches.
 test('docs/product/FRAME.md carries one front-end line under Job story, as a placeholder PLACEHOLDER matches', () => {
