@@ -11,7 +11,8 @@ permissions:
 
 concurrency:
   group: pr-body-${{ github.event.pull_request.number }}
-  # Runs wait their turn and none is cancelled: a cancelled run is shown as a failing check beside the one that passed.
+  # A running run is never cancelled: a cancelled run is shown as a failing check beside the one that passed. GitHub still
+  # cancels a run waiting in the group when a newer one queues: the newer run replaces it, and the newest body is checked.
   cancel-in-progress: false
 
 jobs:

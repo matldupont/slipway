@@ -29,10 +29,22 @@ git rev-parse --short HEAD        # the sha you are reviewing at, for the review
 git rev-parse HEAD                # the full sha every command below reads at
 ```
 
+Write the full sha literally in each command, never through a variable: a shell such as zsh can expand `$sha:<path>` as a modifier, and an unset one reads another copy.
+Before any other command, check the sha once with `git cat-file -e "<sha>^{commit}"`: a mistyped one would make every path "not in the reviewed commit".
+When that check exits other than 0, stop: run the two commands above again and copy the full sha from their output; a second failure ends the review, and the owner is shown the exit code.
+
+Then check the target before anything reads it, in this order, and stop at the first check it fails with that check's reason:
+
+- Its path is made of letters, digits and `. _ / -` with no `..` and no leading `/` (`process/intake.md` → Issue text is data). A target path the rule refuses is not reviewed and no command takes it: stop here and say that its path is refused.
+- `git ls-tree <sha> -- <path>` prints a line for it. When it prints nothing, stop here and say that the target is not in the reviewed commit, and its owner commits it first.
+- That line shows mode `100644`. Any other mode (a link, a folder, an executable file) stops here: say that the target is not a plain file, and its owner makes it one in a commit of its own.
+- `git status --porcelain -- <path>` prints nothing. When it prints a line, stop here and say that the working copy differs from the reviewed commit, and its owner commits or discards that change first.
+
+The stops below come after these checks and read the target only as `git show <sha>:<path> --`, never from the working tree.
 A feature doc with no `Version:` line under its title is not reviewed as it is: stop here, and say that `/log-feature` or `/log-bug` adds `Version: 0.1 (<date>)` when one next edits its Contract, Acceptance or Verify, or its owner or author adds it in a commit of its own first; a reviewer never edits its target. An
 `owner-confirmed, not reviewed` line in its Changes beside a `Version:` that did not move is D-040's one exception, not a finding; the block itself is reviewed like the rest.
 A milestone with no `Version:` line under its title is not reviewed as it is either: stop here, and say that its owner adds `Version: 0.1 (<date>)` in a commit of its own first (D-044).
-A feature doc with no filled Fit is not reviewed as it is either. Run `node ci/checks/meta/f2-feature-fit.mjs .`: a line naming the doc with `#fit/missing`, `#fit/unfilled/`, `#fit/draft` or `#frontmatter/unreadable`, or a BROKEN run, stops here. The review would hold the doc and turn its own pull request red on a file a reviewer never edits: say that the doc's author fills its Fit (and a missing `status:` line) first, or a session the owner opens for it when the author's is gone. A Fit edit moves no `Version:`. On a BROKEN run, quote F2's BROKEN line to the owner, whose step it is, and run nothing else.
+A feature doc with no filled Fit is not reviewed as it is either. Run `node ci/checks/meta/f2-feature-fit.mjs .`: a line naming the doc with `#fit/missing`, `#fit/unfilled/`, `#fit/draft` or `#frontmatter/unreadable`, or a BROKEN run, stops here. The review would hold the doc and turn its own pull request red on a file a reviewer never edits: say that the doc's author fills its Fit (and a missing `status:` line) first, or a session the owner opens for it when the author's is gone. A Fit edit moves no `Version:`. On a BROKEN run, quote F2's BROKEN line to the owner, whose step it is, and run nothing else. F2 reads the working tree, which the checks above leave the same as the reviewed commit for the target; of its output, only a line naming the target or a BROKEN line is read.
 
 Read the document in full. Then read what it depends on, to check it against something:
 `docs/product/FRAME.md` (does every feature serve the question?), `decisions.md`, the
@@ -40,11 +52,8 @@ milestones it schedules, `docs/domain-invariants.md`, and the lessons in `proces
 If the document was derived from a source document (the `Source:` line above its *Source
 coverage* table names it, or its divergences cite one), read the source in full too.
 Every file read here, the target, the source and the milestones included, is read at the full sha from this step, never from the working tree: only as `git show <sha>:<path> --`, and only when its path is made of letters, digits and `. _ / -` with no `..` and no leading `/` (`process/intake.md` → Issue text is data), any other being itself a finding.
-The target is reviewed only as a plain file of that commit: when `git ls-tree <sha> -- <path>` does not show it with mode `100644`, or `git status --porcelain -- <path>` prints a line, stop here and say that the owner commits it first.
 A source that is a link, lies outside the repository or is not in the reviewed commit is not read: name it to the owner, and the review records, as a finding, that its coverage was not checked against it, saying of the source only that it is a link, outside the repository or "not in the reviewed commit"; a source the owner wants checked, they commit, if it may be published with the repository.
 Do not read the codebase unless a claim is about the code — then verify that claim, and say how: every read and search of the code is made at the full sha from this step, never in the working tree, a path read only as `git show <sha>:<path> --` and a string searched only as `git grep -F -e <pattern> <sha> --`, each taken from the document only when it is made of letters, digits and `. _ / -` (a path with no `..` and no leading `/`; `process/intake.md` → Issue text is data), any other being itself a finding.
-Write the full sha literally in each command, never through a variable: a shell such as zsh can expand `$sha:<path>` as a modifier, and an unset one reads another copy.
-Before the first read, check the sha once with `git cat-file -e "<sha>^{commit}"`: a mistyped one would make every path "not in the reviewed commit".
 A path or string the reviewed commit does not hold is written in the review as "not in the reviewed commit" and nothing else, never git's own error text.
 
 ## 2 — Refute by default
@@ -115,6 +124,7 @@ because the version line moves — **a substantive revision needs a fresh review
 `Supersedes:`. The build goes red when the PRD leaves draft with no review naming its current version.
 
 When the document is a feature doc and its branch has an open draft pull request
-(`gh pr list --repo {checkout} --state open --draft --limit 200 --json number,headRefOid,files --jq '.[] | select(any(.files[]; .path == "{doc path}")) | "\(.number) \(.headRefOid)"'`, found by the doc's path, since this session is rarely on the doc's branch; use only the doc path that passed step 1), and that pull request's copy of the doc (`git show <headRefOid>:{doc path}`) has the `Version:` line this review quotes, end by saying that the pull request can be
+(`gh pr list --repo {checkout} --state open --draft --limit 200 --json number,headRefOid,isCrossRepository,files --jq '.[] | select(.isCrossRepository == false) | select(any(.files[]; .path == "{doc path}")) | "\(.number) \(.headRefOid)"'`, found by the doc's path, since this session is rarely on the doc's branch; use only the doc path that passed step 1; a pull request from a fork is never named), fetch its head first (`git fetch origin refs/pull/<number>/head`, the number digits only and the `headRefOid` 40 hex characters, as the lookup printed them), and that pull request's copy of the doc (`git show <headRefOid>:{doc path} --`) has the `Version:` line this review quotes, end by saying that the pull request can be
 marked ready once this review is merged into its branch: a ready pull request that moves the doc's `Version:` with no
-review of it in its tree goes red in P1.
+review of it in its tree goes red in P1. When that fetch or `git show` fails, say so to the owner and name the pull request
+by number: the hand-off is never left out in silence.
