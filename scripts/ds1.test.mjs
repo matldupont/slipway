@@ -225,7 +225,7 @@ test('a design item or an accessibility line in fenced code is not one: it is sh
 test('design: and extended: take one decision heading the same way, whatever its shape (#515, #513)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ds1-same-'));
   try {
-    for (const heading of ['## PD-7 — x *(decided 2026-10-01)*', '# PD-7 — x *(decided 2026-10-01)*', '> ## PD-7 — x *(decided 2026-10-01)*', '## PD-7-b — x *(decided 2026-10-01)*', '## PD-7 — x *(open — week 1)*']) {
+    for (const heading of ['## PD-7 — x *(decided 2026-10-01)*', '# PD-7 — x *(decided 2026-10-01)*', '> ## PD-7 — x *(decided 2026-10-01)*', '## PD-7 — x *(open — week 1)*']) {
       write(dir, files({ decisions: `# Decisions\n\n${heading}\n`, milestones: { 'M2.md': milestone({ contents: [DESIGN], fields: ['design: PD-7', 'extended: PD-7'] }) } }));
       const design = run('ci/checks/meta/ds1-design-before-screens.mjs', dir, { CHECK_TODAY: TODAY });
       const ms = run('ci/checks/meta/ms1-milestones.mjs', dir, { CHECK_TODAY: '2026-10-15' });

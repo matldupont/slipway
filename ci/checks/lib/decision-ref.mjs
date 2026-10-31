@@ -6,7 +6,7 @@
 //
 // With `decided: true` the record is read through parseDecisions() (lib/decisions.mjs), the one reader of decisions.md
 // that ID1, DC1 and testStart() share, which takes a heading at any level, quoted or as a list item, and folds look-alike
-// characters: the entry with that exact id as written answers only when its heading's first
+// characters, and does not skip a heading in a fence or indented code: the entry with that exact id as written answers only when its heading's first
 // status clause reads `*(decided …)*` or `*(accepted …)*`. Every project's decisions.md holds `## D-005 — Frontend
 // framework *(open — week 1)*`, and an open stub is no decision; a heading with no status, or one cut before it, fails
 // closed. MS1 reads `extended:` this way too (#513); the plain `## `/`### ` scan below runs only when `decided` is left off.

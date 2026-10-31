@@ -89,8 +89,8 @@ export const commentCrossesHeading = (md) =>
 // The text a reader sees as prose, roughly: the frontmatter, HTML comments and fenced code blocks removed (an
 // unclosed comment or fence runs to the end). Two simple passes, comments then fences, so it misreads a `<!--` in
 // inline code, a ` ``` x ``` ` line and a tab-indented fence (dev/features/roadmap-page.md → Known limitations).
-// For owner-only views and for DS1, which reads a milestone's design items and Gate line through it; nothing that
-// publishes reads through it. Four-space indented code is not removed either (DS1's Known limitations in
+// Read through by owner-only views, by DS1 (a milestone's design items and Gate line, the frame's `Front end:` line) and
+// by P1 on a pull request's body; nothing that publishes reads through it. Four-space indented code is not removed either (DS1's Known limitations in
 // dev/features/design-before-screens.md names what that costs).
 export function prose(md, { frontmatter = true, unclosed = true } = {}) {
   const body = frontmatter ? withoutHeader(md) : md;
