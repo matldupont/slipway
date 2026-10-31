@@ -8,8 +8,7 @@
 // that ID1, DC1 and testStart() share: the entry with that exact id as written answers only when its heading's first
 // status clause reads `*(decided …)*` or `*(accepted …)*`. Every project's decisions.md holds `## D-005 — Frontend
 // framework *(open — week 1)*`, and an open stub is no decision; a heading with no status, or one cut before it, fails
-// closed. MS1 reads `extended:` this way too (#513); the plain `## `/`### ` scan is for callers that ask only whether
-// a heading exists.
+// closed. MS1 reads `extended:` this way too (#513); the plain `## `/`### ` scan below runs only when `decided` is left off.
 
 import { parseDecisions } from './decisions.mjs';
 
