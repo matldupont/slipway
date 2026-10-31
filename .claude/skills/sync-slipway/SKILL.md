@@ -159,8 +159,10 @@ Every sync runs this once the tree is on the sync commit, whatever the frame's d
    quote its `broken` to the owner, and the pull request waits until it runs. A finding the owner answers about a
    running milestone is one of four: `gate/accessibility`, `design/missing` or `design/unresolved` (each on an
    active milestone), or `accessibility/overdue` on a milestone whose file says `status: active`. Its milestone id is
-   the text after the finding id's colon, taken only when it is `M<n>` or `M<n>.<k>`; any other is quoted to the
-   owner, and nothing is asked or written for it. Its file is the milestone whose `id:` that is. Ask about those
+   all the text after the rule's colon (an `id:` that holds a colon is part of it), taken only when the whole of it
+   is `M<n>` or `M<n>.<k>`, in any letter case as the checks read it; any other is quoted to the
+   owner, and nothing is asked or written for it. Its file is the milestone whose `id:` is that id as the checks read
+   it, so `m2` and `M02` are the milestone `M2`, and the entry is written as `docs/milestones#M2/accessibility`. Ask about those
    milestones in one batch, right after the frame question: one question per milestone, in the project's words,
    naming it by the title its file gives it, quoted, and holding only the parts its findings name: how its screens
    meet WCAG 2.2 AA, or what is not held yet and by when (`gate/accessibility`, `accessibility/overdue`); what its
@@ -172,7 +174,8 @@ Every sync runs this once the tree is on the sync commit, whatever the frame's d
    `docs/milestones#<id>/accessibility` in `ci/exceptions.yaml`, shown to the owner whole (the milestone, the day,
    the reason, the owner), written only on their yes and named under `## Gate changes`; a `Design:` item below the
    work already begun; or a decision named as `design: PD-<n>`. For an overdue entry, writing the Gate line also
-   removes the entry, and a later day re-dates that same entry, never a second one. An owner who cannot yet
+   removes the entry, and a later day re-dates that same entry, never a second one: the entry is shown whole, with
+   its reason, and re-dated only on the owner's yes, whatever date they give. An owner who cannot yet
    say how the screens meet the level answers with the date. Every answer is owed before the pull request opens
    (§5): with one unanswered, `pnpm meta` is red.
 3. **Never a placeholder.** A sync never writes a placeholder into a project's file. A milestone still being shaped
