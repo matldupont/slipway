@@ -123,7 +123,7 @@ for (const { file: f, md, fm } of milestones) {
   if (fm.kind && !MILESTONE_KINDS.includes(fm.kind)) add('kind/unknown', `"${fm.kind}" is not one of ${MILESTONE_KINDS.join(', ')}`);
   if (fm.extended && !hasDecision(fm.extended)) {
     add('extended/unresolved', extension(fm.extended).why === 'open'
-      ? `${fm.extended} is still open in decisions.md, and an open decision extends nothing: decide it there, or fix the id in extended:`
+      ? `${fm.extended} is not marked decided or accepted in decisions.md (a decision still open extends nothing): the owner decides it there, or name the extension's own decided decision in extended:`
       : `${fm.extended} is not a heading in decisions.md: record the extension there, or fix the id in extended:`);
   }
   for (const item of contents(md)) {

@@ -275,14 +275,14 @@ the check prints its view and exits 0.
 - A front-end line that says `none` closes every finding but `screens/unknown` and the entry findings, which are
   read whatever the frame says: a project with no front end gets none of the rest, and no `screens:` field is
   needed.
-- `design: PD-<n>` is read like `extended:` (MS1), with one hold added. The value must first be a decision id,
+- `design: PD-<n>` is read like `extended:` (MS1). The value must first be a decision id,
   `PD-<n>` or `D-<n>` and nothing else (`^P?D-\d+$`): any other text is unresolved, quoted in the finding, and
   is never looked up, so `design: .*` and `design: D` name no decision. Then the id must exist as a `## PD-<n>`
   or `### PD-<n>` heading in `decisions.md`, matched as text, never as a pattern; `D-<n>` answers only to a heading with that
   exact id. For `design:` that heading must also be marked decided or accepted, read through `parseDecisions()` as
   `testStart()` reads one, so an open stub (every project's `D-005` until it is decided) answers nothing. The
   resolver is `resolveDecision()` in `ci/checks/lib/decision-ref.mjs`, and MS1's `extended:` is read through it, so
-  `extended:` takes the id hold (decision-defaults §5); it still lets an open decision answer, which #513 covers.
+  `extended:` takes the id hold (decision-defaults §5) and, since #513, the decided hold too: an open stub extends nothing.
   The template's header note documents `design:` beside `extended:`.
 - **Its view says what it skipped.** One word in a committed file turns a finding off (`Front end: none`,
   `screens: none`, `design: PD-<n>`), and a pull request can carry that word (decision-defaults §3); a live
