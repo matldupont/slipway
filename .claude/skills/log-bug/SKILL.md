@@ -249,11 +249,11 @@ per `Issue milestone` only.
    `docs({scope}): draft {feature} for #{n}`; body `## What` (`Lane: bounded`, a draft for review, or one block the owner confirmed, the bug
    in one line), `## Verification` (`pnpm meta` as run, in a code block), `## Links` (`Part of #{n}`, or
    `Part of {repo}#{n}` when the two repositories differ), with no closing keyword in any form (close, fix,
-   resolve, and their -s and -d forms): this PR must not close the bug, and its body says it "leaves #{n} open" (the PR check asks for that). `gh pr create` prints its URL; its number is `{pr}`.
+   resolve, and their -s and -d forms): this PR must not close the bug, and its body says it "leaves #{n} open" (the PR check asks for that). `gh pr create` prints its URL; its number is `{pr}`. The chain below runs the `pr-body` check (`{base}` is the default branch) on the final body and stops at a finding: fix `{prdir}/pr.md` and run it again, so the body checked is the body posted; a finding the body cannot clear is not opened ready: use `gh pr create --draft` and tell the owner which finding it is.
 
    ```bash
    git push -u origin docs/bug-{name}
-   gh pr create --repo {checkout} --title "$(cat {prdir}/title.txt)" --body-file {prdir}/pr.md
+   d="$(mktemp -d)" && cp "{prdir}/pr.md" "$d/body.md" && node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "$d/body.changes.json" && node ci/checks/meta/p1-pr-body.mjs "$d" . && gh pr create --repo {checkout} --title "$(cat {prdir}/title.txt)" --body-file "{prdir}/pr.md"
    ```
 
 ```
