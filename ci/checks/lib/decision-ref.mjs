@@ -1,11 +1,12 @@
 // A field that names a decision in decisions.md (`extended: PD-<n>` in MS1, `design: PD-<n>` in DS1), read one way
 // (F-14 §4). The value must first be a decision id, `PD-<n>` or `D-<n>` and nothing else: any other text is never looked
-// up, so `.*` or `D` names no decision. Then, without `decided`, a `## <id>` or `### <id>` heading must start a line of decisions.md, the
-// id written exactly as the field writes it and compared as text, never as a pattern: `D-5` does not answer for `D-005`,
-// and `PD-1` does not answer for `PD-12`.
+// up, so `.*` or `D` names no decision. Then a heading must name it, the id written exactly as the field writes it and
+// compared as text, never as a pattern: `D-5` does not answer for `D-005`, and `PD-1` does not answer for `PD-12`.
+// Without `decided`, that is a `## <id>` or `### <id>` heading starting a line of decisions.md.
 //
 // With `decided: true` the record is read through parseDecisions() (lib/decisions.mjs), the one reader of decisions.md
-// that ID1, DC1 and testStart() share: the entry with that exact id as written answers only when its heading's first
+// that ID1, DC1 and testStart() share, which takes a heading at any level, quoted or as a list item, and folds look-alike
+// characters, and does not skip a heading in a fence or indented code: the entry with that exact id as written answers only when its heading's first
 // status clause reads `*(decided …)*` or `*(accepted …)*`. Every project's decisions.md holds `## D-005 — Frontend
 // framework *(open — week 1)*`, and an open stub is no decision; a heading with no status, or one cut before it, fails
 // closed. MS1 reads `extended:` this way too (#513); the plain `## `/`### ` scan below runs only when `decided` is left off.

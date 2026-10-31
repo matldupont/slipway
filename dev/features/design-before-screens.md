@@ -500,6 +500,11 @@ line's way out is not such a word: it is a dated entry in an owner-only file (§
   each entry is one milestone's, dated, the owner's to approve and red when its day passes, and that a later day
   is an edit to an owner-only file. DS1 does not read whether the reason says what will hold the line; its view
   shows the milestone as excused, and until when.
+- DS1 reads a milestone and the frame through `prose()`, which does not read what GitHub shows in four places: four-space indented
+  code is read as text, a tab-indented fence line opens a fence, a ```` ``` x ``` ```` line opens one, and a `<!--`
+  in inline code starts a comment. Each can make a design item or a Gate line count that GitHub shows as code, or
+  stop one counting. The cost is a finding missed or raised on the owner's own milestone, seen in review; the first
+  three are written under the roadmap page's Known limitations too (#515).
 - `design: PD-<n>` passes on a decision's presence, as `extended:` does: whether it says why the screens are
   built without a design is read in review.
 - "Builds screens" is a rule (every milestone in a front-end project) with one opt-out, not a reading

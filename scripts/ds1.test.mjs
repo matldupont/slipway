@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { resolveDecision } from '../ci/checks/lib/decision-ref.mjs';
-import { A11Y, DESIGN, ds1, entry, files, frame, milestone, write } from './lib/ds1.mjs';
+import { A11Y, DESIGN, TODAY, ds1, entry, files, frame, milestone, write } from './lib/ds1.mjs';
 import { done, run, SRC } from './lib/lk1-lockfile.mjs';
 import { spawnSync } from 'node:child_process';
 
@@ -216,6 +216,24 @@ test('a design item or an accessibility line in fenced code is not one: it is sh
   const hidden = milestone({ contents: ['A slice (F-1)'], gate: ['`pnpm verify` green on main'] })
     .replace('## Contents\n\n', `## Contents\n\n<!--\n1. ${DESIGN}\n\n`);
   assert.deepEqual(ids(ds1(files({ milestones: { 'M2.md': hidden } }))), ['design/missing:M2', 'gate/accessibility:M2']);
+  // The Gate reader on its own (#515): the design item is real and the Gate line sits after an unclosed `<!--`.
+  const gateHidden = milestone({ contents: [DESIGN], gate: ['`pnpm verify` green on main'] })
+    .replace('- `pnpm verify` green on main\n', `- \`pnpm verify\` green on main\n<!--\n- ${A11Y}\n`);
+  assert.deepEqual(ids(ds1(files({ milestones: { 'M2.md': gateHidden } }))), ['gate/accessibility:M2']);
+});
+
+test('design: and extended: take one decision heading the same way, whatever its shape (#515, #513)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ds1-same-'));
+  try {
+    for (const heading of ['## PD-7 — x *(decided 2026-10-01)*', '# PD-7 — x *(decided 2026-10-01)*', '> ## PD-7 — x *(decided 2026-10-01)*', '## PD-7 — x *(open — week 1)*']) {
+      write(dir, files({ decisions: `# Decisions\n\n${heading}\n`, milestones: { 'M2.md': milestone({ contents: [DESIGN], fields: ['design: PD-7', 'extended: PD-7'] }) } }));
+      const design = run('ci/checks/meta/ds1-design-before-screens.mjs', dir, { CHECK_TODAY: TODAY });
+      const ms = run('ci/checks/meta/ms1-milestones.mjs', dir, { CHECK_TODAY: '2026-10-15' });
+      assert.equal(/design\/unresolved/.test(design.out), /extended\/unresolved/.test(ms.out), heading);
+    }
+  } finally {
+    done(dir);
+  }
 });
 
 test('design: answers only to a heading marked decided or accepted: not open, not unmarked, not one whose first clause is another (0.3 AR-5; round 1 of PR #512)', () => {

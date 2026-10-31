@@ -12,7 +12,7 @@
 //                                closed or active milestone before it, none in <id> as item 1 or below started items
 //                                only, and no `design:` line
 //   design/unresolved:<id>       <id> is active and its `design:` is not a decision id, or names no heading in
-//                                decisions.md, or one still marked open (lib/decision-ref.mjs)
+//                                decisions.md, or one not marked decided or accepted (lib/decision-ref.mjs)
 //   gate/accessibility:<id>      front end; <id> is active and builds screens, the skeleton included; no WCAG 2.2 AA
 //                                line under its Gate, and no live entry for it in ci/exceptions.yaml
 //   accessibility/overdue:<id>   an entry names <id>, active or closed, which has no line, and its day has come
