@@ -19,7 +19,7 @@
 //   appetite/overrun       active past the last day of its appetite, with no extension — the
 //                          circuit breaker: by default a bet does not get more time
 //   extended/unresolved    `extended:` is not a decision id (PD-<n> or D-<n>), or names one decisions.md
-//                          has no heading for
+//                          has no heading for, or whose heading is still open (an open stub extends nothing)
 //   wip/exceeded           more than one milestone is active
 //   template/fields        TEMPLATE.md lost a field or section MS1 reads
 //   file/unreadable        a `*.md` in docs/milestones/ that is a link, a folder or another entry that is not a
@@ -85,8 +85,9 @@ const { dir, files, milestones, refused } = readMilestones(root);
 const decisionsPath = join(root, 'decisions.md');
 const decisions = existsSync(decisionsPath) ? readFileSync(decisionsPath, 'utf8') : '';
 // `extended:` must be a decision id with a heading in decisions.md (lib/decision-ref.mjs): `extended: .*` names none.
-// An open decision still answers here; DS1's `design:` asks for one that is not open.
-const hasDecision = (id) => resolveDecision(decisions, id).ok;
+// Read as DS1 reads `design:`, with { decided: true }: an open stub (`*(open — week 1)*`) is no extension (#513).
+const extension = (id) => resolveDecision(decisions, id, { decided: true });
+const hasDecision = (id) => extension(id).ok;
 const written = (s) => s !== null && s.trim() !== '' && !hasPlaceholder(s);
 
 const findings = refused.map((path) => ({
@@ -120,7 +121,11 @@ for (const { file: f, md, fm } of milestones) {
     continue;
   }
   if (fm.kind && !MILESTONE_KINDS.includes(fm.kind)) add('kind/unknown', `"${fm.kind}" is not one of ${MILESTONE_KINDS.join(', ')}`);
-  if (fm.extended && !hasDecision(fm.extended)) add('extended/unresolved', `${fm.extended} is not a heading in decisions.md: record the extension there, or fix the id in extended:`);
+  if (fm.extended && !hasDecision(fm.extended)) {
+    add('extended/unresolved', extension(fm.extended).why === 'open'
+      ? `${fm.extended} is not marked decided or accepted in decisions.md (a decision still open extends nothing): the owner decides it there, or name the extension's own decided decision in extended:`
+      : `${fm.extended} is not a heading in decisions.md: record the extension there, or fix the id in extended:`);
+  }
   for (const item of contents(md)) {
     const at = marker(item.text);
     for (const c of item.checks.filter((c) => c.kind === 'unreadable')) {

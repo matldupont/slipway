@@ -1,0 +1,14 @@
+{
+  "_note": "An active milestone past its appetite names D-005, whose heading is still `*(open — week 1)*`, the stub every project is made with: an open decision extends nothing, so MS1 reports the overrun and extended/unresolved (#513). The circuit fixture holds the decided case.",
+  "exit": 1,
+  "env": {
+    "CHECK_TODAY": "2026-09-21"
+  },
+  "findings": [
+    "a-open-extension.md#appetite/overrun",
+    "a-open-extension.md#extended/unresolved"
+  ],
+  "details": {
+    "a-open-extension.md#extended/unresolved": "a decision still open extends nothing"
+  }
+}
