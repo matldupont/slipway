@@ -340,13 +340,15 @@ test('main is protected with meta, verify, pr-body and prose, each a job a shipp
   const dir = tmp();
   const bin = join(dir, 'bin');
   mkdirSync(bin);
+  const ghConfig = join(dir, 'gh-config');
+  mkdirSync(ghConfig);
   writeFileSync(join(bin, 'gh'), [
     '#!/bin/sh',
     'case "$1 $2" in',
     '  "auth status") exit 0 ;;',
     '  "api user") printf "1\\nprobe\\n"; exit 0 ;;',
     '  "repo view") exit 1 ;;',
-    '  "repo create") git init -q --bare "$FAKE/remote.git" && git -C "$6" remote add origin "$FAKE/remote.git" && git -C "$6" push -q origin main; exit $? ;;',
+    '  "repo create") while [ $# -gt 0 ] && [ "$1" != "--source" ]; do shift; done; src="$2"; [ -n "$src" ] || exit 1; git init -q --bare "$FAKE/remote.git" && git -C "$src" remote add origin "$FAKE/remote.git" && git -C "$src" push -q origin main; exit $? ;;',
     '  "api -X") case "$4" in */branches/main/protection) cat > "$FAKE/protection.json" ;; esac; exit 0 ;;',
     'esac',
     'exit 0',
@@ -354,7 +356,7 @@ test('main is protected with meta, verify, pr-body and prose, each a job a shipp
   ].join('\n'), { mode: 0o755 });
   const r = spawnSync(process.execPath, [join(SRC, 'scripts', 'new-project.mjs'), join(dir, 'probe'), '--repo', 'acme/probe', '--no-harness'], {
     encoding: 'utf8',
-    env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, FAKE: dir, SLIPWAY_SOURCE: '' },
+    env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, FAKE: dir, SLIPWAY_SOURCE: '', GH_TOKEN: 'x', GH_CONFIG_DIR: ghConfig },
   });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const required = JSON.parse(readFileSync(join(dir, 'protection.json'), 'utf8')).required_status_checks.contexts;

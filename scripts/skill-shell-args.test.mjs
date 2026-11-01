@@ -74,13 +74,18 @@ export function unsafeArgs(cmd) {
 }
 
 // Every markdown file under dir. A symbolic link is never followed, and is listed in `links` so the scan fails on
-// it rather than leave what it points at unread.
-export function markdownFiles(dir, out = [], links = []) {
+// it rather than leave what it points at unread. pr-review's `.test-tmp` folder is another test's git-ignored scratch
+// space, made and removed by that test (and left behind by an interrupted run, #347): it is never read, so a second run in
+// the same tree cannot fail the scan. A `.test-tmp` folder
+// anywhere else is not ignored, ships, and is read.
+const SCRATCH = join('.claude', 'skills', 'pr-review', 'features', '.test-tmp');
+export function markdownFiles(dir, out = [], links = [], base = SRC) {
   for (const f of readdirSync(dir)) {
     const p = join(dir, f);
+    if (relative(base, p) === SCRATCH) continue;
     const s = lstatSync(p);
     if (s.isSymbolicLink()) links.push(p);
-    else if (s.isDirectory()) markdownFiles(p, out, links);
+    else if (s.isDirectory()) markdownFiles(p, out, links, base);
     else if (f.endsWith('.md')) out.push(p);
   }
   return { files: out, links };
@@ -127,6 +132,28 @@ test('the scan lists a symbolic link rather than skip it, an inert link in a tem
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('the scan skips pr-review\'s .test-tmp folder only, so its scratch links cannot fail it', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'skill-shell-args-'));
+  try {
+    mkdirSync(join(dir, '.claude/skills/pr-review/features/.test-tmp'), { recursive: true });
+    mkdirSync(join(dir, '.claude/skills/clarify/.test-tmp'), { recursive: true });
+    writeFileSync(join(dir, '.claude/skills/pr-review/SKILL.md'), 'text\n');
+    symlinkSync(join(dir, '.claude/skills/pr-review/SKILL.md'), join(dir, '.claude/skills/pr-review/features/.test-tmp/linked.md'));
+    writeFileSync(join(dir, '.claude/skills/clarify/.test-tmp/steps.md'), 'text\n');
+    const { files, links } = markdownFiles(dir, [], [], dir);
+    assert.deepEqual([files.map((f) => relative(dir, f)).sort(), links], [['.claude/skills/clarify/.test-tmp/steps.md', '.claude/skills/pr-review/SKILL.md'], []]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('the folder the scan skips is the one pr-review\'s compute test makes, and git ignores', () => {
+  const src = readFileSync(join(SRC, '.claude/skills/pr-review/features/compute.test.ts'), 'utf8');
+  assert.ok(src.includes('FIXTURE_PARENT = path.join(import.meta.dirname, ".test-tmp")'), 'compute.test.ts makes its folders in .test-tmp beside itself');
+  assert.equal(dirname(SCRATCH), join('.claude', 'skills', 'pr-review', 'features'), 'compute.test.ts sits beside the skipped folder');
+  assert.ok(readFileSync(join(SRC, '.gitignore'), 'utf8').split('\n').includes('.claude/skills/pr-review/features/.test-tmp'), 'git ignores it');
 });
 
 test('no skill or process doc puts project text inside a double-quoted shell argument', () => {
