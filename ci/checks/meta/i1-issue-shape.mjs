@@ -34,12 +34,14 @@
 // `none:` is a second answer and fails; so does a list item indented up to three spaces.
 //
 // KNOWN LIMITATION: this reads the shapes CommonMark gives a Seams line, not every way GitHub can hide one. Still
-// shown as an answer: an unclosed `<?`, `<!X` or `<![CDATA[` that opens a list item, a code span inside a raw HTML block
-// (`<p>`…`</p>`), an image's alt text, `<details>`, an unclosed comment, a link reference definition, a list item indented one space,
-// a rule (`* * *`) after a reason, an ordered-list start other than 1 or a four-space indent inside a code span, a line holding only hidden markup read as a blank line, an HTML block that opens a line (`<?x`, `<![CDATA[`, `<!X`), a
-// table-delimiter row with the wrong cell count, and a lone CR.
-// A body built to hide its reason passes, as a padded `a: b` does; that is cold review's, not this check's. Each
-// scan is bounded or remembered: this runs on whatever an issue holds, and a body of 65,000 openers costs 0.03s.
+// shown as an answer: an unclosed `<?`, `<!X` or `<![CDATA[` that opens a list item, an HTML block that opens a line
+// (`<?x`, `<![CDATA[`, `<!X`), a code span inside a raw HTML block (`<p>`…`</p>`), an image's alt text, `<details>`,
+// an unclosed comment, a link reference definition, a list item indented one space, a rule (`* * *`) after a reason,
+// an ordered-list start other than 1 or a four-space indent inside a code span, and a lone CR. Failed though GitHub
+// shows one answer: a line holding only hidden markup (`<br>`) read as a blank line, and a table-delimiter row with
+// the wrong cell count inside a code span. A body built to hide its reason passes, as a padded `a: b` does; that is
+// cold review's, not this check's. Each scan is bounded or remembered: this runs on whatever an issue holds, and a
+// body of 65,000 characters of openers costs 0.05s.
 //
 // A body that still carries a `### Seams detail` heading, filed on the old form, is read the old way: Seams, then its detail.
 //
@@ -78,7 +80,9 @@ const SEAMS_SHAPE = 'write one line per seam, `who pays: …` (a label, a colon,
 // value). GitHub's tag filter shows `<script>`, `<style>` and the other tags in FILTERED as text, so they are not hidden.
 const FILTERED = 'title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext';
 const SPACE = String.raw`(?:[ \t]|\n(?![ \t]*(?:\n|$)))`; // whitespace that stays inside a paragraph: a tag does not cross a blank line
-const ATTRIBUTE = String.raw`${SPACE}+[A-Za-z_:][\w.:-]*(?:${SPACE}*=${SPACE}*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
+// a quoted value stays in its paragraph: it does not run past a blank line
+const INSIDE = (quote) => String.raw`(?:[^${quote}\n]|\n(?![ \t]*(?:\n|$)))`;
+const ATTRIBUTE = String.raw`${SPACE}+[A-Za-z_:][\w.:-]*(?:${SPACE}*=${SPACE}*(?:[^\s"'=<>\x60]+|'${INSIDE("'")}*'|"${INSIDE('"')}*"))?`;
 const NAME = String.raw`(?!(?:${FILTERED})(?=[\s/>]))[A-Za-z][A-Za-z\d-]*`;
 const TAG = new RegExp(String.raw`<(?:${NAME}(?:${ATTRIBUTE})*${SPACE}*\/?>|\/${NAME}${SPACE}*>)|&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`, 'iy');
 const DECLARATION = /<![A-Z]+\s/y; // GitHub hides a declaration only with capitals and a space after the name
@@ -149,7 +153,7 @@ function shown(text) {
           else if (!blankBetween(i, at)) len = at + 1 - i;
         }
       }
-      if (len) i += len;
+      if (len > 0) i += len;
       else {
         out += c;
         i += 1;
