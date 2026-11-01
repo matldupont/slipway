@@ -11,7 +11,7 @@
 //                               start with Given/When/Then, and has no #ref — an adjective
 //   seams/unanswered            person, channel or promise? not answered; silence is not `none`
 //   seams/none-without-reason   `none` with no reason
-//   seams/unenumerated          a person, channel or promise with no detail
+//   seams/unenumerated          a Seams line that is not `<label>: <detail>` (or the one `none: <reason>` line)
 //   designation/trailer         (warning) the body's last non-empty line starts `Per `: a sentence after the
 //                               designation block, which the block is without (`process/intake.md` → Issue body)
 //   contract/missing            Links says Lane: feature, no Contract section
@@ -19,11 +19,18 @@
 //   verify/missing              Links says Lane: feature, no Verify section
 //   verify/link-only            Verify has fewer than 8 non-link words — nothing copied in
 //
-// Seams is one field (the forms, #460): one line per seam, `<label>: <detail>`, in a list (`-`, `*`, `+` or `1.`),
+// Seams is one field (the forms, #460): one line per seam, `<label>: <detail>`, in a list (`-`, `*`, `+`, `1.` or `1)`),
 // or the single line `none: <reason>`. A line is read after its marker, checkbox, emphasis, code marks and links
 // are taken off, and it needs a colon with a letter or digit on each side. A `none` label with no reason is
 // `seams/none-without-reason`; any other line of a different shape is `seams/unenumerated`. The check holds the
-// shape, not the meaning: a padded `a: b` passes, as a form can always be filled with words. A body that still
+// shape, not the meaning: a padded `a: b` passes, as a form can always be filled with words, and `who pays: n/a`
+// and `none: n/a` pass on purpose (`seams-one-field-na-detail-good.md`, `-none-na-good.md`): they say something, and
+// whether it is true is for a reader. What a reader does not see is no reason: HTML tags, comments, processing
+// instructions, CDATA, the contents of `<script>` and `<style>`, entities, and the invisible letters U+115F, U+1160,
+// U+3164 and U+FFA0. A `<…>` that is not a tag, and a tag inside a code span, is shown, so it counts. A colon that
+// opens `//` is a URL's, not the label's. A lone CR is not a line end: GitHub sends CRLF, and `.gitattributes` would
+// rewrite a fixture that held one. After `none: <reason>`, which may wrap, a line that opens a list or starts
+// `none:` is a second answer and fails; so does a list item indented up to three spaces. A body that still
 // carries a `### Seams detail` heading, filed on the old form, is read the old way: Seams, then its detail.
 //
 // WHY: an issue whose acceptance criteria cannot fail closes, then reopens. A conditional
@@ -57,6 +64,26 @@ import { isNoResponse, plain, section, sectionLines } from '../lib/markdown.mjs'
 import { report } from '../lib/report.mjs';
 
 const SEAMS_SHAPE = 'write one line per seam, `who pays: …` (a label, a colon, then what), in a list; or the one line `none: <one line of why>`';
+// What GitHub does not show, and what it does (CommonMark's open-tag grammar: an attribute is a name and an optional value).
+const ATTRIBUTE = String.raw`\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
+const HIDDEN = new RegExp(
+  [
+    String.raw`<!--[\s\S]*?-->`,
+    String.raw`<\?[\s\S]*?\?>`,
+    String.raw`<!\[CDATA\[[\s\S]*?\]\]>`,
+    String.raw`<!(?=[A-Za-z])[^>]*>`,
+    String.raw`<(script|style)(?:${ATTRIBUTE})*\s*>[\s\S]*?<\/\1\s*>`,
+    String.raw`<[A-Za-z][A-Za-z\d-]*(?:${ATTRIBUTE})*\s*\/?>`,
+    String.raw`<\/[A-Za-z][A-Za-z\d-]*\s*>`,
+    String.raw`&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`,
+  ].join('|'),
+  'gi'
+);
+// The text of a Seams field as a reader sees it: HTML and entities dropped everywhere but inside a code span.
+const shown = (text) => text.replace(/(`+)[\s\S]*?\1|[^`]+|`+/g, (part, ticks) => (ticks ? part : part.replace(HIDDEN, '')));
+const INVISIBLE = /[\u115F\u1160\u3164\uFFA0]/g;
+const LINE_END = /\r?\n/;
+
 const NONE_REASON = 'a `none` needs a reason on the same line: `none: <one line of why>`';
 const FALSIFIABLE = /\d|`[^`]+`|[<>≤≥]|[=!]=|^(given|when|then)\b|#\d+/i;
 const LANE_FEATURE = /Lane:\s*`?feature`?\b/i;
@@ -70,10 +97,10 @@ function linkOnly(text) {
 }
 
 function items(text) {
-  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !/^```/.test(l));
+  const lines = text.split(LINE_END).map((l) => l.trim()).filter((l) => l && !/^```/.test(l));
   const listed = lines
-    .filter((l) => /^([-*]|\d+\.)\s+/.test(l))
-    .map((l) => l.replace(/^([-*]|\d+\.)\s+(\[[ xX]\]\s+)?/, ''));
+    .filter((l) => /^([-*]|\d+[.)])\s+/.test(l))
+    .map((l) => l.replace(/^([-*]|\d+[.)])\s+(\[[ xX]\]\s+)?/, ''));
   return listed.length ? listed : lines;
 }
 
@@ -102,28 +129,30 @@ for (const f of bodies) {
   const seams = section(md, 'Seams', 3);
   const detail = section(md, 'Seams detail', 3);
   if (isNoResponse(seams)) {
-    findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none: <one line of why>`, or one list item per seam' });
+    findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none: <one line of why>`, or one `<label>: <detail>` list item per seam' });
   } else if (sectionLines(md, 'Seams detail', 3) === null) {
-    const lines = seams.split(/\r?\n/).filter((l) => l.trim());
-    const hasText = /[\p{L}\p{N}]/u;
-    const marker = /^([-*+]|\d+\.)\s+/;
-    // what a reader does not see as text: HTML tags and entities
-    const unseen = (t) => t.replace(/<\/?[A-Za-z][\w-]*(?:\s[^<>]*)?\/?>/g, '').replace(/&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);/gi, '');
+    const lines = shown(seams).split(LINE_END).filter((l) => l.trim());
+    const hasText = (t) => /[\p{L}\p{N}]/u.test(t.replace(INVISIBLE, ''));
+    const marker = /^([-*+]|\d+[.)])\s+/;
+    // a line that opens a list (a `1.` or `1)` can interrupt a paragraph, a `7.` cannot) or starts a second `none:`
+    const opensAnswer = (l) => /^ {0,3}([-*+]|1[.)])\s+/.test(l) || /^ {0,3}[*_]*none[*_]*\s*:/i.test(l);
     // 'ok' (`label: detail`), 'none-ok' (`none: reason`), 'none' (a `none` with no reason) or 'bad'
     const kind = (line) => {
-      const text = unseen(plain(unseen(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''))));
-      const colon = text.indexOf(':');
+      const text = plain(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''));
+      const colon = text.search(/:(?!\/\/)/);
       const label = (colon < 0 ? text : text.slice(0, colon)).trim();
       const detail = colon < 0 ? '' : text.slice(colon + 1);
-      if (/^none\b/i.test(label)) return /^none$/i.test(label) && hasText.test(detail) ? 'none-ok' : 'none';
-      return hasText.test(label) && hasText.test(detail) ? 'ok' : 'bad';
+      if (/^none\b/i.test(label)) return /^none$/i.test(label) && hasText(detail) ? 'none-ok' : 'none';
+      return hasText(label) && hasText(detail) ? 'ok' : 'bad';
     };
     const unindented = lines.filter((l) => !/^\s/.test(l));
     const kinds = unindented.map(kind);
-    if (!marker.test(lines[0])) {
-      // the line `none: <reason>`, which may wrap onto lines that are not list items; a list item after it is the wrong shape
+    if (!unindented.length) {
+      findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
+    } else if (!marker.test(lines[0])) {
+      // the line `none: <reason>`, which may wrap onto lines that do not open a list or a second answer
       if (kinds[0] === 'none') findings.push({ where: `${f}#seams/none-without-reason`, detail: NONE_REASON });
-      else if (kinds[0] !== 'none-ok' || unindented.slice(1).some((l) => marker.test(l))) findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
+      else if (kinds[0] !== 'none-ok' || lines.slice(1).some(opensAnswer)) findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
     } else if (!unindented.every((l) => marker.test(l))) {
       findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
     } else if (kinds.includes('none')) {
