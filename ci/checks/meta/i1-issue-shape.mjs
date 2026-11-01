@@ -37,7 +37,8 @@
 // shown as an answer: an unclosed `<?`, `<!X` or `<![CDATA[` that opens a list item, an HTML block that opens a line
 // (`<?x`, `<![CDATA[`, `<!X`), a code span inside a raw HTML block (`<p>`…`</p>`), an image's alt text, `<details>`,
 // an unclosed comment, a link reference definition, a list item indented one space, a rule (`* * *`) after a reason,
-// an ordered-list start other than 1 or a four-space indent inside a code span, and a lone CR. Failed though GitHub
+// an ordered-list start other than 1 or a four-space indent inside a code span, a tag or quoted value that runs across a
+// line opening a list item, a quote or a heading, and a lone CR. Failed though GitHub
 // shows one answer: a line holding only hidden markup (`<br>`) read as a blank line, and a table-delimiter row with
 // the wrong cell count inside a code span. A body built to hide its reason passes, as a padded `a: b` does; that is
 // cold review's, not this check's. Each scan is bounded or remembered: this runs on whatever an issue holds, and a
