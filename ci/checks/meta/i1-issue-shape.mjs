@@ -68,13 +68,15 @@ const SEAMS_SHAPE = 'write one line per seam, `who pays: …` (a label, a colon,
 // What GitHub does not show, and what it does (CommonMark's open-tag grammar: an attribute is a name and an optional
 // value). GitHub's tag filter shows `<script>`, `<style>` and the other tags in FILTERED as text, so they are not hidden.
 const FILTERED = 'title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext';
-const ATTRIBUTE = String.raw`\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
+const SPACE = String.raw`(?:[ \t]|\n(?![ \t]*(?:\n|$)))`; // whitespace that stays inside a paragraph: a tag does not cross a blank line
+const ATTRIBUTE = String.raw`${SPACE}+[A-Za-z_:][\w.:-]*(?:${SPACE}*=${SPACE}*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
 const NAME = String.raw`(?!(?:${FILTERED})(?=[\s/>]))[A-Za-z][A-Za-z\d-]*`;
-const TAG = new RegExp(String.raw`<(?:${NAME}(?:${ATTRIBUTE})*\s*\/?>|\/${NAME}\s*>)|&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`, 'iy');
-const DECLARATION = /<![A-Za-z][^>]*>/y;
+const TAG = new RegExp(String.raw`<(?:${NAME}(?:${ATTRIBUTE})*${SPACE}*\/?>|\/${NAME}${SPACE}*>)|&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`, 'iy');
+const DECLARATION = /<![A-Za-z]/y;
+const BLANK = /\n[ \t]*\n/g;
 // Where a line starts a block: a code span does not run past it (a blank line, a quote, a heading, a list item, a
 // rule, a fence or an HTML block).
-const BLOCK_START = /\n[ \t]*(?:\n|[>#]|[-*+](?:\s|$)|\d{1,9}[.)](?:\s|$)|(?:\*[ \t]*){3,}(?:\n|$)|(?:-[ \t]*){3,}(?:\n|$)|`{3,}|~{3,}|<\/?(?:div|p|pre|table|ul|ol|li|h[1-6]|details|summary|blockquote|hr|section|center|dl|dd|dt|form|iframe|script|style)\b)/g;
+const BLOCK_START = /\n {0,3}(?:\n|[>]|#{1,6}(?:\s|$)|[-*+][ \t]+\S|1[.)][ \t]+\S|=+[ \t]*(?:\n|$)|(?:\*[ \t]*){3,}(?:\n|$)|(?:-[ \t]*){3,}(?:\n|$)|`{3,}|~{3,}|<[?!]|<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|pre|script|search|section|style|summary|table|tbody|td|textarea|tfoot|th|thead|title|tr|track|ul)(?=[\s/>]|$))/gi;
 // The text of a Seams field as a reader sees it: HTML and entities dropped, except inside a code span. Read left to
 // right in one pass, so what starts first wins: a backtick in a tag's attribute opens no code span, a backslash
 // escapes one, and a run of backticks closes only with a run of its own length. Every scan is bounded or remembered,
@@ -84,7 +86,9 @@ function shown(text) {
   const blocks = [...text.matchAll(BLOCK_START)].map((m) => m.index);
   let run = 0;
   let block = 0;
-  const gone = { pi: false, cdata: false };
+  const gone = { pi: false, cdata: false, decl: false };
+  const blanks = [...text.matchAll(BLANK)].map((m) => m.index);
+  let blank = 0;
   let out = '';
   let i = 0;
   while (i < text.length) {
@@ -103,7 +107,6 @@ function shown(text) {
       out += text.slice(i, end);
       i = end;
     } else if (c === '<' || c === '&') {
-      const window = text.slice(i, i + 4096);
       let len = 0;
       if (text.startsWith('<?', i) && !gone.pi) {
         const at = text.indexOf('?>', i + 2);
@@ -114,9 +117,16 @@ function shown(text) {
         if (at < 0) gone.cdata = true;
         else len = at + 3 - i;
       } else {
-        TAG.lastIndex = 0;
-        DECLARATION.lastIndex = 0;
-        len = (TAG.exec(window) ?? DECLARATION.exec(window))?.[0].length ?? 0;
+        TAG.lastIndex = i;
+        DECLARATION.lastIndex = i;
+        len = TAG.exec(text)?.[0].length ?? 0;
+        if (!len && !gone.decl && DECLARATION.exec(text)) {
+          // a declaration ends at the next `>`, and not past a blank line
+          const at = text.indexOf('>', i + 3);
+          while (blank < blanks.length && blanks[blank] < i) blank += 1;
+          if (at < 0) gone.decl = true;
+          else if ((blanks[blank] ?? Infinity) > at) len = at + 1 - i;
+        }
       }
       if (len) i += len;
       else {
@@ -132,10 +142,18 @@ function shown(text) {
 }
 // What GitHub turns into a link without brackets: its colons are not a label's. It leaves a trailing `:` or an
 // unbalanced `)` out of the link.
-const AUTOLINK = /\b(?:[a-z][a-z\d+.-]*:\/\/|mailto:|xmpp:|www\.)[^\s<]*/gi;
+const AUTOLINK = /\b(?:https?:\/\/|mailto:|xmpp:|www\.)[^\s<]*/gi;
 function autolinked(url) {
-  let end = url.replace(/[?!.,:;*_~'"]+$/, '');
-  while (end.endsWith(')') && end.split(')').length > end.split('(').length) end = end.slice(0, -1).replace(/[?!.,:;*_~'"]+$/, '');
+  let end = url.length;
+  let close = url.split(')').length - url.split('(').length;
+  while (end > 0) {
+    const c = url[end - 1];
+    if ('?!.,:;*_~\'"'.includes(c)) end -= 1;
+    else if (c === ')' && close > 0) {
+      end -= 1;
+      close -= 1;
+    } else break;
+  }
   return end;
 }
 const INVISIBLE = /[\u115F\u1160\u3164\uFFA0]/g;
@@ -196,7 +214,7 @@ for (const f of bodies) {
     // 'ok' (`label: detail`), 'none-ok' (`none: reason`), 'none' (a `none` with no reason) or 'bad'
     const kind = (line) => {
       const text = plain(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''));
-      const colon = text.replace(AUTOLINK, (url) => '_'.repeat(autolinked(url).length) + url.slice(autolinked(url).length)).indexOf(':');
+      const colon = text.replace(AUTOLINK, (url) => { const n = autolinked(url); return '_'.repeat(n) + url.slice(n); }).indexOf(':');
       const label = (colon < 0 ? text : text.slice(0, colon)).trim();
       const detail = colon < 0 ? '' : text.slice(colon + 1);
       if (/^none\b/i.test(label)) return /^none$/i.test(label) && hasText(detail) ? 'none-ok' : 'none';
