@@ -5,4 +5,4 @@ Flaky test.
 - `pnpm test` exits 0 ten runs in a row
 
 ### Seams
-- <script>a: b</script>
+- https://example.com:8080/x

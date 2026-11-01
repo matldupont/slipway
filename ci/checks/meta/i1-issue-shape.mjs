@@ -25,11 +25,12 @@
 // `seams/none-without-reason`; any other line of a different shape is `seams/unenumerated`. The check holds the
 // shape, not the meaning: a padded `a: b` passes, as a form can always be filled with words, and `who pays: n/a`
 // and `none: n/a` pass on purpose (`seams-one-field-na-detail-good.md`, `-none-na-good.md`): they say something, and
-// whether it is true is for a reader. What a reader does not see is no reason: HTML tags, comments, processing
-// instructions, CDATA, the contents of `<script>` and `<style>`, entities, and the invisible letters U+115F, U+1160,
-// U+3164 and U+FFA0. A `<…>` that is not a tag, and a tag inside a code span, is shown, so it counts. A colon that
-// opens `//` is a URL's, not the label's. A lone CR is not a line end: GitHub sends CRLF, and `.gitattributes` would
-// rewrite a fixture that held one. After `none: <reason>`, which may wrap, a line that opens a list or starts
+// whether it is true is for a reader. What a reader does not see is no reason: HTML tags, processing instructions,
+// CDATA, declarations, entities, and the invisible letters U+115F, U+1160, U+3164 and U+FFA0. (Comments are gone
+// before this reads: `section()` takes them off.) A `<…>` that is not a tag, a tag inside a code span, and `<script>`
+// or `<style>`, which GitHub shows as text, are shown, so they count. A colon inside a URL (`://`, `mailto:`) is
+// not the label's. A lone CR is not a line end: GitHub sends CRLF, and a fixture with a CR byte fails
+// scripts/new-project.test.mjs, so none could hold the clause. After `none: <reason>`, which may wrap, a line that opens a list or starts
 // `none:` is a second answer and fails; so does a list item indented up to three spaces. A body that still
 // carries a `### Seams detail` heading, filed on the old form, is read the old way: Seams, then its detail.
 //
@@ -64,23 +65,24 @@ import { isNoResponse, plain, section, sectionLines } from '../lib/markdown.mjs'
 import { report } from '../lib/report.mjs';
 
 const SEAMS_SHAPE = 'write one line per seam, `who pays: …` (a label, a colon, then what), in a list; or the one line `none: <one line of why>`';
-// What GitHub does not show, and what it does (CommonMark's open-tag grammar: an attribute is a name and an optional value).
+// What GitHub does not show, and what it does (CommonMark's open-tag grammar: an attribute is a name and an optional
+// value). GitHub's tag filter shows `<script>`, `<style>` and the other tags in FILTERED as text, so they are not hidden.
+const FILTERED = 'title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext';
 const ATTRIBUTE = String.raw`\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
-const HIDDEN = new RegExp(
-  [
-    String.raw`<!--[\s\S]*?-->`,
-    String.raw`<\?[\s\S]*?\?>`,
-    String.raw`<!\[CDATA\[[\s\S]*?\]\]>`,
-    String.raw`<!(?=[A-Za-z])[^>]*>`,
-    String.raw`<(script|style)(?:${ATTRIBUTE})*\s*>[\s\S]*?<\/\1\s*>`,
-    String.raw`<[A-Za-z][A-Za-z\d-]*(?:${ATTRIBUTE})*\s*\/?>`,
-    String.raw`<\/[A-Za-z][A-Za-z\d-]*\s*>`,
-    String.raw`&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`,
-  ].join('|'),
-  'gi'
-);
-// The text of a Seams field as a reader sees it: HTML and entities dropped everywhere but inside a code span.
-const shown = (text) => text.replace(/(`+)[\s\S]*?\1|[^`]+|`+/g, (part, ticks) => (ticks ? part : part.replace(HIDDEN, '')));
+const HIDDEN = [
+  String.raw`<\?[\s\S]*?\?>`,
+  String.raw`<!\[CDATA\[[\s\S]*?\]\]>`,
+  String.raw`<!(?=[A-Za-z])[^>]*>`,
+  String.raw`<(?!(?:${FILTERED})\b)[A-Za-z][A-Za-z\d-]*(?:${ATTRIBUTE})*\s*\/?>`,
+  String.raw`<\/(?!(?:${FILTERED})\b)[A-Za-z][A-Za-z\d-]*\s*>`,
+  String.raw`&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`,
+].join('|');
+// A code span ends at its own length of backticks, and not past a blank line or the next list item.
+const CODE_SPAN = String.raw`(\x60+)(?:(?!\n[ \t]*(?:\n|[-*+]\s|\d+[.)]\s))[\s\S])*?(?<!\x60)\1(?!\x60)`;
+// The text of a Seams field as a reader sees it: HTML and entities dropped, except inside a code span. Read left to
+// right, so what starts first wins: a backtick in a tag's attribute is not a code span, and a backslash escapes one.
+const READ = new RegExp(String.raw`(\\[\s\S])|${CODE_SPAN}|${HIDDEN}`, 'gi');
+const shown = (text) => text.replace(READ, (part, escaped, ticks) => (escaped || ticks ? part : ''));
 const INVISIBLE = /[\u115F\u1160\u3164\uFFA0]/g;
 const LINE_END = /\r?\n/;
 
@@ -99,8 +101,8 @@ function linkOnly(text) {
 function items(text) {
   const lines = text.split(LINE_END).map((l) => l.trim()).filter((l) => l && !/^```/.test(l));
   const listed = lines
-    .filter((l) => /^([-*]|\d+[.)])\s+/.test(l))
-    .map((l) => l.replace(/^([-*]|\d+[.)])\s+(\[[ xX]\]\s+)?/, ''));
+    .filter((l) => /^([-*]|\d+\.)\s+/.test(l))
+    .map((l) => l.replace(/^([-*]|\d+\.)\s+(\[[ xX]\]\s+)?/, ''));
   return listed.length ? listed : lines;
 }
 
@@ -135,11 +137,11 @@ for (const f of bodies) {
     const hasText = (t) => /[\p{L}\p{N}]/u.test(t.replace(INVISIBLE, ''));
     const marker = /^([-*+]|\d+[.)])\s+/;
     // a line that opens a list (a `1.` or `1)` can interrupt a paragraph, a `7.` cannot) or starts a second `none:`
-    const opensAnswer = (l) => /^ {0,3}([-*+]|1[.)])\s+/.test(l) || /^ {0,3}[*_]*none[*_]*\s*:/i.test(l);
+    const opensAnswer = (l) => /^ {0,3}([-*+]|0*1[.)])\s+/.test(l) || /^ {0,3}[*_]*none[*_]*\s*:/i.test(l);
     // 'ok' (`label: detail`), 'none-ok' (`none: reason`), 'none' (a `none` with no reason) or 'bad'
     const kind = (line) => {
       const text = plain(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''));
-      const colon = text.search(/:(?!\/\/)/);
+      const colon = text.replace(/\b(?:[a-z][a-z\d+.-]*:\/\/|mailto:)\S*/gi, (url) => '_'.repeat(url.length)).indexOf(':');
       const label = (colon < 0 ? text : text.slice(0, colon)).trim();
       const detail = colon < 0 ? '' : text.slice(colon + 1);
       if (/^none\b/i.test(label)) return /^none$/i.test(label) && hasText(detail) ? 'none-ok' : 'none';
@@ -147,9 +149,7 @@ for (const f of bodies) {
     };
     const unindented = lines.filter((l) => !/^\s/.test(l));
     const kinds = unindented.map(kind);
-    if (!unindented.length) {
-      findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
-    } else if (!marker.test(lines[0])) {
+    if (!marker.test(lines[0] ?? '')) {
       // the line `none: <reason>`, which may wrap onto lines that do not open a list or a second answer
       if (kinds[0] === 'none') findings.push({ where: `${f}#seams/none-without-reason`, detail: NONE_REASON });
       else if (kinds[0] !== 'none-ok' || lines.slice(1).some(opensAnswer)) findings.push({ where: `${f}#seams/unenumerated`, detail: SEAMS_SHAPE });
