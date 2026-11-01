@@ -41,7 +41,8 @@
 // line opening a list item, a quote or a heading, and a lone CR. Failed though GitHub
 // shows one answer: a line holding only hidden markup (`<br>`) read as a blank line, and a table-delimiter row with
 // the wrong cell count inside a code span. A body built to hide its reason passes, as a padded `a: b` does; that is
-// cold review's, not this check's. Each scan is bounded or remembered: this runs on whatever an issue holds, and a
+// cold review's, not this check's. Also unpinned by any fixture: the quote-character,
+// newline and whitespace-only-line clauses of the quoted-attribute-value pattern. Each scan is bounded or remembered: this runs on whatever an issue holds, and a
 // body of 65,000 characters of openers costs 0.05s.
 //
 // A body that still carries a `### Seams detail` heading, filed on the old form, is read the old way: Seams, then its detail.
