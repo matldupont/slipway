@@ -28,8 +28,8 @@
 // whether it is true is for a reader. What a reader does not see is no reason: HTML tags, processing instructions,
 // CDATA, declarations, entities, and the invisible letters U+115F, U+1160, U+3164 and U+FFA0. (Comments are gone
 // before this reads: `section()` takes them off.) A `<…>` that is not a tag, a tag inside a code span, and `<script>`
-// or `<style>`, which GitHub shows as text, are shown, so they count. A colon inside a URL (`://`, `mailto:`) is
-// not the label's. A lone CR is not a line end: GitHub sends CRLF, and a fixture with a CR byte fails
+// or `<style>`, which GitHub shows as text, are shown, so they count. A colon inside an autolink (`://`, `mailto:`,
+// `xmpp:`, `www.`) is not the label's. A lone CR is not a line end: GitHub sends CRLF, and a fixture with a CR byte fails
 // scripts/new-project.test.mjs, so none could hold the clause. After `none: <reason>`, which may wrap, a line that opens a list or starts
 // `none:` is a second answer and fails; so does a list item indented up to three spaces. A body that still
 // carries a `### Seams detail` heading, filed on the old form, is read the old way: Seams, then its detail.
@@ -69,20 +69,75 @@ const SEAMS_SHAPE = 'write one line per seam, `who pays: …` (a label, a colon,
 // value). GitHub's tag filter shows `<script>`, `<style>` and the other tags in FILTERED as text, so they are not hidden.
 const FILTERED = 'title|textarea|style|xmp|iframe|noembed|noframes|script|plaintext';
 const ATTRIBUTE = String.raw`\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
-const HIDDEN = [
-  String.raw`<\?[\s\S]*?\?>`,
-  String.raw`<!\[CDATA\[[\s\S]*?\]\]>`,
-  String.raw`<!(?=[A-Za-z])[^>]*>`,
-  String.raw`<(?!(?:${FILTERED})\b)[A-Za-z][A-Za-z\d-]*(?:${ATTRIBUTE})*\s*\/?>`,
-  String.raw`<\/(?!(?:${FILTERED})\b)[A-Za-z][A-Za-z\d-]*\s*>`,
-  String.raw`&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`,
-].join('|');
-// A code span ends at its own length of backticks, and not past a blank line or the next list item.
-const CODE_SPAN = String.raw`(\x60+)(?:(?!\n[ \t]*(?:\n|[-*+]\s|\d+[.)]\s))[\s\S])*?(?<!\x60)\1(?!\x60)`;
+const NAME = String.raw`(?!(?:${FILTERED})(?=[\s/>]))[A-Za-z][A-Za-z\d-]*`;
+const TAG = new RegExp(String.raw`<(?:${NAME}(?:${ATTRIBUTE})*\s*\/?>|\/${NAME}\s*>)|&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`, 'iy');
+const DECLARATION = /<![A-Za-z][^>]*>/y;
+// Where a line starts a block: a code span does not run past it (a blank line, a quote, a heading, a list item, a
+// rule, a fence or an HTML block).
+const BLOCK_START = /\n[ \t]*(?:\n|[>#]|[-*+](?:\s|$)|\d{1,9}[.)](?:\s|$)|(?:\*[ \t]*){3,}(?:\n|$)|(?:-[ \t]*){3,}(?:\n|$)|`{3,}|~{3,}|<\/?(?:div|p|pre|table|ul|ol|li|h[1-6]|details|summary|blockquote|hr|section|center|dl|dd|dt|form|iframe|script|style)\b)/g;
 // The text of a Seams field as a reader sees it: HTML and entities dropped, except inside a code span. Read left to
-// right, so what starts first wins: a backtick in a tag's attribute is not a code span, and a backslash escapes one.
-const READ = new RegExp(String.raw`(\\[\s\S])|${CODE_SPAN}|${HIDDEN}`, 'gi');
-const shown = (text) => text.replace(READ, (part, escaped, ticks) => (escaped || ticks ? part : ''));
+// right in one pass, so what starts first wins: a backtick in a tag's attribute opens no code span, a backslash
+// escapes one, and a run of backticks closes only with a run of its own length. Every scan is bounded or remembered,
+// so a body of openers that never close costs a linear read: this runs on whatever an issue holds.
+function shown(text) {
+  const runs = [...text.matchAll(/`+/g)].map((m) => ({ at: m.index, n: m[0].length }));
+  const blocks = [...text.matchAll(BLOCK_START)].map((m) => m.index);
+  let run = 0;
+  let block = 0;
+  const gone = { pi: false, cdata: false };
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '\\' && i + 1 < text.length) {
+      out += text.slice(i, i + 2);
+      i += 2;
+    } else if (c === '`') {
+      while (runs[run].at + runs[run].n <= i) run += 1;
+      const n = runs[run].at + runs[run].n - i; // an escaped backtick leaves the rest of its run
+      while (block < blocks.length && blocks[block] < i) block += 1;
+      const limit = blocks[block] ?? text.length;
+      let close = run + 1;
+      while (close < runs.length && runs[close].at < limit && runs[close].n !== n) close += 1;
+      const end = close < runs.length && runs[close].at < limit ? runs[close].at + n : i + n;
+      out += text.slice(i, end);
+      i = end;
+    } else if (c === '<' || c === '&') {
+      const window = text.slice(i, i + 4096);
+      let len = 0;
+      if (text.startsWith('<?', i) && !gone.pi) {
+        const at = text.indexOf('?>', i + 2);
+        if (at < 0) gone.pi = true;
+        else len = at + 2 - i;
+      } else if (text.startsWith('<![CDATA[', i) && !gone.cdata) {
+        const at = text.indexOf(']]>', i + 9);
+        if (at < 0) gone.cdata = true;
+        else len = at + 3 - i;
+      } else {
+        TAG.lastIndex = 0;
+        DECLARATION.lastIndex = 0;
+        len = (TAG.exec(window) ?? DECLARATION.exec(window))?.[0].length ?? 0;
+      }
+      if (len) i += len;
+      else {
+        out += c;
+        i += 1;
+      }
+    } else {
+      out += c;
+      i += 1;
+    }
+  }
+  return out;
+}
+// What GitHub turns into a link without brackets: its colons are not a label's. It leaves a trailing `:` or an
+// unbalanced `)` out of the link.
+const AUTOLINK = /\b(?:[a-z][a-z\d+.-]*:\/\/|mailto:|xmpp:|www\.)[^\s<]*/gi;
+function autolinked(url) {
+  let end = url.replace(/[?!.,:;*_~'"]+$/, '');
+  while (end.endsWith(')') && end.split(')').length > end.split('(').length) end = end.slice(0, -1).replace(/[?!.,:;*_~'"]+$/, '');
+  return end;
+}
 const INVISIBLE = /[\u115F\u1160\u3164\uFFA0]/g;
 const LINE_END = /\r?\n/;
 
@@ -141,7 +196,7 @@ for (const f of bodies) {
     // 'ok' (`label: detail`), 'none-ok' (`none: reason`), 'none' (a `none` with no reason) or 'bad'
     const kind = (line) => {
       const text = plain(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''));
-      const colon = text.replace(/\b(?:[a-z][a-z\d+.-]*:\/\/|mailto:)\S*/gi, (url) => '_'.repeat(url.length)).indexOf(':');
+      const colon = text.replace(AUTOLINK, (url) => '_'.repeat(autolinked(url).length) + url.slice(autolinked(url).length)).indexOf(':');
       const label = (colon < 0 ? text : text.slice(0, colon)).trim();
       const detail = colon < 0 ? '' : text.slice(colon + 1);
       if (/^none\b/i.test(label)) return /^none$/i.test(label) && hasText(detail) ? 'none-ok' : 'none';
