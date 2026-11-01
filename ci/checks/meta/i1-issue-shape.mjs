@@ -32,6 +32,11 @@
 // `xmpp:`, `www.`) is not the label's. A lone CR is not a line end: GitHub sends CRLF, and a fixture with a CR byte fails
 // scripts/new-project.test.mjs, so none could hold the clause. After `none: <reason>`, which may wrap, a line that opens a list or starts
 // `none:` is a second answer and fails; so does a list item indented up to three spaces. A body that still
+// KNOWN LIMITATION: this reads the shapes CommonMark gives a Seams line, not every way GitHub can hide one. Still
+// shown as an answer: an unclosed `<?`, `<!X` or `<![CDATA[` that opens a list item, a code span inside a raw HTML block
+// (`<p>`…`</p>`), an image's alt text, `<details>`, an unclosed comment, a link reference definition, and a lone CR.
+// A body built to hide its reason passes, as a padded `a: b` does; that is cold review's, not this check's. Each
+// scan is bounded or remembered: this runs on whatever an issue holds, and a body of 65,000 openers costs 0.03s.
 // carries a `### Seams detail` heading, filed on the old form, is read the old way: Seams, then its detail.
 //
 // WHY: an issue whose acceptance criteria cannot fail closes, then reopens. A conditional
