@@ -1466,3 +1466,9 @@ for (const s of ['clarify', 'kickoff', 'close-milestone', 'log-feature', 'log-bu
     assert.match(read(`.claude/skills/${s}/SKILL.md`), new RegExp(`\`process/intake\\.md\` → ${RULE}`));
   });
 }
+
+// #588 (follow-up to #583): MS1 reads `extended:` only against a decided heading, so /close-milestone says to write one.
+test('/close-milestone tells the agent to mark an extension entry\'s heading decided', () => {
+  const decide = (section(read('.claude/skills/close-milestone/SKILL.md'), '1. Decide which ending', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(decide, /Write the entry's heading with `\*\(decided YYYY-MM-DD\)\*`/, '/close-milestone must say to mark the extension entry\'s heading decided');
+});
