@@ -36,7 +36,8 @@
 // KNOWN LIMITATION: this reads the shapes CommonMark gives a Seams line, not every way GitHub can hide one. Still
 // shown as an answer: an unclosed `<?`, `<!X` or `<![CDATA[` that opens a list item, a code span inside a raw HTML block
 // (`<p>`…`</p>`), an image's alt text, `<details>`, an unclosed comment, a link reference definition, a list item indented one space,
-// a rule (`* * *`) after a reason, an ordered-list start other than 1 or a four-space indent inside a code span, and a lone CR.
+// a rule (`* * *`) after a reason, an ordered-list start other than 1 or a four-space indent inside a code span, a line holding only hidden markup read as a blank line, an HTML block that opens a line (`<?x`, `<![CDATA[`, `<!X`), a
+// table-delimiter row with the wrong cell count, and a lone CR.
 // A body built to hide its reason passes, as a padded `a: b` does; that is cold review's, not this check's. Each
 // scan is bounded or remembered: this runs on whatever an issue holds, and a body of 65,000 openers costs 0.03s.
 //
@@ -95,6 +96,12 @@ function shown(text) {
   let run = 0;
   let block = 0;
   const gone = { pi: false, cdata: false, decl: false };
+  // the first `token` at or after `from`; asked again from a later point it costs nothing while that one is still ahead
+  const seen = { pi: 0, cdata: 0, decl: 0 };
+  const endOf = (key, token, from) => {
+    if (seen[key] >= 0 && seen[key] < from) seen[key] = text.indexOf(token, from);
+    return seen[key];
+  };
   const unclosed = new Map(); // run length -> the block it found no closer in
   const blanks = [...text.matchAll(BLANK)].map((m) => m.index);
   let blank = 0;
@@ -124,11 +131,11 @@ function shown(text) {
     } else if (c === '<' || c === '&') {
       let len = 0;
       if (text.startsWith('<?', i) && !gone.pi) {
-        const at = text.indexOf('?>', i + 2);
+        const at = endOf('pi', '?>', i + 2);
         if (at < 0) gone.pi = true;
         else if (!blankBetween(i, at)) len = at + 2 - i;
       } else if (text.startsWith('<![CDATA[', i) && !gone.cdata) {
-        const at = text.indexOf(']]>', i + 9);
+        const at = endOf('cdata', ']]>', i + 9);
         if (at < 0) gone.cdata = true;
         else if (!blankBetween(i, at)) len = at + 3 - i;
       } else {
@@ -137,7 +144,7 @@ function shown(text) {
         len = TAG.exec(text)?.[0].length ?? 0;
         if (!len && !gone.decl && DECLARATION.exec(text)) {
           // a declaration ends at the next `>`, and not past a blank line
-          const at = text.indexOf('>', i + 3);
+          const at = endOf('decl', '>', i + 3);
           if (at < 0) gone.decl = true;
           else if (!blankBetween(i, at)) len = at + 1 - i;
         }
