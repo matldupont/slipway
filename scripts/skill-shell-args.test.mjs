@@ -74,12 +74,14 @@ export function unsafeArgs(cmd) {
 }
 
 // Every markdown file under dir. A symbolic link is never followed, and is listed in `links` so the scan fails on
-// it rather than leave what it points at unread. A `.test-tmp` folder is another test's git-ignored scratch space, made
-// and removed while `pnpm meta` runs: it is never read, so the two tests cannot race.
+// it rather than leave what it points at unread. pr-review's `.test-tmp` folder is another test's git-ignored scratch
+// space, made and removed while `pnpm meta` runs: it is never read, so the two tests cannot race. A `.test-tmp` folder
+// anywhere else is not ignored, ships, and is read.
+const SCRATCH = join('.claude', 'skills', 'pr-review', 'features', '.test-tmp');
 export function markdownFiles(dir, out = [], links = []) {
   for (const f of readdirSync(dir)) {
-    if (f === '.test-tmp') continue;
     const p = join(dir, f);
+    if (p.endsWith(SCRATCH)) continue;
     const s = lstatSync(p);
     if (s.isSymbolicLink()) links.push(p);
     else if (s.isDirectory()) markdownFiles(p, out, links);
@@ -131,14 +133,16 @@ test('the scan lists a symbolic link rather than skip it, an inert link in a tem
   }
 });
 
-test('the scan skips a .test-tmp folder, so another test\'s scratch links cannot fail it', () => {
+test('the scan skips pr-review\'s .test-tmp folder only, so its scratch links cannot fail it', () => {
   const dir = mkdtempSync(join(tmpdir(), 'skill-shell-args-'));
   try {
-    mkdirSync(join(dir, 'skill/.test-tmp'), { recursive: true });
-    writeFileSync(join(dir, 'skill/SKILL.md'), 'text\n');
-    symlinkSync(join(dir, 'skill/SKILL.md'), join(dir, 'skill/.test-tmp/linked.md'));
+    mkdirSync(join(dir, '.claude/skills/pr-review/features/.test-tmp'), { recursive: true });
+    mkdirSync(join(dir, '.claude/skills/clarify/.test-tmp'), { recursive: true });
+    writeFileSync(join(dir, '.claude/skills/pr-review/SKILL.md'), 'text\n');
+    symlinkSync(join(dir, '.claude/skills/pr-review/SKILL.md'), join(dir, '.claude/skills/pr-review/features/.test-tmp/linked.md'));
+    writeFileSync(join(dir, '.claude/skills/clarify/.test-tmp/steps.md'), 'text\n');
     const { files, links } = markdownFiles(dir);
-    assert.deepEqual([files.map((f) => relative(dir, f)), links], [['skill/SKILL.md'], []]);
+    assert.deepEqual([files.map((f) => relative(dir, f)).sort(), links], [['.claude/skills/clarify/.test-tmp/steps.md', '.claude/skills/pr-review/SKILL.md'], []]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

@@ -348,7 +348,7 @@ test('main is protected with meta, verify, pr-body and prose, each a job a shipp
     '  "auth status") exit 0 ;;',
     '  "api user") printf "1\\nprobe\\n"; exit 0 ;;',
     '  "repo view") exit 1 ;;',
-    '  "repo create") while [ $# -gt 0 ] && [ "$1" != "--source" ]; do shift; done; src="$2"; git init -q --bare "$FAKE/remote.git" && git -C "$src" remote add origin "$FAKE/remote.git" && git -C "$src" push -q origin main; exit $? ;;',
+    '  "repo create") while [ $# -gt 0 ] && [ "$1" != "--source" ]; do shift; done; src="$2"; [ -n "$src" ] || exit 1; git init -q --bare "$FAKE/remote.git" && git -C "$src" remote add origin "$FAKE/remote.git" && git -C "$src" push -q origin main; exit $? ;;',
     '  "api -X") case "$4" in */branches/main/protection) cat > "$FAKE/protection.json" ;; esac; exit 0 ;;',
     'esac',
     'exit 0',
