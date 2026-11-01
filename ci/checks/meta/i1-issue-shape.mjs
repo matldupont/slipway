@@ -35,7 +35,8 @@
 //
 // KNOWN LIMITATION: this reads the shapes CommonMark gives a Seams line, not every way GitHub can hide one. Still
 // shown as an answer: an unclosed `<?`, `<!X` or `<![CDATA[` that opens a list item, a code span inside a raw HTML block
-// (`<p>`…`</p>`), an image's alt text, `<details>`, an unclosed comment, a link reference definition, and a lone CR.
+// (`<p>`…`</p>`), an image's alt text, `<details>`, an unclosed comment, a link reference definition, a list item indented one space,
+// a rule (`* * *`) after a reason, an ordered-list start other than 1 or a four-space indent inside a code span, and a lone CR.
 // A body built to hide its reason passes, as a padded `a: b` does; that is cold review's, not this check's. Each
 // scan is bounded or remembered: this runs on whatever an issue holds, and a body of 65,000 openers costs 0.03s.
 //
@@ -79,11 +80,11 @@ const SPACE = String.raw`(?:[ \t]|\n(?![ \t]*(?:\n|$)))`; // whitespace that sta
 const ATTRIBUTE = String.raw`${SPACE}+[A-Za-z_:][\w.:-]*(?:${SPACE}*=${SPACE}*(?:[^\s"'=<>\x60]+|'[^']*'|"[^"]*"))?`;
 const NAME = String.raw`(?!(?:${FILTERED})(?=[\s/>]))[A-Za-z][A-Za-z\d-]*`;
 const TAG = new RegExp(String.raw`<(?:${NAME}(?:${ATTRIBUTE})*${SPACE}*\/?>|\/${NAME}${SPACE}*>)|&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]*);`, 'iy');
-const DECLARATION = /<![A-Za-z]/y;
+const DECLARATION = /<![A-Z]+\s/y; // GitHub hides a declaration only with capitals and a space after the name
 const BLANK = /\n[ \t]*\n/g;
 // Where a line starts a block: a code span does not run past it (a blank line, a quote, a heading, a list item, a
 // rule, a fence or an HTML block).
-const BLOCK_START = /\n {0,3}(?:\n|[>]|#{1,6}(?:\s|$)|[-*+][ \t]+\S|1[.)][ \t]+\S|=+[ \t]*(?:\n|$)|(?:\*[ \t]*){3,}(?:\n|$)|(?:-[ \t]*){3,}(?:\n|$)|`{3,}|~{3,}|<[?!]|<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|pre|script|search|section|style|summary|table|tbody|td|textarea|tfoot|th|thead|title|tr|track|ul)(?=[\s/>]|$))/gi;
+const BLOCK_START = /\n(?:[ \t]*\n| {0,3}(?:[>]|-+[ \t]*(?:\n|$)|\|?[ \t]*:?-+:?[ \t]*\|[-: \t|]*(?:\n|$)|#{1,6}(?:\s|$)|[-*+][ \t]+\S|1[.)][ \t]+\S|=+[ \t]*(?:\n|$)|(?:\*[ \t]*){3,}(?:\n|$)|(?:-[ \t]*){3,}(?:\n|$)|`{3,}|~{3,}|<[?!]|<\/?(?:address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|pre|script|search|section|style|summary|table|tbody|td|textarea|tfoot|th|thead|title|tr|track|ul|source)(?=[\s/>]|$)))/gi;
 // The text of a Seams field as a reader sees it: HTML and entities dropped, except inside a code span. Read left to
 // right in one pass, so what starts first wins: a backtick in a tag's attribute opens no code span, a backslash
 // escapes one, and a run of backticks closes only with a run of its own length. Every scan is bounded or remembered,
@@ -94,8 +95,13 @@ function shown(text) {
   let run = 0;
   let block = 0;
   const gone = { pi: false, cdata: false, decl: false };
+  const unclosed = new Map(); // run length -> the block it found no closer in
   const blanks = [...text.matchAll(BLANK)].map((m) => m.index);
   let blank = 0;
+  const blankBetween = (from, to) => {
+    while (blank < blanks.length && blanks[blank] < from) blank += 1;
+    return (blanks[blank] ?? Infinity) < to;
+  };
   let out = '';
   let i = 0;
   while (i < text.length) {
@@ -108,9 +114,11 @@ function shown(text) {
       const n = runs[run].at + runs[run].n - i; // an escaped backtick leaves the rest of its run
       while (block < blocks.length && blocks[block] < i) block += 1;
       const limit = blocks[block] ?? text.length;
-      let close = run + 1;
+      let close = unclosed.get(n) === limit ? runs.length : run + 1;
       while (close < runs.length && runs[close].at < limit && runs[close].n !== n) close += 1;
-      const end = close < runs.length && runs[close].at < limit ? runs[close].at + n : i + n;
+      const found = close < runs.length && runs[close].at < limit;
+      if (!found) unclosed.set(n, limit);
+      const end = found ? runs[close].at + n : i + n;
       out += text.slice(i, end);
       i = end;
     } else if (c === '<' || c === '&') {
@@ -118,11 +126,11 @@ function shown(text) {
       if (text.startsWith('<?', i) && !gone.pi) {
         const at = text.indexOf('?>', i + 2);
         if (at < 0) gone.pi = true;
-        else len = at + 2 - i;
+        else if (!blankBetween(i, at)) len = at + 2 - i;
       } else if (text.startsWith('<![CDATA[', i) && !gone.cdata) {
         const at = text.indexOf(']]>', i + 9);
         if (at < 0) gone.cdata = true;
-        else len = at + 3 - i;
+        else if (!blankBetween(i, at)) len = at + 3 - i;
       } else {
         TAG.lastIndex = i;
         DECLARATION.lastIndex = i;
@@ -130,9 +138,8 @@ function shown(text) {
         if (!len && !gone.decl && DECLARATION.exec(text)) {
           // a declaration ends at the next `>`, and not past a blank line
           const at = text.indexOf('>', i + 3);
-          while (blank < blanks.length && blanks[blank] < i) blank += 1;
           if (at < 0) gone.decl = true;
-          else if ((blanks[blank] ?? Infinity) > at) len = at + 1 - i;
+          else if (!blankBetween(i, at)) len = at + 1 - i;
         }
       }
       if (len) i += len;
@@ -213,11 +220,14 @@ for (const f of bodies) {
   if (isNoResponse(seams)) {
     findings.push({ where: `${f}#seams/unanswered`, detail: 'Seams — does this add a person, a channel or a promise? — unanswered; answer `none: <one line of why>`, or one `<label>: <detail>` list item per seam' });
   } else if (sectionLines(md, 'Seams detail', 3) === null) {
-    const lines = shown(seams).split(LINE_END).filter((l) => l.trim());
+    const raw = shown(seams).split(LINE_END);
+    const lines = raw.filter((l) => l.trim());
+    const afterBlank = raw.flatMap((l, n) => (l.trim() ? [n > 0 && !raw[n - 1].trim()] : []));
     const hasText = (t) => /[\p{L}\p{N}]/u.test(t.replace(INVISIBLE, ''));
     const marker = /^([-*+]|\d+[.)])\s+/;
-    // a line that opens a list (a `1.` or `1)` can interrupt a paragraph, a `7.` cannot) or starts a second `none:`
-    const opensAnswer = (l) => /^ {0,3}([-*+]|0*1[.)])\s+/.test(l) || /^ {0,3}[*_]*none[*_]*\s*:/i.test(l);
+    // a line that opens a list (only a `1.` or `1)` interrupts a paragraph; after a blank line any number opens one) or
+    // starts a second `none:`
+    const opensAnswer = (l, n) => /^ {0,3}([-*+]|0*1[.)])\s+/.test(l) || (afterBlank[n + 1] && /^ {0,3}\d{1,9}[.)]\s+/.test(l)) || /^ {0,3}[*_]*none[*_]*\s*:/i.test(l);
     // 'ok' (`label: detail`), 'none-ok' (`none: reason`), 'none' (a `none` with no reason) or 'bad'
     const kind = (line) => {
       const text = plain(line.replace(marker, '').replace(/^\[[ xX]\]\s+/, ''));
