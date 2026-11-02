@@ -51,8 +51,8 @@ After the last allowed review round, a `breaks: none` finding is a known limitat
 
 ## §8 — Out of scope is a follow-up
 
-Work outside the ticket is filed as a follow-up (a review's leftover only past `/work-ticket` → The bar), except the same bug in code the ticket already touches, which
-is fixed there and said so in the PR. **Why:** a diff that grows past its ticket is reviewed against a promise
+Work outside the ticket is filed as a follow-up, except the same bug in code the ticket already touches, which
+is fixed there and said so in the PR. A review's leftover is filed only past `/work-ticket` → The bar. **Why:** a diff that grows past its ticket is reviewed against a promise
 nobody made.
 
 ## §9 — Prove it on real data

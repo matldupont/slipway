@@ -1476,20 +1476,24 @@ after the last review (D-031). Everything else in that rule holds: the merged he
 - **The bar.** "A finding the review leaves becomes a follow-up only when it breaks a guarantee, misleads a reader
   into a wrong action (a message or advice that, followed, does the wrong thing), or is a security finding above
   low. Any other is declined: one count on the Declined: line of ## Cold review, no issue filed. A security
-  finding, kept or declined, is named by its count and an issue number only."
-- **A check's misread** is kept when its reading decides an outcome: an issue closing, a gate passing, a decision
-  counting. It is declined when the check only grades prose. A finding reachable only by text built to fool a
-  check is declined, unless it is a security finding above low. One an honest author could trip by accident is kept.
+  finding, kept or declined, is named by its count and an issue number only." For a declined one, that number is
+  the issue the pull request works. A security finding no reviewer graded counts as above low, and the session
+  never lowers a reviewer's grade.
+- **A check's misread** is kept when its reading decides an outcome and an honest author could trip it by accident.
+  An outcome is an issue closing, a gate passing or a decision counting. It is declined when the check only grades
+  prose. A finding reachable only by text built to fool a check is declined, unless it is a security finding above
+  low.
 - **One more round, once.** Small in-scope findings of the verify that ends a review may get one more round: the
   fix commit, then a verify of that fix's diff only. It counts toward the three rounds. A guarantee still broken
   at the cap stops the run, and the owner chooses: cut that acceptance line, re-plan the ticket, or grant one
   more round. A fourth round runs only on the owner's yes.
-- **A follow-up's own pull request** gets one cold review, on the tier its diff calls for. The owner confirms
-  that its issue holds a review's leftovers; the issue's own words never decide it. A security review runs only
+- **A follow-up's own pull request** gets one cold review, on the strongest tier when a gate file or a surface is in the diff. The owner confirms
+  it once, when it is filed, and the issue records it: "Follow-up confirmed: owner, YYYY-MM-DD". The worker reads
+  that line and asks nothing. With no line it is not a follow-up, and it gets the full review. A security review runs only
   on a listed surface, named by the session or by the cold review's `Surfaces:` line. The list: money or checked
   math, auth or secrets, agent permissions or hooks, concurrency, a schema, data integrity, data deletion, or code
   that parses outside text. A gate file that touches none of these gets the cold review on the
-  strongest tier and no security review. A security finding no reviewer graded counts as above low.
+  strongest tier and no security review.
 
 Why: about half the issues filed from 2026-10-14 to 2026-10-28 were review leftovers, and some chained three
 deep. A reviewer that refutes by default always finds something, and a follow-up's full review left leftovers of
