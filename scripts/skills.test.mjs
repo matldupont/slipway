@@ -679,31 +679,37 @@ test('work-ticket allows one more round after the verify that would end a review
   assert.match(rounds, /a guarantee still broken after round 3 stops the run, the PR stays draft, and the owner chooses: cut that acceptance line, re-plan the ticket, or grant one more round\. A fourth round runs only on the owner's yes, never by default\./, 'the cap asks the owner and never runs a fourth round alone');
 });
 
-// #605: the paragraph says what a confirmed follow-up skips, and how its body is saved and read. The session decides
-// from this prose, so this test is the one that fails when the run and the rule disagree.
-test('work-ticket gives a follow-up\'s pull request one cold review, and says it skips the security review only with no listed surface', () => {
+// #605: the security review runs on every follow-up and the marker only cuts round 1's cold review (D-054, amended);
+// the paragraph says how the body is saved and read. The session decides from this prose, so this test is the one
+// that fails when the run and the rule disagree.
+test('work-ticket gives a follow-up\'s pull request one cold review, and the marker never skips its security review', () => {
   const para = read(skillPath('work-ticket')).replace(/\s+/g, ' ').match(/\*\*A follow-up's pull request\*\*.*?\(D-054\)\./)?.[0] ?? '';
+  const d054 = flat(read('decisions.md'));
+  const comment = flat(read('ci/checks/lib/issue-body.mjs').replace(/^\s*\/\/ ?/gm, ''));
   assert.match(para, /is one whose issue body shows the line `Follow-up confirmed: owner, YYYY-MM-DD` as a paragraph of its own, which the owner gave once, when it was filed\. Save the body with `gh issue view \{n\} --repo \{repo\} --json body --jq \.body > "\{prdir\}\/issue\.md"` and run `node ci\/checks\/lib\/issue-body\.mjs --follow-up "\{prdir\}\/issue\.md"`, which reads it as GitHub shows it, and ask nothing\./, 'the exact commands that save and read the body');
   assert.match(para, /Only the line `follow-up: confirmed` makes a follow-up; anything else \(`follow-up: none`, no output, an error\) gets the full review, and the body is never read by eye in its place\./, 'anything but follow-up: confirmed is the full review');
   assert.match(para, /Its round 1 is one cold review, on `cold-reviewer-strongest` when a file the run is judged by or a surface is in the diff, else on `cold-reviewer`; its brief adds two to the `Surfaces:` line: agent permissions or hooks, and code that parses outside text\./, 'one cold review, on the tier the diff calls for');
-  assert.match(para, /A listed surface brings the security review whatever the issue says: it runs on `security-reviewer-strongest` whenever you or that `Surfaces:` line name money or checked math, auth or secrets, agent permissions or hooks \(`\.claude\/settings\*`, hooks, permission rules\), concurrency, a schema, data integrity, data deletion, or code that parses text from outside the repository \(issue or PR bodies, fetched content\)\./, 'a listed surface runs the security review whatever the issue says');
-  assert.match(para, /A confirmed follow-up with none of these skips the security review in every round; a gate file that touches none of them is not a surface\. Its leftovers meet The bar like any other/, 'the skill says what a confirmed follow-up with no surface skips');
-  for (const [file, text] of [['the skill', para], ['D-054', flat(read('decisions.md'))], ['issue-body.mjs', flat(read('ci/checks/lib/issue-body.mjs'))]]) {
-    assert.doesNotMatch(text, /turns? the security review off/, `${file} must not say the marker never turns the security review off`);
+  assert.match(para, /The marker only cuts round 1 to one cold review: the security review runs on every follow-up, in every round a security review would run, whatever the issue says\. It runs on `security-reviewer-strongest` when a file the run is judged by is in the diff, or you or that `Surfaces:` line name money or checked math, auth or secrets, agent permissions or hooks \(`\.claude\/settings\*`, hooks, permission rules\), concurrency, a schema, data integrity, data deletion, or code that parses text from outside the repository \(issue or PR bodies, fetched content\); else on `security-reviewer`\./, 'the security review runs on every follow-up, on the tier the diff calls for');
+  assert.match(para, /The reader's view of the body is a best effort: a marker GitHub hides may still read as confirmed, and gains only that one cold review \(D-054\)\./, 'the skill states the hidden-marker limit');
+  for (const [file, text] of [['the skill', para], ['D-054', d054], ['issue-body.mjs', comment]]) {
+    assert.doesNotMatch(text, /skips? the security review|no security review|turns? the security review off|security review runs only/, `${file} must not let the marker skip the security review`);
   }
-  assert.match(flat(section(read(skillPath('work-ticket')), 'Phase 5 — Draft PR and cold review', 2) ?? ''), /Security: +\{n findings @ sha\} \| not run — a follow-up \(\{its confirmed line\}\), no surface \|/, 'a skipped security review is reported as not run, naming the confirmed line');
-  assert.match(flat(read('decisions.md')), /Known limitation: anyone who can write an issue body can write the marker\./, 'D-054 states what the marker cannot prove');
-  assert.match(flat(read('decisions.md')), /The marker cuts round 1 to one cold review, and on a diff with no listed surface it skips the security review in every round\./, 'D-054 says what a confirmed follow-up skips');
-  assert.match(flat(read('decisions.md')), /What a forged marker buys, on a diff with no listed surface, is one cold review in place of two and no security review in any round\./, 'D-054 weighs the forged marker at its full size');
-  assert.match(flat(read('ci/checks/lib/issue-body.mjs').replace(/^\s*\/\/ ?/gm, '')), /on a diff with no listed surface it skips the security review in every round\./, 'the reader\'s comment says what the marker skips');
+  assert.doesNotMatch(flat(section(read(skillPath('work-ticket')), 'Phase 5 — Draft PR and cold review', 2) ?? ''), /Security: +[^\n]*not run/, 'the Security line has no "not run" for a follow-up');
+  assert.match(d054, /The marker only cuts round 1 to one cold review: the security review runs on every follow-up, whatever the issue says\. It runs on the strongest tier when the diff holds a gate file or a listed surface/, 'D-054 says the security review runs on every follow-up');
+  assert.match(d054, /\*\*Amended 2026-11-02 \(#605\)\.\*\* The owner replaced the earlier answer that a follow-up gets a security review on a listed surface only: "the marker must not be able to switch it off\."/, 'D-054 records the amendment in the owner\'s words');
+  assert.match(d054, /Known limitation: anyone who can write an issue body can write the marker\./, 'D-054 states what the marker cannot prove');
+  assert.match(d054, /a marker GitHub hides may still be counted\. A forged marker, visible or hidden, buys at most one cold review fewer in round 1\. The security review runs either way\./, 'D-054 weighs a hidden marker');
+  assert.match(comment, /The marker only cuts round 1 to one cold review; the security review runs on every follow-up\./, 'the reader\'s comment says the marker never skips the security review');
+  assert.match(comment, /Some bodies GitHub shows with the marker hidden still read as confirmed; D-054 records that limit/, 'the reader\'s comment does not claim its cases are closed');
 });
 
 // D-054's fixture: the marker counts only as GitHub shows the body.
 test('the follow-up marker is read as GitHub shows the body', () => {
   const FIX = 'scripts/fixtures/follow-up';
   const confirmed = { visible: true, 'hidden-comment': false, 'hidden-fence': false, quoted: false, 'bad-date': false, none: false };
-  // #605: a marker GitHub does not show, inside a title or attribute over several lines or after HTML that can hide it.
-  for (const name of ['link-ref-title', 'html-attribute', 'inline-link-title', 'details', 'script', 'style', 'pre', 'textarea', 'processing-instruction', 'declaration', 'cdata']) confirmed[name] = false;
+  // #605: bodies the reader reads as no marker, on a best-effort basis (D-054's known limitation): a marker in a
+  // paragraph with other text, inside a title or attribute over several lines, or after HTML the reader does not judge.
+  for (const name of ['same-paragraph', 'link-ref-title', 'html-attribute', 'inline-link-title', 'details', 'script', 'style', 'pre', 'textarea', 'processing-instruction', 'declaration', 'cdata']) confirmed[name] = false;
   assert.deepEqual(readdirSync(join(SRC, FIX)).sort(), Object.keys(confirmed).map((n) => `${n}.md`).sort(), 'every fixture is in the table');
   for (const [name, want] of Object.entries(confirmed)) {
     const followUp = followUpConfirmed(read(`${FIX}/${name}.md`));

@@ -57,15 +57,15 @@ export function overlap(a, b) {
   return a.some((x) => b.some((y) => key(x).startsWith(key(y)) || key(y).startsWith(key(x))));
 }
 
-// /work-ticket's follow-up marker (D-054): `Follow-up confirmed: owner, YYYY-MM-DD` on a line of its own, read as
-// GitHub shows the body, so a copy in an HTML comment or a fenced block does not count, nor one in a quote. It counts
-// only as a paragraph of its own, a blank line or the body's edge on each side, so a title or attribute running over
-// several lines cannot carry it. A body holding HTML that can hide what follows it (a collapsed <details>, a raw
-// block: <script>, <style>, <pre>, <textarea>, <?…?>, <!X…>, CDATA) has no marker: the safe mistake is a full review. Anyone
+// /work-ticket's follow-up marker (D-054): `Follow-up confirmed: owner, YYYY-MM-DD`, read as GitHub shows the body
+// on a best-effort basis: a copy in an HTML comment, a fenced block or a quote does not count. It counts only as a
+// paragraph of its own, a blank line or the body's edge on each side. A body holding HTML the reader does not judge
+// (<details>, <script>, <style>, <pre>, <textarea>, <?…?>, <!X…>, CDATA) has no marker. Some bodies GitHub shows
+// with the marker hidden still read as confirmed; D-054 records that limit, and what it gains. Anyone
 // who can write the body can write it, and an author check would prove nothing while agents act with the owner's
-// credentials: D-054 records that limit. The marker cuts round 1 to one cold review, and on a diff with no listed
-// surface it skips the security review in every round. That rule lives in /work-ticket's prose, which the session
-// reads and this file never decides; scripts/skills.test.mjs pins it there.
+// credentials: D-054 records that limit too. The marker only cuts round 1 to one cold review; the security review
+// runs on every follow-up. That rule lives in /work-ticket's prose, which the session reads and this file never
+// decides; scripts/skills.test.mjs pins it there.
 const MARKER = /^Follow-up confirmed: owner, (\d{4})-(\d{2})-(\d{2})$/;
 const HIDING_HTML = /<(?:details|script|style|pre|textarea)\b|<\?|<!\[CDATA\[|<![A-Za-z]/i;
 export function followUpConfirmed(body) {
