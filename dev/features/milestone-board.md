@@ -378,14 +378,14 @@ node ~/.claude/skills/ui-craft/scripts/check-ui.mjs dev/board   # the direction'
 All after #542. Owner-only files, asked for at each edit and named under `## Gate changes`: `ci/**` in every step,
 `package.json`'s scripts in steps 1–3 (each wires its tests into `meta`).
 
-1. **The plan gains prose waits, the open-issue list and one Next** — `ci/checks/lib/issue-body.mjs`
+1. #601 — **The plan gains prose waits, the open-issue list and one Next** — `ci/checks/lib/issue-body.mjs`
    (`proseWaits()`), `ci/checks/lib/plan.mjs`, `ci/checks/lib/owed.mjs` (`prose-wait`), `ci/checks/lib/github-state.mjs`,
    `ci/status.mjs` (`statusModel()`), fixtures and tests. Status changes; the page does not yet. ~300 lines.
-2. **The board's model and page** — `ci/work-order.mjs` → `ci/board.mjs` (`board()`, the render per the direction,
+2. #602 — **The board's model and page** — `ci/work-order.mjs` → `ci/board.mjs` (`board()`, the render per the direction,
    `--out`), `inlineMarkdown()` in `ci/checks/lib/html.mjs`, `scripts/work-order.test.mjs` → `scripts/board.test.mjs`,
    `package.json` (`board`, the `work-order` alias), F-07's doc's Changes line. Static, no server change. Blocked by
    step 1. ~450 lines.
-3. **The board stays live** — the watcher and read schedule, `ETag` and `304`, the content policy, the pinned script,
+3. #603 — **The board stays live** — the watcher and read schedule, `ETag` and `304`, the content policy, the pinned script,
    `<noscript>`, the failure lines, `changed`; tests with a fake clock and watcher; the hand run with screenshots.
    Blocked by step 2. ~350 lines.
 
@@ -413,4 +413,4 @@ None open. Answered by the owner on 2026-11-02, recorded in D-055:
 
 ## Changes
 
-- 2026-11-02 · ADDED · 0.1, shaped from the owner's request for a live per-milestone board
+- 2026-11-02 · ADDED · 0.1, shaped from the owner's request for a live per-milestone board · #600
