@@ -15,6 +15,7 @@
 // taken, each with `startable` set (`It can start now, after the steps above.`, F-17 §1).
 
 import { overlap } from './issue-body.mjs';
+import { MILESTONE_ID } from './milestones.mjs';
 import { isKey, KIND_ORDER, ownerBusy, ownerWork, thing } from './owed.mjs';
 
 // At most this many places in all, the main step included.
@@ -22,8 +23,8 @@ export const CAP = 3;
 export const OFFLINE = 'Status did not read open pull requests, so check them for the same files first.';
 
 // A leaf's number and a milestone id go into commands a session runs, so only whole numbers and `M<n>` ids are used.
-const WHOLE = (n) => Number.isSafeInteger(n) && n > 0 && n <= 9999;
-const MID = /^M\d{1,9}(?:\.\d{1,9})?$/;
+const WHOLE = (n) => Number.isSafeInteger(n) && n > 0 && n <= 999_999_999;
+const MID = new RegExp(`^${MILESTONE_ID}$`);
 
 const leafThing = (l) => ({
   kind: 'leaf',
@@ -56,7 +57,7 @@ export function plan({ main, owed = [], leaves = [], inProgress = [], shape = nu
   const candidates = [
     ...owed.map((t, i) => ({ t, role: 'owed', i })),
     ...leaves.filter((l) => WHOLE(l.n) && l.ready && !l.claimed && l.n !== main.issue).map((l, i) => ({ t: leafThing(l), role: 'leaf', i })),
-    ...(shape && WHOLE(shape.n) && MID.test(String(shape.id)) && main.kind !== 'shape' ? [{ t: shapeThing(shape), role: 'shape', i: 0 }] : []),
+    ...(shape && WHOLE(shape.n) && typeof shape.id === 'string' && MID.test(shape.id) && main.kind !== 'shape' ? [{ t: shapeThing(shape), role: 'shape', i: 0 }] : []),
   ].filter(({ t }) => t.blocks.rank >= 1 && t.blocks.rank <= 4)
     .sort((a, b) => group(a.t, a.role) - group(b.t, b.role)
       || (a.role === 'owed' && b.role === 'owed'
@@ -74,7 +75,7 @@ export function plan({ main, owed = [], leaves = [], inProgress = [], shape = nu
     // Unknown files are refused here and again by overlap(), which treats null as meeting everything.
     if (!clear(t) || t.files === null || t.files === undefined) continue;
     // [] overlaps nothing, even beside unknown files (§3 rule 3).
-    if (t.files.length && used.some((f) => overlap(t.files, f))) continue;
+    if (!(Array.isArray(t.files) && t.files.length === 0) && used.some((f) => overlap(t.files, f))) continue;
     if (ownerWork(t.who) && (busy || owner)) continue;
     taken.push({ t, role });
     used.push(t.files);
@@ -83,7 +84,7 @@ export function plan({ main, owed = [], leaves = [], inProgress = [], shape = nu
 
   // By identity, not key: two things may share a key, and a pick must not take its twin out of the list.
   const picked = new Set(taken.map(({ t }) => t));
-  const parallel = taken.map(({ t }) => (online ? t : { ...t, text: `${t.text} ${OFFLINE}`, ...(t.line === undefined ? {} : { line: `${t.line} ${OFFLINE}` }) }));
+  const parallel = taken.map(({ t }) => (online ? t : { ...t, text: `${t.text} ${OFFLINE}`, ...(t.line == null ? {} : { line: `${t.line} ${OFFLINE}` }) }));
   const rest = owed
     .filter((t) => !picked.has(t))
     .map((t) => ({ ...t, startable: t.blocks.rank >= 1 && t.blocks.rank <= 4 && clear(t) }));

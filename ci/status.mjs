@@ -91,7 +91,7 @@ const idList = (list, ref, more) => {
   return ok.length ? (odd && ok.length <= 3 ? `${shown} and ${odd} more` : shown) : more;
 };
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
-// Every line status prints for a person, bar the Next line and the state lines, is an owed thing (lib/owed.mjs, F-17 §1)
+// Every line status prints for a person, bar the Next line, the state lines and the headers over check rows, is an owed thing (lib/owed.mjs, F-17 §1)
 // that still prints as the line it printed before the plan: `lead` is what opens that line ("(you) " by default, from
 // the thing's who; '' for a line that never had one), `text` the rest. Step 2 of #445 prints them in §1's form.
 const owe = (kind, f, text, lead) => {

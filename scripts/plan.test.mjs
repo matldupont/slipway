@@ -176,6 +176,19 @@ test('offline, a pick that carries the line it printed before also ends with the
   assert.equal(line(run({ owed: [t] }).parallel[0]), 'row.');
 });
 
+test('issue numbers past 9999 are offered; a non-string milestone id, and files that are not an array, are refused', () => {
+  assert.deepEqual(keys(plan({ main: AGENT_MAIN, leaves: [leaf(10234)], online: true }).parallel), ['leaf:10234']);
+  const id = { toString: () => 'M2' };
+  assert.deepEqual(plan({ main: AGENT_MAIN, shape: { id, n: 1 }, online: true }).parallel, []);
+  assert.deepEqual(plan({ main: { who: 'agent', files: null }, leaves: [leaf(5, { touches: '' })], online: true }).parallel, []);
+});
+
+test('offline, a pick whose line is null still ends with the sentence on the line it prints', () => {
+  const t = { ...owe('owed-check', { key: 'a', files: ['a.md'] }), line: null };
+  assert.ok(line(run({ owed: [t], online: false }).parallel[0]).includes(OFFLINE));
+  assert.ok(!line(run({ owed: [t], online: false }).parallel[0]).startsWith('null'));
+});
+
 test('two things that share a key: a pick does not take its twin out of the rest', () => {
   const a = owe('open-question', { key: 'k', rank: 2, who: 'agent', files: ['a.md'] });
   const b = owe('open-question', { key: 'k', rank: 2, who: 'agent', files: ['a.md'] });
