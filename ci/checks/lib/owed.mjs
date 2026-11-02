@@ -1,6 +1,6 @@
 // An owed thing: one line of what `pnpm status` asks of a person, as data (F-17 §1 and §2, dev/features/parallel-plan.md).
-// Every line status prints for a person, bar the Next line and the state lines, is built here by thing() from the kind's
-// row in KINDS, so who acts, what it blocks, what it waits on and which files it writes are said once per kind and read
+// Every line status prints for a person, bar the Next line, the state lines and the headers that stand over check rows, is
+// built here by thing() from the kind's row in KINDS, so who acts, what it blocks, what it waits on and which files it writes are said once per kind and read
 // by the planner (plan.mjs). Zero dependencies, no process.exit.
 //
 //   { kind, key, who, text, blocks: { rank, words, date }, waits, files }
@@ -49,7 +49,7 @@ export const KINDS = {
   'unreadable-check': { who: 'you or an agent', rank: 1, words: CLOSING },
   parked: { who: 'nobody', rank: 5, words: NOTHING, waits: 'its tracker', files: [] },
   lesson: { who: 'you', rank: 4, words: 'its date' },
-  shape: { who: 'you and an agent', rank: 1, words: "the milestone's next builds", files: ['docs/milestones/**', 'docs/features/**', 'docs/PRD.md', 'decisions.md'] },
+  shape: { who: 'you and an agent', rank: 1, words: "the milestone's next builds", files: ['docs/milestones/**', 'docs/features/**', 'dev/features/**', 'docs/PRD.md', 'decisions.md'] },
   'github-unread': { who: 'you', rank: 5, words: NOTHING, waits: 'GitHub', files: [] },
   'stale-claim': { who: 'you', rank: 5, words: NOTHING, files: [] },
   unplannable: { who: 'you', rank: 5, words: NOTHING, files: [] },
@@ -59,7 +59,7 @@ export const KINDS = {
   merge: { who: 'you', rank: 5, words: NOTHING, files: [] },
   'review-owed': { who: 'fresh session', rank: 3, words: 'a pull request going ready, which the pull-request check holds', files: DOCS_REVIEWS },
   'red-check': { who: 'you or an agent', rank: 5, words: NOTHING },
-  'needs-shape': { who: 'you and an agent', rank: 3, words: "the issue's build", files: ['docs/features/**', 'docs/milestones/**', 'decisions.md'] },
+  'needs-shape': { who: 'you and an agent', rank: 3, words: "the issue's build", files: ['docs/features/**', 'dev/features/**', 'docs/milestones/**', 'decisions.md'] },
 };
 
 export const KIND_ORDER = Object.keys(KINDS);

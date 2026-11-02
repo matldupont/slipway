@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { STEPS } from '../ci/checks/lib/steps.mjs';
 import { form, isKey, KIND_ORDER, KINDS, line, ownerBusy, thing, WHO } from '../ci/checks/lib/owed.mjs';
+import { citationFor, decisionThings } from '../ci/checks/lib/decision-lines.mjs';
 import { CAP, OFFLINE, plan } from '../ci/checks/lib/plan.mjs';
 
 // An owed thing of a kind, with files and what a case changes.
@@ -133,6 +134,8 @@ test('AR-4: three ready leaves, all claimed, and an unstarted item: shaping is o
 
 test('AR-6: a rank-1 merge is taken ahead of the ready leaves and shaping, and the person rule leaves shaping out', () => {
   const merge = owe('merge', { key: 'merge:7', rank: 1, words: 'the active milestone closing', files: [] });
+  const two = plan({ main: { who: 'agent', files: ['src/l1/**'], issue: 1 }, owed: [merge], leaves: [leaf(1), leaf(2), leaf(3)], online: true });
+  assert.deepEqual(keys(two.parallel), ['merge:7', 'leaf:2']);
   const r = plan({ main: { who: 'agent', files: ['src/l1/**'], issue: 1 }, owed: [merge], leaves: [leaf(1)], shape: { id: 'M2', n: 4 }, online: true });
   assert.deepEqual(keys(r.parallel), ['merge:7']);
 });
@@ -147,6 +150,46 @@ test('a ready leaf as the main step, a second ready leaf, an unstarted item and 
 test('a claimed leaf, an unready leaf and the main step\'s own leaf are never picks', () => {
   const r = plan({ main: { who: 'agent', files: leaf(1).touches, issue: 1 }, leaves: [leaf(1), leaf(2, { claimed: true }), leaf(3, { ready: false }), leaf(4)], online: true });
   assert.deepEqual(keys(r.parallel), ['leaf:4']);
+});
+
+test('the main step\'s own leaf is never a pick, even when its files meet nothing', () => {
+  const r = plan({ main: { who: 'agent', files: ['elsewhere/**'], issue: 1 }, leaves: [leaf(1)], online: true });
+  assert.deepEqual(r.parallel, []);
+});
+
+test('a leaf number or milestone id that is not a whole number or an M<n> id is never put in a command', () => {
+  const r = plan({ main: AGENT_MAIN, leaves: [leaf('15; rm'), leaf(1.5), leaf(0)], shape: { id: 'M2; x', n: 1 }, online: true });
+  assert.deepEqual(r.parallel, []);
+  assert.deepEqual(plan({ main: AGENT_MAIN, shape: { id: 'M2', n: '1 x' }, online: true }).parallel, []);
+  assert.deepEqual(keys(plan({ main: AGENT_MAIN, shape: { id: 'M1.1', n: 2 }, online: true }).parallel), ['shape:M1.1#2']);
+});
+
+test('a thing that writes no file is offered beside a main step whose files are unknown', () => {
+  const merge = owe('merge', { key: 'merge:7', rank: 1, who: 'agent', files: [] });
+  assert.deepEqual(keys(plan({ main: { who: 'agent', files: null }, owed: [merge], online: true }).parallel), ['merge:7']);
+});
+
+test('offline, a pick that carries the line it printed before also ends with the sentence', () => {
+  const t = { ...owe('owed-check', { key: 'a', files: ['a.md'] }), line: 'row.' };
+  const off = run({ owed: [t], online: false }).parallel[0];
+  assert.equal(line(off), `row. ${OFFLINE}`);
+  assert.equal(line(run({ owed: [t] }).parallel[0]), 'row.');
+});
+
+test('two things that share a key: a pick does not take its twin out of the rest', () => {
+  const a = owe('open-question', { key: 'k', rank: 2, who: 'agent', files: ['a.md'] });
+  const b = owe('open-question', { key: 'k', rank: 2, who: 'agent', files: ['a.md'] });
+  const r = run({ owed: [a, b] });
+  assert.equal(r.parallel.length, 1);
+  assert.equal(r.rest.length, 1);
+});
+
+test('a feature review finds the decision citation for its feature, whose key carries the padded F-07', () => {
+  const record = { missing: null, strays: [], owed: () => [{ id: 'PD-1', feature: 7, docs: [] }, { id: 'PD-2', feature: 12, docs: [] }], fired: () => [], unreadable: () => [], unreadFolders: () => [] };
+  const things = decisionThings(record, '2026-03-10');
+  assert.equal(citationFor(things, [7])?.key, 'owed-citation:PD-1:F-07');
+  assert.equal(citationFor(things, [3, 12])?.key, 'owed-citation:PD-2:F-12');
+  assert.equal(citationFor(things, [8]), undefined);
 });
 
 test('the person rule reads the main step\'s who from §4\'s table: `yours` and `you and an agent` are the owner\'s, and STEPS gives the other cases', () => {

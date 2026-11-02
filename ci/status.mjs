@@ -21,7 +21,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, w
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
-import { decisionThings } from './checks/lib/decision-lines.mjs';
+import { citationFor, decisionThings } from './checks/lib/decision-lines.mjs';
 import { resolveDecision } from './checks/lib/decision-ref.mjs';
 import { readDecisions, testStart } from './checks/lib/decisions.mjs';
 import { designBefore, hasAccessibilityLine } from './checks/lib/design.mjs';
@@ -198,7 +198,7 @@ const featureLines = owedReviews(root).map((f) => {
   const ids = f.ns.filter((n) => Number.isSafeInteger(n) && n <= 9999).slice(0, 3).map((n) => `F-${n}`).join(', ') || 'Its feature';
   const doc = named(f.path) === f.path ? f.path : `on the doc for ${ids} (a file with an unusual name)`;
   // The review waits on the decision citation for its feature, when one is listed.
-  const citation = owedDecisions.find((o) => o.kind === 'owed-citation' && f.ns.some((n) => o.key.endsWith(`:F-${n}`)));
+  const citation = citationFor(owedDecisions, f.ns);
   const waits = citation ? { waits: citation.key, waitsWords: 'the decision citation below' } : {};
   return owe('feature-review', { key: `feature-review:${f.path}`, ...waits }, `Run /review-doc ${doc} in a fresh session. ${ids} ${featureVersion(f.md)}. Its build tickets wait on that review.`, '(you) ');
 });
@@ -253,7 +253,7 @@ const designLines = (() => {
       // An id is printed only in the shape the skills accept, else in words (milestoneRef below).
       const id = milestoneId(m.fm.id) ?? 'A shaping milestone';
       const named = typeof m.fm.design === 'string' && resolveDecision(decisions, m.fm.design, { decided: true }).ok;
-      const blocks = { words: `${id === 'A shaping milestone' ? 'a milestone' : id} going active`, files: [`docs/milestones/${m.file}`] };
+      const blocks = { words: `${id === 'A shaping milestone' ? 'a milestone' : id} going active`, files: ['docs/milestones/**'] };
       return [
         ...(m.fm.kind !== 'skeleton' && !named && !designBefore(m, milestones, ['shaping', 'active', 'closed']) ? [owe('design', { key: `design:${i}:item`, ...blocks }, `${id} has no design item before it: add one to an earlier milestone, or as its item 1`, '')] : []),
         ...(hasAccessibilityLine(m.md) ? [] : [owe('design', { key: `design:${i}:gate`, ...blocks }, `${id}'s Gate does not say how its screens meet WCAG 2.2 AA: write the line with what holds it, or set screens: none`, '')]),

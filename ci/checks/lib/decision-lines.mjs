@@ -31,7 +31,7 @@ function owedThing({ id, feature, docs }) {
   if (!docs.length) return thing('owed-citation', { key, files: null, words: "the feature's shaping", waits: 'its doc', text: `Name the decision (${id}) in the doc for the feature (${f}) once it is written, or on the Contents line that builds the feature. The decision amends that feature, and no feature doc carries it yet.` });
   // A path is printed only in the shape feature docs are named; any other is said as the feature's doc.
   const where = [...new Set(docs.map((p) => (DOC.test(p) ? p : "the feature's doc")))].join(', ');
-  return thing('owed-citation', { key, files: docs.filter((p) => typeof p === 'string'), text: `Write what the decision (${id}) changes into ${where}. It amends the feature (${f}), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature.` });
+  return thing('owed-citation', { key, files: [...docs.filter((p) => typeof p === 'string'), 'docs/milestones/**'], text: `Write what the decision (${id}) changes into ${where}. It amends the feature (${f}), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature.` });
 }
 
 // The event in the table's words; a review of a doc that names the decision already covers it (AR-1 of the 0.3 review).
@@ -73,6 +73,9 @@ export function decisionThings(record, today) {
     ...record.unreadFolders().filter((d) => FOLDERS.has(d)).map(folderThing),
   ];
 }
+
+// The owed citation a feature's review waits on: the first for any of the feature numbers (the keys carry fid()'s padding).
+export const citationFor = (things, ns) => things.find((o) => o.kind === 'owed-citation' && ns.some((n) => o.key.endsWith(`:${fid(n)}`)));
 
 // The same, as the lines status prints.
 export const decisionLines = (record, today) => decisionThings(record, today).map(line);
