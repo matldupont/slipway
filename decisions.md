@@ -1467,6 +1467,34 @@ Why: D-051 keeps a project's prose job red until its count is recorded, and that
 a merge. The pull request that records the count turns the job green, so a project never locks itself out. The cost: a
 new project cannot merge until its owner records the count once; CI's red message gives the command. Spec: F-16, #565.
 
+## D-054 — A review's leftover becomes a follow-up only past a bar; a follow-up's own pull request gets one cold review *(decided 2026-11-02)*
+
+The owner, 2026-11-02, in #580's plan. It narrows D-031's "what is left over" bullet. Everything else in D-031 holds:
+the merged head is a reviewed head.
+
+- **The bar.** "A finding the review leaves becomes a follow-up only when it breaks a guarantee, misleads a reader
+  into a wrong action (a message or advice that, followed, does the wrong thing), or is a security finding above
+  low. Any other is declined: one count on the Declined: line of ## Cold review, no issue filed. A security
+  finding, kept or declined, is named by its count and an issue number only."
+- **A check's misread** is kept when its reading decides an outcome (an issue closing, a gate passing, a decision
+  counting), and declined when the check only grades prose. A finding reachable only by text built to fool a
+  check is declined, at its grade; one an honest author could trip by accident is kept.
+- **One more round, once.** Small in-scope findings of the verify that ends a review may get one more round: the
+  fix commit, then a verify of that fix's diff only. It counts toward the three rounds. A guarantee still broken
+  at the cap stops the run, and the owner chooses: cut that acceptance line, re-plan the ticket, or grant one
+  more round. A fourth round runs only on the owner's yes.
+- **A follow-up's own pull request** gets one cold review, on the tier its diff calls for. A security review runs
+  only when the diff touches money or checked math, auth or secrets, agent permissions or hooks, concurrency, a
+  schema, data integrity, data deletion, or code that parses text from outside the repository. A gate file alone
+  gets the cold review on the strongest tier and no security review.
+
+Why: about half the issues filed from 2026-10-14 to 2026-10-28 were review leftovers, and some chained three
+deep. A reviewer that refutes by default always finds something, and a follow-up's full review left leftovers of
+its own. The owner, 2026-10-28: "I don't want to boil the ocean, but I want this to be top quality." #580.
+
+Declined: a bar that keeps every wrong message ("misleads" with no wrong action) — wording a reader would not act
+on would still breed tickets. A fourth round by default — the cap would stop being one.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
