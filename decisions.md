@@ -1486,9 +1486,9 @@ after the last review (D-031). Everything else in that rule holds: the merged he
   more round. A fourth round runs only on the owner's yes.
 - **A follow-up's own pull request** gets one cold review, on the tier its diff calls for. The owner confirms
   that its issue holds a review's leftovers; the issue's own words never decide it. A security review runs only
-  when the diff touches one of these: money or checked math, auth or secrets, agent permissions or hooks,
-  concurrency, a schema, data integrity, data deletion, or code that parses outside text. The session or the cold
-  review's `Surfaces:` line names it. A gate file that touches none of these gets the cold review on the
+  on a listed surface, named by the session or by the cold review's `Surfaces:` line. The list: money or checked
+  math, auth or secrets, agent permissions or hooks, concurrency, a schema, data integrity, data deletion, or code
+  that parses outside text. A gate file that touches none of these gets the cold review on the
   strongest tier and no security review. A security finding no reviewer graded counts as above low.
 
 Why: about half the issues filed from 2026-10-14 to 2026-10-28 were review leftovers, and some chained three
