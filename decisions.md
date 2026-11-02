@@ -841,6 +841,58 @@ crossed**: more than a third of that project's new tests were not judged. So ste
   holds them when step 0 ends. Step 1 waits for the
   revision. Until it lands, F-13 0.3's Contract describes a job that will not be built.
 
+**Amended 2026-11-02**, the revision (#439, F-13 0.4). The owner set each of these, with the figures below and
+a real project's in front of them:
+
+- **The budget is 2 minutes and the stop is 10**, of wall time on the machine building the pull request. The
+  budget is about twice the slowest scratch run below; the stop is unchanged, so a slower machine is not red for
+  time. This replaces "5 minutes … on the project's CI runner" above, and the heading's "within 5 minutes".
+- **The caps of F-13 §3.9 stay 30 `body` changes, then 30 more.** No measured run reached them: on the scratch
+  project no new test was tried against more than 14 changes, while 3 had more than 60 to try. A test file
+  stopped at a cap is named with how many changes were not tried, and is never reported as fully checked.
+- **The not-judged share is counted two ways, and the line reads the first.** The rule-caused share counts the
+  reasons the rule gives (`no-subject`, `support-only`, `could-not-be-parsed`, `other-language`,
+  `no-change-to-make`, `other-runner` with no dated entry); the total also counts `skipped`, the owner's
+  reasons and a test red in the copy. Every run prints both. F-13's real-project acceptance line holds the
+  rule-caused share under a quarter, and that is the figure the stricter rule of F-13's Known limitations is
+  measured against.
+- **A new test red in the clean copy is run again once**, with the same test files in the same order. Red both
+  times stops the step, as before. Red, then green, is not judged, `flaky`: no change is run against it, and it
+  is named as unjudged for flakiness.
+- **The step stops every process it starts** (#439). Step 0's measurement left two test-runner processes at
+  about 80% of a core for 2 days 17 hours: a runner killed at its time limit leaves its workers. Each call runs
+  in a process group of its own, killed on exit, error and timeout alike, and a run that finds a process it
+  started still alive at the end is exit 2. The probe stops what it starts by the copy's folder name, not by
+  process group, and checks with `pgrep -f`: with the killing turned off, a planted test left 43 processes and the
+  probe exited 2; with it on, none.
+- **§3.6's subjects and support list do not change.** The owner kept them with the re-run in front of them.
+
+Taken by the session under decision-defaults §1: MT1's fixture form runs in the `meta` script on a record of
+a run that passes, so W1 finds it run with no workflow of its own.
+
+**Measured** 2026-11-02, by `dev/probes/tests-can-fail/measure.mjs` on the machine that builds the pull
+requests (Apple M4, 10 cores, Node 24.12.0), on the scratch project of 2026-10-13, 3 runs on each Vitest
+version. The probe leaves out what the entry of 2026-10-13 says it does.
+
+| the scratch change, 10 source files | Vitest 5.0.3 | Vitest 4.1.11 |
+|---|---|---|
+| wall seconds, 3 runs | 38.1, 37.2, 37.2 | 40.0, 56.8, 45.5 |
+| of the slowest: copy, install, listing, baseline, judging | 0, 0.5, 1.1, 6.2, 30.4 | 0, 0.5, 2.6, 9.0, 44.4 |
+| runs of the test runner | 65 | 65 |
+| new tests; judged; not judged | 35; 35; 0 | 35; 35; 0 |
+| judged: passes, kills-nothing, only-crashes | 32, 2, 1 | 32, 2, 1 |
+
+The same probe was run on a real project built from slipway, on a clone outside its checkout, on merged pull
+requests of its own that add tests; its figures were shown to the owner and are not recorded. A test red once in
+the copy and green on its next run was seen there, which is what the second baseline run is for.
+
+**Amended 2026-11-02 again**, answering the review of F-13 at 0.4 (`docs/reviews/2026-11-02-tests-can-fail-0.4.md`),
+the owner's pick: F-13 goes to 0.5 with the three findings that break a guarantee fixed, the rest carried into
+the build, and one review of 0.5, scoped to those fixes. That review is the last of the whole document: a finding
+from it becomes an acceptance line in the matching build issue, and only one that changes the Contract's
+guarantees goes back to the owner. The root script that runs the step is `tests-can-fail`, a name W1 does not
+count as gated, since no workflow runs it.
+
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
 
 A deferred check's recorded run has one row per journey, and any `not run` keeps the check owed
