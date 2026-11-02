@@ -847,7 +847,7 @@ a real project's in front of them:
 - **The budget is 2 minutes and the stop is 10**, of wall time on the machine building the pull request. The
   budget is about twice the slowest scratch run below; the stop is unchanged, so a slower machine is not red for
   time. This replaces "5 minutes … on the project's CI runner" above, and the heading's "within 5 minutes".
-- **The caps of F-13 §3.9 stay 30 `body` changes, then 30 more.** No measured run reached them: on the scratch
+- **The caps of F-13 §3.9 stay 30 `body` changes, then 30 more.** No scratch run reached them: on the scratch
   project no new test was tried against more than 14 changes, while 3 had more than 60 to try. A test file
   stopped at a cap is named with how many changes were not tried, and is never reported as fully checked.
 - **The not-judged share is counted two ways, and the line reads the first.** The rule-caused share counts the

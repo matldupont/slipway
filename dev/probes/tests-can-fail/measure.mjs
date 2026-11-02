@@ -101,11 +101,11 @@ let tmp = null;
 // A runner killed at its time limit leaves its workers running: step 0 left two at ~80% of a core for days. So
 // after every call, and on every exit, each process whose command line names the copy's folder is killed, but
 // for what ci/before-verify.sh left running for the tests (`kept`), which is killed only on exit.
-// pgrep and pkill read the pattern as a regular expression, so the folder's path is escaped: a `+` or a `(` from
-// TMPDIR would otherwise match nothing, and the check would read green.
+// pgrep reads the pattern as a regular expression, so the folder's path is escaped: a `+` or a `(` from TMPDIR
+// would otherwise match nothing, and the check would read green. Only this user's processes are listed.
 const pattern = () => tmp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // The pids now alive whose command line names the folder; null when pgrep cannot say (exit 1 is "none").
-const pids = () => { try { return execFileSync('pgrep', ['-f', pattern()], { encoding: 'utf8' }).split('\n').filter(Boolean); } catch (e) { return e.status === 1 ? [] : null; } };
+const pids = () => { try { return execFileSync('pgrep', ['-U', String(process.getuid()), '-f', pattern()], { encoding: 'utf8' }).split('\n').filter(Boolean); } catch (e) { return e.status === 1 ? [] : null; } };
 let kept = new Set();
 const sweep = (all = false) => {
   if (!tmp || noSweep) return;
@@ -145,10 +145,20 @@ if (!changedTestFiles.length) finish();
 // §3.4 — the copy: the tree of the commit, written by git into a folder outside the project.
 tmp = realpathSync(mkdtempSync(join(tmpdir(), 'tests-can-fail-probe-')));
 const copy = join(tmp, 'copy');
-process.on('exit', () => { sweep(true); try { rmSync(tmp, { recursive: true, force: true }); } catch { /* the folder is in the temporary directory */ } });
-// The probe is synchronous, so a handler for a signal would never run: a signal to the probe ends it at once, by
-// the default action, and can leave the copy and what runs in it (README says how to stop them). Ctrl-C reaches
-// the runner too. A child killed by a signal stops the run; the run limit kills with SIGTERM too, and is not a stop.
+// Named on stderr, so an interrupted run's folder is known by its exact path (README).
+if (!countsOnly) console.error(`tests-can-fail probe: copy in ${tmp}`);
+process.on('exit', () => {
+  sweep(true);
+  // With the killing off, the folder stays too, so what was left running can be found by it.
+  if (noSweep) { console.error(`PROBE_NO_SWEEP: processes left running; stop them by the folder ${countsOnly ? 'tests-can-fail-probe-* in the temporary directory' : tmp}, then remove it`); return; }
+  try { rmSync(tmp, { recursive: true, force: true }); } catch { /* the folder is in the temporary directory */ }
+});
+// The probe is synchronous, so these handlers never run; registered, they replace the signal's default action.
+// A signal to the process group (Ctrl-C, a closed terminal) reaches the runner too: the call returns with its
+// signal, `run` exits 130, and `exit` cleans up. A TERM to the probe alone is held until the run ends, and the
+// run then cleans up as on any end. A child killed by a signal stops the run; the run limit kills with SIGTERM
+// too, and is not a stop.
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => {});
 const run = (cmd, args, opts) => {
   const r = spawnSync(cmd, args, opts);
   sweep();
@@ -172,7 +182,9 @@ const runEnv = { ...process.env };
 if (!noSetup && tracked.has('ci/before-verify.sh')) timed('setup', () => {
   const envFile = join(tmp, 'github-env'); writeFileSync(envFile, '');
   // What the script leaves running is a service the tests need (F-13 §1): kept until the run ends.
-  const r = spawnSync('bash', ['ci/before-verify.sh'], { cwd: copy, encoding: 'utf8', env: { ...process.env, GITHUB_ENV: envFile } });
+  // Its output is not piped: spawnSync waits for every process holding the pipe, so a service started with `&`
+  // would hold the probe at setup for good.
+  const r = spawnSync('bash', ['ci/before-verify.sh'], { cwd: copy, stdio: 'ignore', env: { ...process.env, GITHUB_ENV: envFile } });
   if (r.signal) process.exit(130);
   kept = new Set(pids() ?? []);
   out.setup = r.status === 0 ? 'ci/before-verify.sh ran' : 'ci/before-verify.sh failed';

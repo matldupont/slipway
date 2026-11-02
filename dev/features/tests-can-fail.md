@@ -1046,7 +1046,11 @@ with an uncommitted change (it says so, and `git status` is the same before and 
    - the copy's folder is escaped before `pgrep -f` or `pkill -f` reads it as a regular expression; pin it
      with a test whose temporary directory holds a `+` and a `(`;
    - SIGINT, SIGTERM and SIGHUP to the step end the run within a set time, not at the end of the run: the
-     step is not synchronous where the probe is, so its handlers run; the processes block holds that time;
+     step is not synchronous where the probe is, so its handlers run (a listener on a synchronous process
+     only swallows the signal); the processes block holds that time;
+   - `ci/before-verify.sh` runs with its output not held by a pipe a background service inherits, or a
+     service started with `&` holds the step at setup; pin it in the block of a service that script starts;
+   - the processes listed and killed are this user's only (`pgrep -U`);
    - the probe stopped processes by the folder's name, not by process group, so §1's groups are measured
      first in this step, against a runner that leaves its workers behind.
 4. **The verdict** — `ci/checks/meta/mt1-tests-can-fail.mjs` in both forms (`<folder>` and `--run`),
