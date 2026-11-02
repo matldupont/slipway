@@ -1535,3 +1535,30 @@ each other's internals, one data layer). Recurring choices go in `docs/conventio
 ## D-013 — Deploy and promotion *(open — week 1)*
 
 Build once, promote the same artifact; the deploy runs `pnpm verify` on the exact tree it ships.
+
+## D-055 — The work-order page becomes the live milestone board, with one pinned script and prose waits held in the shared plan *(decided 2026-11-02)*
+
+Amends: F-07, F-17, F-18
+
+The owner asked for a board kept open all day that answers what is done, running, next and left, what waits on
+them and what can go to agents side by side, and that updates itself (2026-11-02). They answered four questions
+that day; their words are in F-18's pull request, and each is written into `dev/features/milestone-board.md`.
+
+- **One page.** "Replace it": `pnpm board` serves the work-order page grown into the board; `pnpm work-order` runs it
+  with a line saying so. The board shows F-17's plan and status's Next line, and works out none of its own.
+- **One pinned script, under a content policy** (amends D-022's "the page has no script"). The reason for that line
+  stands: issue text is written by other people. What enforces it now is the policy `default-src 'none'; script-src
+  'sha256-…'; connect-src 'self'; style-src 'unsafe-inline'`, so only the one script runs even if an escape is missed.
+  The server renders the whole page; the script fetches it every 15 seconds with an `ETag`, parses it with
+  `DOMParser` and swaps `<main>`, never building HTML from data, keeps open sections open, and says when the server
+  has stopped. No server-sent events. `<noscript>` falls back to a 15-second reload. A test holds one script, its hash
+  and the policy.
+- **Follow the system** for light and dark: dark is the site's steel ground, light the same palette on paper.
+- **Prose waits are held in the shared plan** (amends F-17's readiness of a leaf): an issue whose text says it waits on
+  an open `#n` ("after #n", "waits on #n", "once #n" and the like) and has no `Blocked by: #n` line is not offered by
+  status or the board, and is never held silently: a line names the issue and says to add `Blocked by: #n`. A closed
+  `#n` holds nothing. It adds no network read: the bodies come in status's one read at session start (D-050), and
+  offline status offers no issue. An I1 rule refusing such a wait at filing is a follow-up.
+
+Declined: server-sent events; reusing a GitHub answer across the board's reads (D-050's "no cache" holds: each read
+is files and GitHub together); a second page beside the board. Spec: `dev/features/milestone-board.md`.

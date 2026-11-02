@@ -1,0 +1,139 @@
+<!doctype html>
+<!-- Specimen of the milestone board (F-18), invented data. The design reference for the build, not the product. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M2 board · specimen</title>
+<style>
+:root {
+  color-scheme: light dark;
+  --ground: oklch(0.245 0.028 255); --ink: oklch(0.94 0.012 80); --ink-2: oklch(0.78 0.018 245);
+  --ink-3: oklch(0.62 0.024 250); --rule: oklch(0.38 0.03 255);
+  --signal: oklch(0.76 0.18 55); --run: oklch(0.72 0.08 240);
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light) {
+  :root { --ground: oklch(0.96 0.012 78); --ink: oklch(0.245 0.028 255); --ink-2: oklch(0.42 0.028 255);
+    --ink-3: oklch(0.55 0.02 255); --rule: oklch(0.82 0.02 78); --signal: oklch(0.5 0.15 45); --run: oklch(0.45 0.09 240); }
+}
+html { scrollbar-gutter: stable; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { padding: 24px 24px 40px; max-width: 120rem; margin: 0 auto; container-type: inline-size; }
+.mono, code, .n { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+h1 { font-size: 21.6px; font-weight: 600; margin: 0; }
+h1 .id { color: var(--ink-2); font-family: var(--mono); font-weight: 500; margin-right: 8px; }
+h2 { font-size: 12.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 12px; }
+.meta { color: var(--ink-3); font-size: 12.5px; }
+a { color: inherit; text-decoration-color: var(--rule); text-underline-offset: 3px; }
+code { user-select: all; font-size: 13px; }
+.top { display: flex; justify-content: space-between; gap: 24px; align-items: baseline; flex-wrap: wrap; }
+.status-next { margin: 8px 0 0; max-width: 70ch; color: var(--ink-2); }
+.status-next b { color: var(--ink); }
+/* Signature: the appetite rail */
+.rail { margin: 24px 0 0; }
+.ticks { display: grid; grid-template-columns: repeat(var(--days), 1fr); border-bottom: 1px solid var(--rule); height: 14px; }
+.ticks i { border-left: 1px solid var(--rule); }
+.ticks i.today { border-left: 2px solid var(--signal); }
+.work { height: 6px; margin-top: 4px; }
+.work::before { content: ""; display: block; height: 100%; width: var(--done); background: var(--run); }
+.rail-words { display: flex; justify-content: space-between; margin-top: 4px; }
+.today-word { color: var(--signal); }
+.layout { display: grid; grid-template-columns: 1fr 22rem; gap: 24px 40px; margin-top: 40px; }
+@container (width < 80rem) { .layout { grid-template-columns: 1fr; } .side { order: -1; display: grid; grid-template-columns: 1fr 1fr; gap: 40px; } .side > section + section { margin-top: 0; } }
+@container (width < 60rem) { .board { grid-template-columns: 1fr 1fr !important; row-gap: 24px; } .col-next { order: -2; border-left: 0; padding-left: 0; } .col-running { order: -1; } .col-done { border-left: 0; padding-left: 0; } }
+@container (width < 36rem) { .board, .side { grid-template-columns: 1fr !important; } .col { border-left: 0; padding: 0; } }
+.board { display: grid; grid-template-columns: 0.8fr 1fr 1.6fr 1fr; }
+.col { padding: 0 16px; border-left: 1px solid var(--rule); min-width: 0; }
+.col:first-child { border-left: 0; padding-left: 0; }
+.col h2 .count { font-family: var(--mono); color: var(--ink-3); margin-left: 4px; }
+.strip { border-left: 2px solid var(--tab, var(--rule)); padding: 4px 0 8px 8px; margin: 0 0 12px; border-bottom: 1px solid var(--rule); }
+.strip p { margin: 0; }
+.strip p + p { margin-top: 4px; }
+.col-done { --tab: var(--ink-3); color: var(--ink-3); }
+.col-running { --tab: var(--run); }
+.col-next { --tab: var(--ink); }
+.col-left { --tab: var(--rule); color: var(--ink-2); }
+.who { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
+.who.you { color: var(--signal); }
+.row { display: grid; grid-template-columns: 5.5rem 1fr; gap: 0 8px; }
+.side > section + section { margin-top: 40px; }
+.yours { border-top: 2px solid var(--signal); padding-top: 12px; }
+.yours h2 { color: var(--signal); }
+.yours ol { margin: 0; padding: 0; list-style: none; }
+.yours li { padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.gate ul { margin: 0; padding: 0; list-style: none; }
+.gate li { display: grid; grid-template-columns: 4.5rem 1fr; padding: 4px 0; }
+.state { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.state.ok { color: var(--ink); }
+details { margin-top: 12px; }
+summary { cursor: pointer; color: var(--ink-3); font-size: 12.5px; }
+.changed { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); }
+footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid var(--rule); }
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <h1><span class="id">M2</span>Bookings export</h1>
+    <p class="meta mono">Updated 14:32:05 · GitHub read 14:32:01 · live</p>
+  </div>
+  <p class="status-next"><b>Next:</b> Start #61 in a fresh session with /work-ticket 61. It is ready, and it shares no file with work in progress. An agent, one issue per session.</p>
+
+  <div class="rail" style="--days: 14; --done: 43%">
+    <div class="ticks" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="today"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="work" role="img" aria-label="6 of 14 issues done"></div>
+    <div class="rail-words meta mono"><span>Nov 1</span><span class="today-word">day 8 of 14 · 6 of 14 issues done</span><span>Nov 14</span></div>
+  </div>
+
+  <div class="layout">
+    <div class="board">
+      <section class="col col-done"><h2>Done<span class="count">6</span></h2>
+        <div class="strip"><p><a href="#">#55</a> CSV columns and their order</p><p class="meta">item 1</p></div>
+        <div class="strip"><p><a href="#">#56</a> Month picker</p><p class="meta">item 1</p></div>
+        <details><summary>4 more, 1 dropped</summary></details>
+      </section>
+      <section class="col col-running"><h2>Running<span class="count">2</span></h2>
+        <div class="strip"><p><a href="#">#58</a> Stream the export for large months</p><p class="meta mono">PR #70 · draft · checks running</p><p class="changed">changed 14:31</p></div>
+        <div class="strip"><p><a href="#">#59</a> Timezone of the booking date</p><p class="meta mono">branch claims it · no PR yet</p></div>
+      </section>
+      <section class="col col-next"><h2>Next<span class="count">3 of 3</span></h2>
+        <div class="strip"><div class="row"><span class="who">agent</span><p><a href="#">#61</a> Empty month: a file with headers only</p></div>
+          <div class="row"><span></span><p><code>/work-ticket 61</code></p></div>
+          <div class="row"><span></span><p class="meta mono">standard · medium · regular — case 4</p></div></div>
+        <div class="strip"><div class="row"><span class="who">agent</span><p><a href="#">#63</a> Export link in the bookings menu</p></div>
+          <div class="row"><span></span><p><code>/work-ticket 63</code></p></div>
+          <div class="row"><span></span><p class="meta mono">standard · medium · regular — case 4</p></div></div>
+        <div class="strip"><div class="row"><span class="who you">you + agent</span><p>Shape item 4: refunds in the export</p></div>
+          <div class="row"><span></span><p><code>/log-feature M2#4</code></p></div></div>
+      </section>
+      <section class="col col-left"><h2>Left<span class="count">3</span></h2>
+        <div class="strip"><p><a href="#">#62</a> Accountant's format</p><p class="meta">waits on #58</p></div>
+        <div class="strip"><p><a href="#">#64</a> Export audit log</p><p class="meta">says "after #59" but has no Blocked by line: add Blocked by: #59</p></div>
+        <div class="strip"><p><a href="#">#65</a> Download page copy</p><p class="meta">shares files with #58</p></div>
+      </section>
+    </div>
+
+    <aside class="side">
+      <section class="yours"><h2>Waiting on you · 2</h2>
+        <ol>
+          <li><p>Merge #57 yourself. It is ready and its checks are green.</p><p class="meta">blocks M2 closing</p></li>
+          <li><p>Run the owed check on item 2 (#56) and post the result on #56.</p><p class="meta">blocks M2 closing</p></li>
+        </ol>
+        <details><summary>3 project-wide, not this milestone</summary></details>
+      </section>
+      <section class="gate"><h2>Gate</h2>
+        <ul>
+          <li><span class="state ok">proven</span><span>#55 and #56 closed as completed</span></li>
+          <li><span class="state">not yet</span><span>QA plan docs/qa/export.md, run on staging</span></li>
+          <li><span class="state">unproven</span><span>Exports a 10,000-booking month in under 3 seconds</span></li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="meta mono">14 open issues in this repo · 8 on M2 · 6 elsewhere <details><summary>show the 6</summary></details></footer>
+</main>
+</body>
+</html>

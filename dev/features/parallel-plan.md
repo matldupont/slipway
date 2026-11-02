@@ -818,6 +818,9 @@ The owner's words, unedited, are in PR #533's body; D-050 records them.
   into build tickets, never a 0.4." A stale branch keeps claiming its ticket until it is deleted (§5).
 - ~~AR-8 of the 0.2 review (the owner): the reopen trigger.~~ Detected, not prose: the `other-account` count and line
   (§5), filed as #535, and D-050's `Reopens when: #535 closes`.
+- D-055 (2026-11-02) adds one rule to a leaf's readiness here: a wait written only in an issue's prose holds it, with an
+  owed `prose-wait` line saying so, and status's Next line names a held issue that comes first. F-18
+  (`dev/features/milestone-board.md` §3) carries it, built after #542 as F-18's step 1. Owner: F-18's step 1.
 - ~~AR-9 of the 0.2 review (the owner): F-07's Fit.~~ In step 5, as an Acceptance line of its ticket (§10, Build map).
 
 The 0.2 review's findings, sorted by the owner's rule: AR-1 to AR-12 change what the feature does or how it is built,
