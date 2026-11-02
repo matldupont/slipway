@@ -1490,8 +1490,9 @@ after the last review (D-031). Everything else in that rule holds: the merged he
 - **A follow-up's own pull request** gets one cold review, on the strongest tier when a gate file or a surface is in the diff. The owner confirms
   it once, when it is filed, and the issue body records it: "Follow-up confirmed: owner, YYYY-MM-DD". The worker
   reads that line as GitHub shows the body, so a copy in an HTML comment or a fence does not count, and asks
-  nothing. With no line it is not a follow-up, and it gets the full review. No issue text turns the security review
-  off: the marker only cuts round 1 to one cold review. A security review runs only
+  nothing. With no line it is not a follow-up, and it gets the full review. The marker cuts round 1 to one cold
+  review, and on a diff with no listed surface it skips the security review in every round. A listed surface brings
+  the security review whatever the issue says. A follow-up's security review runs only
   on a listed surface, named by the session or by the cold review's `Surfaces:` line. The list: money or checked
   math, auth or secrets, agent permissions or hooks, concurrency, a schema, data integrity, data deletion, or code
   that parses outside text. A gate file that touches none of these gets the cold review on the
@@ -1502,8 +1503,9 @@ deep. A reviewer that refutes by default always finds something, and a follow-up
 its own. The owner, 2026-10-28: "I don't want to boil the ocean, but I want this to be top quality." #580.
 
 Known limitation: anyone who can write an issue body can write the marker. An author or label check would prove
-nothing while agents act with the owner's GitHub credentials. What a forged marker buys is one cold review in place
-of two on a diff with no listed surface; a listed surface still brings the security review.
+nothing while agents act with the owner's GitHub credentials. What a forged marker buys, on a diff with no listed
+surface, is one cold review in place of two and no security review in any round. A listed surface still brings the
+security review.
 
 Declined: a bar that keeps every wrong message ("misleads" with no wrong action) — wording a reader would not act
 on would still breed tickets. A fourth round by default — the cap would stop being one.

@@ -60,8 +60,9 @@ export function overlap(a, b) {
 // /work-ticket's follow-up marker (D-054): `Follow-up confirmed: owner, YYYY-MM-DD` on a line of its own, read as
 // GitHub shows the body, so a copy in an HTML comment or a fenced block does not count, nor one in a quote. Anyone
 // who can write the body can write it, and an author check would prove nothing while agents act with the owner's
-// credentials: D-054 records that limit. The marker only cuts round 1 to one cold review; it never turns the
-// security review off (securityReviewRuns).
+// credentials: D-054 records that limit. The marker cuts round 1 to one cold review, and on a diff with no listed
+// surface it skips the security review in every round. That rule lives in /work-ticket's prose, which the session
+// reads and this file never decides; scripts/skills.test.mjs pins it there.
 const MARKER = /^Follow-up confirmed: owner, (\d{4})-(\d{2})-(\d{2})$/;
 export function followUpConfirmed(body) {
   return prose(body, { frontmatter: false }).split(/\r?\n/).some((line) => {
@@ -70,12 +71,6 @@ export function followUpConfirmed(body) {
     const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
     return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(`${m[1]}-${m[2]}-${m[3]}`);
   });
-}
-
-// Whether /work-ticket runs the security review on a pull request. A listed surface, named by the session or by a
-// reviewer's `Surfaces:` line, runs it whatever the issue says; only a confirmed follow-up with no surface skips it.
-export function securityReviewRuns({ followUp, surfaces }) {
-  return surfaces.length > 0 || !followUp;
 }
 
 //   node ci/checks/lib/issue-body.mjs --follow-up <body file>    prints `follow-up: confirmed` or `follow-up: none`
