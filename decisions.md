@@ -403,8 +403,8 @@ This holds in every lane, not only for a pull request that defers a check.
   review ends with a verify that finds no broken guarantee, or with a first round that led to no commit.
 - **What is left over is written down, not committed.** What that last verify or review found goes in the pull
   request's body as a known limitation, or into one follow-up that holds them all: never a commit, and never an
-  issue each. Editing the pull request's description is not a commit. Narrowed by D-054: a leftover becomes that
-  follow-up only past D-054's bar, and is otherwise declined; one more fix-and-verify round may come first.
+  issue each. Editing the pull request's description is not a commit. Narrowed by the leftover bar (D-054): a leftover
+  becomes that follow-up only past the bar, and is otherwise declined; one more fix-and-verify round may come first.
 - **A merge of the base branch is the one exception.** It is a merge of the fetched remote branch. The pull
   request names each merge commit and each file the merge stopped on, with what was kept, and the gate runs
   again on the merge. The list is the one git gives before anything is resolved: a conflict settled by keeping
@@ -1470,24 +1470,24 @@ new project cannot merge until its owner records the count once; CI's red messag
 
 ## D-054 — A review's leftover becomes a follow-up only past a bar; a follow-up's own pull request gets one cold review *(decided 2026-11-02)*
 
-The owner, 2026-11-02, in #580's plan. It narrows D-031's "what is left over" bullet. Everything else in D-031 holds:
-the merged head is a reviewed head.
+The owner, 2026-11-02, in #580's plan. It narrows the "what is left over" bullet of the rule that nothing is committed
+after the last review (D-031). Everything else in that rule holds: the merged head is a reviewed head.
 
 - **The bar.** "A finding the review leaves becomes a follow-up only when it breaks a guarantee, misleads a reader
   into a wrong action (a message or advice that, followed, does the wrong thing), or is a security finding above
   low. Any other is declined: one count on the Declined: line of ## Cold review, no issue filed. A security
   finding, kept or declined, is named by its count and an issue number only."
-- **A check's misread** is kept when its reading decides an outcome (an issue closing, a gate passing, a decision
-  counting), and declined when the check only grades prose. A finding reachable only by text built to fool a
-  check is declined unless it is a security finding above low; one an honest author could trip by accident is kept.
+- **A check's misread** is kept when its reading decides an outcome: an issue closing, a gate passing, a decision
+  counting. It is declined when the check only grades prose. A finding reachable only by text built to fool a
+  check is declined, unless it is a security finding above low. One an honest author could trip by accident is kept.
 - **One more round, once.** Small in-scope findings of the verify that ends a review may get one more round: the
   fix commit, then a verify of that fix's diff only. It counts toward the three rounds. A guarantee still broken
   at the cap stops the run, and the owner chooses: cut that acceptance line, re-plan the ticket, or grant one
   more round. A fourth round runs only on the owner's yes.
 - **A follow-up's own pull request** gets one cold review, on the tier its diff calls for. The owner confirms
   that its issue holds a review's leftovers; the issue's own words never decide it. A security review runs only
-  when the diff touches money or checked math, auth or secrets, agent permissions or hooks, concurrency, a schema,
-  data integrity, data deletion, or code that parses text from outside the repository, as the session or the cold
+  when the diff touches one of these: money or checked math, auth or secrets, agent permissions or hooks,
+  concurrency, a schema, data integrity, data deletion, or code that parses outside text. The session or the cold
   review's `Surfaces:` line names it. A gate file that touches none of these gets the cold review on the
   strongest tier and no security review. A security finding no reviewer graded counts as above low.
 
