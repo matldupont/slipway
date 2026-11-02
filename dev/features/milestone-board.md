@@ -133,6 +133,7 @@ calls `plan()` and the readers above and returns:
   gate: [{ text, state: 'proven' | 'issues closed' | 'not yet' | 'unproven' }],
   issues: { open, onMilestone, other },   // counts only
   readAt, githubAt, failed,   // times in the AGENT.md Timezone; failed: §4's reason words or undefined
+  behind,                     // commits this checkout is behind origin/main, or null when there is no such ref (§4)
 }
 // Strip: { n, title, item, state, why?, pr?, changedAt? }   Pick: plan's pick + { command, designation }
 ```
@@ -155,6 +156,11 @@ sub-issues (F-07's rule).
 
 **An issue appears once.** An issue reached from two items, or as a sub-issue of two, is one strip, under the first
 item in Contents order; the later item shows `#n is listed under item {k}`.
+
+**No repeats** (the owner, 2026-11-02). A thing shown in Next is shown nowhere else on the page: not twice in Next,
+not in Left, not in Waiting on you. Two leaves are the same thing when their issue numbers match; two owed things when
+their `key` (F-17 §1) matches. So a `you and an agent` pick in Next is left out of Waiting on you, and Waiting on you
+counts what it shows. Status keeps the same rule (§3, "One Next").
 
 **Nothing is done without an issue.** An item with no issue, an issue GitHub does not return, and an item whose
 issue's sub-issues are not all done or dropped are never in Done and never counted done. The rail's bar is
@@ -225,7 +231,10 @@ The board shows the plan; anything it needs that the plan lacks goes into the pl
 - **The open-issue count.** The read's GraphQL call gains `repository { issues(states: OPEN) { totalCount } }`, inside
   the same call and budget: a count, no number and no title. Status reads it for its GitHub line.
 - **One Next.** `ci/status.mjs` exports `statusModel(root, read)`, the function its own printing calls, returning at
-  least `{ next }`. The board's header prints that `next` as is.
+  least `{ next }`. The board's header prints that `next` as is. The picks never repeat the main step, whatever its
+  kind: a candidate whose issue number or `key` equals the main step's is not taken, so status's In parallel (which
+  replaced Also unblocked, F-17 §4) never lists the item its Next line names (the owner, 2026-11-02). F-17 §3 drops
+  only the main step's leaf from the candidates; this drops an owed thing that is the main step too.
 
 ### §4 The live board (step 3)
 
@@ -239,9 +248,24 @@ under F-17's 5-second budget. No answer of GitHub is reused across reads [D-050]
   watch cannot start (`ERR_FEATURE_UNAVAILABLE_ON_PLATFORM`, `EMFILE`), the 30-second read stands alone and the
   header says `files: read every 30 seconds`.
 - A GitHub read that fails (any F-17 §5 reason): the files are re-read now; the columns stay those of the last good
-  read, under `GitHub not read at {HH:MM} ({reason}); columns as of {HH:MM}.` in the signal colour. With no good
-  read yet, the columns say `not ready` and nothing is offered.
+  read, under `GitHub not read at {HH:MM} ({reason}); columns as of {HH:MM}. {action}.` in the signal colour, the
+  action being F-17 §5's for that reason. With no good read yet, the columns say `not ready` and nothing is offered.
 - A strip whose column, state or why changed in the latest read that changed anything carries `changed {HH:MM}`.
+
+**Held and stale readings** (the owner, 2026-11-02). A reading is held when the page shows a read older than the
+latest attempt, and stale when it is more than 60 seconds old (twice the schedule's longest gap) or was read from a
+checkout behind `origin/main`. Each shows its age. It names a cause only when the board detects that cause locally,
+and then with its fix. The causes it detects are these, and no others:
+
+| cause | detected by | line | fix |
+|---|---|---|---|
+| the GitHub read failed | the child's fixed reason (F-17 §5) | `GitHub not read at {HH:MM} ({reason}); columns as of {HH:MM}.` | F-17 §5's action for that reason |
+| this checkout is behind `origin/main` | `git rev-list --count HEAD..origin/main` through `trustedGit()` at each read, no network; above 0 | `This checkout is {behind} commits behind origin/main as of its last fetch, so this board may be out of date.` | `Update it with git pull, or merge origin/main into this branch.` |
+| the server stopped | the page's poll fails | `Server stopped at {HH:MM}; this is the last good board.` | `Run pnpm board again.` |
+
+With no `origin/main` ref, `behind` is `null` and nothing is said of it. A reading more than 60 seconds old with none of
+these causes shows `Last read {age} ago; cause unknown.`, and never a guess. The first two lines are rendered with the
+page, under the `#live` line, in the signal colour, each followed by its fix; the script sets the others on `#live`.
 
 **The server.** F-07's `serve()` and its rules (127.0.0.1 only, `GET`/`HEAD /` only, foreign `Host` 403, other paths
 404, other methods 405), serving the latest page from memory. Each response carries `ETag: "{sha-256 of the bytes,
@@ -256,8 +280,11 @@ value of any read in it; its hash is computed from that string. Every 15 seconds
 - `200`: parses the text with `DOMParser`, replaces `<main>` with the parsed `<main>`, keeps open every `<details>`
   whose `id` was open, and leaves scroll alone. It never builds HTML from data and never uses `innerHTML`.
 - `304`: nothing.
-- a failed fetch: sets the `#live` line's `textContent` to `Server stopped at {HH:MM}; this is the last good board.`
-  and keeps polling; the next `200` clears it.
+- a failed fetch: sets the `#live` line's `textContent` to `Server stopped at {HH:MM}; this is the last good board.
+  Run pnpm board again.` and keeps polling; the next `200` clears it.
+- after a `200` or `304`, when `<main>`'s `data-read-at` (the read's time in milliseconds, a number) is more than 60
+  seconds before now: sets the `#live` line's `textContent` to `Last read {age} ago; cause unknown.`, `{age}` in whole
+  minutes rounded down (`1 minute`, `{m} minutes`)
 
 `<noscript><meta http-equiv="refresh" content="15"></noscript>` is the fallback. `--out` writes the page with no
 script and no refresh. `<details>` ids are fixed words and numbers (`done-more`, `yours-more`, `item-3`,
@@ -286,6 +313,8 @@ pull request data) and against web pages on other sites.
   `connect-src 'self'`, so the page talks to nothing else.
 - **The watcher reads nothing it is told.** A file event marks the board dirty; reads are `board()`'s fixed reads.
 - **GitHub** is read only by F-17's child: trusted PATH, the owner's `gh` login, a fixed argument array, no shell.
+- **Git** is run only through `trustedGit()`, with the fixed arguments `rev-list --count HEAD..origin/main`: no shell,
+  no fetch, and only the count is kept.
 
 **Does not defend:** another local user or process on the same machine reading the loopback page (F-07's #183
 limitation); the owner's own tree (D-023).
@@ -303,6 +332,8 @@ limitation); the owner's own tree (D-023).
   numbers.
 - Gate lines that name no issue and no QA plan stay `unproven`: the board cannot run a check.
 - The swap replaces `<main>`: a text selection or focus inside it is lost on a change.
+- `behind` counts against `origin/main` as of the checkout's last fetch: the board never fetches, so commits pushed
+  since then are not counted, and a checkout that has never fetched says nothing.
 
 ## Acceptance
 
@@ -385,13 +416,30 @@ Given a fake clock and watcher
 When  a file changes 2 seconds after a GitHub read
 Then  the next read starts 10 seconds after that read, not before; with no change, 30 seconds after it
 
-Given the GitHub read fails after a good one
+Given the GitHub read fails after a good one, with the reason "gh is not signed in"
 When  the board reads again
-Then  the columns are the good read's, under "GitHub not read at … (reason); columns as of …", and file-read parts are current
+Then  the columns are the good read's, under "GitHub not read at … (gh is not signed in); columns as of …. Sign in with gh auth login.", and file-read parts are current
 
 Given the server is stopped while the page is open
 When  the page's next poll fails
-Then  the #live line says "Server stopped at {HH:MM}; this is the last good board."
+Then  the #live line says "Server stopped at {HH:MM}; this is the last good board. Run pnpm board again."
+
+Given a fixture repository whose HEAD is 3 commits behind its origin/main ref, and a good GitHub read
+When  the board reads
+Then  the page says "This checkout is 3 commits behind origin/main as of its last fetch, so this board may be out of date." followed by "Update it with git pull, or merge origin/main into this branch.", and no git fetch ran
+And   with HEAD level with origin/main, or no origin/main ref, the page has no such line
+
+Given the server answers 304, behind is 0, the last GitHub read did not fail, and <main>'s data-read-at is 90 seconds before a fake now
+When  the page polls
+Then  the #live line says "Last read 1 minute ago; cause unknown." and names no other cause
+
+Given a plan whose main step is an owed thing with who "you and an agent", whose key would also be taken as a pick, and a ready leaf #15
+When  status and the board render
+Then  status's In parallel lists #15 and not the owed thing; on the board the owed thing is in Next once, and is in neither Waiting on you nor Left
+
+Given a ready leaf #15 that is the main step, and the cap leaving a second ready leaf out
+When  the board renders
+Then  #15 is in Next once and nowhere else on the page, and the leaf left out is in Left as "can start, after the three above"
 
 Given pnpm work-order is run
 Then  stderr has "pnpm work-order is now pnpm board" and the board starts
@@ -403,8 +451,8 @@ Then  no horizontal scroll, every token pair meets WCAG 2.2 AA, and ui-craft's c
 ## Verify
 
 ```
-node scripts/board.test.mjs              # §1, §2, §4: columns, once, no-issue, inline markdown, gate, ended, footer, server, ETag, CSP, script, schedule
-node scripts/plan.test.mjs               # §3: prose waits held, closed released, code and #300 ignored, the Next sentence
+node scripts/board.test.mjs              # §1, §2, §4: columns, once, no repeats, no-issue, inline markdown, gate, ended, footer, server, ETag, CSP, script, schedule, held and stale causes, behind origin/main
+node scripts/plan.test.mjs               # §3: prose waits held, closed released, code and #300 ignored, the Next sentence, picks never repeat the main step
 node scripts/github-state.test.mjs       # §3: the open-issue count inside the one read, no title read; call 2 reads prose-wait and gate numbers, NOT_FOUND kept
 node scripts/plan-shared.test.mjs        # status's Next and the board's header, on one fixture
 pnpm meta                                # S1 over the status fixtures, the prose-wait fixture included; everything wired
@@ -427,7 +475,8 @@ All after #542. Owner-only files, asked for at each edit and named under `## Gat
    `package.json` (`board`, the `work-order` alias), F-07's doc's Changes line. Static, no server change. Blocked by
    step 1. ~450 lines.
 3. #603 — **The board stays live** — the watcher and read schedule, `ETag` and `304`, the content policy, the pinned script,
-   `<noscript>`, the failure lines, `changed`; tests with a fake clock and watcher; the hand run with screenshots.
+   `<noscript>`, the failure lines, the held and stale causes (`behind`, cause unknown), `changed`; tests with a fake
+   clock and watcher; the hand run with screenshots.
    Blocked by step 2. ~350 lines.
 
 ## Out of scope
@@ -463,4 +512,8 @@ None open. Answered by the owner on 2026-11-02, recorded in D-055:
   answer to AR-13 (a gate line whose issues are all closed reads `issues closed`, not ticked, and `/close-milestone`
   checks it; `proven` is only a `Ran: … pass`), and AR-12 (call 2 reads the state of prose-wait and gate numbers
   outside the milestone, in the same call; a number not found holds a prose wait). Under the review-loop cap, every
-  other 0.2 finding is fixed in the build step its register's Blocks column names (#601–#603). #604
+  other 0.2 finding is fixed in the build step its register's Blocks column names (#601–#603). Before its review, the
+  owner added two rules to 0.3 in place: held and stale readings name only a cause the board detects locally (the GitHub
+  read failed, this checkout is behind `origin/main`, the server stopped), each with its fix, and otherwise `cause
+  unknown` with the reading's age; and no repeats, so a thing in Next is shown nowhere else and status's In parallel
+  never repeats its Next line's item. #604
