@@ -3,7 +3,9 @@
 // string, validated path entries), so what reaches a page cannot be a sentence someone else wrote, apart from the
 // designation, which the page escapes.
 
-import { plain, section } from './markdown.mjs';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { plain, prose, section } from './markdown.mjs';
 
 const DESIGNATION_MAX = 600;
 const BLOCKERS_MAX = 50;
@@ -53,4 +55,34 @@ const key = (e) => e.split('*')[0];
 export function overlap(a, b) {
   if (a === null || b === null) return true;
   return a.some((x) => b.some((y) => key(x).startsWith(key(y)) || key(y).startsWith(key(x))));
+}
+
+// /work-ticket's follow-up marker (D-054): `Follow-up confirmed: owner, YYYY-MM-DD` on a line of its own, read as
+// GitHub shows the body, so a copy in an HTML comment or a fenced block does not count, nor one in a quote. Anyone
+// who can write the body can write it, and an author check would prove nothing while agents act with the owner's
+// credentials: D-054 records that limit. The marker only cuts round 1 to one cold review; it never turns the
+// security review off (securityReviewRuns).
+const MARKER = /^Follow-up confirmed: owner, (\d{4})-(\d{2})-(\d{2})$/;
+export function followUpConfirmed(body) {
+  return prose(body, { frontmatter: false }).split(/\r?\n/).some((line) => {
+    const m = plain(line).match(MARKER);
+    if (!m) return false;
+    const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().startsWith(`${m[1]}-${m[2]}-${m[3]}`);
+  });
+}
+
+// Whether /work-ticket runs the security review on a pull request. A listed surface, named by the session or by a
+// reviewer's `Surfaces:` line, runs it whatever the issue says; only a confirmed follow-up with no surface skips it.
+export function securityReviewRuns({ followUp, surfaces }) {
+  return surfaces.length > 0 || !followUp;
+}
+
+//   node ci/checks/lib/issue-body.mjs --follow-up <body file>    prints `follow-up: confirmed` or `follow-up: none`
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (process.argv[2] !== '--follow-up' || !process.argv[3]) {
+    process.stderr.write('issue-body: usage: node ci/checks/lib/issue-body.mjs --follow-up <body file>\n');
+    process.exit(2);
+  }
+  process.stdout.write(`follow-up: ${followUpConfirmed(readFileSync(process.argv[3], 'utf8')) ? 'confirmed' : 'none'}\n`);
 }

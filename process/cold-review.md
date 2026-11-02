@@ -10,8 +10,8 @@ confident. Independent review pays best on exactly the claims the author was sur
 - **A fresh context**, not the session that wrote the change. The author's labels are inferences.
 - **Refute by default.** Each claim is wrong until the diff or a command shows otherwise.
 - Output a `## Cold review` section in the PR: the reviewer, the head sha reviewed, findings with
-  `file:line`, a verdict. Each finding's outcome is written there: fixed, waived, a known limitation or a
-  follow-up. What is committed for a finding, and when, is `/work-ticket`'s to say
+  `file:line`, a verdict. Each finding's outcome is written there: fixed, waived, a known limitation,
+  declined or a follow-up. What is committed for a finding, and when, is `/work-ticket`'s to say
   (`.claude/skills/work-ticket/SKILL.md` → Rounds 2 and 3, step 4; D-031).
 - `/work-ticket` runs this on the pull requests it opens, with the reviewers defined in `.claude/agents/`, at the
   tier and effort `process/designation.md` → Review gives. Any other pull request, by hand or by a
@@ -29,7 +29,7 @@ file does not restate them.
 
 Another round runs only when the last one found a finding that breaks a line of that block. What becomes of
 anything else is that skill's Which findings count; what is committed for it, and when, is its Rounds 2 and 3,
-step 4 (L-68, D-031).
+step 4 (L-68, D-031). Which leftover becomes a follow-up, and which is declined, is its The bar (D-054).
 
 A review never writes a threat model. A feature doc that is still being shaped states its `Threat model` and
 `Known limitations` first (`docs/features/TEMPLATE.md`); a review of a change with none is held to the baseline.

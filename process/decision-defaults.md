@@ -46,13 +46,13 @@ is a hazard of its own.
 
 ## §7 — The review cap holds
 
-After the last allowed review round, a `breaks: none` finding is a known limitation or a follow-up, never a
-restarted budget. A finding that still breaks a guarantee stops the run and goes to the owner. **Why:** a review with no end finds a new layer every round (`/work-ticket` → Rounds 2 and 3).
+After the last allowed review round, a `breaks: none` finding is a known limitation, declined, or a follow-up past
+`/work-ticket` → The bar, never a restarted budget. A finding that still breaks a guarantee stops the run and goes to the owner. **Why:** a review with no end finds a new layer every round (`/work-ticket` → Rounds 2 and 3).
 
 ## §8 — Out of scope is a follow-up
 
 Work outside the ticket is filed as a follow-up, except the same bug in code the ticket already touches, which
-is fixed there and said so in the PR. **Why:** a diff that grows past its ticket is reviewed against a promise
+is fixed there and said so in the PR. A review's leftover is filed only past `/work-ticket` → The bar. **Why:** a diff that grows past its ticket is reviewed against a promise
 nobody made.
 
 ## §9 — Prove it on real data
