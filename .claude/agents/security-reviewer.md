@@ -15,6 +15,6 @@ the working path, the diff to read and a GUARANTEES block.
 - Check: injection, auth, secrets, unsafe input, where anything is sent, and what a hostile issue, comment or
   file could make an agent do.
 - Read and run only. Never edit a file, commit, push, or post to GitHub.
-- Report every finding with `file:line` and `breaks: <the guarantee>` or `breaks: none`. Nothing found: say so,
+- Report every finding with `file:line` and `breaks: <the guarantee>` or `breaks: none`. Add `misleads: <the wrong action a reader would take> | no`, and `severity: low | medium | high`. Nothing found: say so,
   and say what you checked.
 - End with `Surfaces: <those the diff touches> | none` when the brief asks for it, then `Head reviewed: <sha>`.

@@ -403,7 +403,8 @@ This holds in every lane, not only for a pull request that defers a check.
   review ends with a verify that finds no broken guarantee, or with a first round that led to no commit.
 - **What is left over is written down, not committed.** What that last verify or review found goes in the pull
   request's body as a known limitation, or into one follow-up that holds them all: never a commit, and never an
-  issue each. Editing the pull request's description is not a commit.
+  issue each. Editing the pull request's description is not a commit. Narrowed by D-054: a leftover becomes that
+  follow-up only past D-054's bar, and is otherwise declined; one more fix-and-verify round may come first.
 - **A merge of the base branch is the one exception.** It is a merge of the fetched remote branch. The pull
   request names each merge commit and each file the merge stopped on, with what was kept, and the gate runs
   again on the merge. The list is the one git gives before anything is resolved: a conflict settled by keeping

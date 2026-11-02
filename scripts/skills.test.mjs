@@ -615,7 +615,7 @@ test('process/cold-review.md points at work-ticket → Rounds 2 and 3, step 4 fo
   const fixAfter = /fixed in the diff or explicitly waived|fixed in the same diff/i;
   assert.match(how, /What is committed for a finding, and when, is `\/work-ticket`'s to say \(`\.claude\/skills\/work-ticket\/SKILL\.md` → Rounds 2 and 3, step 4; D-031\)/, 'How must point at the rule');
   assert.doesNotMatch(how, fixAfter, 'How must not say to fix a finding without saying when');
-  assert.match(how, /Each finding's outcome is written there: fixed, waived, a known limitation or a follow-up\./, 'How must keep a written outcome for every finding');
+  assert.match(how, /Each finding's outcome is written there: fixed, waived, a known limitation, declined or a follow-up\./, 'How must keep a written outcome for every finding');
   assert.match(stop, /What becomes of anything else is that skill's Which findings count; what is committed for it, and when, is its Rounds 2 and 3, step 4 \(L-68, D-031\)/, 'When to stop must point at the rule');
   assert.doesNotMatch(stop, fixAfter, 'When to stop must not say to fix a finding without saying when');
   assert.match(how, /The line that closes the section, naming the last reviewed head and the pull request's head, is `\/work-ticket`'s only \(Phase 6\)\. A `\/pr-review` cold review names the one head it read and never writes that line; a pull request that carries one has no such line\./, 'How must say the closing line is /work-ticket\'s only, and that a /pr-review cold review has none');
@@ -630,7 +630,7 @@ test('work-ticket says in Rounds 2 and 3 that nothing is committed after the rou
   const rounds = flat(section(wt, 'Rounds 2 and 3', 3));
   assert.match(rounds, /\*\*After the round that ends the review, nothing is committed: the pull request's head is the last reviewed head\.\*\*/, 'work-ticket must state the rule where it describes the last round');
   assert.match(rounds, /Every commit a round's findings lead to is made before its verify \(step 2\), a `breaks: none` fix or a Known limitations line too; the review ends with a verify that finds no broken guarantee, or with a round 1 that led to no commit\./, 'the rule must say when the review ends, so "the round that ends it" has one reading');
-  assert.match(rounds, /What that verify or review found goes in the PR body as a known limitation, or into one follow-up, filed once, that holds them all: never into a commit\. Editing the PR's description is not a commit\./, 'the rule must say where a leftover finding goes, and that a description edit is not a commit');
+  assert.match(rounds, /What the last verify or review found goes in the PR body as a known limitation, is declined, or past The bar goes into one follow-up, filed once, that holds them all: never into a commit\. Editing the PR's description is not a commit\./, 'the rule must say where a leftover finding goes, and that a description edit is not a commit');
   assert.match(rounds, /The one exception is a merge of `origin\/\{base\}`, fetched first: the PR names each merge commit and each file the merge stopped on \(`git diff --name-only --diff-filter=U`, read before resolving; none for a clean merge\), with what was kept, and the gate runs again on the merge\./, 'the rule must name its one exception, and take the conflicted files from git before they are resolved');
   assert.match(rounds, /A file on that list that the run is judged by is shown to the owner for their yes before the gate runs \(Configuration\), then gets one verify, of that resolution only\./, 'a rule file the merge stopped on is the owner\'s to approve before the gate runs on it, whichever side was kept');
   assert.match(rounds, /A guarantee the merge breaks, or a red gate, stops the run: the PR stays draft\./, 'a merge that breaks a guarantee must not reach ready');
@@ -639,7 +639,7 @@ test('work-ticket says in Rounds 2 and 3 that nothing is committed after the rou
   assert.match(flat(section(wt, 'Phase 6 — Ready', 2)), /Only after CLEAN, with nothing committed since \(Rounds 2 and 3, step 4\)/, 'Phase 6 must point at the rule');
   const table = flat(section(wt, 'Which findings count', 3));
   assert.match(table, /a fix, this round: cheap, local, in scope; found by the verify that ends the review: Rounds 2 and 3, step 4 \|/, 'a cheap fix found by the last verify is not committed');
-  assert.match(table, /not a fix\. Found by the verify that ends the review: Rounds 2 and 3, step 4\. Before that, a one-line in-scope change: make it; otherwise add it to the feature doc's Known limitations in this PR, or file it/, 'a `breaks: none` finding of the last verify goes nowhere that is a commit');
+  assert.match(table, /not a fix\. Found by the verify that ends the review: Rounds 2 and 3, step 4\. Before that, a one-line in-scope change: make it; otherwise add it to the feature doc's Known limitations in this PR, file it past The bar \(Follow-ups\), or decline it/, 'a `breaks: none` finding of the last verify goes nowhere that is a commit');
   const deferred = flat(section(intake, 'Deferred check', 2));
   assert.match(deferred, /both are reviewed with the rest\. What may follow the last review: `\/work-ticket` → Phase 5, Rounds 2 and 3\./, 'Deferred check must point at work-ticket');
   assert.doesNotMatch(deferred, copy, 'Deferred check must not carry its own copy of the rule');
@@ -647,6 +647,40 @@ test('work-ticket says in Rounds 2 and 3 that nothing is committed after the rou
   assert.match(doc, /what may follow the last review is `\/work-ticket`'s to say \(Phase 5 → Rounds 2 and 3, D-031\)/, 'the feature doc must point at work-ticket');
   assert.doesNotMatch(doc, copy, 'the feature doc must not carry its own copy of the rule');
   assert.match(flat(read('decisions.md')), /## D-031 — After the round that ends the review, nothing is committed; a merge of the base is the one exception \*\(decided 2026-10-07\)\*/, 'the rule is a recorded decision');
+});
+
+// #580 (D-054): a review's leftover becomes a follow-up only past a bar, the verify that would end a review may be
+// followed by one more round, and a follow-up's own pull request gets one cold review.
+test('work-ticket states The bar a leftover must pass to become a follow-up, and D-054 records it', () => {
+  const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
+  const wt = flat(read(skillPath('work-ticket')));
+  const bar = /\*\*The bar\.\*\* A finding the review leaves becomes a follow-up only when it breaks a guarantee, misleads a reader into a wrong action \(a message or advice that, followed, does the wrong thing\), or is a security finding above low\. Any other is declined: one count on the `Declined:` line of `## Cold review`, no issue filed\. A security finding, kept or declined, is named by its count and an issue number only\./;
+  assert.match(wt, bar, 'work-ticket must state the owner\'s bar');
+  assert.match(wt, /A check's misread is kept when its reading decides an outcome \(an issue closing, a gate passing, a decision counting\), and declined when the check only grades prose; one reachable only by text built to fool the check is declined at its grade \(D-054\)\./, 'the bar must say which misreads are kept');
+  assert.match(flat(section(read(skillPath('work-ticket')), 'Phase 6 — Ready', 2)), /a `Declined: \{n\}` line for what The bar declined/, '`## Cold review` must count what was declined');
+  assert.match(flat(section(read(skillPath('work-ticket')), 'Follow-ups', 2)), /a review's leftover only past The bar\) is filed when found/, 'Follow-ups must file a review leftover only past the bar');
+  assert.match(flat(section(read('process/cold-review.md'), 'When to stop', 2)), /Which leftover becomes a follow-up, and which is declined, is its The bar \(D-054\)\./, 'cold-review must point at the bar');
+  assert.match(flat(read('decisions.md')), /## D-054 — A review's leftover becomes a follow-up only past a bar; a follow-up's own pull request gets one cold review \*\(decided 2026-11-02\)\*/, 'the bar is a recorded decision');
+  assert.match(flat(read('decisions.md')), /"A finding the review leaves becomes a follow-up only when it breaks a guarantee, misleads a reader into a wrong action/, 'D-054 quotes the owner\'s bar');
+  for (const r of REVIEWERS) {
+    const md = flat(read(`${AGENTS}/${r}.md`));
+    assert.match(md, /Add `misleads: <the wrong action a reader would take> \| no`/, `${r} must say whether a finding misleads`);
+    assert.equal(/`severity: low \| medium \| high`/.test(md), r.startsWith('security-'), `${r}: only a security reviewer grades severity`);
+  }
+});
+
+test('work-ticket allows one more round after the verify that would end a review, within the three, and asks the owner at the cap', () => {
+  const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
+  const rounds = flat(section(read(skillPath('work-ticket')), 'Rounds 2 and 3', 3));
+  assert.match(rounds, /\*\*One more round, once per PR:\*\* small in-scope findings of the verify that would end the review may be fixed in one commit, then a verify of that fix's diff only ends it; it counts toward the three rounds\./, 'the extra round is once, a verify of its own diff, inside the cap');
+  assert.match(rounds, /a guarantee still broken after round 3 stops the run, the PR stays draft, and the owner chooses: cut that acceptance line, re-plan the ticket, or grant one more round\. A fourth round runs only on the owner's yes, never by default\./, 'the cap asks the owner and never runs a fourth round alone');
+});
+
+test('work-ticket gives a follow-up\'s pull request one cold review, and a security review only on the surfaces it names', () => {
+  const para = read(skillPath('work-ticket')).replace(/\s+/g, ' ').match(/\*\*A follow-up's pull request\*\*.*?\(D-054\)\./)?.[0] ?? '';
+  assert.match(para, /gets one cold review in round 1, started on `cold-reviewer-strongest` when the diff has a surface or a file the run is judged by, else on `cold-reviewer`/, 'one cold review, on the tier the diff calls for');
+  assert.match(para, /The security review runs only when the diff touches money or checked math, auth or secrets, agent permissions or hooks \(`\.claude\/settings\*`, hooks, permission rules\), concurrency, a schema, data integrity, data deletion, or code that parses text from outside the repository \(issue or PR bodies, fetched content\); a gate file alone is none of these\./, 'the security review runs only on the owner\'s list of surfaces');
+  assert.match(para, /Its leftovers meet The bar like any other/, 'a follow-up\'s leftovers meet the same bar');
 });
 
 test('work-ticket\'s `## Cold review` names the last reviewed head and the pull request\'s head, and what lies between them', () => {
