@@ -352,6 +352,10 @@ Reload stays the `--watch` refresh tag: no websockets, no HTTPS, no opening the 
   `dev/features/parallel-plan.md` §10), with ready builds first, shaping only when fewer than three are ready, and only
   the owner's pull requests and branches marking a leaf in progress. F-17's Build map step 5 edits this Contract,
   Acceptance and Verify to match, and this doc's review covers only those sections, in one round. Owner: F-17's step 5.
+- D-055 (2026-11-02) replaces this page with the milestone board, `pnpm board` (F-18,
+  `dev/features/milestone-board.md`): the page gains one pinned script under a content policy in place of "no script",
+  and `pnpm work-order` runs the board. F-18's Build map step 2 renames `ci/work-order.mjs` and records it here under
+  Changes. Owner: F-18's step 2.
 
 ## Changes
 
