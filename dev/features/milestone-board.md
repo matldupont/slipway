@@ -5,7 +5,7 @@ status: draft
 
 # F-18 — Milestone board: `pnpm board` keeps the active milestone's plan open on screen and current
 
-Version: 0.2 (2026-11-02)
+Version: 0.3 (2026-11-02)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner
@@ -130,7 +130,7 @@ calls `plan()` and the readers above and returns:
   next,                       // the exact text of status's Next line (§3)
   columns: { done: [Strip], running: [Strip], next: [Pick], left: [Strip] },
   yours: { soon: [Owed], folded: [Owed] },
-  gate: [{ text, state: 'proven' | 'not yet' | 'unproven' }],
+  gate: [{ text, state: 'proven' | 'issues closed' | 'not yet' | 'unproven' }],
   issues: { open, onMilestone, other },   // counts only
   readAt, githubAt, failed,   // times in the AGENT.md Timezone; failed: §4's reason words or undefined
 }
@@ -169,12 +169,18 @@ those of rank 1 (they block the active milestone closing), then those of rank 4 
 last day, by date; at most 7, with `and {k} more` folded under. `folded`: the owner's other things, project-wide,
 behind one closed `<details>` with their count. `you or an agent` work is in Next or Left, not here.
 
-**The gate.** The milestone's `## Gate` list items, each with a state the board can prove or none:
+**The gate.** The milestone's `## Gate` list items, each with one state. Only `proven` is ticked:
 
-- `proven`: the line names one or more `#n`, each closed as completed; or names a QA plan path (`docs/qa/…`) and the
-  milestone has a `Ran: {that path} … pass` line with no later `fail` for it (F-09's lines).
-- `not yet`: it names those, and they are not.
+- `proven`: the line names a QA plan path (`docs/qa/…`) and the milestone has a `Ran: {that path} … pass` line with no
+  later `fail` for it (F-09's lines). A line that names a QA plan path takes its state from its `Ran:` lines alone.
+- `issues closed`: the line names one or more `#n` and no QA plan path, and each is an issue closed as completed. Not
+  ticked, and shown with `/close-milestone checks the line`: an issue closing says its work landed, not that the line
+  holds (the owner, on the 0.2 review's AR-13).
+- `not yet`: it names a QA plan path with no such `pass`, or issues not all closed as completed.
 - `unproven`: anything else, shown as `the board cannot check this; /close-milestone does`. Never ticked.
+
+A gate `#n`'s state is the read's: a leaf's from call 1, any other from call 2 (§3, "States outside the milestone").
+With GitHub not read, or a `#n` that is a pull request or is not found, a line naming it is `unproven`.
 
 **No active milestone.** When the latest milestone (by appetite end) is `closed` or `killed`, the page says
 `{id} was {closed | killed} on {date}.`, then status's Next line, then the open-issue footer; no columns, no rail.
@@ -207,7 +213,15 @@ The board shows the plan; anything it needs that the plan lacks goes into the pl
   §3's "sorts after the rank-1 owed things" for this kind only. When the held leaf comes before the main step in the
   plan's order, the Next line ends with `#{m} is held: add Blocked by: #{n} to its Links line.`, within F-16's form
   (`nextFormBreaks()`). Offline, status reads no issue, so nothing is held or printed: the bodies come in the same
-  5-second read (F-17 §5), and no fetch is added.
+  5-second read (F-17 §5), and no call is added.
+- **States outside the milestone** (the 0.2 review's AR-12). F-17 §5's call 2 reads, in the same call and budget, the
+  state of every number not already read that a `Blocked by:` line, a prose wait or a gate line names; it is skipped
+  only when there is none. Prose-wait and gate numbers are read with `issueOrPullRequest(number:)`, so `... on Issue {
+  state stateReason }` and `... on PullRequest { state }`, since a prose wait often names a pull request. A prose wait
+  on an open issue or an open pull request holds; a closed or merged one holds nothing. A number GitHub resolves to
+  nothing (its alias answers `NOT_FOUND`) is not found and does not fail the read; any other error fails it as F-17 §5
+  says. A prose wait on a number not found holds, and Left's reason reads `says it waits on #n (not found): add Blocked
+  by: #n or remove the wait`.
 - **The open-issue count.** The read's GraphQL call gains `repository { issues(states: OPEN) { totalCount } }`, inside
   the same call and budget: a count, no number and no title. Status reads it for its GitHub line.
 - **One Next.** `ci/status.mjs` exports `statusModel(root, read)`, the function its own printing calls, returning at
@@ -348,7 +362,11 @@ When  the board renders
 Then  Waiting on you lists the rank-1 then the in-appetite rank-4, and folds the other two
 
 Given a gate line naming #40 (closed as completed), one naming docs/qa/x.md with a Ran pass line, and a prose line
-Then  the first two are proven and the third is unproven, never ticked
+Then  the first is issues closed, not ticked, with "/close-milestone checks the line"; the second is proven and ticked; the third is unproven, never ticked
+
+Given a gate line naming #70, and #31's body saying "after #71" and "after #72", none of them on the milestone; #70 is closed as completed, #71 is an open pull request, #72 does not exist
+When  the shared read runs, online
+Then  call 2 returns the three states in one call, the gate line is issues closed, #31 is held by #71, Left says "says it waits on #72 (not found): add Blocked by: #72 or remove the wait", and the read does not fail
 
 Given pnpm board is running
 When  a request to / carries a foreign Host, another path, or POST
@@ -387,7 +405,7 @@ Then  no horizontal scroll, every token pair meets WCAG 2.2 AA, and ui-craft's c
 ```
 node scripts/board.test.mjs              # §1, §2, §4: columns, once, no-issue, inline markdown, gate, ended, footer, server, ETag, CSP, script, schedule
 node scripts/plan.test.mjs               # §3: prose waits held, closed released, code and #300 ignored, the Next sentence
-node scripts/github-state.test.mjs       # §3: the open-issue count inside the one read, no title read
+node scripts/github-state.test.mjs       # §3: the open-issue count inside the one read, no title read; call 2 reads prose-wait and gate numbers, NOT_FOUND kept
 node scripts/plan-shared.test.mjs        # status's Next and the board's header, on one fixture
 pnpm meta                                # S1 over the status fixtures, the prose-wait fixture included; everything wired
 pnpm board                               # by hand, in a project with an active milestone: screenshots light and dark, 1440px and 390px
@@ -441,3 +459,8 @@ None open. Answered by the owner on 2026-11-02, recorded in D-055:
   answers to AR-1 (the footer counts other open issues and links to GitHub; no title is read), AR-6 (prose waits skip
   `Verified against:` lines, embedded Contract and Verify sections, and read only the issue's own first `### Links`)
   and AR-7 (a hold sorts after every ready build). AR-2 to AR-5 and AR-8 to AR-16 stay open. #604
+- 2026-11-02 · MODIFIED · 0.3, from the 0.2 review (`docs/reviews/2026-11-02-milestone-board-0.2.md`): the owner's
+  answer to AR-13 (a gate line whose issues are all closed reads `issues closed`, not ticked, and `/close-milestone`
+  checks it; `proven` is only a `Ran: … pass`), and AR-12 (call 2 reads the state of prose-wait and gate numbers
+  outside the milestone, in the same call; a number not found holds a prose wait). Under the review-loop cap, every
+  other 0.2 finding is fixed in the build step its register's Blocks column names (#601–#603). #604
