@@ -18,10 +18,10 @@
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { today as localToday } from './checks/lib/clock.mjs';
-import { decisionLines } from './checks/lib/decision-lines.mjs';
+import { citationFor, decisionThings } from './checks/lib/decision-lines.mjs';
 import { resolveDecision } from './checks/lib/decision-ref.mjs';
 import { readDecisions, testStart } from './checks/lib/decisions.mjs';
 import { designBefore, hasAccessibilityLine } from './checks/lib/design.mjs';
@@ -31,6 +31,7 @@ import { dueDate, latestReviews, readLessonReviews, REVIEWS, slipwayLessons, sli
 import { MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
 import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { line as lineOf, thing } from './checks/lib/owed.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
 import { escapeControl, excerpt } from './checks/lib/report.mjs';
 import { isPrdPath, MISSING, notPlainFile, notPlainFolder, quotedVersion, readPlain, reviewProvenance, versionLines } from './checks/lib/review-header.mjs';
@@ -90,6 +91,16 @@ const idList = (list, ref, more) => {
   return ok.length ? (odd && ok.length <= 3 ? `${shown} and ${odd} more` : shown) : more;
 };
 const days = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+// Every line status prints for a person, bar the Next line, the state lines and the headers over check rows, is an owed thing (lib/owed.mjs, F-17 §1)
+// that still prints as the line it printed before the plan: `lead` is what opens that line ("(you) " by default, from
+// the thing's who; '' for a line that never had one), `text` the rest. Step 2 of #445 prints them in §1's form.
+const owe = (kind, f, text, lead) => {
+  const t = thing(kind, { ...f, text });
+  t.line = `${lead ?? `(${t.who}) `}${text}`;
+  return t;
+};
+// A list of lines or things, printed one bullet each.
+const printed = (a) => (typeof a === 'string' ? a : lineOf(a));
 
 // ---- facts
 const agent = read('AGENT.md') ?? '';
@@ -97,7 +108,12 @@ const agent = read('AGENT.md') ?? '';
 const placeholders = [...agent.matchAll(/^\|\s*(Product name|Issue repo|GitHub project|Timezone|Domain invariants doc)[^|]*\|\s*`?</gm)].map((m) => m[1]);
 const bootstrapped = placeholders.length === 0;
 let packages = 0;
-try { packages = discoverWorkspace(root).packages.length; } catch { /* reported as 0 */ }
+let packageDirs = [];
+try {
+  const w = discoverWorkspace(root);
+  packages = w.packages.length;
+  packageDirs = w.packages.map((p) => p.dir);
+} catch { /* reported as 0 */ }
 
 const frameMd = read('docs/product/FRAME.md');
 const frame = frameMd ? asText(frontmatter(frameMd)?.status) ?? 'unknown' : 'missing';
@@ -176,10 +192,15 @@ const featureVersion = (md) => {
   const v = lines[0].match(/^Version:\s*(\d{1,4}(?:\.\d{1,4}){0,3})(?![\w.])/)?.[1];
   return v ? `at ${v} has no review of that version` : 'has no review of its current Version: line';
 };
+// What the decisions record still owes (F-15 §6): ids, event words and paths only.
+const owedDecisions = decisionThings(readDecisions(root), today);
 const featureLines = owedReviews(root).map((f) => {
   const ids = f.ns.filter((n) => Number.isSafeInteger(n) && n <= 9999).slice(0, 3).map((n) => `F-${n}`).join(', ') || 'Its feature';
   const doc = named(f.path) === f.path ? f.path : `on the doc for ${ids} (a file with an unusual name)`;
-  return `(you) Run /review-doc ${doc} in a fresh session. ${ids} ${featureVersion(f.md)}. Its build tickets wait on that review.`;
+  // The review waits on the decision citation for its feature, when one is listed.
+  const citation = citationFor(owedDecisions, f.ns);
+  const waits = citation ? { waits: citation.key, waitsWords: 'the decision citation below' } : {};
+  return owe('feature-review', { key: `feature-review:${f.path}`, ...waits }, `Run /review-doc ${doc} in a fresh session. ${ids} ${featureVersion(f.md)}. Its build tickets wait on that review.`, '(you) ');
 });
 const decisions = read('decisions.md') ?? '';
 // Marker text, quoted through excerpt(); empty when nothing printable is left (or no text, or a cap `max` is given).
@@ -203,10 +224,8 @@ const openDecisions = decisions.split(/\r?\n/).flatMap((line) => {
   const title = at < 0 ? '' : rest.slice(0, at).trim();
   if (!title || close < 0 || rest[close + 1] !== '*') return [];
   const id = DECISION_ID.test(head[1]) ? `${head[1]}, ` : '';
-  return [`(you) ${title.endsWith('?') ? 'Answer' : 'Decide'} ${quoted(title) || 'the open decision'} (${id}${openSince(rest.slice(at + 2, close))})`];
+  return [owe('open-decision', { key: `open-decision:${head[1]}` }, `${title.endsWith('?') ? 'Answer' : 'Decide'} ${quoted(title) || 'the open decision'} (${id}${openSince(rest.slice(at + 2, close))})`)];
 });
-// What a decision still owes, which condition fired and what cannot be read (F-15 §6): ids, event words and paths only.
-const owedDecisions = decisionLines(readDecisions(root), today);
 
 const { milestones } = readMilestones(root);
 let decisionsByKey;
@@ -217,7 +236,7 @@ const ms = milestones
   .filter((m) => typeof m.fm?.id === 'string' && m.fm.id)
   .map((m) => ({ ...m.fm, status: asText(m.fm.status), kind: asText(m.fm.kind), appetite: asText(m.fm.appetite), file: m.file, md: m.md, title: (m.md.match(/^#\s+(.+)$/m) ?? [])[1] ?? m.fm.id }));
 // A milestone whose id: line holds keys under it, not text: never read as a milestone, and said so.
-const oddIds = milestones.filter((m) => m.fm?.id && typeof m.fm.id !== 'string').map((m) => `docs/milestones/${named(m.file)} has an id: line that is not text, so status skips it: write it as id: M<n>`);
+const oddIds = milestones.filter((m) => m.fm?.id && typeof m.fm.id !== 'string').map((m) => owe('odd-id', { key: `odd-id:${m.file}`, files: [`docs/milestones/${m.file}`] }, `docs/milestones/${named(m.file)} has an id: line that is not text, so status skips it: write it as id: M<n>`, ''));
 const active = ms.filter((m) => m.status === 'active');
 const cur = active[0];
 // Design before screens (F-14 §4), asked of a plan: DS1 holds the active milestone, status says what each shaping one in a
@@ -226,17 +245,18 @@ const cur = active[0];
 // sends its owner to /kickoff, which asks; with the front end unrecorded no milestone is held to anything.
 const fe = frameMd ? frontEnd(frameMd) : null;
 const designLines = (() => {
-  if (fe?.state === 'unrecorded') return fe.why === 'placeholder' ? [] : ['docs/product/FRAME.md does not say where people use the product: write its Front end: line'];
+  if (fe?.state === 'unrecorded') return fe.why === 'placeholder' ? [] : [owe('design-frame', {}, 'docs/product/FRAME.md does not say where people use the product: write its Front end: line', '')];
   if (fe?.state !== 'screens') return [];
   return milestones
     .filter((m) => m.fm?.id && m.fm.status === 'shaping' && !(typeof m.fm.screens === 'string' && m.fm.screens.trim().toLowerCase() === 'none'))
-    .flatMap((m) => {
+    .flatMap((m, i) => {
       // An id is printed only in the shape the skills accept, else in words (milestoneRef below).
       const id = milestoneId(m.fm.id) ?? 'A shaping milestone';
       const named = typeof m.fm.design === 'string' && resolveDecision(decisions, m.fm.design, { decided: true }).ok;
+      const blocks = { words: `${id === 'A shaping milestone' ? 'a milestone' : id} going active`, files: ['docs/milestones/**'] };
       return [
-        ...(m.fm.kind !== 'skeleton' && !named && !designBefore(m, milestones, ['shaping', 'active', 'closed']) ? [`${id} has no design item before it: add one to an earlier milestone, or as its item 1`] : []),
-        ...(hasAccessibilityLine(m.md) ? [] : [`${id}'s Gate does not say how its screens meet WCAG 2.2 AA: write the line with what holds it, or set screens: none`]),
+        ...(m.fm.kind !== 'skeleton' && !named && !designBefore(m, milestones, ['shaping', 'active', 'closed']) ? [owe('design', { key: `design:${i}:item`, ...blocks }, `${id} has no design item before it: add one to an earlier milestone, or as its item 1`, '')] : []),
+        ...(hasAccessibilityLine(m.md) ? [] : [owe('design', { key: `design:${i}:gate`, ...blocks }, `${id}'s Gate does not say how its screens meet WCAG 2.2 AA: write the line with what holds it, or set screens: none`, '')]),
       ];
     });
 })();
@@ -275,7 +295,7 @@ const existential = deadlines && firstBet !== null
       if (firstBet === null || (d?.before && compareMilestones(d.before, firstBet) <= 0)) return [];
       const when = !d ? 'has no row in the PRD risk table' : d.before ? `resolves ${quoted(d.cell) || 'in a cell that cannot be shown'}, after ${firstBet} starts` : `resolves ${quoted(d.cell || 'blank')}, which names no milestone`;
       const who = RID.test(String(r.id)) ? r.id : 'A risk with an unusual id';
-      return [`${who} is existential and untested, and ${when}: schedule its test before ${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${RID.test(String(r.id)) ? `${r.id}'s` : 'its'} Result`];
+      return [owe('existential', { key: `existential:${RID.test(String(r.id)) ? r.id : 'unusual'}`, words: `the first bet (${firstBet}) going active` }, `Existential risk: ${who} is existential and untested, and ${when}: schedule its test before ${firstBet}, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in ${RID.test(String(r.id)) ? `${r.id}'s` : 'its'} Result`, '')];
     })
   : [];
 
@@ -286,16 +306,19 @@ const existential = deadlines && firstBet !== null
 // is left out is counted, with how many of it are S0 or block a milestone.
 const REGISTER_LINES = 20;
 const registerLines = [];
+let registerKey = 0;
 let registerLeft = REGISTER_LINES;
 let registerUnlisted = 0;
 let registerHot = 0;
-const say = (line) => (registerLeft > 0 ? (registerLeft--, registerLines.push(line)) : registerUnlisted++);
+// `f` carries the thing's facts: the review's file, and the milestone a finding blocks when it is active.
+const say = (line, f) => (registerLeft > 0 ? (registerLeft--, registerLines.push(owe('register', { key: `register:${registerKey++}`, ...f }, line, ''))) : registerUnlisted++);
 for (const r of registers) {
-  if (r.state === 'unparsed') say(`Review register in ${named(r.file)} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`);
+  const of = { files: [`docs/reviews/${r.file}`] };
+  if (r.state === 'unparsed') say(`Review register in ${named(r.file)} cannot be read — no ID and Sev columns, or no finding with a severity of S0 to S3`, of);
   if (r.state !== 'ok') continue;
-  if (r.skipped) say(`Review register in ${named(r.file)} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`);
+  if (r.skipped) say(`Review register in ${named(r.file)} has ${r.skipped} finding(s) whose severity reads none of S0 to S3 — they are not counted; write each as S0, S1, S2 or S3`, of);
   if (!r.hasTracker) {
-    say(`Review register in ${named(r.file)} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`);
+    say(`Review register in ${named(r.file)} has no Tracker column — no finding is reported as untracked; add the column (docs/reviews/TEMPLATE.md)`, of);
     continue;
   }
   const untracked = r.rows
@@ -309,7 +332,10 @@ for (const r of registers) {
     }))
     .sort((x, y) => (y.held.length > 0) - (x.held.length > 0) || x.f.sev.localeCompare(y.f.sev));
   const shown = untracked.slice(0, Math.max(registerLeft, 0));
-  for (const { f, held } of shown) say(`Review finding "${excerpt(f.id)}" (${f.sev}) in ${named(r.file)} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`);
+  for (const { f, held } of shown) {
+    const active_ = held.filter((h) => h.endsWith('(active)'));
+    say(`Review finding "${excerpt(f.id)}" (${f.sev}) in ${named(r.file)} has no tracker${held.length ? `; blocks ${held.join(', ')}` : ''}`, active_.length ? { ...of, rank: 1, words: `${active_.map((h) => h.split(' ')[0]).join(', ')} closing` } : of);
+  }
   const rest = untracked.slice(shown.length);
   if (rest.length) {
     const hot = rest.filter(({ f, held }) => f.sev === 'S0' || held.length).length;
@@ -317,7 +343,7 @@ for (const r of registers) {
     registerHot += hot;
   }
 }
-if (registerUnlisted) registerLines.push(`Review registers: ${registerUnlisted} more line(s) not listed${registerHot ? `, ${registerHot} of them S0 or blocking a milestone` : ''} — fix the ones above first`);
+if (registerUnlisted) registerLines.push(owe('register', { key: 'register:more', files: [] }, `Review registers: ${registerUnlisted} more line(s) not listed${registerHot ? `, ${registerHot} of them S0 or blocking a milestone` : ''} — fix the ones above first`, ''));
 // Per severity, how many findings of the register have a tracker and how many do not.
 const registerStanding = (r) => {
   const sevs = ['S0', 'S1', 'S2', 'S3'].filter((s) => r.rows.some((f) => f.sev === s));
@@ -342,18 +368,21 @@ function walk(dir, out = []) {
 // Marker text, quoted through excerpt(); empty when nothing printable is left.
 const open_ = [];
 const parked_ = [];
+// What an open question in a file holds back, by file (F-17 §2): the frame or the PRD's approval, a feature's review, else nothing.
+const questionBlocks = (rel) => (rel === 'docs/product/FRAME.md' ? { rank: 2, words: 'the frame being done' } : rel === 'docs/PRD.md' ? { rank: 2, words: "the PRD's approval" } : /^(?:docs|dev)\/features\//.test(rel) ? { rank: 3, words: "the feature's review" } : { rank: 5, words: 'nothing status tracks' });
 for (const file of walk(join(root, 'docs'))) {
+  const raw_ = relative(root, file).split(sep).join('/');
   const rel_ = named(relative(root, file));
   // Comments are blanked, not removed, so line numbers hold. A marker sitting whole inside inline code is the
   // template explaining the syntax, not a question; an escaped backtick is not code. Every span is matched so
   // that the gap between two spans is never read as one.
   const lines = replaceComments(readFileSync(file, 'utf8'), commentLines).split(/\r?\n/).map((l) => l.replace(/(?<!\\)`[^`\n]*`/g, (span) => (/\[(?:NEEDS CLARIFICATION|PARKED)[^\]]*\]/.test(span) ? '' : span)));
   lines.forEach((line, i) => {
-    for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(`${rel_}:${i + 1} — ${quoted(body) || 'no question written'}`);
+    for (const [, body] of line.matchAll(/\[NEEDS CLARIFICATION:?([^\]]*)\]/g)) open_.push(owe('open-question', { key: `open-question:${raw_}:${i + 1}`, files: [raw_], ...questionBlocks(raw_) }, `Open question: ${rel_}:${i + 1} — ${quoted(body) || 'no question written'}`, ''));
     for (const [, body] of line.matchAll(/\[PARKED:([^\]]*)\]/g)) {
       const found = body.match(TRACKER)?.[0];
       const ref = found ? trackerRef(found) : 'untracked';
-      parked_.push(`${rel_}:${i + 1} — ${quoted(body.split('·')[0]) || 'no text'} (${ref})`);
+      parked_.push(owe('parked', { key: `parked:${raw_}:${i + 1}` }, `Parked: ${rel_}:${i + 1} — ${quoted(body.split('·')[0]) || 'no text'} (${ref})`, ''));
     }
   });
 }
@@ -371,10 +400,10 @@ for (const item of cur ? contents(cur.md) : []) {
   const at = `${issue === undefined ? '' : `#${issue} · `}item ${itemNumber(item) ?? 'number unreadable'}`;
   const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
   const envs = (cs) => CHECK_ENVS.filter((e) => cs.some((c) => c.env === e));
-  const row = (cs, what) => [at, what, ...envs(cs)].join(' · ');
-  if (owed.length) checkRows.owed.push(row(owed, `${owed.length} owed`));
-  if (failed.length) checkRows.failed.push(row(failed, `${failed.length} failed (${[...new Set(failed.map((c) => c.date))].sort().reverse().slice(0, 2).join(', ')})`));
-  if (unreadable.length) checkRows.unreadable.push(row([], `${unreadable.length} unreadable`));
+  const row = (kind, cs, what) => owe(kind, { key: `${kind}:${issue ?? 'none'}:${itemNumber(item) ?? 'unreadable'}`, files: [`docs/milestones/${cur.file}`] }, [at, what, ...envs(cs)].join(' · '), '');
+  if (owed.length) checkRows.owed.push(row('owed-check', owed, `${owed.length} owed`));
+  if (failed.length) checkRows.failed.push(row('failed-check', failed, `${failed.length} failed (${[...new Set(failed.map((c) => c.date))].sort().reverse().slice(0, 2).join(', ')})`));
+  if (unreadable.length) checkRows.unreadable.push(row('unreadable-check', [], `${unreadable.length} unreadable`));
 }
 const checkFile = cur ? `docs/milestones/${named(cur.file)}` : '';
 const checkHeads = {
@@ -404,16 +433,17 @@ const slipwaysIds = new Set((lessonFiles ?? []).filter(({ f, fm }) => slipwaysDa
 const reviewed = latestReviews(answers.reviews, lessonIds, today, slipwaysIds);
 const dueSoon = lessonFiles
   ? [
-    ...(answers.error ? [`${REVIEWS} cannot be read${unreadableAt(answers.error)}, so no review in it counts: pnpm meta's L1 names the problem.`] : []),
+    ...(answers.error ? [owe('lesson', { key: 'lesson:reviews', rank: 5, words: 'nothing status tracks', files: [REVIEWS] }, `${REVIEWS} cannot be read${unreadableAt(answers.error)}, so no review in it counts: pnpm meta's L1 names the problem.`, '')] : []),
     ...lessonFiles.flatMap(({ f, fm }) => {
       const rb = asText(fm?.enforcement?.['review-by']);
       if (!rb) return [];
       const id = asText(fm.id) ?? '';
-      if (slipwaysDate(slipways, f, id, rb)) return rb <= today ? [`slipway's ${LESSON_ID.test(id) ? id : `lesson in process/lessons/${named(f)}`} passed its review date; a sync brings the reviewed one.`] : [];
+      const file = [`process/lessons/${f}`];
+      if (slipwaysDate(slipways, f, id, rb)) return rb <= today ? [owe('lesson', { key: `lesson:${f}`, rank: 5, words: 'nothing status tracks', files: file }, `slipway's ${LESSON_ID.test(id) ? id : `lesson in process/lessons/${named(f)}`} passed its review date; a sync brings the reviewed one.`, '')] : [];
       // L1's date, from lib/lessons.mjs: a +<N>d clock counts from the latest review, else from the anchor. An anchor that
       // is not a date, or a day count that runs past any date, leaves no date to compare, and never throws.
       const due = dueDate(rb, anchor || null, reviewed.get(id) ?? null);
-      return /^\d{4}-\d{2}-\d{2}$/.test(due) && days(today, due) <= 14 ? [`Review the lesson ${LESSON_ID.test(id) ? `(${id})` : `in process/lessons/${named(f)}`} by ${due}.`] : [];
+      return /^\d{4}-\d{2}-\d{2}$/.test(due) && days(today, due) <= 14 ? [owe('lesson', { key: `lesson:${f}`, date: due, files: file }, `Review the lesson ${LESSON_ID.test(id) ? `(${id})` : `in process/lessons/${named(f)}`} by ${due}.`, '')] : [];
     }),
   ]
   : [];
@@ -495,15 +525,17 @@ if (frame === 'framed' && !cur) {
   const skel = ms.find((m) => m.kind === 'skeleton' && m.status === 'shaping');
   if (skel && untestedValue.length) {
     const first = untracked.length ? ` Then name where ${idList(untracked, RID, 'each risk')} is being tested, in the Tracker column of docs/product/FRAME.md.` : '';
-    also.push(`(agent) Activate the walking skeleton (${milestoneRef(skel, 'the skeleton milestone')}) and build it in parallel. An untested value risk does not block it.${first}`);
+    // The files the skeleton writes: its milestone file, each workspace package folder, and the root manifest and lockfile (F-17 §2).
+    const files = [`docs/milestones/${skel.file}`, ...packageDirs.map((d) => `${d}/**`), 'package.json', 'pnpm-lock.yaml'];
+    also.push(owe('skeleton', { key: `skeleton:${skel.file}`, files }, `Activate the walking skeleton (${milestoneRef(skel, 'the skeleton milestone')}) and build it in parallel. An untested value risk does not block it.${first}`));
   }
 }
-if (cur && untestedValue.length) also.push(`(you) Test the untested value risks (${idList(untestedValue, RID, 'the risks')}). ${riskBlocksSentence}`);
+if (cur && untestedValue.length) also.push(owe('risk-test', {}, `Test the untested value risks (${idList(untestedValue, RID, 'the risks')}). ${riskBlocksSentence}`));
 if (prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft')) {
-  also.push(`(fresh session) Run /review-doc docs/PRD.md. The PRD ${prdAt('at ', 'at ?')} has no adversarial review, and it needs one before Status: approved.`);
+  also.push(owe('prd-review', { key: 'prd-review:also' }, `Run /review-doc docs/PRD.md. The PRD ${prdAt('at ', 'at ?')} has no adversarial review, and it needs one before Status: approved.`));
 }
 if (open_.length) also.push(`(you) Answer the ${open_.length} open question(s) below, or park each with an assumption, the cost if wrong, and a tracker.`);
-if (also.length) L.push('**Also unblocked:**', ...also.map((a) => `- ${a}`), '');
+if (also.length) L.push('**Also unblocked:**', ...also.map((a) => `- ${printed(a)}`), '');
 
 L.push('## Where things stand', '');
 // Every step at once: the Next line names one, but step 4 runs beside step 2 and step 7 sends the project back to 5.
@@ -540,28 +572,29 @@ if (ms.length) {
   }
   L.push('');
 }
+// Needs attention, in the order status prints the kinds; each entry is an owed thing, except a header that stands over its rows.
 const attention = [
-  ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [`Run /review-doc docs/PRD.md in a fresh session. PRD ${prdAt('', '')} has no adversarial review, and it needs one before it leaves draft.`] : []),
+  ...(prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft') ? [owe('prd-review', {}, `Run /review-doc docs/PRD.md in a fresh session. PRD ${prdAt('', '')} has no adversarial review, and it needs one before it leaves draft.`, '')] : []),
   // While no milestone is active or closed the step 3 line is the Next line (next() above); with one, the approval is still owed.
-  ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [`Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdAt('', '')} is reviewed (${prdReviews.map(named).join(', ')}) and still a draft.`] : []),
-  ...(!bootstrapped && !step0 ? [`Fill each unfilled AGENT.md row: ${placeholders.join(', ')}. The skills read them${placeholders.includes('Timezone') ? ', and Timezone also sets when a deadline day ends' : ''}.`] : []),
-  ...(riskNamed ? [`To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or run its test in a \`kind: test\` milestone (the owner's call, D-047).`] : []),
-  ...((riskNamed || (cur && untestedValue.length)) && untracked.length ? ['File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.'] : []),
+  ...(prdStatus === 'draft' && prdReviews.length && (cur || ms.some((m) => m.status === 'closed')) ? [owe('prd-approve', {}, `Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD ${prdAt('', '')} is reviewed (${prdReviews.map(named).join(', ')}) and still a draft.`, '')] : []),
+  ...(!bootstrapped && !step0 ? [owe('agent-rows', {}, `Fill each unfilled AGENT.md row: ${placeholders.join(', ')}. The skills read them${placeholders.includes('Timezone') ? ', and Timezone also sets when a deadline day ends' : ''}.`, '')] : []),
+  ...(riskNamed ? [owe('build-ahead', {}, `To build ahead of the risk (${riskNamed}), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or run its test in a \`kind: test\` milestone (the owner's call, D-047).`, '')] : []),
+  ...((riskNamed || (cur && untestedValue.length)) && untracked.length ? [owe('risk-tracker', {}, 'File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.', '')] : []),
   ...registerLines,
   ...featureLines,
   ...designLines,
   ...oddIds,
-  ...existential.map((e) => `Existential risk: ${e}`),
+  ...existential,
   ...openDecisions,
   ...owedDecisions,
-  ...open_.map((c) => `Open question: ${c}`),
+  ...open_,
   ...owed_,
-  ...parked_.map((c) => `Parked: ${c}`),
+  ...parked_,
   ...dueSoon,
 ];
 L.push('## Needs attention', '');
 // One at a time: a list spread into one call overflows the stack when it is long enough.
-for (const a of attention.length ? attention : ['nothing']) L.push(`- ${a}`);
+for (const a of attention.length ? attention : ['nothing']) L.push(`- ${printed(a)}`);
 L.push('');
 // Every field above is shaped or quoted; each line is still escaped on its own, as a last guard, so a line break or a
 // control character a value might carry is shown as \u000a and never starts a line (a forged Next:, a CI log
