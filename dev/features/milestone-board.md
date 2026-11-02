@@ -152,7 +152,8 @@ sub-issues (F-07's rule).
 - **Left:** every other open leaf, and every Contents item with no issue yet (`Not filed: /log-feature {id}#{k}`).
   Each says why it is not Next, in fixed words: `waits on #n` (its `Blocked by:`), `says it waits on #n: add Blocked by:
   #n` (a prose wait on an open issue, §3), `waits on PR #n; it clears when the PR merges` (a prose wait on an open pull
-  request, §3), `shares files with #n` (work in progress), `files not listed`, `claimed by a branch`, `owes {check}`,
+  request, §3), `PR #n closed unmerged; check the wait` (a prose wait on a pull request closed unmerged, §3), `shares
+  files with #n` (work in progress), `files not listed`, `claimed by a branch`, `owes {check}`,
   `can start, after the three above` (the cap or the person rule), `not ready` (GitHub not read).
 
 **A typo flag.** A leaf whose prose wait names a number not found (§3) is not held for it. Its strip or pick, in
@@ -228,8 +229,14 @@ The board shows the plan; anything it needs that the plan lacks goes into the pl
     line is advised, since today one naming a pull request holds its issue after the pull request merges (#607).
     Left's reason reads `waits on PR #{n}; it clears when the PR merges`. When the held leaf comes before the main step
     in the plan's order, the Next line ends with `#{m} waits on PR #{n}; it clears when the PR merges.`, within F-16's
-    form. The leaf is offered again, with no edit to its body, once the pull request is merged or closed.
-  - **A closed issue, or a merged or closed pull request.** It holds nothing.
+    form. The leaf is offered again, with no edit to its body, once the pull request is merged.
+  - **A pull request closed unmerged.** The leaf stays held, never released silently, until its body's wait is edited
+    (the owner, 2026-11-02). It becomes an owed thing of kind `prose-wait-closed`, who `you or an agent`, rank 1, files
+    `[]`, blocks words `#{m} being offered`, text `#{m} says it waits on PR #{n}, which closed unmerged, so it is not
+    offered. Check the wait: correct it or remove it.`, sorted as `prose-wait` is. Left's reason reads `PR #{n} closed
+    unmerged; check the wait`, and when the held leaf comes before the main step, the Next line ends with `#{m} is
+    held: PR #{n} closed unmerged; check the wait.`, within F-16's form.
+  - **A closed issue, or a merged pull request.** It holds nothing.
   - **A number not found.** It holds nothing: the leaf is read as if the wait were not there. It is flagged, never
     silently passed: an owed thing of kind `prose-wait-typo`, who `you or an agent`, rank 5, files `[]`, blocks words
     `nothing; #{m} is offered as if the wait were not there`, text `#{m} says it waits on #{n}, which is neither an
@@ -424,9 +431,14 @@ Then  call 2 returns the three states in one call and the read does not fail; th
 And   #31 is not offered, no owed thing names it, and Left says "waits on PR #71; it clears when the PR merges"
 And   #32 is offered as if it had no wait, its strip says "says it waits on #72, not found: likely a typo", status has the prose-wait-typo line, and nothing on the page or in status says "add Blocked by" for #71 or #72
 
-Given the same, with #71 merged, or closed without merging
+Given the same, with #71 merged
 When  the shared read runs, online, with no edit to #31's body
 Then  #31 is offered as before
+
+Given the same, with #71 closed without merging
+When  the shared read runs, online, with no edit to #31's body
+Then  #31 is not offered, Left says "PR #71 closed unmerged; check the wait", and status has a prose-wait-closed line naming #31 and #71
+And   once #31's body no longer names #71, #31 is offered
 
 Given #40 named on #31's Blocked by line and in #32's prose, #40 not on the milestone
 When  the shared read runs, online
@@ -485,7 +497,7 @@ Then  no horizontal scroll, every token pair meets WCAG 2.2 AA, and ui-craft's c
 
 ```
 node scripts/board.test.mjs              # §1, §2, §4: columns, once, no repeats, no-issue, inline markdown, gate, ended, footer, server, ETag, CSP, script, schedule, held and stale causes, behind origin/main
-node scripts/plan.test.mjs               # §3: prose waits on an issue held with advice, on a PR held without, merged or closed released, not found flagged and not held, code and #300 ignored, the Next sentence, picks never repeat the main step
+node scripts/plan.test.mjs               # §3: prose waits on an issue held with advice, on a PR held without, merged released, closed unmerged held with a check line, not found flagged and not held, code and #300 ignored, the Next sentence, picks never repeat the main step
 node scripts/github-state.test.mjs       # §3: the open-issue count inside the one read, no title read; call 2 reads prose-wait and gate numbers as issue or PR under p{n}, a number on both under both aliases, NOT_FOUND kept
 node scripts/plan-shared.test.mjs        # status's Next and the board's header, on one fixture
 pnpm meta                                # S1 over the status fixtures, the prose-wait fixture included; everything wired
@@ -552,7 +564,8 @@ None open. Answered by the owner on 2026-11-02, recorded in D-055:
   `origin/main`, the server stopped), each with its fix, and otherwise `cause unknown` with the reading's age; and no
   repeats, so a thing in Next is shown nowhere else and status's In parallel never repeats its Next line's item. AR-1:
   a prose wait holds with `add Blocked by` advice only on an open issue; on an open pull request it holds with no
-  advice and clears when the pull request merges or closes; a number not found is flagged as a likely typo and not
-  held; prose-wait and gate numbers are read under their own alias; a `Blocked by:` pull request number is #607's.
-  AR-2: #600–#603 embed 0.4's Contract and Verify, rewritten in the same change. Every S2 and S3 finding of the 0.3
+  advice and clears when the pull request merges; on one closed unmerged it stays held with `PR #n closed unmerged;
+  check the wait` until the wait is edited (the owner's word, after this version's first draft); a number not found
+  is flagged as a likely typo and not held; prose-wait and gate numbers are read under their own alias; a `Blocked
+  by:` pull request number is #607's. AR-2: #600–#603 embed 0.4's Contract and Verify, rewritten in the same change. Every S2 and S3 finding of the 0.3
   review rides the build step its Blocks column names; only an S1 of 0.4's review goes back to the owner. #604
