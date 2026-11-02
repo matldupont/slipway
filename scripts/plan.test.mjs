@@ -120,6 +120,11 @@ test('three ready leaves offer no shaping; one ready leaf with an unstarted item
   assert.deepEqual(keys(busy.parallel), ['leaf:1'], 'the owner is busy, so only the agent leaf');
 });
 
+test('a main step that shapes the item is not offered again as a pick', () => {
+  const r = plan({ main: { who: 'agent', files: ['elsewhere/**'], kind: 'shape' }, shape: { id: 'M2', n: 1 }, online: true });
+  assert.deepEqual(r.parallel, []);
+});
+
 test('AR-4: three ready leaves, all claimed, and an unstarted item: shaping is offered beside the "Finish the open work" step', () => {
   const claimed = [1, 2, 3].map((n) => leaf(n, { claimed: true }));
   const r = plan({ main: { who: 'agent', files: ['src/l1/**'] }, leaves: claimed, shape: { id: 'M2', n: 4 }, inProgress: [['src/l1/**']], online: true });

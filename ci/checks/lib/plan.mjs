@@ -40,6 +40,8 @@ const shapeThing = (s) => thing('shape', {
 
 // Where a candidate sorts: rank 1's owed things first, then the ready leaves, then shaping, then ranks 2 to 5 (AR-4, AR-6).
 // Within a rank, §2's table order, a lesson's date first in rank 4; ties keep the order they came in.
+// Shaping takes a place only while fewer than three builds are offered, the main step counted (AR-4); at most 2 picks
+// beside the main step is the same rule, since the places a build can fill are the leaves and the main step.
 const group = (t, role) => (role === 'leaf' ? 1 : role === 'shape' ? 2 : t.blocks.rank === 1 ? 0 : t.blocks.rank + 1);
 
 export function plan({ main, owed = [], leaves = [], inProgress = [], shape = null, online = false }) {
@@ -62,19 +64,16 @@ export function plan({ main, owed = [], leaves = [], inProgress = [], shape = nu
   const busy = ownerBusy(main.who);
   const taken = [];
   const used = [main.files ?? null, ...inProgress];
-  let builds = main.issue === undefined ? 0 : 1;
   let owner = false;
   for (const { t, role } of candidates) {
     if (1 + taken.length >= CAP) break;
+    // Unknown files are refused here and again by overlap(), which treats null as meeting everything.
     if (!clear(t) || t.files === null || t.files === undefined) continue;
     if (used.some((f) => overlap(t.files, f))) continue;
     if (ownerWork(t.who) && (busy || owner)) continue;
-    // Shaping takes a place only while fewer than three builds are offered: the main step and the leaves taken.
-    if (role === 'shape' && builds >= CAP) continue;
     taken.push({ t, role });
     used.push(t.files);
     if (ownerWork(t.who)) owner = true;
-    if (role === 'leaf') builds += 1;
   }
 
   const picked = new Set(taken.map(({ t }) => t.key));
