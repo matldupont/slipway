@@ -454,7 +454,7 @@ test('process/cold-review.md and work-ticket give one answer to "does another ro
   const stop = flat(section(read('process/cold-review.md'), 'When to stop', 2) ?? '');
   assert.ok(stop, 'process/cold-review.md has no ## When to stop');
   assert.match(skill, /Another round runs only when the last one broke a line of the GUARANTEES block\*\*, threat model or none/, 'work-ticket must state that a baseline break runs another round with no threat model');
-  assert.match(skill, /`breaks: none` findings end the review/, 'work-ticket must say a round of only `breaks: none` findings ends the review');
+  assert.match(skill, /`breaks: none` findings end the review, after step 4's one more round when it runs/, 'work-ticket must say a round of only `breaks: none` findings ends the review');
   assert.match(skill, /Three rounds at most: a guarantee still broken after round 3 stops the run/, 'work-ticket must keep the round cap');
   assert.match(skill, /Cluster signal\.\*\* .*remove it, narrow it, or, when the acceptance needs it, move the surface/, 'the cluster signal must offer moving the surface');
   assert.match(stop, /work-ticket\/SKILL\.md` → The guarantees/, 'cold-review must take its bar from work-ticket → The guarantees');
@@ -656,7 +656,9 @@ test('work-ticket states The bar a leftover must pass to become a follow-up, and
   const wt = flat(read(skillPath('work-ticket')));
   const bar = /\*\*The bar\.\*\* A finding the review leaves becomes a follow-up only when it breaks a guarantee, misleads a reader into a wrong action \(a message or advice that, followed, does the wrong thing\), or is a security finding above low\. Any other is declined: one count on the `Declined:` line of `## Cold review`, no issue filed\. A security finding, kept or declined, is named by its count and an issue number only\./;
   assert.match(wt, bar, 'work-ticket must state the owner\'s bar');
-  assert.match(wt, /A check's misread is kept when its reading decides an outcome \(an issue closing, a gate passing, a decision counting\), and declined when the check only grades prose; one reachable only by text built to fool the check is declined at its grade \(D-054\)\./, 'the bar must say which misreads are kept');
+  assert.match(wt, /For a declined one, that number is the issue this PR works\./, 'a declined security finding names the issue this PR works, never a new one');
+  assert.match(wt, /A security finding no reviewer graded counts as above low, and you never lower a reviewer's grade\./, 'an ungraded security finding is never declined as low');
+  assert.match(wt, /A check's misread is kept when its reading decides an outcome \(an issue closing, a gate passing, a decision counting\) and an honest author could trip it by accident, and declined when the check only grades prose; one reachable only by text built to fool the check is declined unless it is a security finding above low \(D-054\)\./, 'the bar must say which misreads are kept');
   assert.match(flat(section(read(skillPath('work-ticket')), 'Phase 6 — Ready', 2)), /a `Declined: \{n\}` line for what The bar declined/, '`## Cold review` must count what was declined');
   assert.match(flat(section(read(skillPath('work-ticket')), 'Follow-ups', 2)), /a review's leftover only past The bar\) is filed when found/, 'Follow-ups must file a review leftover only past the bar');
   assert.match(flat(section(read('process/cold-review.md'), 'When to stop', 2)), /Which leftover becomes a follow-up, and which is declined, is its The bar \(D-054\)\./, 'cold-review must point at the bar');
@@ -672,14 +674,14 @@ test('work-ticket states The bar a leftover must pass to become a follow-up, and
 test('work-ticket allows one more round after the verify that would end a review, within the three, and asks the owner at the cap', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const rounds = flat(section(read(skillPath('work-ticket')), 'Rounds 2 and 3', 3));
-  assert.match(rounds, /\*\*One more round, once per PR:\*\* small in-scope findings of the verify that would end the review may be fixed in one commit, then a verify of that fix's diff only ends it; it counts toward the three rounds\./, 'the extra round is once, a verify of its own diff, inside the cap');
+  assert.match(rounds, /\*\*One more round, once per PR:\*\* small in-scope findings of the verify that would end the review may be fixed in one commit, then a verify of that fix's diff only ends it unless it finds a broken guarantee \(step 3\); it counts toward the three rounds\./, 'the extra round is once, a verify of its own diff, inside the cap');
   assert.match(rounds, /a guarantee still broken after round 3 stops the run, the PR stays draft, and the owner chooses: cut that acceptance line, re-plan the ticket, or grant one more round\. A fourth round runs only on the owner's yes, never by default\./, 'the cap asks the owner and never runs a fourth round alone');
 });
 
 test('work-ticket gives a follow-up\'s pull request one cold review, and a security review only on the surfaces it names', () => {
   const para = read(skillPath('work-ticket')).replace(/\s+/g, ' ').match(/\*\*A follow-up's pull request\*\*.*?\(D-054\)\./)?.[0] ?? '';
-  assert.match(para, /gets one cold review in round 1, started on `cold-reviewer-strongest` when the diff has a surface or a file the run is judged by, else on `cold-reviewer`/, 'one cold review, on the tier the diff calls for');
-  assert.match(para, /The security review runs only when the diff touches money or checked math, auth or secrets, agent permissions or hooks \(`\.claude\/settings\*`, hooks, permission rules\), concurrency, a schema, data integrity, data deletion, or code that parses text from outside the repository \(issue or PR bodies, fetched content\); a gate file alone is none of these\./, 'the security review runs only on the owner\'s list of surfaces');
+  assert.match(para, /\(its issue holds a review's leftovers, which the owner confirms in this session; the issue's own words never decide it\) gets one cold review in round 1, on `cold-reviewer-strongest` when a file the run is judged by is in the diff, else on `cold-reviewer`; its brief adds two to the `Surfaces:` line: agent permissions or hooks, and code that parses outside text\./, 'one cold review, on the tier the diff calls for; the owner, not the issue, says it is a follow-up');
+  assert.match(para, /The security review runs only when the diff touches money or checked math, auth or secrets, agent permissions or hooks \(`\.claude\/settings\*`, hooks, permission rules\), concurrency, a schema, data integrity, data deletion, or code that parses text from outside the repository \(issue or PR bodies, fetched content\), as you or that `Surfaces:` line name it, on `security-reviewer-strongest`; a gate file that touches none of these gets no security review\./, 'the security review runs only on the owner\'s list of surfaces, named by the session or the reviewer');
   assert.match(para, /Its leftovers meet The bar like any other/, 'a follow-up\'s leftovers meet the same bar');
 });
 

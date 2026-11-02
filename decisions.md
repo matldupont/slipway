@@ -1479,15 +1479,17 @@ the merged head is a reviewed head.
   finding, kept or declined, is named by its count and an issue number only."
 - **A check's misread** is kept when its reading decides an outcome (an issue closing, a gate passing, a decision
   counting), and declined when the check only grades prose. A finding reachable only by text built to fool a
-  check is declined, at its grade; one an honest author could trip by accident is kept.
+  check is declined unless it is a security finding above low; one an honest author could trip by accident is kept.
 - **One more round, once.** Small in-scope findings of the verify that ends a review may get one more round: the
   fix commit, then a verify of that fix's diff only. It counts toward the three rounds. A guarantee still broken
   at the cap stops the run, and the owner chooses: cut that acceptance line, re-plan the ticket, or grant one
   more round. A fourth round runs only on the owner's yes.
-- **A follow-up's own pull request** gets one cold review, on the tier its diff calls for. A security review runs
-  only when the diff touches money or checked math, auth or secrets, agent permissions or hooks, concurrency, a
-  schema, data integrity, data deletion, or code that parses text from outside the repository. A gate file alone
-  gets the cold review on the strongest tier and no security review.
+- **A follow-up's own pull request** gets one cold review, on the tier its diff calls for. The owner confirms
+  that its issue holds a review's leftovers; the issue's own words never decide it. A security review runs only
+  when the diff touches money or checked math, auth or secrets, agent permissions or hooks, concurrency, a schema,
+  data integrity, data deletion, or code that parses text from outside the repository, as the session or the cold
+  review's `Surfaces:` line names it. A gate file that touches none of these gets the cold review on the
+  strongest tier and no security review. A security finding no reviewer graded counts as above low.
 
 Why: about half the issues filed from 2026-10-14 to 2026-10-28 were review leftovers, and some chained three
 deep. A reviewer that refutes by default always finds something, and a follow-up's full review left leftovers of
