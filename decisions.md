@@ -403,7 +403,8 @@ This holds in every lane, not only for a pull request that defers a check.
   review ends with a verify that finds no broken guarantee, or with a first round that led to no commit.
 - **What is left over is written down, not committed.** What that last verify or review found goes in the pull
   request's body as a known limitation, or into one follow-up that holds them all: never a commit, and never an
-  issue each. Editing the pull request's description is not a commit.
+  issue each. Editing the pull request's description is not a commit. Narrowed by the leftover bar (D-054): a leftover
+  becomes that follow-up only past the bar, and is otherwise declined; one more fix-and-verify round may come first.
 - **A merge of the base branch is the one exception.** It is a merge of the fetched remote branch. The pull
   request names each merge commit and each file the merge stopped on, with what was kept, and the gate runs
   again on the merge. The list is the one git gives before anything is resolved: a conflict settled by keeping
@@ -1466,6 +1467,46 @@ plain-language check is red?": "Yes, required". And to how an existing project l
 Why: D-051 keeps a project's prose job red until its count is recorded, and that red means something only if it blocks
 a merge. The pull request that records the count turns the job green, so a project never locks itself out. The cost: a
 new project cannot merge until its owner records the count once; CI's red message gives the command. Spec: F-16, #565.
+
+## D-054 — A review's leftover becomes a follow-up only past a bar; a follow-up's own pull request gets one cold review *(decided 2026-11-02)*
+
+The owner, 2026-11-02, in #580's plan. It narrows the "what is left over" bullet of the rule that nothing is committed
+after the last review (D-031). Everything else in that rule holds: the merged head is a reviewed head.
+
+- **The bar.** "A finding the review leaves becomes a follow-up only when it breaks a guarantee, misleads a reader
+  into a wrong action (a message or advice that, followed, does the wrong thing), or is a security finding above
+  low. Any other is declined: one count on the Declined: line of ## Cold review, no issue filed. A security
+  finding, kept or declined, is named by its count and an issue number only." For a declined one, that number is
+  the issue the pull request works. A security finding no reviewer graded counts as above low, and the session
+  never lowers a reviewer's grade.
+- **A check's misread** is kept when its reading decides an outcome and an honest author could trip it by accident.
+  An outcome is an issue closing, a gate passing or a decision counting. It is declined when the check only grades
+  prose. A finding reachable only by text built to fool a check is declined, unless it is a security finding above
+  low.
+- **One more round, once.** Small in-scope findings of the verify that ends a review may get one more round: the
+  fix commit, then a verify of that fix's diff only. It counts toward the three rounds. A guarantee still broken
+  at the cap stops the run, and the owner chooses: cut that acceptance line, re-plan the ticket, or grant one
+  more round. A fourth round runs only on the owner's yes.
+- **A follow-up's own pull request** gets one cold review, on the strongest tier when a gate file or a surface is in the diff. The owner confirms
+  it once, when it is filed, and the issue body records it: "Follow-up confirmed: owner, YYYY-MM-DD". The worker
+  reads that line as GitHub shows the body, so a copy in an HTML comment or a fence does not count, and asks
+  nothing. With no line it is not a follow-up, and it gets the full review. No issue text turns the security review
+  off: the marker only cuts round 1 to one cold review. A security review runs only
+  on a listed surface, named by the session or by the cold review's `Surfaces:` line. The list: money or checked
+  math, auth or secrets, agent permissions or hooks, concurrency, a schema, data integrity, data deletion, or code
+  that parses outside text. A gate file that touches none of these gets the cold review on the
+  strongest tier and no security review.
+
+Why: about half the issues filed from 2026-10-14 to 2026-10-28 were review leftovers, and some chained three
+deep. A reviewer that refutes by default always finds something, and a follow-up's full review left leftovers of
+its own. The owner, 2026-10-28: "I don't want to boil the ocean, but I want this to be top quality." #580.
+
+Known limitation: anyone who can write an issue body can write the marker. An author or label check would prove
+nothing while agents act with the owner's GitHub credentials. What a forged marker buys is one cold review in place
+of two on a diff with no listed surface; a listed surface still brings the security review.
+
+Declined: a bar that keeps every wrong message ("misleads" with no wrong action) — wording a reader would not act
+on would still breed tickets. A fourth round by default — the cap would stop being one.
 
 ## Week 1 — decide before M1 closes
 
