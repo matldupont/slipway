@@ -58,14 +58,23 @@ export function overlap(a, b) {
 }
 
 // /work-ticket's follow-up marker (D-054): `Follow-up confirmed: owner, YYYY-MM-DD` on a line of its own, read as
-// GitHub shows the body, so a copy in an HTML comment or a fenced block does not count, nor one in a quote. Anyone
+// GitHub shows the body, so a copy in an HTML comment or a fenced block does not count, nor one in a quote. It counts
+// only as a paragraph of its own, a blank line or the body's edge on each side, so a title or attribute running over
+// several lines cannot carry it. A body holding HTML that can hide what follows it (a collapsed <details>, a raw
+// block: <script>, <style>, <pre>, <textarea>, <?…?>, <!X…>, CDATA) has no marker: the safe mistake is a full review. Anyone
 // who can write the body can write it, and an author check would prove nothing while agents act with the owner's
 // credentials: D-054 records that limit. The marker cuts round 1 to one cold review, and on a diff with no listed
 // surface it skips the security review in every round. That rule lives in /work-ticket's prose, which the session
 // reads and this file never decides; scripts/skills.test.mjs pins it there.
 const MARKER = /^Follow-up confirmed: owner, (\d{4})-(\d{2})-(\d{2})$/;
+const HIDING_HTML = /<(?:details|script|style|pre|textarea)\b|<\?|<!\[CDATA\[|<![A-Za-z]/i;
 export function followUpConfirmed(body) {
-  return prose(body, { frontmatter: false }).split(/\r?\n/).some((line) => {
+  const text = prose(body, { frontmatter: false });
+  if (HIDING_HTML.test(text)) return false;
+  const lines = text.split(/\r?\n/);
+  const blank = (i) => i < 0 || i >= lines.length || lines[i].trim() === '';
+  return lines.some((line, i) => {
+    if (!blank(i - 1) || !blank(i + 1)) return false;
     const m = plain(line).match(MARKER);
     if (!m) return false;
     const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);

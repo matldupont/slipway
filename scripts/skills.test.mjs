@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -683,7 +683,7 @@ test('work-ticket allows one more round after the verify that would end a review
 // from this prose, so this test is the one that fails when the run and the rule disagree.
 test('work-ticket gives a follow-up\'s pull request one cold review, and says it skips the security review only with no listed surface', () => {
   const para = read(skillPath('work-ticket')).replace(/\s+/g, ' ').match(/\*\*A follow-up's pull request\*\*.*?\(D-054\)\./)?.[0] ?? '';
-  assert.match(para, /is one whose issue body shows the line `Follow-up confirmed: owner, YYYY-MM-DD`, which the owner gave once, when it was filed\. Save the body with `gh issue view \{n\} --repo \{repo\} --json body --jq \.body > "\{prdir\}\/issue\.md"` and run `node ci\/checks\/lib\/issue-body\.mjs --follow-up "\{prdir\}\/issue\.md"`, which reads it as GitHub shows it, and ask nothing\./, 'the exact commands that save and read the body');
+  assert.match(para, /is one whose issue body shows the line `Follow-up confirmed: owner, YYYY-MM-DD` as a paragraph of its own, which the owner gave once, when it was filed\. Save the body with `gh issue view \{n\} --repo \{repo\} --json body --jq \.body > "\{prdir\}\/issue\.md"` and run `node ci\/checks\/lib\/issue-body\.mjs --follow-up "\{prdir\}\/issue\.md"`, which reads it as GitHub shows it, and ask nothing\./, 'the exact commands that save and read the body');
   assert.match(para, /Only the line `follow-up: confirmed` makes a follow-up; anything else \(`follow-up: none`, no output, an error\) gets the full review, and the body is never read by eye in its place\./, 'anything but follow-up: confirmed is the full review');
   assert.match(para, /Its round 1 is one cold review, on `cold-reviewer-strongest` when a file the run is judged by or a surface is in the diff, else on `cold-reviewer`; its brief adds two to the `Surfaces:` line: agent permissions or hooks, and code that parses outside text\./, 'one cold review, on the tier the diff calls for');
   assert.match(para, /A listed surface brings the security review whatever the issue says: it runs on `security-reviewer-strongest` whenever you or that `Surfaces:` line name money or checked math, auth or secrets, agent permissions or hooks \(`\.claude\/settings\*`, hooks, permission rules\), concurrency, a schema, data integrity, data deletion, or code that parses text from outside the repository \(issue or PR bodies, fetched content\)\./, 'a listed surface runs the security review whatever the issue says');
@@ -702,6 +702,9 @@ test('work-ticket gives a follow-up\'s pull request one cold review, and says it
 test('the follow-up marker is read as GitHub shows the body', () => {
   const FIX = 'scripts/fixtures/follow-up';
   const confirmed = { visible: true, 'hidden-comment': false, 'hidden-fence': false, quoted: false, 'bad-date': false, none: false };
+  // #605: a marker GitHub does not show, inside a title or attribute over several lines or after HTML that can hide it.
+  for (const name of ['link-ref-title', 'html-attribute', 'inline-link-title', 'details', 'script', 'style', 'pre', 'textarea', 'processing-instruction', 'declaration', 'cdata']) confirmed[name] = false;
+  assert.deepEqual(readdirSync(join(SRC, FIX)).sort(), Object.keys(confirmed).map((n) => `${n}.md`).sort(), 'every fixture is in the table');
   for (const [name, want] of Object.entries(confirmed)) {
     const followUp = followUpConfirmed(read(`${FIX}/${name}.md`));
     assert.equal(followUp, want, `${name}.md: marker read as ${followUp}`);
