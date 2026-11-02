@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Measurement only: F-13 Build map step 0 (dev/features/tests-can-fail.md, D-037). Not the step, and not shipped.
 //
-//   node measure.mjs <repository> <base> <head> [--counts-only] [--no-setup] [--record <folder>] [--call "<words>"]
+//   node measure.mjs <repository> <base> <head> [--counts-only] [--no-setup] [--record <folder>] [--call "<words>"] [--run-limit <s>]
+//
+// PROBE_NO_SWEEP=1 turns off the killing of what the run started, to see the check of `leftProcesses` go red.
 //
 // It applies the Contract's rule to one change and prints a record as JSON: the seconds, and the tests new,
 // judged and not judged by reason. One file with no import but Node and the judged package's own `typescript`,
@@ -30,14 +32,18 @@ const countsOnly = flag('--counts-only');
 const noSetup = flag('--no-setup');
 const recordDir = option('--record');
 const callWords = (option('--call') ?? '').split(' ').filter(Boolean);
+const runLimit = option('--run-limit');
 const [repo, base, headArg] = argv;
-if (!repo || !base || !headArg) { console.error('usage: node measure.mjs <repository> <base> <head> [--counts-only] [--no-setup] [--record <folder>] [--call "<words>"]'); process.exit(2); }
+if (!repo || !base || !headArg) { console.error('usage: node measure.mjs <repository> <base> <head> [--counts-only] [--no-setup] [--record <folder>] [--call "<words>"] [--run-limit <s>]'); process.exit(2); }
+// A limit of 0 would be no limit at all to spawnSync, and a fraction of a millisecond throws at the first call.
+if (runLimit !== null && !/^[1-9][0-9]*$/.test(runLimit)) { console.error('--run-limit takes a whole number of seconds, 1 or more'); process.exit(2); }
+const noSweep = process.env.PROBE_NO_SWEEP === '1';
 
 const EXT = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.mts', '.cts'];
 const SUPPORT_FOLDERS = new Set(['__tests__', '__mocks__', '__fixtures__', 'test', 'tests', 'fixtures', 'mocks']);
 const SUPPORT_NAMES = new Set(['test-utils', 'factories', 'setup']);
 const CRASH = new Set(['TypeError', 'ReferenceError', 'RangeError']);
-const RUN_LIMIT_MS = 120_000;
+const RUN_LIMIT_MS = runLimit ? Number(runLimit) * 1000 : 120_000;
 const STOP_AT = 600;
 
 const t0 = Date.now();
@@ -88,7 +94,31 @@ const out = {
   changedTestFiles: changedTestFiles.length, removedTestFiles, runnerCalls: 0, tests: [], notJudged: [], neverRun: [], notTests: [],
   outsideAnyTest: [], support: [], unreadable: [], failureKinds: {},
 };
+// The copy's folder, once made. The test runner is started by its path inside it, so the runner, its workers
+// and its build service name the folder in their command lines. A process started by plain name from inside the
+// copy (pnpm, bash, a `node server.mjs &` of ci/before-verify.sh) does not, and is neither stopped nor counted.
+let tmp = null;
+// A runner killed at its time limit leaves its workers running: step 0 left two at ~80% of a core for days. So
+// after every call, and on every exit, each process whose command line names the copy's folder is killed, but
+// for what ci/before-verify.sh left running for the tests (`kept`), which is killed only on exit.
+// pgrep and pkill read the pattern as a regular expression, so the folder's path is escaped: a `+` or a `(` from
+// TMPDIR would otherwise match nothing, and the check would read green.
+const pattern = () => tmp.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// The pids now alive whose command line names the folder; null when pgrep cannot say (exit 1 is "none").
+const pids = () => { try { return execFileSync('pgrep', ['-f', pattern()], { encoding: 'utf8' }).split('\n').filter(Boolean); } catch (e) { return e.status === 1 ? [] : null; } };
+let kept = new Set();
+const sweep = (all = false) => {
+  if (!tmp || noSweep) return;
+  for (const pid of pids() ?? []) if (all || !kept.has(pid)) try { process.kill(Number(pid), 'SIGKILL'); } catch { /* gone already */ }
+};
+const alive = () => { if (!tmp) return 0; const p = pids(); return p === null ? null : p.length; };
 const finish = (code = 0) => {
+  // The check #439 asks for: after the run, no process it started is still alive. It fails closed: a pgrep that
+  // cannot answer is a stop, never a zero.
+  sweep(true);
+  out.leftProcesses = alive();
+  if (out.leftProcesses === null && !code) { out.stopped = 'pgrep could not say whether a process the run started is still running'; code = 2; }
+  else if (out.leftProcesses && !code) { out.stopped = `${out.leftProcesses} processes the run started are still running`; code = 2; }
   out.seconds = seconds();
   const by = (list, key) => list.reduce((a, x) => { a[x[key]] = (a[x[key]] ?? 0) + 1; return a; }, {});
   const verdicts = by(out.tests, 'verdict');
@@ -113,13 +143,18 @@ const finish = (code = 0) => {
 if (!changedTestFiles.length) finish();
 
 // §3.4 — the copy: the tree of the commit, written by git into a folder outside the project.
-const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'tests-can-fail-probe-')));
+tmp = realpathSync(mkdtempSync(join(tmpdir(), 'tests-can-fail-probe-')));
 const copy = join(tmp, 'copy');
-process.on('exit', () => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* the folder is in the temporary directory */ } });
-// A child killed by a signal stops the run, and `exit` removes the copy; the 120 s run limit kills with SIGTERM
-// too, and is not a stop. The script is synchronous, so a signal to the probe itself (Ctrl-C, a cancelled job)
-// ends it at once and can leave the copy in the temporary directory (README).
-const run = (cmd, args, opts) => { const r = spawnSync(cmd, args, opts); if (r.signal && r.error?.code !== 'ETIMEDOUT') process.exit(130); return r; };
+process.on('exit', () => { sweep(true); try { rmSync(tmp, { recursive: true, force: true }); } catch { /* the folder is in the temporary directory */ } });
+// The probe is synchronous, so a handler for a signal would never run: a signal to the probe ends it at once, by
+// the default action, and can leave the copy and what runs in it (README says how to stop them). Ctrl-C reaches
+// the runner too. A child killed by a signal stops the run; the run limit kills with SIGTERM too, and is not a stop.
+const run = (cmd, args, opts) => {
+  const r = spawnSync(cmd, args, opts);
+  sweep();
+  if (r.signal && r.error?.code !== 'ETIMEDOUT') process.exit(130);
+  return r;
+};
 const fail = (message, detail) => { out.stopped = message; if (detail && !countsOnly) out.detail = String(detail).split('\n').slice(-12).join('\n'); finish(2); };
 timed('copy', () => {
   const env = { GIT_INDEX_FILE: join(tmp, 'index') };
@@ -136,7 +171,10 @@ timed('install', () => {
 const runEnv = { ...process.env };
 if (!noSetup && tracked.has('ci/before-verify.sh')) timed('setup', () => {
   const envFile = join(tmp, 'github-env'); writeFileSync(envFile, '');
-  const r = run('bash', ['ci/before-verify.sh'], { cwd: copy, encoding: 'utf8', env: { ...process.env, GITHUB_ENV: envFile } });
+  // What the script leaves running is a service the tests need (F-13 §1): kept until the run ends.
+  const r = spawnSync('bash', ['ci/before-verify.sh'], { cwd: copy, encoding: 'utf8', env: { ...process.env, GITHUB_ENV: envFile } });
+  if (r.signal) process.exit(130);
+  kept = new Set(pids() ?? []);
   out.setup = r.status === 0 ? 'ci/before-verify.sh ran' : 'ci/before-verify.sh failed';
   for (const l of readFileSync(envFile, 'utf8').split('\n')) { const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(l); if (m) runEnv[m[1]] = m[2]; }
 });
