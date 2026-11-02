@@ -5,7 +5,7 @@ status: draft
 
 # F-18 — Milestone board: `pnpm board` keeps the active milestone's plan open on screen and current
 
-Version: 0.1 (2026-11-02)
+Version: 0.2 (2026-11-02)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner
@@ -77,8 +77,7 @@ Numbers:
 - **Day N of M**: `readMilestoneModel()`'s `clock`, as F-07 shows it today.
 - **Issues done of total** (the rail's bar): `ci/board.mjs`, from the plan's leaves (§2).
 - **Count in each column, and Waiting on you**: `ci/board.mjs`, counting what it shows.
-- **Open issues: on this milestone, elsewhere**: `ci/board.mjs`, from the open-issue count and list the shared read adds
-  (§3).
+- **Open issues: on this milestone, other**: `ci/board.mjs`, from the open-issue count the shared read adds (§3).
 
 New: a file watcher and a read schedule (nothing in the repository watches files); an `ETag` and a pinned script that
 swaps the page in place (F-07 forbade any script; D-055 replaces that with a content policy); inline markdown for
@@ -132,7 +131,7 @@ calls `plan()` and the readers above and returns:
   columns: { done: [Strip], running: [Strip], next: [Pick], left: [Strip] },
   yours: { soon: [Owed], folded: [Owed] },
   gate: [{ text, state: 'proven' | 'not yet' | 'unproven' }],
-  issues: { open, onMilestone, elsewhere: [{ n, title }], more },
+  issues: { open, onMilestone, other },   // counts only
   readAt, githubAt, failed,   // times in the AGENT.md Timezone; failed: §4's reason words or undefined
 }
 // Strip: { n, title, item, state, why?, pr?, changedAt? }   Pick: plan's pick + { command, designation }
@@ -182,28 +181,35 @@ behind one closed `<details>` with their count. `you or an agent` work is in Nex
 With no milestone at all, F-07's line: `No milestone is active. Run pnpm status for the next step.` The page is a
 function of the tree and the read: the same inputs give the same bytes (`CHECK_NOW`), and changed inputs re-render.
 
-**The open-issue footer.** `{open} open issues in {repo} · {onMilestone} on {id} · {elsewhere} elsewhere`, the
-elsewhere list (number and title) behind a closed `<details>`. `onMilestone + elsewhere = open` always; above 100,
-`100 or more`, the first 100 listed and `{more} more on GitHub`.
+**The open-issue footer.** `{open} open issues in {repo} · {onMilestone} on {id} · {other} other open issues`, the
+last a link to `https://github.com/{repo}/issues?q=is%3Aissue+is%3Aopen`, built from the validated repo and that fixed
+query. `onMilestone` is the open issues the active milestone reaches (its items' issues and their sub-issues) and
+`other` is `open − onMilestone`, so `onMilestone + other = open` always. Counts only: no title of an issue outside the
+owner's work is read or shown, so D-050's read keeps its scope (the owner, on the 0.1 review's AR-1). GitHub's search
+cannot leave out a list of issue numbers, so the list the link opens holds the milestone's own open issues too.
 
 ### §3 What the shared plan gains (step 1)
 
 The board shows the plan; anything it needs that the plan lacks goes into the plan, so status says it too.
 
 - **Prose waits** [D-055]. `proseWaits(body)` in `ci/checks/lib/issue-body.mjs` returns the issue numbers an issue's
-  text says it waits on: the phrases `after #n`, `waits on #n`, `waiting on #n`, `once #n`, `depends on #n`,
-  `blocked by #n` and `build after #n`, case-insensitive, `#n` a whole reference (`#4` never matches `#43`), outside
-  fenced code, inline code and the `Blocked by:` segment of `### Links`; a number already on that segment is not a
-  prose wait. A leaf with a prose wait on an open issue is not ready, everywhere the plan reads leaves; a closed one
-  holds nothing. It is never held silently: it becomes an owed thing of kind `prose-wait`, who `you or an agent`,
-  rank 1, files `[]`, text `#{m} says it waits on #{n} but has no Blocked by line for it, so it is not offered. Add
-  Blocked by: #{n} to its Links line, or remove the wait.` When the held leaf comes before the main step in the
+  own text says it waits on: the phrases `after #n`, `waits on #n`, `waiting on #n`, `once #n`, `depends on #n`,
+  `blocked by #n` and `build after #n`, case-insensitive, `#n` a whole reference (`#4` never matches `#43`). It skips
+  the text an issue embeds or quotes (the owner, on the 0.1 review's AR-6): fenced code, inline code, every line that
+  starts `Verified against:`, and the embedded `### Contract` and `### Verify` sections, each up to the next heading of
+  level 3 or higher. The `Blocked by:` segment read is the one under the issue's own first `### Links` heading line,
+  found outside the skipped text, and it is skipped too; a number already on that segment is not a prose wait. A leaf
+  with a prose wait on an open issue is not ready, everywhere the plan reads leaves; a closed one holds nothing. It is
+  never held silently: it becomes an owed thing of kind `prose-wait`, who `you or an agent`, rank 1, files `[]`,
+  blocks words `#{m} being offered`, text `#{m} says it waits on #{n} but has no Blocked by line for it, so it is not
+  offered. Add Blocked by: #{n} to its Links line, or remove the wait.` It sorts after every ready leaf and before
+  shaping, so a hold never takes a place in In parallel ahead of a ready build (the owner, AR-7); this amends F-17
+  §3's "sorts after the rank-1 owed things" for this kind only. When the held leaf comes before the main step in the
   plan's order, the Next line ends with `#{m} is held: add Blocked by: #{n} to its Links line.`, within F-16's form
   (`nextFormBreaks()`). Offline, status reads no issue, so nothing is held or printed: the bodies come in the same
   5-second read (F-17 §5), and no fetch is added.
-- **The open-issue list.** The read's GraphQL call gains `repository { issues(states: OPEN, first: 100) { totalCount
-  nodes { number title } } }`, inside the same call and budget. Status reads only `totalCount` for its GitHub line;
-  titles never reach status's output (F-17 §7).
+- **The open-issue count.** The read's GraphQL call gains `repository { issues(states: OPEN) { totalCount } }`, inside
+  the same call and budget: a count, no number and no title. Status reads it for its GitHub line.
 - **One Next.** `ci/status.mjs` exports `statusModel(root, read)`, the function its own printing calls, returning at
   least `{ next }`. The board's header prints that `next` as is.
 
@@ -260,7 +266,8 @@ pull request data) and against web pages on other sites.
 - **No script but the pinned one.** Every value is escaped as F-07 does; the content policy lets only the script whose
   hash it names run, so a missed escape cannot run anything, an inline handler included (no `'unsafe-hashes'`). The
   swap parses with `DOMParser` (scripts in the parsed document never run) and inserts nodes, never strings.
-- **No link from text.** Links are built from the validated repo and a number; `inlineMarkdown()` builds none.
+- **No link from text.** Links are built from the validated repo and a number, or the footer's fixed query;
+  `inlineMarkdown()` builds none.
 - **Reachable only from this machine.** 127.0.0.1, the `Host` check against DNS rebinding, `frame-ancestors 'none'`;
   `connect-src 'self'`, so the page talks to nothing else.
 - **The watcher reads nothing it is told.** A file event marks the board dirty; reads are `board()`'s fixed reads.
@@ -277,7 +284,9 @@ limitation); the owner's own tree (D-023).
 - A busy tree reads GitHub at most every 10 seconds; with an agent editing all day that is up to 360 reads an hour,
   inside GitHub's GraphQL budget for one account but not free.
 - A change shows on the page within about 30 seconds (10 between reads, 5 for the read, 15 for the page's poll).
-- At most 100 open issues listed and 100 of the owner's pull requests read (F-17 §5).
+- At most 100 of the owner's pull requests read (F-17 §5).
+- The footer's link opens every open issue, the milestone's own included: GitHub's search cannot leave out a list of
+  numbers.
 - Gate lines that name no issue and no QA plan stay `unproven`: the board cannot run a check.
 - The swap replaces `<main>`: a text selection or focus inside it is lost on a change.
 
@@ -310,6 +319,18 @@ Then  #31 is offered as before
 Given the same body with "#30" only inside a code block, or "#300"
 Then  nothing is held
 
+Given #31's body says "after #30 merges" only in a Verified against line, or inside its embedded Contract or Verify section, and #30 is open
+When  plan() runs, online
+Then  nothing is held
+
+Given #31's embedded Contract quotes "### Links" and "Blocked by: #30" before its own first ### Links heading line
+When  proseWaits() and blockers() read it
+Then  the Blocked by segment read is the one under its own heading
+
+Given two ready leaves and a held leaf, with the owner free
+When  plan() runs, online
+Then  the main step is the first ready leaf, and In parallel lists the second ready leaf before the held leaf's prose-wait line
+
 Given every status fixture with a GitHub read
 When  statusModel() and the board run on it
 Then  the board's header Next text equals status's Next line, byte for byte
@@ -320,7 +341,7 @@ Then  the page says "{id} was killed on {date}.", shows status's Next, and has n
 
 Given an open issue that no item reaches
 When  the board renders
-Then  the footer lists it under elsewhere, and onMilestone + elsewhere equals the open count
+Then  the footer counts it among the other open issues, onMilestone + other equals the open count, and its title is nowhere on the page
 
 Given rank-1 and rank-4 owed things of the owner's, one dated after the appetite's end, and a rank-5 one
 When  the board renders
@@ -366,7 +387,7 @@ Then  no horizontal scroll, every token pair meets WCAG 2.2 AA, and ui-craft's c
 ```
 node scripts/board.test.mjs              # §1, §2, §4: columns, once, no-issue, inline markdown, gate, ended, footer, server, ETag, CSP, script, schedule
 node scripts/plan.test.mjs               # §3: prose waits held, closed released, code and #300 ignored, the Next sentence
-node scripts/github-state.test.mjs       # §3: the open-issue list inside the one read, titles absent from status
+node scripts/github-state.test.mjs       # §3: the open-issue count inside the one read, no title read
 node scripts/plan-shared.test.mjs        # status's Next and the board's header, on one fixture
 pnpm meta                                # S1 over the status fixtures, the prose-wait fixture included; everything wired
 pnpm board                               # by hand, in a project with an active milestone: screenshots light and dark, 1440px and 390px
@@ -416,3 +437,7 @@ None open. Answered by the owner on 2026-11-02, recorded in D-055:
 ## Changes
 
 - 2026-11-02 · ADDED · 0.1, shaped from the owner's request for a live per-milestone board · #600
+- 2026-11-02 · MODIFIED · 0.2, from the 0.1 review (`docs/reviews/2026-11-02-milestone-board-0.1.md`): the owner's
+  answers to AR-1 (the footer counts other open issues and links to GitHub; no title is read), AR-6 (prose waits skip
+  `Verified against:` lines, embedded Contract and Verify sections, and read only the issue's own first `### Links`)
+  and AR-7 (a hold sorts after every ready build). AR-2 to AR-5 and AR-8 to AR-16 stay open. #604
