@@ -380,7 +380,9 @@ All after #542. Owner-only files, asked for at each edit and named under `## Gat
 
 1. #601 — **The plan gains prose waits, the open-issue list and one Next** — `ci/checks/lib/issue-body.mjs`
    (`proseWaits()`), `ci/checks/lib/plan.mjs`, `ci/checks/lib/owed.mjs` (`prose-wait`), `ci/checks/lib/github-state.mjs`,
-   `ci/status.mjs` (`statusModel()`), fixtures and tests. Status changes; the page does not yet. ~300 lines.
+   `ci/status.mjs` (`statusModel()`), fixtures and tests. Status changes; the page does not yet. Before the pull request is
+   marked ready, #541's timed run is repeated with the open-issue field in the read, its time in this doc's Changes; over
+   5 seconds, the step stops and asks the owner. ~300 lines.
 2. #602 — **The board's model and page** — `ci/work-order.mjs` → `ci/board.mjs` (`board()`, the render per the direction,
    `--out`), `inlineMarkdown()` in `ci/checks/lib/html.mjs`, `scripts/work-order.test.mjs` → `scripts/board.test.mjs`,
    `package.json` (`board`, the `work-order` alias), F-07's doc's Changes line. Static, no server change. Blocked by
