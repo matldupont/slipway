@@ -64,7 +64,8 @@ export function overlap(a, b) {
 // with the marker hidden still read as confirmed; D-054 records that limit, and what it gains. Anyone
 // who can write the body can write it, and an author check would prove nothing while agents act with the owner's
 // credentials: D-054 records that limit too. The marker only cuts round 1 to one cold review; the security review
-// runs on every follow-up. That rule lives in /work-ticket's prose, which the session reads and this file never
+// runs on every follow-up, on the strongest tier when the diff holds a gate file or a listed surface and on the
+// standard tier otherwise. That rule lives in /work-ticket's prose, which the session reads and this file never
 // decides; scripts/skills.test.mjs pins it there.
 const MARKER = /^Follow-up confirmed: owner, (\d{4})-(\d{2})-(\d{2})$/;
 const HIDING_HTML = /<(?:details|script|style|pre|textarea)\b|<\?|<!\[CDATA\[|<![A-Za-z]/i;

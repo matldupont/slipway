@@ -1493,12 +1493,11 @@ after the last review (D-031). Everything else in that rule holds: the merged he
   nothing. The line counts only as a paragraph of its own. With no line it is not a follow-up, and it gets the full
   review. The marker only cuts round 1 to one cold review: the security review runs on every follow-up, whatever the
   issue says. It runs on the strongest tier when the diff holds a gate file or a listed surface, named by the session
-  or by the cold review's `Surfaces:` line, and on the standard tier otherwise. The list: money or checked math, auth
+  or by either reviewer's `Surfaces:` line, and on the standard tier otherwise. The list: money or checked math, auth
   or secrets, agent permissions or hooks, concurrency, a schema, data integrity, data deletion, or code that parses
   outside text.
 - **Amended 2026-11-02 (#605).** The owner replaced the earlier answer that a follow-up gets a security review on a
-  listed surface only: "the marker must not be able to switch it off." Most follow-ups touch `ci/**` and got it
-  anyway.
+  listed surface only: "the marker must not be able to switch it off."
 
 Why: about half the issues filed from 2026-10-14 to 2026-10-28 were review leftovers, and some chained three
 deep. A reviewer that refutes by default always finds something, and a follow-up's full review left leftovers of
@@ -1506,8 +1505,9 @@ its own. The owner, 2026-10-28: "I don't want to boil the ocean, but I want this
 
 Known limitation: anyone who can write an issue body can write the marker. An author or label check would prove
 nothing while agents act with the owner's GitHub credentials. The reader's view of the body as GitHub shows it is a
-best effort: a marker GitHub hides may still be counted. A forged marker, visible or hidden, buys at most one cold
-review fewer in round 1. The security review runs either way.
+best effort: a marker GitHub hides may still be counted. A forged marker, visible or hidden, buys at most round 1
+without its standard-tier cold and security reviews, where the full review would run both tiers. A security review
+runs either way.
 
 Declined: a bar that keeps every wrong message ("misleads" with no wrong action) — wording a reader would not act
 on would still breed tickets. A fourth round by default — the cap would stop being one.

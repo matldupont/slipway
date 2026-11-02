@@ -683,23 +683,27 @@ test('work-ticket allows one more round after the verify that would end a review
 // the paragraph says how the body is saved and read. The session decides from this prose, so this test is the one
 // that fails when the run and the rule disagree.
 test('work-ticket gives a follow-up\'s pull request one cold review, and the marker never skips its security review', () => {
-  const para = read(skillPath('work-ticket')).replace(/\s+/g, ' ').match(/\*\*A follow-up's pull request\*\*.*?\(D-054\)\./)?.[0] ?? '';
+  const skill = read(skillPath('work-ticket')).replace(/\s+/g, ' ');
+  const para = skill.match(/\*\*A follow-up's pull request\*\*.*?like any other \(D-054\)\./)?.[0] ?? '';
   const d054 = flat(read('decisions.md'));
   const comment = flat(read('ci/checks/lib/issue-body.mjs').replace(/^\s*\/\/ ?/gm, ''));
   assert.match(para, /is one whose issue body shows the line `Follow-up confirmed: owner, YYYY-MM-DD` as a paragraph of its own, which the owner gave once, when it was filed\. Save the body with `gh issue view \{n\} --repo \{repo\} --json body --jq \.body > "\{prdir\}\/issue\.md"` and run `node ci\/checks\/lib\/issue-body\.mjs --follow-up "\{prdir\}\/issue\.md"`, which reads it as GitHub shows it, and ask nothing\./, 'the exact commands that save and read the body');
   assert.match(para, /Only the line `follow-up: confirmed` makes a follow-up; anything else \(`follow-up: none`, no output, an error\) gets the full review, and the body is never read by eye in its place\./, 'anything but follow-up: confirmed is the full review');
   assert.match(para, /Its round 1 is one cold review, on `cold-reviewer-strongest` when a file the run is judged by or a surface is in the diff, else on `cold-reviewer`; its brief adds two to the `Surfaces:` line: agent permissions or hooks, and code that parses outside text\./, 'one cold review, on the tier the diff calls for');
-  assert.match(para, /The marker only cuts round 1 to one cold review: the security review runs on every follow-up, in every round a security review would run, whatever the issue says\. It runs on `security-reviewer-strongest` when a file the run is judged by is in the diff, or you or that `Surfaces:` line name money or checked math, auth or secrets, agent permissions or hooks \(`\.claude\/settings\*`, hooks, permission rules\), concurrency, a schema, data integrity, data deletion, or code that parses text from outside the repository \(issue or PR bodies, fetched content\); else on `security-reviewer`\./, 'the security review runs on every follow-up, on the tier the diff calls for');
-  assert.match(para, /The reader's view of the body is a best effort: a marker GitHub hides may still read as confirmed, and gains only that one cold review \(D-054\)\./, 'the skill states the hidden-marker limit');
-  for (const [file, text] of [['the skill', para], ['D-054', d054], ['issue-body.mjs', comment]]) {
+  assert.match(para, /The marker only cuts round 1 to one cold review: the security review runs on every follow-up, in every round a security review would run, whatever the issue says\. It runs on `security-reviewer-strongest` when a file the run is judged by is in the diff, or you or either reviewer's `Surfaces:` line name money or checked math, auth or secrets, agent permissions or hooks \(`\.claude\/settings\*`, hooks, permission rules\), concurrency, a schema, data integrity, data deletion, or code that parses text from outside the repository \(issue or PR bodies, fetched content\); else on `security-reviewer`, and a standard run whose `Surfaces:` line names one of these runs again on `security-reviewer-strongest`, both runs' findings counting\./, 'the security review runs on every follow-up, on the tier the diff or either reviewer calls for');
+  assert.match(para, /The reader's view of the body is a best effort: a marker GitHub hides may still read as confirmed, and gains what a visible one does: round 1 without its standard-tier cold and security reviews where the full review would run both tiers, never the security review itself \(D-054\)\. Its leftovers meet The bar like any other \(D-054\)\./, 'the skill states the hidden-marker limit at its full size');
+  const d054Only = flat(read('decisions.md').split(/^## D-054 /m)[1]?.split(/^## /m)[0]);
+  for (const [file, text] of [['the skill', skill], ['D-054', d054Only], ['issue-body.mjs', comment]]) {
     assert.doesNotMatch(text, /skips? the security review|no security review|turns? the security review off|security review runs only/, `${file} must not let the marker skip the security review`);
   }
-  assert.doesNotMatch(flat(section(read(skillPath('work-ticket')), 'Phase 5 — Draft PR and cold review', 2) ?? ''), /Security: +[^\n]*not run/, 'the Security line has no "not run" for a follow-up');
+  const securityLine = (section(read(skillPath('work-ticket')), 'Phase 5 — Draft PR and cold review', 2) ?? '').split('\n').find((l) => l.startsWith('Security:'));
+  assert.ok(securityLine, 'Phase 5 keeps its Security: line');
+  assert.doesNotMatch(securityLine, /not run/, 'the Security line has no "not run" for a follow-up');
   assert.match(d054, /The marker only cuts round 1 to one cold review: the security review runs on every follow-up, whatever the issue says\. It runs on the strongest tier when the diff holds a gate file or a listed surface/, 'D-054 says the security review runs on every follow-up');
   assert.match(d054, /\*\*Amended 2026-11-02 \(#605\)\.\*\* The owner replaced the earlier answer that a follow-up gets a security review on a listed surface only: "the marker must not be able to switch it off\."/, 'D-054 records the amendment in the owner\'s words');
   assert.match(d054, /Known limitation: anyone who can write an issue body can write the marker\./, 'D-054 states what the marker cannot prove');
-  assert.match(d054, /a marker GitHub hides may still be counted\. A forged marker, visible or hidden, buys at most one cold review fewer in round 1\. The security review runs either way\./, 'D-054 weighs a hidden marker');
-  assert.match(comment, /The marker only cuts round 1 to one cold review; the security review runs on every follow-up\./, 'the reader\'s comment says the marker never skips the security review');
+  assert.match(d054, /a marker GitHub hides may still be counted\. A forged marker, visible or hidden, buys at most round 1 without its standard-tier cold and security reviews, where the full review would run both tiers\. A security review runs either way\./, 'D-054 weighs a hidden marker');
+  assert.match(comment, /The marker only cuts round 1 to one cold review; the security review runs on every follow-up, on the strongest tier when the diff holds a gate file or a listed surface and on the standard tier otherwise\./, 'the reader\'s comment says the marker never skips the security review');
   assert.match(comment, /Some bodies GitHub shows with the marker hidden still read as confirmed; D-054 records that limit/, 'the reader\'s comment does not claim its cases are closed');
 });
 
@@ -709,7 +713,7 @@ test('the follow-up marker is read as GitHub shows the body', () => {
   const confirmed = { visible: true, 'hidden-comment': false, 'hidden-fence': false, quoted: false, 'bad-date': false, none: false };
   // #605: bodies the reader reads as no marker, on a best-effort basis (D-054's known limitation): a marker in a
   // paragraph with other text, inside a title or attribute over several lines, or after HTML the reader does not judge.
-  for (const name of ['same-paragraph', 'link-ref-title', 'html-attribute', 'inline-link-title', 'details', 'script', 'style', 'pre', 'textarea', 'processing-instruction', 'declaration', 'cdata']) confirmed[name] = false;
+  for (const name of ['same-paragraph', 'same-paragraph-after', 'link-ref-title', 'html-attribute', 'inline-link-title', 'details', 'script', 'style', 'pre', 'textarea', 'processing-instruction', 'declaration', 'cdata']) confirmed[name] = false;
   assert.deepEqual(readdirSync(join(SRC, FIX)).sort(), Object.keys(confirmed).map((n) => `${n}.md`).sort(), 'every fixture is in the table');
   for (const [name, want] of Object.entries(confirmed)) {
     const followUp = followUpConfirmed(read(`${FIX}/${name}.md`));
