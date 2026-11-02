@@ -40,9 +40,31 @@ outputs, test names and failure messages included, whatever else is passed: on a
 outside any repository, never under this one. `--no-setup` skips `ci/before-verify.sh`. `--call "<words>"`
 adds words to every runner call.
 
-Ctrl-C, or a cancelled job, ends the probe at once: it is synchronous, so it cannot clean up on a signal, and
-the copy (`tests-can-fail-probe-*`, the whole commit with one file changed) can be left in the temporary
-directory. Remove it by hand. The project's own checkout is never written.
+`--run-limit <s>` sets the time limit of one runner call, a whole number of seconds (120 when not given).
+
+**It leaves nothing running** (#439). Step 0's runs left two test-runner processes at about 80% of a core for
+days. The probe starts the test runner by its path inside its copy (`tests-can-fail-probe-*` in the temporary
+directory), so the runner and its workers name that folder in their command lines. After each call, and on
+exit, it kills each of this user's processes whose command line names the folder (the path escaped, since
+`pgrep` reads a regular expression). A process started by plain name from inside the copy (`pnpm`, `bash`, a
+`node server.mjs &` in `ci/before-verify.sh`) does not name it, and is neither stopped nor counted: a
+`leftProcesses` of 0 says only that nothing naming the folder is left. What `ci/before-verify.sh` leaves running
+is a service the tests need, as F-13 §1 has it: it is kept until the run ends. The script's output is not
+piped, so a service it starts with `&` does not hold the probe at setup. Then `pgrep -f` on the folder
+must find none: the record's `leftProcesses` is that count, a run that leaves one is exit 2, and a `pgrep` that
+cannot answer is exit 2 too, never a zero. `PROBE_NO_SWEEP=1` turns the killing off, to see the check go red;
+what the run started is then left running, the folder is kept, and both are stopped and removed by hand as
+below.
+
+Ctrl-C, or a closed terminal, reaches the runner too: the call in flight ends, and the probe cleans up and
+exits 130. A TERM to the probe alone is held until the run ends, which then cleans up as usual. A SIGKILL to the
+probe can leave the copy and what runs in it. The probe names its folder on stderr when it makes it
+(`tests-can-fail probe: copy in <folder>`); with `--counts-only` it does not, so list the candidates with
+`ls -dt "$(cd "${TMPDIR:-/tmp}" && pwd -P)"/tests-can-fail-probe-*`, which prints the resolved path the
+processes carry (a plain `$TMPDIR` on macOS ends in `/` and gives `//`, which matches nothing). Take your own
+run's folder, never simply the newest: another session's may be newer. Then stop that one run's processes with
+`pkill -f '<that folder>'`, escaping any `+ ( ) [ ] { } . ^ $ | ? * \` in it, and remove the folder. Never
+`pkill -f tests-can-fail-probe-` alone: it stops another session's run too. The project's own checkout is never written.
 
 ## What it applies, and what it leaves out
 
