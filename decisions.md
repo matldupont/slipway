@@ -1490,20 +1490,24 @@ after the last review (D-031). Everything else in that rule holds: the merged he
 - **A follow-up's own pull request** gets one cold review, on the strongest tier when a gate file or a surface is in the diff. The owner confirms
   it once, when it is filed, and the issue body records it: "Follow-up confirmed: owner, YYYY-MM-DD". The worker
   reads that line as GitHub shows the body, so a copy in an HTML comment or a fence does not count, and asks
-  nothing. With no line it is not a follow-up, and it gets the full review. No issue text turns the security review
-  off: the marker only cuts round 1 to one cold review. A security review runs only
-  on a listed surface, named by the session or by the cold review's `Surfaces:` line. The list: money or checked
-  math, auth or secrets, agent permissions or hooks, concurrency, a schema, data integrity, data deletion, or code
-  that parses outside text. A gate file that touches none of these gets the cold review on the
-  strongest tier and no security review.
+  nothing. The line counts only as a paragraph of its own. With no line it is not a follow-up, and it gets the full
+  review. The marker only cuts round 1 to one cold review: the security review runs on every follow-up, whatever the
+  issue says. It runs on the strongest tier when the diff holds a gate file or a listed surface, named by the session
+  or by either reviewer's `Surfaces:` line, and on the standard tier otherwise. The list: money or checked math, auth
+  or secrets, agent permissions or hooks, concurrency, a schema, data integrity, data deletion, or code that parses
+  outside text.
+- **Amended 2026-11-02 (#605).** The owner replaced the earlier answer that a follow-up gets a security review on a
+  listed surface only: "the marker must not be able to switch it off."
 
 Why: about half the issues filed from 2026-10-14 to 2026-10-28 were review leftovers, and some chained three
 deep. A reviewer that refutes by default always finds something, and a follow-up's full review left leftovers of
 its own. The owner, 2026-10-28: "I don't want to boil the ocean, but I want this to be top quality." #580.
 
 Known limitation: anyone who can write an issue body can write the marker. An author or label check would prove
-nothing while agents act with the owner's GitHub credentials. What a forged marker buys is one cold review in place
-of two on a diff with no listed surface; a listed surface still brings the security review.
+nothing while agents act with the owner's GitHub credentials. The reader's view of the body as GitHub shows it is a
+best effort: a marker GitHub hides may still be counted. A forged marker, visible or hidden, buys at most round 1
+without its standard-tier cold and security reviews, where the full review would run both tiers. A security review
+runs either way.
 
 Declined: a bar that keeps every wrong message ("misleads" with no wrong action) — wording a reader would not act
 on would still breed tickets. A fourth round by default — the cap would stop being one.
