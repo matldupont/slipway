@@ -5,7 +5,7 @@ status: draft
 
 # F-18 — Milestone board: `pnpm board` keeps the active milestone's plan open on screen and current
 
-Version: 0.3 (2026-11-02)
+Version: 0.4 (2026-11-02)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner
@@ -135,7 +135,7 @@ calls `plan()` and the readers above and returns:
   readAt, githubAt, failed,   // times in the AGENT.md Timezone; failed: §4's reason words or undefined
   behind,                     // commits this checkout is behind origin/main, or null when there is no such ref (§4)
 }
-// Strip: { n, title, item, state, why?, pr?, changedAt? }   Pick: plan's pick + { command, designation }
+// Strip: { n, title, item, state, why?, note?, pr?, changedAt? }   Pick: plan's pick + { command, designation, note? }
 ```
 
 **Every leaf is in exactly one column.** A leaf is an issue the active milestone reaches: an item's issue, or its
@@ -151,8 +151,12 @@ sub-issues (F-07's rule).
   not `you` can be handed to an agent.
 - **Left:** every other open leaf, and every Contents item with no issue yet (`Not filed: /log-feature {id}#{k}`).
   Each says why it is not Next, in fixed words: `waits on #n` (its `Blocked by:`), `says it waits on #n: add Blocked by:
-  #n` (§3), `shares files with #n` (work in progress), `files not listed`, `claimed by a branch`, `owes {check}`,
+  #n` (a prose wait on an open issue, §3), `waits on PR #n; it clears when the PR merges` (a prose wait on an open pull
+  request, §3), `shares files with #n` (work in progress), `files not listed`, `claimed by a branch`, `owes {check}`,
   `can start, after the three above` (the cap or the person rule), `not ready` (GitHub not read).
+
+**A typo flag.** A leaf whose prose wait names a number not found (§3) is not held for it. Its strip or pick, in
+whichever column it is, carries `note`: `says it waits on #n, not found: likely a typo`.
 
 **An issue appears once.** An issue reached from two items, or as a sub-issue of two, is one strip, under the first
 item in Contents order; the later item shows `#n is listed under item {k}`.
@@ -210,24 +214,39 @@ The board shows the plan; anything it needs that the plan lacks goes into the pl
   the text an issue embeds or quotes (the owner, on the 0.1 review's AR-6): fenced code, inline code, every line that
   starts `Verified against:`, and the embedded `### Contract` and `### Verify` sections, each up to the next heading of
   level 3 or higher. The `Blocked by:` segment read is the one under the issue's own first `### Links` heading line,
-  found outside the skipped text, and it is skipped too; a number already on that segment is not a prose wait. A leaf
-  with a prose wait on an open issue is not ready, everywhere the plan reads leaves; a closed one holds nothing. It is
-  never held silently: it becomes an owed thing of kind `prose-wait`, who `you or an agent`, rank 1, files `[]`,
-  blocks words `#{m} being offered`, text `#{m} says it waits on #{n} but has no Blocked by line for it, so it is not
-  offered. Add Blocked by: #{n} to its Links line, or remove the wait.` It sorts after every ready leaf and before
-  shaping, so a hold never takes a place in In parallel ahead of a ready build (the owner, AR-7); this amends F-17
-  §3's "sorts after the rank-1 owed things" for this kind only. When the held leaf comes before the main step in the
-  plan's order, the Next line ends with `#{m} is held: add Blocked by: #{n} to its Links line.`, within F-16's form
-  (`nextFormBreaks()`). Offline, status reads no issue, so nothing is held or printed: the bodies come in the same
-  5-second read (F-17 §5), and no call is added.
+  found outside the skipped text, and it is skipped too; a number already on that segment is not a prose wait. What a
+  prose wait does depends on what its `#n` is, as the next bullet reads it (the owner, on the 0.3 review's AR-1). Only
+  an open issue holds with advice:
+  - **An open issue.** The leaf is not ready, everywhere the plan reads leaves. It is never held silently: it becomes
+    an owed thing of kind `prose-wait`, who `you or an agent`, rank 1, files `[]`, blocks words `#{m} being offered`,
+    text `#{m} says it waits on #{n} but has no Blocked by line for it, so it is not offered. Add Blocked by: #{n} to
+    its Links line, or remove the wait.` It sorts after every ready leaf and before shaping, so a hold never takes a
+    place in In parallel ahead of a ready build (the owner, AR-7); this amends F-17 §3's "sorts after the rank-1 owed
+    things" for this kind only. When the held leaf comes before the main step in the plan's order, the Next line ends
+    with `#{m} is held: add Blocked by: #{n} to its Links line.`, within F-16's form (`nextFormBreaks()`).
+  - **An open pull request.** The leaf is not ready, and nobody is asked to act: no owed thing, and no `Blocked by:`
+    line is advised, since today one naming a pull request holds its issue after the pull request merges (#607).
+    Left's reason reads `waits on PR #{n}; it clears when the PR merges`. When the held leaf comes before the main step
+    in the plan's order, the Next line ends with `#{m} waits on PR #{n}; it clears when the PR merges.`, within F-16's
+    form. The leaf is offered again, with no edit to its body, once the pull request is merged or closed.
+  - **A closed issue, or a merged or closed pull request.** It holds nothing.
+  - **A number not found.** It holds nothing: the leaf is read as if the wait were not there. It is flagged, never
+    silently passed: an owed thing of kind `prose-wait-typo`, who `you or an agent`, rank 5, files `[]`, blocks words
+    `nothing; #{m} is offered as if the wait were not there`, text `#{m} says it waits on #{n}, which is neither an
+    issue nor a pull request in {repo}, so it is likely a typo. Correct the number or remove the wait.`; on the board,
+    the leaf's `note` (§2). Neither says to add a `Blocked by:` line.
+
+  Offline, status reads no issue, so nothing is held, flagged or printed: the bodies come in the same 5-second read
+  (F-17 §5), and no call is added.
 - **States outside the milestone** (the 0.2 review's AR-12). F-17 §5's call 2 reads, in the same call and budget, the
   state of every number not already read that a `Blocked by:` line, a prose wait or a gate line names; it is skipped
   only when there is none. Prose-wait and gate numbers are read with `issueOrPullRequest(number:)`, so `... on Issue {
-  state stateReason }` and `... on PullRequest { state }`, since a prose wait often names a pull request. A prose wait
-  on an open issue or an open pull request holds; a closed or merged one holds nothing. A number GitHub resolves to
-  nothing (its alias answers `NOT_FOUND`) is not found and does not fail the read; any other error fails it as F-17 §5
-  says. A prose wait on a number not found holds, and Left's reason reads `says it waits on #n (not found): add Blocked
-  by: #n or remove the wait`.
+  state stateReason }` and `... on PullRequest { state }`, under the alias `p{n}`; `Blocked by:` numbers keep F-17's
+  `issue(number:)` under `i{n}`. A number read both ways is asked under both aliases, so one query never gives one
+  alias two shapes. A number GitHub resolves to nothing (its alias answers `NOT_FOUND`) is not found and does not fail
+  the read; any other error fails it as F-17 §5 says. What a `Blocked by:` number that is a pull request or not found
+  does is #607's to fix, in F-07 and F-17, and their read is this doc's once it lands; until then the board shows it as
+  F-07 does, `not found`, and the leaf stays held.
 - **The open-issue count.** The read's GraphQL call gains `repository { issues(states: OPEN) { totalCount } }`, inside
   the same call and budget: a count, no number and no title. Status reads it for its GitHub line.
 - **One Next.** `ci/status.mjs` exports `statusModel(root, read)`, the function its own printing calls, returning at
@@ -332,6 +351,10 @@ limitation); the owner's own tree (D-023).
   numbers.
 - Gate lines that name no issue and no QA plan stay `unproven`: the board cannot run a check.
 - The swap replaces `<main>`: a text selection or focus inside it is lost on a change.
+- A `Blocked by:` line that names a pull request, or a number not found, holds its issue as F-07 does until #607 is
+  fixed: the board shows it `not found` and never advises one.
+- A prose wait on a number not found is not held, so a typo of a real wait lets the issue be offered early; the flag
+  says so in status and on its strip.
 - `behind` counts against `origin/main` as of the checkout's last fetch: the board never fetches, so commits pushed
   since then are not counted, and a checkout that has never fetched says nothing.
 
@@ -395,9 +418,19 @@ Then  Waiting on you lists the rank-1 then the in-appetite rank-4, and folds the
 Given a gate line naming #40 (closed as completed), one naming docs/qa/x.md with a Ran pass line, and a prose line
 Then  the first is issues closed, not ticked, with "/close-milestone checks the line"; the second is proven and ticked; the third is unproven, never ticked
 
-Given a gate line naming #70, and #31's body saying "after #71" and "after #72", none of them on the milestone; #70 is closed as completed, #71 is an open pull request, #72 does not exist
+Given a gate line naming #70, #31's body saying "after #71" and #32's saying "after #72", none of the three on the milestone; #70 is closed as completed, #71 is an open pull request, #72 does not exist
 When  the shared read runs, online
-Then  call 2 returns the three states in one call, the gate line is issues closed, #31 is held by #71, Left says "says it waits on #72 (not found): add Blocked by: #72 or remove the wait", and the read does not fail
+Then  call 2 returns the three states in one call and the read does not fail; the gate line is issues closed
+And   #31 is not offered, no owed thing names it, and Left says "waits on PR #71; it clears when the PR merges"
+And   #32 is offered as if it had no wait, its strip says "says it waits on #72, not found: likely a typo", status has the prose-wait-typo line, and nothing on the page or in status says "add Blocked by" for #71 or #72
+
+Given the same, with #71 merged, or closed without merging
+When  the shared read runs, online, with no edit to #31's body
+Then  #31 is offered as before
+
+Given #40 named on #31's Blocked by line and in #32's prose, #40 not on the milestone
+When  the shared read runs, online
+Then  call 2 asks for #40 as i40 and as p40, GitHub accepts the query, and both leaves read #40's state
 
 Given pnpm board is running
 When  a request to / carries a foreign Host, another path, or POST
@@ -427,7 +460,7 @@ Then  the #live line says "Server stopped at {HH:MM}; this is the last good boar
 Given a fixture repository whose HEAD is 3 commits behind its origin/main ref, and a good GitHub read
 When  the board reads
 Then  the page says "This checkout is 3 commits behind origin/main as of its last fetch, so this board may be out of date." followed by "Update it with git pull, or merge origin/main into this branch.", and no git fetch ran
-And   with HEAD level with origin/main, or no origin/main ref, the page has no such line
+And   with HEAD 0 commits behind origin/main, or no origin/main ref, the page has no such line
 
 Given the server answers 304, behind is 0, the last GitHub read did not fail, and <main>'s data-read-at is 90 seconds before a fake now
 When  the page polls
@@ -452,8 +485,8 @@ Then  no horizontal scroll, every token pair meets WCAG 2.2 AA, and ui-craft's c
 
 ```
 node scripts/board.test.mjs              # §1, §2, §4: columns, once, no repeats, no-issue, inline markdown, gate, ended, footer, server, ETag, CSP, script, schedule, held and stale causes, behind origin/main
-node scripts/plan.test.mjs               # §3: prose waits held, closed released, code and #300 ignored, the Next sentence, picks never repeat the main step
-node scripts/github-state.test.mjs       # §3: the open-issue count inside the one read, no title read; call 2 reads prose-wait and gate numbers, NOT_FOUND kept
+node scripts/plan.test.mjs               # §3: prose waits on an issue held with advice, on a PR held without, merged or closed released, not found flagged and not held, code and #300 ignored, the Next sentence, picks never repeat the main step
+node scripts/github-state.test.mjs       # §3: the open-issue count inside the one read, no title read; call 2 reads prose-wait and gate numbers as issue or PR under p{n}, a number on both under both aliases, NOT_FOUND kept
 node scripts/plan-shared.test.mjs        # status's Next and the board's header, on one fixture
 pnpm meta                                # S1 over the status fixtures, the prose-wait fixture included; everything wired
 pnpm board                               # by hand, in a project with an active milestone: screenshots light and dark, 1440px and 390px
@@ -512,8 +545,14 @@ None open. Answered by the owner on 2026-11-02, recorded in D-055:
   answer to AR-13 (a gate line whose issues are all closed reads `issues closed`, not ticked, and `/close-milestone`
   checks it; `proven` is only a `Ran: … pass`), and AR-12 (call 2 reads the state of prose-wait and gate numbers
   outside the milestone, in the same call; a number not found holds a prose wait). Under the review-loop cap, every
-  other 0.2 finding is fixed in the build step its register's Blocks column names (#601–#603). Before its review, the
-  owner added two rules to 0.3 in place: held and stale readings name only a cause the board detects locally (the GitHub
-  read failed, this checkout is behind `origin/main`, the server stopped), each with its fix, and otherwise `cause
-  unknown` with the reading's age; and no repeats, so a thing in Next is shown nowhere else and status's In parallel
-  never repeats its Next line's item. #604
+  other 0.2 finding is fixed in the build step its register's Blocks column names (#601–#603). Reviewed as it stands
+  (`docs/reviews/2026-11-02-milestone-board-0.3.md`, at b01ea1d). #604
+- 2026-11-02 · MODIFIED · 0.4, the owner's two board rules and both S1s of the 0.3 review; no 0.5. The rules: held and
+  stale readings name only a cause the board detects locally (the GitHub read failed, this checkout is behind
+  `origin/main`, the server stopped), each with its fix, and otherwise `cause unknown` with the reading's age; and no
+  repeats, so a thing in Next is shown nowhere else and status's In parallel never repeats its Next line's item. AR-1:
+  a prose wait holds with `add Blocked by` advice only on an open issue; on an open pull request it holds with no
+  advice and clears when the pull request merges or closes; a number not found is flagged as a likely typo and not
+  held; prose-wait and gate numbers are read under their own alias; a `Blocked by:` pull request number is #607's.
+  AR-2: #600–#603 embed 0.4's Contract and Verify, rewritten in the same change. Every S2 and S3 finding of the 0.3
+  review rides the build step its Blocks column names; only an S1 of 0.4's review goes back to the owner. #604
