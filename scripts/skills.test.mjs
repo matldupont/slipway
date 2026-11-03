@@ -813,7 +813,7 @@ test('/close-milestone with no GitHub milestone says so in 1 line and reads ever
 test('/close-milestone §4 step 3 with no GitHub milestone shows each open issue and asks which belong, with the same three choices', () => {
   const flat = (t) => (t ?? '').replace(/\s+/g, ' ');
   const step = flat(section(read('.claude/skills/close-milestone/SKILL.md'), '4. Update the record', 2));
-  assert.match(step, /With no GitHub milestone, show each open issue by number and title and ask the owner which belong to this milestone; each one that does gets the same three choices/, 'with no GitHub milestone the owner is asked which open issues belong');
+  assert.match(step, /With no GitHub milestone, show each open issue by number and title and ask: "Which of these open issues belong to \{milestone id\}\?" Each one that does gets the same three choices/, 'with no GitHub milestone the owner is asked which open issues belong');
 });
 
 test('process/intake.md → Deferred check: `Part of #n`, `## Owed after merge`, the `Owed:` line, and no PR closes the item\'s issue while it owes', () => {
@@ -1408,7 +1408,7 @@ test('/close-milestone fills Fit before a doc is marked shipped, and the cold re
 test('the rules, intake and the skills that write a decision describe the Amends, Reopens when and Closes when lines', () => {
   assert.match(flat(read('process/slipway-rules.md')), /A decision that changes a feature says so on an `Amends: F-<n>` line, and that feature's doc or Contents line names the decision; what reopens or closes it is a `Reopens when:` or `Closes when:` line naming an event slipway reads \(status, or the pull request that closes an issue\), never an item's position\. A re-read that leaves the decision open writes `open — reopened YYYY-MM-DD` as its heading status and `Reopened YYYY-MM-DD: open again` in place of the condition\./, 'the rules must say a decision names its feature, how its condition is written, and the open-again outcome');
   assert.match(flat(section(intake, 'Decisions', 2)), /a decision names the feature it changes on an `Amends: F-<n>` line and what reopens or closes it on a `Reopens when:` or `Closes when:` line naming an event slipway reads, never an item's position, and `\/log-feature` writes the `Amends:` line on a decision the run records and cites each touched decision where it bears on the doc, the Contract included\./, 'intake must say the same in one sentence');
-  assert.match(flat(read('.claude/skills/kickoff/SKILL.md')), /or defer it as a `Reopens when:` line in the form status reads, or in prose when no listed event fits, said so\./, '/kickoff must defer a week-1 decision as a Reopens when line');
+  assert.match(flat(read('.claude/skills/kickoff/SKILL.md')), /on a deferral, write it as a `Reopens when:` line in the form status reads, or in prose when no listed event fits, said so\./, '/kickoff must defer a week-1 decision as a Reopens when line');
   const clarify = flat(read('.claude/skills/clarify/SKILL.md'));
   assert.match(clarify, /with an `Amends: F-<n>` line when it changes a feature and a `Reopens when:` or `Closes when:` line when something should bring it back or end it\. A heading clause no event fits is removed from the heading, and the condition kept as body prose beneath, where the sync note counts it\./, '/clarify must write the lines and have the exit for a heading clause no event fits');
   assert.match(clarify, /A re-read that leaves the decision open writes `open — reopened YYYY-MM-DD` as the heading's status and `Reopened YYYY-MM-DD: open again` in place of the condition\./, '/clarify must say how a re-read that leaves a decision open is written');
@@ -1483,15 +1483,15 @@ test('docs/milestones/TEMPLATE.md is managed, the M1 skeleton and the frame are 
 // question on every sync, asks once about each running milestone DS1 names, and never writes a placeholder.
 test('/kickoff asks where people use the product, and maps every answer but screens to none', () => {
   const one = flat(section(read(skillPath('kickoff')), 'Phase 1 — Frame (`docs/product/FRAME.md`)', 2));
-  assert.ok(one.includes('Then ask where people use it: screens (a web or phone app), a terminal, an API, or nothing. Offer the four, with the moment\'s own answer as the recommendation when it names one.'), '/kickoff Phase 1 must ask the front-end question after the moment');
+  assert.ok(one.includes('Then ask: "Where will people use it: screens, a terminal, an API, or none of these?" Offer the four (screens means a web or phone app), with the moment\'s own answer as the recommendation when it names one.'), '/kickoff Phase 1 must ask the front-end question after the moment');
   assert.ok(one.includes('Write the frame\'s `Front end:` line: screens in the owner\'s words (`Front end: a web app`), each other answer as `none` with it after (`Front end: none (an API)`). A product with both, an API and an admin page, has screens and is written so.'), '/kickoff must write screens as the owner\'s words and the rest as none');
 });
 
 test('/kickoff places the design item with its hours, fills the no-go and writes the accessibility line; no front end deletes them', () => {
   const three = flat(section(read(skillPath('kickoff')), 'Phase 3 — Shape', 2));
   assert.ok(three.includes('place one design item, a Contents item that starts `Design:`, before the first milestone past the skeleton: in an earlier milestone, the skeleton included, or as that milestone\'s item 1.'), '/kickoff must place the design item where DS1 reads it');
-  assert.ok(three.includes('Ask its hours and add them to the §9 row of the milestone that holds it, with the share named in Basis (`includes design: 12–16 h`).'), '/kickoff must put the design item\'s hours in the row of the milestone that holds it');
-  assert.ok(three.includes('a milestone the owner says builds none deletes the line and sets `screens: none`.'), '/kickoff must not set screens: none unasked');
+  assert.ok(three.includes('Ask: "How many hours will the design take, as a range?" Add them to the §9 row of the milestone that holds it, with the share named in Basis (`includes design: 12–16 h`).'), '/kickoff must put the design item\'s hours in the row of the milestone that holds it');
+  assert.ok(three.includes('A milestone the owner says builds none deletes the line and sets `screens: none`.'), '/kickoff must not set screens: none unasked');
   assert.ok(three.includes('Fill the skeleton\'s no-go with the milestone and the item number where design lands.'), '/kickoff must fill the skeleton\'s no-go');
   assert.ok(three.includes('Write the accessibility line under the Gate of every milestone that builds screens, the skeleton\'s first, with what holds it'), '/kickoff must write the accessibility line in every screen milestone');
   assert.ok(three.includes('**A product with no screens** (`Front end: none …`): delete the skeleton\'s design no-go and the accessibility line from every milestone, the skeleton\'s included.'), '/kickoff must delete both for a product with no front end');
@@ -1569,4 +1569,47 @@ for (const s of ['clarify', 'kickoff', 'close-milestone', 'log-feature', 'log-bu
 test('/close-milestone tells the agent to mark an extension entry\'s heading decided', () => {
   const decide = (section(read('.claude/skills/close-milestone/SKILL.md'), '1. Decide which ending', 2) ?? '').replace(/\s+/g, ' ');
   assert.match(decide, /Write the entry's heading with `\*\(decided YYYY-MM-DD\)\*`/, '/close-milestone must say to mark the extension entry\'s heading decided');
+});
+
+// F-16 §5 (#459): the questions /kickoff, /bootstrap and /close-milestone put to the owner are quoted, so they can be
+// found, and each is short, single, and in the project's words. The floor is the count the PR landed.
+const QUESTION_SKILLS = { kickoff: 20, bootstrap: 7, 'close-milestone': 5 };
+const WRITING_LINE = 'Before showing or posting, edit against `process/writing.md`.';
+const QUESTION_ID = /\b(?:[A-Z]{1,3}\d{1,2}|(?:D|PD|PL|L)-\d+)\b/;
+const MAX_QUESTION_WORDS = 25;
+
+// Every `"…?"` on a line, in the skill's text; the Phase headings' names are words a question must not use.
+function questionFindings(md, floor) {
+  const phases = [...md.matchAll(/^## Phase \d+ — ([^(\n]+?)\s*(?:\(|$)/gm)].map((m) => m[1]);
+  const questions = [...md.matchAll(/"([^"\n]*\?)"/g)].map((m) => m[1]);
+  const found = [];
+  for (const q of questions) {
+    const words = q.trim().split(/\s+/).length;
+    if (words > MAX_QUESTION_WORDS) found.push(`${words} words, over ${MAX_QUESTION_WORDS}: "${q}"`);
+    if ((q.match(/\?/g) ?? []).length !== 1) found.push(`more than one question mark: "${q}"`);
+    if (QUESTION_ID.test(q)) found.push(`holds a check, decision or lesson id: "${q}"`);
+    for (const p of phases) if (new RegExp(`\\b${p}\\b`).test(q)) found.push(`holds the Phase heading word "${p}": "${q}"`);
+  }
+  if (questions.length < floor) found.push(`${questions.length} quoted questions, under the floor of ${floor}`);
+  if (!md.includes(WRITING_LINE)) found.push('no line naming process/writing.md');
+  return found;
+}
+
+test('/kickoff, /bootstrap and /close-milestone quote every question: short, single, no ids, at least the floor, and name process/writing.md', () => {
+  for (const [skill, floor] of Object.entries(QUESTION_SKILLS)) {
+    assert.deepEqual(questionFindings(read(skillPath(skill)), floor), [], `${skill}`);
+  }
+});
+
+test('the question rule refuses a 30-word question, a check id, a count under the floor and a missing writing.md line', () => {
+  const ok = `${WRITING_LINE}\n"Which timezone should dates be read in?"\n`;
+  assert.deepEqual(questionFindings(ok, 1), []);
+  const long = `"${Array(30).fill('word').join(' ')}?"\n${WRITING_LINE}`;
+  assert.match(questionFindings(long, 1).join('\n'), /30 words, over 25/);
+  assert.match(questionFindings(`"Does K1 block the milestone?"\n${WRITING_LINE}`, 1).join('\n'), /check, decision or lesson id/);
+  assert.match(questionFindings(`"Is D-016 settled?"\n${WRITING_LINE}`, 1).join('\n'), /check, decision or lesson id/);
+  assert.match(questionFindings(`"Which one? Or which other?"\n${WRITING_LINE}`, 1).join('\n'), /more than one question mark/);
+  assert.match(questionFindings(`## Phase 1 — Frame (x)\n"Is the frame right?"\n"Do we Frame it?"\n${WRITING_LINE}`, 1).join('\n'), /Phase heading word "Frame"/);
+  assert.match(questionFindings(ok, 2).join('\n'), /1 quoted questions, under the floor of 2/);
+  assert.match(questionFindings('"Which timezone?"\n', 1).join('\n'), /no line naming process\/writing\.md/);
 });

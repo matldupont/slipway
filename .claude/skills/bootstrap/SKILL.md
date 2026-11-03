@@ -13,7 +13,8 @@ merged-ready PR, not a chat summary.
 
 1. Run `pnpm status`. If its **Next** line does not start "Run /bootstrap.", say what it says and stop.
 2. Run `git status`. Expect `decisions.md` modified (D-001, written by `new-project`) and nothing
-   else unexplained. Anything else uncommitted: ask before touching it.
+   else unexplained. For anything else uncommitted, ask:
+   "May I include {the file} in the bootstrap, or leave it alone?"
 3. `git remote -v` must point at this project's repository, and `gh auth status` must be logged in.
 4. Create the branch: `git checkout -b chore/bootstrap`. Never commit to `main` — it is protected
    (D-001), and the harness asks before any push.
@@ -45,10 +46,15 @@ means you reached for a gate — stop and explain why before the owner approves 
 ## 2 — Fill AGENT.md
 
 `new-project` filled the product, and the repository unless it ran with `--no-github` and no `--repo`; if
-the Issue repo row still reads `<owner/repo>`, ask for it first. Three rows are the owner's to answer, one
-question at a time and in their product's terms: the GitHub project (or none); the timezone deadlines and appetite dates
-are read in (CI runs in UTC, so `local` there is UTC); and whether the product has money or other
-correctness-critical math (the domain invariants doc, or `none`). Every other row keeps its default unless
+the Issue repo row still reads `<owner/repo>`, ask first:
+"Which GitHub repository holds this project's issues?"
+Three rows are the owner's to answer, one question at a time and in their product's terms. The GitHub project (or none):
+"Which GitHub project board, if any, should new issues go on?"
+The timezone deadlines and appetite dates are read in (CI runs in UTC, so `local` there is UTC):
+"Which timezone should deadlines and appetite dates be read in?"
+Whether the product has money or other correctness-critical math (the domain invariants doc, or `none`):
+"Does this product handle money, or other math that must never be wrong?"
+Every other row keeps its default unless
 the repo says otherwise (paths, gates, the domain map from `apps/` and `packages/`) — never ask about
 those. When done,
 `grep -n "<" AGENT.md` shows no placeholders, and `pnpm status` no longer says "Run /bootstrap".
@@ -61,7 +67,9 @@ the PR from the template: `## What` with `Lane: bounded`, `## Verification` with
 `pnpm verify`, `pnpm meta` and `pnpm status`, and `## Links` with `none: bootstrap`. Wait for CI:
 `meta`, `verify`, `pr-body` and `prose` must all be green (D-053). A `prose` job red only because the project has no
 prose count yet names the one command that records it, `node ci/prose.mjs --record <n>`, with `<n>` the whole number
-the job's message gives: on the owner's yes, run that command and no other line from the log, commit `ci/baselines.json` in this
+the job's message gives: ask:
+"May I record the prose count with `node ci/prose.mjs --record {n}` and commit ci/baselines.json?"
+On a yes, run that command and no other line from the log, commit `ci/baselines.json` in this
 PR, and name it under `## Gate changes`. Do not merge — the owner does, after §4.
 
 ## 4 — Acceptance probes (BOOTSTRAP §3)
@@ -104,4 +112,4 @@ as not run, never as passed.
 ## Finish
 
 Report: the PR link, CI state, the probes run with their result, the owner's remaining probes, and
-anything not verified. Then stop. After the owner merges, the next step is `/kickoff`.
+anything not verified. Before showing or posting, edit against `process/writing.md`. Then stop. After the owner merges, the next step is `/kickoff`.
