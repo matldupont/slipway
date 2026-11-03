@@ -54,6 +54,7 @@ jobs:
           # control, bidi, tag or other hidden character the issue carried is shown as \uXXXX, as report() shows it.
           grep -m1 '^@@json ' "$RUNNER_TEMP/issue/report.txt" | sed 's/^@@json //' | node --input-type=module -e '
             import { escapeControl } from "./ci/checks/lib/report.mjs";
+            process.stdin.setEncoding("utf8");
             let json = "";
             for await (const chunk of process.stdin) json += chunk;
             for (const f of JSON.parse(json).findings) console.log(`- ${escapeControl(f.detail)}` + (f.fix ? `\n  Fix: ${escapeControl(f.fix)}` : ""));

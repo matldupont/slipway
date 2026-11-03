@@ -258,6 +258,8 @@ const sentenceProblem = (text) => {
   return id ? `holds the id ${id[0]}` : null;
 };
 
+const fixProblem = (text) => sentenceProblem(text) ?? (VERBS.includes(text.split(' ')[0].toLowerCase()) ? null : `starts with "${text.split(' ')[0]}", not a verb in the list`);
+
 test('the shape rules themselves: length, period, one sentence, no id, a verb from the list', () => {
   assert.equal(sentenceProblem('Write a number.'), null);
   assert.match(sentenceProblem(`${'x'.repeat(160)}.`), /characters/);
@@ -268,7 +270,9 @@ test('the shape rules themselves: length, period, one sentence, no id, a verb fr
   assert.match(sentenceProblem('See D-12 first.'), /holds the id D-12/);
   assert.match(sentenceProblem('See PL-3 first.'), /holds the id PL-3/);
   assert.match(sentenceProblem(undefined), /missing/);
-  assert.ok(VERBS.includes('write') && !VERBS.includes('check'), 'the list is the Contract\'s');
+  assert.equal(fixProblem('Write a number.'), null);
+  assert.match(fixProblem('Check the number.'), /not a verb in the list/);
+  assert.match(fixProblem('Write a number'), /period/, 'the sentence rules apply to a fix first');
 });
 
 test('every finding every check emits on its known-bad fixtures has a detail and a fix of the shape, or its check is owed', () => {
@@ -289,11 +293,10 @@ test('every finding every check emits on its known-bad fixtures has a detail and
       for (const f of [...j.findings, ...j.warnings]) {
         if (f.fix === undefined && owedChecks.has(j.id)) continue;
         shaped++;
-        const fix = sentenceProblem(f.fix);
+        const fix = fixProblem(f.fix);
         const detail = sentenceProblem(f.detail);
         if (detail) bad.push(`${j.id} ${f.where}: detail ${detail}`);
         if (fix) bad.push(`${j.id} ${f.where}: fix ${fix}`);
-        else if (!VERBS.includes(f.fix.split(' ')[0].toLowerCase())) bad.push(`${j.id} ${f.where}: fix starts with "${f.fix.split(' ')[0]}", not a verb in the list`);
       }
     }
     assert.deepEqual(bad, []);
@@ -330,4 +333,9 @@ test('every field of a finding is one line and shows ##[ escaped: where, fix, cl
   assert.deepEqual(r.stdout.split('\n').filter((l) => /^  Fix: /.test(l)).length, 1, 'a line break in where cannot start a Fix line');
   const json = JSON.parse(r.stdout.split('\n').find((l) => l.startsWith('@@json ')).slice('@@json '.length));
   assert.equal(json.findings[0].fix, 'f##[v].', 'the @@json line reads back as the same text');
+});
+
+test('the claim of a pass and the reason of a BROKEN line show ##[ escaped too', () => {
+  assert.ok(!run("{ id: 'T1', claim: 'c##[error]x', scanned: 1, unit: 'u' }").stdout.includes('##['), 'claim');
+  assert.ok(!run("{ id: 'T1', claim: 'c', scanned: 1, unit: 'u', broken: 'b##[error]x' }").stdout.includes('##['), 'broken');
 });
