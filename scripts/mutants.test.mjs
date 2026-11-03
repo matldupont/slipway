@@ -26,7 +26,11 @@ test('the vendored parser is the pinned release, unedited, with its licence and 
   assert.equal(sha(join(VENDOR, 'babel-parser.LICENSE')), LICENCE);
   const record = readFileSync(join(VENDOR, 'README.md'), 'utf8');
   const section = record.slice(record.indexOf('## @babel/parser'));
-  for (const said of [PARSER, LICENCE, '| Version | 8.0.7,', 'parser-8.0.7.tgz', 'not taken']) assert.ok(section.includes(said), said);
+  for (const said of [PARSER, LICENCE, 'parser-8.0.7.tgz']) assert.ok(section.includes(said), said);
+  // The Version row names each newer release it did not take, and why (the 14-day rule of D-033).
+  const version = section.split('\n').find((line) => line.startsWith('| Version | 8.0.7,'));
+  assert.ok(version, 'the table has no Version row for 8.0.7');
+  for (const said of ['8.1.0', '8.0.10', '8.0.8', '7.29.11', '7.29.12', 'under 14 days old', 'not taken']) assert.ok(version.includes(said), `the Version row does not say ${said}`);
 });
 
 test('the pin fails on a parser one byte away from the release', () => {
