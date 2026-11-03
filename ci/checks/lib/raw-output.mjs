@@ -25,9 +25,11 @@ export function strayLine(stdout, id) {
   const owner = (l) => idLine.test(l) || l.startsWith('  Fix: ');
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
+    // report() escapes `##[` in every field, so no line it writes holds one, and the runner reads it anywhere in a line.
+    if (l.includes('##[')) return l;
     if (l.startsWith('@@json ') || l.startsWith(`${id}: `) || summary.test(l) || owner(l)) continue;
     // A detail line stands right before its Fix line or its id line.
-    if (i + 1 < lines.length && owner(lines[i + 1]) && !/^\s|^(?:::|##\[)/.test(l)) continue;
+    if (i + 1 < lines.length && owner(lines[i + 1]) && !/^\s|^::/.test(l)) continue;
     return l;
   }
   return null;

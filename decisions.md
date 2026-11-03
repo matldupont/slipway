@@ -1269,6 +1269,8 @@ worked, and today gets them in slipway's vocabulary (D-016 set the test; this re
 at 0.2 is the last whole-document review before the build: high findings come to the owner, the rest ride the build
 as lines under the step they touch (the owner, 2026-10-14). Spec: F-16; #455.
 
+Amended 2026-11-03: PC1's stray-line guard accepts report()'s detail lines (#620); report()'s escaping carries the protection, and the guard still refuses ::, ##[ anywhere, a leading space and a second @@json.
+
 ## D-047 — A milestone built to run a value risk's test may go active before that risk has a Result *(decided 2026-10-15)*
 
 K1 holds every milestone past the skeleton until each value risk has a Result. For a milestone whose whole purpose is

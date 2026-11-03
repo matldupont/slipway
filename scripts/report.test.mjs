@@ -323,6 +323,8 @@ test('a detail that starts with a CI log command or an @@json line prints it esc
   assert.equal(strayLine('scanned 1 u\n', 'T1'), 'scanned 1 u');
   assert.equal(strayLine('  T2 · a#k\n', 'T1'), '  T2 · a#k');
   assert.equal(strayLine('##[error]x\n  T1 · a#k\n', 'T1'), '##[error]x');
+  assert.equal(strayLine('scanned 1 u (T1)\nx ##[error]y\n  Fix: z\n  T1 · a#k\n', 'T1'), 'x ##[error]y', '##[ anywhere in a line');
+  assert.equal(strayLine('T1: note ##[error]\n', 'T1'), 'T1: note ##[error]', 'also in a check\'s own note line');
   assert.equal(strayLine(' text\n  T1 · a#k\n', 'T1'), ' text');
   assert.equal(strayLine('free text\n  T1 · a#k\n', 'T1'), null, 'a detail before its id line is what report() writes');
 });

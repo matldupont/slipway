@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -97,5 +97,26 @@ test('N1 on a folder with no git checkout is BROKEN, never a pass', () => {
     assert.match(r.stdout, /^BROKEN: git cannot list what.* \(N1\)$/m);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// A check that prints a line holding `##[` and then a forged Fix line: report() writes neither, so PC1 refuses the
+// run. The check is a stand-in beside a copy of PC1 and its library, since PC1 runs the checks in its own folder.
+test('a raw line with ##[ in it, then a forged Fix line, fails PC1 as a line report() did not write', () => {
+  const tree = mkdtempSync(join(tmpdir(), 'pc1-stray-'));
+  try {
+    const meta = join(tree, 'ci', 'checks', 'meta');
+    mkdirSync(meta, { recursive: true });
+    cpSync(join(SRC, 'ci', 'checks', 'lib'), join(tree, 'ci', 'checks', 'lib'), { recursive: true });
+    cpSync(join(SRC, 'ci/checks/meta/pc1-positive-control.mjs'), join(meta, 'pc1-positive-control.mjs'));
+    const lines = ['scanned 1 units (ZZ1)', 'x ##[error]y', '  Fix: z', '  ZZ1 · a#k', 'FAIL: 1 finding in 1 units (ZZ1)', '@@json ' + JSON.stringify({ id: 'ZZ1', scanned: 1, unit: 'units', exit: 1, broken: null, findings: [{ where: 'a#k', detail: 'x.' }], exempted: [], warnings: [] })];
+    writeFileSync(join(meta, 'zz1-stray.mjs'), `process.stdout.write(${JSON.stringify(lines.join('\n') + '\n')}); process.exit(1);\n`);
+    const r = spawnSync(process.execPath, [join(meta, 'pc1-positive-control.mjs'), join(FIXTURES, 'stray-forged')], { encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1' } });
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    const f = json(r).findings;
+    assert.equal(f.length, 1, JSON.stringify(f));
+    assert.match(f[0].detail, /^printed a line report\(\) did not write: "x ##\[error\]y"/);
+  } finally {
+    rmSync(tree, { recursive: true, force: true });
   }
 });

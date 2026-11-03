@@ -1,0 +1,1 @@
+{ "_note": "A check that prints a raw line holding ##[ and then a forged Fix line: PC1 refuses it as a line report() did not write.", "exit": 1, "findings": ["a#k"] }
