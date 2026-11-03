@@ -5,14 +5,14 @@
   "next": "Activate M1 with real appetite dates and status active. Then build its first slice. Agent, days.",
   "frame": "framed · risks: RISK-1 tested",
   "steps": [
-    "Step 0 · Bootstrap: done",
-    "Step 1 · Frame: done",
-    "Step 2 · Test the risk: done",
-    "Step 3 · Shape: not started",
-    "Step 4 · Walking skeleton: not started",
-    "Step 5 · Build loop: not started",
-    "Step 6 · Close the milestone: each milestone",
-    "Step 7 · Learn: each milestone"
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: done.",
+    "Step 3 · Shape: not started. You. It blocks a milestone going active. It waits on nothing.",
+    "Step 4 · Walking skeleton: not started. Agent. It blocks nothing status tracks. It waits on nothing.",
+    "Step 5 · Build loop: not started. Agent. It blocks the active milestone closing. It waits on nothing.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
   ],
   "attention": [
     "nothing"

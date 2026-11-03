@@ -1,0 +1,24 @@
+{
+  "_note": "F-17 §1: an untested value risk is the owner's main step, so no thing of the owner's is offered beside it: the open question in the PRD is in Needs attention, marked as startable.",
+  "today": "2026-03-10",
+  "next": "Finish testing RISK-1, \"Walkers will leave group texts\". Its test is already scheduled. Nothing past the skeleton can start until every value risk has a result in docs/product/evidence/. Yours, days to weeks.",
+  "frame": "framed · risks: RISK-1 scheduled (#2) · blocks M2 activation",
+  "steps": [
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: in hand. Yours. It blocks M2 activation. It waits on nothing.",
+    "Step 3 · Shape: in hand. You. It blocks a milestone going active. It waits on nothing.",
+    "Step 4 · Walking skeleton: not started. Agent. It blocks nothing status tracks. It waits on nothing.",
+    "Step 5 · Build loop: waiting. Agent. It blocks the active milestone closing. It waits on the value risks' results.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
+  ],
+  "attention": [
+    "(you) To build ahead of the risk (RISK-1), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or run its test in a `kind: test` milestone (the owner's call, D-047). It blocks nothing: it is a choice, not owed. It waits on nothing.",
+    "(you) Open question: docs/PRD.md:6 — \"which walkers first?\". It can start now, after the steps above. It blocks the PRD's approval. It waits on nothing."
+  ],
+  "parallel": [
+    "(fresh session) Run /review-doc docs/PRD.md in a fresh session. PRD 0.1.0 has no adversarial review, and it needs one before it leaves draft. Status did not read open pull requests, so check them for the same files first. It blocks the PRD's approval, which a milestone needs. It waits on nothing.",
+    "(agent) Activate the walking skeleton (M1) and build it in parallel. An untested value risk does not block it. Status did not read open pull requests, so check them for the same files first. It blocks the skeleton milestone, which every later milestone builds on. It waits on nothing."
+  ]
+}

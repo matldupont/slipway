@@ -67,6 +67,9 @@ export const KIND_ORDER = Object.keys(KINDS);
 // A `waits` that names another thing is one of its keys (a kind, then the ids it names); anything else is a fixed phrase.
 export const isKey = (w) => typeof w === 'string' && /^[a-z][a-z-]*(?::[^\s:]+)*$/.test(w) && Object.hasOwn(KINDS, w.split(':')[0]);
 
+// A text that stops without a full stop gets one, so what follows it (the form's sentences, the plan's offline sentence) starts a sentence.
+const stopped = (text) => (text === '' || /[.!?]$/.test(text) ? text : `${text}.`);
+
 // An owed thing of `kind`, with the kind's facts and the caller's: `text`, plus whatever the line knows that the kind does
 // not (`key`, `who`, `rank`, `words`, `date`, `waits`, `waitsWords`, `files`, `line`). `files` has no default for a kind
 // whose set depends on the tree: leaving it out is a mistake, and null says the files are unknown.
@@ -83,7 +86,7 @@ export function thing(kind, f = {}) {
     kind,
     key: f.key ?? kind,
     who,
-    text: f.text ?? '',
+    text: stopped(f.text ?? ''),
     blocks: { rank: f.rank ?? k.rank, words: f.words ?? k.words, date: f.date ?? null },
     waits,
     files,
@@ -96,8 +99,10 @@ export function thing(kind, f = {}) {
 // What the thing waits on, in words: nothing, the phrase it holds, or the words for the key it holds.
 const waitsIn = (t) => (t.waits === null ? 'nothing' : isKey(t.waits) ? t.waitsWords : t.waits);
 
-// §1's form: `(who) {text} It blocks {words}. It waits on {waits}.`; `nobody` prints no parenthesis.
-export const form = (t) => `${t.who === 'nobody' ? '' : `(${t.who}) `}${t.text} It blocks ${t.blocks.words}. It waits on ${waitsIn(t)}.`;
+// §1's form: `(who) {text} [It can start now, after the steps above.] It blocks {words}. It waits on {waits}.`; `nobody` prints no
+// parenthesis. The sentence for a startable thing is the plan's (plan.mjs sets `startable` on what it leaves in `rest`), and
+// never for rank 5.
+export const form = (t) => `${t.who === 'nobody' ? '' : `(${t.who}) `}${stopped(t.text)}${t.startable && t.blocks.rank <= 4 ? ' It can start now, after the steps above.' : ''} It blocks ${t.blocks.words}. It waits on ${waitsIn(t)}.`;
 
 // The line status prints for a thing: the one it printed before the plan, while the thing holds it.
 export const line = (t) => t.line ?? form(t);

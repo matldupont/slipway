@@ -4,8 +4,8 @@
   "next": "Run /kickoff to finish docs/product/FRAME.md. Its open questions need an answer or a parked assumption before the frame is done. You, an afternoon.",
   "frame": "unknown · risks: RISK-1 tested",
   "attention": [
-    "(you) Run /review-doc dev/features/prices.md in a fresh session. F-7 at 0.1 has no review of that version. Its build tickets wait on that review.",
-    "(you) Decide \"Deposits are refundable\" (PD-1, open)",
-    "Review the lesson (L-02) by 2026-03-15."
+    "(fresh session) Run /review-doc dev/features/prices.md in a fresh session. F-7 at 0.1 has no review of that version. It can start now, after the steps above. It blocks the feature's build tickets. It waits on nothing.",
+    "(you) Decide \"Deposits are refundable\" (PD-1, open). It blocks nothing status tracks. It waits on nothing.",
+    "(you) Review the lesson (L-02) by 2026-03-15. It can start now, after the steps above. It blocks its date. It waits on nothing."
   ]
 }

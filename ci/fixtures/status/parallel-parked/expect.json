@@ -1,0 +1,20 @@
+{
+  "_note": "F-17 §4: a parked question with a tracker is in Needs attention, saying nothing is to do now and naming the tracker, and nothing else beside the main step: no In parallel.",
+  "today": "2026-03-10",
+  "next": "Activate M1 with real appetite dates and status active. Then build its first slice. Agent, days.",
+  "frame": "framed · risks: RISK-1 tested",
+  "steps": [
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: done.",
+    "Step 3 · Shape: not started. You. It blocks a milestone going active. It waits on nothing.",
+    "Step 4 · Walking skeleton: not started. Agent. It blocks nothing status tracks. It waits on nothing.",
+    "Step 5 · Build loop: not started. Agent. It blocks the active milestone closing. It waits on nothing.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
+  ],
+  "attention": [
+    "Parked: docs/product/FRAME.md:23 — \"which region first?\" — nothing to do now. It blocks nothing status tracks. It waits on #12."
+  ],
+  "parallel": []
+}

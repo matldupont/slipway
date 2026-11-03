@@ -4,16 +4,16 @@
   "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0 is reviewed (prd-review.md) and still a draft."
+    "(you) Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0 is reviewed (prd-review.md) and still a draft. It can start now, after the steps above. It blocks the PRD's approval, which the next milestone needs. It waits on nothing."
   ],
   "steps": [
-    "Step 0 · Bootstrap: done",
-    "Step 1 · Frame: done",
-    "Step 2 · Test the risk: done",
-    "Step 3 · Shape: in hand",
-    "Step 4 · Walking skeleton: done",
-    "Step 5 · Build loop: not started",
-    "Step 6 · Close the milestone: each milestone",
-    "Step 7 · Learn: each milestone"
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: done.",
+    "Step 3 · Shape: in hand. You. It blocks a milestone going active. It waits on nothing.",
+    "Step 4 · Walking skeleton: done.",
+    "Step 5 · Build loop: not started. Agent. It blocks the active milestone closing. It waits on nothing.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
   ]
 }

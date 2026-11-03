@@ -1,12 +1,12 @@
 {
   "_note": "#376. An S0 with an empty Tracker, an S1 with a placeholder and one with a word that names no tracker are listed; an S1 with #12 and an S2 with none are not. Blocks text that names no milestone adds nothing.",
   "today": "2026-03-10",
-  "next": "Start item 1 of M1 in a fresh session with /log-feature M1#1. It reads \"Deploy a hello page (no feature: skeleton)\". Agent, days.",
+  "next": "Start item 1 of M1 in a fresh session with /log-feature M1#1. It reads \"Deploy a hello page (no feature: skeleton)\". You and an agent, one issue per session.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0 is reviewed (prd-review.md) and still a draft.",
-    "Review finding \"AR-1\" (S0) in prd-review.md has no tracker",
-    "Review finding \"AR-2\" (S1) in prd-review.md has no tracker",
-    "Review finding \"AR-5\" (S1) in prd-review.md has no tracker"
+    "(you) Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0 is reviewed (prd-review.md) and still a draft. It can start now, after the steps above. It blocks the PRD's approval, which the next milestone needs. It waits on nothing.",
+    "(you or an agent) Review finding \"AR-1\" (S0) in prd-review.md has no tracker. It blocks nothing status tracks. It waits on nothing.",
+    "(you or an agent) Review finding \"AR-2\" (S1) in prd-review.md has no tracker. It blocks nothing status tracks. It waits on nothing.",
+    "(you or an agent) Review finding \"AR-5\" (S1) in prd-review.md has no tracker. It blocks nothing status tracks. It waits on nothing."
   ]
 }

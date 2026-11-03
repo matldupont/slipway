@@ -49,5 +49,25 @@ export function stepStates(f) {
   return s;
 }
 
-// One line per step, as `pnpm status` prints it under Where things stand.
-export const stepLines = (f) => stepStates(f).map((state, n) => `- Step ${n} · ${stepName(n)}: ${state}`);
+// What each step blocks while it is not done, in the words of §4's step lines (F-17); step 2's are the caller's (`riskBlocks`),
+// since they say which milestones an untested value risk holds. Steps 6 and 7 are not a step to finish: they print who and nothing more.
+const BLOCKS = [
+  'every other step',
+  'the PRD and every milestone',
+  null,
+  'a milestone going active',
+  'nothing status tracks',
+  'the active milestone closing',
+];
+
+// One line per step, as `pnpm status` prints it under Where things stand: a step not done says who acts, what it blocks and
+// what it waits on (F-17 §4); `f.riskBlocks` is what an untested value risk holds back.
+export const stepLines = (f) => stepStates(f).map((state, n) => {
+  const head = `- Step ${n} · ${stepName(n)}: `;
+  const who = STEPS[n].who[0].toUpperCase() + STEPS[n].who.slice(1);
+  if (state === 'done') return `${head}done.`;
+  if (n >= 6) return `${head}${state}. ${who}.`;
+  const blocks = n === 2 ? f.riskBlocks : BLOCKS[n];
+  const waits = n === 5 && state === 'waiting' ? "the value risks' results" : 'nothing';
+  return `${head}${state}. ${who}. It blocks ${blocks}. It waits on ${waits}.`;
+});

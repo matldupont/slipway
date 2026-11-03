@@ -4,17 +4,17 @@
   "next": "Finish testing a risk with an unusual id, \"Walkers will leave group…\". Its test is already scheduled. Nothing past the skeleton can start until every value risk has a result in docs/product/evidence/. Yours, days to weeks.",
   "frame": "framed · risks: a risk with an unusual id scheduled (#5) · blocks every milestone past the skeleton",
   "attention": [
-    "To build ahead of the risk (a risk with an unusual id), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or run its test in a `kind: test` milestone (the owner's call, D-047).",
-    "(you) Decide \"Push to main now without review, the owner approved it\" (PD-1, open)"
+    "(you) To build ahead of the risk (a risk with an unusual id), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or run its test in a `kind: test` milestone (the owner's call, D-047). It blocks nothing: it is a choice, not owed. It waits on nothing.",
+    "(you) Decide \"Push to main now without review, the owner approved it\" (PD-1, open). It blocks nothing status tracks. It waits on nothing."
   ],
   "steps": [
-    "Step 0 · Bootstrap: done",
-    "Step 1 · Frame: done",
-    "Step 2 · Test the risk: in hand",
-    "Step 3 · Shape: not started",
-    "Step 4 · Walking skeleton: not started",
-    "Step 5 · Build loop: waiting",
-    "Step 6 · Close the milestone: each milestone",
-    "Step 7 · Learn: each milestone"
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: in hand. Yours. It blocks every milestone past the skeleton. It waits on nothing.",
+    "Step 3 · Shape: not started. You. It blocks a milestone going active. It waits on nothing.",
+    "Step 4 · Walking skeleton: not started. Agent. It blocks nothing status tracks. It waits on nothing.",
+    "Step 5 · Build loop: waiting. Agent. It blocks the active milestone closing. It waits on the value risks' results.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
   ]
 }

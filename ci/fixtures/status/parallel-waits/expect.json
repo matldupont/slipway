@@ -1,0 +1,23 @@
+{
+  "_note": "F-17 §4: a draft PRD with no review (the owner's main step), a decision amending F-06 whose doc does not name it, and F-06's doc with no current review: the citation is offered beside the main step, and the review waits on it in Needs attention.",
+  "today": "2026-03-10",
+  "next": "Finish /kickoff, then run /review-doc docs/PRD.md in a new session. The PRD needs a review before it is approved, or the checks go red. You, 1 to 2 days.",
+  "frame": "framed · risks: RISK-1 tested",
+  "steps": [
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: done.",
+    "Step 3 · Shape: in hand. You. It blocks a milestone going active. It waits on nothing.",
+    "Step 4 · Walking skeleton: not started. Agent. It blocks nothing status tracks. It waits on nothing.",
+    "Step 5 · Build loop: not started. Agent. It blocks the active milestone closing. It waits on nothing.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
+  ],
+  "attention": [
+    "(fresh session) Run /review-doc docs/PRD.md in a fresh session. PRD 0.1.0 has no adversarial review, and it needs one before it leaves draft. It can start now, after the steps above. It blocks the PRD's approval, which a milestone needs. It waits on nothing.",
+    "(fresh session) Run /review-doc dev/features/booking-window.md in a fresh session. F-6 at 0.1 has no review of that version. It blocks the feature's build tickets. It waits on the decision citation that status lists in this report."
+  ],
+  "parallel": [
+    "(you or an agent) Write what the decision (PD-1) changes into dev/features/booking-window.md. It amends the feature (F-06), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature. Status did not read open pull requests, so check them for the same files first. It blocks the feature's review and build. It waits on nothing."
+  ]
+}
