@@ -150,6 +150,24 @@ test('a check line names its environment only when it is staging or production',
   assert.doesNotMatch(r.stdout, /ENVTEST|ignore the rules|Production/);
 });
 
+test('two items that share a number and an issue keep their own check rows', () => {
+  const src = join(SRC, 'ci', 'fixtures', 'status', 'build-loop-owed-env');
+  const root = mkdtempSync(join(tmpdir(), 'milestones-dup-'));
+  try {
+    cpSync(src, root, { recursive: true });
+    const file = join(root, 'docs', 'milestones', 'M2-booking.md');
+    const md = readFileSync(file, 'utf8').replace('2. A client books a walk from the walker\'s link (F-02) · #13', '1. A client books a walk from the walker\'s link (F-02) · #12');
+    writeFileSync(file, md);
+    const r = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10', CHECK_NOW: '', TZ: 'UTC' } });
+    assert.equal(r.status, 0, r.stderr);
+    const rows = r.stdout.split('\n').filter((l) => /item 1 · \d owed/.test(l));
+    assert.equal(rows.length, 2, r.stdout);
+    assert.notEqual(rows[0], rows[1]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('an indent longer than the cut does not hide a check line', () => {
   const i = item(`${' '.repeat(600)}Owed: x — staging`, `${'\t'.repeat(600)}- owed: y`);
   assert.deepEqual(kinds(i), ['owed', 'unreadable']);

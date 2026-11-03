@@ -14,7 +14,7 @@
     "Step 7 · Learn: each milestone. You."
   ],
   "attention": [
-    "(fresh session) Run /review-doc dev/features/booking-window.md in a fresh session. F-6 at 0.1 has no review of that version. It blocks the feature's build tickets. It waits on the decision citation below.",
+    "(fresh session) Run /review-doc dev/features/booking-window.md in a fresh session. F-6 at 0.1 has no review of that version. It blocks the feature's build tickets. It waits on the decision citation that status lists in this report.",
     "(you or an agent) M2 has no design item before it: add one to an earlier milestone, or as its item 1. It can start now, after the steps above. It blocks M2 going active. It waits on nothing.",
     "(you or an agent) M2's Gate does not say how its screens meet WCAG 2.2 AA: write the line with what holds it, or set screens: none. It can start now, after the steps above. It blocks M2 going active. It waits on nothing.",
     "(you or an agent) Write what the decision (PD-1) changes into dev/features/booking-window.md. It amends the feature (F-06), and nothing for that feature names it yet. The change goes in the Contract when it changes what the feature does, and then the Version moves. Otherwise it goes on the Contents line that builds the feature. It can start now, after the steps above. It blocks the feature's review and build. It waits on nothing."

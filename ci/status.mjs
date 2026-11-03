@@ -195,7 +195,7 @@ const featureLines = owedReviews(root).map((f) => {
   const doc = named(f.path) === f.path ? f.path : `on the doc for ${ids} (a file with an unusual name)`;
   // The review waits on the decision citation for its feature, when one is listed.
   const citation = citationFor(owedDecisions, f.ns);
-  const waits = citation ? { waits: citation.key, waitsWords: 'the decision citation below' } : {};
+  const waits = citation ? { waits: citation.key, waitsWords: 'the decision citation that status lists in this report' } : {};
   return owe('feature-review', { key: `feature-review:${f.path}`, ...waits }, `Run /review-doc ${doc} in a fresh session. ${ids} ${featureVersion(f.md)}.`);
 });
 const decisions = read('decisions.md') ?? '';
@@ -408,7 +408,8 @@ for (const item of cur ? contents(cur.md) : []) {
   const [owed, failed, unreadable] = ['owed', 'ran', 'unreadable'].map((k) => owes.filter((c) => c.kind === k));
   const envs = (cs) => CHECK_ENVS.filter((e) => cs.some((c) => c.env === e));
   const row = (kind, cs, what) => {
-    const key = `${kind}:${issue ?? 'none'}:${itemNumber(item) ?? 'unreadable'}`;
+    const base = `${kind}:${issue ?? 'none'}:${itemNumber(item) ?? 'unreadable'}`;
+    const key = checkShort.has(base) ? `${base}:${checkShort.size}` : base;
     const short = [at, what, ...envs(cs)].join(' · ');
     // Under its header a row is short; beside the main step it stands alone, so it says what to do (checkRows below).
     checkShort.set(key, short);
