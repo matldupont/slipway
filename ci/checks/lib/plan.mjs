@@ -23,13 +23,13 @@ export const CAP = 3;
 export const OFFLINE = 'Status did not read open pull requests, so check them for the same files first.';
 
 // A leaf's number and a milestone id go into commands a session runs, so only whole numbers and `M<n>` ids are used.
-// The limit is wider than status's itemNumber (four digits): that one guards a Contents item's number, which status prints
-// and passes as shape.n; a leaf's number is an issue number, and a repository's run past 9999.
+// The limit is wider than status's itemNumber (four digits), which guards a Contents item's number: a caller passes shape.n
+// through it. A leaf's number is an issue number, and a repository's run past 9999.
 const WHOLE = (n) => Number.isSafeInteger(n) && n > 0 && n <= 999_999_999;
 const MID = new RegExp(`^${MILESTONE_ID}$`);
 
-// A file set is an array, or unknown (null): anything else is unknown, since overlap() would throw on it (F-17 §3 rule 2).
-const known = (f) => (Array.isArray(f) ? f : null);
+// A file set is an array of paths, or unknown (null): anything else is unknown, since overlap() would throw on it (F-17 §3 rule 2).
+const known = (f) => (Array.isArray(f) && f.every((e) => typeof e === 'string') ? f : null);
 
 const leafThing = (l) => ({
   kind: 'leaf',
@@ -45,7 +45,7 @@ const leafThing = (l) => ({
 const shapeThing = (s) => thing('shape', {
   key: `shape:${s.id}#${s.n}`,
   text: `Shape item ${s.n} of ${s.id} with /log-feature ${s.id}#${s.n}.`,
-  ...(s.files ? { files: s.files } : {}),
+  ...(s.files === undefined ? {} : { files: known(s.files) }),
 });
 
 // Where a candidate sorts: rank 1's owed things first, then the ready leaves, then shaping, then ranks 2 to 5 (AR-4, AR-6).
@@ -73,7 +73,8 @@ export function plan({ main, owed = [], leaves = [], inProgress = [], shape = nu
 
   const busy = ownerBusy(main.who);
   const taken = [];
-  const used = [known(main.files), ...(Array.isArray(inProgress) ? inProgress : []).map(known)];
+  // Work in progress that cannot be read as a list is unknown, which meets everything.
+  const used = [known(main.files), ...(Array.isArray(inProgress) ? inProgress.map(known) : [null])];
   let owner = false;
   for (const { t, role } of candidates) {
     if (1 + taken.length >= CAP) break;

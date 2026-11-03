@@ -5,6 +5,7 @@
 // Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { STEPS } from '../ci/checks/lib/steps.mjs';
 import { form, isKey, KIND_ORDER, KINDS, line, ownerBusy, thing, WHO } from '../ci/checks/lib/owed.mjs';
@@ -243,7 +244,12 @@ test('file sets that are not arrays: a leaf, an owed thing, the main step or wor
   assert.deepEqual(keys(plan({ main, owed: [bad, ok], online: true }).parallel), ['ok']);
   assert.deepEqual(keys(plan({ main, owed: [ok], inProgress: ['docs/**', { length: 1 }], online: true }).parallel), [], 'work in progress that is not an array of files meets everything');
   assert.deepEqual(keys(plan({ main: { who: 'agent', files: 'apps/**' }, owed: [ok], online: true }).parallel), [], 'a main step whose files are not an array');
-  assert.deepEqual(keys(plan({ main, owed: [ok], inProgress: 'docs/**', online: true }).parallel), ['ok'], 'no list of work in progress is none');
+  assert.deepEqual(keys(plan({ main, owed: [ok], inProgress: 'docs/**', online: true }).parallel), [], 'work in progress that is not a list meets everything');
+  assert.deepEqual(keys(plan({ main, owed: [ok], inProgress: null, online: true }).parallel), []);
+  assert.deepEqual(keys(plan({ main, owed: [ok], online: true }).parallel), ['ok'], 'no work in progress given is none');
+  assert.deepEqual(keys(plan({ main: { who: 'agent', files: [5] }, owed: [ok], online: true }).parallel), [], 'a file set holding a non-path');
+  assert.deepEqual(keys(plan({ main, owed: [ok], leaves: [leaf(8, { touches: [null] })], inProgress: [[7]], online: true }).parallel), []);
+  assert.deepEqual(plan({ main, shape: { id: 'M2', n: 1, files: 'docs/**' }, online: true }).parallel, [], 'a shaping item whose files are not an array');
 });
 
 test('offline, a pick with no line at all carries the sentence in the form it prints and does not start with undefined', () => {
@@ -261,6 +267,7 @@ test('offline, a pick with no line at all carries the sentence in the form it pr
 test('the file sets the kinds write are the wide ones: a narrower set lets a pick overlap a file it writes', () => {
   const has = (kind, ...paths) => paths.forEach((p) => assert.ok(KINDS[kind].files.includes(p), `${kind} writes ${p}`));
   has('design', 'docs/milestones/**');
+  assert.ok(!readFileSync(new URL('../ci/status.mjs', import.meta.url), 'utf8').includes("going active\`, files:"), 'status leaves design to its row');
   has('shape', 'docs/milestones/**', 'docs/features/**', 'dev/features/**', 'docs/PRD.md', 'decisions.md');
   has('needs-shape', 'docs/features/**', 'dev/features/**', 'docs/milestones/**', 'decisions.md');
   const cite = decisionThings({ missing: null, strays: [], owed: () => [{ id: 'PD-1', feature: 7, docs: ['dev/features/a.md'] }], fired: () => [], unreadable: () => [], unreadFolders: () => [] }, '2026-03-10')[0];
