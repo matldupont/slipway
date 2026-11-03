@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { flat } from './lib/report-form.mjs';
 import { readDecisions } from '../ci/checks/lib/decisions.mjs';
 import { readWorkflow } from '../ci/checks/lib/workflow-yaml.mjs';
 import { gateGlobs, globToRegExp } from '../ci/checks/lib/gate-files.mjs';
@@ -111,7 +112,7 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   appendFileSync(join(dest, 'SLIPWAY.md'), '\nedited\n');
   let r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
+  assert.match(flat(r.stdout), /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
 
   // A whitespace-only reason is empty: it excuses nothing.
   writeFileSync(join(dest, '.slipway', 'overrides.yaml'), 'overrides:\n  - path: SLIPWAY.md\n    reason: "  "\n');
@@ -124,13 +125,13 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   mkdirSync(join(dest, 'BOOTSTRAP.md'));
   r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 1, r.stderr);
-  assert.match(r.stdout, /drift\/BOOTSTRAP\.md: BOOTSTRAP\.md is a file slipway maintains, and it was replaced by a non-file/);
+  assert.match(flat(r.stdout), /drift\/BOOTSTRAP\.md: BOOTSTRAP\.md is a file slipway maintains, and it was replaced by a non-file/);
   rmSync(join(dest, 'BOOTSTRAP.md'), { recursive: true });
   git(dest, 'checkout', '--', 'BOOTSTRAP.md');
   // A symlink is never followed out of the project.
   rmSync(join(dest, 'BOOTSTRAP.md'));
   symlinkSync(join(SRC, 'BOOTSTRAP.md'), join(dest, 'BOOTSTRAP.md'));
-  assert.match(check(dest, 'd1-drift.mjs').stdout, /drift\/BOOTSTRAP\.md: BOOTSTRAP\.md is a file slipway maintains, and it was replaced by a non-file/);
+  assert.match(flat(check(dest, 'd1-drift.mjs').stdout), /drift\/BOOTSTRAP\.md: BOOTSTRAP\.md is a file slipway maintains, and it was replaced by a non-file/);
   rmSync(join(dest, 'BOOTSTRAP.md'));
   git(dest, 'checkout', '--', 'BOOTSTRAP.md');
 
@@ -140,7 +141,7 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   unlinkSync(join(dest, MANIFEST));
   r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /BROKEN — manifest\/missing/);
+  assert.match(r.stdout, /BROKEN: manifest\/missing/);
 });
 
 // #123: two files a project can add were once all it took.
@@ -160,7 +161,7 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
   for (const env of [{}, { SLIPWAY_TEMPLATE_FIXTURE: '1' }, { GIT_DIR: slipwayGitDir }]) {
     const r = check(dest, 'd1-drift.mjs', env);
     assert.equal(r.status, 2, `${JSON.stringify(env)}:\n${r.stdout}`);
-    assert.match(r.stdout, /BROKEN — manifest\/missing — .* are here, but this is not slipway's own full checkout/);
+    assert.match(r.stdout, /BROKEN: manifest\/missing — .* are here, but this is not slipway's own full checkout/);
   }
   assert.doesNotMatch(check(dest, 'w1-declared-vs-invoked.mjs').stdout, /slipway tests/);
 
@@ -180,7 +181,7 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
     assert.equal(execFileSync('git', ['rev-list', '--max-parents=0', 'HEAD'], { cwd: dest, env: { ...process.env, PATH }, encoding: 'utf8' }).trim(), SLIPWAY_ROOT_COMMIT, 'the fake answers');
     const r = check(dest, 'd1-drift.mjs', { PATH });
     assert.equal(r.status, 2, `git in ${bin}:\n${r.stdout}`);
-    assert.match(r.stdout, /BROKEN — manifest\/missing/);
+    assert.match(r.stdout, /BROKEN: manifest\/missing/);
   }
   // The same folder spelled in another case, where the disk ignores case (macOS, Windows).
   const otherCase = join(dirname(dest), 'FAKER', 'tools');
@@ -199,7 +200,7 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
   for (const entry of [join(dest, 'linked'), join(dest, 'via', 'tools'), `${outside}/up/..`]) {
     const r = check(dest, 'd1-drift.mjs', { PATH: onPath(entry) });
     assert.equal(r.status, 2, `git through the link ${entry}:\n${r.stdout}`);
-    assert.match(r.stdout, /BROKEN — manifest\/missing/);
+    assert.match(r.stdout, /BROKEN: manifest\/missing/);
   }
   // With the fixture switch, D1 on a folder inside the project: a git elsewhere in the project, outside
   // that folder, that names slipway as the top of the checkout.
@@ -228,7 +229,7 @@ test('a project cannot enter template mode: no manifest plus slipway\'s marker f
   assert.equal(git(dest, 'rev-list', '--max-parents=0', 'HEAD'), SLIPWAY_ROOT_COMMIT, 'the graft takes');
   const r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 2, `grafted:\n${r.stdout}`);
-  assert.match(r.stdout, /BROKEN — manifest\/missing/);
+  assert.match(r.stdout, /BROKEN: manifest\/missing/);
 });
 
 test('isTemplate: slipway\'s own checkout, never a shallow clone of it or a folder inside it', () => {
@@ -274,7 +275,7 @@ test('ci/before-verify.sh: the project\'s own (seeded, never shipped), run by th
   // An edited ci.yml points at the extension point before it offers an override; other files do not.
   appendFileSync(join(dest, '.github', 'workflows', 'ci.yml'), '\n# services: postgres\n');
   appendFileSync(join(dest, 'SLIPWAY.md'), '\nedited\n');
-  const out = check(dest, 'd1-drift.mjs').stdout;
+  const out = flat(check(dest, 'd1-drift.mjs').stdout);
   assert.match(out, /drift\/\.github\/workflows\/ci\.yml: .*put that in ci\/before-verify\.sh.*or keep it by adding it to/);
   assert.doesNotMatch(out.split('\n').find((l) => l.includes('drift/SLIPWAY.md')), /before-verify/);
 });
@@ -304,7 +305,7 @@ test('issue-shape: a repository without the needs-shape label still labels the i
     mkdirSync(bin);
     writeFileSync(join(dir, 'labels'), '');
     writeFileSync(join(dir, 'calls'), '');
-    writeFileSync(join(dir, 'issue', 'report.txt'), 'I1: body#acceptance: Acceptance is missing.\n');
+    writeFileSync(join(dir, 'issue', 'report.txt'), `Acceptance is missing.\n  Fix: add an Acceptance section.\n  I1 · body#acceptance\n@@json ${JSON.stringify({ findings: [{ id: 'I1', where: 'body#acceptance', detail: 'Acceptance is missing.', fix: 'add an Acceptance section.' }] })}\n`);
     writeFileSync(join(bin, 'gh'), [
       '#!/bin/sh',
       'echo "$*" >> "$FAKE/calls"',
@@ -321,13 +322,14 @@ test('issue-shape: a repository without the needs-shape label still labels the i
       env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, FAKE: dir, RUNNER_TEMP: dir, REPO: 'o/r', NUMBER: '7', GH_TOKEN: 'x', LABEL_FAIL: labelCallsFail ? '1' : '' },
     });
     const calls = readFileSync(join(dir, 'calls'), 'utf8');
-    return { status: r.status, calls, labels: readFileSync(join(dir, 'labels'), 'utf8') };
+    return { status: r.status, calls, labels: readFileSync(join(dir, 'labels'), 'utf8'), comment: existsSync(join(dir, 'comment.md')) ? readFileSync(join(dir, 'comment.md'), 'utf8') : '' };
   };
 
   const missing = run({ labelCallsFail: false });
   assert.equal(missing.status, 0, 'the label is created, then added');
   assert.match(missing.labels, /^needs-shape\nadded\n$/);
   assert.match(missing.calls, /^issue comment 7 .*--body-file /m, 'the comment is posted');
+  assert.match(missing.comment, /^- Acceptance is missing\.\n  Fix: add an Acceptance section\.\n/m, 'one bullet per finding: its detail, then its Fix line, read from the @@json line');
 
   const broken = run({ labelCallsFail: true });
   assert.match(broken.calls, /^issue comment 7 /m, 'a label that cannot be made or added never swallows the comment');
@@ -571,7 +573,7 @@ test('.gitattributes ships as managed, under a checkout and a packed install; a 
   writeFileSync(join(clone, 'SLIPWAY.md'), readFileSync(join(clone, 'SLIPWAY.md'), 'utf8').replaceAll('\n', '\r\n'));
   const r = check(clone, 'd1-drift.mjs');
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
+  assert.match(flat(r.stdout), /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
 });
 
 test('the harness note says what the Stop hook does: it blocks the first stop, and a second stop ends the turn red (#299)', () => {
@@ -616,7 +618,7 @@ test('the prose check ships: .vale.ini, ci/prose.mjs and ci/prose/** are managed
   // L-71 ships with the lessons, and L1 resolves its pointer in the project.
   assert.ok(existsSync(join(dest, 'process', 'lessons', 'L-71-word-lists-are-a-snapshot.md')) && existsSync(join(dest, 'process', 'writing.md')));
   const before = check(dest, 'l1-lessons.mjs', { CHECK_TODAY: '2027-04-13' }).stdout;
-  assert.match(before, /^L1: scanned \d+ lessons$/m, 'L1 did not run');
+  assert.match(before, /^scanned \d+ lessons \(L1\)$/m, 'L1 did not run');
   assert.doesNotMatch(before, /L-71-word-lists-are-a-snapshot\.md#/);
 });
 
@@ -632,7 +634,7 @@ test('L1 in a project leaves slipway\'s fixed lesson dates to slipway, and fails
   // Slipway's own copy, as installed: no finding on its date, and the claim says it was left to slipway.
   let r = l1();
   assert.ok(!due(r, L71), r.stdout);
-  assert.match(r.stdout, /^L1: \d+ exempted by slipway's own review date, which a sync moves: [^\n]*\bL-71\b/m);
+  assert.match(r.stdout, /^\d+ exempted by slipway's own review date, which a sync moves: [^\n]*\bL-71\b \(L1\)$/m);
   // A +Nd clock counts from the project's start, so it is the project's: still due.
   const relative = readdirSync(join(dest, 'process', 'lessons')).find((f) => /review-by: \+\d+d/.test(readFileSync(join(dest, 'process', 'lessons', f), 'utf8')));
   assert.ok(relative && due(l1('2099-01-01'), relative), `a +Nd lesson (${relative}) stopped failing in a project`);
@@ -717,7 +719,7 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   assert.equal(manifest.files['process/lesson-reviews.yaml']?.class, 'seeded', 'the manifest records the file as managed');
   assert.ok(readFileSync(REV).equals(readFileSync(join(SRC, 'process', 'lesson-reviews.yaml'))), "the project starts from slipway's empty copy");
   const l1 = (day) => check(dest, 'l1-lessons.mjs', { CHECK_TODAY: day });
-  const due = (r) => r.stdout.match(/^L1: L-04-mutate-the-specific-test\.md#review\/due: .*$/m)?.[0];
+  const due = (r) => flat(r.stdout).match(/^L1: L-04-mutate-the-specific-test\.md#review\/due: .*$/m)?.[0];
   const answer = (lines) => writeFileSync(REV, `reviews:\n${lines}`);
   const line = (lesson, reviewed, reason = 'still holds') => `  - lesson: ${lesson}\n    reviewed: ${reviewed}\n    reason: ${reason}\n`;
 
@@ -752,7 +754,7 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
     answer(lines);
     r = l1('2027-01-10');
     assert.equal(r.status, 1, `${rule}: ${r.stdout}`);
-    assert.match(r.stdout, new RegExp(`^L1: lesson-reviews\\.yaml#reviews/${rule}: ${rule === 'unreadable' ? '' : 'line 2: '}`, 'm'), r.stdout);
+    assert.match(flat(r.stdout), new RegExp(`^L1: lesson-reviews\\.yaml#reviews/${rule}: ${rule === 'unreadable' ? '' : 'line 2: '}`, 'm'), r.stdout);
     assert.ok(due(r), `${rule}: the bad line answered L-04's review`);
   }
 
@@ -764,7 +766,7 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   assert.equal(due(r), undefined);
   writeFileSync(join(dest, 'process', 'lessons', 'PL-1-own.md'), '---\nid: PL-1\nrule: x\nenforcement:\n  status: prose\n  pointer: process/writing.md\n  review-by: 2099-01-01\n---\n');
   answer(line('L-04', '2027-01-05') + line('PL-1', '2027-01-05'));
-  assert.match(l1('2027-01-10').stdout, /^L1: lesson-reviews\.yaml#reviews\/fixed-date: line 5: PL-1's review-by is a fixed date/m);
+  assert.match(flat(l1('2027-01-10').stdout), /^L1: lesson-reviews\.yaml#reviews\/fixed-date: line 5: PL-1's review-by is a fixed date/m);
   rmSync(join(dest, 'process', 'lessons', 'PL-1-own.md'));
 
   // A file that is there and cannot be read is never "no reviews".
@@ -772,7 +774,7 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   mkdirSync(REV);
   r = l1('2026-11-01');
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /^L1: lesson-reviews\.yaml#reviews\/unreadable: .*not a regular file/m);
+  assert.match(flat(r.stdout), /^L1: lesson-reviews\.yaml#reviews\/unreadable: .*not a regular file/m);
   rmSync(REV, { recursive: true });
 
   // No file, as in a project made before #554, is no answers, and the line says to create it.
@@ -804,8 +806,8 @@ test('in slipway itself, process/lesson-reviews.yaml stays empty: L1 fails an en
   appendFileSync(join(src, 'process', 'lesson-reviews.yaml'), '  - lesson: L-04\n    reviewed: 2026-10-28\n    reason: still holds\n');
   const r = l1('2026-12-25');
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /^L1: lesson-reviews\.yaml#reviews\/in-slipway: line \d+: slipway's copy ships to every project/m);
-  assert.match(r.stdout, /^L1: L-04-mutate-the-specific-test\.md#review\/due: review was due 2026-12-20: mechanise it, extend it with a reason, or delete it$/m, 'slipway answered its own review with an entry');
+  assert.match(flat(r.stdout), /^L1: lesson-reviews\.yaml#reviews\/in-slipway: line \d+: slipway's copy ships to every project/m);
+  assert.match(flat(r.stdout), /^L1: L-04-mutate-the-specific-test\.md#review\/due: review was due 2026-12-20: mechanise it, extend it with a reason, or delete it$/m, 'slipway answered its own review with an entry');
 });
 
 // A `vale` that names a version CI does not pin, first on PATH: new-project then records no prose count (#549), on a machine

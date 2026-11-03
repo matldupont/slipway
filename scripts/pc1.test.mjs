@@ -94,7 +94,7 @@ test('N1 on a folder with no git checkout is BROKEN, never a pass', () => {
   try {
     const r = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/n1-node-modules.mjs'), dir], { encoding: 'utf8' });
     assert.equal(r.status, 2, r.stdout);
-    assert.match(r.stdout, /N1: BROKEN — git cannot list what/);
+    assert.match(r.stdout, /^BROKEN: git cannot list what.* \(N1\)$/m);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

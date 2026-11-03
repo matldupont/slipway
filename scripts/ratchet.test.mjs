@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { flat } from './lib/report-form.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BASELINES = join('ci', 'baselines.json');
@@ -31,25 +32,25 @@ function ratchet(value, baselines, ...flags) {
     rmSync(dir, { recursive: true, force: true });
   }
 }
-const lines = (out) => out.trimEnd().split('\n');
+const lines = (out) => flat(out).trimEnd().split('\n');
 
 test('above the baseline: exit 1, naming both numbers and what was added, and nothing is written', () => {
   const r = ratchet(5, { dup: 3 });
   assert.equal(r.status, 1);
-  assert.deepEqual(lines(r.out), ['RATCHET: scanned 1 metric', 'RATCHET: dup: 5 is above the baseline 3: this change added 2', 'RATCHET: FAIL — 1 finding(s) across 1 metric']);
+  assert.deepEqual(lines(r.out), ['scanned 1 metric (RATCHET)', 'RATCHET: dup: 5 is above the baseline 3: this change added 2', 'FAIL: 1 finding in 1 metric (RATCHET)']);
   assert.equal(r.file, '{\n  "dup": 3\n}\n');
 });
 
 test('equal to the baseline: exit 0, and the claim names the number and its baseline', () => {
   const r = ratchet(3, { dup: 3 });
   assert.equal(r.status, 0);
-  assert.deepEqual(lines(r.out), ['RATCHET: scanned 1 metric', 'RATCHET: PASS — green proves: dup is 3, not above its baseline 3']);
+  assert.deepEqual(lines(r.out), ['scanned 1 metric (RATCHET)', 'PASS: dup is 3, not above its baseline 3 (RATCHET)']);
 });
 
 test('below the baseline: exit 0 with the line that says to lock it in, and nothing is written until --update', () => {
   const r = ratchet(2, { dup: 3 });
   assert.equal(r.status, 0);
-  assert.deepEqual(lines(r.out), ['RATCHET: dup improved 3 → 2; run with --update to lock it in', 'RATCHET: scanned 1 metric', 'RATCHET: PASS — green proves: dup is 2, not above its baseline 3']);
+  assert.deepEqual(lines(r.out), ['RATCHET: dup improved 3 → 2; run with --update to lock it in', 'scanned 1 metric (RATCHET)', 'PASS: dup is 2, not above its baseline 3 (RATCHET)']);
   assert.equal(r.file, '{\n  "dup": 3\n}\n');
 });
 
@@ -57,7 +58,7 @@ test('no baseline: exit 2 BROKEN, naming --update — with no file, and with a f
   for (const baselines of [undefined, { other: 1 }]) {
     const r = ratchet(4, baselines);
     assert.equal(r.status, 2);
-    assert.deepEqual(lines(r.out), ['RATCHET: scanned 0 metric', 'RATCHET: BROKEN — no baseline for "dup" in ci/baselines.json — run once with --update']);
+    assert.deepEqual(lines(r.out), ['scanned 0 metric (RATCHET)', 'BROKEN: no baseline for "dup" in ci/baselines.json — run once with --update (RATCHET)']);
   }
   assert.equal(ratchet(4).file, null, 'a run without --update created the file');
 });
@@ -66,9 +67,9 @@ test('--update refuses to raise a baseline: exit 1, naming both numbers, and the
   const r = ratchet(5, { dup: 3 }, '--update');
   assert.equal(r.status, 1);
   assert.deepEqual(lines(r.out), [
-    'RATCHET: scanned 1 metric',
+    'scanned 1 metric (RATCHET)',
     'RATCHET: dup: --update refuses to raise the baseline (3 → 5); raising it is a decision — edit ci/baselines.json in a reviewed PR',
-    'RATCHET: FAIL — 1 finding(s) across 1 metric',
+    'FAIL: 1 finding in 1 metric (RATCHET)',
   ]);
   assert.equal(r.file, '{\n  "dup": 3\n}\n');
 });
@@ -76,7 +77,7 @@ test('--update refuses to raise a baseline: exit 1, naming both numbers, and the
 test('--update records a first baseline, lowers one and keeps one that is equal: two-space JSON, a final newline, every other name kept', () => {
   const first = ratchet(4, undefined, '--update');
   assert.equal(first.status, 0);
-  assert.deepEqual(lines(first.out), ['RATCHET: scanned 1 metric', 'RATCHET: PASS — green proves: dup baseline recorded at 4']);
+  assert.deepEqual(lines(first.out), ['scanned 1 metric (RATCHET)', 'PASS: dup baseline recorded at 4 (RATCHET)']);
   assert.equal(first.file, '{\n  "dup": 4\n}\n');
 
   const lower = ratchet(2, { other: 7, dup: 3 }, '--update');
@@ -92,10 +93,10 @@ test('a number that cannot be read is BROKEN, never green: a missing report, a p
   try {
     const run = (...args) => spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), ...args], { cwd: dir, encoding: 'utf8' });
     const missing = run('dup', 'report.json', 'stats.total');
-    assert.deepEqual([missing.status, lines(missing.stdout)[1]], [2, 'RATCHET: BROKEN — report.json does not exist — did the tool run?']);
+    assert.deepEqual([missing.status, lines(missing.stdout)[1]], [2, 'BROKEN: report.json does not exist — did the tool run? (RATCHET)']);
     writeFileSync(join(dir, 'report.json'), '{"stats":{}}');
     const absent = run('dup', 'report.json', 'stats.total');
-    assert.deepEqual([absent.status, lines(absent.stdout)[1]], [2, 'RATCHET: BROKEN — stats.total in report.json is undefined, not a number']);
+    assert.deepEqual([absent.status, lines(absent.stdout)[1]], [2, 'BROKEN: stats.total in report.json is undefined, not a number (RATCHET)']);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -186,7 +187,7 @@ test('check mode refuses a ci/baselines.json that is a link, before any read: BR
     symlinkSync(join(dir, 'secret.txt'), join(dir, BASELINES));
     const r = spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), 'dup', 'report.json', 'stats.total'], { cwd: dir, encoding: 'utf8' });
     assert.equal(r.status, 2);
-    assert.equal(lines(r.stdout).at(-1), 'RATCHET: BROKEN — ci/baselines.json is a link, not a file, so it is not read — make it a plain file in a plain folder');
+    assert.equal(lines(r.stdout).at(-1), 'BROKEN: ci/baselines.json is a link, not a file, so it is not read — make it a plain file in a plain folder (RATCHET)');
     assert.doesNotMatch(r.stdout + r.stderr, /TOKEN|abcdef/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -202,7 +203,7 @@ test('a pipe at ci/baselines.json is refused, never opened: the command ends, BR
     const r = spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), 'dup', 'report.json', 'stats.total'], { cwd: dir, encoding: 'utf8', timeout: 10_000 });
     assert.equal(r.signal, null, 'it hung on the pipe');
     assert.equal(r.status, 2);
-    assert.match(lines(r.stdout).at(-1), /^RATCHET: BROKEN — ci\/baselines\.json is not a regular file, so it is not read/);
+    assert.match(lines(r.stdout).at(-1), /^BROKEN: ci\/baselines\.json is not a regular file, so it is not read.* \(RATCHET\)$/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -218,7 +219,7 @@ test('a ci/ that is a link: neither command reads or writes through it, and noth
       symlinkSync(join(dir, 'elsewhere'), join(dir, 'ci'));
       const r = spawnSync(process.execPath, [join(SRC, 'ci', 'ratchet.mjs'), 'dup', 'report.json', 'stats.total', ...flags], { cwd: dir, encoding: 'utf8' });
       assert.equal(r.status, 2, String(flags));
-      assert.equal(lines(r.stdout).at(-1), 'RATCHET: BROKEN — ci/ is a link, not a folder, so it is not read — make it a plain file in a plain folder');
+      assert.equal(lines(r.stdout).at(-1), 'BROKEN: ci/ is a link, not a folder, so it is not read — make it a plain file in a plain folder (RATCHET)');
       assert.equal(readFileSync(join(dir, 'elsewhere/baselines.json'), 'utf8'), '{\n  "dup": 3\n}\n');
     } finally {
       rmSync(dir, { recursive: true, force: true });

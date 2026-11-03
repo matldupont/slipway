@@ -24,6 +24,7 @@ import { releaseTag, resolveBase, sourceClone } from './lib/base.mjs';
 import { syncCommand } from './lib/install.mjs';
 import { appliedText, codeNote, countLines, planText } from './lib/sync-text.mjs';
 import { clean, ui } from './lib/ui.mjs';
+import { flat } from './lib/report-form.mjs';
 import { KINDS, Refusal, checkWrites, nothingToTake, plan, shellQuote, skillChanged, withoutOverrides } from './sync.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -1846,17 +1847,17 @@ test('a sync PR\'s Gate changes section, built from the P1 findings over the app
   };
   const first = check('pending');
   assert.equal(first.status, 1, first.stdout + first.stderr);
-  const paths = [...first.stdout.matchAll(/gate-changes\/unmentioned:(.+?)(?: scripts)?: Gate changes has no line/g)].map((m) => m[1]);
+  const paths = [...flat(first.stdout).matchAll(/gate-changes\/unmentioned:(.+?)(?: scripts)?: Gate changes has no line/g)].map((m) => m[1]);
   assert.ok(paths.includes('.slipway/manifest.json'), `the manifest is always a gate path:\n${first.stdout}`);
   assert.ok(paths.includes('package.json'), 'a changed script key makes package.json a gate path');
   assert.ok(paths.includes('process/harness/settings.json'));
-  assert.doesNotMatch(first.stdout, /gate-changes\/(missing|no-verdict|loosens)/);
+  assert.doesNotMatch(flat(first.stdout), /gate-changes\/(missing|no-verdict|loosens)/);
   const lines = paths.map((p) => `- \`${p}\` — the same: fixture verdict`);
   const ok = check(lines.join('\n'));
   assert.equal(ok.status, 0, ok.stdout + ok.stderr);
   const short = check(lines.slice(1).join('\n'));
   assert.equal(short.status, 1, 'a section missing a line passed');
-  assert.match(short.stdout, new RegExp(`gate-changes/unmentioned:${paths[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  assert.match(flat(short.stdout), new RegExp(`gate-changes/unmentioned:${paths[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 });
 
 // #216: /sync-slipway is one of the files a sync replaces, and the session that began the sync holds the old

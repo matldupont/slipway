@@ -38,7 +38,7 @@ const reason = (e) =>
   [e.stderr, e.message].flatMap((t) => String(t ?? '').split('\n')).find((l) => l.trim() !== '' && !l.startsWith('hint:')) ?? 'no message';
 
 function fail(why) {
-  console.log(`ID2: BROKEN — ${escapeControl(why)}`);
+  console.log(`BROKEN: ${escapeControl(why)} (ID2)`);
   process.exit(2);
 }
 

@@ -22,7 +22,7 @@ test('a tarball on the host .npmrc names passes, counted with its entries', () =
   try {
     const r = lk1(dir);
     assert.equal(r.status, 0, r.out);
-    assert.match(r.out, /LK1: scanned 2 lockfile entries/);
+    assert.match(r.out, /scanned 2 lockfile entries \(LK1\)/);
   } finally {
     done(dir);
   }

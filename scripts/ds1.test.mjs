@@ -27,7 +27,7 @@ const STARTED = ['Sign-in (F-1) · #11', 'The core action (F-2) · #12'];
 test('a design item in a closed M1 answers for an active M2, and the scanned line names it (dies without "before" by milestone)', () => {
   const r = ds1(files({ milestones: { 'M1.md': milestone({ id: 'M1', status: 'closed', contents: [DESIGN] }), 'M2.md': milestone() } }));
   green(r, 'closed M1');
-  assert.match(r.out, /DS1: scanned 3 documents \(the frame, 2 milestones\) · front end: a web app · M2 satisfied by the design item in M1, item 1/);
+  assert.match(r.out, /^scanned 3 documents \(the frame, 2 milestones\) · front end: a web app · M2 satisfied by the design item in M1, item 1 \(DS1\)$/m);
 });
 
 test('the design item as M2\'s item 1 answers for M2 (dies without the own-milestone rule)', () => {
@@ -45,8 +45,8 @@ test('Front end: none, in any case and with words after it, closes design and th
     const r = ds1(files({ frame: frame(line), milestones: { 'M2.md': milestone({ gate: ['`pnpm verify` green on main'] }) } }));
     green(r, line);
     assert.deepEqual(r.json.exempted, ['M2: front end: none'], line);
-    assert.match(r.out, /front end: none · |front end: none$/m, line);
-    assert.match(r.out, /1 exempted by the frame: M2: front end: none/, line);
+    assert.match(r.out, /front end: none · |front end: none \(DS1\)$/m, line);
+    assert.match(r.out, /^1 exempted by the frame: M2: front end: none \(DS1\)$/m, line);
   }
 });
 
@@ -63,8 +63,8 @@ test('design: PD-4 naming a decision answers design and nothing else: the Gate l
   assert.deepEqual(ids(r), ['gate/accessibility:M2']);
   assert.deepEqual(r.json.exempted, ['M2: design: PD-4']);
   // AR-3: the view is in the output of a red run, not only in a pass's claim.
-  assert.match(r.out, /DS1: 1 exempted by milestone frontmatter: M2: design: PD-4/);
-  assert.match(r.out, /DS1: scanned 2 documents \(the frame, 1 milestone\) · front end: a web app/);
+  assert.match(r.out, /^1 exempted by milestone frontmatter: M2: design: PD-4 \(DS1\)$/m);
+  assert.match(r.out, /^scanned 2 documents \(the frame, 1 milestone\) · front end: a web app \(DS1\)$/m);
 });
 
 test('an accessibility line that wraps between "2.2" and "AA" is read (dies without joining a bullet\'s lines)', () => {
@@ -252,7 +252,7 @@ test('a registry reached through a link is BROKEN, never read: its first line co
     symlinkSync(join(dir, 'elsewhere.yaml'), join(dir, 'ci', 'exceptions.yaml'));
     const r = run('ci/checks/meta/ds1-design-before-screens.mjs', dir, { CHECK_TODAY: '2026-10-19' });
     assert.equal(r.status, 2, r.out);
-    assert.match(r.out, /BROKEN — ci\/exceptions\.yaml is a link, not a file/);
+    assert.match(r.out, /^BROKEN: ci\/exceptions\.yaml is a link, not a file.* \(DS1\)$/m);
   } finally {
     done(dir);
   }

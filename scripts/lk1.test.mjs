@@ -18,8 +18,8 @@ test('an all-registry lockfile passes and says how many entries it read', () => 
   try {
     const r = lk1(dir);
     assert.equal(r.status, 0, r.out);
-    assert.match(r.out, /LK1: scanned 3 lockfile entries/, 'two packages and one importer dependency');
-    assert.match(r.out, /LK1: PASS/);
+    assert.match(r.out, /scanned 3 lockfile entries \(LK1\)/, 'two packages and one importer dependency');
+    assert.match(r.out, /^PASS: .* \(LK1\)$/m);
   } finally {
     done(dir);
   }
@@ -30,7 +30,7 @@ test('a project that declares nothing and has no lockfile passes, counting its p
   try {
     const r = lk1(dir);
     assert.equal(r.status, 0, r.out);
-    assert.match(r.out, /LK1: scanned 2 package\.json files/);
+    assert.match(r.out, /scanned 2 package\.json files \(LK1\)/);
   } finally {
     done(dir);
   }
@@ -83,7 +83,7 @@ test('an entry in ci/exceptions.yaml excuses exactly the entry it names, and is 
     const r = lk1(dir, { CHECK_TODAY: '2026-09-30' });
     assert.equal(r.status, 0, r.out);
     assert.deepEqual(r.json.exempted, [`pnpm-lock.yaml#${TID}`]);
-    assert.match(r.out, /1 exempted by ci\/exceptions\.yaml/);
+    assert.match(r.out, /^1 exempted by ci\/exceptions\.yaml: .* \(LK1\)$/m);
     // the day it runs out, it is red again for both reasons
     const late = lk1(dir, { CHECK_TODAY: '2026-12-31' });
     assert.equal(late.status, 1, late.out);
@@ -123,7 +123,7 @@ test('a two-package workspace passes, whether its dependency says workspace:* or
     try {
       const r = lk1(dir);
       assert.equal(r.status, 0, `${specifier}: ${r.out}`);
-      assert.match(r.out, /LK1: scanned 3 lockfile entries/, 'one package and two importer dependencies');
+      assert.match(r.out, /scanned 3 lockfile entries \(LK1\)/, 'one package and two importer dependencies');
     } finally {
       done(dir);
     }

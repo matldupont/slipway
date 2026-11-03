@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { run, SRC } from './lib/lk1-lockfile.mjs';
+import { flat } from './lib/report-form.mjs';
 
 const ID2 = 'ci/checks/meta/id2-open-prs.mjs';
 const header = (path) => `diff --git a/${path} b/${path}\nindex 1111111..2222222 100644\n--- a/${path}\n+++ b/${path}\n`;
@@ -106,8 +107,8 @@ test('--next prints the highest of each series, each open pull request\'s ids an
   assert.match(r.out, /highest on the default branch and in the open pull requests: D-12, PD-7, F-09; next free: D-13, PD-8, F-10/);
   assert.match(r.out, /#41 adds PD-7/);
   assert.match(r.out, /#52 adds F-04/);
-  for (const line of r.out.split('\n').filter((l) => l && !l.startsWith('@@json'))) {
-    assert.match(line, /^ID2: (scanned \d+ diffs \(the default branch and each open pull request\)|warning: open-pr\/\d+: #\d+ adds ((P?D|F)-\d+(, )?)+|PASS — green proves: highest on the default branch and in the open pull requests: [-, :A-Za-z0-9]+; next free: [-, A-Z0-9]+( \(\d+ warning\(s\) above\))?)$/, line);
+  for (const line of flat(r.out).split('\n').filter((l) => l && !l.startsWith('@@json'))) {
+    assert.match(line, /^(scanned \d+ diffs \(the default branch and each open pull request\) \(ID2\)|ID2: warning: open-pr\/\d+: #\d+ adds ((P?D|F)-\d+(, )?)+|PASS: highest on the default branch and in the open pull requests: [-, :A-Za-z0-9]+; next free: [-, A-Z0-9]+( \(\d+ warning\(s\) above\))? \(ID2\))$/, line);
   }
 });
 
@@ -244,7 +245,7 @@ test('the collector is BROKEN, never an empty folder, when the list or a fetch f
   try {
     const listed = collect(r, null, ['o/r', '11', r.base, r.mine]);
     assert.equal(listed.status, 2);
-    assert.match(listed.stdout, /^ID2: BROKEN — the open pull requests could not be listed/);
+    assert.match(listed.stdout, /^BROKEN: the open pull requests could not be listed.* \(ID2\)$/m);
     writeFileSync(join(r.bin, 'gh'), '#!/bin/sh\necho "hint: a suggestion" >&2\necho "fatal: the real reason" >&2\nexit 1\n');
     const hinted = spawnSync(process.execPath, [join(SRC, 'ci/checks/lib/open-pr-ids.mjs'), join(r.top, 'hinted'), 'o/r', '11', r.base, r.mine], { cwd: r.clone, encoding: 'utf8', env: { ...process.env, PATH: `${r.bin}:${process.env.PATH}` } });
     assert.match(hinted.stdout, /could not be listed \(fatal: the real reason\)/, 'a hint: line never stands in for the error');

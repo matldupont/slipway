@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { fitCount } from '../ci/checks/lib/fit.mjs';
 import { section } from '../ci/checks/lib/markdown.mjs';
 import { excerpt } from '../ci/checks/lib/report.mjs';
+import { flat } from './lib/report-form.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const F2 = join(SRC, 'ci', 'checks', 'meta', 'f2-feature-fit.mjs');
@@ -44,10 +45,10 @@ function f2With(files, arrange, ...flags) {
     }
     arrange(dir);
     const r = spawnSync(process.execPath, [F2, dir, ...flags], { encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1' } });
-    const all = r.stdout.trimEnd().split('\n');
+    const all = flat(r.stdout).trimEnd().split('\n');
     const json = JSON.parse(all.findLast((l) => l.startsWith('@@json ')).slice('@@json '.length));
     const plain = existsSync(join(dir, BASELINES)) && lstatSync(join(dir, BASELINES)).isFile() && (lstatSync(join(dir, BASELINES)).mode & 0o400) !== 0;
-    return { status: r.status, out: r.stdout, err: r.stderr, lines: all.filter((l) => !l.startsWith('@@json ')), json, file: plain ? readFileSync(join(dir, BASELINES), 'utf8') : null };
+    return { status: r.status, out: flat(r.stdout), err: r.stderr, lines: all.filter((l) => !l.startsWith('@@json ')), json, file: plain ? readFileSync(join(dir, BASELINES), 'utf8') : null };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -58,9 +59,9 @@ const last = (r) => r.lines.at(-1);
 test('no feature doc at all, count 0: exit 0 with the claim "no feature doc is held yet", the baseline file being the one thing read', () => {
   const r = f2({ [BASELINES]: baseline(0) });
   assert.equal(r.status, 0);
-  assert.deepEqual(r.lines.slice(0, 1), ['F2: scanned 1 files (ci/baselines.json, and each *.md in docs/features/ and dev/features/)']);
-  assert.match(last(r), /^F2: PASS — green proves: no feature doc is held yet \(0 feature docs, /);
-  assert.match(last(r), /read docs\/features\/ and dev\/features\/\)$/, 'the claim names the folders read');
+  assert.deepEqual(r.lines.slice(0, 1), ['scanned 1 files (ci/baselines.json, and each *.md in docs/features/ and dev/features/) (F2)']);
+  assert.match(last(r), /^PASS: no feature doc is held yet \(0 feature docs, .* \(F2\)$/);
+  assert.match(last(r), /read docs\/features\/ and dev\/features\/\) \(F2\)$/, 'the claim names the folders read');
 });
 
 test('a draft with no Fit, no review and no milestone citing it: exit 0, not counted, and named on its own line', () => {
@@ -78,7 +79,7 @@ test('a draft with a filled Fit is not named: the line is only for a draft that 
 test('a shipped doc with Fit filled, count 0: exit 0, no warning', () => {
   const r = f2({ [A]: doc('shipped', FILLED), [BASELINES]: baseline(0) });
   assert.deepEqual([r.status, r.json.warnings, r.json.findings], [0, [], []]);
-  assert.equal(last(r), 'F2: PASS — green proves: 1 feature doc held (shipped, reviewed or scheduled), 0 with no filled Fit, not above the recorded 0; of the other 1, 0 reuse nothing, 0 show no numbers and 0 add nothing new; 0 files not a feature doc; read docs/features/ and dev/features/');
+  assert.equal(last(r), 'PASS: 1 feature doc held (shipped, reviewed or scheduled), 0 with no filled Fit, not above the recorded 0; of the other 1, 0 reuse nothing, 0 show no numbers and 0 add nothing new; 0 files not a feature doc; read docs/features/ and dev/features/ (F2)');
 });
 
 test('2 counted docs against a count of 2: exit 0, each of the 2 a warning line that names the doc, why it is held and the next action, with no check id', () => {
@@ -88,7 +89,8 @@ test('2 counted docs against a count of 2: exit 0, each of the 2 a warning line 
   assert.equal(r.json.warnings[1].detail, `\`${B}\` is shipped and its Fit has no filled \`Numbers:\` line — say where each number it shows is calculated, or \`none shown\``);
   for (const w of r.json.warnings) assert.doesNotMatch(w.detail, /\bF2\b|fit\/|\.md#/,'a detail is in the project\'s words');
   assert.equal(r.lines.some((l) => l.includes('improved')), false);
-  assert.match(last(r), /2 feature docs held .*, 2 with no filled Fit, not above the recorded 2; of the other 0, .* \(2 warning\(s\) above\)$/);
+  assert.match(last(r), /2 feature docs held .*, 2 with no filled Fit, not above the recorded 2; of the other 0, .* \(F2\)$/);
+  assert.equal(r.lines.filter((l) => l.startsWith('F2: warning: ')).length, 2, 'the 2 warnings are printed above the claim');
 });
 
 test('2 counted docs against a count of 3: exit 0, the same warnings, and an F2: line saying to run --update; --update then writes 2', () => {
@@ -100,7 +102,7 @@ test('2 counted docs against a count of 3: exit 0, the same warnings, and an F2:
   assert.equal(r.file, baseline(3), 'a run without --update writes nothing');
   const u = f2(files, '--update');
   assert.deepEqual([u.status, u.file], [0, baseline(2)]);
-  assert.equal(last(u), 'F2: PASS — green proves: feature-fit recorded at 2 in ci/baselines.json');
+  assert.equal(last(u), 'PASS: feature-fit recorded at 2 in ci/baselines.json (F2)');
 });
 
 test('a third counted doc against a count of 2: exit 1 with findings for all 3; --update exits 1, names 2 and 3, and writes nothing', () => {
@@ -184,7 +186,7 @@ test('no ci/baselines.json, a count written as text, a negative or a fractional 
   for (const [name, text] of [['absent', null], ['text', '{"feature-fit": "3"}'], ['negative', baseline(-1)], ['fraction', baseline(1.5)], ['another key only', '{"duplication": 3}'], ['inherited', '{"__proto__": {"feature-fit": 0}}']]) {
     const r = f2(text === null ? files : { ...files, [BASELINES]: text });
     assert.equal(r.status, 2, name);
-    assert.deepEqual(r.lines, ['F2: scanned 4 files (ci/baselines.json, and each *.md in docs/features/ and dev/features/)', `F2: BROKEN — ci/baselines.json has no feature-fit count — a sync records it in a project; to record it by hand, run ${UPDATE}`], name);
+    assert.deepEqual(r.lines, ['scanned 4 files (ci/baselines.json, and each *.md in docs/features/ and dev/features/) (F2)', `BROKEN: ci/baselines.json has no feature-fit count — a sync records it in a project; to record it by hand, run ${UPDATE} (F2)`], name);
     assert.deepEqual([r.json.findings, r.json.warnings], [[], []], name);
   }
 });
@@ -194,7 +196,7 @@ test('a ci/baselines.json that is not JSON, or not an object: exit 2 naming the 
     for (const flags of [[], ['--update']]) {
       const r = f2({ [A]: doc('shipped', FILLED), [BASELINES]: text }, ...flags);
       assert.equal(r.status, 2, text);
-      assert.equal(r.lines[1], 'F2: BROKEN — ci/baselines.json is not a JSON object of counts', text);
+      assert.equal(r.lines[1], 'BROKEN: ci/baselines.json is not a JSON object of counts (F2)', text);
       assert.doesNotMatch(r.out + r.err, /MARK|Unexpected|token/, 'no word of the file, and none of the parser\'s, is printed');
       assert.equal(r.lines.length, 2);
       assert.equal(r.err, '', 'never a stack trace');
@@ -276,7 +278,7 @@ test('a link or a folder at ci/baselines.json, or a ci/ reached through a link: 
         let before;
         const r = f2With(files, (dir) => (arrange(dir), (before = existsSync(target) ? readFileSync(target, 'utf8') : null)), ...flags);
         assert.equal(r.status, 2, name);
-        assert.deepEqual(r.lines.slice(1), [why === UNDER ? `F2: BROKEN — ci/baselines.json ${UNDER}, so it is neither read nor written — make ci/ a plain folder` : `F2: BROKEN — ci/baselines.json ${why}, so it is neither read nor written — make it a plain file`], name);
+        assert.deepEqual(r.lines.slice(1), [why === UNDER ? `BROKEN: ci/baselines.json ${UNDER}, so it is neither read nor written — make ci/ a plain folder (F2)` : `BROKEN: ci/baselines.json ${why}, so it is neither read nor written — make it a plain file (F2)`], name);
         assert.doesNotMatch(r.out + r.err, /MARK/, name);
         assert.equal(existsSync(target) ? readFileSync(target, 'utf8') : null, before, `${name}: the link's target is as it was`);
         assert.equal(existsSync(join(outside, 'ci', 'baselines.json')), false, name);
@@ -289,12 +291,12 @@ test('a link or a folder at ci/baselines.json, or a ci/ reached through a link: 
 
 test('a ci/baselines.json nobody may read: exit 2 by the error\'s code', { skip: process.getuid?.() === 0 }, () => {
   const r = f2With({ [A]: doc('shipped', FILLED), [BASELINES]: baseline(0) }, (dir) => chmodSync(join(dir, BASELINES), 0o000));
-  assert.deepEqual([r.status, r.lines[1]], [2, 'F2: BROKEN — ci/baselines.json cannot be read (EACCES)']);
+  assert.deepEqual([r.status, r.lines[1]], [2, 'BROKEN: ci/baselines.json cannot be read (EACCES) (F2)']);
 });
 
 test('--update at the recorded count writes it again and passes; no ci/ folder yet is made by --update', () => {
   const u = f2({ [A]: doc('shipped'), [BASELINES]: baseline(1) }, '--update');
-  assert.deepEqual([u.status, u.file, last(u)], [0, baseline(1), 'F2: PASS — green proves: feature-fit recorded at 1 in ci/baselines.json']);
+  assert.deepEqual([u.status, u.file, last(u)], [0, baseline(1), 'PASS: feature-fit recorded at 1 in ci/baselines.json (F2)']);
   assert.equal(f2({ [A]: doc('shipped', FILLED) }, '--update').file, baseline(0));
 });
 
@@ -313,7 +315,7 @@ test('--update on a baselines file that gives a name twice: BROKEN, and the file
   const twice = '{\n  "feature-fit": 3,\n  "other": 1,\n  "other": 2\n}\n';
   const r = f2({ [BASELINES]: twice }, '--update');
   assert.equal(r.status, 2, r.out + r.err);
-  assert.match(r.out, /BROKEN — .*ci\/baselines\.json holds an entry a rewrite would lose or change/);
+  assert.match(r.out, /BROKEN: .*ci\/baselines\.json holds an entry a rewrite would lose or change/);
   assert.equal(r.file, twice);
 });
 
@@ -332,7 +334,7 @@ test('a linked feature folder, a feature folder that is a file, and a linked mil
       for (const flags of [[], ['--update']]) {
         const r = f2With({ 'docs/.keep': '', [BASELINES]: baseline(0), ...files }, arrange, ...flags);
         assert.equal(r.status, 2, `${name} ${flags}`);
-        assert.equal(r.lines.at(-1), `F2: BROKEN — ${named} a link, under one, or not a plain folder or file, so F2 does not read it and cannot count the docs — make each a plain folder or file`, name);
+        assert.equal(r.lines.at(-1), `BROKEN: ${named} a link, under one, or not a plain folder or file, so F2 does not read it and cannot count the docs — make each a plain folder or file (F2)`, name);
         assert.doesNotMatch(r.out, /a-private-word/, name);
         assert.equal(r.file, baseline(0), `${name}: nothing written`);
       }

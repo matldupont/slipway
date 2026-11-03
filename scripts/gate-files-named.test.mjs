@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { flat } from './lib/report-form.mjs';
 import { changes, COLD_REVIEW_DEFAULT, gateMatcher, namedDocs, SETTINGS } from '../ci/checks/lib/gate-files.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -45,7 +46,7 @@ const p1 = (from, tip, gate = '') => {
 };
 const missing = (r, path) => {
   assert.notEqual(r.status, 0, r.stdout);
-  assert.match(r.stdout + r.stderr, new RegExp(`body\\.md#gate-changes/missing: the PR touches gate files \\([^)]*${path.replace(/[.]/g, '\\.')}`));
+  assert.match(flat(r.stdout + r.stderr), new RegExp(`body\\.md#gate-changes/missing: the PR touches gate files \\([^)]*${path.replace(/[.]/g, '\\.')}`));
 };
 
 // `table` builds a §Skill Configuration with the rows given.
