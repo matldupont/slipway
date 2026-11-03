@@ -176,7 +176,7 @@ test('/close-milestone reads its issues by the milestone number, never its title
   assert.ok(commands(md).some((c) => /issues\/\{n\} -F milestone=\{next\}(\s|$)/.test(c.text)), 'an issue moves by the next milestone\'s number');
   assert.ok(commands(md).some((c) => /milestones -F title=@\{dir\}\/milestone-title\.txt/.test(c.text)), 'a new milestone\'s title comes from a file');
   const step = md.replace(/\s+/g, ' ');
-  assert.match(step, /When `Issue milestone` is `active` and the next milestone has no GitHub milestone, say which and ask whether to create it now\. On a yes,/, 'a milestone is created only on the owner\'s yes');
+  assert.match(step, /When `Issue milestone` is `active` and the next milestone has no GitHub milestone, say which and ask: "Should I create a GitHub milestone for \{next milestone id\} now\?" On a yes,/, 'a milestone is created only on the owner\'s yes');
   assert.match(step, /On a no, the issue stays where it is, the GitHub milestone stays open, and the close says so in one line\./, 'a no leaves the issue and the milestone, and says so');
   assert.match(step, /once no open issue is left in it, close the GitHub milestone/, 'a milestone closes only when empty');
   assert.match(step, /`\{repo\}` is `Issue repo`, used only when it is `owner\/name`/, 'the repository is shape-checked');
@@ -187,7 +187,7 @@ test('/close-milestone names the issue repository in every gh command', () => {
   const gh = commands(md).filter((c) => /(^|\s)gh\s/.test(c.text) && !/gh repo view --json nameWithOwner/.test(c.text));
   assert.ok(gh.length >= 5, 'the skill\'s gh commands were read');
   for (const c of gh) assert.match(c.text, /--repo \{repo\}(\s|$)|\srepos\/\{repo\}\//, `line ${c.line}: ${c.text}`);
-  assert.match(md, /ask the owner to confirm `\{repo\}`\s+before the first write/);
+  assert.match(md, /say so and ask before the first write[^"]*"Should I use \{repo\} for the issues, though this checkout is a different repository\?"/);
 });
 
 test('/clarify files a tracker with its title from a file and its body from --body-file', () => {
