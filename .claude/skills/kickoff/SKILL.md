@@ -25,7 +25,10 @@ what is there.
 - **Nothing invented.** Anything the user has not said and you cannot derive goes into the
   file as `[NEEDS CLARIFICATION: <question>]`, never as a plausible guess.
 - **Constraints vs preferences.** When the user states something, ask only if it is unclear
-  which one it is (L-39).
+  which one it is (L-39):
+  "Is that a firm limit, or a preference you could trade?"
+- **Plain words.** Before showing or posting, edit against `process/writing.md`. Every question you put to the user is
+  written in double quotes, in 25 words or fewer, with one question mark, naming the project's own thing.
 - **Stay under a page per artifact.** FRAME is one page; each milestone is one screen.
 - Write each file as soon as its phase ends, so the user can read and edit it.
 
@@ -34,24 +37,28 @@ what is there.
 Work through, in order:
 
 1. **The moment.** "When does someone reach for this?" Get a situation, not a persona.
-   Then ask where people use it: screens (a web or phone app), a terminal, an API, or nothing. Offer the four,
-   with the moment's own answer as the recommendation when it names one. Write the frame's `Front end:` line:
+   Then ask:
+   "Where will people use it: screens, a terminal, an API, or nothing?"
+   Offer the four (screens means a web or phone app), with the moment's own answer as the recommendation when it names one. Write the frame's `Front end:` line:
    screens in the owner's words (`Front end: a web app`), each other answer as `none` with it after
    (`Front end: none (an API)`). A product with both, an API and an admin page, has screens and is written so.
-2. **The job story.** Draft "When …, I want to …, so I can …" and have the user correct it.
+2. **The job story.** Draft "When …, I want to …, so I can …", then ask:
+   "Does this job story say it right, or what would you change?"
    The outcome is a change in their life, not a feature.
 3. **The question it answers.** One line, in the user's words — e.g. for a dog walkers'
    scheduling app: "Where do I need to be tomorrow, and who hasn't paid?" Test it: every feature in the loose PRD
    either serves this question or is marked for later. Show the user that sort.
-4. **Four forces.** Push, pull, anxiety, habit. Push hard on habit: what do they do today,
-   precisely? That is the competitor.
-5. **Non-users.** Who is this deliberately not for?
-6. **Press release and hard questions.** Draft them; the user edits. If the release cannot
-   say why this beats the habit, stop and say so — the idea is not ready.
+4. **Four forces.** Push, pull, anxiety, habit. Push hard on habit; what they do today is the competitor:
+   "What do your users do today instead, step by step?"
+5. **Non-users.** Ask:
+   "Who is this deliberately not for?"
+6. **Press release and hard questions.** Draft them and let the user edit them, then ask:
+   "Does the press release say why this beats what people do today?"
+   If it cannot, stop and say so — the idea is not ready.
 7. **Risks.** List 4–8 assumptions that could kill it, each tagged value / usability /
    feasibility / viability / ethical. Rank by impact × how little evidence exists. Then, for
    each **value** risk, one question per message:
-   1. "Do you test this, or does experience already settle it?"
+   1. "Will you try this out, or does experience already settle it?"
    2. If experience: "Which is it: table stakes, you are the user, or domain expertise?" These
       three, no other. The Result reads `experience: table stakes`, `experience: creator is the
       user` or `experience: domain expertise`.
@@ -60,11 +67,13 @@ Work through, in order:
       risk is not settled; clear the Result and treat it as a test.
 
    For a test, propose the cheapest one — interviews about past behaviour, a concierge run
-   done by hand, a fake door — and ask the user for the **Threshold** before anything runs.
+   done by hand, a fake door — and ask for the **Threshold** before anything runs:
+   "What result would count as passing?"
    Leave Result empty. Never propose a rationale or a refutation: both are the user's words.
 
-Write FRAME.md with `status: draft`. When no placeholder or clarification remains, ask the
-user to confirm, then set `status: framed`.
+Write FRAME.md with `status: draft`. When no placeholder or clarification remains, ask:
+"Is docs/product/FRAME.md right as written, so I can mark it framed?"
+On a yes, set `status: framed`.
 
 ## Phase 2 — Test the risk (`docs/product/evidence/`)
 
@@ -77,7 +86,9 @@ You cannot run interviews; the user can. Produce what they need:
   long;
 - nothing for a risk settled by experience: no interview guide, only its `Wrong if:` line. A
   `Wrong if:` that comes true reopens the risk: clear its Result and test it;
-- the issue that runs the test, once the user agrees to run it: put its number in FRAME's Tracker
+- the issue that runs the test, once the user agrees to run it:
+  "Do you agree to run it, so I can file its tracking issue?"
+  Then put its number in FRAME's Tracker
   column and a `Tracked: #n` line (with `Window:`) in the evidence file. `pnpm status` then shows the
   risk as scheduled, and K1 requires the tracker for every untested value risk once the skeleton is
   active.
@@ -86,8 +97,9 @@ Tell the user plainly: **no milestone past the walking skeleton can start until 
 a Result, is settled by experience with what would prove it wrong written down, or has a decision
 in `decisions.md` to build ahead of it with that decision's id in the risk's Result.** The skeleton may be built in parallel
 with the test. When results come back, record them in FRAME's Result column and in
-`evidence/`; if the threshold was missed, the options are reframe (back to phase 1) or proceed
-anyway with a decision in `decisions.md` that says why.
+`evidence/`; if the threshold was missed, ask:
+"The result missed its threshold. Do you reframe, or proceed anyway and record why in decisions.md?"
+On a reframe, go back to phase 1; on a proceed, write the decision in `decisions.md`.
 
 ## Phase 3 — Shape
 
@@ -104,8 +116,9 @@ anyway with a decision in `decisions.md` that says why.
    missing row is not, because nobody can tell it was dropped on purpose. Never write "handled by
    the features above": name the ID that handles it. With no source document, write
    `Source: none`.
-2. **Week-1 decisions (`decisions.md`).** Walk the entries marked *(week 1)*. For each: decide
-   with the user, or defer it as a `Reopens when:` line in the form status reads, or in prose when no listed event fits, said so. These are the expensive-to-reverse
+2. **Week-1 decisions (`decisions.md`).** Walk the entries marked *(week 1)*. For each, ask:
+   "Which option do you pick for {the choice}, or do you defer it until something specific happens?"
+   On a pick, record it; on a deferral, write it as a `Reopens when:` line in the form status reads, or in prose when no listed event fits, said so. These are the expensive-to-reverse
    choices; do not let one slide into month three. Once D-005–D-008 are decided, rewrite the
    `Stack:` line at the top of `CLAUDE.md` to state the decided stack — agents read it first.
 3. **Story map (PRD §10).** Lay the user's journey left to right as 3–6 activities, taken from
@@ -114,7 +127,9 @@ anyway with a decision in `decisions.md` that says why.
    one activity done fully), the next answers FRAME's question for a handful of real users, the
    next is what it takes to charge or launch. Rank with the written rule — riskiest open
    assumption first, then dependencies, then value — and record why each feature sits on its
-   line. Show the map to the user and let them move features between lines before going on;
+   line. Show the map and ask:
+   "Does each feature sit on the right line, or which should move?"
+   Go on only once they have moved what they want;
    anything below the last line moves to §4 *Out, explicitly*.
 4. **Milestones (`docs/milestones/`).** One per slice line. M1 is always the walking skeleton —
    fill its placeholders with this product's thinnest core path. Every Contents item cites the
@@ -131,20 +146,29 @@ anyway with a decision in `decisions.md` that says why.
    needs to change, change the `summary:` and regenerate.
 
    Fill the PRD's estimates (§9) the same way: a `Capacity: <n>–<m> h/week` line from the user — the total for
-   everyone building, not per person (ask; never guess it) — and one row per milestone with its hours as a range and what they are made of. MS1 warns
+   everyone building, not per person, never a guess:
+   "How many hours a week can everyone building this give, as a range?"
+   And one row per milestone with its hours as a range and what they are made of. MS1 warns
    when a milestone's midpoint is more than its appetite holds (appetite days ÷ 7 × the top of
-   Capacity). Show the user any warning and let them cut scope, lengthen the appetite or
-   re-estimate — do not quietly shrink the estimate to fit.
+   Capacity). Show the user any warning and ask:
+   "Do you cut scope, lengthen the appetite or re-estimate {the milestone}?"
+   Do not quietly shrink the estimate to fit.
 
    **A product with screens** (the frame's `Front end:` line is not `none`): place one design item, a Contents item
    that starts `Design:`, before the first milestone past the skeleton: in an earlier milestone, the skeleton
-   included, or as that milestone's item 1. Ask who or what does the work and what it delivers; offer direction, a
-   component set built to WCAG 2.2 AA and the flows for the screens to come as the usual answer, never as a
-   requirement. Ask its hours and add them to the §9 row of the milestone that holds it, with the share named in Basis
+   included, or as that milestone's item 1. Ask:
+   "Who or what does the design work?"
+   and:
+   "What will the design deliver?"
+   Offer direction, a component set built to WCAG 2.2 AA and the flows for the screens to come as the usual
+   answer, never as a requirement. Ask:
+   "How many hours will the design take, as a range?"
+   Add them to the §9 row of the milestone that holds it, with the share named in Basis
    (`includes design: 12–16 h`). Fill the skeleton's no-go with the milestone and the item number where design lands.
    Write the accessibility line under the Gate of every milestone that builds screens, the skeleton's first, with what
-   holds it (ask: an automated accessibility check in CI, a keyboard and screen-reader pass in `docs/qa/`); a
-   milestone the owner says builds none deletes the line and sets `screens: none`. **A product with no screens**
+   holds it:
+   "What checks accessibility for each screen milestone: an automated check in CI, a keyboard and screen-reader pass in docs/qa/, or both?"
+   A milestone the owner says builds none deletes the line and sets `screens: none`. **A product with no screens**
    (`Front end: none …`): delete the skeleton's design no-go and the accessibility line from every milestone, the
    skeleton's included.
 5. **Readiness gate.** Re-read M1 and M2 as the engineer who must build them. For each slice
@@ -160,6 +184,8 @@ anyway with a decision in `decisions.md` that says why.
    means a BLOCKING question is open; say who must answer it.
 
 ## Hand-off
+
+Before showing or posting, edit against `process/writing.md`.
 
 1. Bump the PRD `Version:` and add a change-log line.
 2. **Set up the adversarial review, then stop.** Copy `docs/reviews/TEMPLATE.md` to
