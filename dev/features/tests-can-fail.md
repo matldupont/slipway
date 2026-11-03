@@ -100,8 +100,8 @@ Reuses:
 - Planned: will run its fixture form in the `meta` script on a green record, as `s1-status.mjs` runs on
   `ci/fixtures/status`, so W1 finds it run with no job of its own.
 - Planned: will read a package's root scripts as W1 does (`ci/checks/meta/w1-declared-vs-invoked.mjs`).
-- Planned: the vendored parser goes in `ci/checks/lib/vendor/`, recorded in its `README.md` table and held by the
-  hash test in `scripts/workflow-yaml.test.mjs`, as `js-yaml.mjs` is.
+- Planned: the vendored parser goes in `ci/checks/lib/vendor/`, recorded in its `README.md` table and held by a
+  hash test, `scripts/mutants.test.mjs`, as `scripts/workflow-yaml.test.mjs` holds `js-yaml.mjs`.
 
 Numbers:
 - How many changes were made to the code a test's file imports, and whether the test failed on one, will be

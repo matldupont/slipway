@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The parser under the tests-can-fail step (dev/features/tests-can-fail.md §2, D-037, #630): the vendored
-// @babel/parser is the release its record says it is, unedited, and the pin fails on a file one byte away.
+// @babel/parser is the release its record says it is, unedited, and the pin fails on a file one byte away. The
+// file is hashed, never run: ci/checks/lib/mutants.mjs is to be the only file that imports it.
 // Build step 2 adds the tests of what ci/checks/lib/mutants.mjs reads with it.
 // Internal: `pnpm meta` runs it in slipway, never in a project.
 
@@ -25,7 +26,7 @@ test('the vendored parser is the pinned release, unedited, with its licence and 
   assert.equal(sha(join(VENDOR, 'babel-parser.LICENSE')), LICENCE);
   const record = readFileSync(join(VENDOR, 'README.md'), 'utf8');
   const section = record.slice(record.indexOf('## @babel/parser'));
-  for (const said of [PARSER, LICENCE, '| Version | 8.0.7,', 'parser-8.0.7.tgz']) assert.ok(section.includes(said), said);
+  for (const said of [PARSER, LICENCE, '| Version | 8.0.7,', 'parser-8.0.7.tgz', 'not taken']) assert.ok(section.includes(said), said);
 });
 
 test('the pin fails on a parser one byte away from the release', () => {
@@ -42,13 +43,4 @@ test('the pin fails on a parser one byte away from the release', () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
-
-test('the parser loads on bare Node and reads TypeScript and JSX', async () => {
-  assertPinned(join(VENDOR, 'babel-parser.mjs')); // an edited parser is never run
-  const { parse } = await import('../ci/checks/lib/vendor/babel-parser.mjs');
-  const ts = parse('export const n: number = 1;', { sourceType: 'module', plugins: ['typescript'] });
-  assert.equal(ts.program.body[0].type, 'ExportNamedDeclaration');
-  const jsx = parse('const a = <b c="d" />;', { sourceType: 'module', plugins: ['jsx'] });
-  assert.equal(jsx.program.body[0].declarations[0].init.type, 'JSXElement');
 });
