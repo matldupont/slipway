@@ -4,8 +4,8 @@ Two third-party files, kept here so the checks read text with nothing installed.
 licence travels with its file.
 
 - `js-yaml.mjs` reads workflow files as YAML (decisions.md, D-033). Its licence is `js-yaml.LICENSE` (MIT).
-- `babel-parser.mjs` reads JavaScript and TypeScript for the tests-can-fail step (decisions.md, D-037;
-  `dev/features/tests-can-fail.md` §2). Its licence is `babel-parser.LICENSE` (MIT).
+- `babel-parser.mjs` reads JavaScript and TypeScript for the tests-can-fail step (decisions.md, D-037). The
+  step's spec is `dev/features/tests-can-fail.md` §2. Its licence is `babel-parser.LICENSE` (MIT).
 
 ## js-yaml
 
@@ -70,7 +70,7 @@ pull request that replaces this file whole, moves the hash and this table, and c
 
 ### Moving the pin
 
-By the rule in D-033, which D-037 applies to this file: to a published release at least 14 days old, with the
-checks above run again, in a pull request that replaces this file whole, moves the hash and this table, and
-changes nothing else. `ci/checks/lib/mutants.mjs` (build step 2 of `dev/features/tests-can-fail.md`) is to be
+By js-yaml's rule (D-033), which the tests-can-fail decision applies here (D-037): only to a release at least 14
+days old, with the checks above run again. That pull request replaces this file whole, moves the hash and this
+table, and changes nothing else. `ci/checks/lib/mutants.mjs` (build step 2 of `dev/features/tests-can-fail.md`) is to be
 the only file that imports the parser.
