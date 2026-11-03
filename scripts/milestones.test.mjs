@@ -153,7 +153,7 @@ test('two check rows whose labels would match say which of them each is, by coun
     assert.equal(r.status, 0, r.stderr);
     const rows = r.stdout.split('\n').filter((l) => /^- \(you or an agent\) #12 · item 1/.test(l)).map((l) => l.replace(/^- \(you or an agent\) /, '').replace(/\. It can start now.*$/, ''));
     assert.deepEqual(rows, ['#12 · item 1 (1 of 2) · 1 owed · staging', '#12 · item 1 (2 of 2) · 1 owed · staging']);
-    assert.doesNotMatch(r.stdout, /other\/repo|inert-/);
+    assert.doesNotMatch(r.stdout, /inert-/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -166,12 +166,12 @@ test('a check row whose item is tracked in another repository says so, with no p
   try {
     cpSync(fixture, root, { recursive: true });
     const file = join(root, 'docs', 'milestones', 'M2-booking.md');
-    writeFileSync(file, readFileSync(file, 'utf8').replace(/## Contents[\s\S]*$/, '## Contents\n\n1. Only (F-01) · other/repo#12\n   Owed: inert-one — staging\n'));
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/## Contents[\s\S]*$/, '## Contents\n\n1. Only (F-01) · other/repo#12\n   Owed: inert-one — staging\n01. Next (F-02) · a/b#99\n   Owed: inert-two — staging\n'));
     const r = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10', CHECK_NOW: '', TZ: 'UTC' } });
     assert.equal(r.status, 0, r.stderr);
     const rows = r.stdout.split('\n').filter((l) => /^- \(you or an agent\) other repo · item 1/.test(l)).map((l) => l.replace(/^- \(you or an agent\) /, '').replace(/\. It can start now.*$/, ''));
-    assert.deepEqual(rows, ['other repo · item 1 · 1 owed · staging']);
-    assert.doesNotMatch(r.stdout, /#12|other\/repo|inert-/);
+    assert.deepEqual(rows, ['other repo · item 1 (1 of 2) · 1 owed · staging', 'other repo · item 1 (2 of 2) · 1 owed · staging']);
+    assert.doesNotMatch(r.stdout, /#12|#99|other\/repo|a\/b|inert-/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

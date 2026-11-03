@@ -401,7 +401,7 @@ const CHECK_DOES = {
   'failed-check': 'Fix the failed check and run it again, or file the bug and name it on its Ran line',
   'unreadable-check': 'Write the unreadable check line as Owed: or Ran:',
 };
-// The label normalises the number, so two items can print alike; each of them
+// The label normalises the number and drops the issue of an item in another repository, so two items can print alike; each of them
 // says which of the same label it is, by count only (never project text).
 const checkItems = (cur ? contents(cur.md) : []).map((item) => ({ item, owes: owing(item) })).filter((c) => c.owes.length);
 // An item whose issue is in another repository prints a fixed token, never a bare #n that reads as this one's.
