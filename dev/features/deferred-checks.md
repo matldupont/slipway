@@ -133,7 +133,8 @@ once what to do and naming the milestone file; one short line per item follows i
   `item {n} · {count} unreadable`, with `#{issue}` first when the item has one
 
 A line ends with the item's environment when it is `staging` or `production`, in that order; any other value is left
-out. An item number that cannot be read prints `item number unreadable`.
+out. An item number that cannot be read prints `item number unreadable`. When two items would print the same
+label, each label ends `(k of N)` after the item number, by count only.
 
 **Status prints no project text from a check line.** Its output enters every session through the hook, and a
 milestone doc is text a pull request can carry. These lines hold only values status validated or computed: the
