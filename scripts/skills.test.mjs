@@ -1208,6 +1208,30 @@ test('docs/milestones/TEMPLATE.md and the M1 skeleton carry a Version: line of t
   assert.ok(template.replace(/\s+/g, ' ').includes("Any edit to `appetite` or > `extended`, or inside Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria below, moves it, in the same > commit. Bookkeeping does not: an item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status`, `summary` and the Retro."), 'the milestone template must say when the line moves');
 });
 
+// #424 (D-044): the skills that edit a milestone's plan move its `Version:` line, and the rule lives once, in process/intake.md.
+test('process/intake.md → Milestone version: what moves the line and what does not, once', () => {
+  const rule = stepOf(intake, 'Milestone version').replace(/\s+/g, ' ');
+  assert.ok(rule.includes("bumps the number and the date. A skill that makes one of those edits"), 'the rule must list what moves the line');
+  assert.ok(rule.includes('edits the milestone\'s `appetite` or its extension (`extended:`), or anything inside its Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria'), 'the rule must list the edits that move it');
+  assert.ok(rule.includes("An item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status:`, `summary:` and the Retro."), 'the rule must name the edits that do not move it');
+  assert.equal(intake.split('## Milestone version').length, 2, 'the rule is stated once');
+  assert.equal(intake.split('Rabbit holes').length, stepOf(intake, 'Milestone version').split('Rabbit holes').length, 'the list of what moves the line is not restated elsewhere in process/intake.md');
+});
+
+test('/log-feature, the order-slot edit and /close-milestone cite the milestone Version rule where they edit a milestone', () => {
+  const cite = '`process/intake.md` → Milestone version';
+  assert.ok(read('.claude/skills/log-feature/SKILL.md').includes("add a Contents item to that milestone citing `(F-{nn})`, and move the milestone's `Version:` line in the same commit (" + cite + ')'), '/log-feature must move the line with a Contents item');
+  assert.ok(read('.claude/skills/log-feature/SKILL.md').includes("add the item to a shaping milestone's Contents, and move that milestone's `Version:` line in the same commit (" + cite + ')'), '/log-feature must move the line on the Later path too');
+  assert.ok(stepOf(intake, 'Ripple').includes("An edit to a milestone's plan moves its `Version:` in the same commit (Milestone version)."), "Ripple's order-slot edit must cite the rule");
+  assert.ok(read('.claude/skills/close-milestone/SKILL.md').includes("with the milestone's `Version:` line moved in the same commit (" + cite + ')'), '/close-milestone must move the line when it writes `extended:`');
+});
+
+test('process/intake.md: the red review check is not worked around for a milestone either', () => {
+  const rule = stepOf(intake, 'Feature doc version').replace(/\s+/g, ' ');
+  assert.ok(rule.includes("both print nothing after the run. A milestone's `Version:` is held to the same rule (Milestone version)."), 'the rule must name a milestone beside the PRD and a feature doc');
+  assert.ok(stepOf(intake, 'Milestone version').replace(/\s+/g, ' ').includes('Never reword the line to turn the check green.'), 'the milestone rule must forbid working around R1');
+});
+
 test('docs/features/TEMPLATE.md carries a Version: line of its own, under the title, and says when it moves', () => {
   const template = read('docs/features/TEMPLATE.md');
   assert.match(template, /^# F-00 — <feature>\n\nVersion: 0\.1 \(<date>\)\n\n/m, 'the feature template must carry `Version: 0.1 (<date>)` as a line of its own under the title');

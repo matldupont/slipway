@@ -1174,6 +1174,8 @@ owner's picks (#404):
 - **A milestone written before the line.** `/review-doc` stops on one and says its owner adds
   `Version: 0.1 (<date>)` in a commit of its own first: a reviewer never edits its target. No check requires the
   line, so a project's existing milestones do not go red on the sync that brings the template (D-036).
+  Amended 2026-11-03: the skills that edit a milestone's plan (/log-feature, Ripple's order slot, /close-milestone) stop
+  the same way when it has no `Version:` line; the owner adds the line in a commit of its own.
 
 Why: a review is current while the line it quotes is in the document, so the line has to move exactly when what
 was reviewed, the bet, has changed. The skills that edit a milestone's Contents do not yet cite this rule; that is
