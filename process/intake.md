@@ -473,9 +473,9 @@ This section applies in slipway itself too.
   list decides.
 - **What does not move it.** An item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status:`, `summary:` and the
   Retro.
-- **R1 goes red, and that is expected,** when a review in `docs/reviews/` quotes the old line. The rule is the one for
-  a feature doc (Feature doc version): never touch `docs/reviews/`, never hold back or undo a bump, never reword the
-  line to turn R1 green; the way out is a fresh `/review-doc` in a session of its own.
+- **The review check goes red, and that is expected,** when a review in `docs/reviews/` quotes the old line. The
+  rule is the one for a feature doc (Feature doc version). Never touch `docs/reviews/`. Never hold back or undo a
+  bump. Never reword the line to turn the check green. The way out is a fresh `/review-doc` in a session of its own.
 
 ## Ripple
 

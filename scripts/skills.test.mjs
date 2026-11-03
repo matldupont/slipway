@@ -1227,7 +1227,7 @@ test('/log-feature, the order-slot edit and /close-milestone cite the milestone 
 test('process/intake.md: the red review check is not worked around for a milestone either', () => {
   const rule = stepOf(intake, 'Feature doc version').replace(/\s+/g, ' ');
   assert.ok(rule.includes("both print nothing after the run. A milestone's `Version:` is held to the same rule (Milestone version)."), 'the rule must name a milestone beside the PRD and a feature doc');
-  assert.ok(stepOf(intake, 'Milestone version').replace(/\s+/g, ' ').includes('never reword the line to turn R1 green'), 'the milestone rule must forbid working around R1');
+  assert.ok(stepOf(intake, 'Milestone version').replace(/\s+/g, ' ').includes('Never reword the line to turn the check green.'), 'the milestone rule must forbid working around R1');
 });
 
 test('docs/features/TEMPLATE.md carries a Version: line of its own, under the title, and says when it moves', () => {
