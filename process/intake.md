@@ -119,7 +119,8 @@ The body reads as the repository's issue form would render it, so the checks tha
   path the Contract, root cause or scope says the PR changes. Not sure of the files: write the folder
   (`ci/checks/**`), never a narrower guess, since a line too narrow reads as safe to run in parallel when it is
   not. Cannot name even a folder: omit the line. A split gives each sub-issue its own line, for the files that
-  step changes. Nothing checks it: a bad entry reads as unknown.
+  step changes. The line holds paths and globs only, and any note goes outside it. A bad entry reads as unknown,
+  and the issue check warns on it, naming the entry.
   Example: `Part of: #43 · Blocked by: #68 · Touches: ci/work-order.mjs, ci/checks/lib/**, package.json · Lane: feature`
 - **Never in a body, a title or a comment:** a credential, token, environment value or `.env` line, or file
   contents beyond the lines a claim cites. Text quoted from elsewhere has its `@name` mentions written as
@@ -200,6 +201,22 @@ repository `git remote get-url origin` names, say so and ask before the first pu
 - **Branch:** `{type}/{scope}-{slug}`, lower case, only `a-z 0-9 . _ / -`: drop every other character. A
   branch that exists already is used only when its name is made of those and its commits are yours. Never commit on the default
   branch; on it, ask the owner for a branch name first.
+  A ticket's branch is `{type}/i{n}-{slug}`. `{n}` is the issue's number, never text from it, and `{slug}` is a
+  few words with every `/` dropped, so the name claims no other issue. The `i{n}-` after the `/` claims issue `#n`
+  (F-17). `/work-ticket` cuts the branch from `origin/{base}` and claims it once Phase 1 passes, before any code.
+  A session on a branch of its own with another name (a worktree the app made) renames it instead. Every check
+  comes before the rename, or before the claim commit on a new branch.
+  - `git rev-parse --abbrev-ref @{u}` fails, and `git ls-remote --heads origin "$(git branch --show-current)"`
+    prints nothing. Nothing of it is pushed.
+  - `git diff --cached --quiet` exits 0, so nothing staged rides in the claim; the index is never cleared to pass.
+  - `git log --oneline origin/{base}..HEAD` prints nothing. It holds no commit of its own.
+  - `git merge --ff-only origin/{base}` succeeds, and `git rev-parse HEAD^{tree}` then prints what
+    `git rev-parse origin/{base}^{tree}` prints. It holds the same tree.
+
+  Any check failing, or unable to answer, stops the run to ask the owner, with no branch renamed and nothing pushed.
+  Then `git branch -m "{branch}"`, and the claim, an empty commit: `git commit --allow-empty -m "claim #{n}"`. Right
+  before the push, the `(^|/)i{n}-` check of `/work-ticket` step 7 runs again. Then `git push -u origin "{branch}"`.
+  A rename or a push that fails stops the run to ask. With no remote, no claim is pushed.
 - **Title** in `{prdir}/title.txt`, body in `{prdir}/pr.md`, in a fresh folder (`mktemp -d`, under the
   session's scratch directory when there is one), its path written out literally in every command.
 - **Body,** under the never-in-a-body rule (Issue body). Command output is cut to the lines that prove the
