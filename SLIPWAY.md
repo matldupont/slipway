@@ -27,14 +27,14 @@ sessions get the same output automatically when they start.
 | **6 · Close the milestone** | you | an afternoon | run `/close-milestone` | a retro from the record, closed GitHub milestone, next bet chosen | a check fails until a closed milestone has its retro; an overrun needs a decision |
 | **7 · Learn** | you | weekly | weekly metrics and user conversations; bets chosen from evidence | [`docs/product/metrics.md`](docs/product/metrics.md) | nothing fires here; then back to 5 with the next milestone |
 
-### 0 · Bootstrap — about an hour
+### 0 · Bootstrap
 
 Follow [`BOOTSTRAP.md`](BOOTSTRAP.md): one script creates the project and its GitHub repository, pushes `main`,
 installs the agent harness, attempts protection and records the outcome; then `/bootstrap` scaffolds the app, fill `AGENT.md`, set the lessons clock, then run the acceptance
 probes. A gate that has never refused anything cannot be told apart from one that is not installed, so each
 probe must be *seen* failing.
 
-### 1 · Frame — an afternoon
+### 1 · Frame
 
 Run `/kickoff` with whatever you have: a PRD, notes, one sentence. It asks one question at a time and
 writes `FRAME.md`: the moment someone reaches for the product, the job story ("When …, I want to …, so I
@@ -46,7 +46,7 @@ kill it. Anything it cannot derive becomes a `[NEEDS CLARIFICATION: …]` marker
 > marketplace become later bets. Riskiest assumption (value): walkers will leave the group texts and notes
 > app they already use.
 
-### 2 · Test the risk — days, no production code
+### 2 · Test the risk
 
 Write the threshold *before* the test, then run the cheapest test that could fail: interviews about past
 behaviour, doing the job by hand for a handful of people, a fake door. Record the Result in FRAME. Missed the
@@ -56,7 +56,7 @@ after it can start until the value risks have Results.
 > *Example.* Run five walkers' schedules by hand in a shared spreadsheet for two weeks. Threshold, written
 > first: at least three keep sending updates unprompted in week two.
 
-### 3 · Shape — a day or two
+### 3 · Shape
 
 `/kickoff` continues: a PRD with stable IDs (features that do not serve the question go to *Out,
 explicitly*); the **week-1 decisions** in `decisions.md` — framework, data model, money and time types,
@@ -71,7 +71,7 @@ as facts, contradictions, sequencing — and writes `docs/reviews/<date>-prd-<ve
 This is not the code review of a pull request (`/work-ticket` runs one), which reads a diff and writes nothing
 here; you want both, at different moments. A substantive revision bumps the PRD version, so it needs a fresh review.
 
-### 4 · Walking skeleton — days
+### 4 · Walking skeleton
 
 Set M1 to `active` with real dates. Build the thinnest version of the core path end to end — sign in, the
 one core action, stored and read back — deployed to production through CI, with analytics and error
@@ -79,7 +79,7 @@ tracking firing, and the code-health gates (dead code, duplication, boundaries) 
 of product code. This is where the week-1 decisions stop being opinions: a stack that cannot carry the
 skeleton is cheap to change now and expensive in month three.
 
-### 5 · Build loop — the rest of the milestone
+### 5 · Build loop
 
 One milestone active at a time (MS1). Take the next slice from its Contents, pick its lane, build it in a
 fresh agent session, prove it, merge it. The Stop hook blocks the first stop of an agent turn while
@@ -98,7 +98,7 @@ evidence, writes the retro from the diff and the issues rather than memory, mark
 closes the GitHub milestone, files lessons, and recommends the next bet. The default at the end of an
 appetite is to **cut scope and close**, not extend; extending takes a decision in `decisions.md`.
 
-### 7 · Learn — after launch, every week
+### 7 · Learn
 
 Log the weekly review in `metrics.md`: signups, activation, retention by cohort, errors, and 3–5
 conversations with users. Confirm or replace the activation hypothesis with real cohorts. Once 40+ people
