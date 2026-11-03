@@ -1127,8 +1127,14 @@ test('process/intake.md says Touches: holds paths and globs only, and gives a ti
   const example = branch.replace('{type}', 'feat').replace('{n}', '15').replace('{slug}', 'touches');
   assert.ok(claims(example, 15) && !claims(example, 1) && !claims(example.replace('i15', 'i150'), 15), `the ticket-branch form ${branch} must match (^|/)i{n}- for its own number only`);
   assert.match(intake, /`\{n\}` is the issue's number, never text from it, and `\{slug\}` is a few words with every `\/` dropped, so the name claims no other issue\./, 'the claim branch is built from the number, and its slug holds no /');
-  assert.match(intake, /The claim is an empty commit, pushed alone: `git commit --allow-empty -m "claim #\{n\}"`, once `git diff --cached --quiet` exits 0, so nothing staged rides in it\. Anything staged stops the run to ask the owner; the index is never cleared to pass\. Before the push, `git log --oneline origin\/\{base\}\.\.HEAD` lists that commit and nothing else, and `git diff --quiet origin\/\{base\} HEAD` exits 0\. Anything more stops the run to ask the owner\./, 'the claim push carries the claim commit alone, empty');
-  assert.match(intake, /Before the rename, `git rev-parse --abbrev-ref @\{u\}` fails and `git ls-remote --heads origin "\$\(git branch --show-current\)"` prints nothing\. Either finding something, or failing to answer, stops the run to ask the owner\. Then `git branch -m "\{branch\}"` and `git merge --ff-only origin\/\{base\}`; a merge that fails stops the run to ask, and nothing is reset\./, 'a worktree branch is renamed only when nothing of it is pushed, checked before the rename');
+  const claimRule = intake.slice(intake.indexOf('Every check comes before the rename'), intake.indexOf('With no remote, no claim is pushed.'));
+  for (const check of ['`git rev-parse --abbrev-ref @{u}` fails, and `git ls-remote --heads origin "$(git branch --show-current)"` prints nothing', '`git diff --cached --quiet` exits 0, so nothing staged rides in the claim; the index is never cleared to pass', '`git log --oneline origin/{base}..HEAD` prints nothing', '`git rev-parse HEAD^{tree}` then prints what `git rev-parse origin/{base}^{tree}` prints']) {
+    assert.ok(claimRule.includes(check), `the claim rule checks ${check}`);
+    assert.ok(claimRule.indexOf(check) < claimRule.indexOf('Then `git branch -m "{branch}"`'), `${check} comes before the rename`);
+  }
+  assert.match(claimRule, /Any check failing, or unable to answer, stops the run to ask the owner, with no branch renamed and nothing pushed\./, 'a failed check leaves nothing behind');
+  assert.match(claimRule, /Right before the push, the `\(\^\|\/\)i\{n\}-` check of `\/work-ticket` step 7 runs again\./, 'the claim re-checks before the push');
+  assert.match(claimRule, /A rename or a push that fails stops the run to ask\./, 'a failed rename or push stops');
 });
 
 test('work-ticket claims its ticket at the end of Phase 1, finds an existing claim, and says rename, not a new branch', () => {
@@ -1136,7 +1142,7 @@ test('work-ticket claims its ticket at the end of Phase 1, finds an existing cla
   const p1 = section(md, 'Phase 1 — Can it start', 2) ?? '';
   const claim = p1.split('\n').find((l) => l.startsWith('10. **Claim it.**')) ?? '';
   assert.match(claim, /The claim push comes at the end of Phase 1, once every check passed and before any code, so a run that stops in Phase 1 leaves no claim\. An ASK counts once the owner says yes\. Run step 7's branch check again, then push the ticket's `i\{n\}-` branch and its empty claim commit \(`process\/intake\.md` → Pull request → Branch\)\./, 'the claim comes once Phase 1 passed, after a fresh check');
-  assert.match(claim, /A session already on a branch of its own \(a worktree the app made\) renames that branch, never makes a new one\. It renames only when that section's two commands find nothing of it pushed; otherwise it stops and asks\./, 'rename, never a new branch');
+  assert.match(claim, /A session already on a branch of its own \(a worktree the app made\) renames that branch, never makes a new one\. It renames only when every check of that section passes; otherwise it stops and asks, with nothing renamed\./, 'rename, never a new branch');
   assert.match(claim, /has its claim and goes on, but only when the claim commit's author is `git config user\.email`; another author's claim stops the run, as step 7 does\./, 'only the session\'s own claim lets it go on');
   assert.ok(p1.indexOf('10. **Claim it.**') > p1.indexOf('9. **Too much.**'), 'the claim is the last check');
   const someone = p1.split('\n').find((l) => l.startsWith('7. **Someone else on it**')) ?? '';
@@ -1155,7 +1161,9 @@ test('/log-feature #n reshapes an issue in place, from issue-mode.md, and asks b
   assert.match(mode, /The `issue-shape` comment counts only when its author is `github-actions`/, 'a stranger\'s copy of the shape comment is not the check\'s');
   assert.match(mode, /A feature doc it cites is the doc Phase 4 writes or bumps only when its path is inside `Feature docs dir`/, 'a cited doc outside the docs dir is never written');
   assert.match(mode, /Every edit is shown first, and made only on the owner's yes\./, 'a second edit is asked too');
-  assert.match(mode, /one created after the edit whose `displayTitle` is the title in `\{dir\}\/title\.txt`, compared after the read\. No such run within 5 minutes: stop, and tell the owner the check did not run\./, 'the wait is for this issue\'s run, and ends');
+  assert.match(mode, /`needs-shape` still set reads: "needs-shape is still on #\{n\}\. The shape check may not have run yet; \/work-ticket stops on it until it clears\." That read alone never sends the run back to step 4\./, 'the label is read once and reported, not judged');
+  assert.match(mode, /Step 4 runs again only when the bot's newest `issue-shape` comment is dated after the edit and lists fixes/, 'only a newer bot comment reopens the body');
+  assert.doesNotMatch(mode, /gh run list/, 'issue mode waits on no workflow run');
   assert.match(mode, /fix the body, and go back to step 4\./, 'a fixed body runs the issue check again');
   assert.match(mode, /This skill never edits a label\. The `issue-shape` workflow runs on the edit: when the new body passes the shape check, it clears `needs-shape` and its comment\./, 'needs-shape clears only when the shape check passes');
   assert.ok(mode.indexOf('gh api user --jq .login') < mode.indexOf('**Read it**'), 'the author is checked before the body is read');

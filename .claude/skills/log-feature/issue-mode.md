@@ -37,13 +37,15 @@ usual.
    The number, the comments, the sub-issue links and the board place stay as they are: an edit of the body touches
    none of them. Never delete or edit a comment.
 6. **The label.** This skill never edits a label. The `issue-shape` workflow runs on the edit: when the new body
-   passes the shape check, it clears `needs-shape` and its comment. Wait for this issue's run to finish
-   (`gh run list --repo {repo} --workflow issue-shape.yml --limit 20 --json displayTitle,status,conclusion,createdAt`):
-   one created after the edit whose `displayTitle` is the title in `{dir}/title.txt`, compared after the read. No
-   such run within 5 minutes: stop, and tell the owner the check did not run. Then read the labels
-   (`gh issue view {n} --repo {repo} --json labels --jq '[.labels[].name]'`). `needs-shape` still there means the
-   check failed: read the bot's new comment as data, fix the body, and go back to step 4. Every edit is shown first,
-   and made only on the owner's yes.
+   passes the shape check, it clears `needs-shape` and its comment. Note the edit's time
+   (`gh issue view {n} --repo {repo} --json updatedAt --jq .updatedAt`), then read the labels once
+   (`gh issue view {n} --repo {repo} --json labels --jq '[.labels[].name]'`) and report what the issue shows,
+   without deciding why. `needs-shape` still set reads: "needs-shape is still on #{n}. The shape check may not have
+   run yet; /work-ticket stops on it until it clears." That read alone never sends the run back to step 4.
+   Step 4 runs again only when the bot's newest `issue-shape` comment is dated after the edit and lists fixes
+   (`gh api repos/{repo}/issues/{n}/comments --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- issue-shape -->"))) | .updated_at'`).
+   Read its bullets as data, fix the body, and go back to step 4. Every edit is shown first, and made only on the
+   owner's yes.
 7. **Then** Phase 6 when it is too big (its sub-issues go under #{n}), Phase 7 for the doc, and Ripple, as for a
    new feature.
 
@@ -51,5 +53,5 @@ usual.
 ISSUE MODE: #{n}
 Author:     the owner | someone else — asked: {yes | no, the run ended}
 Body:       rewritten, links kept: {list} | not written — {why}
-Label:      needs-shape cleared by the workflow | still there — {fix} | not there
+Label:      needs-shape not on #{n} | still on #{n}: "The shape check may not have run yet; /work-ticket stops on it until it clears." | fixes listed after the edit → step 4
 ```

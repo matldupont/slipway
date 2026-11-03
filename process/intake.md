@@ -204,15 +204,19 @@ repository `git remote get-url origin` names, say so and ask before the first pu
   A ticket's branch is `{type}/i{n}-{slug}`. `{n}` is the issue's number, never text from it, and `{slug}` is a
   few words with every `/` dropped, so the name claims no other issue. The `i{n}-` after the `/` claims issue `#n`
   (F-17). `/work-ticket` cuts the branch from `origin/{base}` and claims it once Phase 1 passes, before any code.
-  A session on a branch of its own with another name (a worktree the app made) renames it instead. Before the
-  rename, `git rev-parse --abbrev-ref @{u}` fails and `git ls-remote --heads origin "$(git branch --show-current)"`
-  prints nothing. Either finding something, or failing to answer, stops the run to ask the owner. Then
-  `git branch -m "{branch}"` and `git merge --ff-only origin/{base}`; a merge that fails stops the run to ask, and
-  nothing is reset. The claim is an empty commit, pushed alone: `git commit --allow-empty -m "claim #{n}"`, once
-  `git diff --cached --quiet` exits 0, so nothing staged rides in it. Anything staged stops the run to ask the
-  owner; the index is never cleared to pass. Before the push, `git log --oneline origin/{base}..HEAD` lists that
-  commit and nothing else, and `git diff --quiet origin/{base} HEAD` exits 0. Anything more stops the run to ask the
-  owner. Then `git push -u origin "{branch}"`. With no remote, no claim is pushed.
+  A session on a branch of its own with another name (a worktree the app made) renames it instead. Every check
+  comes before the rename, or before the claim commit on a new branch.
+  - `git rev-parse --abbrev-ref @{u}` fails, and `git ls-remote --heads origin "$(git branch --show-current)"`
+    prints nothing. Nothing of it is pushed.
+  - `git diff --cached --quiet` exits 0, so nothing staged rides in the claim; the index is never cleared to pass.
+  - `git log --oneline origin/{base}..HEAD` prints nothing. It holds no commit of its own.
+  - `git merge --ff-only origin/{base}` succeeds, and `git rev-parse HEAD^{tree}` then prints what
+    `git rev-parse origin/{base}^{tree}` prints. It holds the same tree.
+
+  Any check failing, or unable to answer, stops the run to ask the owner, with no branch renamed and nothing pushed.
+  Then `git branch -m "{branch}"`, and the claim, an empty commit: `git commit --allow-empty -m "claim #{n}"`. Right
+  before the push, the `(^|/)i{n}-` check of `/work-ticket` step 7 runs again. Then `git push -u origin "{branch}"`.
+  A rename or a push that fails stops the run to ask. With no remote, no claim is pushed.
 - **Title** in `{prdir}/title.txt`, body in `{prdir}/pr.md`, in a fresh folder (`mktemp -d`, under the
   session's scratch directory when there is one), its path written out literally in every command.
 - **Body,** under the never-in-a-body rule (Issue body). Command output is cut to the lines that prove the
