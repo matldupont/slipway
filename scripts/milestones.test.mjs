@@ -147,7 +147,7 @@ test('two check rows whose labels would match say which of them each is, by coun
   try {
     cpSync(fixture, root, { recursive: true });
     const file = join(root, 'docs', 'milestones', 'M2-booking.md');
-    const contents = '## Contents\n\n1. First (F-01) · #12\n   Owed: inert-one — staging\n01. Second (F-02) · other/repo#12\n   Owed: inert-two — staging\n';
+    const contents = '## Contents\n\n1. First (F-01) · #12\n   Owed: inert-one — staging\n2. Between (F-03) · #13\n   Owed: inert-mid — staging\n01. Second (F-02) · other/repo#12\n   Owed: inert-two — staging\n';
     writeFileSync(file, readFileSync(file, 'utf8').replace(/## Contents[\s\S]*$/, contents));
     const r = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10', CHECK_NOW: '', TZ: 'UTC' } });
     assert.equal(r.status, 0, r.stderr);
