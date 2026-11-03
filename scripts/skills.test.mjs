@@ -18,7 +18,7 @@ import { gateGlobs, gateTouched, GUARD_GLOBS, SETTINGS as HARNESS_SETTINGS } fro
 import { PLACEHOLDER } from '../ci/checks/lib/frontmatter.mjs';
 import { plain, section, table } from '../ci/checks/lib/markdown.mjs';
 import { classify, parseOwnership } from '../ci/checks/lib/ownership.mjs';
-import { followUpConfirmed } from '../ci/checks/lib/issue-body.mjs';
+import { followUpConfirmed, touches } from '../ci/checks/lib/issue-body.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(SRC, p), 'utf8');
@@ -1085,7 +1085,7 @@ test('I1 warns on a Touches: line holding a note in words, names the entry, and 
   };
   const note = run('ci/a.mjs, the status files (see #539), scripts/b.mjs');
   assert.equal(note.code, 0, `a Touches: warning must not change I1's exit code:\n${note.out}`);
-  assert.match(note.out, /Warning: the Touches: entry `the status files \(see #539\)` is not a path or glob/, `the warning names the first entry that breaks the rule:\n${note.out}`);
+  assert.match(note.out, /Warning: the Touches: entry `the status files \(see #539\)` is not a path or glob, so the line reads as unknown\n  Fix: keep paths and globs only, and put any note outside the line/, `the warning names the first entry that breaks the rule:\n${note.out}`);
   assert.match(note.out, /a\.md#touches\/unreadable/, 'the warning has its id');
   const hostile = run('ci/a.mjs, ##[error]x');
   assert.equal(hostile.code, 0);
@@ -1094,6 +1094,27 @@ test('I1 warns on a Touches: line holding a note in words, names the entry, and 
   assert.match(many.out, /more than 30 entries/, 'past 30 entries the warning says so');
   const clean = run('ci/a.mjs, `ci/checks/**`, scripts/b.mjs');
   assert.doesNotMatch(clean.out, /touches\/unreadable/, `a readable line gives no warning:\n${clean.out}`);
+});
+
+// touches() and touchesBreak() share one rule now (#540); what touches() returns is pinned to what it returned on
+// main before the split, input by input.
+test('touches() reads each Touches: line exactly as before touchesBreak() shared its rule', () => {
+  const body = (links) => `### Links\n\n${links}\n`;
+  const many = Array.from({ length: 31 }, (_, i) => `ci/f${i}.mjs`).join(', ');
+  const thirty = Array.from({ length: 30 }, (_, i) => `ci/f${i}.mjs`);
+  const cases = [
+    ['Part of: #1 · Touches: ci/a.mjs, `ci/checks/**` · Lane: bounded', ['ci/a.mjs', 'ci/checks/**']],
+    ['Part of: #1 · Lane: bounded', null],
+    ['Part of: #1 · Touches: · Lane: bounded', null],
+    ['Touches: ci/../a.mjs', null],
+    ['Touches: /etc/a', null],
+    ['Touches: ci/a.mjs, the status files', null],
+    [`Touches: ${many}`, null],
+    [`Touches: ${thirty.join(', ')}`, thirty],
+    [`Touches: ci/${'a'.repeat(121)}`, null],
+  ];
+  for (const [links, want] of cases) assert.deepEqual(touches(body(links)), want, links.slice(0, 60));
+  assert.equal(touches('no links section'), null);
 });
 
 test('process/intake.md says Touches: holds paths and globs only, and gives a ticket-branch form that claims #n', () => {

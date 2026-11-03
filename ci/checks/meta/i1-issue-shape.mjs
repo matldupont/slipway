@@ -276,7 +276,7 @@ for (const f of bodies) {
     warnings.push({ where: `${f}#designation/trailer`, detail: 'the last line starts `Per `: the designation block is the code block alone, with no sentence after it (process/intake.md → Issue body)' });
   }
   const broke = touchesBreak(md);
-  if (broke) warnings.push({ where: `${f}#touches/unreadable`, detail: broke.tooMany ? `the Touches: line has more than ${broke.tooMany} entries, so it reads as unknown: name a folder instead (process/intake.md → Issue body)` : `the Touches: entry ${codeSpan(excerpt(broke.entry))} is not a path or glob, so the line reads as unknown: keep paths and globs only, and put any note outside the line (process/intake.md → Issue body)` });
+  if (broke) warnings.push({ where: `${f}#touches/unreadable`, detail: broke.tooMany ? `the Touches: line has more than ${broke.tooMany} entries, so it reads as unknown` : `the Touches: entry ${codeSpan(excerpt(broke.entry))} is not a path or glob, so the line reads as unknown`, fix: broke.tooMany ? 'name a folder in place of the files (process/intake.md → Issue body)' : 'keep paths and globs only, and put any note outside the line (process/intake.md → Issue body)' });
 
   const links = section(md, 'Links', 3);
   if (links && LANE_FEATURE.test(links)) {
