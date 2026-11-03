@@ -23,8 +23,13 @@ export const CAP = 3;
 export const OFFLINE = 'Status did not read open pull requests, so check them for the same files first.';
 
 // A leaf's number and a milestone id go into commands a session runs, so only whole numbers and `M<n>` ids are used.
+// The limit is wider than status's itemNumber (four digits): that one guards a Contents item's number, which status prints
+// and passes as shape.n; a leaf's number is an issue number, and a repository's run past 9999.
 const WHOLE = (n) => Number.isSafeInteger(n) && n > 0 && n <= 999_999_999;
 const MID = new RegExp(`^${MILESTONE_ID}$`);
+
+// A file set is an array, or unknown (null): anything else is unknown, since overlap() would throw on it (F-17 §3 rule 2).
+const known = (f) => (Array.isArray(f) ? f : null);
 
 const leafThing = (l) => ({
   kind: 'leaf',
@@ -33,7 +38,7 @@ const leafThing = (l) => ({
   text: `Start #${l.n} in a fresh session with /work-ticket ${l.n}. It is ready, and it shares no file with work in progress.`,
   blocks: { rank: 1, words: 'the active milestone closing', date: null },
   waits: null,
-  files: l.touches ?? null,
+  files: known(l.touches),
   n: l.n,
 });
 
@@ -68,17 +73,18 @@ export function plan({ main, owed = [], leaves = [], inProgress = [], shape = nu
 
   const busy = ownerBusy(main.who);
   const taken = [];
-  const used = [main.files ?? null, ...inProgress];
+  const used = [known(main.files), ...(Array.isArray(inProgress) ? inProgress : []).map(known)];
   let owner = false;
   for (const { t, role } of candidates) {
     if (1 + taken.length >= CAP) break;
     // Unknown files are refused here and again by overlap(), which treats null as meeting everything.
-    if (!clear(t) || t.files === null || t.files === undefined) continue;
+    const files = known(t.files);
+    if (!clear(t) || files === null) continue;
     // [] overlaps nothing, even beside unknown files (§3 rule 3).
-    if (!(Array.isArray(t.files) && t.files.length === 0) && used.some((f) => overlap(t.files, f))) continue;
+    if (files.length > 0 && used.some((f) => overlap(files, f))) continue;
     if (ownerWork(t.who) && (busy || owner)) continue;
     taken.push({ t, role });
-    used.push(t.files);
+    used.push(files);
     if (ownerWork(t.who)) owner = true;
   }
 

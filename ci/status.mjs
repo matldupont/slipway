@@ -271,10 +271,14 @@ const riskBlocks = pastSkeletonUnderway.length
   : `blocks ${blockedByRisk.length ? `${idList(ms.filter((m) => blockedByRisk.includes(m.id)), MID, 'a milestone')} activation` : 'every milestone past the skeleton'}`;
 // A milestone id is printed only in the shape the skills accept; any other is said in words.
 const milestoneRef = (m, fallback) => (MID.test(String(m.id)) ? m.id : fallback);
+// What an untested value risk holds back, in words: the `It blocks` words of its owed thing and of the sentence below.
+const riskBlockedWords = pastSkeletonUnderway.length
+  ? 'the checks, which stay red until it has a result'
+  : `${blockedByRisk.length ? `${idList(ms.filter((m) => blockedByRisk.includes(m.id)), MID, 'a milestone')} activation` : 'every milestone past the skeleton'}`;
 // What an untested value risk holds back, as a sentence; a milestone id is printed only in the shape the skills accept.
 const riskBlocksSentence = pastSkeletonUnderway.length
   ? `${idList(pastSkeletonUnderway, MID, 'A milestone')} ${pastSkeletonUnderway.length > 1 ? 'are' : 'is'} underway with it untested, so the checks stay red until it has a result${pastSkeletonUnderway.some((m) => m.status === 'active') ? ', or until its test runs in a \`kind: test\` milestone (the owner\'s call, D-047)' : ''}.`
-  : `It blocks ${blockedByRisk.length ? `${idList(ms.filter((m) => blockedByRisk.includes(m.id)), MID, 'a milestone')} activation` : 'every milestone past the skeleton'}.`;
+  : `It blocks ${riskBlockedWords}.`;
 // An existential risk — any category, so K1's value gate may not cover it — whose test the PRD schedules
 // after the first milestone past the skeleton starts, or at no milestone at all. A warning, not a K1
 // finding: "existential" is the owner's word, and building ahead of it on purpose is a recorded decision.
@@ -530,7 +534,7 @@ if (frame === 'framed' && !cur) {
     also.push(owe('skeleton', { key: `skeleton:${skel.file}`, files }, `Activate the walking skeleton (${milestoneRef(skel, 'the skeleton milestone')}) and build it in parallel. An untested value risk does not block it.${first}`));
   }
 }
-if (cur && untestedValue.length) also.push(owe('risk-test', {}, `Test the untested value risks (${idList(untestedValue, RID, 'the risks')}). ${riskBlocksSentence}`));
+if (cur && untestedValue.length) also.push(owe('risk-test', { words: riskBlockedWords }, `Test the untested value risks (${idList(untestedValue, RID, 'the risks')}). ${riskBlocksSentence}`));
 if (prd && !prdReviews.length && (frame === 'framed' || prdStatus !== 'draft')) {
   also.push(owe('prd-review', { key: 'prd-review:also' }, `Run /review-doc docs/PRD.md. The PRD ${prdAt('at ', 'at ?')} has no adversarial review, and it needs one before Status: approved.`));
 }
