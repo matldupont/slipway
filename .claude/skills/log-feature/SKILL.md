@@ -165,7 +165,7 @@ summary}), or a later milestone?" With no active milestone, name the one being s
 - **Now:** add a Contents item to that milestone citing `(F-{nn})`, and move the milestone's `Version:` line in the same commit (`process/intake.md` → Milestone version). That changes the current bet: say so, and
   name what it displaces. If it breaks one of the milestone's no-gos, the owner picks: amend the no-go (same
   commit, with why), or schedule it later.
-- **Later:** add the item to a shaping milestone's Contents. None exists: create one from the milestone
+- **Later:** add the item to a shaping milestone's Contents, and move that milestone's `Version:` line in the same commit (`process/intake.md` → Milestone version). None exists: create one from the milestone
   template (`TEMPLATE.md` beside the milestones) with the next free `id:`, `status: shaping` and a one-line
   `summary:`, and add its row to the PRD's milestones table (§10), its one-line cell copied from `summary:`.
 - **Not scheduled:** that is a DEFER, as in Phase 2: stop and file nothing. No id is taken: title the doc and set `prd-ref:` to `F-??`,

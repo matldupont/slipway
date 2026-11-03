@@ -1215,12 +1215,14 @@ test('process/intake.md → Milestone version: what moves the line and what does
   assert.ok(rule.includes('edits the milestone\'s `appetite` or its extension (`extended:`), or anything inside its Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria'), 'the rule must list the edits that move it');
   assert.ok(rule.includes("An item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status:`, `summary:` and the Retro."), 'the rule must name the edits that do not move it');
   assert.equal(intake.split('## Milestone version').length, 2, 'the rule is stated once');
+  assert.equal(intake.split('Rabbit holes').length, stepOf(intake, 'Milestone version').split('Rabbit holes').length, 'the list of what moves the line is not restated elsewhere in process/intake.md');
 });
 
 test('/log-feature, the order-slot edit and /close-milestone cite the milestone Version rule where they edit a milestone', () => {
   const cite = '`process/intake.md` → Milestone version';
   assert.ok(read('.claude/skills/log-feature/SKILL.md').includes("add a Contents item to that milestone citing `(F-{nn})`, and move the milestone's `Version:` line in the same commit (" + cite + ')'), '/log-feature must move the line with a Contents item');
-  assert.ok(intake.replace(/\s+/g, ' ').includes('moves its `Version:` in the same commit (Milestone version); a started marker, `Owed:` or `Ran:` line does not.'), "Ripple's order-slot edit must cite the rule");
+  assert.ok(read('.claude/skills/log-feature/SKILL.md').includes("add the item to a shaping milestone's Contents, and move that milestone's `Version:` line in the same commit (" + cite + ')'), '/log-feature must move the line on the Later path too');
+  assert.ok(stepOf(intake, 'Ripple').includes("An edit to a milestone's plan moves its `Version:` in the same commit (Milestone version)."), "Ripple's order-slot edit must cite the rule");
   assert.ok(read('.claude/skills/close-milestone/SKILL.md').includes("with the milestone's `Version:` line moved in the same commit (" + cite + ')'), '/close-milestone must move the line when it writes `extended:`');
 });
 

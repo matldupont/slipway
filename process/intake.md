@@ -476,6 +476,10 @@ This section applies in slipway itself too.
 - **The review check goes red, and that is expected,** when a review in `docs/reviews/` quotes the old line. The
   rule is the one for a feature doc (Feature doc version). Never touch `docs/reviews/`. Never hold back or undo a
   bump. Never reword the line to turn the check green. The way out is a fresh `/review-doc` in a session of its own.
+- **A milestone with no line.** Its owner adds `Version: 0.1 ({date})` in a commit of its own (D-044). A skill that
+  would move the line says so to the owner and leaves it.
+- **Owed review.** Only a feature doc's pull request is held as a draft for its review. For a milestone, tell the owner
+  that its earlier review no longer matches, as for a feature doc.
 
 ## Ripple
 
@@ -576,7 +580,7 @@ Only the confirmed rows. For each, and stop at the first `gh` command that exits
    ```
 
 A milestone doc is edited on the working branch, never on the default branch; on the default branch, list the
-edit for the owner instead. An edit that changes its `appetite`, `extended:`, Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria moves its `Version:` in the same commit (Milestone version); a started marker, `Owed:` or `Ran:` line does not. End with the rows applied and the rows declined, by number.
+edit for the owner instead. An edit to a milestone's plan moves its `Version:` in the same commit (Milestone version). End with the rows applied and the rows declined, by number.
 
 ### 6 — No hits
 
