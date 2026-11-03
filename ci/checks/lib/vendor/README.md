@@ -49,7 +49,7 @@ pull request that replaces this file whole, moves the hash and this table, and c
 | | |
 |---|---|
 | Package | `@babel/parser`, from registry.npmjs.org |
-| Version | 8.0.7, published 2026-10-07. Fetched 2026-11-03, when the registry's `latest` was 8.1.0 (published 2026-11-02); 8.1.0, 8.0.10 (2026-10-29) and 8.0.8 (2026-10-23) were under 14 days old: not taken |
+| Version | 8.0.7, published 2026-10-07. Fetched 2026-11-03, when the registry's `latest` was 8.1.0 (published 2026-11-02); 8.1.0, 8.0.10 (2026-10-29) and 8.0.8 (2026-10-23) were under 14 days old: not taken. The 7.x line's later releases (7.29.11, 7.29.12) are older code and were not considered |
 | Tarball | `https://registry.npmjs.org/@babel/parser/-/parser-8.0.7.tgz` |
 | Tarball integrity | `sha512-UkDwEbPO1px2JQSrdh4qIgaH1JgG7GO/pFeJkpxhDxIETkT/QvGpnigXIw75ViHYPtIgKITmVUJqLjiO+JuWjA==`, equal to the registry's |
 | File kept | `package/lib/index.js` → `babel-parser.mjs`, 481,458 bytes. The package is `"type": "module"`, so the file is an ES module as published |
@@ -65,12 +65,14 @@ pull request that replaces this file whole, moves the hash and this table, and c
   constructor, `globalThis`, `process`, `fetch`, timer or `node:` module in it. Its one `export` line gives
   `getColumn`, `getLine`, `parse`, `parseExpression` and `tokTypes`. The package lists `@babel/types` as a
   dependency; the file never imports it, so nothing else is vendored.
-- **Not checked:** the provenance statement's signature, and the built file against its source. The statement
-  names a commit on `main`, not the tag's commit, and that difference was not traced.
+- The provenance statement names a commit on `main`, `c2e6b07`. The tag's commit, `1fc0073`, has it as its only
+  parent and changes only the version lines of the packages' `package.json` files: the release bump.
+- **Not checked:** the provenance statement's signature, and the built file against its source.
 
 ### Moving the pin
 
 By js-yaml's rule (D-033), which the tests-can-fail decision applies here (D-037): only to a release at least 14
 days old, with the checks above run again. That pull request replaces this file whole, moves the hash and this
-table, and changes nothing else. `ci/checks/lib/mutants.mjs` (build step 2 of `dev/features/tests-can-fail.md`) is to be
+table, and changes nothing else. No test checks a release's age: `scripts/mutants.test.mjs` holds the file to the
+version this table records, and the review of that pull request checks the dates against the registry. `ci/checks/lib/mutants.mjs` (build step 2 of `dev/features/tests-can-fail.md`) is to be
 the only file that imports the parser.

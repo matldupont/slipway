@@ -45,6 +45,7 @@ test('the pin fails on a parser one byte away from the release', () => {
 });
 
 test('the parser loads on bare Node and reads TypeScript and JSX', async () => {
+  assertPinned(join(VENDOR, 'babel-parser.mjs')); // an edited parser is never run
   const { parse } = await import('../ci/checks/lib/vendor/babel-parser.mjs');
   const ts = parse('export const n: number = 1;', { sourceType: 'module', plugins: ['typescript'] });
   assert.equal(ts.program.body[0].type, 'ExportNamedDeclaration');
