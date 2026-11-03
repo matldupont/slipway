@@ -42,11 +42,24 @@ export function blockers(body) {
 
 // `Touches:` in `### Links`: the entries, or null (unknown) when the line is missing, empty, or any entry breaks the
 // rules: path characters only, no `..`, no leading `/`. Backticks are ignored.
-export function touches(body) {
+function touchesEntries(body) {
   const text = segment(section(body, 'Links', 3) ?? '', 'Touches');
-  if (!text) return null;
-  const entries = text.split(',').map((e) => e.replace(/`/g, '').trim());
-  return entries.length <= TOUCHES_MAX && entries.every((e) => e.length <= ENTRY_MAX && ENTRY.test(e) && !e.includes('..') && !e.startsWith('/')) ? entries : null;
+  return text ? text.split(',').map((e) => e.replace(/`/g, '').trim()) : null;
+}
+const unreadable = (e) => e.length > ENTRY_MAX || !ENTRY.test(e) || e.includes('..') || e.startsWith('/');
+export function touches(body) {
+  const entries = touchesEntries(body);
+  return entries && entries.length <= TOUCHES_MAX && !entries.some(unreadable) ? entries : null;
+}
+
+// Why `touches()` reads a present line as unknown, for I1's warning (F-17): `{ tooMany: 30 }` past 30 entries, else
+// `{ entry }`, the first entry that breaks the rules, as written. null when the line is readable, missing or empty.
+export function touchesBreak(body) {
+  const entries = touchesEntries(body);
+  if (!entries) return null;
+  if (entries.length > TOUCHES_MAX) return { tooMany: TOUCHES_MAX };
+  const entry = entries.find(unreadable);
+  return entry === undefined ? null : { entry };
 }
 
 // Two entries overlap when one's key (its text up to the first `*`) is a prefix of the other's: a false overlap is

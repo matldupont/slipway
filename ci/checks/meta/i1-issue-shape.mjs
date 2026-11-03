@@ -14,6 +14,7 @@
 //   seams/unenumerated          a Seams line that is not `<label>: <detail>` (or the one `none: <reason>` line)
 //   designation/trailer         (warning) the body's last non-empty line starts `Per `: a sentence after the
 //                               designation block, which the block is without (`process/intake.md` → Issue body)
+//   touches/unreadable          (warning) a `Touches:` entry `touches()` cannot read, named; the line reads as unknown
 //   contract/missing            Links says Lane: feature, no Contract section
 //   contract/link-only          Contract has fewer than 8 non-link words — nothing copied in
 //   verify/missing              Links says Lane: feature, no Verify section
@@ -75,7 +76,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isNoResponse, plain, section, sectionLines } from '../lib/markdown.mjs';
-import { report } from '../lib/report.mjs';
+import { touchesBreak } from '../lib/issue-body.mjs';
+import { codeSpan, excerpt, report } from '../lib/report.mjs';
 
 const SEAMS_SHAPE = 'write one line per seam, `who pays: …` (a label, a colon, then what), in a list; or the one line `none: <one line of why>`';
 // What GitHub does not show, and what it does (CommonMark's open-tag grammar: an attribute is a name and an optional
@@ -273,6 +275,8 @@ for (const f of bodies) {
   if (/^Per /.test(last)) {
     warnings.push({ where: `${f}#designation/trailer`, detail: 'the last line starts `Per `: the designation block is the code block alone, with no sentence after it (process/intake.md → Issue body)' });
   }
+  const broke = touchesBreak(md);
+  if (broke) warnings.push({ where: `${f}#touches/unreadable`, detail: broke.tooMany ? `the Touches: line has more than ${broke.tooMany} entries, so it reads as unknown: name a folder instead (process/intake.md → Issue body)` : `the Touches: entry ${codeSpan(excerpt(broke.entry))} is not a path or glob, so the line reads as unknown: keep paths and globs only, and put any note outside the line (process/intake.md → Issue body)` });
 
   const links = section(md, 'Links', 3);
   if (links && LANE_FEATURE.test(links)) {
@@ -287,13 +291,10 @@ for (const f of bodies) {
   }
 }
 
-process.exit(
-  report({
-    id: 'I1',
-    claim: 'every issue has acceptance criteria that are not bare adjectives, an answered seams question, and — for Lane: feature — a Contract and Verify copied in',
-    scanned: bodies.length,
-    unit: 'issue bodies',
-    findings,
-    warnings,
-  })
-);
+process.exit(report({
+  id: 'I1',
+  claim: 'every issue has acceptance criteria that are not bare adjectives, an answered seams question, and — for Lane: feature — a Contract and Verify copied in',
+  scanned: bodies.length,
+  unit: 'issue bodies',
+  findings, warnings,
+}));

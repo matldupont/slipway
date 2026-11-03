@@ -9,9 +9,8 @@ Intake for **new** work. The output is a feature that survived an argument again
 doc an implementer can build from without re-asking anything, an issue that embeds that doc's contract, and a
 short list of edits to existing work it changes, applied only where the owner says yes.
 
-`/log-feature`, or `/log-feature a way to export a month's bookings as CSV`: a description in the same
-message is Phase 1's input. Otherwise ask what they want to build and what problem it solves.
-`/log-feature M1#2` shapes item 2 of the active milestone's Contents: `process/intake.md` → Milestone item.
+`/log-feature`, or `/log-feature a way to export a month's bookings as CSV`: a description in the same message is Phase 1's input. Otherwise ask what they want to build and what problem it solves.
+`/log-feature M1#2` shapes item 2 of the active milestone's Contents: `process/intake.md` → Milestone item. `/log-feature #7` reshapes issue #7 in place, a `needs-shape` one most often: `issue-mode.md`, beside this file.
 
 Already framed (an epic's slice, a deferred item, cleanup): `/log-followup`. Something broken: `/log-bug`.
 
