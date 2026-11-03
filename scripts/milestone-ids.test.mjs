@@ -73,7 +73,7 @@ test('status: an active M1.1 is named in Next and its owed checks; the table lis
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /Start item 2 of M1\.1 in a fresh session with \/log-feature M1\.1#2\./);
     assert.match(r.stdout, /^- Owed checks \(docs\/milestones\/M1\.1-booking\.md\):/m);
-    assert.match(r.stdout, /^- #12 · item 1 · 1 owed · staging$/m);
+    assert.match(r.stdout, /^- \(you or an agent\) #12 · item 1 · 1 owed · staging\. It can start/m);
     const table = r.stdout.split('\n').filter((l) => /^\| M/.test(l)).map((l) => l.split('|')[1].trim());
     assert.deepEqual(table, ['M1', 'M1.1', 'M2', 'M10']);
   } finally {

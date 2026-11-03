@@ -4,6 +4,6 @@
   "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD with an unusual Version: line is reviewed (prd-review.md) and still a draft."
+    "(you) Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD with an unusual Version: line is reviewed (prd-review.md) and still a draft. It can start now, after the steps above. It blocks the PRD's approval, which the next milestone needs. It waits on nothing."
   ]
 }

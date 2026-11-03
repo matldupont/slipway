@@ -105,13 +105,13 @@ const header = ['# Adversarial review — PRD 0.3.0', '', 'Reviewed: docs/PRD.md
 test('status says a register cannot be read, and still exits 0', () => {
   const r = statusWith([...header, '| Thing | Level |', '|---|---|', '| a | S1 |'].join('\n'));
   assert.equal(r.code, 0);
-  assert.ok(r.out.includes('- Review register in prd-review.md cannot be read'), r.out);
+  assert.ok(r.out.includes('Review register in prd-review.md cannot be read'), r.out);
 });
 
 test('status prints a finding id inside quotes with its quote and control characters gone', () => {
   const r = statusWith([...header, ...FULL, '| AR-1"\u202e\u001b[31m | a | S0 | o | | |'].join('\n'));
   assert.equal(r.code, 0);
-  assert.ok(r.out.includes('- Review finding "AR-1\'[31m" (S0) in prd-review.md has no tracker\n'), r.out);
+  assert.ok(r.out.includes('Review finding "AR-1\'[31m" (S0) in prd-review.md has no tracker.'), r.out);
 });
 
 test('status counts the register by severity on the Where things stand list', () => {
@@ -123,28 +123,28 @@ test('status counts the register by severity on the Where things stand list', ()
 
 test('status says how many severities it could not read, prints no register line for an empty register, and caps its lines', () => {
   const skipped = statusWith([...header, ...FULL, '| AR-1 | a | high | o | | |', '| AR-2 | b | S2 | o | | #1 |'].join('\n'));
-  assert.ok(skipped.out.includes('- Review register in prd-review.md has 1 finding(s) whose severity reads none of S0 to S3'), skipped.out);
+  assert.ok(skipped.out.includes('Review register in prd-review.md has 1 finding(s) whose severity reads none of S0 to S3'), skipped.out);
   const empty = statusWith([...header, ...FULL].join('\n'));
   assert.equal(empty.code, 0);
   assert.ok(!empty.out.includes('Review register'), empty.out);
   const many = statusWith([...header, ...FULL, ...Array.from({ length: 500 }, (_, n) => `| AR-${n} | a | S0 | o | | |`)].join('\n'));
   assert.equal(many.code, 0);
-  assert.equal(many.out.split('\n').filter((l) => l.startsWith('- Review finding')).length, 20);
-  assert.ok(many.out.includes('- Review registers: 480 more line(s) not listed, 480 of them S0 or blocking a milestone'), many.out);
+  assert.equal(many.out.split('\n').filter((l) => /^- (\([^)]*\) )?Review finding/.test(l)).length, 20);
+  assert.ok(many.out.includes('Review registers: 480 more line(s) not listed, 480 of them S0 or blocking a milestone'), many.out);
 });
 
 test('findings that block a milestone come first, then S0, and what is left out is counted', () => {
   const rows = [...Array.from({ length: 25 }, (_, n) => `| AR-${n} | a | S1 | o | | |`), '| AR-90 | b | S0 | o | | |', '| AR-91 | c | S1 | o | M1 | |'];
   const r = statusWith([...header, ...FULL, ...rows].join('\n'));
-  const lines = r.out.split('\n').filter((l) => l.startsWith('- Review finding'));
+  const lines = r.out.split('\n').filter((l) => /^- (\([^)]*\) )?Review finding/.test(l));
   assert.equal(lines.length, 20);
   assert.ok(lines[0].includes('"AR-91" (S1)') && lines[0].includes('blocks M1 (active)'), lines[0]);
   assert.ok(lines[1].includes('"AR-90" (S0)'), lines[1]);
-  assert.ok(r.out.includes('- Review registers: 7 more line(s) not listed - fix the ones above first'.replace(' - ', ' — ')), r.out);
+  assert.ok(r.out.includes('Review registers: 7 more line(s) not listed - fix the ones above first'.replace(' - ', ' — ')), r.out);
 });
 
 test('status survives more Needs attention lines than one function call can take', () => {
   const r = statusWith([...header, ...FULL].join('\n'), { 'docs/questions.md': '[NEEDS CLARIFICATION: q]\n'.repeat(140000) });
   assert.equal(r.code, 0);
-  assert.ok(r.out.split('\n').filter((l) => l.startsWith('- Open question')).length >= 140000);
+  assert.ok(r.out.split('\n').filter((l) => /^- (\([^)]*\) )?Open question/.test(l)).length >= 140000);
 });

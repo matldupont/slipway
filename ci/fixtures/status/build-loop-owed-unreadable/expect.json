@@ -1,21 +1,19 @@
 {
   "_note": "Check lines of the active milestone whose text is hostile (F-09): an address, an address split by a zero-width space, an instruction-shaped sentence, a line hidden behind a zero-width joiner, a forgotten indent, a line under an item with no issue. Status prints no project text from a check line: only the item, its issue, a count, a validated date and the file, so nothing in these lines (each carries a SENTINEL word) reaches the output; scripts/milestones.test.mjs asserts that on this case. Item 1 has two unreadable lines, item 3 two failed runs, item 4 two owed checks: one line each, with a count. The lines sit after the open question and before the parked one. Every item with a marker is still started, so Next names item 5.",
   "today": "2026-03-10",
-  "next": "Start item 5 of M2 in a fresh session with /log-feature M2#5. It reads \"Reminders go out the night before (F-05)\". Agent, one issue per session.",
+  "next": "Start item 5 of M2 in a fresh session with /log-feature M2#5. It reads \"Reminders go out the night before (F-05)\". You and an agent, one issue per session.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "Open question: docs/milestones/M2-booking.md:12 — \"which walkers first?\"",
+    "(you) Open question: docs/milestones/M2-booking.md:12 — \"which walkers first?\". It blocks nothing status tracks. It waits on nothing.",
     "Owed checks (docs/milestones/M2-booking.md): run each, comment the result on its issue, then change Owed to Ran with that comment's link. An item's issue stays open until then; reopen it if it was closed.",
-    "#15 · item 4 · 2 owed · staging",
+    "(you or an agent) #15 · item 4 · 2 owed · staging. It can start now, after the steps above. It blocks the active milestone closing. It waits on nothing.",
     "Failed checks (docs/milestones/M2-booking.md): fix and run each again, file the bug and name it on the Ran line, or, when the owner accepts the result, remove its line in a pull request that records that decision.",
-    "#14 · item 3 · 2 failed (2026-03-09, 2026-03-08) · staging",
+    "(you or an agent) #14 · item 3 · 2 failed (2026-03-09, 2026-03-08) · staging. It can start now, after the steps above. It blocks the active milestone closing. It waits on nothing.",
     "Unreadable check lines (docs/milestones/M2-booking.md): each counts as owed. Write it as Owed: or Ran:.",
-    "#12 · item 1 · 2 unreadable",
-    "#13 · item 2 · 1 unreadable",
-    "item 5 · 1 unreadable",
-    "Parked: docs/milestones/M2-booking.md:13 — \"reminders by text or email\" (#9)"
+    "(you or an agent) #12 · item 1 · 2 unreadable. It can start now, after the steps above. It blocks the active milestone closing. It waits on nothing.",
+    "(you or an agent) #13 · item 2 · 1 unreadable. It can start now, after the steps above. It blocks the active milestone closing. It waits on nothing.",
+    "(you or an agent) item 5 · 1 unreadable. It can start now, after the steps above. It blocks the active milestone closing. It waits on nothing.",
+    "Parked: docs/milestones/M2-booking.md:13 — \"reminders by text or email\" — nothing to do now. It blocks nothing status tracks. It waits on #9."
   ],
-  "also": [
-    "(you) Answer the 1 open question(s) below, or park each with an assumption, the cost if wrong, and a tracker."
-  ]
+  "parallel": []
 }

@@ -4,13 +4,13 @@
   "next": "Activate one of M2, or shape a new bet. Set its appetite dates when it goes active. You, an afternoon.",
   "frame": "framed · risks: RISK-1 tested",
   "steps": [
-    "Step 0 · Bootstrap: done",
-    "Step 1 · Frame: done",
-    "Step 2 · Test the risk: in hand",
-    "Step 3 · Shape: done",
-    "Step 4 · Walking skeleton: done",
-    "Step 5 · Build loop: waiting",
-    "Step 6 · Close the milestone: each milestone",
-    "Step 7 · Learn: each milestone"
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: in hand. Yours. It blocks every milestone past the skeleton. It waits on nothing.",
+    "Step 3 · Shape: done.",
+    "Step 4 · Walking skeleton: done.",
+    "Step 5 · Build loop: waiting. Agent. It blocks the active milestone closing. It waits on the value risks' results.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
   ]
 }

@@ -9,10 +9,11 @@
     "| M3 | unusual |  |  | docs/milestones/M3-later.md |"
   ],
   "attention": [
-    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
-    "(you) Run /review-doc docs/features/F-1-booking.md in a fresh session. F-1 at 0.1 has no review of that version. Its build tickets wait on that review.",
-    "(you) Run /review-doc docs/features/F-2-long.md in a fresh session. Its feature at 0.1 has no review of that version. Its build tickets wait on that review.",
-    "docs/milestones/M2-booking.md has an id: line that is not text, so status skips it: write it as id: M<n>",
-    "Review the lesson in process/lessons/PL-2-object.md by 2026-03-20."
+    "(you) Test the untested value risks (RISK-2, RISK-3). It can start now, after the steps above. It blocks every milestone past the skeleton. It waits on nothing.",
+    "(you or an agent) File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md. It can start now, after the steps above. It blocks the checks, once a milestone past the skeleton is underway. It waits on nothing.",
+    "(fresh session) Run /review-doc docs/features/F-1-booking.md in a fresh session. F-1 at 0.1 has no review of that version. It can start now, after the steps above. It blocks the feature's build tickets. It waits on nothing.",
+    "(fresh session) Run /review-doc docs/features/F-2-long.md in a fresh session. Its feature at 0.1 has no review of that version. It can start now, after the steps above. It blocks the feature's build tickets. It waits on nothing.",
+    "(you) docs/milestones/M2-booking.md has an id: line that is not text, so status skips it: write it as id: M<n>. It blocks nothing status tracks. It waits on nothing.",
+    "(you) Review the lesson in process/lessons/PL-2-object.md by 2026-03-20. It can start now, after the steps above. It blocks its date. It waits on nothing."
   ]
 }

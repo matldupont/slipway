@@ -5,7 +5,8 @@
   "next": "Pick the next slice from M1's Contents. Then size the process it needs (process/slipway-rules.md#Lanes). Agent, days.",
   "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
   "attention": [
-    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
-    "Review the lesson in process/lessons/PL-1-texts.md by 2026-03-20."
+    "(you) Test the untested value risks (RISK-2, RISK-3). It can start now, after the steps above. It blocks M2 activation. It waits on nothing.",
+    "(you or an agent) File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md. It can start now, after the steps above. It blocks the checks, once a milestone past the skeleton is underway. It waits on nothing.",
+    "(you) Review the lesson in process/lessons/PL-1-texts.md by 2026-03-20. It can start now, after the steps above. It blocks its date. It waits on nothing."
   ]
 }

@@ -11,6 +11,7 @@
     "| unusual | shaping | bet | 2026-03-15..2026-03-28 | docs/milestones/M2-booking.md |"
   ],
   "attention": [
-    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+    "(you) Test the untested value risks (RISK-2, RISK-3). It can start now, after the steps above. It blocks a milestone activation. It waits on nothing.",
+    "(you or an agent) File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md. It can start now, after the steps above. It blocks the checks, once a milestone past the skeleton is underway. It waits on nothing."
   ]
 }

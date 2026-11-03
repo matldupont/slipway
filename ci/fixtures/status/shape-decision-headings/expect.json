@@ -6,9 +6,10 @@
   "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
   "maxMs": 5000,
   "attention": [
-    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
-    "(you) Decide \"a long id\" (open since week 2)",
-    "(you) Answer \"Which walkers first?\" (PD-9, open since week 3)",
-    "(you) Decide \"A long week\" (PD-10, open)"
+    "(you) Test the untested value risks (RISK-2, RISK-3). It can start now, after the steps above. It blocks M2 activation. It waits on nothing.",
+    "(you or an agent) File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md. It can start now, after the steps above. It blocks the checks, once a milestone past the skeleton is underway. It waits on nothing.",
+    "(you) Decide \"a long id\" (open since week 2). It blocks nothing status tracks. It waits on nothing.",
+    "(you) Answer \"Which walkers first?\" (PD-9, open since week 3). It blocks nothing status tracks. It waits on nothing.",
+    "(you) Decide \"A long week\" (PD-10, open). It blocks nothing status tracks. It waits on nothing."
   ]
 }

@@ -1,0 +1,23 @@
+{
+  "_note": "F-17 §4: the skeleton shaping is the main step (an agent's), M2 shaping, every value risk tested, and an existential risk the PRD resolves at M3: the owner's test of it is offered beside the skeleton, naming M2 going active, with the offline sentence.",
+  "today": "2026-03-10",
+  "next": "Activate M1 with real appetite dates and status active. Then build its first slice. Agent, days.",
+  "frame": "framed · risks: RISK-1 tested, RISK-2 untested",
+  "steps": [
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: done.",
+    "Step 3 · Shape: done.",
+    "Step 4 · Walking skeleton: not started. Agent. It blocks nothing status tracks. It waits on nothing.",
+    "Step 5 · Build loop: not started. Agent. It blocks the active milestone closing. It waits on nothing.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
+  ],
+  "attention": [
+    "nothing"
+  ],
+  "parallel": [
+    "(fresh session) Run /review-doc docs/PRD.md in a fresh session. PRD 1.0.0 has no adversarial review, and it needs one before it leaves draft. Status did not read open pull requests, so check them for the same files first. It blocks the PRD's approval, which a milestone needs. It waits on nothing.",
+    "(you) Existential risk: RISK-2 is existential and untested, and resolves \"before M3\", after M2 starts: schedule its test before M2, or record a decision in decisions.md to build ahead (cost if wrong, and what reopens it) and put its id in RISK-2's Result. Status did not read open pull requests, so check them for the same files first. It blocks the first bet (M2) going active. It waits on nothing."
+  ]
+}
