@@ -4,7 +4,9 @@
   "next": "Shape the next bet from docs/product/metrics.md. No milestone is active or shaped. You, weekly.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "(you) Run /review-doc docs/features/tips.md in a fresh session. F-9 has no Version: line, so no review can name its version: add Version: 0.1 first. Its build tickets wait on that review.",
-    "(you) Run /review-doc docs/features/walks.md in a fresh session. F-7 at 0.2 has no review of that version. Its build tickets wait on that review."
+    "(fresh session) Run /review-doc docs/features/walks.md in a fresh session. F-7 at 0.2 has no review of that version. It can start now, after the steps above. It blocks the feature's build tickets. It waits on nothing."
+  ],
+  "parallel": [
+    "(fresh session) Run /review-doc docs/features/tips.md in a fresh session. F-9 has no Version: line, so no review can name its version: add Version: 0.1 first. Status did not read open pull requests, so check them for the same files first. It blocks the feature's build tickets. It waits on nothing."
   ]
 }

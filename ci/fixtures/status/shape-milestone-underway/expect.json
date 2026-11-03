@@ -10,6 +10,7 @@
     "| unusual | closed | bet | 2026-02-01..2026-02-14 | docs/milestones/M0-earlier.md |"
   ],
   "attention": [
-    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+    "(you) Test the untested value risks (RISK-2, RISK-3). M1 and 1 more are underway with it untested, so the checks stay red until it has a result, or until its test runs in a `kind: test` milestone (the owner's call, D-047). It can start now, after the steps above. It blocks the checks, which stay red until it has a result. It waits on nothing.",
+    "(you or an agent) File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md. It can start now, after the steps above. It blocks the checks, once a milestone past the skeleton is underway. It waits on nothing."
   ]
 }

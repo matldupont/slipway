@@ -8,7 +8,8 @@
     "- PRD: in a status status cannot name with an unusual Version: line · review: none for this version · open questions: one with an unusual id"
   ],
   "attention": [
-    "Run /review-doc docs/PRD.md in a fresh session. PRD with an unusual Version: line has no adversarial review, and it needs one before it leaves draft.",
-    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md."
+    "(fresh session) Run /review-doc docs/PRD.md in a fresh session. PRD with an unusual Version: line has no adversarial review, and it needs one before it leaves draft. It can start now, after the steps above. It blocks the PRD's approval, which a milestone needs. It waits on nothing.",
+    "(you) Test the untested value risks (RISK-2, RISK-3). It can start now, after the steps above. It blocks M2 activation. It waits on nothing.",
+    "(you or an agent) File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md. It can start now, after the steps above. It blocks the checks, once a milestone past the skeleton is underway. It waits on nothing."
   ]
 }

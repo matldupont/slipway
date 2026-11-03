@@ -4,14 +4,14 @@
   "next": "Run /bootstrap. It fills the 3 settings AGENT.md still needs (Product name, Issue repo, Timezone). You and an agent, 1 to 2 hours.",
   "frame": "draft · risks: RISK-1 untested (no tracker) · blocks every milestone past the skeleton",
   "steps": [
-    "Step 0 · Bootstrap: in hand",
-    "Step 1 · Frame: in hand",
-    "Step 2 · Test the risk: not started",
-    "Step 3 · Shape: in hand",
-    "Step 4 · Walking skeleton: not started",
-    "Step 5 · Build loop: waiting",
-    "Step 6 · Close the milestone: each milestone",
-    "Step 7 · Learn: each milestone"
+    "Step 0 · Bootstrap: in hand. You and an agent. It blocks every other step. It waits on nothing.",
+    "Step 1 · Frame: in hand. You. It blocks the PRD and every milestone. It waits on nothing.",
+    "Step 2 · Test the risk: not started. Yours. It blocks every milestone past the skeleton. It waits on nothing.",
+    "Step 3 · Shape: in hand. You. It blocks a milestone going active. It waits on nothing.",
+    "Step 4 · Walking skeleton: not started. Agent. It blocks nothing status tracks. It waits on nothing.",
+    "Step 5 · Build loop: waiting. Agent. It blocks the active milestone closing. It waits on the value risks' results.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
   ],
   "attention": [
     "nothing"

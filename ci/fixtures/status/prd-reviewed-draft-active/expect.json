@@ -1,9 +1,9 @@
 {
   "_note": "#375. The same reviewed draft PRD with the walking skeleton active: Next is the skeleton's slice and Needs attention keeps the approval line.",
   "today": "2026-03-10",
-  "next": "Start item 1 of M1 in a fresh session with /log-feature M1#1. It reads \"Deploy a hello page (no feature: skeleton)\". Agent, days.",
+  "next": "Start item 1 of M1 in a fresh session with /log-feature M1#1. It reads \"Deploy a hello page (no feature: skeleton)\". You and an agent, one issue per session.",
   "frame": "framed · risks: RISK-1 tested",
   "attention": [
-    "Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0 is reviewed (prd-review.md) and still a draft."
+    "(you) Resolve the review's findings in docs/PRD.md, then set Status: approved. PRD 0.3.0 is reviewed (prd-review.md) and still a draft. It can start now, after the steps above. It blocks the PRD's approval, which the next milestone needs. It waits on nothing."
   ]
 }

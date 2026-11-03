@@ -1,0 +1,23 @@
+{
+  "_note": "F-17 §4: the skeleton shaping beside an untested value risk (the owner's main step): activating the skeleton is offered for an agent.",
+  "today": "2026-03-10",
+  "next": "Test RISK-1, \"Walkers will leave group texts\" with real people. Nothing past the skeleton can start until every value risk has a result in docs/product/evidence/. An agent prepares the materials. Yours, days to weeks.",
+  "frame": "framed · risks: RISK-1 untested (no tracker) · blocks M2 activation",
+  "steps": [
+    "Step 0 · Bootstrap: done.",
+    "Step 1 · Frame: done.",
+    "Step 2 · Test the risk: not started. Yours. It blocks M2 activation. It waits on nothing.",
+    "Step 3 · Shape: not started. You. It blocks a milestone going active. It waits on nothing.",
+    "Step 4 · Walking skeleton: not started. Agent. It blocks nothing status tracks. It waits on nothing.",
+    "Step 5 · Build loop: waiting. Agent. It blocks the active milestone closing. It waits on the value risks' results.",
+    "Step 6 · Close the milestone: each milestone. You.",
+    "Step 7 · Learn: each milestone. You."
+  ],
+  "attention": [
+    "(you) To build ahead of the risk (RISK-1), record a decision with the cost if wrong and what reopens it, and put its id in the risk's Result; or run its test in a `kind: test` milestone (the owner's call, D-047). It blocks nothing: it is a choice, not owed. It waits on nothing.",
+    "(you or an agent) File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md. It can start now, after the steps above. It blocks the checks, once a milestone past the skeleton is underway. It waits on nothing."
+  ],
+  "parallel": [
+    "(agent) Activate the walking skeleton (M1) and build it in parallel. An untested value risk does not block it. Then name where RISK-1 is being tested, in the Tracker column of docs/product/FRAME.md. Status did not read open pull requests, so check them for the same files first. It blocks the skeleton milestone, which every later milestone builds on. It waits on nothing."
+  ]
+}

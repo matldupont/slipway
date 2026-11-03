@@ -145,8 +145,14 @@ test('a closed skeleton with a value risk still open reads step 4 done, step 2 n
   assert.deepEqual([s[2], s[4], s[5]], ['in hand', 'done', 'waiting']);
 });
 
-test('a step line carries the number, the name and the state', () => {
-  assert.equal(stepLines(base)[6], '- Step 6 · Close the milestone: each milestone');
+test('a step line carries the number, the name and the state, and who acts, what it blocks and what it waits on (F-17 §4)', () => {
+  const lines = stepLines({ ...base, bootstrapped: false, riskBlocks: 'every milestone past the skeleton' });
+  assert.equal(lines[6], '- Step 6 · Close the milestone: each milestone. You.');
+  assert.equal(lines[0], '- Step 0 · Bootstrap: in hand. You and an agent. It blocks every other step. It waits on nothing.');
+  assert.equal(lines[2], '- Step 2 · Test the risk: not started. Yours. It blocks every milestone past the skeleton. It waits on nothing.');
+  const waiting = stepLines({ ...base, frame: 'framed', valueRisks: 1, settled: 0, riskBlocks: 'x' });
+  assert.equal(waiting[5], "- Step 5 · Build loop: waiting. Agent. It blocks the active milestone closing. It waits on the value risks' results.");
+  assert.equal(stepLines({ ...base, frame: 'framed', riskBlocks: 'x' })[1], '- Step 1 · Frame: done.');
 });
 
 test('a risk is settled exactly when K1 raises no finding on its Result', () => {

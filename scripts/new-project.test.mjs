@@ -686,8 +686,8 @@ test('status in a project notes slipway\'s lesson past its date and asks for no 
   const dest = join(tmp(), 'probe');
   newProject(SRC, dest, { SLIPWAY_SOURCE: '' });
   const status = (day) => spawnSync(process.execPath, [join(dest, 'ci', 'status.mjs'), dest], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: day } });
-  const note = /^- slipway's L-71 passed its review date; a sync brings the reviewed one\.$/m;
-  const review = /^- Review the lesson \(L-71\)/m;
+  const note = /^- \(you\) slipway's L-71 passed its review date; a sync brings the reviewed one\./m;
+  const review = /^- \(you\) Review the lesson \(L-71\)/m;
   for (const [day, noted] of [['2027-04-01', false], ['2027-04-13', false], ['2027-04-14', true], ['2027-06-01', true]]) {
     const r = status(day);
     assert.equal(r.status, 0, r.stdout + r.stderr);
@@ -697,12 +697,12 @@ test('status in a project notes slipway\'s lesson past its date and asks for no 
   // An overrides file reached through a link: status follows none, so no lesson is slipway's and L-71 is asked for as before.
   writeFileSync(join(dest, 'kept.yaml'), 'overrides: []\n');
   symlinkSync(join(dest, 'kept.yaml'), join(dest, '.slipway', 'overrides.yaml'));
-  assert.match(status('2027-04-14').stdout, /^- Review the lesson \(L-71\) by 2027-04-14\.$/m, 'a linked overrides file was read');
+  assert.match(status('2027-04-14').stdout, /^- \(you\) Review the lesson \(L-71\) by 2027-04-14\./m, 'a linked overrides file was read');
   unlinkSync(join(dest, '.slipway', 'overrides.yaml'));
   assert.match(status('2027-04-14').stdout, note);
   appendFileSync(join(dest, 'process', 'lessons', 'L-71-word-lists-are-a-snapshot.md'), '\nedited\n');
   const r = status('2027-04-14');
-  assert.match(r.stdout, /^- Review the lesson \(L-71\) by 2027-04-14\.$/m);
+  assert.match(r.stdout, /^- \(you\) Review the lesson \(L-71\) by 2027-04-14\./m);
   assert.doesNotMatch(r.stdout, note);
 });
 
@@ -782,15 +782,15 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
 
   // Status reads the same answer, and says when the file cannot be read.
   const status = (day) => spawnSync(process.execPath, [join(dest, 'ci', 'status.mjs'), dest], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: day } });
-  assert.match(status('2026-12-20').stdout, /^- Review the lesson \(L-04\) by 2026-12-30\.$/m);
+  assert.match(status('2026-12-20').stdout, /^- \(you\) Review the lesson \(L-04\) by 2026-12-30\./m);
   answer(line('L-04', '2026-12-20'));
   assert.doesNotMatch(status('2026-12-20').stdout, /Review the lesson \(L-04\)/);
-  assert.match(status('2027-03-10').stdout, /^- Review the lesson \(L-04\) by 2027-03-20\.$/m);
+  assert.match(status('2027-03-10').stdout, /^- \(you\) Review the lesson \(L-04\) by 2027-03-20\./m);
   answer('  - lesson: L-04\n    oops\n');
   const s = status('2026-12-20');
   assert.equal(s.status, 0, s.stderr);
-  assert.match(s.stdout, /^- process\/lesson-reviews\.yaml cannot be read at line 3, so no review in it counts: pnpm meta's L1 names the problem\.$/m, 'status quoted the project\'s line');
-  assert.match(s.stdout, /^- Review the lesson \(L-04\) by 2026-12-30\.$/m, 'an unreadable file answered the review in status');
+  assert.match(s.stdout, /^- \(you\) process\/lesson-reviews\.yaml cannot be read at line 3, so no review in it counts: pnpm meta's L1 names the problem\./m, 'status quoted the project\'s line');
+  assert.match(s.stdout, /^- \(you\) Review the lesson \(L-04\) by 2026-12-30\./m, 'an unreadable file answered the review in status');
 });
 
 // #554, round 1: slipway's own copy is the one every project starts from, so in slipway L1 fails any entry in it, and a

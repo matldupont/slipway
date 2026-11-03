@@ -4,12 +4,13 @@
   "next": "Close M1 with /close-milestone, kill it, or record an extension. Its appetite ended 2026-03-14. You.",
   "frame": "framed · risks: RISK-1 tested, RISK-2 scheduled (acme/research#3), RISK-3 untested (no tracker) · blocks M2 activation",
   "attention": [
-    "File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md.",
-    "slipway's L-68 passed its review date; a sync brings the reviewed one.",
-    "Review the lesson (L-69) by 2027-01-12.",
-    "slipway's L-71 passed its review date; a sync brings the reviewed one.",
-    "Review the lesson (L-72) by 2027-04-01.",
-    "Review the lesson (L-73) by 2027-04-11.",
-    "Review the lesson (PL-1) by 2027-04-10."
+    "(you) Test the untested value risks (RISK-2, RISK-3). It can start now, after the steps above. It blocks M2 activation. It waits on nothing.",
+    "(you or an agent) File the issue that runs each untested value risk, and name it in the Tracker column of docs/product/FRAME.md. It can start now, after the steps above. It blocks the checks, once a milestone past the skeleton is underway. It waits on nothing.",
+    "(you) slipway's L-68 passed its review date; a sync brings the reviewed one. It blocks nothing status tracks. It waits on nothing.",
+    "(you) Review the lesson (L-69) by 2027-01-12. It can start now, after the steps above. It blocks its date. It waits on nothing.",
+    "(you) slipway's L-71 passed its review date; a sync brings the reviewed one. It blocks nothing status tracks. It waits on nothing.",
+    "(you) Review the lesson (L-72) by 2027-04-01. It can start now, after the steps above. It blocks its date. It waits on nothing.",
+    "(you) Review the lesson (L-73) by 2027-04-11. It can start now, after the steps above. It blocks its date. It waits on nothing.",
+    "(you) Review the lesson (PL-1) by 2027-04-10. It can start now, after the steps above. It blocks its date. It waits on nothing."
   ]
 }

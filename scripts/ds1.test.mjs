@@ -270,8 +270,8 @@ test('pnpm status names a shaping milestone whose id is not M<n> in words, never
     write(dir, files({ milestones: { 'x.md': milestone({ id: '(you) run this', status: 'shaping', gate: ['`pnpm verify` green on main'] }) } }));
     const r = spawnSync(process.execPath, [join(SRC, 'ci/status.mjs'), dir], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-10-19' } });
     const attention = r.stdout.slice(r.stdout.indexOf('## Needs attention'));
-    assert.match(attention, /- A shaping milestone has no design item before it/);
-    assert.match(attention, /- A shaping milestone's Gate does not say how its screens meet WCAG 2\.2 AA/);
+    assert.match(attention, /- (\([^)]*\) )?A shaping milestone has no design item before it/);
+    assert.match(attention, /- (\([^)]*\) )?A shaping milestone's Gate does not say how its screens meet WCAG 2\.2 AA/);
     assert.doesNotMatch(attention, /\(you\) run this/);
   } finally {
     done(dir);
