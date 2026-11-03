@@ -50,11 +50,14 @@ jobs:
             --description 'Issue needs shaping: acceptance or seams missing' || label_status=$?
           gh issue edit "$NUMBER" --repo "$REPO" --add-label needs-shape || label_status=$?
           # The findings come from the report's @@json line, whole: each is a bullet with its detail and its Fix line.
-          # A control, bidi or separator character a project's text carried is shown as a space, so no field can
-          # start a line of the comment.
-          grep -m1 '^@@json ' "$RUNNER_TEMP/issue/report.txt" | sed 's/^@@json //' | jq -r '
-            .findings[] | "- " + (.detail | gsub("[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]"; " "))
-              + (if .fix then "\n  Fix: " + (.fix | gsub("[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]"; " ")) else "" end)' > "$RUNNER_TEMP/issue/findings.txt" || true
+          # Each field goes through the checkout's own escapeControl (the default branch, on an issues event), so a
+          # control, bidi, tag or other hidden character the issue carried is shown as \uXXXX, as report() shows it.
+          grep -m1 '^@@json ' "$RUNNER_TEMP/issue/report.txt" | sed 's/^@@json //' | node --input-type=module -e '
+            import { escapeControl } from "./ci/checks/lib/report.mjs";
+            let json = "";
+            for await (const chunk of process.stdin) json += chunk;
+            for (const f of JSON.parse(json).findings) console.log(`- ${escapeControl(f.detail)}` + (f.fix ? `\n  Fix: ${escapeControl(f.fix)}` : ""));
+          ' > "$RUNNER_TEMP/issue/findings.txt" || true
           [ -s "$RUNNER_TEMP/issue/findings.txt" ] || exit "$label_status"
           {
             echo '<!-- issue-shape -->'

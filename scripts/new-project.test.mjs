@@ -305,7 +305,7 @@ test('issue-shape: a repository without the needs-shape label still labels the i
     mkdirSync(bin);
     writeFileSync(join(dir, 'labels'), '');
     writeFileSync(join(dir, 'calls'), '');
-    writeFileSync(join(dir, 'issue', 'report.txt'), `Acceptance is missing.\n  Fix: add an Acceptance section.\n  I1 · body#acceptance\n@@json ${JSON.stringify({ findings: [{ id: 'I1', where: 'body#acceptance', detail: 'Acceptance is missing.', fix: 'add an Acceptance section.' }] })}\n`);
+    writeFileSync(join(dir, 'issue', 'report.txt'), `Acceptance is missing.\n  Fix: add an Acceptance section.\n  I1 · body#acceptance\n@@json ${JSON.stringify({ findings: [{ id: 'I1', where: 'body#acceptance', detail: 'Acceptance is missing.', fix: 'add an Acceptance section.' }, { id: 'I1', where: 'body#hidden', detail: 'Hidden \u{e0041}\u061c text.', fix: 'remove it.' }] })}\n`);
     writeFileSync(join(bin, 'gh'), [
       '#!/bin/sh',
       'echo "$*" >> "$FAKE/calls"',
@@ -319,6 +319,7 @@ test('issue-shape: a repository without the needs-shape label still labels the i
     ].join('\n'), { mode: 0o755 });
     const r = spawnSync('bash', ['-e', '-c', script], {
       encoding: 'utf8',
+      cwd: SRC,
       env: { ...process.env, PATH: `${bin}${delimiter}${process.env.PATH}`, FAKE: dir, RUNNER_TEMP: dir, REPO: 'o/r', NUMBER: '7', GH_TOKEN: 'x', LABEL_FAIL: labelCallsFail ? '1' : '' },
     });
     const calls = readFileSync(join(dir, 'calls'), 'utf8');
@@ -330,6 +331,8 @@ test('issue-shape: a repository without the needs-shape label still labels the i
   assert.match(missing.labels, /^needs-shape\nadded\n$/);
   assert.match(missing.calls, /^issue comment 7 .*--body-file /m, 'the comment is posted');
   assert.match(missing.comment, /^- Acceptance is missing\.\n  Fix: add an Acceptance section\.\n/m, 'one bullet per finding: its detail, then its Fix line, read from the @@json line');
+  assert.ok(missing.comment.includes('- Hidden \\udb40\\udc41\\u061c text.\n  Fix: remove it.'), 'a tag character and a bidi mark are shown escaped, never posted raw');
+  assert.doesNotMatch(missing.comment, /[\u{e0000}-\u{e007f}\u061c]/u);
 
   const broken = run({ labelCallsFail: true });
   assert.match(broken.calls, /^issue comment 7 /m, 'a label that cannot be made or added never swallows the comment');

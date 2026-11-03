@@ -92,9 +92,10 @@ export function report({ id, claim, scanned, unit, findings = [], exempted = [],
   const one = escapeControl;
   [id, claim, unit, exemptedBy] = [id, claim, unit, exemptedBy].map((v) => one(String(v ?? '')));
   const L = [`scanned ${scanned} ${unit} (${id})`];
-  // A detail starts its line, so the first characters of a CI log command (`::`, `##[`) or of the @@json line are
-  // shown escaped: project text quoted at the start of a detail cannot start one.
-  const lead = (t) => t.replace(/^(?:::|##\[|@@json )/, (m) => hex(m));
+  // A detail starts its line, so the first characters of a CI log command (`::`, after any white space the runner
+  // trims) or of the @@json line are shown escaped, and `##[` wherever it stands, since the runner finds that
+  // command anywhere in a line: project text quoted in a detail cannot start one.
+  const lead = (t) => t.replace(/^\s*(?:::|@@json )/, (m) => hex(m)).replace(/##\[/g, (m) => hex(m));
   const shown = (f, label = '') => [`${label}${lead(one(f.detail))}`, ...(f.fix ? [`  Fix: ${one(f.fix)}`] : []), `  ${id} · ${one(f.where)}`];
   let exit;
 

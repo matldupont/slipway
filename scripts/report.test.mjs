@@ -291,11 +291,14 @@ test('every finding every check emits on its known-bad fixtures has a detail and
 });
 
 test('a detail that starts with a CI log command or an @@json line prints it escaped, and PC1 reads a raw one as a stray line', () => {
-  for (const lead of ['::error::x', '##[error]x', '@@json {}']) {
+  for (const lead of ['::error::x', '##[error]x', '@@json {}', ' ::error::x', '\u00a0::warning title=t::x', '\u3000::add-mask::x', '\u2003 @@json {}']) {
     const r = run(`{ id: 'T1', claim: 'c', scanned: 1, unit: 'u', findings: [{ where: 'a#k', detail: ${JSON.stringify(lead + ' went wrong.')} }] }`);
     assert.ok(!r.stdout.split('\n').some((l) => l.startsWith(lead)), lead);
     assert.equal(strayLine(r.stdout, 'T1'), null, 'report() wrote every line');
   }
+  const mid = run("{ id: 'T1', claim: 'c', scanned: 1, unit: 'u', findings: [{ where: 'a#k', detail: 'see a##[warning]x here.' }] }");
+  assert.ok(!mid.stdout.includes('##['), 'the old-style command start is escaped wherever it stands');
+  assert.equal(strayLine('scanned 1 u (T1)\n ::error::x\n  T1 · a#k\nFAIL: 1 finding in 1 u (T1)\n', 'T1'), ' ::error::x');
   assert.equal(strayLine('scanned 1 u (T1)\n::error::x\n  T1 · a#k\nFAIL: 1 finding in 1 u (T1)\n', 'T1'), '::error::x');
   assert.equal(strayLine('scanned 1 u (T1)\nforged line\nFAIL: 1 finding in 1 u (T1)\n', 'T1'), 'forged line');
   assert.equal(strayLine('scanned 1 u (T1)\n@@json {}\n@@json {}\n', 'T1'), '@@json {}');

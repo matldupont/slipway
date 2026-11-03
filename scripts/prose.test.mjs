@@ -320,7 +320,7 @@ test('with no count, the error rules still fail on their own, and the run exits 
     assert.equal(r.status, 2, r.stdout);
     assert.match(flat(r.stdout), /README\.md:\d+: Slipway\.Chatbot/, 'the error rule fails on its own');
     assert.match(flat(r.stdout), /This run measured 1 warning on this project's own text/);
-    assert.match(flat(r.stdout), /node ci\/prose\.mjs --record 1$/m);
+    assert.match(flat(r.stdout), /node ci\/prose\.mjs --record 1 \(PROSE\)$/m);
   } finally {
     rmSync(dirname(dir), { recursive: true, force: true });
   }
