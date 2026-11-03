@@ -318,7 +318,7 @@ test('a detail that starts with a CI log command or an @@json line prints it esc
   assert.equal(strayLine('scanned 1 u (T1)\n::error::x\n  T1 · a#k\nFAIL: 1 finding in 1 u (T1)\n', 'T1'), '::error::x');
   assert.equal(strayLine('scanned 1 u (T1)\nforged line\nFAIL: 1 finding in 1 u (T1)\n', 'T1'), 'forged line');
   assert.equal(strayLine('scanned 1 u (T1)\n@@json {}\n@@json {}\n', 'T1'), '@@json {}');
-  // The parts of the guard each hold: another id, a summary without its id, a detail that starts with ##[ or white space.
+  // The parts of the guard each hold: another id, a summary without its id, a line holding ##[ anywhere, a detail that starts with white space.
   assert.equal(strayLine('scanned 1 u (T2)\n', 'T1'), 'scanned 1 u (T2)');
   assert.equal(strayLine('scanned 1 u\n', 'T1'), 'scanned 1 u');
   assert.equal(strayLine('  T2 · a#k\n', 'T1'), '  T2 · a#k');
