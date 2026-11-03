@@ -38,7 +38,7 @@ Work through, in order:
 
 1. **The moment.** "When does someone reach for this?" Get a situation, not a persona.
    Then ask:
-   "Where will people use it: screens, a terminal, an API, or none of these?"
+   "Where will people use it: screens, a terminal, an API, or nothing?"
    Offer the four (screens means a web or phone app), with the moment's own answer as the recommendation when it names one. Write the frame's `Front end:` line:
    screens in the owner's words (`Front end: a web app`), each other answer as `none` with it after
    (`Front end: none (an API)`). A product with both, an API and an admin page, has screens and is written so.
@@ -52,13 +52,13 @@ Work through, in order:
    "What do your users do today instead, step by step?"
 5. **Non-users.** Ask:
    "Who is this deliberately not for?"
-6. **Press release and hard questions.** Draft them, then ask:
+6. **Press release and hard questions.** Draft them and let the user edit them, then ask:
    "Does the press release say why this beats what people do today?"
    If it cannot, stop and say so — the idea is not ready.
 7. **Risks.** List 4–8 assumptions that could kill it, each tagged value / usability /
    feasibility / viability / ethical. Rank by impact × how little evidence exists. Then, for
    each **value** risk, one question per message:
-   1. "Do you test this, or does experience already settle it?"
+   1. "Will you try this out, or does experience already settle it?"
    2. If experience: "Which is it: table stakes, you are the user, or domain expertise?" These
       three, no other. The Result reads `experience: table stakes`, `experience: creator is the
       user` or `experience: domain expertise`.
@@ -68,7 +68,7 @@ Work through, in order:
 
    For a test, propose the cheapest one — interviews about past behaviour, a concierge run
    done by hand, a fake door — and ask for the **Threshold** before anything runs:
-   "What result from the test would count as passing?"
+   "What result would count as passing?"
    Leave Result empty. Never propose a rationale or a refutation: both are the user's words.
 
 Write FRAME.md with `status: draft`. When no placeholder or clarification remains, ask:
@@ -86,7 +86,9 @@ You cannot run interviews; the user can. Produce what they need:
   long;
 - nothing for a risk settled by experience: no interview guide, only its `Wrong if:` line. A
   `Wrong if:` that comes true reopens the risk: clear its Result and test it;
-- the issue that runs the test, once the user agrees to run it: put its number in FRAME's Tracker
+- the issue that runs the test, once the user agrees to run it:
+  "Do you agree to run it, so I can file its tracking issue?"
+  Then put its number in FRAME's Tracker
   column and a `Tracked: #n` line (with `Window:`) in the evidence file. `pnpm status` then shows the
   risk as scheduled, and K1 requires the tracker for every untested value risk once the skeleton is
   active.
@@ -95,8 +97,9 @@ Tell the user plainly: **no milestone past the walking skeleton can start until 
 a Result, is settled by experience with what would prove it wrong written down, or has a decision
 in `decisions.md` to build ahead of it with that decision's id in the risk's Result.** The skeleton may be built in parallel
 with the test. When results come back, record them in FRAME's Result column and in
-`evidence/`; if the threshold was missed, the options are reframe (back to phase 1) or proceed
-anyway with a decision in `decisions.md` that says why.
+`evidence/`; if the threshold was missed, ask:
+"The result missed its threshold. Do you reframe, or proceed anyway and record why in decisions.md?"
+On a reframe, go back to phase 1; on a proceed, write the decision in `decisions.md`.
 
 ## Phase 3 — Shape
 
@@ -114,8 +117,8 @@ anyway with a decision in `decisions.md` that says why.
    the features above": name the ID that handles it. With no source document, write
    `Source: none`.
 2. **Week-1 decisions (`decisions.md`).** Walk the entries marked *(week 1)*. For each, ask:
-   "Do you decide {the choice} now, or defer it until something specific happens?"
-   On a decision, record it; on a deferral, write it as a `Reopens when:` line in the form status reads, or in prose when no listed event fits, said so. These are the expensive-to-reverse
+   "Which option do you pick for {the choice}, or do you defer it until something specific happens?"
+   On a pick, record it; on a deferral, write it as a `Reopens when:` line in the form status reads, or in prose when no listed event fits, said so. These are the expensive-to-reverse
    choices; do not let one slide into month three. Once D-005–D-008 are decided, rewrite the
    `Stack:` line at the top of `CLAUDE.md` to state the decided stack — agents read it first.
 3. **Story map (PRD §10).** Lay the user's journey left to right as 3–6 activities, taken from
@@ -147,8 +150,9 @@ anyway with a decision in `decisions.md` that says why.
    "How many hours a week can everyone building this give, as a range?"
    And one row per milestone with its hours as a range and what they are made of. MS1 warns
    when a milestone's midpoint is more than its appetite holds (appetite days ÷ 7 × the top of
-   Capacity). Show the user any warning and let them cut scope, lengthen the appetite or
-   re-estimate — do not quietly shrink the estimate to fit.
+   Capacity). Show the user any warning and ask:
+   "Do you cut scope, lengthen the appetite or re-estimate {the milestone}?"
+   Do not quietly shrink the estimate to fit.
 
    **A product with screens** (the frame's `Front end:` line is not `none`): place one design item, a Contents item
    that starts `Design:`, before the first milestone past the skeleton: in an earlier milestone, the skeleton
@@ -163,7 +167,7 @@ anyway with a decision in `decisions.md` that says why.
    (`includes design: 12–16 h`). Fill the skeleton's no-go with the milestone and the item number where design lands.
    Write the accessibility line under the Gate of every milestone that builds screens, the skeleton's first, with what
    holds it:
-   "What holds the accessibility line: an automated check in CI, or a keyboard and screen-reader pass in docs/qa/?"
+   "What checks accessibility for each screen milestone: an automated check in CI, a keyboard and screen-reader pass in docs/qa/, or both?"
    A milestone the owner says builds none deletes the line and sets `screens: none`. **A product with no screens**
    (`Front end: none …`): delete the skeleton's design no-go and the accessibility line from every milestone, the
    skeleton's included.
@@ -180,6 +184,8 @@ anyway with a decision in `decisions.md` that says why.
    means a BLOCKING question is open; say who must answer it.
 
 ## Hand-off
+
+Before showing or posting, edit against `process/writing.md`.
 
 1. Bump the PRD `Version:` and add a change-log line.
 2. **Set up the adversarial review, then stop.** Copy `docs/reviews/TEMPLATE.md` to

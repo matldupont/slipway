@@ -1483,7 +1483,7 @@ test('docs/milestones/TEMPLATE.md is managed, the M1 skeleton and the frame are 
 // question on every sync, asks once about each running milestone DS1 names, and never writes a placeholder.
 test('/kickoff asks where people use the product, and maps every answer but screens to none', () => {
   const one = flat(section(read(skillPath('kickoff')), 'Phase 1 — Frame (`docs/product/FRAME.md`)', 2));
-  assert.ok(one.includes('Then ask: "Where will people use it: screens, a terminal, an API, or none of these?" Offer the four (screens means a web or phone app), with the moment\'s own answer as the recommendation when it names one.'), '/kickoff Phase 1 must ask the front-end question after the moment');
+  assert.ok(one.includes('Then ask: "Where will people use it: screens, a terminal, an API, or nothing?" Offer the four (screens means a web or phone app), with the moment\'s own answer as the recommendation when it names one.'), '/kickoff Phase 1 must ask the front-end question after the moment');
   assert.ok(one.includes('Write the frame\'s `Front end:` line: screens in the owner\'s words (`Front end: a web app`), each other answer as `none` with it after (`Front end: none (an API)`). A product with both, an API and an admin page, has screens and is written so.'), '/kickoff must write screens as the owner\'s words and the rest as none');
 });
 
@@ -1573,22 +1573,25 @@ test('/close-milestone tells the agent to mark an extension entry\'s heading dec
 
 // F-16 §5 (#459): the questions /kickoff, /bootstrap and /close-milestone put to the owner are quoted, so they can be
 // found, and each is short, single, and in the project's words. The floor is the count the PR landed.
-const QUESTION_SKILLS = { kickoff: 20, bootstrap: 7, 'close-milestone': 5 };
+const QUESTION_SKILLS = { kickoff: 23, bootstrap: 7, 'close-milestone': 5 };
 const WRITING_LINE = 'Before showing or posting, edit against `process/writing.md`.';
-const QUESTION_ID = /\b(?:[A-Z]{1,3}\d{1,2}|(?:D|PD|PL|L)-\d+)\b/;
+const QUESTION_ID = /\b(?:[A-Z]{1,3}\d{1,2}|(?:D|PD|PL|L|OD|RISK|F)-\d+)\b/;
 const MAX_QUESTION_WORDS = 25;
 
-// Every `"…?"` on a line, in the skill's text; the Phase headings' names are words a question must not use.
-function questionFindings(md, floor) {
-  const phases = [...md.matchAll(/^## Phase \d+ — ([^(\n]+?)\s*(?:\(|$)/gm)].map((m) => m[1]);
-  const questions = [...md.matchAll(/"([^"\n]*\?)"/g)].map((m) => m[1]);
+// Every `"…?"` in the skill's text, wrapped or not; the first word of each Phase heading (Frame, Test, Shape) is a word a question must not use.
+function questionFindings(text, floor) {
+  let md = text;
+  md = md.replace(/<!--[\s\S]*?-->/g, '');
+  const phases = [...md.matchAll(/^## Phase \d+ — (\S+)/gm)].map((m) => m[1]);
+  const questions = [...md.matchAll(/"([^"]*\?)"/g)].map((m) => m[1].replace(/\s+/g, ' '));
   const found = [];
   for (const q of questions) {
     const words = q.trim().split(/\s+/).length;
     if (words > MAX_QUESTION_WORDS) found.push(`${words} words, over ${MAX_QUESTION_WORDS}: "${q}"`);
     if ((q.match(/\?/g) ?? []).length !== 1) found.push(`more than one question mark: "${q}"`);
     if (QUESTION_ID.test(q)) found.push(`holds a check, decision or lesson id: "${q}"`);
-    for (const p of phases) if (new RegExp(`\\b${p}\\b`).test(q)) found.push(`holds the Phase heading word "${p}": "${q}"`);
+    const bare = q.replace(/[\w./-]+\.md\b/g, '');
+    for (const p of phases) if (new RegExp(`\\b${p}\\b`, 'i').test(bare)) found.push(`holds the Phase heading word "${p}": "${q}"`);
   }
   if (questions.length < floor) found.push(`${questions.length} quoted questions, under the floor of ${floor}`);
   if (!md.includes(WRITING_LINE)) found.push('no line naming process/writing.md');
@@ -1609,7 +1612,10 @@ test('the question rule refuses a 30-word question, a check id, a count under th
   assert.match(questionFindings(`"Does K1 block the milestone?"\n${WRITING_LINE}`, 1).join('\n'), /check, decision or lesson id/);
   assert.match(questionFindings(`"Is D-016 settled?"\n${WRITING_LINE}`, 1).join('\n'), /check, decision or lesson id/);
   assert.match(questionFindings(`"Which one? Or which other?"\n${WRITING_LINE}`, 1).join('\n'), /more than one question mark/);
-  assert.match(questionFindings(`## Phase 1 — Frame (x)\n"Is the frame right?"\n"Do we Frame it?"\n${WRITING_LINE}`, 1).join('\n'), /Phase heading word "Frame"/);
+  assert.match(questionFindings(`## Phase 1 — Frame (x)\n"Is docs/FRAME.md right?"\n"Do we frame it?"\n${WRITING_LINE}`, 1).join('\n'), /Phase heading word "Frame"/);
+  assert.match(questionFindings(`"${Array(15).fill('word').join(' ')}\n${Array(15).fill('more').join(' ')}?"\n${WRITING_LINE}`, 1).join('\n'), /30 words, over 25/);
+  assert.match(questionFindings(`<!-- ${WRITING_LINE} -->\n"Which timezone?"`, 1).join('\n'), /no line naming process\/writing\.md/);
+  assert.match(questionFindings(`"What would prove OD-3 wrong?"\n${WRITING_LINE}`, 1).join('\n'), /check, decision or lesson id/);
   assert.match(questionFindings(ok, 2).join('\n'), /1 quoted questions, under the floor of 2/);
   assert.match(questionFindings('"Which timezone?"\n', 1).join('\n'), /no line naming process\/writing\.md/);
 });

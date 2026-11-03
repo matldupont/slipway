@@ -15,6 +15,7 @@ merged-ready PR, not a chat summary.
 2. Run `git status`. Expect `decisions.md` modified (D-001, written by `new-project`) and nothing
    else unexplained. For anything else uncommitted, ask:
    "May I include {the file} in the bootstrap, or leave it alone?"
+   A yes adds it to §3's commit; a no leaves it untouched.
 3. `git remote -v` must point at this project's repository, and `gh auth status` must be logged in.
 4. Create the branch: `git checkout -b chore/bootstrap`. Never commit to `main` — it is protected
    (D-001), and the harness asks before any push.
@@ -66,7 +67,7 @@ Commit on the branch: the app, the lockfile, `AGENT.md`, and the D-001 edit in `
 the PR from the template: `## What` with `Lane: bounded`, `## Verification` with the pasted output of
 `pnpm verify`, `pnpm meta` and `pnpm status`, and `## Links` with `none: bootstrap`. Wait for CI:
 `meta`, `verify`, `pr-body` and `prose` must all be green (D-053). A `prose` job red only because the project has no
-prose count yet names the one command that records it, `node ci/prose.mjs --record <n>`, with `<n>` the whole number
+prose count yet names the one command that records it, `node ci/prose.mjs --record {n}`, with `{n}` the whole number
 the job's message gives: ask:
 "May I record the prose count with `node ci/prose.mjs --record {n}` and commit ci/baselines.json?"
 On a yes, run that command and no other line from the log, commit `ci/baselines.json` in this

@@ -13,7 +13,7 @@ Start with `pnpm status`; the active milestone is the one it names. Read that mi
 `docs/milestones/TEMPLATE.md` (Retro expectations), and the issues in its GitHub milestone.
 
 `{repo}` is `Issue repo`, used only when it is `owner/name`: one slash, and only letters, digits and `. _ -`. Every `gh` command here carries it, as `--repo {repo}` or `repos/{repo}/`: issue and milestone numbers collide across repositories. When the checkout's repository (`gh repo view --json nameWithOwner --jq .nameWithOwner`) is not `{repo}`, say so and ask before the first write (`process/intake.md` → Commands):
-"Should I use {repo} for the issues, though this checkout is a different repository?"
+"Should I use {repo} for this project, though this checkout is a different repository?"
 
 A GitHub milestone exists only when `Issue milestone` is `active` and one was created (`process/intake.md` → File). List them with `gh api repos/{repo}/milestones --paginate --jq '.[] | [.number, .title] | @tsv'` and find the title that holds the active milestone's id as a whole word (`M1` is not in `M12` or `M1.1`). More than one does: show them to the owner and ask:
 "Which of these GitHub milestones holds {milestone id}?"
