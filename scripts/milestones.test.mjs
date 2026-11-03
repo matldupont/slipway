@@ -139,6 +139,26 @@ test('status prints no project text from a check line: only the item, its issue,
   }
 });
 
+// Defence only: inert fixtures. The label drops the marker's repository and reads `1.` and `01.` alike, so two such
+// rows told apart by nothing could let a pull request add a row that looks like a genuine one.
+test('two check rows whose labels would match say which of them each is, by count, with no project text', () => {
+  const fixture = join(SRC, 'ci', 'fixtures', 'status', 'build-loop-owed-unreadable');
+  const root = mkdtempSync(join(tmpdir(), 'milestones-'));
+  try {
+    cpSync(fixture, root, { recursive: true });
+    const file = join(root, 'docs', 'milestones', 'M2-booking.md');
+    const contents = '## Contents\n\n1. First (F-01) · #12\n   Owed: inert-one — staging\n01. Second (F-02) · other/repo#12\n   Owed: inert-two — staging\n';
+    writeFileSync(file, readFileSync(file, 'utf8').replace(/## Contents[\s\S]*$/, contents));
+    const r = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10', CHECK_NOW: '', TZ: 'UTC' } });
+    assert.equal(r.status, 0, r.stderr);
+    const rows = r.stdout.split('\n').filter((l) => /^- \(you or an agent\) #12 · item 1/.test(l)).map((l) => l.replace(/^- \(you or an agent\) /, '').replace(/\. It can start now.*$/, ''));
+    assert.deepEqual(rows, ['#12 · item 1 (1 of 2) · 1 owed · staging', '#12 · item 1 (2 of 2) · 1 owed · staging']);
+    assert.doesNotMatch(r.stdout, /other\/repo|inert-/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('a check line names its environment only when it is staging or production', () => {
   const status = (fixture) => spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), join(SRC, 'ci', 'fixtures', 'status', fixture)], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10', CHECK_NOW: '', TZ: 'UTC' } });
   const md = readFileSync(join(SRC, 'ci', 'fixtures', 'status', 'build-loop-owed-env', 'docs', 'milestones', 'M2-booking.md'), 'utf8');
@@ -161,7 +181,7 @@ test('two items that share a number and an issue keep their own check rows', () 
     writeFileSync(file, md);
     const r = spawnSync(process.execPath, [join(SRC, 'ci', 'status.mjs'), root], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-03-10', CHECK_NOW: '', TZ: 'UTC' } });
     assert.equal(r.status, 0, r.stderr);
-    const rows = r.stdout.split('\n').filter((l) => /item 1 · \d owed/.test(l));
+    const rows = r.stdout.split('\n').filter((l) => /item 1 \(\d of 2\) · \d owed/.test(l));
     assert.equal(rows.length, 2, r.stdout);
     assert.notEqual(rows[0], rows[1]);
   } finally {
