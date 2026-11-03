@@ -89,13 +89,14 @@ export function report({ id, claim, scanned, unit, findings = [], exempted = [],
   // Each field is one line, the claim and unit too (D1's claim quotes the manifest): a line break a project's
   // text or an error message carries is escaped, so it can never start a line of the report (a CI log command,
   // a second @@json line). The @@json line keeps the raw values.
-  const one = escapeControl;
+  // `##[` is shown escaped in every field: the runner finds that old-style command anywhere in a line.
+  const one = (v) => escapeControl(v).replace(/##\[/g, (m) => hex(m));
   [id, claim, unit, exemptedBy] = [id, claim, unit, exemptedBy].map((v) => one(String(v ?? '')));
   const L = [`scanned ${scanned} ${unit} (${id})`];
-  // A detail starts its line, so the first characters of a CI log command (`::`, after any white space the runner
-  // trims) or of the @@json line are shown escaped, and `##[` wherever it stands, since the runner finds that
-  // command anywhere in a line: project text quoted in a detail cannot start one.
-  const lead = (t) => t.replace(/^\s*(?:::|@@json )/, (m) => hex(m)).replace(/##\[/g, (m) => hex(m));
+  // A detail starts its line, so project text quoted at its start must not start a line of the report: white space
+  // the runner trims before it looks for `::`, a CI log command, the @@json line, or what looks like a Fix or id line
+  // (both start with white space). Leading white space and those starts are shown escaped.
+  const lead = (t) => t.replace(/^(?:\s+|::|@@json )/, (m) => hex(m));
   const shown = (f, label = '') => [`${label}${lead(one(f.detail))}`, ...(f.fix ? [`  Fix: ${one(f.fix)}`] : []), `  ${id} · ${one(f.where)}`];
   let exit;
 
@@ -121,7 +122,8 @@ export function report({ id, claim, scanned, unit, findings = [], exempted = [],
 
   if (process.env.CHECK_JSON === '1') {
     const [reported, warned] = exit === EXIT.BROKEN ? [[], []] : [findings, warnings];
-    L.push('@@json ' + JSON.stringify({ id, scanned, unit, exit, broken, findings: reported, exempted, warnings: warned }));
+    // `#` as \u0023 where `##[` stands: a JSON string reads back as the same text, and the line holds no command.
+    L.push('@@json ' + JSON.stringify({ id, scanned, unit, exit, broken, findings: reported, exempted, warnings: warned }).replace(/##\[/g, '\\u0023#['));
   }
   process.stdout.write(escapeOutput(L.join('\n')) + '\n');
   return exit;

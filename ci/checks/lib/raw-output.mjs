@@ -27,7 +27,7 @@ export function strayLine(stdout, id) {
     const l = lines[i];
     if (l.startsWith('@@json ') || l.startsWith(`${id}: `) || summary.test(l) || owner(l)) continue;
     // A detail line stands right before its Fix line or its id line.
-    if (i + 1 < lines.length && owner(lines[i + 1]) && !/^\s*(?:::|##\[)/.test(l)) continue;
+    if (i + 1 < lines.length && owner(lines[i + 1]) && !/^\s|^(?:::|##\[)/.test(l)) continue;
     return l;
   }
   return null;

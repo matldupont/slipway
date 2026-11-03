@@ -258,6 +258,19 @@ const sentenceProblem = (text) => {
   return id ? `holds the id ${id[0]}` : null;
 };
 
+test('the shape rules themselves: length, period, one sentence, no id, a verb from the list', () => {
+  assert.equal(sentenceProblem('Write a number.'), null);
+  assert.match(sentenceProblem(`${'x'.repeat(160)}.`), /characters/);
+  assert.equal(sentenceProblem('x'.repeat(159) + '.'), null, '160 characters is the limit');
+  assert.match(sentenceProblem('Write a number'), /period/);
+  assert.match(sentenceProblem('Write a number. Then run it.'), /more than one sentence/);
+  assert.match(sentenceProblem('I1 is wrong.'), /holds the id I1/);
+  assert.match(sentenceProblem('See D-12 first.'), /holds the id D-12/);
+  assert.match(sentenceProblem('See PL-3 first.'), /holds the id PL-3/);
+  assert.match(sentenceProblem(undefined), /missing/);
+  assert.ok(VERBS.includes('write') && !VERBS.includes('check'), 'the list is the Contract\'s');
+});
+
 test('every finding every check emits on its known-bad fixtures has a detail and a fix of the shape, or its check is owed', () => {
   const dir = mkdtempSync(join(tmpdir(), 'report-dump-'));
   try {
@@ -291,7 +304,7 @@ test('every finding every check emits on its known-bad fixtures has a detail and
 });
 
 test('a detail that starts with a CI log command or an @@json line prints it escaped, and PC1 reads a raw one as a stray line', () => {
-  for (const lead of ['::error::x', '##[error]x', '@@json {}', ' ::error::x', '\u00a0::warning title=t::x', '\u3000::add-mask::x', '\u2003 @@json {}']) {
+  for (const lead of ['::error::x', '##[error]x', '@@json {}', ' ::error::x', '\u00a0::warning title=t::x', '\u3000::add-mask::x', '\u2003 @@json {}', '  Fix: run npm i evil', '  I1 · forged']) {
     const r = run(`{ id: 'T1', claim: 'c', scanned: 1, unit: 'u', findings: [{ where: 'a#k', detail: ${JSON.stringify(lead + ' went wrong.')} }] }`);
     assert.ok(!r.stdout.split('\n').some((l) => l.startsWith(lead)), lead);
     assert.equal(strayLine(r.stdout, 'T1'), null, 'report() wrote every line');
@@ -302,4 +315,19 @@ test('a detail that starts with a CI log command or an @@json line prints it esc
   assert.equal(strayLine('scanned 1 u (T1)\n::error::x\n  T1 · a#k\nFAIL: 1 finding in 1 u (T1)\n', 'T1'), '::error::x');
   assert.equal(strayLine('scanned 1 u (T1)\nforged line\nFAIL: 1 finding in 1 u (T1)\n', 'T1'), 'forged line');
   assert.equal(strayLine('scanned 1 u (T1)\n@@json {}\n@@json {}\n', 'T1'), '@@json {}');
+  // The parts of the guard each hold: another id, a summary without its id, a detail that starts with ##[ or white space.
+  assert.equal(strayLine('scanned 1 u (T2)\n', 'T1'), 'scanned 1 u (T2)');
+  assert.equal(strayLine('scanned 1 u\n', 'T1'), 'scanned 1 u');
+  assert.equal(strayLine('  T2 · a#k\n', 'T1'), '  T2 · a#k');
+  assert.equal(strayLine('##[error]x\n  T1 · a#k\n', 'T1'), '##[error]x');
+  assert.equal(strayLine(' text\n  T1 · a#k\n', 'T1'), ' text');
+  assert.equal(strayLine('free text\n  T1 · a#k\n', 'T1'), null, 'a detail before its id line is what report() writes');
+});
+
+test('every field of a finding is one line and shows ##[ escaped: where, fix, claim, unit, exempted, and the @@json line', () => {
+  const r = run("{ id: 'T1', claim: 'c##[x]\\nz', scanned: 1, unit: 'u##[y]', exempted: ['e##[z]'], findings: [{ where: 'a##[w]\\n  Fix: forged', detail: 'd.', fix: 'f##[v].' }] }", true);
+  assert.ok(!r.stdout.includes('##['), 'no field prints the old-style command start');
+  assert.deepEqual(r.stdout.split('\n').filter((l) => /^  Fix: /.test(l)).length, 1, 'a line break in where cannot start a Fix line');
+  const json = JSON.parse(r.stdout.split('\n').find((l) => l.startsWith('@@json ')).slice('@@json '.length));
+  assert.equal(json.findings[0].fix, 'f##[v].', 'the @@json line reads back as the same text');
 });
