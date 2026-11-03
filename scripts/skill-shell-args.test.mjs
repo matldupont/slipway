@@ -187,7 +187,7 @@ test('/close-milestone names the issue repository in every gh command', () => {
   const gh = commands(md).filter((c) => /(^|\s)gh\s/.test(c.text) && !/gh repo view --json nameWithOwner/.test(c.text));
   assert.ok(gh.length >= 5, 'the skill\'s gh commands were read');
   for (const c of gh) assert.match(c.text, /--repo \{repo\}(\s|$)|\srepos\/\{repo\}\//, `line ${c.line}: ${c.text}`);
-  assert.match(md, /say so and ask before the first write[^"]*"Should I use \{repo\} for the issues, though this checkout is a different repository\?"/);
+  assert.match(md, /say so and ask before the first write[^"]*"Should I use \{repo\} for this project, though this checkout is a different repository\?"/);
 });
 
 test('/clarify files a tracker with its title from a file and its body from --body-file', () => {
