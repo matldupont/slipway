@@ -162,7 +162,7 @@ one-paragraph what, its acceptance, the doc's path. Version bump and Change log:
 Ask the owner where it goes, in these words: "Is this part of what you are building now ({active milestone's
 summary}), or a later milestone?" With no active milestone, name the one being shaped next instead.
 
-- **Now:** add a Contents item to that milestone citing `(F-{nn})`. That changes the current bet: say so, and
+- **Now:** add a Contents item to that milestone citing `(F-{nn})`, and move the milestone's `Version:` line in the same commit (`process/intake.md` → Milestone version). That changes the current bet: say so, and
   name what it displaces. If it breaks one of the milestone's no-gos, the owner picks: amend the no-go (same
   commit, with why), or schedule it later.
 - **Later:** add the item to a shaping milestone's Contents. None exists: create one from the milestone

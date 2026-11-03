@@ -358,7 +358,7 @@ This section applies in slipway itself too.
 - **R1 goes red, and that is expected,** when a review in `docs/reviews/` quotes the old line
   (`provenance/stale`). Never touch `docs/reviews/` (add, edit, delete or rename a file there), never hold
   back or undo a bump, and never reword the line, to turn R1 green: the way out is a fresh review, by `/review-doc`
-  in a session of its own. The harness asks before a session's file-writing tools write there (a shell command does not ask), and the pull request check counts a changed review as a gate file (PRD entry). Run at the repository root, `git diff --stat origin/{default branch}...HEAD -- ':/docs/reviews'` and `git status --porcelain -- ':/docs/reviews'` both print nothing after the run.
+  in a session of its own. The harness asks before a session's file-writing tools write there (a shell command does not ask), and the pull request check counts a changed review as a gate file (PRD entry). Run at the repository root, `git diff --stat origin/{default branch}...HEAD -- ':/docs/reviews'` and `git status --porcelain -- ':/docs/reviews'` both print nothing after the run. A milestone's `Version:` is held to the same rule (Milestone version).
   The PR's Verification shows `pnpm meta` with R1's finding named, not called green. Any other red check is not
   expected: fix it.
 - **Tell the owner,** in the skill's output, when R1 reports it: "{doc path} moved to Version {new}; its review of
@@ -461,6 +461,22 @@ form, and is used for nothing before it matches; anything else is an idea.
    the default branch, in a PR of its own (Pull request). `pnpm status` then names the next unstarted item.
 7. Phases 5–7 and Ripple as for an idea.
 
+## Milestone version
+
+A milestone doc carries `Version: {n} ({date})` under its title: the line a `/review-doc` review of it quotes (D-044).
+This section applies in slipway itself too.
+
+- **When it moves.** The commit that edits the milestone's `appetite` or its extension (`extended:`), or anything
+  inside its Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria, bumps the number and the date. A skill that
+  makes one of those edits (`/log-feature` adding a Contents item, an order-slot edit in Ripple, `/close-milestone`
+  writing `extended:`) moves the line in that same commit. Never judge whether a change is big enough to count: this
+  list decides.
+- **What does not move it.** An item's ` · #n` started marker, an `Owed:` or `Ran:` line, `status:`, `summary:` and the
+  Retro.
+- **R1 goes red, and that is expected,** when a review in `docs/reviews/` quotes the old line. The rule is the one for
+  a feature doc (Feature doc version): never touch `docs/reviews/`, never hold back or undo a bump, never reword the
+  line to turn R1 green; the way out is a fresh `/review-doc` in a session of its own.
+
 ## Ripple
 
 Run after the issue is filed: which work already on the books does the new issue change? Search, propose,
@@ -560,7 +576,7 @@ Only the confirmed rows. For each, and stop at the first `gh` command that exits
    ```
 
 A milestone doc is edited on the working branch, never on the default branch; on the default branch, list the
-edit for the owner instead. End with the rows applied and the rows declined, by number.
+edit for the owner instead. An edit that changes its `appetite`, `extended:`, Why, Contents, No-gos, Rabbit holes, Gate or Kill criteria moves its `Version:` in the same commit (Milestone version); a started marker, `Owed:` or `Ran:` line does not. End with the rows applied and the rows declined, by number.
 
 ### 6 — No hits
 
