@@ -1083,13 +1083,15 @@ test('I1 warns on a Touches: line holding a note in words, names the entry, and 
       rmSync(dir, { recursive: true, force: true });
     }
   };
-  const note = run('ci/a.mjs, the status files (see #539), scripts/b.mjs');
+  const note = run('ci/a.mjs, the status files (see #539), scripts/b.mjs, a second note');
   assert.equal(note.code, 0, `a Touches: warning must not change I1's exit code:\n${note.out}`);
   assert.match(note.out, /Warning: the Touches: entry `the status files \(see #539\)` is not a path or glob, so the line reads as unknown\n  Fix: keep paths and globs only, and put any note outside the line/, `the warning names the first entry that breaks the rule:\n${note.out}`);
   assert.match(note.out, /a\.md#touches\/unreadable/, 'the warning has its id');
   const hostile = run('ci/a.mjs, ##[error]x');
   assert.equal(hostile.code, 0);
   assert.doesNotMatch(hostile.out, /##\[/, 'an entry is printed escaped, never as a CI log command');
+  assert.doesNotMatch(note.out, /a second note/, 'the warning names the first entry that breaks the rule, not a later one');
+  assert.match(run('ci/a.mjs,').out, /the Touches: line has an empty entry, so the line reads as unknown/, 'a trailing comma is named as an empty entry');
   const many = run(Array.from({ length: 31 }, (_, i) => `ci/f${i}.mjs`).join(', '));
   assert.match(many.out, /more than 30 entries/, 'past 30 entries the warning says so');
   const clean = run('ci/a.mjs, `ci/checks/**`, scripts/b.mjs');
@@ -1125,7 +1127,7 @@ test('process/intake.md says Touches: holds paths and globs only, and gives a ti
   const example = branch.replace('{type}', 'feat').replace('{n}', '15').replace('{slug}', 'touches');
   assert.ok(claims(example, 15) && !claims(example, 1) && !claims(example.replace('i15', 'i150'), 15), `the ticket-branch form ${branch} must match (^|/)i{n}- for its own number only`);
   assert.match(intake, /`\{n\}` is the issue's number, never text from it, and `\{slug\}` is a few words with every `\/` dropped, so the name claims no other issue\./, 'the claim branch is built from the number, and its slug holds no /');
-  assert.match(intake, /The claim is an empty commit, pushed alone: `git commit --allow-empty -m "claim #\{n\}"`\. Before the push, `git log --oneline origin\/\{base\}\.\.HEAD` lists that commit and nothing else; anything more stops the run to ask the owner\./, 'the claim push carries the claim commit alone');
+  assert.match(intake, /The claim is an empty commit, pushed alone: `git commit --allow-empty -m "claim #\{n\}"`, once `git diff --cached --quiet` exits 0, so nothing staged rides in it\. Before the push, `git log --oneline origin\/\{base\}\.\.HEAD` lists that commit and nothing else; anything more stops the run to ask the owner\./, 'the claim push carries the claim commit alone');
   assert.match(intake, /It renames only when `git rev-parse --abbrev-ref @\{u\}` fails and `git ls-remote --heads origin "\$\(git branch --show-current\)"` prints nothing\. Either finding something, or failing to answer, stops the run to ask the owner\./, 'a worktree branch is renamed only when nothing of it is pushed');
 });
 
