@@ -56,15 +56,33 @@ cannot answer is exit 2 too, never a zero. `PROBE_NO_SWEEP=1` turns the killing 
 what the run started is then left running, the folder is kept, and both are stopped and removed by hand as
 below.
 
-Ctrl-C, or a closed terminal, reaches the runner too: the call in flight ends, and the probe cleans up and
-exits 130. A TERM to the probe alone is held until the run ends, which then cleans up as usual. A SIGKILL to the
-probe can leave the copy and what runs in it. The probe names its folder on stderr when it makes it
-(`tests-can-fail probe: copy in <folder>`); with `--counts-only` it does not, so list the candidates with
-`ls -dt "$(cd "${TMPDIR:-/tmp}" && pwd -P)"/tests-can-fail-probe-*`, which prints the resolved path the
-processes carry (a plain `$TMPDIR` on macOS ends in `/` and gives `//`, which matches nothing). Take your own
-run's folder, never simply the newest: another session's may be newer. Then stop that one run's processes with
-`pkill -f '<that folder>'`, escaping any `+ ( ) [ ] { } . ^ $ | ? * \` in it, and remove the folder. Never
-`pkill -f tests-can-fail-probe-` alone: it stops another session's run too. The project's own checkout is never written.
+Ctrl-C, or a closed terminal, reaches the runner too. Vitest handles SIGINT and SIGTERM itself and exits 130 or 143
+by code, so the call returns with that status and no signal; either way the probe stops, counts nothing from that
+call, cleans up and exits 130. Measured with a stand-in runner that handles both signals as Vitest does, held in its
+first call (the probe's own exit, whether `pgrep -f` on the folder finds anything afterwards, whether a record was
+printed):
+
+| signal | sent to | exit | `pgrep -f` on the folder | record |
+|---|---|---|---|---|
+| SIGINT | the process group | 130 | none | none |
+| SIGTERM | the process group | 130 | none | none |
+| SIGINT | the probe alone | 0 | none | printed |
+| SIGTERM | the probe alone | 0 | none | printed |
+
+A signal to the probe alone is dropped, not held and not acted on: the run is one synchronous call, so its handlers
+never run, and it carries on to its normal end. To stop a run, signal the group (Ctrl-C does). A SIGKILL to the
+probe can leave the copy and what runs in it. The probe names its run on stderr when it makes its folder:
+`tests-can-fail probe: copy in <folder>`, or with `--counts-only`, `tests-can-fail probe: run <id>`, where `<id>` is
+what the folder's name ends in (nothing about it is in the record). For `--counts-only`, the folder is
+`"$(cd "${TMPDIR:-/tmp}" && pwd -P)"/tests-can-fail-probe-<id>`, the resolved path the processes carry (a plain
+`$TMPDIR` on macOS ends in `/` and gives `//`, which matches nothing). Never pick the newest folder: another
+session's may be newer. Stop that one run's processes with `pkill -U "$(id -u)" -f '<that folder>'`, escaping any
+`+ ( ) [ ] { } . ^ $ | ? * \` in it, and remove the folder; `pgrep -U "$(id -u)" -f '<that folder>'` lists them
+first. On Linux, `pkill -f` and `pgrep -f` can match the shell that runs them, since its command line holds the
+folder too: an agent's shell tool can kill its own wrapper, or list it as left running. Match on a pattern the
+wrapper's own text does not spell out, such as a bracket in the folder's last character (`[x]`), and read the list
+before killing. Never `pkill -f tests-can-fail-probe-` alone: it stops another session's run too. The project's own
+checkout is never written.
 
 ## What it applies, and what it leaves out
 

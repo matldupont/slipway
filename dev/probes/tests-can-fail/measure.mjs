@@ -145,24 +145,29 @@ if (!changedTestFiles.length) finish();
 // §3.4 — the copy: the tree of the commit, written by git into a folder outside the project.
 tmp = realpathSync(mkdtempSync(join(tmpdir(), 'tests-can-fail-probe-')));
 const copy = join(tmp, 'copy');
-// Named on stderr, so an interrupted run's folder is known by its exact path (README).
-if (!countsOnly) console.error(`tests-can-fail probe: copy in ${tmp}`);
+// Named on stderr, so an interrupted run's folder is known by its exact path (README). With --counts-only the
+// stderr line carries only the id the folder's name ends in: a path stays out of what is pasted, and the run still
+// tells its folder from another session's. The record carries neither.
+const runId = tmp.slice(tmp.lastIndexOf('-') + 1);
+console.error(countsOnly ? `tests-can-fail probe: run ${runId}` : `tests-can-fail probe: copy in ${tmp}`);
 process.on('exit', () => {
   sweep(true);
   // With the killing off, the folder stays too, so what was left running can be found by it.
-  if (noSweep) { console.error(`PROBE_NO_SWEEP: processes left running; stop them by the folder ${countsOnly ? 'tests-can-fail-probe-* in the temporary directory' : tmp}, then remove it`); return; }
+  if (noSweep) { console.error(`PROBE_NO_SWEEP: processes left running; stop them by the folder ${countsOnly ? `whose name ends in ${runId} (the run id on stderr above)` : tmp}, then remove it`); return; }
   try { rmSync(tmp, { recursive: true, force: true }); } catch { /* the folder is in the temporary directory */ }
 });
 // The probe is synchronous, so these handlers never run; registered, they replace the signal's default action.
-// A signal to the process group (Ctrl-C, a closed terminal) reaches the runner too: the call returns with its
-// signal, `run` exits 130, and `exit` cleans up. A TERM to the probe alone is held until the run ends, and the
-// run then cleans up as on any end. A child killed by a signal stops the run; the run limit kills with SIGTERM
-// too, and is not a stop.
+// A signal to the process group (Ctrl-C, a closed terminal) reaches the runner too. The call returns either with
+// its signal, or, for Vitest, which handles SIGINT and SIGTERM itself, with exit status 130 or 143 and no signal.
+// Either stops the run: `run` exits 130 without counting the call, and `exit` cleans up. A signal to the probe
+// alone is dropped: the handlers are registered, but the run is one synchronous call, so the signal is neither
+// acted on nor held, and the run carries on to its normal end (README.md has the measured runs). The run limit
+// kills the child with SIGTERM too, and is not a stop.
 for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => {});
 const run = (cmd, args, opts) => {
   const r = spawnSync(cmd, args, opts);
   sweep();
-  if (r.signal && r.error?.code !== 'ETIMEDOUT') process.exit(130);
+  if ((r.signal || r.status === 130 || r.status === 143) && r.error?.code !== 'ETIMEDOUT') process.exit(130);
   return r;
 };
 const fail = (message, detail) => { out.stopped = message; if (detail && !countsOnly) out.detail = String(detail).split('\n').slice(-12).join('\n'); finish(2); };
