@@ -401,10 +401,14 @@ const CHECK_DOES = {
   'failed-check': 'Fix the failed check and run it again, or file the bug and name it on its Ran line',
   'unreadable-check': 'Write the unreadable check line as Owed: or Ran:',
 };
-// The label drops the marker's repository and normalises the number, so two items can print alike; each of them
+// The label normalises the number, so two items can print alike; each of them
 // says which of the same label it is, by count only (never project text).
 const checkItems = (cur ? contents(cur.md) : []).map((item) => ({ item, owes: owing(item) })).filter((c) => c.owes.length);
-const checkLabel = (item) => `${marker(item.text)?.issue === undefined ? '' : `#${marker(item.text).issue} · `}item ${itemNumber(item) ?? 'number unreadable'}`;
+// An item whose issue is in another repository prints a fixed token, never a bare #n that reads as this one's.
+const checkLabel = (item) => {
+  const m = marker(item.text);
+  return `${m?.issue === undefined ? '' : m.repo ? 'other repo · ' : `#${m.issue} · `}item ${itemNumber(item) ?? 'number unreadable'}`;
+};
 const checkSame = new Map();
 for (const { item } of checkItems) checkSame.set(checkLabel(item), (checkSame.get(checkLabel(item)) ?? 0) + 1);
 const checkSeen = new Map();
