@@ -204,14 +204,15 @@ repository `git remote get-url origin` names, say so and ask before the first pu
   A ticket's branch is `{type}/i{n}-{slug}`. `{n}` is the issue's number, never text from it, and `{slug}` is a
   few words with every `/` dropped, so the name claims no other issue. The `i{n}-` after the `/` claims issue `#n`
   (F-17). `/work-ticket` cuts the branch from `origin/{base}` and claims it once Phase 1 passes, before any code.
-  The claim is an empty commit, pushed alone: `git commit --allow-empty -m "claim #{n}"`, once
-  `git diff --cached --quiet` exits 0, so nothing staged rides in it. Before the push,
-  `git log --oneline origin/{base}..HEAD` lists that commit and nothing else; anything more stops the run to ask the
-  owner. Then `git push -u origin "{branch}"`. A session on a branch of its own with another name (a worktree the
-  app made) renames it with `git branch -m "{branch}"`. Then `git merge --ff-only origin/{base}` puts it on
-  `origin/{base}`, since it holds nothing of its own. It renames only when `git rev-parse --abbrev-ref @{u}` fails
-  and `git ls-remote --heads origin "$(git branch --show-current)"` prints nothing. Either finding something, or
-  failing to answer, stops the run to ask the owner. With no remote, no claim is pushed.
+  A session on a branch of its own with another name (a worktree the app made) renames it instead. Before the
+  rename, `git rev-parse --abbrev-ref @{u}` fails and `git ls-remote --heads origin "$(git branch --show-current)"`
+  prints nothing. Either finding something, or failing to answer, stops the run to ask the owner. Then
+  `git branch -m "{branch}"` and `git merge --ff-only origin/{base}`; a merge that fails stops the run to ask, and
+  nothing is reset. The claim is an empty commit, pushed alone: `git commit --allow-empty -m "claim #{n}"`, once
+  `git diff --cached --quiet` exits 0, so nothing staged rides in it. Anything staged stops the run to ask the
+  owner; the index is never cleared to pass. Before the push, `git log --oneline origin/{base}..HEAD` lists that
+  commit and nothing else, and `git diff --quiet origin/{base} HEAD` exits 0. Anything more stops the run to ask the
+  owner. Then `git push -u origin "{branch}"`. With no remote, no claim is pushed.
 - **Title** in `{prdir}/title.txt`, body in `{prdir}/pr.md`, in a fresh folder (`mktemp -d`, under the
   session's scratch directory when there is one), its path written out literally in every command.
 - **Body,** under the never-in-a-body rule (Issue body). Command output is cut to the lines that prove the
