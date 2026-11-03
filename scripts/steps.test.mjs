@@ -21,6 +21,12 @@ test('the path table in SLIPWAY.md says each step as the list does: number, name
   assert.deepEqual(rows, STEPS);
 });
 
+test('the step headings of SLIPWAY.md carry no time of their own: the path table is the one place it is written', () => {
+  const headings = [...readFileSync(join(SRC, 'SLIPWAY.md'), 'utf8').matchAll(/^### (\d) · (.+)$/gm)].map((m) => ({ n: Number(m[1]), text: m[2] }));
+  assert.equal(headings.length, STEPS.length);
+  for (const { n, text } of headings) assert.equal(text, STEPS[n].name, `step ${n}'s heading is not just its name: ${text}`);
+});
+
 test('no "Done when" cell of the path table holds a check id, and the gate table writes each id in a code span', () => {
   const lines = readFileSync(join(SRC, 'SLIPWAY.md'), 'utf8').split('\n');
   // A check's id is the upper-cased prefix of its file name under ci/checks/meta/, as the Next-line form reads it.
