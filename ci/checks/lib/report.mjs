@@ -15,6 +15,18 @@
 // Warnings are printed and emitted but never change the exit code: something a person should
 // look at that is not wrong on its face (an estimate larger than its appetite). PC1 still
 // compares them, so a warning that can no longer fire is caught like a finding.
+//
+// A finding is `{ where, detail, fix }`: `detail` says what is wrong in one sentence, `fix` says what to do in one.
+// It prints as three lines with the id last (a warning has `Warning: ` before the first):
+//
+//   "Contrast is lower" is an adjective, not a test.
+//     Fix: write a number, a command, a comparison, Given/When/Then or an issue reference.
+//     I1 · adjective-ac.md#ac/unfalsifiable/1
+//
+// A finding with no `fix` is a message still owed its rewrite: it prints its `detail` and the id line only, and
+// scripts/report.test.mjs names the sites that owe one. The summary lines keep their denominator and put the id
+// last: `scanned 13 issue bodies (I1)`, `FAIL: 14 findings in 13 issue bodies (I1)`, `PASS: {claim} (I1)`,
+// `BROKEN: {why} (I1)`.
 
 export const EXIT = { GREEN: 0, FINDINGS: 1, BROKEN: 2 };
 
@@ -67,45 +79,51 @@ export const codeSpan = (text) => {
  * @param {string} o.claim     the exact claim a green result supports — no more
  * @param {number} o.scanned   denominator: how many units were examined
  * @param {string} o.unit      what a unit is ("workflow files", "docs")
- * @param {Array<{where:string, detail:string}>} [o.findings]
+ * @param {Array<{where:string, detail:string, fix?:string}>} [o.findings]
  * @param {string[]} [o.exempted] ids excused by the exception registry
  * @param {string} [o.exemptedBy] names that registry in the output (default "registry")
- * @param {Array<{where:string, detail:string}>} [o.warnings] printed, never fail the check
+ * @param {Array<{where:string, detail:string, fix?:string}>} [o.warnings] printed, never fail the check
  * @param {string|null} [o.broken] set when the check could not run safely
  */
 export function report({ id, claim, scanned, unit, findings = [], exempted = [], exemptedBy = 'registry', warnings = [], broken = null }) {
   // Each field is one line, the claim and unit too (D1's claim quotes the manifest): a line break a project's
   // text or an error message carries is escaped, so it can never start a line of the report (a CI log command,
   // a second @@json line). The @@json line keeps the raw values.
-  const one = escapeControl;
+  // `##[` is shown escaped in every field: the runner finds that old-style command anywhere in a line.
+  const one = (v) => escapeControl(v).replace(/##\[/g, (m) => hex(m));
   [id, claim, unit, exemptedBy] = [id, claim, unit, exemptedBy].map((v) => one(String(v ?? '')));
-  const L = [`${id}: scanned ${scanned} ${unit}`];
+  const L = [`scanned ${scanned} ${unit} (${id})`];
+  // A detail starts its line, so project text quoted at its start must not start a line of the report: white space
+  // the runner trims before it looks for `::`, a CI log command, the @@json line, or what looks like a Fix or id line
+  // (both start with white space). Leading white space and those starts are shown escaped.
+  const lead = (t) => t.replace(/^(?:\s+|::|@@json )/, (m) => hex(m));
+  const shown = (f, label = '') => [`${label}${lead(one(f.detail))}`, ...(f.fix ? [`  Fix: ${one(f.fix)}`] : []), `  ${id} · ${one(f.where)}`];
   let exit;
 
   if (broken) {
-    L.push(`${id}: BROKEN — ${one(broken)}`);
+    L.push(`BROKEN: ${one(broken)} (${id})`);
     exit = EXIT.BROKEN;
   } else if (scanned === 0) {
     // Nothing was examined, so the check is broken, not the repo clean.
-    L.push(`${id}: BROKEN — nothing was examined (0 ${unit}), so green would prove nothing`);
+    L.push(`BROKEN: nothing was examined (0 ${unit}), so green would prove nothing (${id})`);
     exit = EXIT.BROKEN;
   } else {
-    if (exempted.length) L.push(`${id}: ${exempted.length} exempted by ${exemptedBy}: ${exempted.map(one).join(', ')}`);
-    for (const w of warnings) L.push(`${id}: warning: ${one(w.where)}: ${one(w.detail)}`);
-    for (const f of findings) L.push(`${id}: ${one(f.where)}: ${one(f.detail)}`);
+    if (exempted.length) L.push(`${exempted.length} exempted by ${exemptedBy}: ${exempted.map(one).join(', ')} (${id})`);
+    for (const w of warnings) L.push(...shown(w, 'Warning: '));
+    for (const f of findings) L.push(...shown(f));
     if (findings.length) {
-      L.push(`${id}: FAIL — ${findings.length} finding(s) across ${scanned} ${unit}`);
+      L.push(`FAIL: ${findings.length} ${findings.length === 1 ? 'finding' : 'findings'} in ${scanned} ${unit} (${id})`);
       exit = EXIT.FINDINGS;
     } else {
-      const warned = warnings.length ? ` (${warnings.length} warning(s) above)` : '';
-      L.push(`${id}: PASS — green proves: ${claim}${warned}`);
+      L.push(`PASS: ${claim} (${id})`);
       exit = EXIT.GREEN;
     }
   }
 
   if (process.env.CHECK_JSON === '1') {
     const [reported, warned] = exit === EXIT.BROKEN ? [[], []] : [findings, warnings];
-    L.push('@@json ' + JSON.stringify({ id, scanned, unit, exit, broken, findings: reported, exempted, warnings: warned }));
+    // `#` as \u0023 where `##[` stands: a JSON string reads back as the same text, and the line holds no command.
+    L.push('@@json ' + JSON.stringify({ id, scanned, unit, exit, broken, findings: reported, exempted, warnings: warned }).replace(/##\[/g, '\\u0023#['));
   }
   process.stdout.write(escapeOutput(L.join('\n')) + '\n');
   return exit;

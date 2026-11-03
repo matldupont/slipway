@@ -283,7 +283,7 @@ test('parseBaselines and serialiseBaselines: an object of names comes back in th
 });
 
 test('the ratchet command on a ci/baselines.json it cannot read: BROKEN, exit 2, naming the file — never a stack trace, never green, and --update writes nothing', () => {
-  for (const [bytes, why] of [['[]\n', /BROKEN — ci\/baselines\.json is not a JSON object of name → number/], ['{ not json', /BROKEN — ci\/baselines\.json is not valid JSON\n/]]) {
+  for (const [bytes, why] of [['[]\n', /^BROKEN: ci\/baselines\.json is not a JSON object of name → number \(RATCHET\)$/m], ['{ not json', /^BROKEN: ci\/baselines\.json is not valid JSON.* \(RATCHET\)$/m]]) {
     for (const flags of [[], ['--update']]) {
       const dir = mkdtempSync(join(tmpdir(), 'fit-'));
       try {

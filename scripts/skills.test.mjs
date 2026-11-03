@@ -1312,8 +1312,8 @@ test('/review-doc verifies Fit as a claim about the code, and stops on every fin
   const one = flat(section(md, '1 — Read the target, and only the target', 2));
   const stop = one.slice(one.indexOf('A feature doc with no filled Fit is not reviewed as it is either.'));
   assert.ok(stop.length > 64, '/review-doc step 1 must stop on a feature doc with no filled Fit');
-  assert.match(stop, /^A feature doc with no filled Fit is not reviewed as it is either\. Run `node ci\/checks\/meta\/f2-feature-fit\.mjs \.`: a line naming the doc with `#fit\/missing`, `#fit\/unfilled\/`, `#fit\/draft` or `#frontmatter\/unreadable`, or a BROKEN run, stops here\./, 'the stop reads F2\'s own lines');
-  assert.match(stop, /The review would hold the doc and turn its own pull request red on a file a reviewer never edits: say that the doc's author fills its Fit \(and a missing `status:` line\) first, or a session the owner opens for it when the author's is gone\. A Fit edit moves no `Version:`\. On a BROKEN run, quote F2's BROKEN line to the owner, whose step it is, and run nothing else\./, 'the reviewer never fills Fit, and never records the count');
+  assert.match(stop, /^A feature doc with no filled Fit is not reviewed as it is either\. Run `node ci\/checks\/meta\/f2-feature-fit\.mjs \.`: a finding or warning \(`Warning:` first\) whose last line, `F2 · <path>#<key>`, names the doc with `#fit\/missing`, `#fit\/unfilled\/`, `#fit\/draft` or `#frontmatter\/unreadable`, or a BROKEN run, stops here\./, 'the stop reads F2\'s own lines');
+  assert.match(stop, /The review would hold the doc and turn its own pull request red on a file a reviewer never edits: say that the doc's author fills its Fit \(and a missing `status:` line\) first, or a session the owner opens for it when the author's is gone\. A Fit edit moves no `Version:`\. On a BROKEN run, quote F2's `BROKEN:` line to the owner, whose step it is, and run nothing else\./, 'the reviewer never fills Fit, and never records the count');
   // Contract §2's table, case by case: each id the scan finds in F2's sources is one the stop names. Right after a
   // quote ', " or ` or a #, it takes a lowercase `word/` and the lowercase letters, `-` and `/` after it, when a
   // quote or a template's `${` comes next, outside the four top folders: `fit/${k}` is taken as `fit/` and
@@ -1371,7 +1371,7 @@ test('/review-doc step 1 checks the sha, then the target, before any stop reads 
     'A feature doc with no `Version:` line under its title is not reviewed as it is',
     'A milestone with no `Version:` line under its title is not reviewed as it is either',
     'A feature doc with no filled Fit is not reviewed as it is either.',
-    'F2 reads the working tree, which the checks above leave the same as the reviewed commit for the target; of its output, only a line naming the target or a BROKEN line is read.',
+    'F2 reads the working tree, which the checks above leave the same as the reviewed commit for the target; of its output, only a finding or warning whose last line names the target or a `BROKEN:` line is read.',
     'Read the document in full.',
   ].map(at);
   order.forEach((i, k) => k && assert.ok(order[k - 1] < i, `/review-doc step 1 is out of order at item ${k}`));

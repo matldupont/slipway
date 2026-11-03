@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { readWorkflow } from '../ci/checks/lib/workflow-yaml.mjs';
 import { commitAll, inProject, LONG, NO_VALE, newProject, sh, SRC } from './lib/prose-project.mjs';
+import { flat } from './lib/report-form.mjs';
 
 if (spawnSync('vale', ['--version']).status !== 0) {
   console.error('PROSE JOB TEST: BROKEN — vale is not on the path, so no rule was run — install it: `brew install vale`, or the release at https://github.com/errata-ai/vale/releases');
@@ -119,7 +120,7 @@ test('the PR that lifts the guard and records the count: the prose job fails unl
       commitAll(dir, `lift the guard, record ${n}`);
       const r = runStep(CHECK, dir, pr(dir));
       assert.equal(r.status, status, r.stdout + r.stderr);
-      if (status === 1) assert.match(r.stdout, /this change records 12, and this run measured 1 warning on .* record 1$/m);
+      if (status === 1) assert.match(flat(r.stdout), /this change records 12, and this run measured 1 warning on .* record 1$/m);
     }
   } finally {
     rmSync(dirname(dir), { recursive: true, force: true });
@@ -147,7 +148,7 @@ test('a new project\'s first push passes the prose job; a base that is not a com
     for (const before of ['0123456789abcdef0123456789abcdef01234567', undefined]) {
       const r = runStep(CHECK, dir, push(dir, before));
       assert.equal(r.status, 2, r.stdout + r.stderr);
-      assert.match(r.stdout, /BROKEN — the base .* is not a commit here/);
+      assert.match(flat(r.stdout), /BROKEN: the base .* is not a commit here/);
     }
   } finally {
     rmSync(dirname(dir), { recursive: true, force: true });
@@ -164,7 +165,7 @@ test('a project\'s PR body holding "I hope this helps" fails the PR-body workflo
       writeFileSync(join(temp, 'pr', 'body.md'), body);
       const r = runStep(step, dir, {}, { RUNNER_TEMP: temp });
       assert.equal(r.status, status, r.stdout + r.stderr);
-      if (status === 1) assert.match(r.stdout, /body\.md:3: Slipway\.Chatbot: Chatbot phrasing: delete 'I hope this helps'\. Start with what the reader does next/);
+      if (status === 1) assert.match(flat(r.stdout), /body\.md:3: Slipway\.Chatbot: Chatbot phrasing: delete 'I hope this helps'\. Start with what the reader does next/);
     }
   } finally {
     rmSync(dirname(dir), { recursive: true, force: true });

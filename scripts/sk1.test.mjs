@@ -12,6 +12,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { markersIn, summary } from '../ci/checks/lib/skips.mjs';
+import { flat } from './lib/report-form.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const run = (script, root, ...args) => spawnSync(process.execPath, [join(SRC, script), ...args, root], { encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1' } });
@@ -86,8 +87,8 @@ test('a file over 2 MB and a folder that cannot be listed fail as unread, and ve
   chmodSync(join(root, 'packages/app/tests'), 0o755);
   rmSync(root, { recursive: true });
   assert.equal(r.status, 1, r.stdout);
-  assert.match(r.stdout, /packages\/app\/big\.test\.ts#unread: .*is larger than 2 MB/);
-  if (unreadable) assert.match(r.stdout, /packages\/app\/tests#unread: .*cannot be listed/);
+  assert.match(flat(r.stdout), /packages\/app\/big\.test\.ts#unread: .*is larger than 2 MB/);
+  if (unreadable) assert.match(flat(r.stdout), /packages\/app\/tests#unread: .*cannot be listed/);
   assert.match(v.stdout, /markers — app: 0 in 1 test files \(0 to fix, \d not read\)/);
 });
 
@@ -168,7 +169,7 @@ test('a symlinked node_modules is left alone, and a link message never says to c
   rmSync(outside, { recursive: true });
   assert.equal(r.status, 1, r.stdout);
   assert.doesNotMatch(r.stdout, /node_modules#unread/);
-  assert.match(r.stdout, /packages\/app\/shared#unread: .*Never copy files from outside the repository into it/);
+  assert.match(flat(r.stdout), /packages\/app\/shared#unread: .*Never copy files from outside the repository into it/);
   assert.match(r.stdout, /never type its path into a shell command/);
 });
 
@@ -280,7 +281,7 @@ test('fit< and xit< say the name may not be a test; the option messages say this
   const r = sk1(root);
   rmSync(root, { recursive: true });
   assert.equal(r.status, 1, r.stdout);
-  assert.match(r.stdout, /a\.test\.ts line 1 runs only this test.*The name may not be a test/);
+  assert.match(flat(r.stdout), /a\.test\.ts line 1 runs only this test.*The name may not be a test/);
   assert.match(r.stdout, /hides them from this check/);
   assert.doesNotMatch(r.stdout, /from SK1/);
 });
@@ -290,7 +291,7 @@ test('a package that declares test and holds no test file fails verify, naming i
   const check = (files) => { const root = workspace(files); const r = run('ci/verify.mjs', root, '--plan'); rmSync(root, { recursive: true }); return r; };
   const bad = check({ 'packages/bare/package.json': pkg('bare'), 'packages/app/package.json': pkg('app'), 'packages/app/a.test.ts': "it('x');\n" });
   assert.equal(bad.status, 1, bad.stdout);
-  assert.match(bad.stdout, /package:bare: declares `test` and has no test file.*add a test, or remove the `test` script/);
+  assert.match(flat(bad.stdout), /package:bare: declares `test` and has no test file.*add a test, or remove the `test` script/);
   assert.doesNotMatch(bad.stdout, /package:app/);
   const good = check({ 'packages/app/package.json': pkg('app'), 'packages/app/test/h.ts': 'export {};\n', 'packages/lib/package.json': pkg('lib', { check: 'x' }) });
   assert.equal(good.status, 0, good.stdout);

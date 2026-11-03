@@ -31,7 +31,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/issue"
           printf '%s\n' "$ISSUE_BODY" > "$RUNNER_TEMP/issue/body.md"
-          node ci/checks/meta/i1-issue-shape.mjs "$RUNNER_TEMP/issue" > "$RUNNER_TEMP/issue/report.txt" || status=$?
+          CHECK_JSON=1 node ci/checks/meta/i1-issue-shape.mjs "$RUNNER_TEMP/issue" > "$RUNNER_TEMP/issue/report.txt" || status=$?
           cat "$RUNNER_TEMP/issue/report.txt"
           exit "${status:-0}"
       - name: Label an issue that fails, and say what is missing
@@ -49,15 +49,23 @@ jobs:
           gh label create needs-shape --repo "$REPO" --color D93F0B --force \
             --description 'Issue needs shaping: acceptance or seams missing' || label_status=$?
           gh issue edit "$NUMBER" --repo "$REPO" --add-label needs-shape || label_status=$?
-          # I1's finding lines read `I1: <file>#<key>: <sentence>`; the comment keeps the sentence.
-          sed -n 's/^I1: [^ :]*#[^ :]*: //p' "$RUNNER_TEMP/issue/report.txt" > "$RUNNER_TEMP/issue/findings.txt"
+          # The findings come from the report's @@json line, whole: each is a bullet with its detail and its Fix line.
+          # Each field goes through the checkout's own escapeControl (the default branch, on an issues event), so a
+          # control, bidi, tag or other hidden character the issue carried is shown as \uXXXX, as report() shows it.
+          grep -m1 '^@@json ' "$RUNNER_TEMP/issue/report.txt" | sed 's/^@@json //' | node --input-type=module -e '
+            import { escapeControl } from "./ci/checks/lib/report.mjs";
+            process.stdin.setEncoding("utf8");
+            let json = "";
+            for await (const chunk of process.stdin) json += chunk;
+            for (const f of JSON.parse(json).findings) console.log(`- ${escapeControl(f.detail)}` + (f.fix ? `\n  Fix: ${escapeControl(f.fix)}` : ""));
+          ' > "$RUNNER_TEMP/issue/findings.txt" || true
           [ -s "$RUNNER_TEMP/issue/findings.txt" ] || exit "$label_status"
           {
             echo '<!-- issue-shape -->'
             echo 'This issue is labelled `needs-shape`. Edit it to fix:'
             echo
             # a quoted criterion may hold an @mention; a zero-width space keeps the bot from notifying it
-            sed -e 's/@/@\xe2\x80\x8b/g' -e 's/^/- /' "$RUNNER_TEMP/issue/findings.txt"
+            sed -e 's/@/@\xe2\x80\x8b/g' "$RUNNER_TEMP/issue/findings.txt"
             echo
             echo 'This comment updates when you edit the issue, and goes away once it passes.'
           } > "$RUNNER_TEMP/issue/comment.md"

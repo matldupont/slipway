@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { flat } from './lib/report-form.mjs';
 import { SPEC_PATH, unreviewedSpecs } from '../ci/checks/lib/spec-review.mjs';
 import { versionLines } from '../ci/checks/lib/review-header.mjs';
 import { canonical, changes, COLD_REVIEW_DEFAULT, gateGlobs, gateListed, gateMatcher, gateTouched, GUARD_GLOBS, SETTINGS, writeRules } from '../ci/checks/lib/gate-files.mjs';
@@ -166,7 +167,7 @@ const p1 = (from, tip) => {
 };
 const missing = (r, path) => {
   assert.notEqual(r.status, 0, r.stdout);
-  assert.match(r.stdout + r.stderr, new RegExp(`body\\.md#gate-changes/missing: the PR touches gate files \\([^)]*${path.replace(/[.]/g, '\\.')}`));
+  assert.match(flat(r.stdout + r.stderr), new RegExp(`body\\.md#gate-changes/missing: the PR touches gate files \\([^)]*${path.replace(/[.]/g, '\\.')}`));
 };
 
 // #174: the guard's list of gate paths is the reference. Each path it counts is counted here, or is a row of the

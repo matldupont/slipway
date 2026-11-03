@@ -53,7 +53,7 @@ test('a plain file passes when the repository root is itself reached through a l
     for (const root of [join(dir, 'repo'), join(dir, 'linked')]) {
       const r = r1(root);
       assert.equal(r.status, 0, r.out);
-      assert.match(r.out, /R1: PASS/);
+      assert.match(r.out, /^PASS: .* \(R1\)$/m);
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });

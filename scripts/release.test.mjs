@@ -12,6 +12,7 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { label, NPM_MIN, summary } from './release.mjs';
+import { flat } from './lib/report-form.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const WORKFLOW = '.github/workflows/release.yml';
@@ -218,5 +219,5 @@ test('W1 fails a copy of the workflows whose ci.yml no longer runs pnpm meta, wh
   writeFileSync(ci, yml.replace('      - if: ${{ !cancelled() }}\n        run: pnpm meta\n', ''));
   const cut = w1();
   assert.equal(cut.status, 1, cut.stdout + cut.stderr);
-  assert.match(cut.stdout, /check:w1-declared-vs-invoked\.mjs: the check exists, but no CI workflow runs it on a pull request or a push to a branch/);
+  assert.match(flat(cut.stdout), /check:w1-declared-vs-invoked\.mjs: the check exists, but no CI workflow runs it on a pull request or a push to a branch/);
 });

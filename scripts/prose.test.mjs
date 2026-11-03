@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { classify, loadOwnership, shippedPaths } from '../ci/checks/lib/ownership.mjs';
 import { asSeen, blank, HELD, personReads, PROSE_INPUTS, slipwaysFiles } from '../ci/prose.mjs';
 import { commitAll, counts, inProject, LONG, NO_VALE, newProject, sh } from './lib/prose-project.mjs';
+import { flat } from './lib/report-form.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROSE = join(SRC, 'ci', 'prose.mjs');
@@ -90,7 +91,7 @@ test('a PR body: a chatbot phrase fails and names the rule; a clean body passes'
     writeFileSync(join(dir, 'good.md'), '## What\n\nThe check is added. A format like `<sha>` sits in a code span.\n');
     const bad = run(['--body', join(dir, 'bad.md')]);
     assert.equal(bad.status, 1);
-    assert.match(bad.stdout, /Slipway\.Chatbot/);
+    assert.match(flat(bad.stdout), /Slipway\.Chatbot/);
     assert.equal(run(['--body', join(dir, 'good.md')]).status, 0);
   } finally {
     rmSync(dir, { recursive: true, force: true });
@@ -317,9 +318,9 @@ test('with no count, the error rules still fail on their own, and the run exits 
     commitAll(dir, 'readme');
     const r = inProject(dir, ['--base', 'HEAD']);
     assert.equal(r.status, 2, r.stdout);
-    assert.match(r.stdout, /README\.md:\d+: Slipway\.Chatbot/, 'the error rule fails on its own');
-    assert.match(r.stdout, /This run measured 1 warning on this project's own text/);
-    assert.match(r.stdout, /node ci\/prose\.mjs --record 1$/m);
+    assert.match(flat(r.stdout), /README\.md:\d+: Slipway\.Chatbot/, 'the error rule fails on its own');
+    assert.match(flat(r.stdout), /This run measured 1 warning on this project's own text/);
+    assert.match(flat(r.stdout), /node ci\/prose\.mjs --record 1 \(PROSE\)$/m);
   } finally {
     rmSync(dirname(dir), { recursive: true, force: true });
   }
@@ -333,7 +334,7 @@ test('--record <n> runs no Vale and writes the count once; with one in place, or
     writeFileSync(file, JSON.stringify(counts(dir)));
     const unformed = inProject(dir, ['--record', '12'], NO_VALE);
     assert.equal(unformed.status, 1, unformed.stdout);
-    assert.match(unformed.stdout, /not in the form slipway writes it in/);
+    assert.match(flat(unformed.stdout), /not in the form slipway writes it in/);
     assert.equal(readFileSync(file, 'utf8'), JSON.stringify(counts(dir)), 'a file in another form is not rewritten');
     writeFileSync(file, formed);
     const first = inProject(dir, ['--record', '12'], NO_VALE);
@@ -342,7 +343,7 @@ test('--record <n> runs no Vale and writes the count once; with one in place, or
     const before = readFileSync(join(dir, 'ci', 'baselines.json'));
     const again = inProject(dir, ['--record', '3'], NO_VALE);
     assert.equal(again.status, 1, again.stdout);
-    assert.match(again.stdout, /never raises one — nothing was written/);
+    assert.match(flat(again.stdout), /never raises one — nothing was written/);
     assert.deepEqual(readFileSync(join(dir, 'ci', 'baselines.json')), before);
     assert.equal(inProject(dir, ['--record', '-1'], NO_VALE).status, 2, 'a count is a whole number');
   } finally {
@@ -360,7 +361,7 @@ test('a PR recording a number different from CI\'s count fails; the measured num
     commitAll(dir, 'record 12');
     const wrong = inProject(dir, ['--base', 'main']);
     assert.equal(wrong.status, 1, wrong.stdout);
-    assert.match(wrong.stdout, /this change records 12, and this run measured 1 warning on .* record 1$/m);
+    assert.match(flat(wrong.stdout), /this change records 12, and this run measured 1 warning on .* record 1$/m);
     sh(dir, 'checkout', '-q', 'main');
     sh(dir, 'checkout', '-q', '-b', 'right');
     assert.equal(inProject(dir, ['--record', '1'], NO_VALE).status, 0);
@@ -383,7 +384,7 @@ test('a project counts its own text only: a warning in slipway\'s managed SLIPWA
     commitAll(dir, 'own text');
     const own = inProject(dir, ['--base', 'HEAD~1']);
     assert.equal(own.status, 1, own.stdout);
-    assert.match(own.stdout, /prose: 1 is above the baseline 0/);
+    assert.match(flat(own.stdout), /prose: 1 is above the baseline 0/);
   } finally {
     rmSync(dirname(dir), { recursive: true, force: true });
   }

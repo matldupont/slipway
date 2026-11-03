@@ -12,6 +12,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { readRisks, settled } from '../ci/checks/lib/risks.mjs';
 import { nextFormBreaks } from '../ci/checks/lib/next-form.mjs';
+import { flat } from './lib/report-form.mjs';
 import { STATES, STEPS, stepLines, stepStates } from '../ci/checks/lib/steps.mjs';
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -199,19 +200,19 @@ test('an active test milestone passes K1 on its own risk, and status lists only 
     writeFileSync(decisions, record.replace(/^Starts: M1\.1 · RISK-1\n/m, ''));
     const unstarted = k1();
     assert.equal(unstarted.status, 1);
-    assert.match(unstarted.stdout, /RISK-1#risk\/unresolved: value risk untested while M1\.1 is underway/);
-    assert.match(unstarted.stdout, /M1\.1#risk\/test-target: .*PD-1 has no "Starts: M1\.1 · RISK-n" line/);
+    assert.match(flat(unstarted.stdout), /RISK-1#risk\/unresolved: value risk untested while M1\.1 is underway/);
+    assert.match(flat(unstarted.stdout), /M1\.1#risk\/test-target: .*PD-1 has no "Starts: M1\.1 · RISK-n" line/);
     assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), RISK-2 untested · M1.1 underway with it untested — pnpm meta is red until it has a Result');
     writeFileSync(decisions, record);
     // A lone carriage return above the Starts: line can hide it in the rendered file, so the line is not read (D-047).
     // scripts/new-project.test.mjs refuses a CR byte in a tracked file, so the case is written here.
     writeFileSync(decisions, record.replace('# Decisions\n', '# Decisions\n\nA note ended by a lone carriage return.\rNext line.\n'));
-    assert.match(k1().stdout, /M1\.1#risk\/test-target: .*is not read: line 3 above it holds a lone carriage return/);
+    assert.match(flat(k1().stdout), /M1\.1#risk\/test-target: .*is not read: line 3 above it holds a lone carriage return/);
     writeFileSync(decisions, record);
     // A lone carriage return below the Starts: line hides nothing above it, and turns no other rule off: a comment
     // above the line still keeps it from being read.
     writeFileSync(decisions, record.replace('# Decisions\n', '# Decisions\n\n<!-- a note -->\n') + 'Last line.\rEnd.\n');
-    assert.match(k1().stdout, /M1\.1#risk\/test-target: .*is not read: line 3 above it holds an HTML comment marker/);
+    assert.match(flat(k1().stdout), /M1\.1#risk\/test-target: .*is not read: line 3 above it holds an HTML comment marker/);
     writeFileSync(decisions, record + 'Last line.\rEnd.\n');
     assert.equal(k1().status, 0);
     writeFileSync(decisions, record);
@@ -225,7 +226,7 @@ test('an active test milestone passes K1 on its own risk, and status lists only 
     set('M2-booking.md', 'active');
     const red = k1();
     assert.equal(red.status, 1);
-    assert.match(red.stdout, /RISK-1#risk\/unresolved: value risk untested while M2 is underway/);
+    assert.match(flat(red.stdout), /RISK-1#risk\/unresolved: value risk untested while M2 is underway/);
     assert.equal(frame(), 'framed · risks: RISK-1 scheduled (#9), being tested in M1.1, RISK-2 untested · M2 underway with it untested — pnpm meta is red until it has a Result');
   } finally {
     rmSync(dir, { recursive: true, force: true });
