@@ -422,6 +422,7 @@ test('through real gh, a Blocked by number GitHub holds as neither is unknown wi
   assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND', path: ['repository', 'p77'] }, { type: 'FORBIDDEN' }] }, 1), /gh failed/);
   assert.throws(() => run({ data: { repository: { p77: { __typename: 'Issue', state: 'OPEN', stateReason: null } } }, errors: [{ type: 'NOT_FOUND', path: ['repository', 'p77'] }] }, 1), /gh failed/, 'a NOT_FOUND on an alias with data is not an answer');
   assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND' }] }, 1), /gh failed/, 'a NOT_FOUND naming no alias is not an answer');
+  assert.throws(() => run({ data: { repository: null }, errors: [{ type: 'NOT_FOUND', path: ['repository'] }] }, 1), /gh failed/, 'a repository GitHub does not find is not an answer');
 });
 
 test('more than three unknown numbers on one leaf give one finding naming three and how many more', () => {

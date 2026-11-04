@@ -371,6 +371,12 @@ Then  it exits 1 naming gh auth status, and writes nothing
 ```
 
 ```
+Given a title `<script>alert(1)</script>` with U+202E, and `SENTINEL-<place>` in every body section but the designation
+When  the page is rendered
+Then  the output has 0 `<script` elements, shows `&lt;script&gt;` and `‮`, and contains 0 SENTINEL strings
+```
+
+```
 Given no active milestone
 When  `node ci/work-order.mjs <root>` runs
 Then  it exits 0 and the page says "No milestone is active"
@@ -440,7 +446,9 @@ Reload stays the `--watch` refresh tag: no websockets, no HTTPS, no opening the 
 
 - D-050 (2026-10-23) amends this page: its Next comes from the plan `pnpm status` uses (F-17,
   `dev/features/parallel-plan.md` §10), with ready builds first, shaping only when fewer than three are ready, and only
-  the owner's pull requests and branches marking a leaf in progress. F-17's Build map step 5 edits this Contract,
+  the owner's pull requests and branches marking a leaf in progress. D-050's all or nothing excepts a not-found item
+  issue and a not-found `Blocked by` number (its 2026-11-04 note, #607), so this page's read keeps its 0.3 rule when
+  step 5 moves it onto F-17's. F-17's Build map step 5 edits this Contract,
   Acceptance and Verify to match, and this doc's review covers only those sections, in one round. Owner: F-17's step 5.
 - D-055 (2026-11-02) replaces this page with the milestone board, `pnpm board` (F-18,
   `dev/features/milestone-board.md`): the page gains one pinned script under a content policy in place of "no script",
@@ -457,7 +465,10 @@ Reload stays the `--watch` refresh tag: no websockets, no HTTPS, no opening the 
 - 2026-11-04 · MODIFIED · 0.3, from the 0.2 review (`docs/reviews/2026-11-04-work-order-0.2.md`), the last round: a
   pull request closed unmerged now holds, with F-18's line (the owner, 2026-11-04, replacing "closed clears", AR-12);
   `__typename` read (AR-1); an answer kept only when each `NOT_FOUND` names a `null` alias; the comparison run is one
-  where the number is an open issue (AR-2); findings on open leaves only, one per leaf (AR-6); the Acceptance blocks
+  where the number is an open issue (AR-2); findings on open leaves only, a leaf's unknown numbers in one finding
+  (AR-6); the Acceptance blocks
   sharpened (AR-7); Ready names owed checks and the three close reasons (AR-8); the finding's action first and in
   F-17's words (AR-9); the `Verified against:` lines corrected (AR-5, AR-10). AR-3 and AR-4 went to the owner:
   AR-3 is taken in F-17 0.5, AR-4 is a follow-up through the orchestrator. #607
+- 2026-11-04 · FIXED · the hostile-text Acceptance block was deleted by mistake in 0.3 and restored unchanged (the
+  owner, 2026-11-04); the 0.3 review's AR-1. No version move. #607
