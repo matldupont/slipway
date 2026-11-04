@@ -11,15 +11,18 @@ const TAKES_VALUE = new Set(['--project', '--config', '-c', '--root', '-r', '--d
 // Dropped, with their value: the step gives its own.
 const DROPPED = new Set(['--reporter', '--outputFile']);
 // What changes which tests a one-file run executes, or what it does: the call is the project's to write.
-const REFUSED = ['--coverage', '--shard', '--changed', '--bail', '--testNamePattern', '-t', '--t', '--related'];
+const REFUSED = ['--coverage', '--shard', '--changed', '--bail', '--testNamePattern', '-t', '--related', '--tagsFilter'];
 
 const refused = (word) => REFUSED.some((f) => word === f || word.startsWith(`${f}=`) || word.startsWith(`${f}.`));
 // A single-dash word holding `t` before any `=` (`-ut=foo`, `-u1t`) can be read by the runner's argument parser as
-// a name filter too, and `--t=foo` is; each is refused, whatever its other characters. The parser reads a word of
-// three or more dashes as a cluster as well, so every such word is refused, and a cluster holding `r` or `c` (`-ur=`)
-// is too, as it names the root or config past the check below.
+// a name filter too; each is refused, whatever its other characters. The parser reads a word of three or more dashes
+// as a cluster as well, so every such word is refused.
 const dashes = (word) => word.length - word.replace(/^-+/, '').length;
-const clusterWithT = (word) => dashes(word) > 2 || (/^-[^-]/.test(word) && (word.split('=')[0].includes('t') || (word.split('=')[0].length > 2 && /[rc]/.test(word.split('=')[0]))));
+const clusterWithT = (word) => dashes(word) > 2 || (/^-[^-]/.test(word) && word.split('=')[0].includes('t'));
+// A cluster holding `r` or `c` (`-ur=`) names the root or config past the path check below: each flag goes on its own.
+const clusterWithPath = (word) => /^-[^-]/.test(word) && word.split('=')[0].length > 2 && /[rc]/.test(word.split('=')[0]);
+// The parser reads a one-letter flag written with two dashes (`--t`, `--r=x`) as the one-dash flag.
+const oneLetter = (word) => (/^--[A-Za-z](=|$)/.test(word) ? word.slice(1) : word);
 // Flags whose value is the config file or the folder the runner starts from: it stays inside the package. Other
 // flags that name a path (setup files, a node flag) are not read here.
 const PATHS = new Set(['--config', '-c', '--root', '-r', '--dir']);
@@ -52,7 +55,7 @@ export function runnerCall(script) {
   if (words[at] === 'run') at += 1;
   const args = [];
   while (at < words.length) {
-    const word = words[at++];
+    const word = oneLetter(words[at++]);
     // cac reads --test-name-pattern as --testNamePattern.
     const name = word.split('=')[0].replace(/(?<=^--.+)-([a-z])/g, (_, c) => c.toUpperCase());
     // --outputFile.json=x and --reporter.x are the same flags, keyed by reporter.
@@ -63,6 +66,7 @@ export function runnerCall(script) {
       continue;
     }
     if (refused(name) || refused(word) || clusterWithT(word)) return { unreadable: `it passes ${clusterWithT(word) ? word.split('=')[0] : name}, which changes which tests a one-file run executes` };
+    if (clusterWithPath(word)) return { unreadable: `it passes ${word.split('=')[0]}, which names the root or config inside a cluster of flags` };
     if (word.includes('=') && PATHS.has(name) && leaves(word.slice(word.indexOf('=') + 1))) return { unreadable: `its ${name} names a path outside the package` };
     if (TAKES_VALUE.has(word)) {
       const value = words[at++];

@@ -121,13 +121,15 @@ test('a dropped flag written without a value does not take the next flag as its 
 });
 
 test('a --root, --dir or --config value that is absolute or leaves the package is refused, in both forms; one inside is kept', () => {
-  for (const script of ['vitest run --root ../x', 'vitest run -r /etc', 'vitest run --dir=a/../../b', 'vitest run --config=/tmp/v.ts', 'vitest run -c ../v.ts', 'vitest run --config C:/v.ts']) {
+  for (const script of ['vitest run --root ../x', 'vitest run -r /etc', 'vitest run --dir=a/../../b', 'vitest run --config=/tmp/v.ts', 'vitest run -c ../v.ts', 'vitest run --config C:/v.ts', 'vitest run --r=/abs', 'vitest run --c=../../x.ts', 'vitest run --r /abs']) {
     assert.match(runnerCall(script).unreadable ?? '', /names a path outside the package/, script);
   }
   assert.deepEqual(runnerCall('vitest run --dir src --config=config/vitest.ts --root=.').args, ['--dir', 'src', '--config=config/vitest.ts', '--root=.']);
 });
 
 test('a short-flag cluster holding t, any single-dash word holding t, and --t are refused as a name filter; one without t is kept', () => {
-  for (const script of ['vitest run -ut=foo', 'vitest run -tu', 'vitest run -at', 'vitest run --t=foo', 'vitest run --t foo', 'vitest run -u1t=foo', 'vitest run -.t=foo', 'vitest run ---t=foo', 'vitest run ----t=foo', 'vitest run ---r=/x', 'vitest run -ur=/abs', 'vitest run -uc=../../x.ts']) assert.match(runnerCall(script).unreadable ?? '', /changes which tests a one-file run executes/, script);
+  for (const script of ['vitest run -ut=foo', 'vitest run -tu', 'vitest run -at', 'vitest run --t=foo', 'vitest run --t foo', 'vitest run -u1t=foo', 'vitest run -.t=foo', 'vitest run ---t=foo', 'vitest run ----t=foo', 'vitest run ---r=/x', 'vitest run --tagsFilter=fast', 'vitest run --tags-filter=fast']) assert.match(runnerCall(script).unreadable ?? '', /changes which tests a one-file run executes/, script);
   assert.deepEqual(runnerCall('vitest run -ua').args, ['-ua']);
+  for (const script of ['vitest run -ur=/abs', 'vitest run -uc=../../x.ts', 'vitest run -uc=vitest.config.ts']) assert.match(runnerCall(script).unreadable ?? '', /names the root or config inside a cluster of flags/, script);
+  assert.deepEqual(runnerCall('vitest run --c=vitest.unit.ts').args, ['-c=vitest.unit.ts']);
 });
