@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parse } from '../ci/checks/lib/vendor/babel-parser.mjs';
-import { mutants, reExports, spans } from '../ci/checks/lib/mutants.mjs';
+import { imports, mutants, OTHER_BREAK_REASON, reExports, spans } from '../ci/checks/lib/mutants.mjs';
 
 const VENDOR = fileURLToPath(new URL('../ci/checks/lib/vendor/', import.meta.url));
 const PARSER = '7d39f3039056b4e4e05daecd69c4391beeed1769429128a2ba3d3113dffe4072';
@@ -172,10 +172,7 @@ test('reExports() gives the relative paths a file re-exports from', () => {
 });
 
 test('mutants() finds the operator when a comment is hostile, and never loops', () => {
-  for (const code of ['a /*/ // */ + `\n/*`;', 'a //x\r+ `\n/*`;', 'a //x\u2028+ `\n/*`;', 'x = a /*/ - */ - b;']) {
-    if (code.includes('\r')) assert.equal(mutants('a.js', code).find((c) => c.kind === 'operator')?.replacement, '-', 'a line comment ends at a lone CR');
-    assert.ok(Array.isArray(mutants('a.js', code)), code);
-  }
+  for (const code of ['a /*/ // */ + `\n/*`;', 'x = a /*/ - */ - b;']) assert.ok(Array.isArray(mutants('a.js', code)), code);
   // The change lands on the operator, not in the comment before it.
   const text = 'x = a /*/ - */ - b;';
   const operator = mutants('a.js', text).find((change) => change.kind === 'operator');
@@ -189,11 +186,20 @@ test('a very deep chain of calls is read, not a crash', () => {
   assert.ok(Array.isArray(spans('a.js', code).tests));
 });
 
-test('lines count \\n only, as git does, in mutants() and in spans()', () => {
-  const code = `const s = "${'\u2028'.repeat(5)}";\r\nit('a', () => {\r\n  expect(1).toBe(1);\r\n});\n`;
+test('lines count \\n only, as git does, in mutants() and in spans(); CRLF reads as one break', () => {
+  const code = `const s = "x";\r\nit('a', () => {\r\n  expect(1).toBe(1);\r\n});\n`;
   assert.deepEqual(spans('a.js', code).tests, [{ first: 2, last: 4 }]);
   assert.deepEqual(spans('a.js', code).expects, [{ first: 3, last: 3 }]);
   assert.equal(mutants('a.js', code).find((change) => change.kind === 'body').line, 2);
+});
+
+test('a text holding a line break git does not count is unreadable, so its lines never drift from a stack (#632)', () => {
+  // V8 and the parser break a line at a lone CR, U+2028 and U+2029, git does not: a crash's line would name another.
+  for (const brk of ['\r', '\u2028', '\u2029']) {
+    const code = `const s = "${brk}";\nit('a', () => {\n  expect(f()).toBe(1);\n});\nfunction f() { return 1; }\n`;
+    for (const read of [mutants, spans, reExports, imports]) assert.deepEqual(read('a.js', code), { unreadable: OTHER_BREAK_REASON }, JSON.stringify(brk));
+  }
+  assert.ok(Array.isArray(mutants('a.js', 'const s = 1;\r\nfunction f() { return 1; }\r\n')), 'CRLF is read');
 });
 
 test('the reason a file is unreadable is one short line, and not one shared object', () => {

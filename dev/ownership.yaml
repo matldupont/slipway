@@ -87,6 +87,10 @@ paths:
   # file here, so a project's own is never a collision; the class keeps one out of the managed ci/** tree
   - glob: ci/before-verify.sh
     class: seeded
+  # the project's own word on how tests-can-fail runs a package's tests and which test files it keeps out (F-13 §3.3,
+  # §6). Slipway ships none, so it is the project's file as ci/before-verify.sh is
+  - glob: ci/tests-can-fail.yaml
+    class: seeded
   # the project's counts that may only go down. Slipway's own copy is its own live count and never travels:
   # new-project writes the project's file, and sync records the Fit count in it once (F-12, feature-fit.md §3) and
   # the prose count once (F-16 §10, #549)
