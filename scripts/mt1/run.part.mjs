@@ -162,3 +162,12 @@ test('a test every change of which stops its file loading is not judged, by its 
   assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/every-change-dropped/dropped`]], r.out);
   assert.match(r.json.warnings[0].detail, /every change this step made to `pkgs\/app\/src\/cart\.ts` stopped the test file loading/);
 });
+
+test('MT1 --run names ci/exceptions.yaml when the commit\'s copy cannot be read', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  removeAll(t, p);
+  p.commit({ 'ci/exceptions.yaml': 'exceptions:\n  - id: x\n    bogus: 1\n' });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /ci\/exceptions\.yaml: /);
+});

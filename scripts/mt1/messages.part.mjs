@@ -150,3 +150,14 @@ test('each known-bad fixture of MT1 is one PC1 runs, and every reason a record c
   for (const why of given) assert.ok(REASONS.includes(why), `the run gives ${why}, which this test does not word`);
   for (const w of every().warnings.filter((x) => x.where.includes('#not-judged/'))) assert.doesNotMatch(w.detail, /is not one this step names/, w.where);
 });
+
+test('a note line that quotes a file from the record never prints the CI command marker raw', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'mt1-marker-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const record = JSON.parse(readFileSync(fileURLToPath(new URL('../../ci/fixtures/mt1-green/run.json', import.meta.url)), 'utf8'));
+  record.notTests = [{ file: 'pkgs/app/##[error]x.test.ts' }];
+  writeFileSync(join(dir, 'run.json'), JSON.stringify(record));
+  const out = spawnSync(process.execPath, [MT1, dir], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: '2026-11-04' } });
+  assert.match(out.stdout, /changed files under a test name or folder are not tests: .*x\.test\.ts/);
+  assert.doesNotMatch(out.stdout, /##\[/);
+});

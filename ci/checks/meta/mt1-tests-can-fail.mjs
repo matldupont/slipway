@@ -115,10 +115,14 @@ async function main(arg) {
     let registry;
     try {
       head = headOf(root);
+    } catch (e) {
+      return brokenOnly(m.e(e.message));
+    }
+    try {
       // The commit's, as the run reads it (§3.7): a change not committed excuses nothing and hides no expiry.
       registry = registryOf(showFile(root, head, 'ci/exceptions.yaml'));
     } catch (e) {
-      return brokenOnly(m.e(e.message));
+      return brokenOnly(m.e(`ci/exceptions.yaml: ${e.message}`));
     }
     const record = await runMutation({ root, say: (line) => process.stderr.write(`tests-can-fail: ${escapeControl(line)}\n`) });
     return print(verdict(record, { registry, today: clockToday(root), head }));
