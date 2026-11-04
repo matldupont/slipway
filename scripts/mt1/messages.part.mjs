@@ -14,7 +14,9 @@ import { entry, FILE, judge, messages, nj, rec, test as judged } from './records
 
 const MT1 = fileURLToPath(new URL('../../ci/checks/meta/mt1-tests-can-fail.mjs', import.meta.url));
 const KNOWN_BAD = fileURLToPath(new URL('../../ci/fixtures/known-bad/mt1/', import.meta.url));
+// §5's next actions, read whatever the case of their first letter, since one can start a sentence or follow "then".
 const ACTIONS = ['Assert on', 'excuse', 'Rename or move', 'keep it out', 'Make it pass', 'Run `pnpm tests-can-fail`', 'Write the call', 'Remove it'];
+const acts = (text) => ACTIONS.some((a) => text.toLowerCase().includes(a.toLowerCase()));
 const REASONS = ['no-subject', 'support-only', 'could-not-be-parsed', 'other-language', 'no-change-to-make', 'every-change-dropped', 'kept-out', 'other-runner', 'no-package', 'skipped', 'mechanical', 'excused', 'flaky'];
 
 // One record holding a test of every finding and every reason a test is not judged, and the registry entries that
@@ -42,7 +44,7 @@ test('every finding, warning and exit 2 names a file of the project, the test wh
   const all = [...messages(v), ...messages(nothing), ...broken.flatMap(messages)];
   assert.ok(all.length >= 24, `${all.length} messages`);
   for (const text of all) {
-    assert.ok(ACTIONS.some((a) => text.includes(a)), `no next action: ${text}`);
+    assert.ok(acts(text), `no next action: ${text}`);
     assert.doesNotMatch(text, /MT1/, text);
   }
   for (const f of [...v.findings, ...v.warnings, ...nothing.findings]) {
@@ -54,7 +56,7 @@ test('every finding, warning and exit 2 names a file of the project, the test wh
   // The run's own messages in these cases, which MT1 prints as its exit 2.
   const unit = { file: FILE };
   for (const text of [redMessage(unit, 'twice', { everyRed: false, connection: false }), redMessage(unit, 'twice', { everyRed: true, connection: false }), leftMessage(3), setupMessage('Error: listen EADDRINUSE :5432')]) {
-    assert.ok(ACTIONS.some((a) => text.includes(a)), `no next action: ${text}`);
+    assert.ok(acts(text), `no next action: ${text}`);
     assert.doesNotMatch(text, /MT1/);
   }
 });
