@@ -10,7 +10,7 @@ const SOURCE = /\.(?:[cm]?js|jsx|[cm]?ts|tsx)$/;
 const NO_JSX = /\.[cm]?ts$/;
 
 // Keys that hold a type, never code to change.
-const TYPE_KEYS = new Set(['typeAnnotation', 'returnType', 'typeParameters', 'typeArguments', 'superTypeParameters', 'implements']);
+const TYPE_KEYS = new Set(['typeAnnotation', 'typeParameters', 'typeArguments', 'superTypeArguments']);
 const FLIP = new Map([['===', '!=='], ['==', '!='], ['<', '<='], ['>', '>='], ['&&', '||'], ['+', '-'], ['*', '/']]);
 for (const [from, to] of [...FLIP]) FLIP.set(to, from);
 const KIND_ORDER = ['body', 'condition', 'operator', 'literal'];

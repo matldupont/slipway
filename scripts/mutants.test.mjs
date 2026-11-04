@@ -130,6 +130,7 @@ test('mutants() changes nothing inside an import, a re-export, a type or a strin
     'type T = true | ((x: number) => void); interface I { f(x: number): boolean; a: true }',
     'type G<T extends true = true> = T extends true ? 1 : 2; declare const d: true; declare function o(a: true): true;',
     'const v = w as true; const x = <true>y; const z = k satisfies true; function h(this: true, p: true): true;',
+    'f<true>(x); new G<true>(); class A extends B<true> implements C<true> {}; const y = <T,>(a: T): true => {}; function k<T>(a: T): true {}',
     "const s = 'a === b'; const t = `x`;",
   ]) assert.deepEqual(mutants('a.ts', code), [], code);
 });
