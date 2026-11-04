@@ -39,12 +39,13 @@ test('the root script runs MT1 --run; the meta script runs MT1 on ci/fixtures/mt
   const meta = scripts.meta.split(' && ');
   assert.ok(meta.includes(META_LINE));
   assert.ok(meta.includes('node scripts/mt1.test.mjs'));
-  // Outside W1's gated pattern on purpose, so W1 asks for no workflow to run it (§1).
-  assert.doesNotMatch('tests-can-fail', /^(check|lint|test|build|typecheck)(:|$)/);
   assert.equal(scripts.verify.includes('tests-can-fail'), false, 'not in pnpm verify');
   const r = spawnSync(process.execPath, META_LINE.split(' ').slice(1), { cwd: SRC, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout);
   assert.match(r.stdout, /^PASS: \d+ new tests: \d+ passed, 0 failed, \d+ not judged\. \(MT1\)$/m);
+  // AR-13: the green record holds a not-judged test for each of these reasons, so each one's warning is read on a pass.
+  const why = JSON.parse(readFileSync(join(SRC, 'ci', 'fixtures', 'mt1-green', 'run.json'), 'utf8')).notJudged.map((n) => n.why);
+  for (const reason of ['support-only', 'other-language', 'excused', 'skipped', 'flaky', 'other-runner']) assert.ok(why.includes(reason), reason);
 });
 
 test('no workflow runs the step: run lines are read for the root script and MT1 --run, not the words anywhere', (t) => {
