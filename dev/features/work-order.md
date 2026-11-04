@@ -5,7 +5,11 @@ status: draft
 
 # F-07 — Work order: which sessions the owner can start now, rendered locally from the repo and GitHub
 
-Version: 0.1 (2026-10-22)
+Version: 0.2 (2026-11-04)
+
+The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
+below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner
+confirmed (`/log-bug`) is the one change that leaves it.
 
 ## Problem
 
@@ -49,6 +53,37 @@ not the machinery behind it. Decision: D-022 (new, below). Related: F-02 (#41, #
 | Terminal output instead of a page | No HTML to render | No folding, links or designation panels; the evidence is a page used daily | deferred (a `--text` flag, if asked) |
 | A local page, rendered on demand from the milestone and GitHub | Never drifts; nothing published; reuses #68's renderer | Needs `gh` and a network call | **selected** |
 
+## Fit
+
+What this feature takes from the product it joins, as built and as amended by 0.2 (#607); paths and lines at 833f538.
+
+Reuses:
+- `readMilestones()`, `readMilestoneModel()`, `contents()`, `marker()` and `owing()` in `ci/checks/lib/milestones.mjs`
+  (`:79`, `:245`, `:112`, `:202`, `:179`): the active milestone, its items, each item's issue and what it still owes;
+  `appetiteClock()` (`:44`, #68) for "day N of M".
+- `blockers()`, `touches()`, `overlap()` and `designation()` in `ci/checks/lib/issue-body.mjs` (`:35`, `:50`, `:68`,
+  `:27`): the three things read from an issue body, and the overlap rule.
+- `trustedEnvAt()` in `ci/checks/lib/manifest.mjs:86`: the PATH without the repository's or `node_modules`' entries,
+  shared with the git lookup, for every `gh` call.
+- `agentRow()`, `zone()` and `today()` in `ci/checks/lib/clock.mjs` (`:33`, `:40`, `:45`): the `Issue repo` and
+  `Product name` cells, the project's timezone and day.
+- `escapeShown()` in `ci/checks/lib/html.mjs:14`, `escapeControl()` and `excerpt()` in `ci/checks/lib/report.mjs`
+  (`:53`, `:60`), `plain()` in `ci/checks/lib/markdown.mjs:161` and `hasPlaceholder()` in
+  `ci/checks/lib/frontmatter.mjs:75`: how each value is cleaned before the page shows it.
+
+Numbers:
+- The picks cap, 3, is `PICKS` in `ci/work-order.mjs:29`.
+- The designation is cut at `DESIGNATION_MAX`, 600, and a `Blocked by:` line keeps at most `BLOCKERS_MAX`, 50,
+  numbers, both in `ci/checks/lib/issue-body.mjs:10`–`11`.
+- The open pull requests read, 200 at most, is the `--limit` in `ci/work-order.mjs:109`.
+- `--watch`'s 15-second floor and `--serve`'s default port 4747 are `MIN_EVERY` and `DEFAULT_PORT` in
+  `ci/work-order.mjs:247`–`248`.
+- A blocker's status (issue, pull request or unknown, 0.2) is decided once, in `collect()`; the page only prints it.
+
+New: `ci/work-order.mjs`, the page. Nothing else reads the active milestone's issues from GitHub, judges which ready
+issues can run side by side, or renders them for the owner: `pnpm status` stays offline (D-020) and the roadmap page
+is published, so it shows no issue (D-017).
+
 ## Contract
 
 Verified against: a09b863 2026-09-30 — `ci/checks/lib/milestones.mjs` (`readMilestones`, `contents`,
@@ -57,6 +92,12 @@ Verified against: a09b863 2026-09-30 — `ci/checks/lib/milestones.mjs` (`readMi
 `ci/checks/lib/clock.mjs` (`today`, `CHECK_NOW`), `ci/checks/lib/markdown.mjs` (`section`, `plain`),
 `process/intake.md` → Issue body (Links, the designation block), `dev/features/roadmap-page.md` (#68's
 contract: `appetiteClock`, HTML escaping net-new and private to `ci/roadmap.mjs`), `.gitignore` (`seeded`).
+
+Verified against: 833f538 2026-11-04 — for 0.2 (#607): `ci/work-order.mjs:43`–`58` (`realGh()` keeps an answer whose
+every error is `NOT_FOUND`), `:70`–`75` (`issues()` asks every number as `issue(number:)`), `:131`–`138` (a `Blocked
+by` number not returned is `missing`, printed "not found", and holds its leaf), `ci/checks/lib/issue-body.mjs:35`–`41`
+(`blockers()` takes any `#n`); GitHub's answer to `issueOrPullRequest(number:)` for a merged pull request (`MERGED`),
+an issue (`OPEN`) and a number it holds as neither (`null`, one `NOT_FOUND` error, exit 1), asked on 2026-11-04.
 
 Decisions this rests on, in words: the page is local, owner-only and never published, and it may show issue
 numbers, titles and commands, which the published roadmap page may not [D-022, D-017]. `pnpm status` stays
@@ -107,8 +148,9 @@ instead of copying it. At most three calls per run:
 1. `gh api graphql` — for each started item's issue: `number title state stateReason body` and its
    `subIssues(first: 50)` with the same fields, in GitHub's sub-issue order.
 2. `gh pr list --repo {repo} --state open --limit 200 --json number,isDraft,body`.
-3. `gh api graphql` — `state stateReason` for every `Blocked by` issue not already fetched (skipped when
-   none).
+3. `gh api graphql` — every `Blocked by` number not already fetched, as `issueOrPullRequest(number: n)` under the
+   alias `p{n}`: `... on Issue { state stateReason }` and `... on PullRequest { state }` (skipped when none). A
+   `Blocked by:` line may name a pull request on purpose, to hold a ticket until it merges (#607).
 
 `gh` missing, signed out, or exiting non-zero: exit 1, naming `gh auth status` and the first line of its
 stderr (through `escapeControl`, cut to 200 characters), and write nothing.
@@ -134,7 +176,15 @@ stderr (through `escapeControl`, cut to 200 characters), and write nothing.
     on work not filed yet", never as the text;
   - `Touches:`, parsed as above. Missing: unknown. An entry that breaks the rules makes the whole line
     unknown.
-- **Ready:** status `open`, and every blocker closed (either reason).
+- **A blocker's status** (#607): a `Blocked by` number GitHub returns as an issue reads as a leaf does, `done`,
+  `dropped` or `open`. One it returns as a pull request reads `pull request, open`, `pull request, merged` or `pull
+  request, closed`. One it returns as neither (its alias `null`, beside an error of type `NOT_FOUND`: a typo, a
+  deleted or moved issue) is `unknown`, and its leaf carries one finding: `#{m} names #{n} on its Blocked by line,
+  which is neither an issue nor a pull request in {repo}. Correct the number or remove it.` An unknown blocker
+  never fails the read: every other leaf and blocker reads as it would without that number. An answer with a
+  `NOT_FOUND` error beside any other error still fails the run, as `gh` exiting non-zero does.
+- **Ready:** status `open`, and every blocker cleared: an issue closed (either reason), or a pull request merged or
+  closed without merging. An open pull request and an unknown blocker hold the leaf.
 - **In progress:** status `PR`.
 - **Overlap:** an entry's key is its text up to the first `*`. Two entries overlap when one key is a string
   prefix of the other (`ci/checks/` overlaps `ci/checks/lib/milestones.mjs`; `ci/check` overlaps
@@ -152,8 +202,9 @@ stderr (through `escapeControl`, cut to 200 characters), and write nothing.
 2. **Next:** each pick with its `#n` link, title, "Touches {entries}" or "Touches: not listed", its start
    command and its designation.
 3. **Items**, in Contents order: the item's number and text; for each leaf, `#n` linked to
-   `https://github.com/{repo}/issues/{n}`, its title, status, "Blocked by #a (open), #b (done)", its start
-   command `/work-ticket {n}` when `open`, and its designation in a closed `<details>`. An unstarted item shows
+   `https://github.com/{repo}/issues/{n}`, its title, status, "Blocked by #a (open), #b (done), #c (pull request,
+   open), #d (unknown)" (a pull request blocker linked to `https://github.com/{repo}/pull/{n}`), each unknown
+   blocker's finding, its start command `/work-ticket {n}` when `open`, and its designation in a closed `<details>`. An unstarted item shows
    `/log-feature {id}#{k}`. Done and dropped leaves of an open item fold into a closed `<details>` inside it.
 4. **Finished:** items whose leaves are all done or dropped, in one closed `<details>` at the end.
 
@@ -274,6 +325,35 @@ When  the page is rendered
 Then  Next holds the first issue and no other issue, with "Touches: not listed"
 ```
 
+Blocked by numbers that are not issues (#607):
+
+```
+Given a ready leaf whose Blocked by: names an open pull request
+When  the page is rendered
+Then  the blocker shows "(pull request, open)", linked to /pull/{n}, and the leaf is not in Next
+```
+
+```
+Given the same pull request merged, and in a second run closed without merging
+When  the page is rendered
+Then  the blocker shows "(pull request, merged)", then "(pull request, closed)", and the leaf is in Next when nothing
+      else holds it
+```
+
+```
+Given the real gh path (realGh) answering a Blocked by number with a null alias and one NOT_FOUND error, exit 1
+When  the page is rendered
+Then  that blocker shows "(unknown)", its leaf carries "#{m} names #{n} on its Blocked by line, which is neither an
+      issue nor a pull request in {repo}. Correct the number or remove it.", the leaf is not in Next, and every other
+      leaf, blocker and pick is the same as in a run where no ticket names that number
+```
+
+```
+Given the same answer with a NOT_FOUND error beside an error of another type
+When  `node ci/work-order.mjs <root>` runs
+Then  it exits 1 naming gh auth status, and writes nothing
+```
+
 ```
 Given a title `<script>alert(1)</script>` with U+202E, and `SENTINEL-<place>` in every body section but the designation
 When  the page is rendered
@@ -361,3 +441,6 @@ Reload stays the `--watch` refresh tag: no websockets, no HTTPS, no opening the 
 
 - 2026-09-30 · ADDED · spec · #156 (steps #157, #158)
 - 2026-09-30 · ADDED · `--serve`: a loopback address to click, with its threat model and limitation · #183
+- 2026-11-04 · MODIFIED · 0.2: a `Blocked by` number is read as an issue or a pull request; an open pull request
+  holds its leaf, a merged or closed one clears it, and a number GitHub holds as neither is unknown, with a finding,
+  never a failed read (the owner, 2026-11-02). Fit filled from the code as amended. #607

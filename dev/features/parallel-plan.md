@@ -5,7 +5,7 @@ status: draft
 
 # F-17 — Parallel plan: `pnpm status` names the work that can start now, who does it, and what waits on you
 
-Version: 0.3 (2026-10-25)
+Version: 0.4 (2026-11-04)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner
@@ -194,6 +194,7 @@ in this table are the files the thing writes.
 | `shape` | (§3) Shape item {k} of {id} with /log-feature {id}#{k} | you and an agent | the milestone's next builds (1, sorted as §3 says) | nothing | the milestone's file, the feature docs folder, `docs/PRD.md`, `decisions.md` |
 | `github-unread`, `stale-claim`, `unplannable`, `review-unchecked`, `branches-unread` | (§5) | you | nothing (5), or §5's words | GitHub, or nothing | none |
 | `other-account` | (§5, #535) N pull requests from this repo's branches were opened by another account | you | nothing (5) | nothing | none |
+| `blocker-unknown` | (§5, #607) Correct #{n} on #{m}'s Blocked by line, or remove it | you or an agent | nothing (5), in §5's words | nothing | none |
 | `merge`, `review-owed`, `red-check`, `needs-shape` | (§6) | §6 | §6 | §6 | §6 |
 
 The F-15 lines keep their wording (three reviews fixed it); `decision-lines.mjs` returns each as an owed thing
@@ -321,7 +322,9 @@ through work-order's `realGh(root)`: a fixed argument array, never a shell, the 
 
 **All or nothing** (the owner, Q3). The child prints one JSON object on stdout, and only when every call succeeded.
 Any failure, a timeout part-way included, gives status no GitHub data at all: no GitHub line in In parallel or
-Needs attention, no remote claim, no ticket in Next. A failure never fails the hook and never changes status's exit
+Needs attention, no remote claim, no ticket in Next. One answer is not a failure: a call-2 alias GitHub answers `null`
+beside an error of type `NOT_FOUND`, when every error of the call is a `NOT_FOUND` on a call-2 alias, is the expected
+shape (#607, call 2 below). A `NOT_FOUND` beside any other error, or on another call's alias, fails the read. A failure never fails the hook and never changes status's exit
 code. The reason is one of fixed words, never `gh`'s own message:
 
 | reason | when | action |
@@ -360,7 +363,15 @@ blocks nothing. It waits on GitHub.`
    - `refs(refPrefix: "refs/heads/", first: 100, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { totalCount
      nodes { name target { ... on Commit { committedDate } } } }`: the remote branches, once, unfiltered; the child
      matches each leaf's claim pattern against them (AR-3 of the 0.2 review), so the read stays three calls.
-2. `state stateReason` of the `Blocked by` issues not already read (work-order's third call; skipped when none).
+2. The state of the `Blocked by` numbers not already read, as F-07 reads them (work-order's third call, #607; skipped
+   when none): `issueOrPullRequest(number: n)` under the alias `p{n}`, `... on Issue { state stateReason }` and `...
+   on PullRequest { state }`. A `Blocked by:` line may name a pull request on purpose, to hold a ticket until it
+   merges. An issue clears its leaf when closed (either reason); a pull request clears it when merged or closed
+   without merging, and holds it while open. A number GitHub holds as neither (its alias `null` with a `NOT_FOUND`
+   error: a typo, a deleted or moved issue) is unknown: it holds its leaf, the read goes on, every other line reads
+   as it would without that number, and Needs attention gains one `blocker-unknown` line per leaf and number, in the
+   owner's words: `(you or an agent) Correct #{n} on #{m}'s Blocked by line, or remove it. It is neither an issue nor
+   a pull request in this repository. It blocks #{m} being offered. It waits on nothing.`
 3. For each of the owner's pull requests whose changed paths include a feature doc or a file under `docs/reviews/`:
    `object(expression: $e) { ... on Blob { text } }` for that doc at the head and at the base, and for each review the
    pull request changes at the head (skipped when none). Each expression is a commit id matching `^[0-9a-f]{40}$`, a
@@ -495,6 +506,10 @@ item and an untested existential risk (the second leaf and shaping are taken, th
 - another account's pull requests (#535): two from this repository's branches and one from a fork give the
   `other-account` line with 2, reading no title, path or branch name of theirs (a sentinel in each); none gives no line;
 - an `HTTP 401` answer with exit 1 gives `gh is not signed in`;
+- `Blocked by` numbers (#607): a leaf blocked by an open pull request is held, by a merged one and by one closed
+  unmerged is offered; one blocked by a number answered `null` with a `NOT_FOUND` error, exit 1, leaves every other
+  GitHub line as a run without that number gives, plus one `blocker-unknown` line naming the number and the leaf;
+  the same answer with a `NOT_FOUND` beside an error of another type gives `GitHub answered with an error`;
 - each cap of §5, one answer each;
 - a ready leaf whose `Touches:` overlaps a changed path of the owner's open pull request that its own `Touches:` did
   not name: the next ready leaf is picked instead;
@@ -667,6 +682,18 @@ Given GitHub cannot be reached, gh is missing, gh is not signed in or its token 
 Then  status prints its offline view, one line saying GitHub was not read with the reason in fixed words, no other
       GitHub line, and exits 0
 
+Given a recorded answer whose call 2 answers a leaf's Blocked by number null with one NOT_FOUND error, exit 1
+When  status reads it
+Then  every other GitHub line is the one a run with no ticket naming that number prints, the leaf is not offered, and
+      Needs attention has one line "(you or an agent) Correct #{n} on #{m}'s Blocked by line, or remove it. It is
+      neither an issue nor a pull request in this repository. It blocks #{m} being offered. It waits on nothing."
+And   the same answer with a NOT_FOUND error beside an error of another type gives the offline view with "GitHub
+      answered with an error"
+
+Given a leaf whose Blocked by: names an open pull request, and in a second answer the same pull request merged, and
+      in a third closed without merging
+Then  the leaf is not offered in the first, and is offered in the second and third when nothing else holds it
+
 Given a stub that answers after 6 seconds
 Then  the child is killed at 5 seconds, and status exits 0 within 5 seconds plus the time the same root takes offline
 
@@ -836,3 +863,6 @@ an expired token) are in 0.3, and its four wording points ride steps 1 and 4.
 - 2026-10-25 · MODIFIED · 0.3, from the 0.2 review (`docs/reviews/2026-10-25-parallel-plan-0.2.md`): the owner's
   answers (a claim never released by age; the `other-account` count, #535; F-07's Fit in step 5) and AR-1 to AR-12
   with AR-13's behaviour points; AR-13's wording rides steps 1 and 4. #533
+- 2026-11-04 · MODIFIED · 0.4: §5 call 2 reads `Blocked by` numbers as an issue or a pull request, as F-07 0.2 does;
+  an open pull request holds, a merged or closed one clears, and a number GitHub holds as neither is unknown, with a
+  `blocker-unknown` line, never a failed read (the owner, 2026-11-02). #607
