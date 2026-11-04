@@ -458,6 +458,7 @@ is what `/work-ticket` runs.
 | a test `judged`, `failedOn` null, `crashes` at least 1 | **finding** `only-crashes` |
 | a test `flaky` | **finding** `flaky` |
 | a test `out-of-time` | **finding** `out-of-time` |
+| `outOfTime` true and no test `out-of-time` | **finding** `out-of-time`, on the run |
 | a file in `neverRun` | **finding** `never-run` |
 | in `notJudged` | warning, by name, with its reason |
 | at least one new test, none in `tests`, and one in `notJudged` for a reason the owner did not give | **finding** `nothing-judged` |
@@ -512,7 +513,8 @@ The fix is printed on its own `Fix:` line.
   reason. ``
 - `out-of-time`: `` The check ran out of time ({limit} minutes) before `{file}` › "{test}", so it is not judged
   and this is not a pass. `` Fix: `` Run `pnpm tests-can-fail` again, and if it stops here every time read
-  "Tests can fail" in `BOOTSTRAP.md`. ``
+  "Tests can fail" in `BOOTSTRAP.md`. `` When the run stopped before it marked any test: `` The check ran out of
+  time ({limit} minutes) before it judged any new test, so this is not a pass. ``, with the same fix.
 - `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass: {each reason, with
   its count and its next action}. `` Fix: `` Read each test's line above and do what it says, or excuse a test
   file in `ci/exceptions.yaml` with a date. `` Only `no-subject`'s action is to import by a relative path (AR-5
@@ -559,7 +561,8 @@ too. The stop is the figure of
 0.3, kept so a slower machine is not red for time.
 
 Past the budget the verdict warns with both numbers. At the limit the run stops, marks every new test it has
-not finished `out-of-time`, and the verdict fails naming each: it is never a pass. The limit is
+not finished `out-of-time`, and the verdict fails naming each: it is never a pass. A run that stops before it
+marks any (in the install, `ci/before-verify.sh` or a listing) fails on the run itself. The limit is
 `--limit-seconds`, 600 when not given, and `tests-can-fail` gives none; `scripts/mutation.test.mjs` passes a
 small one to prove the stop. So the limit changes only by editing a root script, a file the harness asks
 about, or D-037.
@@ -1238,4 +1241,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-02 · MODIFIED · Version 0.4 → 0.5, resolving the three findings of the review of 0.4 (`docs/reviews/2026-11-02-tests-can-fail-0.4.md`) that break a guarantee, on the owner's pick of the same day: the root script is `tests-can-fail`, outside W1's gated names (AR-1); `ci/before-verify.sh`'s process group is kept until the run ends, with an acceptance block for a service it starts (AR-2); no real project's figure or run finding beyond one sentence, and §7's budget is said against the scratch runs (AR-3). AR-4 to AR-11 are carried as lines under build steps 3, 4 and 5 and in Known limitations. The review of 0.5 is scoped to these fixes and is the last: a finding from it becomes an acceptance line in the matching build issue, and only one that changes the Contract's guarantees goes back to the owner
 - 2026-11-02 · MODIFIED · the review of 0.5 (`docs/reviews/2026-11-02-tests-can-fail-0.5.md`, the last) carried in by the owner's rule: its AR-1, which changed a guarantee, went to the owner, who narrowed it to a Known limitations line with two fixture-backed lines under steps 3 and 5; its AR-2 to AR-7, and W1's third clause it named, are acceptance lines under steps 3, 4 and 5. Version stays 0.5: no Contract, Acceptance or Verify text changed
 - 2026-11-04 · MODIFIED · step 3's corrections from #631's worker, built in #632 on the owner's yes: §2 reads more test forms, an `imports()`, and a text with a line break git does not count as unreadable; a test the runner lists in no call `spans()` reads makes its file's tests new (§3.5); the parser's reason is escaped (§5); runner calls get a fixed environment, and env guards are not changed (§2, §3.4); `no-package` and the record's new fields (§3.3, §3.10); four Known limitations lines. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
-- 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5's findings and warnings take report.mjs's shape (one sentence and a fix that starts with a verb, each at most 160 characters), so its wording is rewritten to fit, with the same facts; `flaky` gains its second cause, `excuse-expired` its words, `nothing-judged` an action per reason, and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose. Version stays 0.5
+- 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5's findings and warnings take report.mjs's shape (one sentence and a fix that starts with a verb, each at most 160 characters), so its wording is rewritten to fit, with the same facts; `flaky` gains its second cause, `excuse-expired` its words, `nothing-judged` an action per reason, and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose; a run stopped at its limit before it marked any test fails on the run (§4, §5, §7), and `pnpm tests-can-fail` judges with `ci/exceptions.yaml` as the commit holds it. Version stays 0.5

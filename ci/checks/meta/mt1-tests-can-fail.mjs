@@ -12,7 +12,7 @@
 //                                                         ci/fixtures/mt1-green. CHECK_HEAD pins the commit it is for;
 //                                                         without it the record is not held to one
 //
-// The registry is the checkout's ci/exceptions.yaml (the folder's own, for a fixture): MT1 judges every
+// The registry is ci/exceptions.yaml as HEAD holds it (the folder's own, for a fixture): MT1 judges every
 // `tests-can-fail#` entry's date (FO1 leaves them here) and reads `#other-runner` and `#mechanical` from it.
 //
 // The summary, the two shares and the count lines print as `MT1: ` notes before the report; the findings and warnings
@@ -26,7 +26,8 @@ import { expiryProblem, loadRegistry, TESTS_CAN_FAIL_PREFIX as PREFIX } from '..
 import { trustedGit } from '../lib/manifest.mjs';
 import * as m from '../lib/mt1-messages.mjs';
 import { escapeControl, escapeOutput, report } from '../lib/report.mjs';
-import { emptyRecord, runMutation } from '../../mutation.mjs';
+import { showFile } from '../lib/mutation-git.mjs';
+import { emptyRecord, registryOf, runMutation } from '../../mutation.mjs';
 
 const ID = 'MT1';
 // Every field the run returns (§3.10): a record without one is not a record this verdict can read.
@@ -66,6 +67,8 @@ export function verdict(record, { registry = [], today, head = null }) {
     else if (t.crashes > 0) out.findings.push(m.onlyCrashes(t));
     else out.findings.push(m.killsNothing(t));
   }
+  // §7: a run stopped at its limit is never a pass, also when it stopped before any test was marked.
+  if (record.outOfTime && !record.tests.some((t) => t.state === 'out-of-time')) out.findings.push(m.outOfTimeRun(record.limit));
   for (const n of record.neverRun) out.findings.push(m.neverRun(n, record.runs));
   for (const n of record.notJudged) out.warnings.push(m.notJudged(n, otherRunner));
   for (const u of record.unreadable) out.warnings.push(m.unreadable(u));
@@ -92,9 +95,9 @@ export function verdict(record, { registry = [], today, head = null }) {
   return out;
 }
 
-// Prints the notes and the report; returns the exit code.
+// Prints the notes and the report; returns the exit code. A note shows `##[` escaped, as report() does every field.
 function print(v) {
-  for (const line of [...(v.broken ? [] : [v.summary]), ...v.notes]) process.stdout.write(escapeOutput(`${ID}: ${escapeControl(line)}`) + '\n');
+  for (const line of [...(v.broken ? [] : [v.summary]), ...v.notes]) process.stdout.write(escapeOutput(`${ID}: ${escapeControl(line)}`).replace(/##\[/g, '\\u0023\\u0023\\u005b') + '\n');
   return report({ id: ID, claim: v.summary || 'the record was judged', scanned: 1, unit: 'run record', findings: v.findings, warnings: v.warnings, broken: v.broken });
 }
 
@@ -112,7 +115,8 @@ async function main(arg) {
     let registry;
     try {
       head = headOf(root);
-      registry = loadRegistry(join(root, 'ci', 'exceptions.yaml'));
+      // The commit's, as the run reads it (§3.7): a change not committed excuses nothing and hides no expiry.
+      registry = registryOf(showFile(root, head, 'ci/exceptions.yaml'));
     } catch (e) {
       return brokenOnly(m.e(e.message));
     }

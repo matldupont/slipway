@@ -127,7 +127,7 @@ test('a --root, --dir or --config value that is absolute or leaves the package i
   assert.deepEqual(runnerCall('vitest run --dir src --config=config/vitest.ts --root=.').args, ['--dir', 'src', '--config=config/vitest.ts', '--root=.']);
 });
 
-test('a short-flag cluster holding t is refused as a name filter; one without t is kept', () => {
-  for (const script of ['vitest run -ut=foo', 'vitest run -tu', 'vitest run -at']) assert.match(runnerCall(script).unreadable ?? '', /changes which tests a one-file run executes/, script);
+test('a short-flag cluster holding t, any single-dash word holding t, and --t are refused as a name filter; one without t is kept', () => {
+  for (const script of ['vitest run -ut=foo', 'vitest run -tu', 'vitest run -at', 'vitest run --t=foo', 'vitest run --t foo', 'vitest run -u1t=foo', 'vitest run -.t=foo']) assert.match(runnerCall(script).unreadable ?? '', /changes which tests a one-file run executes/, script);
   assert.deepEqual(runnerCall('vitest run -ua').args, ['-ua']);
 });

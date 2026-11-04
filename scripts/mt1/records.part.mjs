@@ -55,6 +55,15 @@ test('a record that stopped, lacks a field, or judges a test with nothing tried 
   assert.equal(empty.exit, 2);
 });
 
+test('a run stopped at its limit before any test was marked out-of-time is a finding, never a pass', () => {
+  const v = judge(rec({ changedTestFiles: [FILE], outOfTime: true }));
+  assert.deepEqual([v.exit, v.ids], [1, ['run#out-of-time']]);
+  assert.match(v.findings[0].detail, /ran out of time \(10 minutes\) before it judged any new test, so this is not a pass/);
+  // One marked out-of-time is named by its own finding, not twice.
+  const marked = judge(rec({ changedTestFiles: [FILE], outOfTime: true, tests: [judged({ tried: 0, failedOn: null, state: 'out-of-time' })] }));
+  assert.deepEqual(marked.ids, [`${FILE}:3#out-of-time`]);
+});
+
 test('none judged for a reason the owner did not give is nothing-judged; one judged beside them is not', () => {
   const three = [nj('no-subject', { name: 'a' }), nj('no-subject', { name: 'b' }), nj('support-only', { detail: 'pkgs/app/src/__tests__/make.ts' })];
   assert.deepEqual(judge(rec({ changedTestFiles: [FILE], notJudged: three })).ids, ['nothing-judged']);

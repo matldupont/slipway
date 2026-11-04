@@ -11,12 +11,14 @@ const TAKES_VALUE = new Set(['--project', '--config', '-c', '--root', '-r', '--d
 // Dropped, with their value: the step gives its own.
 const DROPPED = new Set(['--reporter', '--outputFile']);
 // What changes which tests a one-file run executes, or what it does: the call is the project's to write.
-const REFUSED = ['--coverage', '--shard', '--changed', '--bail', '--testNamePattern', '-t', '--related'];
+const REFUSED = ['--coverage', '--shard', '--changed', '--bail', '--testNamePattern', '-t', '--t', '--related'];
 
 const refused = (word) => REFUSED.some((f) => word === f || word.startsWith(`${f}=`) || word.startsWith(`${f}.`));
-// A short-flag cluster holding `t` (`-ut=foo`) is read by the runner's argument parser as a name filter too.
-const clusterWithT = (word) => /^-[A-Za-z]{2,}(?:=|$)/.test(word) && word.split('=')[0].includes('t');
-// Flags whose value is a path: it stays inside the package, so the runner neither runs nor writes outside the copy.
+// A single-dash word holding `t` before any `=` (`-ut=foo`, `-u1t`) can be read by the runner's argument parser as
+// a name filter too, and `--t=foo` is; each is refused, whatever its other characters.
+const clusterWithT = (word) => /^-[^-]/.test(word) && word.split('=')[0].includes('t');
+// Flags whose value is the config file or the folder the runner starts from: it stays inside the package. Other
+// flags that name a path (setup files, a node flag) are not read here.
 const PATHS = new Set(['--config', '-c', '--root', '-r', '--dir']);
 const leaves = (value) => value.startsWith('/') || /^[A-Za-z]:/.test(value) || value.split('/').includes('..');
 

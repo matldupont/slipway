@@ -1,0 +1,17 @@
+{
+ "_note": "A run that reached its limit before it marked any test out-of-time (the install, the setup script or a listing): a finding, never a pass (\u00a77).",
+ "env": {
+  "CHECK_TODAY": "2026-11-04",
+  "CHECK_HEAD": "1111111111111111111111111111111111111111"
+ },
+ "exit": 1,
+ "findings": [
+  "run#out-of-time"
+ ],
+ "warnings": [
+  "run#over-budget"
+ ],
+ "details": {
+  "run#out-of-time": "ran out of time (10 minutes) before it judged any new test, so this is not a pass"
+ }
+}

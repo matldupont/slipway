@@ -76,6 +76,14 @@ export const outOfTime = (t, limit) => ({
   fix: 'Run `pnpm tests-can-fail` again, and if it stops here every time read "Tests can fail" in `BOOTSTRAP.md`.',
 });
 
+// §7: the run reached its limit before it marked a test out-of-time (the install, ci/before-verify.sh or a listing):
+// none was judged, and that is never a pass.
+export const outOfTimeRun = (limit) => ({
+  where: 'run#out-of-time',
+  detail: `The check ran out of time (${Math.round((limit / 60) * 10) / 10} minutes) before it judged any new test, so this is not a pass.`,
+  fix: 'Run `pnpm tests-can-fail` again, and if it stops here every time read "Tests can fail" in `BOOTSTRAP.md`.',
+});
+
 // A file the runner lists nothing in: no run picks it up, or every test in it is skipped or todo, which the listing
 // does not tell apart (§3.5, the owner's call of 2026-11-04).
 export const neverRun = (n, runs) => ({

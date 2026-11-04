@@ -4,6 +4,8 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { verdict } from '../../ci/checks/meta/mt1-tests-can-fail.mjs';
@@ -123,6 +125,16 @@ test('a file stopped at the cap prints the capped line with both counts beside k
   assert.deepEqual([r.status, r.ids], [1, [`${FILE}:4#kills-nothing`]], r.out);
   assert.match(r.out, /^MT1: `pkgs\/app\/src\/cart\.test\.ts` stopped at the cap of 30 changes: 10 body changes and 5 others were not tried, so it is not fully checked\.$/m);
   assert.match(r.json.findings[0].detail, /passed on all 60 changes/);
+});
+
+test('MT1 --run reads ci/exceptions.yaml as HEAD holds it: an uncommitted edit neither excuses nor hides an expiry', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  removeAll(t, p);
+  const entry = (expires) => `exceptions:\n  - id: tests-can-fail#${FILE}\n    expires: ${expires}\n    reason: reads files\n    owner: test\n`;
+  p.commit({ 'ci/exceptions.yaml': entry('2026-10-01') });
+  writeFileSync(join(p.root, 'ci', 'exceptions.yaml'), entry('2099-01-01'));
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids], [1, [`ci/exceptions.yaml:tests-can-fail#${FILE}#excuse-expired`]], r.out);
 });
 
 test('a new file whose every test is skipped is never-run, and its message says a skip may be why', (t) => {

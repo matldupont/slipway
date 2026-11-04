@@ -51,7 +51,7 @@ function sweep(now) {
   }
 }
 
-const registryOf = (text) => (text === null ? [] : readList(text, ['id', 'expires', 'reason', 'owner'], { strict: true }));
+export const registryOf = (text) => (text === null ? [] : readList(text, ['id', 'expires', 'reason', 'owner'], { strict: true }));
 
 /**
  * @param {{ root?: string, limitSeconds?: number }} [o]
