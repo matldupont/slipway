@@ -132,6 +132,8 @@ once what to do and naming the milestone file; one short line per item follows i
 - `Unreadable check lines ({file}): each counts as owed. Write it as Owed: or Ran:.` then
   `item {n} · {count} unreadable`, with `#{issue}` first when the item has one
 
+In each of these rows, `other repo` takes the place of `#{issue}` when the item's marker names a repository (the marker is not compared with the Issue repo), so a bare `#n` never reads as this repository's issue.
+
 A line ends with the item's environment when it is `staging` or `production`, in that order; any other value is left
 out. An item number that cannot be read prints `item number unreadable`. When two items would print the same
 label, each label ends `(k of N)` after the item number, by count only.
