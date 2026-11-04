@@ -1137,45 +1137,62 @@ test('process/intake.md says Touches: holds paths and globs only, and gives a ti
 });
 
 // The claim's cut and its fast-forward check both fail on uncommitted work that the base would overwrite, and git's
-// message says to stash it. A scratch repo holds that work: the step fails, the work is as it was, and the rule stops.
+// message says to stash it. A scratch repo holds that work: the step, read from the rule, is refused, the work is as it
+// was, and the rule stops. The scratch git inherits no GIT_* variable (a hook exports GIT_DIR and GIT_INDEX_FILE, which
+// beat cwd) and no personal or system config, as scripts/sync.test.mjs does, and pushes to the bare repo's path.
 const claimRule = () => {
   const intake = read('process/intake.md').replace(/\s+/g, ' ');
   return intake.slice(intake.indexOf('Every check comes before the rename'), intake.indexOf('With no remote, no claim is pushed.'));
 };
+const claimStep = (pattern) => {
+  const step = read('process/intake.md').replace(/\s+/g, ' ').match(pattern)?.[1] ?? '';
+  assert.ok(step.startsWith('git '), `the rule names the step: ${pattern}`);
+  return step.replace('{branch}', 'fix/i1-x').replace('{base}', 'main').replaceAll('"', '').split(' ').slice(1);
+};
+const SEALED = {
+  ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))),
+  GIT_CONFIG_GLOBAL: '/dev/null',
+  GIT_CONFIG_NOSYSTEM: '1',
+  GIT_AUTHOR_NAME: 'slipway test',
+  GIT_AUTHOR_EMAIL: 'test@example.invalid',
+  GIT_COMMITTER_NAME: 'slipway test',
+  GIT_COMMITTER_EMAIL: 'test@example.invalid',
+};
+const refused = (error) => /would be overwritten/.test(String(error.stderr));
 const withUncommittedWork = (run) => {
   const root = mkdtempSync(join(tmpdir(), 'claim-'));
   try {
+    const bare = join(root, 'origin.git');
     const repo = join(root, 'clone');
-    const git = (...args) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd: repo, stdio: 'pipe' });
-    execFileSync('git', ['init', '-q', '--bare', join(root, 'origin.git')], { stdio: 'pipe' });
-    execFileSync('git', ['clone', '-q', join(root, 'origin.git'), repo], { stdio: 'pipe' });
+    const git = (cwd, ...args) => execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, env: SEALED, stdio: 'pipe' });
+    git(root, 'init', '-q', '--bare', bare);
+    git(root, 'clone', '-q', bare, repo);
     for (const text of ['one\n', 'two\n']) {
       writeFileSync(join(repo, 'a.txt'), text);
-      git('add', 'a.txt');
-      git('commit', '-q', '-m', text.trim());
-      git('push', '-q', 'origin', 'HEAD:main');
+      git(repo, 'add', 'a.txt');
+      git(repo, 'commit', '-q', '-m', text.trim());
+      git(repo, 'push', '-q', bare, 'HEAD:main');
     }
-    git('reset', '-q', '--hard', 'HEAD~1');
-    git('fetch', '-q', 'origin');
+    git(repo, 'reset', '-q', '--hard', 'HEAD~1');
+    git(repo, 'fetch', '-q', bare, '+refs/heads/main:refs/remotes/origin/main');
     writeFileSync(join(repo, 'a.txt'), 'mine\n');
-    run(git);
+    run((...args) => git(repo, ...args));
     assert.equal(readFileSync(join(repo, 'a.txt'), 'utf8'), 'mine\n', 'the uncommitted work is as it was');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 };
 
-test('process/intake.md stops the claim when its cut or claim commit fails, and the cut fails on uncommitted work', () => {
-  const rule = claimRule();
-  assert.match(rule, /A cut, a rename, a claim commit or a push that fails stops the run to ask\./, 'a failed cut, rename, claim commit or push stops');
-  const cut = read('process/intake.md').replace(/\s+/g, ' ').match(/cuts the branch with `([^`]+)`/)?.[1] ?? '';
-  const args = cut.replace('{branch}', 'fix/i1-x').replace('{base}', 'main').replaceAll('"', '').split(' ').slice(1);
-  withUncommittedWork((git) => assert.throws(() => git(...args), 'the cut fails rather than overwrite the work'));
+test('process/intake.md stops the claim when its cut or claim commit fails, and the cut is refused over uncommitted work', () => {
+  assert.match(claimRule(), /A cut, a rename, a claim commit or a push that fails stops the run to ask\./, 'a failed cut, rename, claim commit or push stops');
+  const cut = claimStep(/cuts the branch with `([^`]+)`/);
+  withUncommittedWork((git) => assert.throws(() => git(...cut), refused, 'the cut is refused rather than overwrite the work'));
 });
 
 test('process/intake.md never lets a claim step stash, reset, check out or clean the working tree to pass', () => {
   assert.match(claimRule(), /No step of the claim stashes, resets, checks out or cleans the working tree to pass\./, 'the claim never cleans the working tree to pass');
-  withUncommittedWork((git) => assert.throws(() => git('merge', '--ff-only', 'origin/main'), 'the fast-forward check fails rather than overwrite the work'));
+  const ffOnly = claimStep(/- `(git merge --ff-only [^`]+)` succeeds/);
+  withUncommittedWork((git) => assert.throws(() => git(...ffOnly), refused, 'the fast-forward check is refused rather than overwrite the work'));
 });
 
 test('process/intake.md cuts a ticket branch with no upstream, so the claim\'s upstream check does not stop it', () => {
