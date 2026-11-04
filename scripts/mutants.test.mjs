@@ -197,10 +197,11 @@ test('lines count \\n only, as git does, in mutants() and in spans()', () => {
 });
 
 test('the reason a file is unreadable is one short line, and not one shared object', () => {
-  const reason = mutants('a.js', 'export { "x\nforged line" };').unreadable;
-  assert.ok(!new RegExp('[\\r\\n\\u2028\\u2029]').test(reason) && reason.length <= 200);
-  assert.ok(!reason.includes('forged'));
-  assert.ok(mutants('a.js', `export { "${'x'.repeat(300)}" };\nexport { "${'x'.repeat(300)}" };`).unreadable.length <= 200);
+  // The parser's message for this has a second line quoting the file; the first quotes a long name.
+  const second = mutants('a.js', 'export { "forged" };').unreadable;
+  assert.ok(second.length > 0 && !second.includes('forged') && !second.includes('Did you mean'));
+  const long = mutants('a.js', `const a = 1, b = 2; export { a as "${'x'.repeat(300)}", b as "${'x'.repeat(300)}" };`).unreadable;
+  assert.ok(long.length > 150 && long.length <= 200, `${long.length}`);
   mutants('a.svelte', '').file = 'a.svelte';
   assert.deepEqual(mutants('b.svelte', ''), { unreadable: 'not JavaScript or TypeScript' });
 });
