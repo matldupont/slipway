@@ -151,8 +151,8 @@ test('a source the parser cannot read is unreadable with the parser\'s reason; a
 
 test('spans() gives the lines of each test call and each expect call, and none for a hook or a helper', () => {
   assert.deepEqual(spans('tests.fixture.ts', fixture('tests.fixture.ts')), {
-    tests: [{ first: 8, last: 10 }, { first: 11, last: 18 }, { first: 19, last: 25 }],
-    expects: [{ first: 9, last: 9 }, { first: 12, last: 17 }, { first: 24, last: 24 }],
+    tests: [{ first: 8, last: 10 }, { first: 11, last: 19 }, { first: 20, last: 26 }],
+    expects: [{ first: 9, last: 9 }, { first: 12, last: 17 }, { first: 25, last: 25 }],
   });
 });
 
@@ -205,4 +205,31 @@ test('a file of many changes is read in time', () => {
   const started = Date.now();
   assert.equal(mutants('a.js', 'x=true;\n'.repeat(20000)).length, 20000);
   assert.ok(Date.now() - started < 5000);
+});
+
+test('mutants() keeps the replacement apart from what is next to it, so it still reads', () => {
+  for (const [code, replacement] of [['i+-1', '- '], ['n-+m', '+ '], ['return!a?b:c', ' true']]) {
+    const [change] = mutants('a.js', `function f(){${code}}`).filter((c) => c.kind === 'operator' || c.kind === 'condition');
+    assert.ok(change, code);
+    assert.equal(change.replacement, replacement, code);
+  }
+  for (const code of ['x=i+-1', 'x=n-+m', 'x=(a)*/*c*/-b', 'if(a){}', 'x=a?b:c', 'function g(){return!a?b:c}']) {
+    for (const change of mutants('a.js', code)) {
+      assert.doesNotThrow(() => parse(apply(code, change), { sourceType: 'unambiguous', plugins: ['jsx'] }), `${code} ${JSON.stringify(change)}`);
+    }
+  }
+});
+
+test('a condition that is already the change gives only the other one; a line comment before the operator is passed', () => {
+  assert.deepEqual(mutants('a.js', 'if (true) {}').filter((c) => c.kind === 'condition').map((c) => c.replacement), ['false']);
+  assert.deepEqual(mutants('a.js', 'x = y ? 1 : 2').filter((c) => c.kind === 'condition').map((c) => c.replacement), ['true', 'false']);
+  const text = 'x = a // c\n  + b;';
+  const [change] = mutants('a.js', text).filter((c) => c.kind === 'operator');
+  assert.equal(text.slice(change.start, change.end), '+');
+});
+
+test('every extension of the list is read, and decorators and plain JavaScript are read as what they are', () => {
+  for (const ext of ['js', 'jsx', 'mjs', 'cjs', 'ts', 'tsx', 'mts', 'cts']) assert.ok(Array.isArray(mutants(`a.${ext}`, 'x = a === b')), ext);
+  assert.ok(Array.isArray(mutants('a.ts', '@Component() class A { @Input() x = 1; accessor y = 2; m() { return 1; } }')));
+  assert.equal(mutants('a.js', 'x = a < b > (c)').filter((c) => c.kind === 'operator').length, 2);
 });

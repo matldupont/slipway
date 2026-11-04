@@ -6,8 +6,10 @@ import { parse } from './vendor/babel-parser.mjs';
 
 const NOT_SOURCE = 'not JavaScript or TypeScript';
 const SOURCE = /\.(?:[cm]?js|jsx|[cm]?ts|tsx)$/;
-// `.ts` reads `<T>x` as a cast, so JSX is read everywhere else only.
+// `.ts` reads `<T>x` as a cast, so JSX is read everywhere else only; TypeScript is read in its own files only, since
+// it reads `a < b > (c)` as a call with a type argument.
 const NO_JSX = /\.[cm]?ts$/;
+const TYPESCRIPT = /\.[cm]?tsx?$/;
 
 // Keys that hold a type, never code to change.
 const TYPE_KEYS = new Set(['typeAnnotation', 'typeParameters', 'typeArguments', 'superTypeArguments']);
@@ -19,7 +21,9 @@ const TEST_MODIFIERS = new Set(['only', 'skip', 'todo', 'concurrent', 'each']);
 function read(path, text) {
   if (!SOURCE.test(path)) return { unreadable: NOT_SOURCE };
   try {
-    const plugins = NO_JSX.test(path) ? ['typescript'] : ['typescript', 'jsx'];
+    const plugins = ['decorators', 'decoratorAutoAccessors'];
+    if (TYPESCRIPT.test(path)) plugins.push('typescript');
+    if (!NO_JSX.test(path)) plugins.push('jsx');
     return parse(text, { sourceType: 'unambiguous', plugins, errorRecovery: false, allowReturnOutsideFunction: true }).program;
   } catch (error) {
     // The reason is the parser's first line, cut short: it can carry text from the file.
@@ -83,8 +87,17 @@ export function mutants(path, text) {
   if (program.unreadable) return program;
   const found = [];
   const lineAt = lineIndex(text);
-  const add = (node, kind, replacement, start = node.start, end = node.end) =>
-    found.push({ start, end, replacement, kind, line: lineAt(start) });
+  // A replacement never fuses with its neighbours: `i+-1` becomes `i- -1`, `return!a?b:c` becomes `return true?b:c`.
+  const add = (node, kind, replacement, start = node.start, end = node.end) => {
+    const before = text[start - 1] ?? '';
+    const after = text[end] ?? '';
+    const word = /[\w$]/;
+    const sign = /[-+*/=!<>&|]/;
+    const padded = kind === 'operator' ? sign : word;
+    const lead = padded.test(before) && (kind === 'operator' || word.test(replacement[0])) ? ' ' : '';
+    const trail = padded.test(after) && (kind === 'operator' || word.test(replacement.at(-1))) ? ' ' : '';
+    found.push({ start, end, replacement: lead + replacement + trail, kind, line: lineAt(start) });
+  };
   walk(program, (node) => {
     switch (node.type) {
       case 'FunctionDeclaration':

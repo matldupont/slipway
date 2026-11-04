@@ -14,7 +14,8 @@ test.skip('two', async () => {
       1,
       2,
     ),
-  ).toBe(2);
+  )
+    .toBe(2);
 });
 it.each([
   [1, 2],
