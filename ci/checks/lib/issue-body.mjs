@@ -30,8 +30,9 @@ export function designation(body) {
   return text.length > DESIGNATION_MAX ? `${text.slice(0, DESIGNATION_MAX)}…` : text;
 }
 
-// `Blocked by:` in `### Links`: issue numbers, and `unfiled` when the segment holds anything but references (an
-// F-ID, "(no issue yet)"): that is work not filed, and its text is never kept. `none` and empty are no blockers.
+// `Blocked by:` in `### Links`: its `#n` numbers, each an issue or a pull request (#607), and `unfiled` when the
+// segment holds anything but references (an F-ID, "(no issue yet)"): that is work not filed, and its text is never
+// kept. `none` and empty are no blockers.
 export function blockers(body) {
   const text = segment(section(body, 'Links', 3) ?? '', 'Blocked by');
   if (text === null || text === '' || /^none\.?$/i.test(text)) return { numbers: [], unfiled: false };

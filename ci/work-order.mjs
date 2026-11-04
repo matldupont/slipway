@@ -40,8 +40,13 @@ function settings(root) {
 }
 
 // `gh` for real: a fixed argument array, never a shell, found on a PATH without the repository's or node_modules'
-// entries, run from outside the repository. GitHub answers a missing issue with data and a NOT_FOUND error, exit 1:
-// that answer is used, any other error is not.
+// entries, run from outside the repository. GitHub answers a number it holds nothing for with data, that alias null
+// and a NOT_FOUND error whose path names it, exit 1: that answer is used. Any other error, or a NOT_FOUND on an alias
+// that has data, is not (#607).
+const notFoundOnly = (r) => {
+  const repo = r.data?.repository;
+  return Boolean(repo) && r.errors?.length > 0 && r.errors.every((x) => x.type === 'NOT_FOUND' && Array.isArray(x.path) && x.path.length === 2 && x.path[0] === 'repository' && typeof x.path[1] === 'string' && Object.hasOwn(repo, x.path[1]) && repo[x.path[1]] === null);
+};
 export function realGh(root) {
   const env = trustedEnvAt(root);
   return (args) => {
@@ -50,7 +55,7 @@ export function realGh(root) {
     } catch (e) {
       try {
         const r = JSON.parse(e.stdout);
-        if (r.data?.repository && r.errors?.length && r.errors.every((x) => x.type === 'NOT_FOUND')) return e.stdout;
+        if (notFoundOnly(r)) return e.stdout;
       } catch {}
       throw e;
     }
@@ -66,15 +71,38 @@ function call(gh, args) {
   }
 }
 
-// Issues by number, as GraphQL aliases i<n>. `numbers` are digits from a marker, never text.
-function issues(gh, repo, numbers, shape) {
+// One field per number under the alias <prefix><n>. `numbers` are digits from a marker or a Blocked by line, never text.
+function byAlias(gh, repo, numbers, prefix, field) {
   const [owner, name] = repo.split('/');
-  const q = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){${numbers.map((n) => `i${n}:issue(number:${n}){${shape}}`).join(' ')}}}`;
+  const q = `query($owner:String!,$name:String!){repository(owner:$owner,name:$name){${numbers.map((n) => `${prefix}${n}:${field(n)}`).join(' ')}}}`;
   const r = JSON.parse(call(gh, ['api', 'graphql', '-f', `query=${q}`, '-f', `owner=${owner}`, '-f', `name=${name}`]));
-  return new Map(numbers.map((n) => [n, r.data?.repository?.[`i${n}`] ?? null]));
+  return new Map(numbers.map((n) => [n, r.data?.repository?.[`${prefix}${n}`] ?? null]));
 }
+const issues = (gh, repo, numbers, shape) => byAlias(gh, repo, numbers, 'i', (n) => `issue(number:${n}){${shape}}`);
+// A Blocked by line may name a pull request on purpose, to hold a ticket until it merges (#607).
+const issuesOrPulls = (gh, repo, numbers) => byAlias(gh, repo, numbers, 'p', (n) => `issueOrPullRequest(number:${n}){__typename ... on Issue{state stateReason} ... on PullRequest{state}}`);
 
 const statusOf = (i) => (i.state === 'CLOSED' ? (i.stateReason === 'NOT_PLANNED' || i.stateReason === 'DUPLICATE' ? 'dropped' : 'done') : 'open');
+// A blocker read by issuesOrPulls: an issue as statusOf has it, a pull request by its state, nothing as unknown.
+const blockerOf = (x) => {
+  if (x?.__typename === 'Issue') return statusOf(x);
+  if (x?.__typename === 'PullRequest') return x.state === 'MERGED' ? 'pr-merged' : x.state === 'CLOSED' ? 'pr-closed' : 'pr-open';
+  return 'unknown';
+};
+const CLEARS = new Set(['done', 'dropped', 'pr-merged']);
+// "#a, #b, #c and 2 more": the first three numbers, then how many are left.
+const numberList = (ns) => `${ns.slice(0, 3).map((n) => `#${n}`).join(', ')}${ns.length > 3 ? ` and ${ns.length - 3} more` : ''}`;
+// What an open leaf's blockers ask of the owner (F-07 0.3): its unknown numbers in one finding, and each pull request
+// closed unmerged. A leaf not open holds nothing, so it gets none.
+function findings(l) {
+  if (l.status !== 'open') return [];
+  const unknown = l.blockers.filter((b) => b.status === 'unknown').map((b) => b.n);
+  const closed = l.blockers.filter((b) => b.status === 'pr-closed').map((b) => b.n);
+  return [
+    ...(unknown.length ? [`Correct or remove ${numberList(unknown)} on #${l.n}'s Blocked by line. GitHub holds no issue or pull request by ${unknown.length > 1 ? 'those numbers' : 'that number'} in this repository.`] : []),
+    ...closed.map((n) => `PR #${n} closed unmerged; check the wait.`),
+  ];
+}
 
 // "2026-03-11 07:00 EDT": the instant in the project's zone (AGENT.md Timezone; unset reads the machine's).
 function stamp(now, tz) {
@@ -128,14 +156,12 @@ export function collect(root, gh) {
   }
   const leaves = items.flatMap((i) => i.leaves ?? []).filter((l) => !l.missing);
   const need = [...new Set([...parsed.values()].flat())].filter((n) => !known.has(n));
-  const later = need.length ? issues(gh, repo, need, 'number state stateReason') : new Map();
-  const state = (n) => {
-    const x = known.get(n) ?? later.get(n);
-    return x ? statusOf(x) : 'missing';
-  };
+  const later = need.length ? issuesOrPulls(gh, repo, need) : new Map();
+  const state = (n) => (known.has(n) ? statusOf(known.get(n)) : blockerOf(later.get(n)));
   for (const l of leaves) {
     l.blockers = parsed.get(l.n).map((n) => ({ n, status: state(n) }));
-    l.ready = l.status === 'open' && !l.owes && !l.unfiled && l.blockers.every((b) => b.status === 'done' || b.status === 'dropped');
+    l.findings = findings(l);
+    l.ready = l.status === 'open' && !l.owes && !l.unfiled && l.blockers.every((b) => CLEARS.has(b.status));
   }
   const busy = leaves.filter((l) => l.status === 'pr').map((l) => l.touches);
   const next = [];
@@ -152,18 +178,19 @@ export function collect(root, gh) {
 
 const e = escapeShown;
 const code = (t) => `<code>${e(t)}</code>`;
-const link = (repo, n) => `<a href="https://github.com/${repo}/issues/${Number(n)}">#${Number(n)}</a>`;
+const link = (repo, n, kind = 'issues') => `<a href="https://github.com/${repo}/${kind}/${Number(n)}">#${Number(n)}</a>`;
 const touchText = (l) => (l.touches ? `Touches ${l.touches.map(e).join(', ')}` : 'Touches: not listed');
-const words = { open: 'open', done: 'done', dropped: 'dropped', missing: 'not found' };
+const words = { open: 'open', done: 'done', dropped: 'dropped', unknown: 'unknown', 'pr-open': 'pull request, open', 'pr-merged': 'pull request, merged', 'pr-closed': 'pull request, closed unmerged' };
 
 function leafHtml(repo, l) {
   if (l.missing) return `<li>#${Number(l.n)} not found</li>`;
   const pr = l.status === 'pr' ? `PR #${Number(l.pr.n)}${l.pr.draft ? ' (draft)' : ''}` : null;
   const status = l.owes ? [pr, ...l.owes].filter(Boolean).join(' · ') : pr ?? words[l.status];
-  const wait = l.blockers.map((b) => `${link(repo, b.n)} (${words[b.status]})`);
+  const wait = l.blockers.map((b) => `${link(repo, b.n, b.status.startsWith('pr-') ? 'pull' : 'issues')} (${words[b.status]})`);
   return [
     `<li><p>${link(repo, l.n)} ${e(l.title)} · <b>${e(status)}</b></p>`,
     wait.length || l.unfiled ? `<p class="meta">${[wait.length && `Blocked by ${wait.join(', ')}`, l.unfiled && 'Waits on work not filed yet'].filter(Boolean).join(' · ')}</p>` : '',
+    ...l.findings.map((f) => `<p>${e(f)}</p>`),
     l.status === 'open' && !l.owes ? `<p>${code(`/work-ticket ${Number(l.n)}`)}</p>` : '',
     l.designation ? `<details><summary>Model and effort</summary><p>${e(l.designation)}</p></details>` : '',
     '</li>',
