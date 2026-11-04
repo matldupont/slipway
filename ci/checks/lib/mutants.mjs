@@ -26,7 +26,8 @@ function read(path, text) {
     if (!NO_JSX.test(path)) plugins.push('jsx');
     return parse(text, { sourceType: 'unambiguous', plugins, errorRecovery: false, allowReturnOutsideFunction: true }).program;
   } catch (error) {
-    // The reason is the parser's first line, cut short: it can carry text from the file.
+    // The reason is the parser's first line, cut short. It can still quote the file (a duplicate export name), so a
+    // caller that prints it escapes it as it does a test name.
     return { unreadable: String(error?.message ?? error).split(/[\r\n\u2028\u2029]/)[0].slice(0, 200) };
   }
 }
@@ -44,8 +45,9 @@ function walk(root, visit) {
     const children = [];
     for (const [key, value] of Object.entries(node)) {
       if (TYPE_KEYS.has(key) || key === 'loc' || key === 'extra' || key.endsWith('Comments') || key === 'comments') continue;
-      if (Array.isArray(value)) children.push(...value.filter(isNode));
-      else if (isNode(value)) children.push(value);
+      if (Array.isArray(value)) {
+        for (const item of value) if (isNode(item)) children.push(item);
+      } else if (isNode(value)) children.push(value);
     }
     for (let i = children.length - 1; i >= 0; i -= 1) stack.push(children[i]);
   }

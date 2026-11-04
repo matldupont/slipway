@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The parser under the tests-can-fail step (dev/features/tests-can-fail.md §2, D-037, #630): the vendored
 // @babel/parser is the release its record says it is, unedited, and the pin fails on a file one byte away. The
-// file is hashed before ci/checks/lib/mutants.mjs, the only library file that imports it, is used.
+// file is hashed here; a parser that is not the release fails the first test, and mutants.mjs is the only library
+// file that imports it.
 // Build step 2 adds the tests of what ci/checks/lib/mutants.mjs reads with it (its fixtures: scripts/fixtures/mutants/).
 // Internal: `pnpm meta` runs it in slipway, never in a project.
 
@@ -53,7 +54,7 @@ test('the pin fails on a parser one byte away from the release', () => {
 
 const FIXTURES = fileURLToPath(new URL('./fixtures/mutants/', import.meta.url));
 const fixture = (name) => readFileSync(join(FIXTURES, name), 'utf8');
-const PLUGINS = (name) => (/\.[cm]?ts$/.test(name) ? ['typescript'] : ['typescript', 'jsx']);
+const PLUGINS = (name) => (/\.[cm]?ts$/.test(name) ? ['typescript'] : /tsx$/.test(name) ? ['typescript', 'jsx'] : ['jsx']);
 const apply = (text, change) => text.slice(0, change.start) + change.replacement + text.slice(change.end);
 const lineOf = (text, offset) => text.slice(0, offset).split('\n').length;
 const ORDER = ['body', 'condition', 'operator', 'literal'];
@@ -172,7 +173,8 @@ test('reExports() gives the relative paths a file re-exports from', () => {
 
 test('mutants() finds the operator when a comment is hostile, and never loops', () => {
   for (const code of ['a /*/ // */ + `\n/*`;', 'a //x\r+ `\n/*`;', 'a //x\u2028+ `\n/*`;', 'x = a /*/ - */ - b;']) {
-    assert.ok(Array.isArray(mutants('a.js', `v = ${code}`)), code);
+    if (code.includes('\r')) assert.equal(mutants('a.js', code).find((c) => c.kind === 'operator')?.replacement, '-', 'a line comment ends at a lone CR');
+    assert.ok(Array.isArray(mutants('a.js', code)), code);
   }
   // The change lands on the operator, not in the comment before it.
   const text = 'x = a /*/ - */ - b;';
@@ -195,8 +197,10 @@ test('lines count \\n only, as git does, in mutants() and in spans()', () => {
 });
 
 test('the reason a file is unreadable is one short line, and not one shared object', () => {
-  const reason = mutants('a.js', 'export { "\nforged line" };').unreadable;
+  const reason = mutants('a.js', 'export { "x\nforged line" };').unreadable;
   assert.ok(!new RegExp('[\\r\\n\\u2028\\u2029]').test(reason) && reason.length <= 200);
+  assert.ok(!reason.includes('forged'));
+  assert.ok(mutants('a.js', `export { "${'x'.repeat(300)}" };\nexport { "${'x'.repeat(300)}" };`).unreadable.length <= 200);
   mutants('a.svelte', '').file = 'a.svelte';
   assert.deepEqual(mutants('b.svelte', ''), { unreadable: 'not JavaScript or TypeScript' });
 });
@@ -232,4 +236,9 @@ test('every extension of the list is read, and decorators and plain JavaScript a
   for (const ext of ['js', 'jsx', 'mjs', 'cjs', 'ts', 'tsx', 'mts', 'cts']) assert.ok(Array.isArray(mutants(`a.${ext}`, 'x = a === b')), ext);
   assert.ok(Array.isArray(mutants('a.ts', '@Component() class A { @Input() x = 1; accessor y = 2; m() { return 1; } }')));
   assert.equal(mutants('a.js', 'x = a < b > (c)').filter((c) => c.kind === 'operator').length, 2);
+});
+
+test('a very wide array is read, not a crash', () => {
+  assert.equal(mutants('a.js', `x = [${'true,'.repeat(200000)}];`).length, 200000);
+  assert.equal(spans('a.js', 'x;\n'.repeat(200000)).tests.length, 0);
 });
