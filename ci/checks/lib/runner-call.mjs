@@ -18,7 +18,8 @@ const refused = (word) => REFUSED.some((f) => word === f || word.startsWith(`${f
 // a name filter too, and `--t=foo` is; each is refused, whatever its other characters. The parser reads a word of
 // three or more dashes as a cluster as well, so every such word is refused, and a cluster holding `r` or `c` (`-ur=`)
 // is too, as it names the root or config past the check below.
-const clusterWithT = (word) => /^-{3,}/.test(word) || (/^-[^-]/.test(word) && (word.split('=')[0].includes('t') || (word.split('=')[0].length > 2 && /[rc]/.test(word.split('=')[0]))));
+const dashes = (word) => word.length - word.replace(/^-+/, '').length;
+const clusterWithT = (word) => dashes(word) > 2 || (/^-[^-]/.test(word) && (word.split('=')[0].includes('t') || (word.split('=')[0].length > 2 && /[rc]/.test(word.split('=')[0]))));
 // Flags whose value is the config file or the folder the runner starts from: it stays inside the package. Other
 // flags that name a path (setup files, a node flag) are not read here.
 const PATHS = new Set(['--config', '-c', '--root', '-r', '--dir']);
