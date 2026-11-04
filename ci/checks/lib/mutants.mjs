@@ -11,8 +11,6 @@ const NO_JSX = /\.[cm]?ts$/;
 
 // Keys that hold a type, never code to change.
 const TYPE_KEYS = new Set(['typeAnnotation', 'returnType', 'typeParameters', 'typeArguments', 'superTypeParameters', 'implements']);
-// TS nodes that wrap code; any other TS node is a type or a declaration of one.
-const TS_CODE = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'TSTypeAssertion', 'TSInstantiationExpression', 'TSParameterProperty', 'TSEnumDeclaration', 'TSEnumMember', 'TSEnumBody', 'TSModuleDeclaration', 'TSModuleBlock', 'TSExportAssignment', 'TSExternalModuleReference', 'TSImportEqualsDeclaration']);
 const FLIP = new Map([['===', '!=='], ['==', '!='], ['<', '<='], ['>', '>='], ['&&', '||'], ['+', '-'], ['*', '/']]);
 for (const [from, to] of [...FLIP]) FLIP.set(to, from);
 const KIND_ORDER = ['body', 'condition', 'operator', 'literal'];
@@ -30,15 +28,9 @@ function read(path, text) {
 
 const isNode = (value) => value !== null && typeof value === 'object' && typeof value.type === 'string';
 
-function skipped(node) {
-  if (node.type === 'ImportDeclaration' || node.type === 'ExportAllDeclaration') return true;
-  if (node.type === 'ExportNamedDeclaration' && node.source) return true;
-  return node.type.startsWith('TS') && !TS_CODE.has(node.type);
-}
-
-// Calls visit(node) on every node of code, in source order, and never enters an import, a re-export or a type.
+// Calls visit(node) on every node of code, in source order. An import and a re-export hold no expression, and a
+// type sits under one of TYPE_KEYS, so none of them is visited as code.
 function walk(node, visit) {
-  if (skipped(node)) return;
   visit(node);
   for (const [key, value] of Object.entries(node)) {
     if (TYPE_KEYS.has(key) || key === 'loc' || key === 'extra' || key.endsWith('Comments') || key === 'comments') continue;
