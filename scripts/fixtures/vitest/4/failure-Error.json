@@ -1,0 +1,14 @@
+{
+ "ancestorTitles": [
+  "retry"
+ ],
+ "fullName": "retry gives up after the last attempt with the last error",
+ "status": "failed",
+ "title": "gives up after the last attempt with the last error",
+ "duration": 0.5291249999999081,
+ "failureMessages": [
+  "Error: promise resolved \"undefined\" instead of rejecting\n    at _Assertion.__VITEST_REJECTS__ (file://<copy>/copy/node_modules/.pnpm/@vitest+expect@4.1.11/node_modules/@vitest/expect/dist/index.js:1747:17)\n    at _Assertion.propertyGetter (file://<copy>/copy/node_modules/.pnpm/chai@6.3.0/node_modules/chai/index.js:1607:27)\n    at Reflect.get (<anonymous>)\n    at Object.proxyGetter [as get] (file://<copy>/copy/node_modules/.pnpm/chai@6.3.0/node_modules/chai/index.js:1696:22)\n    at <copy>/copy/apps/web/src/lib/retry.test.ts:19:52\n    at file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)"
+ ],
+ "meta": {},
+ "tags": []
+}

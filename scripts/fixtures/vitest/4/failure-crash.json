@@ -1,0 +1,14 @@
+{
+ "ancestorTitles": [
+  "searchItems"
+ ],
+ "fullName": "searchItems searches without changing the list",
+ "status": "failed",
+ "title": "searches without changing the list",
+ "duration": 0.2057080000000724,
+ "failureMessages": [
+  "TypeError: Cannot read properties of undefined (reading 'score')\n    at <copy>/copy/apps/web/src/lib/search.ts:11:22\n    at Array.filter (<anonymous>)\n    at searchItems (<copy>/copy/apps/web/src/lib/search.ts:11:6)\n    at <copy>/copy/apps/web/src/lib/search.test.ts:23:5\n    at file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:302:11\n    at file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:1903:26\n    at file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:2326:20\n    at new Promise (<anonymous>)\n    at runWithCancel (file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:2323:10)\n    at file://<copy>/copy/node_modules/.pnpm/@vitest+runner@4.1.11/node_modules/@vitest/runner/dist/chunk-artifact.js:2305:20"
+ ],
+ "meta": {},
+ "tags": []
+}

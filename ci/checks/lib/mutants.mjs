@@ -16,10 +16,17 @@ const TYPE_KEYS = new Set(['typeAnnotation', 'typeParameters', 'typeArguments', 
 const FLIP = new Map([['===', '!=='], ['==', '!='], ['<', '<='], ['>', '>='], ['&&', '||'], ['+', '-'], ['*', '/']]);
 for (const [from, to] of [...FLIP]) FLIP.set(to, from);
 const KIND_ORDER = ['body', 'condition', 'operator', 'literal'];
-const TEST_MODIFIERS = new Set(['only', 'skip', 'todo', 'concurrent', 'each']);
+const TEST_MODIFIERS = new Set(['only', 'skip', 'todo', 'concurrent', 'sequential', 'fails']);
+// The forms that take their own call before the test's: it.each(rows)('x', fn), it.for(rows)('x', fn),
+// it.skipIf(c)('x', fn), it.runIf(c)('x', fn), and it.each`table`('x', fn).
+const CALL_FORMS = new Set(['each', 'for', 'skipIf', 'runIf']);
+// A line break git does not count, and the parser and V8 do: lines would drift between a diff and a stack.
+const OTHER_BREAK = /\r(?!\n)|[\u2028\u2029]/;
+export const OTHER_BREAK_REASON = 'it holds a line break git does not count (a lone CR, U+2028 or U+2029)';
 
 function read(path, text) {
   if (!SOURCE.test(path)) return { unreadable: NOT_SOURCE };
+  if (OTHER_BREAK.test(text)) return { unreadable: OTHER_BREAK_REASON };
   try {
     const plugins = ['decorators', 'decoratorAutoAccessors'];
     if (TYPESCRIPT.test(path)) plugins.push('typescript');
@@ -84,9 +91,63 @@ function operatorAt(text, from, limit, operator) {
   return at < limit && text.startsWith(operator, at) ? at : -1;
 }
 
+// `process.env` (or `globalThis.process.env`, `process?.env`) and `import.meta.env`.
+function isEnv(node) {
+  if ((node.type !== 'MemberExpression' && node.type !== 'OptionalMemberExpression') || !isNamed(node.property, node.computed, 'env')) return false;
+  const { object } = node;
+  if (object.type === 'Identifier') return object.name === 'process';
+  if (object.type === 'MetaProperty') return object.meta.name === 'import' && object.property.name === 'meta';
+  return (object.type === 'MemberExpression' || object.type === 'OptionalMemberExpression') && isNamed(object.property, object.computed, 'process');
+}
+const isNamed = (property, computed, name) => (computed ? property.type === 'StringLiteral' && property.value === name : property.type === 'Identifier' && property.name === name);
+
+// The ranges no change is made in: the test of an `if` or of `a ? b : c` that reads the environment, and an operator
+// expression that reads it. Merged and sorted, so a change is looked up in them by its start.
+function envGuards(program) {
+  const env = [];
+  const candidates = [];
+  walk(program, (node) => {
+    if (isEnv(node)) env.push(node.start);
+    if (node.type === 'IfStatement' || node.type === 'ConditionalExpression') candidates.push([node.test.start, node.test.end]);
+    if (node.type === 'BinaryExpression' || node.type === 'LogicalExpression') candidates.push([node.start, node.end]);
+  });
+  if (!env.length) return [];
+  env.sort((a, b) => a - b);
+  const reads = ([start, end]) => {
+    let low = 0;
+    let high = env.length;
+    while (low < high) {
+      const mid = (low + high) >> 1;
+      if (env[mid] < start) low = mid + 1;
+      else high = mid;
+    }
+    return low < env.length && env[low] < end;
+  };
+  const guards = candidates.filter(reads).sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const [start, end] of guards) {
+    const last = merged.at(-1);
+    if (last && start <= last[1]) last[1] = Math.max(last[1], end);
+    else merged.push([start, end]);
+  }
+  return merged;
+}
+const inside = (ranges, offset) => {
+  let low = 0;
+  let high = ranges.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    if (ranges[mid][1] <= offset) low = mid + 1;
+    else if (ranges[mid][0] > offset) high = mid - 1;
+    else return true;
+  }
+  return false;
+};
+
 export function mutants(path, text) {
   const program = read(path, text);
   if (program.unreadable) return program;
+  const guards = envGuards(program);
   const found = [];
   const lineAt = lineIndex(text);
   // A replacement never fuses with its neighbours: `i+-1` becomes `i- -1`, `return!a?b:c` becomes `return true?b:c`.
@@ -98,7 +159,7 @@ export function mutants(path, text) {
     const padded = kind === 'operator' ? sign : word;
     const lead = padded.test(before) && (kind === 'operator' || word.test(replacement[0])) ? ' ' : '';
     const trail = padded.test(after) && (kind === 'operator' || word.test(replacement.at(-1))) ? ' ' : '';
-    found.push({ start, end, replacement: lead + replacement + trail, kind, line: lineAt(start) });
+    if (!inside(guards, start)) found.push({ start, end, replacement: lead + replacement + trail, kind, line: lineAt(start) });
   };
   walk(program, (node) => {
     switch (node.type) {
@@ -143,25 +204,32 @@ export function mutants(path, text) {
     .map(({ change }) => change);
 }
 
-// it / test / their modifiers, as a name: it, it.only, it.concurrent.skip. `.each` is named too.
-function testName(node) {
-  if (node.type === 'Identifier') return node.name === 'it' || node.name === 'test' ? [node.name] : null;
-  if (node.type !== 'MemberExpression' || node.computed || node.property.type !== 'Identifier') return null;
-  if (!TEST_MODIFIERS.has(node.property.name)) return null;
-  const inner = testName(node.object);
-  return inner && [...inner, node.property.name];
+// Whether a callee is it or test, through its modifiers and the forms that take a call first: it.only,
+// it.concurrent.skip, it.each(rows), it.skipIf(c).each`table`. A loop, not a recursion: a chain of 12,000 `.only`
+// links parses, and a recursion would overflow on it.
+function isTestCallee(callee) {
+  let at = callee;
+  for (;;) {
+    if (at.type === 'Identifier') return at.name === 'it' || at.name === 'test';
+    if (at.type === 'MemberExpression') {
+      if (at.computed || at.property.type !== 'Identifier' || !TEST_MODIFIERS.has(at.property.name)) return false;
+      at = at.object;
+    } else if (at.type === 'CallExpression' || at.type === 'TaggedTemplateExpression') {
+      const inner = at.type === 'CallExpression' ? at.callee : at.tag;
+      if (inner.type !== 'MemberExpression' || inner.computed || inner.property.type !== 'Identifier' || !CALL_FORMS.has(inner.property.name)) return false;
+      if (at.type === 'TaggedTemplateExpression' && inner.property.name !== 'each' && inner.property.name !== 'for') return false;
+      at = inner.object;
+    } else return false;
+  }
 }
 
-const endsInEach = (name) => name?.[name.length - 1] === 'each';
-
-// A call that declares one test: it('x', fn), it.only('x', fn), it.each(rows)('x', fn), it.each`table`('x', fn).
+// A call that declares one test: it('x', fn), it.only('x', fn), it.each(rows)('x', fn), it.each`table`('x', fn),
+// it.for(rows)('x', fn), it.skipIf(c)('x', fn). The inner call of a form (it.each(rows)) declares none.
 function isTestCall(node) {
   if (node.type !== 'CallExpression') return false;
   const { callee } = node;
-  if (callee.type === 'CallExpression') return endsInEach(testName(callee.callee));
-  if (callee.type === 'TaggedTemplateExpression') return endsInEach(testName(callee.tag));
-  const name = testName(callee);
-  return Boolean(name) && !endsInEach(name);
+  if (callee.type === 'MemberExpression' && !callee.computed && callee.property.type === 'Identifier' && CALL_FORMS.has(callee.property.name)) return false;
+  return isTestCallee(callee);
 }
 
 const isExpectCall = (node) => node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'expect';
@@ -177,6 +245,20 @@ export function spans(path, text) {
     if (into) into.push({ first: lineAt(node.start), last: lineAt(node.end - 1) });
   });
   return { tests, expects };
+}
+
+// The paths a file imports from or re-exports from, as written; a type-only import is left out (§3.6).
+export function imports(path, text) {
+  const program = read(path, text);
+  if (program.unreadable) return program;
+  const paths = [];
+  for (const node of program.body) {
+    const isImport = node.type === 'ImportDeclaration' && node.importKind !== 'type';
+    const isReExport = (node.type === 'ExportAllDeclaration' || node.type === 'ExportNamedDeclaration') && node.exportKind !== 'type';
+    const from = (isImport || isReExport) && node.source?.value;
+    if (typeof from === 'string' && !paths.includes(from)) paths.push(from);
+  }
+  return paths;
 }
 
 export function reExports(path, text) {
