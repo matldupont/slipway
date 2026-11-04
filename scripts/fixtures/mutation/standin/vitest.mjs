@@ -31,12 +31,13 @@ if (config.record && config.project) {
   const git = (a) => execFileSync('git', ['--no-optional-locks', '-C', config.project, ...a], { encoding: 'utf8' });
   appendFileSync(config.record, `${JSON.stringify({ status: git(['status', '--porcelain']), worktrees: git(['worktree', 'list']).trim().split('\n').length })}\n`);
 }
-if (config.worker) spawn(process.execPath, [join(here, 'worker.mjs')], { stdio: 'ignore' });
-if (config.slowStop) process.on('SIGTERM', () => setTimeout(() => process.exit(143), config.slowStop));
+// A worker in the runner's group; with slowStop it takes that long to stop after SIGTERM.
+if (config.worker) spawn(process.execPath, [join(here, 'worker.mjs'), String(config.slowStop ?? 0)], { stdio: 'ignore' });
 if (config.sleepMs) sleep(config.sleepMs);
 
-// A test's line: it('x', test.only('x', it.each([1])('x', or the `])('x'` that closes an it.each of rows.
-const TEST_LINE = /^\s*(?:(?:it|test)\b[\w.]*(?:\([^)]*\))?|\]\))\(\s*['"]([^'"]+)['"]/;
+// A test's line: it('x', test.only('x', it.each([1])('x', an alias such as fixtureTest('x', or the `])('x'` that
+// closes an it.each of rows.
+const TEST_LINE = /^\s*(?:(?:it|test|\w+Test)\b[\w.]*(?:\([^)]*\))?|\]\))\(\s*['"]([^'"]+)['"]/;
 function testsOf(abs) {
   return readFileSync(abs, 'utf8').split('\n').flatMap((text, i) => {
     const m = TEST_LINE.exec(text);

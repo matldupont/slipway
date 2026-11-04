@@ -73,7 +73,8 @@ test('a runner killed at its limit has its worker stopped with its group; a proc
 });
 
 test('a group is stopped by SIGTERM, a wait, then SIGKILL, and what is left is looked for after the wait (AR-3)', (t) => {
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, config: { slowStop: 1000, changedSleepMs: 60_000, tests: { a: { failsWhen: CHANGED } } } });
+  // The runner's worker takes a second to stop after SIGTERM: looked for before the wait, it would be counted.
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, config: { worker: true, slowStop: 1000, changedSleepMs: 60_000, tests: { a: { failsWhen: CHANGED } } } });
   t.after(() => p.remove());
   p.commit({ [FILE]: testFile(['a']) });
   const { record, stderr } = p.run(['--limit-seconds', '6']);
