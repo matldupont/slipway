@@ -55,7 +55,7 @@ not the machinery behind it. Decision: D-022 (new, below). Related: F-02 (#41, #
 
 ## Fit
 
-What this feature takes from the product it joins, as built and as amended by 0.2 (#607); paths and lines at 833f538.
+What this feature takes from the product it joins, as built and as amended by 0.2 and 0.3 (#607); paths and lines at 899795a, the commit that built 0.3.
 
 Reuses:
 - `readMilestones()`, `readMilestoneModel()`, `contents()`, `marker()` and `owing()` in `ci/checks/lib/milestones.mjs`
@@ -75,9 +75,9 @@ Numbers:
 - The picks cap, 3, is `PICKS` in `ci/work-order.mjs:29`.
 - The designation is cut at `DESIGNATION_MAX`, 600, and a `Blocked by:` line keeps at most `BLOCKERS_MAX`, 50,
   numbers, both in `ci/checks/lib/issue-body.mjs:10`–`11`.
-- The open pull requests read, 200 at most, is the `--limit` in `ci/work-order.mjs:109`.
+- The open pull requests read, 200 at most, is the `--limit` in `ci/work-order.mjs:137`.
 - `--watch`'s 15-second floor and `--serve`'s default port 4747 are `MIN_EVERY` and `DEFAULT_PORT` in
-  `ci/work-order.mjs:247`–`248`.
+  `ci/work-order.mjs:274`–`275`.
 - A blocker's status (issue, pull request or unknown, 0.2) is decided once, in `collect()`; the page only prints it.
 
 New: `ci/work-order.mjs`, the page. Nothing else reads the active milestone's issues from GitHub, judges which ready
@@ -268,7 +268,7 @@ anyone can open an issue) into an HTML file the owner opens in a browser, and it
   Contract and Acceptance, in a PR body and in a comment-like trailer, and finds 0 in the page; the planted
   designation text is found.
 - **Bounded reads.** The designation is cut to 600 characters; issues outside the milestone's markers, their
-  sub-issues and the issues a fetched issue names as `Blocked by` (state only) are never fetched, so an issue someone else files never appears unless the owner's
+  sub-issues and the issues and pull requests a fetched issue names as `Blocked by` (state only; #607) are never fetched, so an issue someone else files never appears unless the owner's
   milestone names it or it is a sub-issue (which only a repository writer can link).
 - **No hijacked `gh`.** Fixed argument arrays, no shell; PATH without repository or `node_modules` entries;
   the repo is validated before it reaches an argument.
