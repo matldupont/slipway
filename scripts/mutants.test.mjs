@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The parser under the tests-can-fail step (dev/features/tests-can-fail.md §2, D-037, #630): the vendored
 // @babel/parser is the release its record says it is, unedited, and the pin fails on a file one byte away. The
-// file is hashed, never run: ci/checks/lib/mutants.mjs is to be the only file that imports it.
+// file is hashed before ci/checks/lib/mutants.mjs, the only library file that imports it, is used.
 // Build step 2 adds the tests of what ci/checks/lib/mutants.mjs reads with it (its fixtures: scripts/fixtures/mutants/).
 // Internal: `pnpm meta` runs it in slipway, never in a project.
 
@@ -168,4 +168,41 @@ test('spans() reads the modifiers and the each forms of a test call', () => {
 
 test('reExports() gives the relative paths a file re-exports from', () => {
   assert.deepEqual(reExports('index.ts', fixture('reexports.fixture.ts')), ['./a', './b']);
+});
+
+test('mutants() finds the operator when a comment is hostile, and never loops', () => {
+  for (const code of ['a /*/ // */ + `\n/*`;', 'a //x\r+ `\n/*`;', 'a //x\u2028+ `\n/*`;', 'x = a /*/ - */ - b;']) {
+    assert.ok(Array.isArray(mutants('a.js', `v = ${code}`)), code);
+  }
+  // The change lands on the operator, not in the comment before it.
+  const text = 'x = a /*/ - */ - b;';
+  const operator = mutants('a.js', text).find((change) => change.kind === 'operator');
+  assert.equal(text.slice(operator.start, operator.end), '-');
+  assert.equal(operator.start, text.lastIndexOf('-'));
+});
+
+test('a very deep chain of calls is read, not a crash', () => {
+  const code = `f${'()'.repeat(30000)};`;
+  assert.ok(Array.isArray(mutants('a.js', code)));
+  assert.ok(Array.isArray(spans('a.js', code).tests));
+});
+
+test('lines count \\n only, as git does, in mutants() and in spans()', () => {
+  const code = `const s = "${'\u2028'.repeat(5)}";\r\nit('a', () => {\r\n  expect(1).toBe(1);\r\n});\n`;
+  assert.deepEqual(spans('a.js', code).tests, [{ first: 2, last: 4 }]);
+  assert.deepEqual(spans('a.js', code).expects, [{ first: 3, last: 3 }]);
+  assert.equal(mutants('a.js', code).find((change) => change.kind === 'body').line, 2);
+});
+
+test('the reason a file is unreadable is one short line, and not one shared object', () => {
+  const reason = mutants('a.js', 'export { "\nforged line" };').unreadable;
+  assert.ok(!new RegExp('[\\r\\n\\u2028\\u2029]').test(reason) && reason.length <= 200);
+  mutants('a.svelte', '').file = 'a.svelte';
+  assert.deepEqual(mutants('b.svelte', ''), { unreadable: 'not JavaScript or TypeScript' });
+});
+
+test('a file of many changes is read in time', () => {
+  const started = Date.now();
+  assert.equal(mutants('a.js', 'x=true;\n'.repeat(20000)).length, 20000);
+  assert.ok(Date.now() - started < 5000);
 });
