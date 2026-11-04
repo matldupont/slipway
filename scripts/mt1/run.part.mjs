@@ -171,3 +171,12 @@ test('MT1 --run names ci/exceptions.yaml when the commit\'s copy cannot be read'
   assert.equal(r.status, 2, r.out);
   assert.match(r.out, /ci\/exceptions\.yaml: /);
 });
+
+test('MT1 --run never prints the CI command marker raw, on stdout or in its progress lines', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  removeAll(t, p);
+  p.commit({ 'pkgs/app/src/##[warning]cart.test.ts': testFile(['adds']) });
+  const r = mt1(p);
+  assert.match(r.out, /judging pkgs\/app\/src\/.*cart\.test\.ts/);
+  assert.doesNotMatch(r.out, /##\[/);
+});

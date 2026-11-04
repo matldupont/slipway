@@ -124,7 +124,7 @@ async function main(arg) {
     } catch (e) {
       return brokenOnly(m.e(`ci/exceptions.yaml: ${e.message}`));
     }
-    const record = await runMutation({ root, say: (line) => process.stderr.write(`tests-can-fail: ${escapeControl(line)}\n`) });
+    const record = await runMutation({ root, say: (line) => process.stderr.write(`tests-can-fail: ${escapeControl(line).replace(/##\[/g, '\\u0023\\u0023\\u005b')}\n`) });
     return print(verdict(record, { registry, today: clockToday(root), head }));
   }
   const folder = resolve(arg);

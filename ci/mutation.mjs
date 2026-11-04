@@ -257,7 +257,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     process.stderr.write('--limit-seconds takes a number of seconds above 0\n');
     process.exit(2);
   }
-  const record = await runMutation({ limitSeconds, say: (line) => process.stderr.write(`tests-can-fail: ${esc(line)}\n`) });
+  const record = await runMutation({ limitSeconds, say: (line) => process.stderr.write(`tests-can-fail: ${esc(line).replace(/##\[/g, '\\u0023\\u0023\\u005b')}\n`) });
   // A pull request's text in the record is printed through the report's escape, as JSON escapes.
   process.stdout.write(`${escapeOutput(JSON.stringify(record, null, 1))}\n`);
   process.exit(record.signal ? 128 + SIGNALS[record.signal] : record.stopped ? 2 : 0);
