@@ -65,9 +65,16 @@ function stub(w) {
     const q = args.find((a) => a.startsWith('query='));
     const all = [...w.issues, ...w.issues.flatMap((i) => i.subIssues?.nodes ?? [])];
     const repository = {};
-    for (const m of q.matchAll(/i(\d+):issue/g)) {
+    for (const m of q.matchAll(/i(\d+):issue\(/g)) {
       const i = all.find((x) => x.number === Number(m[1]));
       repository[`i${m[1]}`] = i ? (q.includes('subIssues') ? i : { number: i.number, state: i.state, stateReason: i.stateReason }) : null;
+    }
+    // Blocked by numbers (#607): an issue, a pull request from w.pulls, or nothing.
+    for (const m of q.matchAll(/p(\d+):issueOrPullRequest/g)) {
+      const n = Number(m[1]);
+      const i = all.find((x) => x.number === n);
+      const pr = (w.pulls ?? []).find((x) => x.number === n);
+      repository[`p${n}`] = i ? { __typename: 'Issue', state: i.state, stateReason: i.stateReason } : pr ? { __typename: 'PullRequest', state: pr.state } : null;
     }
     return JSON.stringify({ data: { repository } });
   };
@@ -350,8 +357,81 @@ test('real gh answers a missing issue with data, a NOT_FOUND error and exit 1: t
       process.env.PATH = saved;
     }
   };
-  assert.match(text(run([{ type: 'NOT_FOUND' }])), /#10 not found/);
-  assert.throws(() => run([{ type: 'NOT_FOUND' }, { type: 'FORBIDDEN' }]), /gh failed/);
+  assert.match(text(run([{ type: 'NOT_FOUND', path: ['repository', 'i10'] }])), /#10 not found/);
+  assert.throws(() => run([{ type: 'NOT_FOUND', path: ['repository', 'i10'] }, { type: 'FORBIDDEN' }]), /gh failed/);
+});
+
+// Blocked by numbers that are not issues (F-07 0.3, #607): #16 is open, owes nothing and is ready but for its blocker.
+const heldBy = (blockedBy, pulls = []) => {
+  const w = world();
+  w.issues[2] = issue(16, { body: body({ blockedBy, touches: 'ci/b.mjs' }) });
+  w.pulls = pulls;
+  return collect(join(FIX, 'full'), stub(w));
+};
+const leaf16 = (model) => model.milestone.items.flatMap((i) => i.leaves).find((l) => l.n === 16);
+
+test('a leaf blocked by an open pull request shows it open, linked to the pull request, and is not offered', () => {
+  const model = heldBy('#40', [{ number: 40, state: 'OPEN' }]);
+  const html = render(model);
+  assert.match(text(html), /Blocked by #40 \(pull request, open\)/);
+  assert.match(html, /href="https:\/\/github\.com\/acme\/harbour\/pull\/40"/);
+  assert.ok(!model.next.some((l) => l.n === 16), 'an open pull request holds its ticket');
+  assert.deepEqual(leaf16(model).findings, []);
+});
+
+test('a merged blocking pull request clears its leaf; one closed unmerged holds it with "check the wait"', () => {
+  const merged = heldBy('#40', [{ number: 40, state: 'MERGED' }]);
+  assert.match(text(render(merged)), /Blocked by #40 \(pull request, merged\)/);
+  assert.ok(merged.next.some((l) => l.n === 16), 'a merged pull request clears');
+  const closed = heldBy('#40', [{ number: 40, state: 'CLOSED' }]);
+  const shown = text(render(closed));
+  assert.match(shown, /Blocked by #40 \(pull request, closed unmerged\)/);
+  assert.match(shown, /PR #40 closed unmerged; check the wait\./);
+  assert.ok(!closed.next.some((l) => l.n === 16), 'a pull request closed unmerged holds until the line is edited');
+});
+
+test('through real gh, a Blocked by number GitHub holds as neither is unknown with one finding; the rest reads as if it were an open issue', () => {
+  const w = world();
+  w.issues[2] = issue(16, { body: body({ blockedBy: '#77', touches: 'ci/b.mjs' }) });
+  w.issues[1].subIssues.nodes[0] = issue(12, { state: 'CLOSED', stateReason: 'COMPLETED', body: body({ blockedBy: '#77' }) });
+  const dir = tmp();
+  writeFileSync(join(dir, 'i.json'), JSON.stringify({ data: { repository: Object.fromEntries(w.issues.map((i) => [`i${i.number}`, i])) } }));
+  const run = (answer, code) => {
+    writeFileSync(join(dir, 'p.json'), JSON.stringify(answer));
+    const bin = fakeGh(join(dir, 'bin'), `case "$*" in pr*) echo '[]'; exit 0;; *issueOrPullRequest*) cat '${dir}/p.json'; exit ${code};; *) cat '${dir}/i.json'; exit 0;; esac`);
+    const saved = process.env.PATH;
+    process.env.PATH = `${bin}:${saved}`;
+    try {
+      return collect(join(FIX, 'full'), realGh(join(FIX, 'full')));
+    } finally {
+      process.env.PATH = saved;
+    }
+  };
+  const missing = run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND', path: ['repository', 'p77'] }] }, 1);
+  const open = run({ data: { repository: { p77: { __typename: 'Issue', state: 'OPEN', stateReason: null } } } }, 0);
+  const shown = text(render(missing));
+  assert.match(shown, /Blocked by #77 \(unknown\)/);
+  assert.match(shown, /Correct or remove #77 on #16&#39;s Blocked by line\. GitHub holds no issue or pull request by that number in this repository\./);
+  assert.ok(!missing.next.some((l) => l.n === 16), 'an unknown blocker holds its ticket');
+  const leaves = (m) => m.milestone.items.flatMap((i) => i.leaves ?? []);
+  assert.deepEqual(leaves(missing).find((l) => l.n === 12).findings, [], 'a done leaf holds nothing, so it gets no finding');
+  assert.deepEqual(missing.next, open.next);
+  // Every other leaf, and every blocker but #77 itself, reads the same.
+  const others = (m) => leaves(m).filter((l) => l.n !== 16).map((l) => ({ ...l, blockers: l.blockers.filter((b) => b.n !== 77) }));
+  assert.deepEqual(others(missing), others(open));
+  assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND', path: ['repository', 'p77'] }, { type: 'FORBIDDEN' }] }, 1), /gh failed/);
+  assert.throws(() => run({ data: { repository: { p77: { __typename: 'Issue', state: 'OPEN', stateReason: null } } }, errors: [{ type: 'NOT_FOUND', path: ['repository', 'p77'] }] }, 1), /gh failed/, 'a NOT_FOUND on an alias with data is not an answer');
+  assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND' }] }, 1), /gh failed/, 'a NOT_FOUND naming no alias is not an answer');
+  assert.throws(() => run({ data: { repository: null }, errors: [{ type: 'NOT_FOUND', path: ['repository'] }] }, 1), /gh failed/, 'a repository GitHub does not find is not an answer');
+  assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND', path: ['repository', 'p77', 'x'] }] }, 1), /gh failed/, 'a NOT_FOUND below an alias is not an answer');
+  assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND', path: ['viewer', 'p77'] }] }, 1), /gh failed/, 'a NOT_FOUND outside the repository is not an answer');
+  assert.throws(() => run({ data: { repository: { p77: null } }, errors: [] }, 1), /gh failed/, 'an exit 1 with no error is not an answer');
+  assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'FORBIDDEN', path: ['repository', 'p77'] }] }, 1), /gh failed/, 'another error on a null alias is not an answer');
+});
+
+test('more than three unknown numbers on one leaf give one finding naming three and how many more', () => {
+  const l = leaf16(heldBy('#71, #72, #73, #74'));
+  assert.deepEqual(l.findings, ["Correct or remove #71, #72, #73 and 1 more on #16's Blocked by line. GitHub holds no issue or pull request by those numbers in this repository."]);
 });
 
 test('an issue number too large to be one, or a Touches line too long, never reaches a query or the page', () => {

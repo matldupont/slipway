@@ -5,7 +5,7 @@ status: draft
 
 # F-17 — Parallel plan: `pnpm status` names the work that can start now, who does it, and what waits on you
 
-Version: 0.3 (2026-10-25)
+Version: 0.5 (2026-11-04)
 
 The line above is the one a `/review-doc` review quotes. Any edit inside the Contract, Acceptance or Verify
 below moves it, in the same commit, bar the sha and date of a `Verified against:` line; a single acceptance block the owner
@@ -194,6 +194,8 @@ in this table are the files the thing writes.
 | `shape` | (§3) Shape item {k} of {id} with /log-feature {id}#{k} | you and an agent | the milestone's next builds (1, sorted as §3 says) | nothing | the milestone's file, the feature docs folder, `docs/PRD.md`, `decisions.md` |
 | `github-unread`, `stale-claim`, `unplannable`, `review-unchecked`, `branches-unread` | (§5) | you | nothing (5), or §5's words | GitHub, or nothing | none |
 | `other-account` | (§5, #535) N pull requests from this repo's branches were opened by another account | you | nothing (5) | nothing | none |
+| `blocker-unknown`, `blocker-closed` | (§5, #607) Correct or remove #{n} on #{m}'s Blocked by line / #{m} is held: PR #{n} closed unmerged | you | nothing (5), in §5's words: never offered In parallel, always in Needs attention | nothing | none |
+| `item-not-found` | (§5, #607) Check item {k} of {id}: its issue #{n} is not found | you | the active milestone closing (1) | nothing | the active milestone's file |
 | `merge`, `review-owed`, `red-check`, `needs-shape` | (§6) | §6 | §6 | §6 | §6 |
 
 The F-15 lines keep their wording (three reviews fixed it); `decision-lines.mjs` returns each as an owed thing
@@ -305,6 +307,12 @@ print less (§7).
 
 ### §5 The online part — `ci/checks/lib/github-state.mjs`
 
+Verified against: 833f538 2026-11-04 — for 0.4 and 0.5 (#607), GitHub's answer to `issueOrPullRequest(number:)`:
+`__typename` `PullRequest` and `MERGED` for a merged pull request, `Issue` and `OPEN` for an issue, and for a number it
+holds as neither (`99999`, `0`) the alias `null` with one error of type `NOT_FOUND` whose `path` is `["repository",
+alias]`, exit 1. A deleted or moved issue, and a discussion number (discussions are off in this repository), were not
+asked: they are expected to answer as a typo does.
+
 **When.** On `--hook` (every session start) and on `--online`, which the `status` script in `package.json` passes:
 `node ci/status.mjs --write --online`. **Never** when `CI`, `CHECK_TODAY` or `CHECK_NOW` is set (every status test fixes
 the clock with one of the last two), whatever the flags, and never under `--refresh` (the Stop hook's turn-end
@@ -321,7 +329,16 @@ through work-order's `realGh(root)`: a fixed argument array, never a shell, the 
 
 **All or nothing** (the owner, Q3). The child prints one JSON object on stdout, and only when every call succeeded.
 Any failure, a timeout part-way included, gives status no GitHub data at all: no GitHub line in In parallel or
-Needs attention, no remote claim, no ticket in Next. A failure never fails the hook and never changes status's exit
+Needs attention, no remote claim, no ticket in Next. One answer is not a failure (#607; D-050's all or nothing, as the
+owner amended it on 2026-11-04, excepts a not-found item issue and a not-found `Blocked by` number): a call whose
+every error has type `NOT_FOUND` and a `path` of `["repository", alias]` naming an item-issue alias of call 1 or a
+`p{n}` alias of call 2 that the answer gives as `null`. `realGh()` keeps only that answer. Any other error, beside it
+or alone, a `NOT_FOUND` on any other path, or on an alias the answer gives data for, fails the read.
+
+**A not-found item issue** (call 1, #607) shows as F-07 shows it, `#n not found`: it is never offered, as Next or In
+parallel, and Needs attention gains one `item-not-found` line: `(you) Check item {k} of {id}: its issue #{n} is not
+in this repository, as GitHub reads it. Correct the item's marker in the milestone file. It blocks the active milestone
+closing. It waits on nothing.` Every other line reads as it would if that issue were open with no sub-issues. A failure never fails the hook and never changes status's exit
 code. The reason is one of fixed words, never `gh`'s own message:
 
 | reason | when | action |
@@ -360,7 +377,22 @@ blocks nothing. It waits on GitHub.`
    - `refs(refPrefix: "refs/heads/", first: 100, orderBy: { field: TAG_COMMIT_DATE, direction: DESC }) { totalCount
      nodes { name target { ... on Commit { committedDate } } } }`: the remote branches, once, unfiltered; the child
      matches each leaf's claim pattern against them (AR-3 of the 0.2 review), so the read stays three calls.
-2. `state stateReason` of the `Blocked by` issues not already read (work-order's third call; skipped when none).
+2. The state of the `Blocked by` numbers not already read, as F-07 reads them (work-order's third call, #607; skipped
+   when none): `issueOrPullRequest(number: n)` under the alias `p{n}`, `__typename`, `... on Issue { state stateReason
+   }` and `... on PullRequest { state }`; `__typename` alone tells an issue from a pull request. A `Blocked by:` line
+   may name a pull request on purpose, to hold a ticket until it merges. An issue clears its leaf when closed, as
+   completed, not planned or duplicate; a pull request clears it when merged and holds it while open. A pull request
+   closed unmerged stays held until the `Blocked by:` line is edited, never released by age (the owner, 2026-11-04,
+   replacing "closed unmerged clears"). A number GitHub holds as neither (its alias `null` with a `NOT_FOUND` error: a
+   typo, a deleted or moved issue) is unknown: it holds its leaf, the read goes on, and every other line reads as it
+   would if that number were an open issue. Only an open leaf gets a line, one per leaf and kind, in the owner's words:
+   - `blocker-unknown`: `(you) Correct or remove {list} on #{m}'s Blocked by line. GitHub holds no issue or pull
+     request by that number in this repository. It blocks #{m} being offered. It waits on nothing.`
+   - `blocker-closed`: `(you) #{m} is held: PR #{n} closed unmerged; check the wait. It blocks #{m} being offered. It
+     waits on nothing.`, with `PR #{n}` taking the same `{list}` form.
+
+   `{list}` is the first three numbers as `#a, #b, #c`, then `and {k} more`; "that number" reads "those numbers" for
+   two or more. So one leaf puts at most two lines into Needs attention, whatever its body holds.
 3. For each of the owner's pull requests whose changed paths include a feature doc or a file under `docs/reviews/`:
    `object(expression: $e) { ... on Blob { text } }` for that doc at the head and at the base, and for each review the
    pull request changes at the head (skipped when none). Each expression is a commit id matching `^[0-9a-f]{40}$`, a
@@ -495,6 +527,14 @@ item and an untested existential risk (the second leaf and shaping are taken, th
 - another account's pull requests (#535): two from this repository's branches and one from a fork give the
   `other-account` line with 2, reading no title, path or branch name of theirs (a sentinel in each); none gives no line;
 - an `HTTP 401` answer with exit 1 gives `gh is not signed in`;
+- `Blocked by` numbers (#607): a leaf blocked by an open pull request is held; by a merged one is offered; by one
+  closed unmerged is held, with one `blocker-closed` line; one blocked by a number answered `null` with a `NOT_FOUND`
+  error on that alias, exit 1, leaves every other GitHub line as a run with that number an open issue gives, plus one
+  `blocker-unknown` line; four unknown numbers on one leaf give one line ending `and 1 more`; a done leaf naming the
+  same number gives no line; a `NOT_FOUND` beside an error of another type, or on an alias with data, gives `GitHub
+  answered with an error`;
+- a milestone item whose issue answers `null` with a `NOT_FOUND` on its alias: the item shows `#n not found`, is never
+  offered, one `item-not-found` line names it, and every other GitHub line is printed;
 - each cap of §5, one answer each;
 - a ready leaf whose `Touches:` overlaps a changed path of the owner's open pull request that its own `Touches:` did
   not name: the next ready leaf is picked instead;
@@ -544,7 +584,8 @@ The owner chose full sharing (AR-2). At Build map step 5:
 - **Next.** The page's Next shows `plan()`'s main step and picks, in its order. An issue pick renders as today. A pick
   that is not an issue (an owed thing) renders as one plain line, its text through `escapeHtml()`, with no command.
   Status's output rules do not govern the page: it keeps titles, `Touches` and designations as F-07 shows them.
-- **F-07's Fit first.** F-07 has no `## Fit`, so `/review-doc` cannot review it (AR-9 of the 0.2 review). Step 5's
+- **F-07's Fit first.** F-07 had no `## Fit`, so `/review-doc` could not review it (AR-9 of the 0.2 review); #607
+  filled it in F-07 0.2, so this line of step 5's ticket is met. Step 5's
   ticket carries, as an Acceptance line, the owner's words: "F-07's Fit is filled, describing F-07 as amended, before
   its review runs". "If the Fit needs my own judgment, the ticket says the session asks me rather than writing it"
   (the owner, 2026-10-25). A Fit edit moves no `Version:`.
@@ -666,6 +707,26 @@ Given GitHub cannot be reached, gh is missing, gh is not signed in or its token 
       call fails after the first
 Then  status prints its offline view, one line saying GitHub was not read with the reason in fixed words, no other
       GitHub line, and exits 0
+
+Given a recorded answer whose call 2 answers an open leaf's Blocked by number null with one NOT_FOUND error on that
+      alias's path, exit 1
+When  status reads it
+Then  every other GitHub line is the one a run with that number an open issue prints, the leaf is not offered, and
+      Needs attention has one line "(you) Correct or remove #{n} on #{m}'s Blocked by line. GitHub holds no issue or
+      pull request by that number in this repository. It blocks #{m} being offered. It waits on nothing."
+And   the same answer with a NOT_FOUND error beside an error of another type gives the offline view with "GitHub
+      answered with an error"
+
+Given an open leaf whose only Blocked by: is a pull request, answered open, then merged, then closed unmerged
+When  status reads each answer
+Then  the leaf is not offered while the pull request is open; it is offered once merged; closed unmerged, it is not
+      offered and Needs attention has "(you) #{m} is held: PR #{n} closed unmerged; check the wait. It blocks #{m}
+      being offered. It waits on nothing."
+
+Given a recorded answer whose call 1 answers a started item's issue null with one NOT_FOUND error on that alias's path
+When  status reads it
+Then  the item is never offered, Needs attention has one item-not-found line naming the item and #{n}, and every other
+      GitHub line is printed
 
 Given a stub that answers after 6 seconds
 Then  the child is killed at 5 seconds, and status exits 0 within 5 seconds plus the time the same root takes offline
@@ -836,3 +897,12 @@ an expired token) are in 0.3, and its four wording points ride steps 1 and 4.
 - 2026-10-25 · MODIFIED · 0.3, from the 0.2 review (`docs/reviews/2026-10-25-parallel-plan-0.2.md`): the owner's
   answers (a claim never released by age; the `other-account` count, #535; F-07's Fit in step 5) and AR-1 to AR-12
   with AR-13's behaviour points; AR-13's wording rides steps 1 and 4. #533
+- 2026-11-04 · MODIFIED · 0.4: §5 call 2 reads `Blocked by` numbers as an issue or a pull request, as F-07 0.2 does;
+  an open pull request holds, a merged or closed one clears, and a number GitHub holds as neither is unknown, with a
+  `blocker-unknown` line, never a failed read (the owner, 2026-11-02). #607
+- 2026-11-04 · MODIFIED · 0.5, from the 0.4 review (`docs/reviews/2026-11-04-parallel-plan-0.4.md`), the last round:
+  a not-found item issue is `#n not found` with an `item-not-found` line, never a failed read, and a pull request
+  closed unmerged holds with F-18's line (the owner, 2026-11-04, AR-1); the kept answer is named by each error's
+  `path` (AR-2); the comparison run is one where the number is an open issue (AR-3); lines for open leaves only (AR-4),
+  one per leaf and kind (AR-5); who `you`, rank 5's cost stated, a `When` added (AR-6); `__typename` read, and a
+  `Verified against:` line (AR-7). The owner chose this 0.5, past 0.3's "never a 0.4", for #607 (2026-11-04). #607

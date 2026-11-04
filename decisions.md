@@ -1387,6 +1387,8 @@ PR #533's body, and each is written into `dev/features/parallel-plan.md`.
   read at the pull request that closes the issue, and a started item is still read from the milestone file (D-020).
 - **All or nothing.** A failure or a timeout part-way shows none of what was read; one line says GitHub was not read and
   why, in fixed words (timed out, `gh` not installed, not signed in). It never fails the hook (Q3).
+  2026-11-04 (the owner, #607): all or nothing excepts a not-found item issue and a not-found Blocked by number; F-17
+  §5.
 - **The owner's work only.** Only the owner's own pull requests, and the `needs-shape` issues the owner opened, are
   listed or steer the plan; everyone else's are counted, never read for paths or text, and their number never switches
   the read off (Q3, AR-3, AR-8). A merge line is addressed to the owner: an agent asks, and never merges. Status prints
