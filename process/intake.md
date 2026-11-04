@@ -211,7 +211,7 @@ repository `git remote get-url origin` names, say so and ask before the first pu
     prints nothing. Nothing of it is pushed.
   - `git diff --cached --quiet` exits 0, so nothing staged rides in the claim; the index is never cleared to pass.
   - `git log --oneline origin/{base}..HEAD` prints nothing. It holds no commit of its own.
-  - `git merge --ff-only origin/{base}` succeeds, and `git rev-parse HEAD^{tree}` then prints what
+  - `git merge --ff-only --no-autostash origin/{base}` succeeds, and `git rev-parse HEAD^{tree}` then prints what
     `git rev-parse origin/{base}^{tree}` prints. It holds the same tree.
 
   Any check failing, or unable to answer, stops the run to ask the owner, with no branch renamed and nothing pushed.

@@ -1139,7 +1139,8 @@ test('process/intake.md says Touches: holds paths and globs only, and gives a ti
 // The claim's cut and its fast-forward check both fail on uncommitted work that the base would overwrite, and git's
 // message says to stash it. A scratch repo holds that work: the step, read from the rule, is refused, the work is as it
 // was, and the rule stops. The scratch git inherits no GIT_* variable (a hook exports GIT_DIR and GIT_INDEX_FILE, which
-// beat cwd) and no personal or system config, as scripts/sync.test.mjs does, and pushes to the bare repo's path.
+// beat cwd) and no personal or system config, as scripts/sync.test.mjs does, and pushes to the bare repo's path. It runs
+// in the C locale, so git's refusal is in the English `refused` matches, whatever the user's locale.
 const claimRule = () => {
   const intake = read('process/intake.md').replace(/\s+/g, ' ');
   return intake.slice(intake.indexOf('Every check comes before the rename'), intake.indexOf('With no remote, no claim is pushed.'));
@@ -1153,6 +1154,7 @@ const SEALED = {
   ...Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_'))),
   GIT_CONFIG_GLOBAL: '/dev/null',
   GIT_CONFIG_NOSYSTEM: '1',
+  LC_ALL: 'C',
   GIT_AUTHOR_NAME: 'slipway test',
   GIT_AUTHOR_EMAIL: 'test@example.invalid',
   GIT_COMMITTER_NAME: 'slipway test',
@@ -1193,6 +1195,14 @@ test('process/intake.md never lets a claim step stash, reset, check out or clean
   assert.match(claimRule(), /No step of the claim stashes, resets, checks out or cleans the working tree to pass\./, 'the claim never cleans the working tree to pass');
   const ffOnly = claimStep(/- `(git merge --ff-only [^`]+)` succeeds/);
   withUncommittedWork((git) => assert.throws(() => git(...ffOnly), refused, 'the fast-forward check is refused rather than overwrite the work'));
+});
+
+test('process/intake.md\'s fast-forward check is refused over uncommitted work under merge.autoStash too, and stashes nothing', () => {
+  const ffOnly = claimStep(/- `(git merge --ff-only [^`]+)` succeeds/);
+  withUncommittedWork((git) => {
+    assert.throws(() => git('-c', 'merge.autoStash=true', ...ffOnly), refused, 'the fast-forward check is refused rather than stash the work aside');
+    assert.equal(String(git('stash', 'list')), '', 'nothing is stashed');
+  });
 });
 
 test('process/intake.md cuts a ticket branch with no upstream, so the claim\'s upstream check does not stop it', () => {
