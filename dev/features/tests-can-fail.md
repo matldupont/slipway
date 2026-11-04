@@ -210,9 +210,12 @@ Nothing else ties it to a version, and §8 says how each of the three is held.
 - `mutants(path, text)` returns the changes that text can get, each `{ start, end, replacement, kind, line }`,
   or `{ unreadable: reason }` when the parser cannot read it.
 - `spans(path, text)` returns, for a test file, the first and last line of each test call (`it`, `test`, and
-  their `.each`, `.only`, `.skip`, `.todo`, `.concurrent` forms) and of each `expect(...)` call (the call
-  itself, from `expect` to the parenthesis that closes its argument; not the matcher after it), or
-  `{ unreadable: reason }`. §3.5 and §3.9 use them.
+  their `.each`, `.for`, `.only`, `.skip`, `.todo`, `.concurrent`, `.sequential`, `.fails`, `.skipIf(…)` and
+  `.runIf(…)` forms) and of each `expect(...)` call (the call itself, from `expect` to the parenthesis that
+  closes its argument; not the matcher after it), or `{ unreadable: reason }`. §3.5 and §3.9 use them.
+- `imports(path, text)` returns the paths a file imports or re-exports from, a type-only import left out, for §3.6.
+- A text holding a line break git does not count (a lone CR, U+2028 or U+2029) is `{ unreadable: reason }` to all
+  four: V8 breaks a stack's lines there and git does not, so a crash's line would name another line (#632).
 - `reExports(path, text)` returns the relative paths a file re-exports from (`export * from`,
   `export { a } from`), for §3.6.
 
@@ -223,7 +226,8 @@ Nothing else ties it to a version, and §8 says how each of the three is held.
 | `operator` | `===`↔`!==`, `==`↔`!=`, `<`↔`<=`, `>`↔`>=`, `&&`↔`\|\|`, `+`↔`-`, `*`↔`/` | third |
 | `literal` | `true`↔`false` | third |
 
-Nothing is changed inside an import, a re-export (`export … from`), a type, or a string. An exported function
+Nothing is changed inside an import, a re-export (`export … from`), a type, or a string, nor in the test of an `if`
+or `a ? b : c`, or an operator expression, that reads `process.env` or `import.meta.env` (#632). An exported function
 or constant is changed like any other: the code a test imports is the exported code.
 
 ### 3. The run — `ci/mutation.mjs` (new)
@@ -283,7 +287,9 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    `test:integration` script has both judged. A `keep-out:` names a file or a folder of that package, with a
    `reason:`. An entry with both or neither, an unknown package, or a key not named here is exit 2.
 
-   A changed test file in a package that does not depend on `vitest` is **not judged**: `other-runner`.
+   A changed test file in a package that does not depend on `vitest` is **not judged**: `other-runner`; one under
+   `__tests__/` there whose name is not `*.test.*` or `*.spec.*` is not a test. A changed test file in no
+   workspace package is **not judged**: `no-package` (a project with no workspace packages is its root package).
    When no package depends on it, exit 2: "`{file}` was added or changed, and no package here uses Vitest,
    the only test runner this step can judge." An unexpired entry `tests-can-fail#other-runner` in
    `ci/exceptions.yaml` turns that exit into the same warning, by name, for a project on another runner: a
@@ -294,7 +300,9 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    there with `pnpm install --frozen-lockfile --offline`; a failed install is exit 2 with its last lines.
    Then `ci/before-verify.sh` is run in the copy, when the commit has one, with the step's environment and
    `GITHUB_ENV` set to a file in the temporary folder; each `NAME=value` line it appends there is added to
-   the environment of every runner call. A script that fails is exit 2 with its last lines. So what a
+   the environment of every runner call. Every runner call gets a fixed environment: `PATH`, `HOME`, `TMPDIR`,
+   `LANG`, `LC_*`, `TERM` and `CI` from the step's, then those lines, and nothing else of the step's own; the
+   install and the script keep the step's environment (#632). A script that fails is exit 2 with its last lines. So what a
    project's tests need that git does not track (generated code, an environment file, a seeded file) is in
    the copy by the same script that puts it there for `verify`. Every run of the test runner below happens
    in the copy, and the folder is removed on every exit path the step controls, after every process the step
@@ -319,7 +327,9 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    limitations). Tests the runner
    lists on one line (`it.each`, a loop that calls `it`) are one group: new when a changed line falls inside
    that call, judged once by the first one listed, and named by the call's line. A test file `spans()`
-   cannot read has every test in it treated as new. A test the pull request did not touch is never judged.
+   cannot read has every test in it treated as new, and so does one where a test the runner lists falls inside no
+   test call `spans()` reads (an alias of `it`, a `test.extend` fixture; #632). A test the pull request did not
+   touch is never judged.
 6. **Its subjects**, the source files that may be changed for a test file:
    - each file it imports by relative path, and the file beside it with the same name (`cart.test.ts` →
      `cart.ts`), when that file is tracked, inside the repository and not itself a test;
@@ -407,11 +417,15 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
     seconds), `outOfTime`, `stopped` (null, or the message of an exit 2 above), `changedTestFiles`, `runs`
     (`{ package, call, version }`), `order`, `tests` (`{ package, file, name, line, subjects, tried,
     failedOn, crashes, lastCrash, state }`: `failedOn` null or the change with what the failure was,
-    `crashes` a count, `lastCrash` null or `{ type, file, line }`, `state` one of `judged`, `flaky`,
+    `crashes` a count, `lastCrash` null or `{ type, file, line }`, `unreadFailures` and `lastUnread`, the count
+    of failures whose first word is not an error's name and the last such word, `state` one of `judged`, `flaky`,
     `out-of-time`), `neverRun` (`{ file }`), `notJudged` (`{ file, name, why, detail }`), `unreadable`
-    (`{ file, reason }`), `support`, `notTests` and `outsideAnyTest` (`{ file }` each), `removedTestFiles` (a
-    count), `mechanical` (true when the entry of step 7 counted), `capped` (`{ file, untriedBody,
-    untriedOther }`), `leftProcesses` (the count §1 found and stopped).
+    (`{ file, reason }`, the reason escaped), `support`, `noChange`, `notTests` and `outsideAnyTest` (`{ file }`
+    each), `removedTestFiles` (a count), `uncommitted` (the tracked files with a change not committed),
+    `mechanical` (true when the entry of step 7 counted), `mechanicalSpent` (true when it is there and did not
+    count), `excuseProblems` (`{ file, problem }`, an expired or undated `tests-can-fail#` entry), `capped`
+    (`{ file, untriedBody, untriedOther }`), `leftProcesses` (the count §1 found and stopped), `signal` (null, or
+    the signal that ended the run).
     It is complete on every exit path, the time limit and an exit 2 included.
 
 ### 4. The verdict — `ci/checks/meta/mt1-tests-can-fail.mjs` (new)
@@ -468,7 +482,8 @@ puts it there, so the last is a fault in the record and never an ordinary pull r
 ### 5. What a failure says (D-016)
 
 Every line names the project's own thing and the next action, and reads without knowing a check id. Test
-names and paths are a pull request's text and are printed through the report's escape.
+names, paths and the parser's reason a file is unreadable are a pull request's text and are printed through the
+report's escape; the reason is escaped in the record too (#632).
 
 - `kills-nothing`: `` `{file}` › "{test}" passes whatever the code does: {n} changes were made to the code
   its file imports ({subjects}), and it failed on none of them. Assert on what the code returns or does,
@@ -500,7 +515,8 @@ names and paths are a pull request's text and are printed through the report's e
   it notices";
   "its subject `{file}` could not be parsed"; "its subject `{file}` is not JavaScript or
   TypeScript"; "there is nothing this step can change in `{file}`, which is all it imports"; "it is kept out
-  in `ci/tests-can-fail.yaml`: {reason}"; "its package {package} does not use Vitest"; "it is skipped";
+  in `ci/tests-can-fail.yaml`: {reason}"; "its package {package} does not use Vitest"; "it is in no package of
+  the workspace"; "it is skipped";
   "excused until {date}: {reason}".
 - another commit: `` This record is for commit {a}, not the one being checked ({b}). Run
   `pnpm tests-can-fail` again. ``
@@ -704,6 +720,12 @@ nothing else; and a result copied into a pull request by hand.
 - **`ci/before-verify.sh` runs in the copy, so locally it runs beside whatever is already running.** A script
   that starts a service on a fixed port fails there when the developer's own is up. A test that needs a file neither git nor that script provides is red in the copy, and the step stops
   and names it.
+- **A test written through an alias of `it` or a `test.extend` fixture has no call of its own** that §2 reads.
+  When the runner lists one, its file is read as one `spans()` cannot read, so every test in it is judged (#632).
+- **A file holding a line break git does not count is not read.** A lone CR, U+2028 or U+2029, in a test file or a
+  subject, makes it `could-not-be-parsed` (a test file: every test new), not a file whose lines may drift.
+- **Runner calls keep the real `HOME`**, so files under it stay readable to the tests the step runs. The rest of
+  the step's environment does not reach them (§3.4).
 - **The copy costs an install.** Offline and from the store the project's own install filled, but on a large
   workspace it is tens of seconds of the budget. A pull request that changes no test pays none of it.
 
@@ -1200,3 +1222,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-02 · MODIFIED · Version 0.3 → 0.4 (#439), after Build map step 0 crossed its stop line and the owner moved the step out of CI (D-037, amended 2026-10-14 and 2026-11-02). The `mutation` job, its checkout of the head commit, `BASE_SHA`/`HEAD_SHA` and the hosted-runner budget are removed: `/work-ticket` runs `pnpm check:mutation` before a pull request is marked ready and copies its result into `## Verification`, and MT1's fixture form runs in the `meta` script so W1 holds. The step stops every process it starts and fails a run that leaves one. A test red in the copy is run again once: red twice stops the step, red then green is not judged, `flaky`. A file stopped at a cap is named with the changes not tried. The verdict prints two not-judged shares, the rule-caused one and the total; the acceptance line holds the rule-caused one under a quarter. §7 is 2 minutes and a stop at 10, set from a re-run on the building machine. Steps 1 to 5 are re-split with no job, each with its carried lines; the lines that only applied to the job are dropped and named under step 4. The listing of unnoticed changes stays declined (L-69)
 - 2026-11-02 · MODIFIED · Version 0.4 → 0.5, resolving the three findings of the review of 0.4 (`docs/reviews/2026-11-02-tests-can-fail-0.4.md`) that break a guarantee, on the owner's pick of the same day: the root script is `tests-can-fail`, outside W1's gated names (AR-1); `ci/before-verify.sh`'s process group is kept until the run ends, with an acceptance block for a service it starts (AR-2); no real project's figure or run finding beyond one sentence, and §7's budget is said against the scratch runs (AR-3). AR-4 to AR-11 are carried as lines under build steps 3, 4 and 5 and in Known limitations. The review of 0.5 is scoped to these fixes and is the last: a finding from it becomes an acceptance line in the matching build issue, and only one that changes the Contract's guarantees goes back to the owner
 - 2026-11-02 · MODIFIED · the review of 0.5 (`docs/reviews/2026-11-02-tests-can-fail-0.5.md`, the last) carried in by the owner's rule: its AR-1, which changed a guarantee, went to the owner, who narrowed it to a Known limitations line with two fixture-backed lines under steps 3 and 5; its AR-2 to AR-7, and W1's third clause it named, are acceptance lines under steps 3, 4 and 5. Version stays 0.5: no Contract, Acceptance or Verify text changed
+- 2026-11-04 · MODIFIED · step 3's corrections from #631's worker, built in #632 on the owner's yes: §2 reads more test forms, an `imports()`, and a text with a line break git does not count as unreadable; a test the runner lists in no call `spans()` reads makes its file's tests new (§3.5); the parser's reason is escaped (§5); runner calls get a fixed environment, and env guards are not changed (§2, §3.4); `no-package` and the record's new fields (§3.3, §3.10); three Known limitations lines. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
