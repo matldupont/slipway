@@ -41,10 +41,10 @@ function untilReason(detail) {
 export function notJudged(n, live) {
   const make = REASONS[n.why] ?? (() => [`its reason, ${codeSpan(e(n.why))}, is not one this step names`, () => 'Run `pnpm tests-can-fail` again; if it says this again, the run and its verdict disagree.']);
   const [reason, fix] = make(n.detail, live);
-  return { where: `${n.file}#not-judged/${n.why}${n.name == null ? '' : `/${n.name}`}`, detail: `Not judged: ${named(n.file, n.name)} — ${reason}.`, fix: fix(n.file) };
+  return { where: e(`${n.file}#not-judged/${n.why}${n.name == null ? '' : `/${n.name}`}`), detail: `Not judged: ${named(n.file, n.name)} — ${reason}.`, fix: fix(n.file) };
 }
 
-const at = (t, id) => `${t.file}:${t.line}#${id}`;
+const at = (t, id) => e(`${t.file}:${t.line}#${id}`);
 const subjects = (t) => (t.subjects?.length ? t.subjects.map(file).join(', ') : 'none named');
 
 export const killsNothing = (t) => ({
@@ -76,7 +76,7 @@ export const outOfTime = (t, limit) => ({
 // A file the runner lists nothing in: no run picks it up, or every test in it is skipped or todo, which the listing
 // does not tell apart (§3.5, the owner's call of 2026-11-04).
 export const neverRun = (n, runs) => ({
-  where: `${n.file}#never-run`,
+  where: e(`${n.file}#never-run`),
   detail: `${file(n.file)} was added or changed, and none of this project's test runs picks it up (${runs.length ? runs.map((r) => `${codeSpan(e(r.package))}: ${codeSpan(e(r.call))}`).join('; ') : 'no test call was read'}), or every test in it is skipped. A test nothing runs is not coverage.`,
   fix: 'Rename or move it so a run finds it, remove the skip when every test in it is skipped, or keep it out on purpose in `ci/tests-can-fail.yaml` (`keep-out:`, with a reason).',
 });
@@ -108,7 +108,7 @@ export function excuseExpired(entry, problem) {
   const what = id === 'tests-can-fail#mechanical' ? 'the mechanical-change excuse' : id === 'tests-can-fail#other-runner' ? 'the excuse for a package that does not use Vitest' : `the excuse for ${file(id.slice('tests-can-fail#'.length))}`;
   const when = problem === 'expired' ? `expired ${e(entry.expires)}` : problem === 'none' ? 'has no `expires:` date' : `has an \`expires:\` that is not a real day (${e(entry.expires)})`;
   return {
-    where: `ci/exceptions.yaml:${id}#excuse-expired`,
+    where: e(`ci/exceptions.yaml:${id}#excuse-expired`),
     detail: `${codeSpan(e(id))} in \`ci/exceptions.yaml\`, ${what}, ${when}, so it excuses nothing.`,
     fix: 'Remove it, or set `expires:` to a real future day with a reason, then run `pnpm tests-can-fail`.',
   };
@@ -121,7 +121,7 @@ export const spentMechanical = () => ({
 });
 
 export const unreadable = (u) => ({
-  where: `${u.file}#unreadable`,
+  where: e(`${u.file}#unreadable`),
   detail: `${file(u.file)} could not be read as tests, so every test in it was treated as new: ${e(u.reason)}.`,
   fix: `Write the call as \`it(...)\` or \`test(...)\` from \`vitest\`, or excuse the file in \`ci/exceptions.yaml\` with a date (id ${excuseId(u.file)}).`,
 });

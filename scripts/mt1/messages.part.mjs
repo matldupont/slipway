@@ -112,6 +112,9 @@ test('no text of the record prints raw: C0, C1 and bidi characters in every fiel
     unreadable: [{ file: f, reason: 'already \\u001b escaped' }], capped: [{ file: f, untriedBody: 1, untriedOther: 2 }],
     notTests: [{ file: f }], outsideAnyTest: [{ file: f }], support: [{ file: f }], noChange: [{ file: f }],
   });
+  // The verdict escapes each string itself, before report() does it again: none of its text holds one raw.
+  const v = judge(r, { head: null, registry: [entry('tests-can-fail#mechanical', '2026-01-01')] });
+  assert.equal(rawCharacters([...messages(v), ...v.findings.map((f) => f.where), v.summary, ...v.notes].join('\n')), null);
   writeFileSync(join(dir, 'run.json'), JSON.stringify(r));
   mkdirSync(join(dir, 'ci'));
   writeFileSync(join(dir, 'ci', 'exceptions.yaml'), 'exceptions:\n  - id: tests-can-fail#mechanical\n    reason: r\n    owner: o\n    expires: 2026-01-01\n');
