@@ -149,7 +149,7 @@ test('the parser\'s reason a subject is unreadable is escaped in the record: it 
   assert.ok(reason.includes('\\u001b'), reason);
 });
 
-test('a changed test file that is a symlink is not read: only a regular file the commit tracks is a test file', (t) => {
+test('a changed test file that is a symlink is not read: one the runner runs is named, could-not-be-parsed', (t) => {
   const outside = mkdtempSync(join(tmpdir(), 'mutation-outside-'));
   t.after(() => rmSync(outside, { recursive: true, force: true }));
   writeFileSync(join(outside, 'far.test.ts'), testFile(['far']));
@@ -160,7 +160,8 @@ test('a changed test file that is a symlink is not read: only a regular file the
   const { status, record } = p.run();
   assert.equal(status, 0, record.stopped);
   assert.deepEqual(record.tests, []);
-  assert.deepEqual(record.notTests, [{ file: 'pkgs/app/src/far.test.ts' }]);
+  assert.deepEqual(record.notJudged.map((n) => [n.file, n.why]), [['pkgs/app/src/far.test.ts', 'could-not-be-parsed']]);
+  assert.deepEqual(record.notTests, []);
 });
 
 test('the record is printed with a control or format character in a test name as a JSON escape', (t) => {

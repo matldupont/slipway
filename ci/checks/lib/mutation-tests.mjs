@@ -44,6 +44,14 @@ export function workspacePackages(copy) {
     return { ...p, json, vitest };
   }).sort((a, b) => b.dir.length - a.dir.length);
 }
+// The test calls of a file the runner lists nothing in, when each is written skipped or todo (it.skip, test.todo,
+// it.skipIf): Vitest lists none of them, so the file is not one no run picks up (§3.8). Otherwise null.
+export function skippedOnly(text, calls) {
+  const lines = text.split('\n');
+  const skipped = (c) => /\b(?:it|test)(?:\.\w+)*\.(?:skip|todo|skipIf)\b/.test(lines[c.first - 1] ?? '');
+  return calls.length && calls.every(skipped) ? calls.map((c) => c.first) : null;
+}
+
 export const packageOf = (packages, file) => packages.find((p) => p.dir === '' || file.startsWith(`${p.dir}/`)) ?? null;
 export const within = (pkg, file) => (pkg.dir ? file.slice(pkg.dir.length + 1) : file);
 
@@ -71,7 +79,7 @@ export function newTests(listed, read, { added, removedAfter }) {
   const inAnyCall = (n) => calls.some((c) => n >= c.first && n <= c.last);
   const outside = !every && ([...added].some((n) => !inAnyCall(n)) || removedAfter.some((n) => !calls.some((c) => n >= c.first && n + 1 <= c.last)));
   // A changed call the runner lists no test in: Vitest lists no test skipped or todo before it runs (§3.8).
-  const unlisted = every ? [] : calls.filter((c) => marks(c) && !listed.some((t) => t.line >= c.first && t.line <= c.last) && !calls.some((o) => o !== c && o.first >= c.first && o.last <= c.last)).map((c) => c.first);
+  const unlisted = calls.filter((c) => marks(c) && !listed.some((t) => t.line >= c.first && t.line <= c.last)).map((c) => c.first);
   return { groups: fresh.map(({ name, line, names }) => ({ name, line, names })), outside, every, unlisted };
 }
 

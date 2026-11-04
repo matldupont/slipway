@@ -43,15 +43,16 @@ export function runnerCall(script) {
   const args = [];
   while (at < words.length) {
     const word = words[at++];
-    const name = word.split('=')[0];
+    // cac reads --test-name-pattern as --testNamePattern.
+    const name = word.split('=')[0].replace(/(?<=^--.+)-([a-z])/g, (_, c) => c.toUpperCase());
     // --outputFile.json=x and --reporter.x are the same flags, keyed by reporter.
     const base = name.split('.')[0];
     if (word === '--watch' || word === '--run') continue;
     if (DROPPED.has(base)) {
-      if (!word.includes('=')) at += 1;
+      if (!word.includes('=') && !words[at]?.startsWith('-')) at += 1;
       continue;
     }
-    if (refused(word)) return { unreadable: `it passes ${name}, which changes which tests a one-file run executes` };
+    if (refused(name) || refused(word)) return { unreadable: `it passes ${name}, which changes which tests a one-file run executes` };
     if (TAKES_VALUE.has(word)) {
       const value = words[at++];
       if (value === undefined || value.startsWith('-')) return { unreadable: `${word} has no value` };

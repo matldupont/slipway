@@ -151,9 +151,13 @@ test('the lines a change adds are read whatever git calls the file, and a path t
   };
   // A NUL byte makes git call the file binary.
   assert.deepEqual(lines(FILE, { [FILE]: 'one\n// \0\n' }), [1, 2]);
-  // So does an attribute.
-  p.commit({ '.gitattributes': '*.test.ts -diff\n' });
-  assert.deepEqual(lines(FILE, { [FILE]: 'one\n// \0\nthree\n' }), [3]);
+  // So does an attribute, on a file with none; a textconv driver is not run.
+  const other = 'pkgs/app/src/other.test.ts';
+  p.commit({ '.gitattributes': '*.test.ts -diff diff=upper\n' });
+  p.git(['config', 'diff.upper.textconv', 'tr a-z A-Z <']);
+  assert.deepEqual(lines(other, { [other]: 'one\ntwo\n' }), [1, 2]);
+  p.commit({ '.gitattributes': '*.test.ts diff=upper\n' });
+  assert.deepEqual(lines(other, { [other]: 'one\nTWO\n' }), [2]);
   const magic = ':(attr:nope)cart.test.ts';
   assert.deepEqual(lines(magic, { [magic]: 'one\n' }), [1]);
 });

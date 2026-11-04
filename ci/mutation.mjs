@@ -12,13 +12,13 @@ import { pathToFileURL } from 'node:url';
 import { today } from './checks/lib/clock.mjs';
 import { expiryProblem } from './checks/lib/exceptions.mjs';
 import { trustedGit } from './checks/lib/manifest.mjs';
-import { UNSAFE } from './checks/lib/report.mjs';
+import { escapeOutput } from './checks/lib/report.mjs';
 import { spans } from './checks/lib/mutants.mjs';
 import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
 import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
-import { newTests, packageOf, safely, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
+import { newTests, packageOf, safely, skippedOnly, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
 import { readTestsCanFail, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
 import { isRecordedMajor } from './checks/lib/runner-output.mjs';
 import { readList } from './checks/lib/yaml-list.mjs';
@@ -215,14 +215,18 @@ async function body(root, record, ctx, deadline) {
       listed.push({ unit, tests: await listTests(ctx, unit) });
     }
     for (const entry of entries) {
-      // Only a regular file the commit tracks is read: a symlink or a submodule is no test file of this change.
+      const by = listed.find((l) => l.tests.some((t) => t.file === entry.file));
+      // Only a regular file the commit tracks is read. A symlink or a submodule the runner runs is named, not read.
       if (!tracked.has(entry.file)) {
-        record.notTests.push({ file: entry.file });
+        if (by) notJudged(entry.file, 'could-not-be-parsed', 'a symlink or a submodule, which this step does not read');
+        else record.notTests.push({ file: entry.file });
         continue;
       }
-      const by = listed.find((l) => l.tests.some((t) => t.file === entry.file));
       if (!by) {
-        (isRunnableName(entry.file) ? record.neverRun : record.notTests).push({ file: entry.file });
+        const text = isRunnableName(entry.file) ? readFileSync(join(ctx.copy, entry.file), 'utf8') : null;
+        const lines = text === null ? null : skippedOnly(text, safely(spans, entry.file, text).tests ?? []);
+        if (lines) for (const line of lines) record.notJudged.push({ file: entry.file, name: null, why: 'skipped', detail: `the runner lists no test in the call at line ${line}: skipped or todo before it runs` });
+        else (isRunnableName(entry.file) ? record.neverRun : record.notTests).push({ file: entry.file });
         continue;
       }
       const text = readFileSync(join(ctx.copy, entry.file), 'utf8');
@@ -254,8 +258,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     process.exit(2);
   }
   const record = await runMutation({ limitSeconds, say: (line) => process.stderr.write(`tests-can-fail: ${esc(line)}\n`) });
-  // A pull request's text in the record is printed as JSON escapes, so no control or format character reaches a terminal.
-  const json = JSON.stringify(record, null, 1).replace(new RegExp(UNSAFE.source, 'gv'), (c) => [...Array(c.length).keys()].map((i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join(''));
-  process.stdout.write(`${json}\n`);
+  // A pull request's text in the record is printed through the report's escape, as JSON escapes.
+  process.stdout.write(`${escapeOutput(JSON.stringify(record, null, 1))}\n`);
   process.exit(record.signal ? 128 + SIGNALS[record.signal] : record.stopped ? 2 : 0);
 }
