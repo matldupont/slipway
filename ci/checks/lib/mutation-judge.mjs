@@ -131,6 +131,15 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
   if (recs.some((r) => !r.failedOn) && (unit.body > CAP || unit.other > CAP)) {
     record.capped.push({ file: unit.file, untriedBody: Math.max(0, unit.body - CAP), untriedOther: Math.max(0, unit.other - CAP) });
   }
+  // A test every change of which was dropped (its file stopped loading, or hung) had nothing tried: not judged, by
+  // its own reason, never a judged test with nothing tried, which the verdict reads as a fault in the record (AR-9).
+  const dropped = unit.groups.filter((g) => !g.rec.failedOn && g.rec.tried === 0);
+  for (const g of dropped) {
+    record.notJudged.push({ file: unit.file, name: g.name, why: 'every-change-dropped', detail: unit.pools.length === 1 ? unit.pools[0].file : null });
+    pending.delete(g);
+  }
+  unit.groups = unit.groups.filter((g) => !dropped.includes(g));
+  if (!unit.groups.length) return;
   // Then the file once more, untouched: a new test that fails there failed with nothing changed.
   ctx.checkpoint();
   const again = await runFile(ctx, unit);

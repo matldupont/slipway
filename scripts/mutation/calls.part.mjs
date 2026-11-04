@@ -119,3 +119,15 @@ test('a dropped flag written without a value does not take the next flag as its 
   assert.deepEqual(runnerCall('vitest run --outputFile.json --config=vitest.unit.ts').args, ['--config=vitest.unit.ts']);
   assert.deepEqual(runnerCall('vitest run --reporter --project unit').args, ['--project', 'unit']);
 });
+
+test('a --root, --dir or --config value that is absolute or leaves the package is refused, in both forms; one inside is kept', () => {
+  for (const script of ['vitest run --root ../x', 'vitest run -r /etc', 'vitest run --dir=a/../../b', 'vitest run --config=/tmp/v.ts', 'vitest run -c ../v.ts', 'vitest run --config C:/v.ts']) {
+    assert.match(runnerCall(script).unreadable ?? '', /names a path outside the package/, script);
+  }
+  assert.deepEqual(runnerCall('vitest run --dir src --config=config/vitest.ts --root=.').args, ['--dir', 'src', '--config=config/vitest.ts', '--root=.']);
+});
+
+test('a short-flag cluster holding t is refused as a name filter; one without t is kept', () => {
+  for (const script of ['vitest run -ut=foo', 'vitest run -tu', 'vitest run -at']) assert.match(runnerCall(script).unreadable ?? '', /changes which tests a one-file run executes/, script);
+  assert.deepEqual(runnerCall('vitest run -ua').args, ['-ua']);
+});

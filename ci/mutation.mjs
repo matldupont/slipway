@@ -31,7 +31,7 @@ const PREFIX = 'tests-can-fail-';
 export const SIGNAL_STOP_MS = 10_000;
 const SIGNALS = { SIGINT: 2, SIGTERM: 15, SIGHUP: 1 };
 
-const emptyRecord = (limit) => ({
+export const emptyRecord = (limit) => ({
   head: null, base: null, seconds: 0, budget: BUDGET_SECONDS, limit, outOfTime: false, stopped: null, signal: null,
   uncommitted: 0, changedTestFiles: [], runs: [], order: [], tests: [], neverRun: [], notJudged: [], unreadable: [],
   support: [], noChange: [], notTests: [], outsideAnyTest: [], removedTestFiles: 0, mechanical: false, mechanicalSpent: false,
@@ -62,7 +62,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
   const deadline = started + limitSeconds * 1000;
   const record = emptyRecord(limitSeconds);
   const groups = new Groups();
-  const ctx = { groups, dir: null, copy: null, env: runnerEnv(), signalled: null, say };
+  const ctx = { groups, top: null, dir: null, copy: null, env: runnerEnv(), signalled: null, say };
   ctx.callLimit = () => Math.min(CALL_LIMIT_MS, deadline - Date.now());
   ctx.checkpoint = (r) => {
     if (ctx.signalled) throw new Stop(`The run was stopped by ${ctx.signalled}.`);
@@ -89,7 +89,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
   } finally {
     await groups.stopAll();
     if (ctx.dir) {
-      const left = namingFolder(ctx.dir);
+      const left = namingFolder(ctx.dir, ctx.top);
       if (left === null) record.stopped ??= 'pgrep could not say whether a process this check started is still running, so the run cannot show it leaves nothing running.';
       else if (left.length) {
         killPids(left);
@@ -110,6 +110,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
 
 async function body(root, record, ctx, deadline) {
   const top = trustedGit(root, ['rev-parse', '--show-toplevel']).trim();
+  ctx.top = top;
   record.head = revParse(top, 'HEAD');
   const from = defaultBranch(top);
   if (!from) throw new Stop(NO_DEFAULT);

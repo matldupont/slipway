@@ -1,0 +1,19 @@
+{
+ "_note": "Three new tests, none judged, for reasons the owner did not give: nothing-judged, beside the three warnings that name them.",
+ "env": {
+  "CHECK_TODAY": "2026-11-04",
+  "CHECK_HEAD": "1111111111111111111111111111111111111111"
+ },
+ "exit": 1,
+ "findings": [
+  "nothing-judged"
+ ],
+ "warnings": [
+  "pkgs/app/src/a.test.ts#not-judged/no-subject/one",
+  "pkgs/app/src/b.test.ts#not-judged/no-subject/two",
+  "pkgs/app/src/c.test.ts#not-judged/support-only/three"
+ ],
+ "details": {
+  "nothing-judged": "None of the 3 tests this pull request adds or edits was judged, so this is not a pass: 2 `no-subject` (import the code under test by a relative path, which this step follows), 1 `support-only` (assert on product code rather than test support)"
+ }
+}

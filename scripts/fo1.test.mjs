@@ -197,6 +197,13 @@ test('an entry whose id starts docs/milestones# is DS1\'s: FO1 and LK1 report no
   }
 });
 
+test('an entry whose id starts tests-can-fail# is MT1\'s: FO1 reports none of them, past its day or not, and still reports a stale entry of its own (F-13 §3.7)', () => {
+  const entry = (id, expires = '2026-12-31') => `  - id: ${id}\n    reason: r\n    owner: o\n    expires: ${expires}\n`;
+  const mt1 = [entry('tests-can-fail#pkgs/app/src/a.test.ts'), entry('tests-can-fail#mechanical', '2026-01-01'), entry('tests-can-fail#other-runner')].join('');
+  const r = fo1(wrap('      - run: echo\n'), `exceptions:\n${mt1}${entry('.github/workflows/ci.yml#a/b')}`);
+  assert.deepEqual(r.json.findings.map((f) => f.where), ['registry:.github/workflows/ci.yml#a/b'], r.out);
+});
+
 test('a gate a tag, a schedule or a manual run starts is not a run on a change: it does not cover a filtered one', () => {
   const r = fo1Files({
     'a.yml': flow('  push:\n    branches: [main]\n    paths: ["a/**"]'),

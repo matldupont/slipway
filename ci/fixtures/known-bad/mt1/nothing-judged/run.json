@@ -1,0 +1,57 @@
+{
+ "head": "1111111111111111111111111111111111111111",
+ "base": "2222222222222222222222222222222222222222",
+ "seconds": 40,
+ "budget": 120,
+ "limit": 600,
+ "outOfTime": false,
+ "stopped": null,
+ "signal": null,
+ "uncommitted": 0,
+ "changedTestFiles": [
+  "pkgs/app/src/a.test.ts",
+  "pkgs/app/src/b.test.ts",
+  "pkgs/app/src/c.test.ts"
+ ],
+ "runs": [
+  {
+   "package": "app",
+   "call": "vitest run",
+   "version": "5.0.3"
+  }
+ ],
+ "order": [],
+ "tests": [],
+ "neverRun": [],
+ "notJudged": [
+  {
+   "file": "pkgs/app/src/a.test.ts",
+   "name": "one",
+   "why": "no-subject",
+   "detail": null
+  },
+  {
+   "file": "pkgs/app/src/b.test.ts",
+   "name": "two",
+   "why": "no-subject",
+   "detail": null
+  },
+  {
+   "file": "pkgs/app/src/c.test.ts",
+   "name": "three",
+   "why": "support-only",
+   "detail": "pkgs/app/src/__tests__/make.ts"
+  }
+ ],
+ "unreadable": [],
+ "support": [],
+ "noChange": [],
+ "notTests": [],
+ "outsideAnyTest": [],
+ "removedTestFiles": 0,
+ "mechanical": false,
+ "mechanicalSpent": false,
+ "excuseProblems": [],
+ "capped": [],
+ "leftProcesses": 0
+}

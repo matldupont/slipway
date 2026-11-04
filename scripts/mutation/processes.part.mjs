@@ -3,7 +3,7 @@
 // signals to the step, a SIGKILL to it and the next run's clean-up, and a pgrep that cannot answer.
 
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -148,4 +148,26 @@ test('pgrep is asked for this user\'s processes only, and an answer other than n
   assert.equal(readFileSync(args, 'utf8').trim(), `-U ${process.getuid()} -f \\/tmp\\/a\\+b`);
   process.env.PATH = join(bin, 'none');
   assert.equal(namingFolder('/tmp/x'), null, 'no pgrep');
+});
+
+test('pgrep is never one under node_modules or inside the checkout: a planted one that answers "none" is passed over', (t) => {
+  // As git names it: the real path.
+  const top = realpathSync(scratch(t, 'mutation-top-'));
+  mkdirSync(join(top, '.git'));
+  const planted = join(top, 'node_modules', '.bin');
+  const inside = join(top, 'bin');
+  const real = scratch(t, 'mutation-bin-');
+  for (const dir of [planted, inside]) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'pgrep'), '#!/bin/sh\nexit 1\n');
+    chmodSync(join(dir, 'pgrep'), 0o755);
+  }
+  writeFileSync(join(real, 'pgrep'), '#!/bin/sh\necho 4242\nexit 0\n');
+  chmodSync(join(real, 'pgrep'), 0o755);
+  const path = process.env.PATH;
+  t.after(() => { process.env.PATH = path; });
+  process.env.PATH = [planted, inside, real].join(':');
+  assert.deepEqual(namingFolder('/tmp/x', top), [4242]);
+  process.env.PATH = [planted, inside].join(':');
+  assert.equal(namingFolder('/tmp/x', top), null, 'nothing left on PATH is a check that cannot answer');
 });

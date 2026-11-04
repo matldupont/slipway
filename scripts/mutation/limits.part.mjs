@@ -48,7 +48,7 @@ test('red then green in the baseline is not judged, flaky, and nothing is change
   p.config({ tests: { twice: { redTwice: true } } }).commit({ [FILE]: testFile(['twice', 'fine']) });
   ({ status, record } = p.run());
   assert.equal(status, 2);
-  assert.equal(record.stopped, '`pkgs/app/src/cart.test.ts` › "twice" is red in a clean copy of this commit, before anything is changed. If it passes in your checkout, it needs a file that git does not track and `ci/before-verify.sh` does not make, or a service that script starts and that did not come up.');
+  assert.equal(record.stopped, '`pkgs/app/src/cart.test.ts` › "twice" is red in a clean copy of this commit, before anything is changed. If it passes in your checkout, it needs a file that git does not track and `ci/before-verify.sh` does not make, or a service that script starts and that did not come up. Make it pass there, then run `pnpm tests-can-fail` again.');
 });
 
 test('every new test red, or a connection error, names ci/before-verify.sh\'s services before it blames a test (AR-1)', (t) => {

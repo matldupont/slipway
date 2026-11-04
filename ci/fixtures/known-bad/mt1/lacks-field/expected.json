@@ -1,0 +1,9 @@
+{
+ "_note": "A record without one of the run's fields: exit 2.",
+ "env": {
+  "CHECK_TODAY": "2026-11-04",
+  "CHECK_HEAD": "1111111111111111111111111111111111111111"
+ },
+ "exit": 2,
+ "broken": "The record of the run lacks `notJudged`"
+}

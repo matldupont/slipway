@@ -14,6 +14,11 @@ const DROPPED = new Set(['--reporter', '--outputFile']);
 const REFUSED = ['--coverage', '--shard', '--changed', '--bail', '--testNamePattern', '-t', '--related'];
 
 const refused = (word) => REFUSED.some((f) => word === f || word.startsWith(`${f}=`) || word.startsWith(`${f}.`));
+// A short-flag cluster holding `t` (`-ut=foo`) is read by the runner's argument parser as a name filter too.
+const clusterWithT = (word) => /^-[A-Za-z]{2,}(?:=|$)/.test(word) && word.split('=')[0].includes('t');
+// Flags whose value is a path: it stays inside the package, so the runner neither runs nor writes outside the copy.
+const PATHS = new Set(['--config', '-c', '--root', '-r', '--dir']);
+const leaves = (value) => value.startsWith('/') || /^[A-Za-z]:/.test(value) || value.split('/').includes('..');
 
 /**
  * @param {string} script  a `test` script or a `run:` entry
@@ -52,10 +57,12 @@ export function runnerCall(script) {
       if (!word.includes('=') && !words[at]?.startsWith('-')) at += 1;
       continue;
     }
-    if (refused(name) || refused(word)) return { unreadable: `it passes ${name}, which changes which tests a one-file run executes` };
+    if (refused(name) || refused(word) || clusterWithT(word)) return { unreadable: `it passes ${clusterWithT(word) ? word.split('=')[0] : name}, which changes which tests a one-file run executes` };
+    if (word.includes('=') && PATHS.has(name) && leaves(word.slice(word.indexOf('=') + 1))) return { unreadable: `its ${name} names a path outside the package` };
     if (TAKES_VALUE.has(word)) {
       const value = words[at++];
       if (value === undefined || value.startsWith('-')) return { unreadable: `${word} has no value` };
+      if (PATHS.has(word) && leaves(value)) return { unreadable: `its ${word} names a path outside the package` };
       args.push(word, value);
       continue;
     }

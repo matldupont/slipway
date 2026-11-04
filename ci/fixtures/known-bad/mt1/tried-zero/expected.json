@@ -1,0 +1,9 @@
+{
+ "_note": "A judged test with failedOn null, crashes 0 and tried 0 is a fault in the record (§4, AR-9): exit 2.",
+ "env": {
+  "CHECK_TODAY": "2026-11-04",
+  "CHECK_HEAD": "1111111111111111111111111111111111111111"
+ },
+ "exit": 2,
+ "broken": "The record judges `pkgs/app/src/cart.test.ts` › \"nothing tried\" with no change tried"
+}

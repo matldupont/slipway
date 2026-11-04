@@ -42,12 +42,12 @@
 // The registry also holds LK1's entries (`pnpm-lock.yaml#<entry>`, a lockfile entry that may resolve from
 // somewhere other than the registry). Those are LK1's to judge; FO1 skips them. It holds DS1's too
 // (`docs/milestones#<id>/accessibility`, F-14 §3): DS1 judges every id with that prefix, a malformed one included, and
-// FO1 skips them the same way.
+// FO1 skips them the same way. So are the tests-can-fail step's (`tests-can-fail#…`, F-13 §3.7), which MT1 judges.
 
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { today as localToday } from '../lib/clock.mjs';
-import { expiryProblem, loadRegistry, MILESTONE_PREFIX } from '../lib/exceptions.mjs';
+import { expiryProblem, loadRegistry, MILESTONE_PREFIX, TESTS_CAN_FAIL_PREFIX } from '../lib/exceptions.mjs';
 import { ID_PREFIX } from '../lib/pnpm-lock.mjs';
 import { report } from '../lib/report.mjs';
 import { filteredGates } from '../lib/path-filters.mjs';
@@ -161,6 +161,7 @@ try {
 for (const e of registry) {
   if (e.id.startsWith(ID_PREFIX)) continue; // a lockfile entry's excuse: LK1 judges it
   if (e.id.startsWith(MILESTONE_PREFIX)) continue; // a milestone's accessibility line not held yet: DS1 judges it
+  if (e.id.startsWith(TESTS_CAN_FAIL_PREFIX)) continue; // a test the tests-can-fail step leaves out: MT1 judges it
   const where = `registry:${e.id}`;
   const date = expiryProblem(e.expires, today);
   if (date === 'none') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
