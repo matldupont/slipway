@@ -154,12 +154,12 @@ test('a new test skipped or todo before it runs, which the runner does not list,
   const at = (file, line) => [file, 'skipped', `the runner lists no test in the call at line ${line}: skipped or todo before it runs`];
   assert.deepEqual(record.tests.map((x) => x.name), ['new']);
   assert.deepEqual(named(record), [at(FILE, 14), at(FILE, 18)]);
-  // A file whose every test is skipped or todo is listed by no run, and is not never-run.
+  // A file whose every test is skipped or todo is listed by no run: never-run, as a file no run picks up is.
   const later = 'pkgs/app/src/later.test.ts';
   p.commit({ [later]: "import { it } from 'vitest';\n\nit.skip('a', () => {});\nit.todo('b');\n" });
   ({ record } = p.run());
-  assert.deepEqual(record.neverRun, []);
-  assert.deepEqual(named(record).filter(([file]) => file === later), [at(later, 3), at(later, 4)]);
+  assert.deepEqual(record.neverRun, [{ file: later }]);
+  assert.deepEqual(named(record).filter(([file]) => file === later), []);
   // A todo beside a test written through an alias is named too.
   const alias = 'pkgs/app/src/alias.test.ts';
   p.commit({ [alias]: "import { test } from 'vitest';\nconst fixtureTest = test.extend({});\n\nfixtureTest('aliased', () => {});\ntest.todo('soon');\n" });

@@ -153,9 +153,9 @@ test('the lines a change adds are read whatever git calls the file, and a path t
   assert.deepEqual(lines(FILE, { [FILE]: 'one\n// \0\n' }), [1, 2]);
   // So does an attribute, on a file with none; a textconv driver is not run.
   const other = 'pkgs/app/src/other.test.ts';
-  p.commit({ '.gitattributes': '*.test.ts -diff diff=upper\n' });
-  p.git(['config', 'diff.upper.textconv', 'tr a-z A-Z <']);
+  p.commit({ '.gitattributes': '*.test.ts -diff\n' });
   assert.deepEqual(lines(other, { [other]: 'one\ntwo\n' }), [1, 2]);
+  p.git(['config', 'diff.upper.textconv', 'tr a-z A-Z <']);
   p.commit({ '.gitattributes': '*.test.ts diff=upper\n' });
   assert.deepEqual(lines(other, { [other]: 'one\nTWO\n' }), [2]);
   const magic = ':(attr:nope)cart.test.ts';

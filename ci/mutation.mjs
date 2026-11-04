@@ -18,7 +18,7 @@ import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, runnerEnv, setupMes
 import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
-import { newTests, packageOf, safely, skippedOnly, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
+import { newTests, packageOf, safely, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
 import { readTestsCanFail, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
 import { isRecordedMajor } from './checks/lib/runner-output.mjs';
 import { readList } from './checks/lib/yaml-list.mjs';
@@ -222,11 +222,10 @@ async function body(root, record, ctx, deadline) {
         else record.notTests.push({ file: entry.file });
         continue;
       }
+      // A file the runner lists nothing in is never-run, even when each of its tests is skipped or todo: the step
+      // cannot tell that from a file no run picks up (§3.5).
       if (!by) {
-        const text = isRunnableName(entry.file) ? readFileSync(join(ctx.copy, entry.file), 'utf8') : null;
-        const lines = text === null ? null : skippedOnly(text, safely(spans, entry.file, text).tests ?? []);
-        if (lines) for (const line of lines) record.notJudged.push({ file: entry.file, name: null, why: 'skipped', detail: `the runner lists no test in the call at line ${line}: skipped or todo before it runs` });
-        else (isRunnableName(entry.file) ? record.neverRun : record.notTests).push({ file: entry.file });
+        (isRunnableName(entry.file) ? record.neverRun : record.notTests).push({ file: entry.file });
         continue;
       }
       const text = readFileSync(join(ctx.copy, entry.file), 'utf8');
