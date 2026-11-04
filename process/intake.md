@@ -203,7 +203,8 @@ repository `git remote get-url origin` names, say so and ask before the first pu
   branch; on it, ask the owner for a branch name first.
   A ticket's branch is `{type}/i{n}-{slug}`. `{n}` is the issue's number, never text from it, and `{slug}` is a
   few words with every `/` dropped, so the name claims no other issue. The `i{n}-` after the `/` claims issue `#n`
-  (F-17). `/work-ticket` cuts the branch from `origin/{base}` and claims it once Phase 1 passes, before any code.
+  (F-17). `/work-ticket` cuts the branch with `git switch --no-track -c "{branch}" origin/{base}`, so it has no
+  upstream before its push, and claims it once Phase 1 passes, before any code.
   A session on a branch of its own with another name (a worktree the app made) renames it instead. Every check
   comes before the rename, or before the claim commit on a new branch.
   - `git rev-parse --abbrev-ref @{u}` fails, and `git ls-remote --heads origin "$(git branch --show-current)"`
@@ -216,7 +217,8 @@ repository `git remote get-url origin` names, say so and ask before the first pu
   Any check failing, or unable to answer, stops the run to ask the owner, with no branch renamed and nothing pushed.
   Then `git branch -m "{branch}"`, and the claim, an empty commit: `git commit --allow-empty -m "claim #{n}"`. Right
   before the push, the `(^|/)i{n}-` check of `/work-ticket` step 7 runs again. Then `git push -u origin "{branch}"`.
-  A rename or a push that fails stops the run to ask. With no remote, no claim is pushed.
+  A cut, a rename, a claim commit or a push that fails stops the run to ask. No step of the claim stashes, resets,
+  checks out or cleans the working tree to pass. With no remote, no claim is pushed.
 - **Title** in `{prdir}/title.txt`, body in `{prdir}/pr.md`, in a fresh folder (`mktemp -d`, under the
   session's scratch directory when there is one), its path written out literally in every command.
 - **Body,** under the never-in-a-body rule (Issue body). Command output is cut to the lines that prove the
