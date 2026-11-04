@@ -138,3 +138,13 @@ test('could-not-be-parsed, no-subject, excused and kept-out are named; a file no
   assert.deepEqual(record.notTests.map((f) => f.file).sort(), ['pkgs/app/src/__tests__/fixtures/order.json', 'pkgs/app/src/__tests__/helpers.ts']);
   assert.equal(record.changedTestFiles.includes('pkgs/app/src/__snapshots__/cart.test.tsx.snap'), false);
 });
+
+test('the parser\'s reason a subject is unreadable is escaped in the record: it can quote the file', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.js': 'const a = 1, b = 2;\nexport { a as "x\u001b[31m" };\nexport { b as "x\u001b[31m" };\n' } });
+  t.after(() => p.remove());
+  p.commit({ 'pkgs/app/src/cart.test.ts': testFile(['a']) });
+  const { record } = p.run();
+  const { reason } = record.unreadable.find((u) => u.file === 'pkgs/app/src/cart.js');
+  assert.equal(/[\u0000-\u001f]/.test(reason), false, reason);
+  assert.ok(reason.includes('\\u001b'), reason);
+});
