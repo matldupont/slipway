@@ -1,0 +1,65 @@
+[
+  {
+    "start": 150,
+    "end": 268,
+    "replacement": "{}",
+    "kind": "body",
+    "line": 3
+  },
+  {
+    "start": 308,
+    "end": 320,
+    "replacement": "undefined",
+    "kind": "body",
+    "line": 8
+  },
+  {
+    "start": 158,
+    "end": 163,
+    "replacement": "true",
+    "kind": "condition",
+    "line": 4
+  },
+  {
+    "start": 158,
+    "end": 163,
+    "replacement": "false",
+    "kind": "condition",
+    "line": 4
+  },
+  {
+    "start": 193,
+    "end": 197,
+    "replacement": "true",
+    "kind": "condition",
+    "line": 5
+  },
+  {
+    "start": 193,
+    "end": 197,
+    "replacement": "false",
+    "kind": "condition",
+    "line": 5
+  },
+  {
+    "start": 245,
+    "end": 247,
+    "replacement": "||",
+    "kind": "operator",
+    "line": 6
+  },
+  {
+    "start": 314,
+    "end": 316,
+    "replacement": ">",
+    "kind": "operator",
+    "line": 8
+  },
+  {
+    "start": 248,
+    "end": 253,
+    "replacement": "true",
+    "kind": "literal",
+    "line": 6
+  }
+]
