@@ -10,6 +10,7 @@
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
 //   connection: true,
 //   needsFile: "<path from the copy's root>" }
+// A run is a changed one when a `failsWhen` or `loadFailsWhen` entry holds; the sleeps and the marker read that.
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
 import { execFileSync, spawn } from 'node:child_process';
