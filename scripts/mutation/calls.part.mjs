@@ -64,12 +64,13 @@ test('each major has a recording, and the listing gives each test its file, name
   }
 });
 
-test('the four recorded failures count, count, do not count, and count; a timeout and an unnamed first word count for nothing', () => {
+test('the five recorded failures count, count, count, do not count, and count; a timeout and an unnamed first word count for nothing', () => {
   const testFile = (major, name) => /at (\/tmp\/c[^:]+\.test\.tsx?)/.exec(recorded(major, name).failureMessages[0])?.[1];
   for (const major of RECORDED_MAJORS) {
     const read = (name, file, expects = []) => failure(recorded(major, name).failureMessages, file, expects);
     assert.equal(read('failure-AssertionError', '/nowhere').counts, true, 'an assertion failure');
     assert.equal(read('failure-TestingLibraryElementError', '/nowhere').counts, true, 'a query that found no element');
+    assert.deepEqual(read('failure-Error', '/nowhere'), { counts: true, by: 'Error' }, "the code's own throw of a plain Error");
     const crash = read('failure-crash', '/tmp/c/copy/apps/web/src/lib/search.test.ts', [{ first: 1, last: 99 }]);
     assert.equal(crash.counts, false, 'a crash whose first frame is in the code');
     assert.deepEqual({ type: crash.crash.type, line: crash.crash.line }, { type: 'TypeError', line: 11 });

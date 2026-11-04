@@ -157,3 +157,12 @@ test('the lines a change adds are read whatever git calls the file, and a path t
   const magic = ':(attr:nope)cart.test.ts';
   assert.deepEqual(lines(magic, { [magic]: 'one\n' }), [1]);
 });
+
+test('a test file the change adds names no change outside a test: its imports are new, as is every test in it', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  p.commit({ [FILE]: testFile(['n']) });
+  const { record } = p.run();
+  assert.deepEqual(newNames(record), ['n']);
+  assert.deepEqual(record.outsideAnyTest, []);
+});

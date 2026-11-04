@@ -70,7 +70,9 @@ export function newTests(listed, read, { added, removedAfter }) {
   const fresh = [...groups.values()].filter((g) => every || marks(g.call));
   const inAnyCall = (n) => calls.some((c) => n >= c.first && n <= c.last);
   const outside = !every && ([...added].some((n) => !inAnyCall(n)) || removedAfter.some((n) => !calls.some((c) => n >= c.first && n + 1 <= c.last)));
-  return { groups: fresh.map(({ name, line, names }) => ({ name, line, names })), outside, every };
+  // A changed call the runner lists no test in: Vitest lists no test skipped or todo before it runs (§3.8).
+  const unlisted = every ? [] : calls.filter((c) => marks(c) && !listed.some((t) => t.line >= c.first && t.line <= c.last) && !calls.some((o) => o !== c && o.first >= c.first && o.last <= c.last)).map((c) => c.first);
+  return { groups: fresh.map(({ name, line, names }) => ({ name, line, names })), outside, every, unlisted };
 }
 
 // A relative import, resolved to a tracked file inside the repository: as written, with each extension, `.js` read as

@@ -1,7 +1,7 @@
 # Recorded Vitest outputs — F-13 §8
 
 One real output of each thing the tests-can-fail step reads, one folder per Vitest major: `4` is 4.1.11 and `5` is
-5.0.3, recorded by the probe in `dev/probes/tests-can-fail/` (#439) from its scratch project and moved here unedited.
+5.0.3, recorded by the probe in `dev/probes/tests-can-fail/` (#439) from its scratch project and copied here unedited; the tests read these copies.
 `<copy>` stands for the temporary folder the run was in.
 
 | file | what it is |

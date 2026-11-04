@@ -78,7 +78,7 @@ export function project({ base = {}, config = {}, version = '5.0.3', test = 'vit
       } catch {
         /* none printed */
       }
-      return { status: r.status, signal: r.signal, record, stderr: r.stderr };
+      return { status: r.status, signal: r.signal, record, stderr: r.stderr, stdout: r.stdout };
     },
     start(args = [], env = {}) {
       return spawn(process.execPath, [MUTATION, ...args], { cwd: root, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] });

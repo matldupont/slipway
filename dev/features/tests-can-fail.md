@@ -86,21 +86,21 @@ fixture form runs in the `meta` script on a green record, so W1 holds with no jo
 
 ## Fit
 
-Nothing here is built yet: each line says what the spec plans to reuse, checked against the tree, not what a
-build was found to use.
+Steps 1–3 are built (#630, #631, #632): a line marked Built says what the build uses; a Planned line is what a
+later step plans to reuse, checked against the tree.
 
 Reuses:
 - Planned: will report through `report()` in `ci/checks/lib/report.mjs`, with PC1's `expected.json` layout
   (`ci/checks/meta/pc1-positive-control.mjs`) for the known-bad cases under `ci/fixtures/known-bad/mt1/`.
-- Planned: will read git through `trustedGit` in `ci/checks/lib/manifest.mjs`, and a workspace's packages
+- Built (#632): reads git through `trustedGit` in `ci/checks/lib/manifest.mjs`, and a workspace's packages
   through `discoverWorkspace()` in `ci/checks/lib/workspace.mjs`.
-- Planned: will read dated excuses with `loadRegistry()` and `expiryProblem()` in `ci/checks/lib/exceptions.mjs`
-  from `ci/exceptions.yaml`, and `ci/tests-can-fail.yaml` with `readList()` in strict mode
-  (`ci/checks/lib/yaml-list.mjs`).
+- Built (#632): reads dated excuses with `expiryProblem()` in `ci/checks/lib/exceptions.mjs` and `readList()` in
+  strict mode (`ci/checks/lib/yaml-list.mjs`), from `ci/exceptions.yaml` as the commit holds it, not
+  `loadRegistry()`, which reads the file on disk; `ci/tests-can-fail.yaml` the same way.
 - Planned: will run its fixture form in the `meta` script on a green record, as `s1-status.mjs` runs on
   `ci/fixtures/status`, so W1 finds it run with no job of its own.
 - Planned: will read a package's root scripts as W1 does (`ci/checks/meta/w1-declared-vs-invoked.mjs`).
-- Planned: the vendored parser goes in `ci/checks/lib/vendor/`, recorded in its `README.md` table and held by a
+- Built (#630): the vendored parser is in `ci/checks/lib/vendor/`, recorded in its `README.md` table and held by a
   hash test, `scripts/mutants.test.mjs`, as `scripts/workflow-yaml.test.mjs` holds `js-yaml.mjs`.
 
 Numbers:

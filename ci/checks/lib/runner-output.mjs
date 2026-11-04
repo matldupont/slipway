@@ -79,7 +79,7 @@ function firstFrame(message) {
 export function failure(messages, testFile, expects) {
   const first = messages[0];
   if (/^Error: (?:Test|Hook) timed out in \d+ms/.test(first)) return { counts: false, timeout: true };
-  const name = /^([A-Za-z_$][\w$]*(?:Error|Exception))(?::|\s|$)/.exec(first)?.[1];
+  const name = /^((?:[A-Za-z_$][\w$]*)?(?:Error|Exception))(?::|\s|$)/.exec(first)?.[1];
   if (!name) return { counts: false, unnamed: first.split(/[\s:]/)[0].slice(0, 60) };
   if (!CRASHES.has(name)) return { counts: true, by: name };
   const frame = firstFrame(first);

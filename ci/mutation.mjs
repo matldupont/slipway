@@ -12,6 +12,7 @@ import { pathToFileURL } from 'node:url';
 import { today } from './checks/lib/clock.mjs';
 import { expiryProblem } from './checks/lib/exceptions.mjs';
 import { trustedGit } from './checks/lib/manifest.mjs';
+import { UNSAFE } from './checks/lib/report.mjs';
 import { spans } from './checks/lib/mutants.mjs';
 import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
 import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
@@ -229,6 +230,7 @@ async function body(root, record, ctx, deadline) {
       if (read.unreadable) record.unreadable.push({ file: entry.file, reason: esc(read.unreadable) });
       const found = newTests(by.tests.filter((t) => t.file === entry.file), read, changedLines(top, record.base, record.head, entry));
       if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: 'a test it lists is in no test call this step reads (an alias of it or test, or test.extend)' });
+      for (const line of found.unlisted) record.notJudged.push({ file: entry.file, name: null, why: 'skipped', detail: `the runner lists no test in the call at line ${line}: skipped or todo before it runs` });
       if (found.outside && !entry.added) record.outsideAnyTest.push({ file: entry.file });
       if (found.groups.length) units.push({ ...by.unit, file: entry.file, text, expects: read.unreadable ? [] : read.expects, groups: found.groups });
     }
@@ -252,6 +254,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     process.exit(2);
   }
   const record = await runMutation({ limitSeconds, say: (line) => process.stderr.write(`tests-can-fail: ${esc(line)}\n`) });
-  process.stdout.write(`${JSON.stringify(record, null, 1)}\n`);
+  // A pull request's text in the record is printed as JSON escapes, so no control or format character reaches a terminal.
+  const json = JSON.stringify(record, null, 1).replace(new RegExp(UNSAFE.source, 'gv'), (c) => [...Array(c.length).keys()].map((i) => `\\u${c.charCodeAt(i).toString(16).padStart(4, '0')}`).join(''));
+  process.stdout.write(`${json}\n`);
   process.exit(record.signal ? 128 + SIGNALS[record.signal] : record.stopped ? 2 : 0);
 }

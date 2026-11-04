@@ -142,3 +142,15 @@ test('a test the runner lists in no call spans() reads (an alias, test.extend) m
   assert.deepEqual(record.tests.map((x) => x.name).sort(), ['one', 'two']);
   assert.match(record.unreadable.find((u) => u.file === FILE).reason, /an alias of it or test, or test\.extend/);
 });
+
+test('a new test skipped or todo before it runs, which the runner does not list, is not judged, skipped, and named by its line', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  p.commit({ [FILE]: `${testFile(['kept'])}\nit.skip('later', () => {\n  expect(add(1, 2)).toBe(3);\n});\n\nit.todo('one day');\n` });
+  const { record } = p.run();
+  assert.deepEqual(record.tests.map((x) => x.name), ['kept']);
+  assert.deepEqual(record.notJudged.map((n) => [n.why, n.detail]), [
+    ['skipped', 'the runner lists no test in the call at line 8: skipped or todo before it runs'],
+    ['skipped', 'the runner lists no test in the call at line 12: skipped or todo before it runs'],
+  ]);
+});

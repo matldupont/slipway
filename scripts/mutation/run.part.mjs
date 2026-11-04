@@ -162,3 +162,12 @@ test('a changed test file that is a symlink is not read: only a regular file the
   assert.deepEqual(record.tests, []);
   assert.deepEqual(record.notTests, [{ file: 'pkgs/app/src/far.test.ts' }]);
 });
+
+test('the record is printed with a control or format character in a test name as a JSON escape', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  p.commit({ 'pkgs/app/src/cart.test.ts': testFile(['a\u202eb\u009bc']) });
+  const { stdout, record } = p.run();
+  assert.equal(/[\u202e\u009b]/.test(stdout), false);
+  assert.deepEqual(record.tests.map((x) => x.name), ['a\u202eb\u009bc']);
+});

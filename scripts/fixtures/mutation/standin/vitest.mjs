@@ -41,7 +41,8 @@ const TEST_LINE = /^\s*(?:(?:it|test|\w+Test)\b[\w.]*(?:\([^)]*\))?|\]\))\(\s*['
 function testsOf(abs) {
   return readFileSync(abs, 'utf8').split('\n').flatMap((text, i) => {
     const m = TEST_LINE.exec(text);
-    if (!m) return [];
+    // Vitest's listing leaves out a test skipped or todo before it runs.
+    if (!m || /\.(?:skip|todo)\(/.test(text)) return [];
     const rows = config.rows?.[m[1]];
     return rows ? Array.from({ length: rows }, (_, k) => ({ name: m[1].replace('%i', String(k + 1)), line: i + 1, rule: m[1] })) : [{ name: m[1], line: i + 1, rule: m[1] }];
   });
