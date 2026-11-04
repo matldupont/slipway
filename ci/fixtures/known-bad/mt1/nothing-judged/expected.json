@@ -14,6 +14,6 @@
   "pkgs/app/src/c.test.ts#not-judged/support-only/three"
  ],
  "details": {
-  "nothing-judged": "None of the 3 new or edited tests was judged, so this is not a pass: 2 `no-subject` (import by a relative path), 1 `support-only` (assert on product code)"
+  "nothing-judged": "None of the 3 new or edited tests was judged, so this is not a pass, for 2 reasons: each test's not-judged warning says why and what to do."
  }
 }

@@ -92,24 +92,15 @@ export const neverRun = (n, runs) => ({
   fix: 'Rename or move it so a run finds it, remove the skip, or keep it out in `ci/tests-can-fail.yaml` with a reason.',
 });
 
-// AR-5 of the 0.3 review: each reason gets its own next action; only no-subject is told to import by a relative path.
-const NEXT = {
-  'no-subject': 'import by a relative path',
-  'support-only': 'assert on product code',
-  'could-not-be-parsed': 'make it parse',
-  'other-language': 'excuse it',
-  'no-change-to-make': 'assert on code that acts',
-  'every-change-dropped': 'move load-time code',
-  'other-runner': 'move to Vitest',
-  'no-package': 'move it to a package',
-  flaky: 'keep it passing',
-};
+// A fixed length whatever the record holds, so it stays one sentence of at most 160 characters: each reason's next
+// action is on its test's not-judged warning, which the verdict writes for every test in notJudged (AR-5 of the 0.3
+// review, reworded on the owner's call of 2026-11-04).
 export function nothingJudged(counted, total) {
-  const reasons = Object.entries(counted).map(([why, n]) => `${n} ${codeSpan(e(why))} (${NEXT[why] ?? 'see its line'})`).join(', ');
+  const k = Object.keys(counted).length;
   return {
     where: 'nothing-judged',
-    detail: `None of the ${total} new or edited tests was judged, so this is not a pass: ${reasons}.`,
-    fix: 'Read each test\'s line above and do what it says, or excuse a test file in `ci/exceptions.yaml` with a date.',
+    detail: `None of the ${total} new or edited tests was judged, so this is not a pass, for ${k} ${k === 1 ? 'reason' : 'reasons'}: each test's not-judged warning says why and what to do.`,
+    fix: 'Read each test\'s not-judged warning and do what it says, or excuse a test file in `ci/exceptions.yaml` with a date.',
   };
 }
 

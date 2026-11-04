@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { leftMessage, redMessage, setupMessage } from '../../ci/checks/lib/mutation-calls.mjs';
+import { nothingJudged } from '../../ci/checks/lib/mt1-messages.mjs';
 import { rawCharacters } from '../../ci/checks/lib/raw-output.mjs';
 import { entry, FILE, judge, messages, nj, rec, test as judged } from './records.mjs';
 
@@ -71,14 +72,26 @@ test('the two flaky outcomes are told apart: a test red then green before any ch
   assert.match(finding.detail, /by chance or on state a service kept from an earlier run\./);
 });
 
-test('nothing-judged gives each reason its own next action, and only no-subject is told to import by a relative path', () => {
-  const v = judge(rec({ changedTestFiles: [FILE], notJudged: REASONS.filter((w) => !['excused', 'kept-out', 'skipped', 'mechanical', 'other-runner'].includes(w)).map((why) => nj(why, { detail: 'pkgs/app/src/s.ts' })) }));
-  const detail = v.findings.find((f) => f.where === 'nothing-judged').detail;
-  assert.match(detail, /not a pass/);
-  assert.equal(detail.match(/relative path/g).length, 1);
-  assert.match(detail, /1 `no-subject` \(import by a relative path\)/);
-  assert.match(v.findings[0].fix, /`ci\/exceptions\.yaml`/);
-  for (const why of ['support-only', 'could-not-be-parsed', 'other-language', 'no-change-to-make', 'every-change-dropped', 'flaky']) assert.match(detail, new RegExp(`1 \`${why}\` \\([a-z]`), why);
+test('nothing-judged is one line of fixed length; each test it counts has its not-judged warning with its own next action, and only no-subject is told to import by a relative path', () => {
+  const counts = REASONS.filter((w) => !['excused', 'kept-out', 'skipped', 'mechanical'].includes(w));
+  const v = judge(rec({ changedTestFiles: [FILE], notJudged: counts.map((why, i) => nj(why, { name: `t${i}`, detail: 'pkgs/app/src/s.ts' })) }));
+  const found = v.findings.find((f) => f.where === 'nothing-judged');
+  assert.equal(found.detail, `None of the ${counts.length} new or edited tests was judged, so this is not a pass, for ${counts.length} reasons: each test's not-judged warning says why and what to do.`);
+  assert.match(found.fix, /`ci\/exceptions\.yaml`/);
+  // The line points to a warning for each test it counts: every reason that counts has one, and it gives an action.
+  for (const [i, why] of counts.entries()) {
+    const w = v.warnings.find((x) => x.where === `pkgs/app/src/${why}.test.ts#not-judged/${why}/t${i}`);
+    assert.ok(w, `${why} has its not-judged warning`);
+    assert.match(w.fix, /^[A-Z][a-z]+ /, `${why}'s warning gives its next action`);
+  }
+  assert.equal(v.warnings.filter((w) => /relative path/.test(w.fix)).length, 1);
+  assert.match(v.warnings.find((w) => w.where.includes('/no-subject/')).fix, /relative path/);
+  // A reason this step does not name still gets its warning, so the line never points at nothing.
+  const odd = judge(rec({ changedTestFiles: [FILE], notJudged: [nj('not-a-reason')] }));
+  assert.deepEqual([odd.ids, odd.warnings.length], [['nothing-judged'], 1]);
+  // The worst case: the most tests and reasons a record could hold still fit in 160 characters, as does one reason.
+  assert.ok(nothingJudged(Object.fromEntries(Array.from({ length: 999 }, (_, i) => [`r${i}`, 1])), 9999999).detail.length <= 160);
+  assert.match(nothingJudged({ 'no-subject': 1 }, 1).detail, /for 1 reason:/);
   // The other-runner line names its entry (AR-4 of the 0.3 review).
   assert.match(judge(rec({ changedTestFiles: [FILE], notJudged: [nj('other-runner', { detail: 'legacy' })] })).warnings[0].fix, /`tests-can-fail#other-runner`/);
 });

@@ -515,10 +515,11 @@ The fix is printed on its own `Fix:` line.
   and this is not a pass. `` Fix: `` Run `pnpm tests-can-fail` again, and if it stops here every time read
   "Tests can fail" in `BOOTSTRAP.md`. `` When the run stopped before it marked any test: `` The check ran out of
   time ({limit} minutes) before it judged any new test, so this is not a pass. ``, with the same fix.
-- `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass: {each reason, with
-  its count and its next action}. `` Fix: `` Read each test's line above and do what it says, or excuse a test
-  file in `ci/exceptions.yaml` with a date. `` Only `no-subject`'s action is to import by a relative path (AR-5
-  of the 0.3 review).
+- `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass, for {k} reasons: each
+  test's not-judged warning says why and what to do. `` Fix: `` Read each test's not-judged warning and do what it
+  says, or excuse a test file in `ci/exceptions.yaml` with a date. `` Its length is fixed, so it fits whatever the
+  record holds; each reason's next action is on the not-judged warning of each test it counts, and only
+  `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
 - `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
   off Vitest) | nothing, for a test file's id} {expired {date} | has no `expires:` date | has an `expires:` that
   is not a real day}, so it excuses nothing. `` Fix: `` Remove it, or set `expires:` to a real future day with a
@@ -903,7 +904,7 @@ And   the second judges its test as if the entry were not there, and MT1 warns t
 ```
 Given ci/fixtures/known-bad/mt1/nothing-judged: a record with three new tests, none in tests, in notJudged as no-subject, no-subject and support-only
 When  PC1 runs MT1 on it
-Then  it exits 1 with exactly nothing-judged, and the detail holds the count, each reason with its count, "not a pass" and "ci/exceptions.yaml"
+Then  it exits 1 with exactly nothing-judged, and the detail holds the count of tests, the count of reasons and "not a pass", the fix holds "ci/exceptions.yaml", and each of the three tests has its not-judged warning with its next action
 And   scripts/mt1.test.mjs holds what must not report it: the same record with one more test, judged with failedOn set, exits 0; a record whose new tests are all excused, kept-out, skipped or mechanical exits 0 with each named; one whose new tests are all other-runner exits 0 beside an unexpired tests-can-fail#other-runner entry and 1 without it
 ```
 
@@ -1112,8 +1113,8 @@ with an uncommitted change (it says so, and `git status` is the same before and 
      branch that changes a test, on the same branch after its base moved and was merged in, and on one that
      changes no test; the 3 result lines, with both shares, go in this step's pull request.
    - AR-4, the not-judged line for `other-runner` names the entry `tests-can-fail#other-runner`.
-   - AR-5, `nothing-judged` gives the next action for each reason it lists, and only `no-subject` is told
-     to import by a relative path.
+   - AR-5, each test `nothing-judged` counts has its not-judged warning, which gives the next action for its
+     reason, and only `no-subject`'s tells it to import by a relative path; `nothing-judged` points to them.
    - AR-10, `excuse-expired` gets its wording in the message, for an entry that names no test file too
      (`#mechanical`, `#other-runner`); the message block is scoped to findings, exits and warnings, not the
      count lines or "No tests were added or changed."; the count lines print the names the record holds,
@@ -1241,4 +1242,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-02 · MODIFIED · Version 0.4 → 0.5, resolving the three findings of the review of 0.4 (`docs/reviews/2026-11-02-tests-can-fail-0.4.md`) that break a guarantee, on the owner's pick of the same day: the root script is `tests-can-fail`, outside W1's gated names (AR-1); `ci/before-verify.sh`'s process group is kept until the run ends, with an acceptance block for a service it starts (AR-2); no real project's figure or run finding beyond one sentence, and §7's budget is said against the scratch runs (AR-3). AR-4 to AR-11 are carried as lines under build steps 3, 4 and 5 and in Known limitations. The review of 0.5 is scoped to these fixes and is the last: a finding from it becomes an acceptance line in the matching build issue, and only one that changes the Contract's guarantees goes back to the owner
 - 2026-11-02 · MODIFIED · the review of 0.5 (`docs/reviews/2026-11-02-tests-can-fail-0.5.md`, the last) carried in by the owner's rule: its AR-1, which changed a guarantee, went to the owner, who narrowed it to a Known limitations line with two fixture-backed lines under steps 3 and 5; its AR-2 to AR-7, and W1's third clause it named, are acceptance lines under steps 3, 4 and 5. Version stays 0.5: no Contract, Acceptance or Verify text changed
 - 2026-11-04 · MODIFIED · step 3's corrections from #631's worker, built in #632 on the owner's yes: §2 reads more test forms, an `imports()`, and a text with a line break git does not count as unreadable; a test the runner lists in no call `spans()` reads makes its file's tests new (§3.5); the parser's reason is escaped (§5); runner calls get a fixed environment, and env guards are not changed (§2, §3.4); `no-package` and the record's new fields (§3.3, §3.10); four Known limitations lines. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
-- 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5's findings and warnings take report.mjs's shape (one sentence and a fix that starts with a verb, each at most 160 characters), so its wording is rewritten to fit, with the same facts; `flaky` gains its second cause, `excuse-expired` its words, `nothing-judged` an action per reason, and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose; a run stopped at its limit before it marked any test fails on the run (§4, §5, §7), and `pnpm tests-can-fail` judges with `ci/exceptions.yaml` as the commit holds it. Version stays 0.5
+- 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5's findings and warnings take report.mjs's shape (one sentence and a fix that starts with a verb, each at most 160 characters), so its wording is rewritten to fit, with the same facts; `flaky` gains its second cause, `excuse-expired` its words, `nothing-judged` a line of fixed length that points to each test's not-judged warning, where its reason's next action is (AR-5 and the Verify line reworded on the owner's call), and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose; a run stopped at its limit before it marked any test fails on the run (§4, §5, §7), and `pnpm tests-can-fail` judges with `ci/exceptions.yaml` as the commit holds it. Version stays 0.5
