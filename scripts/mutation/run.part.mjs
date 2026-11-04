@@ -2,7 +2,7 @@
 // change, one that never does, the crash rule (§3.9), the subjects (§3.6) and the reasons a test is not judged.
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -147,4 +147,18 @@ test('the parser\'s reason a subject is unreadable is escaped in the record: it 
   const { reason } = record.unreadable.find((u) => u.file === 'pkgs/app/src/cart.js');
   assert.equal(/[\u0000-\u001f]/.test(reason), false, reason);
   assert.ok(reason.includes('\\u001b'), reason);
+});
+
+test('a changed test file that is a symlink is not read: only a regular file the commit tracks is a test file', (t) => {
+  const outside = mkdtempSync(join(tmpdir(), 'mutation-outside-'));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  writeFileSync(join(outside, 'far.test.ts'), testFile(['far']));
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  symlinkSync(join(outside, 'far.test.ts'), join(p.root, 'pkgs/app/src/far.test.ts'));
+  p.commit({});
+  const { status, record } = p.run();
+  assert.equal(status, 0, record.stopped);
+  assert.deepEqual(record.tests, []);
+  assert.deepEqual(record.notTests, [{ file: 'pkgs/app/src/far.test.ts' }]);
 });

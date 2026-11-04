@@ -95,7 +95,11 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
         record.leftProcesses = left.length;
         record.stopped ??= leftMessage(left.length);
       }
-      rmSync(ctx.dir, { recursive: true, force: true });
+      try {
+        rmSync(ctx.dir, { recursive: true, force: true });
+      } catch (e) {
+        record.stopped ??= `The copy at ${esc(ctx.dir)} could not be removed: ${esc(e?.message ?? e)}`;
+      }
     }
     for (const [sig, on] of handlers) process.off(sig, on);
     record.seconds = Math.round((Date.now() - started) / 100) / 10;
@@ -210,6 +214,11 @@ async function body(root, record, ctx, deadline) {
       listed.push({ unit, tests: await listTests(ctx, unit) });
     }
     for (const entry of entries) {
+      // Only a regular file the commit tracks is read: a symlink or a submodule is no test file of this change.
+      if (!tracked.has(entry.file)) {
+        record.notTests.push({ file: entry.file });
+        continue;
+      }
       const by = listed.find((l) => l.tests.some((t) => t.file === entry.file));
       if (!by) {
         (isRunnableName(entry.file) ? record.neverRun : record.notTests).push({ file: entry.file });

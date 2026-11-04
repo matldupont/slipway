@@ -28,7 +28,7 @@ test('runnerCall() reads the two plain calls, the node flag kept, and refuses th
 
 test('no argument of a test script leaves a word behind as a filter or changes what a one-file run executes (AR-12)', () => {
   // Dropped with its value: the step gives its own reporter and output file.
-  for (const script of ['vitest run --reporter verbose', 'vitest run --reporter=dot', 'vitest run --outputFile=x', 'vitest run --outputFile x', 'vitest --watch']) {
+  for (const script of ['vitest run --reporter verbose', 'vitest run --reporter=dot', 'vitest run --outputFile=x', 'vitest run --outputFile x', 'vitest run --outputFile.json=x', 'vitest run --outputFile.json x', 'vitest run --reporter.x=y', 'vitest --watch']) {
     assert.deepEqual(runnerCall(script).args, [], script);
   }
   // Refused: the call is the project's to write.

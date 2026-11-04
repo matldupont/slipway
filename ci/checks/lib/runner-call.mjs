@@ -44,8 +44,10 @@ export function runnerCall(script) {
   while (at < words.length) {
     const word = words[at++];
     const name = word.split('=')[0];
+    // --outputFile.json=x and --reporter.x are the same flags, keyed by reporter.
+    const base = name.split('.')[0];
     if (word === '--watch' || word === '--run') continue;
-    if (DROPPED.has(name)) {
+    if (DROPPED.has(base)) {
       if (!word.includes('=')) at += 1;
       continue;
     }

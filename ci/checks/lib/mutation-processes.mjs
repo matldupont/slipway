@@ -52,13 +52,17 @@ export class Groups {
     this.current = pgid;
     return new Promise((resolve) => {
       let timedOut = false;
+      let kill = null;
       const timer = limitMs === undefined ? null : setTimeout(() => {
         timedOut = true;
         signalGroup(pgid, 'SIGTERM');
-        setTimeout(() => signalGroup(pgid, 'SIGKILL'), STOP_WAIT_MS).unref();
+        kill = setTimeout(() => signalGroup(pgid, 'SIGKILL'), STOP_WAIT_MS);
+        kill.unref();
       }, Math.max(1, limitMs));
       const end = async (status, signal, error) => {
         if (timer) clearTimeout(timer);
+        // A group that ended within the wait needs no SIGKILL, and its pgid may already be another group's.
+        if (kill) clearTimeout(kill);
         if (this.current === pgid) this.current = null;
         if (pgid && !keep) await this.stop(pgid);
         resolve({ status, signal, timedOut, error });
