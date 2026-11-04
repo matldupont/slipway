@@ -128,6 +128,6 @@ test('a --root, --dir or --config value that is absolute or leaves the package i
 });
 
 test('a short-flag cluster holding t, any single-dash word holding t, and --t are refused as a name filter; one without t is kept', () => {
-  for (const script of ['vitest run -ut=foo', 'vitest run -tu', 'vitest run -at', 'vitest run --t=foo', 'vitest run --t foo', 'vitest run -u1t=foo', 'vitest run -.t=foo']) assert.match(runnerCall(script).unreadable ?? '', /changes which tests a one-file run executes/, script);
+  for (const script of ['vitest run -ut=foo', 'vitest run -tu', 'vitest run -at', 'vitest run --t=foo', 'vitest run --t foo', 'vitest run -u1t=foo', 'vitest run -.t=foo', 'vitest run ---t=foo', 'vitest run ----t=foo', 'vitest run ---r=/x', 'vitest run -ur=/abs', 'vitest run -uc=../../x.ts']) assert.match(runnerCall(script).unreadable ?? '', /changes which tests a one-file run executes/, script);
   assert.deepEqual(runnerCall('vitest run -ua').args, ['-ua']);
 });
