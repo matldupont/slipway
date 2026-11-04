@@ -302,15 +302,16 @@ test('excerpt(): one line, 60 characters at a word boundary, control and format 
 });
 
 // Defence only: an inert fixture whose marker names another repository. A bare #12 would read as this repository's.
-test('MS1 says an unreadable check line\'s item is tracked in another repository, naming neither it nor its number', () => {
+test('MS1\'s hint for an unreadable check line says its item is tracked in another repository, naming neither it nor its number; a bare marker keeps its #n', () => {
   const dir = mkdtempSync(join(tmpdir(), 'ms-'));
   try {
     mkdirSync(join(dir, 'docs/milestones'), { recursive: true });
-    writeFileSync(join(dir, 'docs/milestones/m1.md'), '---\nid: M1\nstatus: shaping\n---\n\n# M1 — x\n\n## Contents\n\n1. Only (F-01) · other/repo#12\nowed: inert-one\n');
+    writeFileSync(join(dir, 'docs/milestones/m1.md'), '---\nid: M1\nstatus: shaping\n---\n\n# M1 — x\n\n## Contents\n\n1. Only (F-01) · other/repo#12\nowed: inert-one\n2. Next (F-02) · #13\nowed: inert-two\n');
     const r = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/ms1-milestones.mjs'), dir], { encoding: 'utf8' });
     assert.equal(r.status, 1, r.stdout + r.stderr);
     assert.match(flat(r.stdout), /checks\/unreadable:M1#1.*link to the comment on the item's issue, which is in another repository/);
     assert.doesNotMatch(r.stdout, /#12|other\/repo/);
+    assert.match(flat(r.stdout), /checks\/unreadable:M1#2.*link to the comment on #13/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
