@@ -61,7 +61,7 @@ Reuses:
 - `readMilestones()`, `readMilestoneModel()`, `contents()`, `marker()` and `owing()` in `ci/checks/lib/milestones.mjs`
   (`:79`, `:245`, `:112`, `:202`, `:179`): the active milestone, its items, each item's issue and what it still owes;
   `appetiteClock()` (`:44`, #68) for "day N of M".
-- `blockers()`, `touches()`, `overlap()` and `designation()` in `ci/checks/lib/issue-body.mjs` (`:35`, `:50`, `:68`,
+- `blockers()`, `touches()`, `overlap()` and `designation()` in `ci/checks/lib/issue-body.mjs` (`:36`, `:51`, `:69`,
   `:27`): the three things read from an issue body, and the overlap rule.
 - `trustedEnvAt()` in `ci/checks/lib/manifest.mjs:86`: the PATH without the repository's or `node_modules`' entries,
   shared with the git lookup, for every `gh` call.

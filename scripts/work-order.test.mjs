@@ -426,6 +426,7 @@ test('through real gh, a Blocked by number GitHub holds as neither is unknown wi
   assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND', path: ['repository', 'p77', 'x'] }] }, 1), /gh failed/, 'a NOT_FOUND below an alias is not an answer');
   assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'NOT_FOUND', path: ['viewer', 'p77'] }] }, 1), /gh failed/, 'a NOT_FOUND outside the repository is not an answer');
   assert.throws(() => run({ data: { repository: { p77: null } }, errors: [] }, 1), /gh failed/, 'an exit 1 with no error is not an answer');
+  assert.throws(() => run({ data: { repository: { p77: null } }, errors: [{ type: 'FORBIDDEN', path: ['repository', 'p77'] }] }, 1), /gh failed/, 'another error on a null alias is not an answer');
 });
 
 test('more than three unknown numbers on one leaf give one finding naming three and how many more', () => {
