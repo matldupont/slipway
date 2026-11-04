@@ -117,6 +117,8 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
     if (Array.isArray(paths)) for (const spec of paths) take(resolve(tracked, file, spec), depth + 1);
   };
   const specs = safely(imports, testFile, testText);
+  // A test file whose imports cannot be read has none followed; it is named, and what is beside it still counts.
+  const unreadable = specs.unreadable ? [{ file: testFile, reason: specs.unreadable }] : [];
   for (const spec of Array.isArray(specs) ? specs : []) {
     if (spec.startsWith('.')) {
       take(resolve(tracked, testFile, spec), 0);
@@ -130,7 +132,6 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
   const beside = testFile.replace(/\.(?:test|spec)(\.[^./]+)$/, '$1');
   if (beside !== testFile) take(resolve(tracked, testFile, `./${posix.basename(beside)}`), 0);
   const pools = [];
-  const unreadable = [];
   const nothing = [];
   for (const file of found) {
     const text = read(file);
@@ -139,7 +140,7 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
     else if (!list.length) nothing.push(file);
     else pools.push({ file, text, list });
   }
-  return { pools, support: [...support], unreadable, nothing, followed: found.size + support.size };
+  return { pools, support: [...support], unreadable, nothing, followed: found.size + support.size + (specs.unreadable ? 1 : 0) };
 }
 
 // Why a test file with no subject left has its new tests not judged (§3.6).

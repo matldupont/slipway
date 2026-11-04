@@ -7,7 +7,8 @@
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
 //   noFailureMessages }
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
-//   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, connection: true,
+//   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
+//   connection: true,
 //   needsFile: "<path from the copy's root>" }
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
@@ -30,7 +31,6 @@ if (config.record && config.project) {
   appendFileSync(config.record, `${JSON.stringify({ status: git(['status', '--porcelain']), worktrees: git(['worktree', 'list']).trim().split('\n').length })}\n`);
 }
 if (config.worker) spawn(process.execPath, [join(here, 'worker.mjs')], { stdio: 'ignore' });
-if (config.detachedWorker) spawn(process.execPath, [join(here, 'worker.mjs')], { stdio: 'ignore', detached: true }).unref();
 if (config.slowStop) process.on('SIGTERM', () => setTimeout(() => process.exit(143), config.slowStop));
 if (config.sleepMs) sleep(config.sleepMs);
 
@@ -77,6 +77,8 @@ const key = relative(copy, file);
 const run = (state.runs[key] = (state.runs[key] ?? 0) + 1);
 const loadFails = rules.some((r) => changed(r.loadFailsWhen));
 if (config.runSleepMs) sleep(config.runSleepMs);
+// A process a test starts outside the runner's group, on a run with a change: the step's groups do not reach it.
+if (!untouched && config.detachedWorker) spawn(process.execPath, [join(here, 'worker.mjs')], { stdio: 'ignore', detached: true }).unref();
 if (!untouched && config.marker) writeFileSync(config.marker, String(process.pid));
 if (!untouched && config.changedSleepMs) {
   setTimeout(() => process.exit(1), config.changedSleepMs);
@@ -86,7 +88,7 @@ const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
   const rule = config.tests?.[t.rule] ?? {};
   const missing = rule.needsFile && !existsSync(join(copy, rule.needsFile));
   const fails = rule.always || missing || (rule.redOnce && run === 1) || (rule.redTwice && run <= 2) || changed(rule.failsWhen) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
-  const status = rule.skipped ? 'skipped' : fails ? 'failed' : 'passed';
+  const status = rule.skipped || changed(rule.skipsWhen) ? 'skipped' : fails ? 'failed' : 'passed';
   return { ancestorTitles: [], fullName: t.name, status, title: t.name, failureMessages: status === 'failed' && !config.noFailureMessages ? [failureOf(rule)] : [] };
 });
 if (!untouched) state.sawChange = true;

@@ -3,7 +3,7 @@
 // install in its copy needs nothing from the network. `main` holds the base; `work` is checked out for the change.
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,7 +48,8 @@ export function project({ base = {}, config = {}, version = '5.0.3', test = 'vit
   });
   cpSync(join(STANDIN, 'vitest.mjs'), join(root, 'standin/vitest.mjs'));
   cpSync(join(STANDIN, 'worker.mjs'), join(root, 'standin/worker.mjs'));
-  cpSync(join(RECORDED, major), join(root, 'standin/recorded'), { recursive: true });
+  // A version with no recording answers with Vitest 5's, so a run that reads the version first can refuse it.
+  cpSync(join(RECORDED, existsSync(join(RECORDED, major)) ? major : '5'), join(root, 'standin/recorded'), { recursive: true });
   execFileSync('pnpm', ['install', '--offline'], { cwd: root, stdio: 'ignore' });
   git(root, ['add', '-A']);
   git(root, ['commit', '-q', '-m', 'base']);
