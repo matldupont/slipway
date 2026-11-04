@@ -1136,8 +1136,8 @@ test('process/intake.md says Touches: holds paths and globs only, and gives a ti
   assert.match(claimRule, /Right before the push, the `\(\^\|\/\)i\{n\}-` check of `\/work-ticket` step 7 runs again\./, 'the claim re-checks before the push');
 });
 
-// The claim's cut and its fast-forward check both fail on uncommitted work that the base would overwrite, and git's
-// message says to stash it. A scratch repo holds that work: the step, read from the rule, is refused, the work is as it
+// The claim's cut and its fast-forward check both fail on uncommitted work that the base would overwrite, an ignored
+// file the base starts tracking among it, and git's message says to stash it. A scratch repo holds that work: the step, read from the rule, is refused, the work is as it
 // was, and the rule stops. The scratch git inherits no GIT_* variable (a hook exports GIT_DIR and GIT_INDEX_FILE, which
 // beat cwd) and no personal or system config, as scripts/sync.test.mjs does, and pushes to the bare repo's path. It runs
 // in the C locale, so git's refusal is in the English `refused` matches, whatever the user's locale.
@@ -1161,7 +1161,7 @@ const SEALED = {
   GIT_COMMITTER_EMAIL: 'test@example.invalid',
 };
 const refused = (error) => /would be overwritten/.test(String(error.stderr));
-const withUncommittedWork = (run) => {
+const withUncommittedWork = (run, { ignored = false } = {}) => {
   const root = mkdtempSync(join(tmpdir(), 'claim-'));
   try {
     const bare = join(root, 'origin.git');
@@ -1169,17 +1169,20 @@ const withUncommittedWork = (run) => {
     const git = (cwd, ...args) => execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd, env: SEALED, stdio: 'pipe' });
     git(root, 'init', '-q', '--bare', bare);
     git(root, 'clone', '-q', bare, repo);
-    for (const text of ['one\n', 'two\n']) {
-      writeFileSync(join(repo, 'a.txt'), text);
-      git(repo, 'add', 'a.txt');
-      git(repo, 'commit', '-q', '-m', text.trim());
+    // With `ignored`, the work is a file the checkout ignores and the base starts tracking, which git overwrites by default.
+    const [file, work] = ignored ? ['.env', 'keep-me\n'] : ['a.txt', 'mine\n'];
+    const commits = ignored ? [['.gitignore', '.env\n'], ['.env', 'from base\n']] : [['a.txt', 'one\n'], ['a.txt', 'two\n']];
+    for (const [path, text] of commits) {
+      writeFileSync(join(repo, path), text);
+      git(repo, 'add', '-f', path);
+      git(repo, 'commit', '-q', '-m', path);
       git(repo, 'push', '-q', bare, 'HEAD:main');
     }
     git(repo, 'reset', '-q', '--hard', 'HEAD~1');
     git(repo, 'fetch', '-q', bare, '+refs/heads/main:refs/remotes/origin/main');
-    writeFileSync(join(repo, 'a.txt'), 'mine\n');
+    writeFileSync(join(repo, file), work);
     run((...args) => git(repo, ...args));
-    assert.equal(readFileSync(join(repo, 'a.txt'), 'utf8'), 'mine\n', 'the uncommitted work is as it was');
+    assert.equal(readFileSync(join(repo, file), 'utf8'), work, 'the uncommitted work is as it was');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -1205,10 +1208,18 @@ test('process/intake.md\'s fast-forward check is refused over uncommitted work u
   });
 });
 
+test('process/intake.md\'s cut and fast-forward check are refused over an ignored file the base starts tracking', () => {
+  const cut = claimStep(/cuts the branch with `([^`]+)`/);
+  const ffOnly = claimStep(/- `(git merge --ff-only [^`]+)` succeeds/);
+  for (const step of [cut, ffOnly]) {
+    withUncommittedWork((git) => assert.throws(() => git(...step), refused, `${step[0]} is refused rather than overwrite the ignored file`), { ignored: true });
+  }
+});
+
 test('process/intake.md cuts a ticket branch with no upstream, so the claim\'s upstream check does not stop it', () => {
   const intake = read('process/intake.md').replace(/\s+/g, ' ');
   const cut = intake.match(/`\/work-ticket` cuts the branch with `([^`]+)`, so it has no upstream before its push/)?.[1] ?? '';
-  assert.equal(cut, 'git switch --no-track -c "{branch}" origin/{base}', 'the cut sets no upstream, as git\'s default branch.autoSetupMerge would');
+  assert.equal(cut, 'git switch --no-track --no-overwrite-ignore -c "{branch}" origin/{base}', 'the cut sets no upstream, as git\'s default branch.autoSetupMerge would');
   assert.ok(intake.indexOf(cut) < intake.indexOf('Every check comes before the rename'), 'the cut comes before the claim\'s checks');
 });
 
