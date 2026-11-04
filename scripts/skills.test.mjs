@@ -1134,7 +1134,16 @@ test('process/intake.md says Touches: holds paths and globs only, and gives a ti
   }
   assert.match(claimRule, /Any check failing, or unable to answer, stops the run to ask the owner, with no branch renamed and nothing pushed\./, 'a failed check leaves nothing behind');
   assert.match(claimRule, /Right before the push, the `\(\^\|\/\)i\{n\}-` check of `\/work-ticket` step 7 runs again\./, 'the claim re-checks before the push');
-  assert.match(claimRule, /A rename or a push that fails stops the run to ask\./, 'a failed rename or push stops');
+  assert.match(claimRule, /A rename, a claim commit or a push that fails stops the run to ask\./, 'a failed rename, claim commit or push stops');
+  const ffOnly = claimRule.slice(claimRule.indexOf('`git merge --ff-only origin/{base}` succeeds'), claimRule.indexOf('Any check failing'));
+  assert.match(ffOnly, /It holds the same tree; the working tree is never cleaned to pass\./, 'the fast-forward check never cleans the working tree to pass');
+});
+
+test('process/intake.md cuts a ticket branch with no upstream, so the claim\'s upstream check does not stop it', () => {
+  const intake = read('process/intake.md').replace(/\s+/g, ' ');
+  const cut = intake.match(/`\/work-ticket` cuts the branch with `([^`]+)`, so it has no upstream before its push/)?.[1] ?? '';
+  assert.equal(cut, 'git switch --no-track -c "{branch}" origin/{base}', 'the cut sets no upstream, as git\'s default branch.autoSetupMerge would');
+  assert.ok(intake.indexOf(cut) < intake.indexOf('Every check comes before the rename'), 'the cut comes before the claim\'s checks');
 });
 
 test('work-ticket claims its ticket at the end of Phase 1, finds an existing claim, and says rename, not a new branch', () => {
