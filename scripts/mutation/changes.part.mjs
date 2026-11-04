@@ -7,6 +7,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { changedLines } from '../../ci/checks/lib/mutation-git.mjs';
 import { CART, project, testFile } from './project.mjs';
 
 const FILE = 'pkgs/app/src/cart.test.ts';
@@ -138,4 +139,21 @@ test('the registry is read from the commit: an uncommitted mechanical entry excu
   p.write({ 'ci/exceptions.yaml': EXCEPTION('tests-can-fail#mechanical') });
   const { record } = p.run();
   assert.deepEqual([record.mechanical, record.uncommitted, newNames(record)], [false, 1, ['c']]);
+});
+
+test('the lines a change adds are read whatever git calls the file, and a path that reads as a pathspec is a path', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  const lines = (file, files) => {
+    const base = p.git(['rev-parse', 'HEAD']).trim();
+    p.commit(files);
+    return [...changedLines(p.root, base, p.git(['rev-parse', 'HEAD']).trim(), { file, from: file }).added];
+  };
+  // A NUL byte makes git call the file binary.
+  assert.deepEqual(lines(FILE, { [FILE]: 'one\n// \0\n' }), [1, 2]);
+  // So does an attribute.
+  p.commit({ '.gitattributes': '*.test.ts -diff\n' });
+  assert.deepEqual(lines(FILE, { [FILE]: 'one\n// \0\nthree\n' }), [3]);
+  const magic = ':(attr:nope)cart.test.ts';
+  assert.deepEqual(lines(magic, { [magic]: 'one\n' }), [1]);
 });

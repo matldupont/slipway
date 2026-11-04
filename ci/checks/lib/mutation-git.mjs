@@ -79,10 +79,11 @@ export function changedFiles(root, base, head) {
 /**
  * The lines a change adds to one file and the places it only removes lines (§3.1): `git diff -U0 -M -w
  * --ignore-blank-lines`, so a line whose only change is whitespace, or a blank line, is no changed line. A hunk that
- * only removes lines sits after line `n` of the new file (`@@ -12,2 +11,0 @@` sits after line 11).
+ * only removes lines sits after line `n` of the new file (`@@ -12,2 +11,0 @@` sits after line 11). The file is diffed
+ * as text whatever git or `.gitattributes` calls it, and its path is a path, never a pathspec.
  */
 export function changedLines(root, base, head, { file, from }) {
-  const args = ['diff', '-U0', '-M', '-w', '--ignore-blank-lines', '--no-color', '--no-ext-diff', base, head, '--'];
+  const args = ['--literal-pathspecs', 'diff', '--text', '--no-textconv', '-U0', '-M', '-w', '--ignore-blank-lines', '--no-color', '--no-ext-diff', base, head, '--'];
   const out = git(root, from === file ? [...args, file] : [...args, from, file]);
   const added = new Set();
   const removedAfter = [];
