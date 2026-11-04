@@ -67,7 +67,7 @@ test('at the limit every unfinished test is out-of-time, and the verdict names e
   const { record } = p.run(['--limit-seconds', '5']);
   const v = verdict(record, { today: '2026-11-04', head: record.head });
   assert.deepEqual(v.findings.map((f) => f.where).sort(), ['a', 'b', 'c'].map((n) => `pkgs/app/src/${n}.test.ts:4#out-of-time`));
-  for (const f of v.findings) assert.match(`${f.detail}`, /ran out of time \(0\.1 minutes\).*not a pass/);
+  for (const f of v.findings) assert.match(f.detail, /ran out of time \(0\.1 minutes\).*not a pass/);
 });
 
 test('a deleted expect is kills-nothing; a deleted test file or one renamed away passes, naming the file removed', (t) => {
@@ -122,7 +122,7 @@ test('a file stopped at the cap prints the capped line with both counts beside k
   const r = mt1(p);
   assert.deepEqual([r.status, r.ids], [1, [`${FILE}:4#kills-nothing`]], r.out);
   assert.match(r.out, /^MT1: `pkgs\/app\/src\/cart\.test\.ts` stopped at the cap of 30 changes: 10 body changes and 5 others were not tried, so it is not fully checked\.$/m);
-  assert.match(r.json.findings[0].detail, /60 changes were made/);
+  assert.match(r.json.findings[0].detail, /passed on all 60 changes/);
 });
 
 test('a new file whose every test is skipped is never-run, and its message says a skip may be why', (t) => {
@@ -132,8 +132,8 @@ test('a new file whose every test is skipped is never-run, and its message says 
   const r = mt1(p);
   assert.deepEqual([r.status, r.ids], [1, ['pkgs/app/src/later.test.ts#never-run']], r.out);
   const f = r.json.findings[0];
-  assert.match(f.detail, /none of this project's test runs picks it up \(`app`: `vitest run`\), or every test in it is skipped\./);
-  assert.match(f.fix, /remove the skip when every test in it is skipped, or keep it out on purpose in `ci\/tests-can-fail\.yaml`/);
+  assert.match(f.detail, /no test run picks it up \(`app`: `vitest run`\), or every test in it is skipped\./);
+  assert.match(f.fix, /remove the skip, or keep it out in `ci\/tests-can-fail\.yaml` with a reason/);
 });
 
 test('a test every change of which stops its file loading is not judged, by its own reason: named beside a judged test, nothing-judged alone', (t) => {

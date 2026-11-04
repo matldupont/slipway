@@ -78,7 +78,7 @@ export function verdict(record, { registry = [], today, head = null }) {
   if (total > 0 && record.tests.length === 0 && notGiven.length) {
     const counted = {};
     for (const n of notGiven) counted[n.why] = (counted[n.why] ?? 0) + 1;
-    out.findings.push(m.nothingJudged(counted, total, notGiven[0].file));
+    out.findings.push(m.nothingJudged(counted, total));
   }
 
   if (!record.changedTestFiles.length) out.summary = 'No tests were added or changed.';

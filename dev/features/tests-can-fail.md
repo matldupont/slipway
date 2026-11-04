@@ -493,48 +493,43 @@ Every line names the project's own thing and the next action, and reads without 
 names, paths and the parser's reason a file is unreadable are a pull request's text and are printed through the
 report's escape; the reason is escaped in the record too (#632).
 
-- `kills-nothing`: `` `{file}` › "{test}" passes whatever the code does: {n} changes were made to the code
-  its file imports ({subjects}), and it failed on none of them. Assert on what the code returns or does,
-  then run `pnpm tests-can-fail`. ``
-- `only-crashes`: `` `{file}` › "{test}" only ever failed by crashing: {n} changes were made to the code its
-  file imports, and its only failures were crashes, the last a {type} at `{file}:{line}`. A crash shows the
-  code broke, not that the test checks anything. It counts only on a line inside an `expect(...)` of the
-  test's own file: a result read on the line before the `expect` does not. Either assert on what the code
-  returns or does, or excuse the test in `ci/exceptions.yaml` with a date (id `tests-can-fail#{file}`).
-  Then run `pnpm tests-can-fail`. ``
-- `flaky`: `` `{file}` › "{test}" failed with nothing changed, after passing once in the same copy: by
-  chance, or on state a service kept from an earlier run of its file. A test that fails that way cannot show
-  it notices a change. Make it pass every time, from a clean start each run, then run
-  `pnpm tests-can-fail`. `` (AR-4 of the 0.5 review.) It is the `tests` state of §3.9; the not-judged
+Each finding and warning is report.mjs's shape: one sentence of what is wrong, then a fix of one sentence that
+starts with a verb, each at most 160 characters (`scripts/report.test.mjs`; the owner's call, 2026-11-04, #633).
+The fix is printed on its own `Fix:` line.
+
+- `kills-nothing`: `` `{file}` › "{test}" passed on all {n} changes made to the code it imports ({subjects}). ``
+  Fix: `` Write an assertion on what the code returns or does, then run `pnpm tests-can-fail`. ``
+- `only-crashes`: `` `{file}` › "{test}" only crashed, last a {type} at `{file}:{line}`; a result read on the line
+  before `expect` is no check. `` Fix: `` Put the check inside an `expect(...)`, or excuse the file in
+  `ci/exceptions.yaml` with a date. `` A crash counts only on a line inside an `expect(...)` of the test's own
+  file (§3.9).
+- `flaky`: `` `{file}` › "{test}" failed with nothing changed after passing in the same copy, by chance or on
+  state a service kept from an earlier run. `` Fix: `` Keep it passing every time, from a clean start each run,
+  then run `pnpm tests-can-fail`. `` (AR-4 of the 0.5 review.) It is the `tests` state of §3.9; the not-judged
   `flaky` of §3.8 has its own words below (AR-11 of the 0.4 review).
-- `never-run`: `` `{file}` was added or changed, and none of this project's test runs picks it up
-  ({calls}), or every test in it is skipped. A test nothing runs is not coverage. Rename or move it so a run
-  finds it, remove the skip when every test in it is skipped, or keep it out on purpose in
-  `ci/tests-can-fail.yaml` (`keep-out:`, with a reason). ``
-- `out-of-time`: `` The check that new tests can fail ran out of time ({limit} minutes) before it reached
-  `{file}` › "{test}". It was not judged, so this is not a pass. Run `pnpm tests-can-fail` again; if it
-  stops here every time, the pull request's tests are too slow for the step: see BOOTSTRAP.md, "Tests can
-  fail". ``
-- `nothing-judged`: `` None of the {n} tests this pull request adds or edits was judged, so this is not a
-  pass: {each reason, with its count and its next action}. Each is named above. Do what each reason says,
-  or excuse a test file in `ci/exceptions.yaml` with a date (id `tests-can-fail#{file}`, for the first of
-  them). Then run `pnpm tests-can-fail`. `` Only `no-subject`'s action is to import the code under test by a
-  relative path (AR-5 of the 0.3 review).
-- `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`, {the excuse for `{file}` | the mechanical-change
-  excuse | the excuse for a package that does not use Vitest}, {expired {date} | has no `expires:` date |
-  has an `expires:` that is not a real day}, so it excuses nothing. Remove it, or set `expires:` to a real
-  future day with a reason, then run `pnpm tests-can-fail`. `` (AR-10 of the 0.3 review.)
+- `never-run`: `` `{file}` was changed, and no test run picks it up ({calls}), or every test in it is skipped. ``
+  Fix: `` Rename or move it so a run finds it, remove the skip, or keep it out in `ci/tests-can-fail.yaml` with a
+  reason. ``
+- `out-of-time`: `` The check ran out of time ({limit} minutes) before `{file}` › "{test}", so it is not judged
+  and this is not a pass. `` Fix: `` Run `pnpm tests-can-fail` again, and if it stops here every time read
+  "Tests can fail" in `BOOTSTRAP.md`. ``
+- `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass: {each reason, with
+  its count and its next action}. `` Fix: `` Read each test's line above and do what it says, or excuse a test
+  file in `ci/exceptions.yaml` with a date. `` Only `no-subject`'s action is to import by a relative path (AR-5
+  of the 0.3 review).
+- `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
+  off Vitest) | nothing, for a test file's id} {expired {date} | has no `expires:` date | has an `expires:` that
+  is not a real day}, so it excuses nothing. `` Fix: `` Remove it, or set `expires:` to a real future day with a
+  reason. `` (AR-10 of the 0.3 review.)
 - not judged: `` Not judged: `{file}` › "{test}" — {reason}. `` with the reasons: "it imports no source file
   this step follows"; "every source file it imports is test support (`{file}`)"; "this pull request is
-  excused as a mechanical change until {date}: {reason}";
-  "it was red, then green, in a clean copy with nothing changed: it is flaky, so this step cannot tell what
-  it notices";
-  "its subject `{file}` could not be parsed"; "its subject `{file}` is not JavaScript or
-  TypeScript"; "there is nothing this step can change in `{file}`, which is all it imports"; "it is kept out
-  in `ci/tests-can-fail.yaml`: {reason}"; "its package {package} does not use Vitest"; "it is in no package of
-  the workspace"; "it is skipped"; "every change this step made to `{file}` stopped the test file loading";
-  "excused until {date}: {reason}". Each is followed by its next action, as a finding is, so a not-judged
-  line names what to do too; the `other-runner` one names `tests-can-fail#other-runner`.
+  excused as a mechanical change until {date}: {reason}"; "it was red, then green, in a clean copy with nothing
+  changed"; "its subject `{file}` could not be parsed"; "its subject `{file}` is not JavaScript or TypeScript";
+  "there is nothing this step can change in `{file}`, which is all it imports"; "every change this step made to
+  `{file}` stopped the test file loading"; "it is kept out in `ci/tests-can-fail.yaml`: {reason}"; "its package
+  {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped"; "excused until
+  {date}: {reason}". Each has its fix, as a finding has, so a not-judged line names what to do too; the
+  `other-runner` one names `tests-can-fail#other-runner`.
 - another commit: `` This record is for commit {a}, not the one being checked ({b}). Run
   `pnpm tests-can-fail` again. ``
 - processes left: `` {n} processes this check started were still running and were stopped. Run
@@ -1243,4 +1238,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-02 · MODIFIED · Version 0.4 → 0.5, resolving the three findings of the review of 0.4 (`docs/reviews/2026-11-02-tests-can-fail-0.4.md`) that break a guarantee, on the owner's pick of the same day: the root script is `tests-can-fail`, outside W1's gated names (AR-1); `ci/before-verify.sh`'s process group is kept until the run ends, with an acceptance block for a service it starts (AR-2); no real project's figure or run finding beyond one sentence, and §7's budget is said against the scratch runs (AR-3). AR-4 to AR-11 are carried as lines under build steps 3, 4 and 5 and in Known limitations. The review of 0.5 is scoped to these fixes and is the last: a finding from it becomes an acceptance line in the matching build issue, and only one that changes the Contract's guarantees goes back to the owner
 - 2026-11-02 · MODIFIED · the review of 0.5 (`docs/reviews/2026-11-02-tests-can-fail-0.5.md`, the last) carried in by the owner's rule: its AR-1, which changed a guarantee, went to the owner, who narrowed it to a Known limitations line with two fixture-backed lines under steps 3 and 5; its AR-2 to AR-7, and W1's third clause it named, are acceptance lines under steps 3, 4 and 5. Version stays 0.5: no Contract, Acceptance or Verify text changed
 - 2026-11-04 · MODIFIED · step 3's corrections from #631's worker, built in #632 on the owner's yes: §2 reads more test forms, an `imports()`, and a text with a line break git does not count as unreadable; a test the runner lists in no call `spans()` reads makes its file's tests new (§3.5); the parser's reason is escaped (§5); runner calls get a fixed environment, and env guards are not changed (§2, §3.4); `no-package` and the record's new fields (§3.3, §3.10); four Known limitations lines. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
-- 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5 gives `flaky` its second cause, `excuse-expired` its words, `nothing-judged` an action per reason, and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose. Version stays 0.5
+- 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5's findings and warnings take report.mjs's shape (one sentence and a fix that starts with a verb, each at most 160 characters), so its wording is rewritten to fit, with the same facts; `flaky` gains its second cause, `excuse-expired` its words, `nothing-judged` an action per reason, and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose. Version stays 0.5

@@ -65,10 +65,10 @@ test('the two flaky outcomes are told apart: a test red then green before any ch
   const v = every();
   const finding = v.findings.find((f) => f.where.endsWith('#flaky'));
   const warning = v.warnings.find((w) => w.where.includes('#not-judged/flaky'));
-  assert.match(finding.detail, /failed with nothing changed, after passing once in the same copy/);
-  assert.match(warning.detail, /red, then green, in a clean copy with nothing changed: it is flaky/);
+  assert.match(finding.detail, /failed with nothing changed after passing in the same copy/);
+  assert.match(warning.detail, /red, then green, in a clean copy with nothing changed\.$/);
   // AR-4 of the 0.5 review: chance is not the only cause it names.
-  assert.match(finding.detail, /by chance, or on state a service kept from an earlier run of its file/);
+  assert.match(finding.detail, /by chance or on state a service kept from an earlier run\./);
 });
 
 test('nothing-judged gives each reason its own next action, and only no-subject is told to import by a relative path', () => {
@@ -76,7 +76,7 @@ test('nothing-judged gives each reason its own next action, and only no-subject 
   const detail = v.findings.find((f) => f.where === 'nothing-judged').detail;
   assert.match(detail, /not a pass/);
   assert.equal(detail.match(/relative path/g).length, 1);
-  assert.match(detail, /1 `no-subject` \(import the code under test by a relative path/);
+  assert.match(detail, /1 `no-subject` \(import by a relative path\)/);
   assert.match(v.findings[0].fix, /`ci\/exceptions\.yaml`/);
   for (const why of ['support-only', 'could-not-be-parsed', 'other-language', 'no-change-to-make', 'every-change-dropped', 'flaky']) assert.match(detail, new RegExp(`1 \`${why}\` \\([a-z]`), why);
   // The other-runner line names its entry (AR-4 of the 0.3 review).
@@ -86,18 +86,20 @@ test('nothing-judged gives each reason its own next action, and only no-subject 
 test('excuse-expired has its words for an entry that names a test file and for one that names none', () => {
   const v = judge(rec(), { registry: [entry('tests-can-fail#mechanical', '2026-01-01'), entry('tests-can-fail#other-runner', ''), entry(`tests-can-fail#${FILE}`, '2026-13-01')] });
   const [mechanical, other, file] = v.findings.map((f) => f.detail);
-  assert.match(mechanical, /the mechanical-change excuse, expired 2026-01-01, so it excuses nothing/);
-  assert.match(other, /the excuse for a package that does not use Vitest, has no `expires:` date/);
-  assert.match(file, /the excuse for `pkgs\/app\/src\/cart\.test\.ts`, has an `expires:` that is not a real day \(2026-13-01\)/);
+  assert.match(mechanical, /^`tests-can-fail#mechanical` in `ci\/exceptions\.yaml` \(the mechanical-change excuse\) expired 2026-01-01, so it excuses nothing\.$/);
+  assert.match(other, /\(the excuse for a package off Vitest\) has no `expires:` date/);
+  assert.match(file, /^`tests-can-fail#pkgs\/app\/src\/cart\.test\.ts` in `ci\/exceptions\.yaml` has an `expires:` that is not a real day \(2026-13-01\)/);
   assert.equal(v.exit, 1);
 });
 
 test('the only-crashes and kills-nothing details hold the test, its file and §5\'s wording; capped prints both counts beside kills-nothing', () => {
   const v = every();
   const crash = v.findings.find((f) => f.where.endsWith('#only-crashes'));
-  for (const part of ['`pkgs/app/src/cart.test.ts` › "crashes"', 'the last a TypeError at `pkgs/app/src/cart.ts:2`', 'a result read on the line before', 'ci/exceptions.yaml']) assert.ok(`${crash.detail} ${crash.fix}`.includes(part), part);
-  assert.match(v.findings.find((f) => f.where.endsWith('#kills-nothing')).detail, /^`pkgs\/app\/src\/cart\.test\.ts` › "kills" passes whatever the code does: 4 changes were made to the code its file imports \(`pkgs\/app\/src\/cart\.ts`\), and it failed on none of them\.$/);
-  assert.match(v.findings.find((f) => f.where.endsWith('#never-run')).detail, /none of this project's test runs picks it up \(`app`: `vitest run`\), or every test in it is skipped/);
+  // The crash's facts are in its detail; the way out, ci/exceptions.yaml among them, is its fix (report.mjs's shape).
+  for (const part of ['`pkgs/app/src/cart.test.ts` › "crashes"', 'last a TypeError at `pkgs/app/src/cart.ts:2`', 'a result read on the line before']) assert.ok(crash.detail.includes(part), part);
+  assert.match(crash.fix, /`ci\/exceptions\.yaml`/);
+  assert.match(v.findings.find((f) => f.where.endsWith('#kills-nothing')).detail, /^`pkgs\/app\/src\/cart\.test\.ts` › "kills" passed on all 4 changes made to the code it imports \(`pkgs\/app\/src\/cart\.ts`\)\.$/);
+  assert.match(v.findings.find((f) => f.where.endsWith('#never-run')).detail, /no test run picks it up \(`app`: `vitest run`\), or every test in it is skipped\.$/);
 });
 
 test('no text of the record prints raw: C0, C1 and bidi characters in every field are escaped once, and the record\'s own escapes are not escaped again', (t) => {
