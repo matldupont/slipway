@@ -3,10 +3,12 @@
 // of config.json beside it. A test is found by a line `it('name'` or `test('name'` (any modifiers or each form) of a
 // `*.test.*` or `*.spec.*` file under the folder it runs in. Each rule is read only by this file.
 //
-// config.json: { tests: { "<name>": rule }, unlisted: [file], sleepMs, worker, detachedWorker, record, project,
-//   envDump, noResult, noLine, noFailureMessages }
-// rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", frame: { file, line },
-//   always: true, redOnce: true, failsUntouchedAfterChange: true, skipped: true, connection: true }
+// config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], sleepMs, runSleepMs,
+//   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
+//   noFailureMessages }
+// rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
+//   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, connection: true,
+//   needsFile: "<path from the copy's root>" }
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
 import { execFileSync, spawn } from 'node:child_process';
@@ -24,18 +26,22 @@ const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 
 
 if (config.envDump) writeFileSync(config.envDump, JSON.stringify(Object.keys(process.env)));
 if (config.record && config.project) {
-  const git = (a) => execFileSync('git', ['-C', config.project, ...a], { encoding: 'utf8' });
+  const git = (a) => execFileSync('git', ['--no-optional-locks', '-C', config.project, ...a], { encoding: 'utf8' });
   appendFileSync(config.record, `${JSON.stringify({ status: git(['status', '--porcelain']), worktrees: git(['worktree', 'list']).trim().split('\n').length })}\n`);
 }
 if (config.worker) spawn(process.execPath, [join(here, 'worker.mjs')], { stdio: 'ignore' });
 if (config.detachedWorker) spawn(process.execPath, [join(here, 'worker.mjs')], { stdio: 'ignore', detached: true }).unref();
+if (config.slowStop) process.on('SIGTERM', () => setTimeout(() => process.exit(143), config.slowStop));
 if (config.sleepMs) sleep(config.sleepMs);
 
-const TEST_LINE = /^\s*(?:it|test)\b[\w.]*(?:\([^)]*\))?\(\s*['"]([^'"]+)['"]/;
+// A test's line: it('x', test.only('x', it.each([1])('x', or the `])('x'` that closes an it.each of rows.
+const TEST_LINE = /^\s*(?:(?:it|test)\b[\w.]*(?:\([^)]*\))?|\]\))\(\s*['"]([^'"]+)['"]/;
 function testsOf(abs) {
   return readFileSync(abs, 'utf8').split('\n').flatMap((text, i) => {
     const m = TEST_LINE.exec(text);
-    return m ? [{ name: m[1], line: i + 1 }] : [];
+    if (!m) return [];
+    const rows = config.rows?.[m[1]];
+    return rows ? Array.from({ length: rows }, (_, k) => ({ name: m[1].replace('%i', String(k + 1)), line: i + 1, rule: m[1] })) : [{ name: m[1], line: i + 1, rule: m[1] }];
   });
 }
 function files(dir) {
@@ -60,6 +66,7 @@ const out = args.find((a) => a.startsWith('--outputFile='))?.slice('--outputFile
 const rules = Object.values(config.tests ?? {});
 const untouched = !rules.some((r) => changed(r.failsWhen) || changed(r.loadFailsWhen));
 const failureOf = (rule) => {
+  if (rule.message) return rule.message;
   const recorded = JSON.parse(readFileSync(join(here, 'recorded', `${rule.failure ?? 'failure-AssertionError'}.json`), 'utf8'));
   let message = recorded.failureMessages[0];
   if (rule.connection) message = 'Error: connect ECONNREFUSED 127.0.0.1:5432\n    at TCPConnectWrap.afterConnect (node:net:1:1)';
@@ -69,9 +76,16 @@ const failureOf = (rule) => {
 const key = relative(copy, file);
 const run = (state.runs[key] = (state.runs[key] ?? 0) + 1);
 const loadFails = rules.some((r) => changed(r.loadFailsWhen));
+if (config.runSleepMs) sleep(config.runSleepMs);
+if (!untouched && config.marker) writeFileSync(config.marker, String(process.pid));
+if (!untouched && config.changedSleepMs) {
+  setTimeout(() => process.exit(1), config.changedSleepMs);
+  await new Promise(() => {});
+}
 const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
-  const rule = config.tests?.[t.name] ?? {};
-  const fails = rule.always || (rule.redOnce && run === 1) || changed(rule.failsWhen) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
+  const rule = config.tests?.[t.rule] ?? {};
+  const missing = rule.needsFile && !existsSync(join(copy, rule.needsFile));
+  const fails = rule.always || missing || (rule.redOnce && run === 1) || (rule.redTwice && run <= 2) || changed(rule.failsWhen) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
   const status = rule.skipped ? 'skipped' : fails ? 'failed' : 'passed';
   return { ancestorTitles: [], fullName: t.name, status, title: t.name, failureMessages: status === 'failed' && !config.noFailureMessages ? [failureOf(rule)] : [] };
 });

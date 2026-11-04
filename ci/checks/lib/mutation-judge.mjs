@@ -53,6 +53,10 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
       for (const g of unit.groups) pending.set(g, unit);
     }
 
+    // §3.9's order, set before the baseline, so a stop at the limit still says which file would have come next.
+    ready.sort((a, b) => a.queue.length - b.queue.length);
+    record.order = ready.map((u) => u.file);
+
     // §3.8: the baseline, and once more for a file with a red new test.
     const first = new Map();
     for (const unit of ready) first.set(unit, await runFile(ctx, unit));
@@ -77,9 +81,7 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
     }
 
     // §3.9: the file with the fewest changes first.
-    const judging = ready.filter((u) => u.groups.length).sort((a, b) => a.queue.length - b.queue.length);
-    record.order = judging.map((u) => u.file);
-    for (const unit of judging) {
+    for (const unit of ready.filter((u) => u.groups.length)) {
       ctx.say(`judging ${unit.file}: ${unit.groups.length} new tests, ${unit.queue.length} changes to try`);
       await judgeFile(ctx, record, unit, toRecord, pending);
     }

@@ -108,7 +108,7 @@ export function trackedFiles(root, head) {
 export const showFile = (root, rev, path) => tryGit(root, ['show', `${rev}:${path}`]);
 
 // How many tracked files hold a change not committed: the step judges the last commit, and says what it leaves out.
-export const uncommitted = (root) => git(root, ['status', '--porcelain', '-z', '--untracked-files=no']).split('\0').filter((e) => /^[ MADRCTU?!]{2} /.test(e)).length;
+export const uncommitted = (root) => git(root, ['--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=no']).split('\0').filter((e) => /^[ MADRCTU?!]{2} /.test(e)).length;
 
 // §3.4: the tree of head written out into `copy` through an index file of its own in `dir`, so nothing is registered
 // in the project's .git and its index is not touched.
