@@ -84,11 +84,16 @@ test('new tests all excused, kept out, skipped or mechanical pass, each named; a
   assert.deepEqual(judge(other, { registry: [entry('tests-can-fail#other-runner', '2026-01-01')] }).ids, ['ci/exceptions.yaml:tests-can-fail#other-runner#excuse-expired', 'nothing-judged']);
 });
 
-test('a new test a name filter left out is narrowed, which the owner did not give: nothing-judged alone, a warning beside a judged test (#652)', () => {
-  const narrowed = nj('narrowed', { name: null, detail: 'the runner lists no test in the call at line 4, and lists one there when every name is let through' });
+test('a new test the runner leaves out with no skip in its text is narrowed, which the owner did not give: nothing-judged alone, a warning beside a judged test (#652)', () => {
+  const narrowed = nj('narrowed', { name: null, detail: 'the runner lists no test in the call at line 4, and its text holds no skip or todo' });
   const alone = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed] }));
   assert.deepEqual([alone.exit, alone.ids, alone.warned], [1, ['nothing-judged'], [`${narrowed.file}#not-judged/narrowed`]]);
-  assert.match(alone.warnings[0].detail, /the runner lists it only when every test name is let through\.$/);
+  assert.match(alone.warnings[0].detail, /the runner leaves it out, and no skip or todo says why\.$/);
+  // Its warning, past the file it names, is 160 characters at most, and says what to do; nothing-judged names it too.
+  assert.ok(alone.warnings[0].detail.replace(`\`${narrowed.file}\``, '').length + 1 + alone.warnings[0].fix.length <= 160);
+  assert.match(alone.findings[0].fix, /^Remove the filter or `\.only` that leaves the new tests out/);
+  const mixed = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed, nj('no-subject')] }));
+  assert.match(mixed.findings[0].fix, /^Remove the filter or `\.only` that leaves a test out, and do what each other not-judged warning says/);
   const beside = judge(rec({ changedTestFiles: [FILE], tests: [judged()], notJudged: [narrowed] }));
   assert.deepEqual([beside.exit, beside.ids], [0, []]);
   assert.deepEqual(judge(rec({ changedTestFiles: [FILE], notJudged: [nj('skipped')] })).exit, 0);

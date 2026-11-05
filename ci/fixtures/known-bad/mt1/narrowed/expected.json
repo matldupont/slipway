@@ -1,5 +1,5 @@
 {
- "_note": "Two new tests, none judged: one a name filter left out (narrowed, which the owner did not give, #652) and one skipped in its own text. Nothing-judged, beside the two warnings that name them.",
+ "_note": "Two new tests, none judged: one the runner left out with no skip in its text (narrowed, which the owner did not give, #652) and one skipped in its own text. Nothing-judged, beside the two warnings that name them.",
  "env": {
   "CHECK_TODAY": "2026-11-04",
   "CHECK_HEAD": "1111111111111111111111111111111111111111"

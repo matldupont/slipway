@@ -72,6 +72,8 @@ export function runnerCall(script) {
     // --outputFile.json=x and --reporter.x are the same flags, keyed by reporter.
     const base = name.split('.')[0];
     if (word === '--watch' || word === '--run') continue;
+    // The parser reads no word after a bare `--` as an option, so the step's own flags after the call's would be lost.
+    if (/^-+$/.test(word)) return { unreadable: `it passes ${word}, after which the runner reads no option` };
     if (word.startsWith('-') && outsideOptions(word)) return { unreadable: `it passes ${word.split('=')[0]}, which the runner's argument parser writes outside its options` };
     if (DROPPED.has(base)) {
       if (!word.includes('=') && !words[at]?.startsWith('-')) at += 1;

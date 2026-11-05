@@ -141,6 +141,8 @@ const OUTSIDE = /which the runner's argument parser writes outside its options/;
 test('a flag the parser writes into the prototype, and a flag naming its list of file filters, are refused (#652)', () => {
   for (const script of ['vitest run --__proto__.testNamePattern=foo', 'vitest run --__proto__.testNamePattern foo']) assert.match(runnerCall(script).unreadable ?? '', OUTSIDE, script);
   for (const script of ['vitest run --_=src/a.test.ts', 'vitest run -_=src/a.test.ts', 'vitest run --_ src/a.test.ts']) assert.match(runnerCall(script).unreadable ?? '', OUTSIDE, script);
+  // After a bare `--` the runner reads no option, so the step's own flags given after the call's would be lost.
+  for (const script of ['vitest run --', 'vitest run -- --silent', 'vitest run -']) assert.match(runnerCall(script).unreadable ?? '', /after which the runner reads no option/, script);
 });
 
 test('each option refused today stays refused when its name is reached another way than its plain spelling (#652)', () => {

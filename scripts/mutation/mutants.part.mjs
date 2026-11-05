@@ -15,7 +15,7 @@ test('spans() reads it.fails, .sequential, .for, .skipIf and .runIf as test call
 
 test('a chain of 20,000 modifier links is read, not a RangeError', () => {
   const code = `it${'.only'.repeat(20000)}('x', () => {});`;
-  assert.deepEqual(spans('a.js', code).tests, [{ first: 1, last: 1 }]);
+  assert.deepEqual(spans('a.js', code).tests, [{ first: 1, last: 1, skip: false }]);
 });
 
 test('imports() gives what a file imports and re-exports from, and leaves type-only imports out', () => {
@@ -42,4 +42,22 @@ test('no change is made in a guard that reads the environment; the rest of the f
   assert.deepEqual(on(5).sort(), ['condition', 'condition', 'literal', 'operator']);
   assert.ok(changes.some((c) => c.kind === 'body' && c.line === 1), 'the function body is still changed');
   assert.ok(mutants('a.js', 'if (env.X) f();').some((c) => c.kind === 'condition'), 'a name that is not process.env is changed');
+});
+
+test('spans() marks a test skip only when its own call or a describe around it says skip, todo, skipIf or runIf (#652)', () => {
+  const code = [
+    "it('a', () => {});", "it.skip('b', () => {});", "it.todo('c');", "it.skipIf(x)('d', () => {});", "it.runIf(x).each([1])('e', () => {});",
+    "describe.skip('s', () => {", "  it('f', () => { on('x', () => {}); });", "});", "describe.skipIf(x)('t', () => { describe('u', () => { it('g', () => {}); }); });",
+    "it('h', { skip: true }, () => {});", "it.only('i', () => {});",
+  ].join('\n');
+  assert.deepEqual(spans('a.js', code).tests.map((t) => t.skip), [false, true, true, true, true, true, true, false, false]);
+  assert.deepEqual(spans('a.js', code).others, [], 'a call inside a test is not one');
+});
+
+test('spans() gives a call shaped like a test it cannot read as one: an alias, test.extend\'s test, a computed modifier; never a route or a mock (#652)', () => {
+  const code = [
+    "const later = it.skip;", "later('a', () => {});", "myTest.skip('b', async () => {});", "it[mode]('c', function () {});",
+    "app.get('/x', () => {});", "vi.mock('./x', () => ({}));", "wrap('d', () => { it('e', () => {}); });", "outer('f', () => { inner('g', () => {}); });",
+  ].join('\n');
+  assert.deepEqual(spans('a.js', code).others, [{ first: 2, last: 2 }, { first: 3, last: 3 }, { first: 4, last: 4 }, { first: 8, last: 8 }]);
 });

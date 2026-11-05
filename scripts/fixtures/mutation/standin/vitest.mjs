@@ -3,15 +3,19 @@
 // of config.json beside it. A test is found by a line `it('name'` or `test('name'` (any modifiers or each form) of a
 // `*.test.*` or `*.spec.*` file under the folder it runs in. Each rule is read only by this file.
 //
-// config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, sleepMs, runSleepMs,
+// config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, tagsFilter, tags,
+//   sleepMs, runSleepMs,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
 //   noFailureMessages }
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
 //   connection: true,
 //   needsFile: "<path from the copy's root>" }
-// namePattern stands for a name filter in the package's Vitest config: `list` gives only the names it matches, unless
-// a `-t` or `--testNamePattern=` argument is given, which Vitest reads over its config.
+// What Vitest leaves out of `list`, each standing for its own: namePattern, a name filter in the package's Vitest config;
+// tagsFilter: [tag], its tags filter (a test is kept when its line holds `tags: ['<tag>']`); tags: [{ name, skip }], a
+// tag the config skips; a value given to `--passWithNoTests=` or `--globals=`, which the runner keeps as a file filter
+// (`<path>:<line>` keeps that line's test of that file only); `.skip(` or `.todo(` on a test's line; and a
+// `describe.skip(` block, up to the `});` at the start of a line that closes it.
 // A run is a changed one when a `failsWhen` or `loadFailsWhen` entry holds; the sleeps and the marker read that.
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
@@ -41,12 +45,17 @@ if (config.sleepMs) sleep(config.sleepMs);
 // closes an it.each of rows.
 const TEST_LINE = /^\s*(?:(?:it|test|\w+Test)\b[\w.]*(?:\([^)]*\))?|\]\))\(\s*['"]([^'"]+)['"]/;
 function testsOf(abs) {
+  let skipped = false;
   return readFileSync(abs, 'utf8').split('\n').flatMap((text, i) => {
+    if (/^describe\.skip\(/.test(text)) skipped = true;
+    else if (/^\}\);?\s*$/.test(text)) skipped = false;
     const m = TEST_LINE.exec(text);
     // Vitest's listing leaves out a test skipped or todo before it runs.
-    if (!m || /\.(?:skip|todo)\(/.test(text)) return [];
+    if (!m || skipped || /\.(?:skip|todo)\(/.test(text)) return [];
+    const tags = /tags: \[([^\]]*)\]/.exec(text)?.[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')) ?? [];
     const rows = config.rows?.[m[1]];
-    return rows ? Array.from({ length: rows }, (_, k) => ({ name: m[1].replace('%i', String(k + 1)), line: i + 1, rule: m[1] })) : [{ name: m[1], line: i + 1, rule: m[1] }];
+    const at = { line: i + 1, rule: m[1], tags };
+    return rows ? Array.from({ length: rows }, (_, k) => ({ ...at, name: m[1].replace('%i', String(k + 1)) })) : [{ ...at, name: m[1] }];
   });
 }
 function files(dir) {
@@ -60,15 +69,12 @@ const changed = (rules = []) => rules.some((r) => !(readFileSync(join(copy, r.fi
 
 if (args[0] === 'list') {
   const unlisted = new Set((config.unlisted ?? []).map((f) => join(copy, f)));
-  // The last name filter on the command line wins, `-t <pattern>` or `--testNamePattern=<pattern>`.
-  let pattern = config.namePattern;
-  args.forEach((a, i) => {
-    if (a === '-t') pattern = args[i + 1];
-    else if (a.startsWith('--testNamePattern=')) pattern = a.slice('--testNamePattern='.length);
-  });
-  const named = (t) => pattern === undefined || new RegExp(pattern).test(t.name);
+  const named = (t) => config.namePattern === undefined || new RegExp(config.namePattern).test(t.name);
+  const tagged = (t) => (config.tagsFilter === undefined || config.tagsFilter.some((g) => t.tags.includes(g))) && !(config.tags ?? []).some((g) => g.skip && t.tags.includes(g.name));
+  const filters = args.flatMap((a) => /^--(?:passWithNoTests|globals)=(.+):(\d+)$/.exec(a)?.slice(1) ?? []);
+  const kept = (file, t) => !filters.length || (relative(process.cwd(), file) === filters[0] && t.line === Number(filters[1]));
   const listing = files(process.cwd()).filter((f) => !unlisted.has(f)).flatMap((file) =>
-    testsOf(file).filter(named).map((t) => (config.noLine ? { name: t.name, file } : { name: t.name, file, location: { line: t.line, column: 3 } })));
+    testsOf(file).filter((t) => named(t) && tagged(t) && kept(file, t)).map((t) => (config.noLine ? { name: t.name, file } : { name: t.name, file, location: { line: t.line, column: 3 } })));
   process.stdout.write(JSON.stringify(listing));
   process.exit(0);
 }

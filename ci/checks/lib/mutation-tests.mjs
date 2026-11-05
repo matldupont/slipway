@@ -52,7 +52,8 @@ export const within = (pkg, file) => (pkg.dir ? file.slice(pkg.dir.length + 1) :
  * hunk that only removes lines sits inside it; tests listed on one call are one group. When `read` is unreadable, or
  * a listed test falls inside no call spans() knows (an alias, test.extend), every test of the file is new.
  * @param {Array<{ name: string, line: number }>} listed
- * @returns {{ groups: Array<{ name: string, line: number, names: Set<string> }>, outside: boolean, every: boolean }}
+ * @returns {{ groups: Array<{ name: string, line: number, names: Set<string> }>, outside: boolean, every: boolean,
+ *   unlisted: Array<{ line: number, skip: boolean }> }}
  */
 export function newTests(listed, read, { added, removedAfter }) {
   const calls = read.unreadable ? [] : read.tests;
@@ -70,16 +71,12 @@ export function newTests(listed, read, { added, removedAfter }) {
   const fresh = [...groups.values()].filter((g) => every || marks(g.call));
   const inAnyCall = (n) => calls.some((c) => n >= c.first && n <= c.last);
   const outside = !every && ([...added].some((n) => !inAnyCall(n)) || removedAfter.some((n) => !calls.some((c) => n >= c.first && n + 1 <= c.last)));
-  // A changed call the runner lists no test in: Vitest lists no test skipped or todo before it runs (§3.8).
-  const unlisted = calls.filter((c) => marks(c) && !listed.some((t) => t.line >= c.first && t.line <= c.last)).map((c) => c.first);
+  // A changed call the runner lists no test in (§3.8), a test-shaped one it cannot read included: `skip` when the
+  // call's own text, or a describe around it, skips it.
+  const others = read.unreadable ? [] : read.others;
+  const unlisted = [...calls, ...others].filter((c) => marks(c) && !listed.some((t) => t.line >= c.first && t.line <= c.last))
+    .map((c) => ({ line: c.first, skip: c.skip === true })).sort((a, b) => a.line - b.line);
   return { groups: fresh.map(({ name, line, names }) => ({ name, line, names })), outside, every, unlisted };
-}
-
-// §3.5: of the changed calls the runner lists no test in (newTests' `unlisted`, by first line), the ones a listing of
-// the same file with every name let through lists a test in: a name filter left them out, not a skip or a todo.
-export function narrowedLines(unlisted, read, everyName) {
-  const calls = read.unreadable ? [] : read.tests;
-  return unlisted.filter((first) => calls.some((c) => c.first === first && everyName.some((t) => t.line >= c.first && t.line <= c.last)));
 }
 
 // A relative import, resolved to a tracked file inside the repository: as written, with each extension, `.js` read as

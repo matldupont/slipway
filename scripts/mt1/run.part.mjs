@@ -12,18 +12,18 @@ import { verdict } from '../../ci/checks/meta/mt1-tests-can-fail.mjs';
 import { CART, project, testFile } from '../mutation/project.mjs';
 
 const MT1 = fileURLToPath(new URL('../../ci/checks/meta/mt1-tests-can-fail.mjs', import.meta.url));
-const FILE = 'pkgs/app/src/cart.test.ts';
-const CHANGED = [{ file: 'pkgs/app/src/cart.ts', line: 2, has: 'return a + b' }];
+export const FILE = 'pkgs/app/src/cart.test.ts';
+export const CHANGED = [{ file: 'pkgs/app/src/cart.ts', line: 2, has: 'return a + b' }];
 const EXCEPTION = (id, reason = 'a rename across test files') => `exceptions:\n  - id: ${id}\n    expires: 2099-01-01\n    reason: ${reason}\n    owner: test\n`;
 
 // `pnpm tests-can-fail`'s command, in the project: its exit, its report and its printed lines.
-function mt1(p) {
+export function mt1(p) {
   const r = spawnSync(process.execPath, [MT1, '--run'], { cwd: p.root, encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1', CHECK_TODAY: '2026-11-04' }, timeout: 120_000 });
   const line = r.stdout.split('\n').findLast((l) => l.startsWith('@@json '));
   const json = line ? JSON.parse(line.slice('@@json '.length)) : null;
   return { status: r.status, out: r.stdout + r.stderr, json, ids: json?.findings.map((f) => f.where) ?? [], warned: json?.warnings.map((w) => w.where) ?? [] };
 }
-const removeAll = (t, p) => t.after(() => p.remove());
+export const removeAll = (t, p) => t.after(() => p.remove());
 
 test('MT1 --run judges HEAD in the process: a test that fails on a change passes, with the summary line', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, config: { tests: { adds: { failsWhen: CHANGED } } } });
@@ -179,43 +179,4 @@ test('MT1 --run never prints the CI command marker raw, on stdout or in its prog
   const r = mt1(p);
   assert.match(r.out, /judging pkgs\/app\/src\/.*cart\.test\.ts/);
   assert.doesNotMatch(r.out, /##\[/);
-});
-
-// #652: a new test the runner leaves out is the owner's skip only when a listing that lets every name through leaves
-// it out too. One inert fixture per route that narrows the run: none is a pass.
-test('a name filter set through the prototype key in the test script is refused: the run stops, never a pass (#652)', (t) => {
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: 'vitest run --__proto__.testNamePattern=nomatch', config: { tests: { adds: { failsWhen: CHANGED } } } });
-  removeAll(t, p);
-  p.commit({ [FILE]: testFile(['adds']) });
-  const r = mt1(p);
-  assert.equal(r.status, 2, r.out);
-  assert.match(r.out, /`app`'s `test` script is not a plain call to the test runner/);
-});
-
-test('a file filter set through the parser\'s list of left-behind words in the test script is refused: the run stops, never a pass (#652)', (t) => {
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: 'vitest run --_=src/other.test.ts', config: { tests: { adds: { failsWhen: CHANGED } } } });
-  removeAll(t, p);
-  p.commit({ [FILE]: testFile(['adds']) });
-  const r = mt1(p);
-  assert.equal(r.status, 2, r.out);
-  assert.match(r.out, /`app`'s `test` script is not a plain call to the test runner/);
-});
-
-test('a plain -t in the test script is refused: the run stops, never a pass (#652)', (t) => {
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: 'vitest run -t nomatch', config: { tests: { adds: { failsWhen: CHANGED } } } });
-  removeAll(t, p);
-  p.commit({ [FILE]: testFile(['adds']) });
-  const r = mt1(p);
-  assert.equal(r.status, 2, r.out);
-  assert.match(r.out, /`app`'s `test` script is not a plain call to the test runner/);
-});
-
-test('a name filter in the Vitest config leaves a new test out: narrowed, and nothing-judged; a real skip beside it stays skipped (#652)', (t) => {
-  // An old test the filter lets through keeps the file listed, so the new ones are left out of a listed file.
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: testFile(['old']) }, config: { namePattern: '^old$', tests: { adds: { failsWhen: CHANGED } } } });
-  removeAll(t, p);
-  p.commit({ [FILE]: `${testFile(['old', 'adds'])}\nit.skip('later', () => {});\n` });
-  const r = mt1(p);
-  assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed`, `${FILE}#not-judged/skipped`]], r.out);
-  assert.match(r.json.warnings[0].fix, /^Remove the name filter from the package's test script or Vitest config/);
 });
