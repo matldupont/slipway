@@ -61,3 +61,14 @@ test('spans() gives a call shaped like a test it cannot read as one: an alias, t
   ].join('\n');
   assert.deepEqual(spans('a.js', code).others, [{ first: 2, last: 2 }, { first: 3, last: 3 }, { first: 4, last: 4 }, { first: 8, last: 8 }]);
 });
+
+test('spans() reads a test through a namespace, a global, an optional call, a TypeScript assertion or a sequence, and gives the callee forms it cannot read; skipIf(false), runIf(true) and .only skip nothing (#652)', () => {
+  const code = [
+    "v.it('a', () => {});", "globalThis.test('b', () => {});", "it?.('c', () => {});", "it!('d', () => {});", "(it as any)('e', () => {});", "(0, it)('f', () => {});",
+    "it.runIf(true)('g', () => {});", "it.skipIf(false)('h', () => {});", "it.only.skip('i', () => {});", "describe.skip('s', () => {}, it('j', () => {}));", "it.skip?.('k', () => {});",
+    "it.call(null, 'l', () => {});", "[it][0]('m', () => {});", "later('n', fnRef);", "later(name, () => {});", "const myTest = test.extend({ a: async ({}, use) => use(1) });",
+  ].join('\n');
+  const read = spans('a.test.ts', code);
+  assert.deepEqual(read.tests.map((t) => [t.first, t.skip]), [[1, false], [2, false], [3, false], [4, false], [5, false], [6, false], [7, false], [8, false], [9, false], [10, false], [11, true]]);
+  assert.deepEqual(read.others.map((o) => o.first), [12, 13, 14, 15]);
+});

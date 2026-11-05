@@ -3,7 +3,7 @@
 // re-exports from. This is the only file that imports the parser. Pure: it reads text it is handed.
 
 import { parse } from './vendor/babel-parser.mjs';
-import { callChain, skips, SUITES, testShaped, TESTS } from './test-calls.mjs';
+import { body, callChain, skips, SUITES, testShaped, TESTS } from './test-calls.mjs';
 
 const NOT_SOURCE = 'not JavaScript or TypeScript';
 const SOURCE = /\.(?:[cm]?js|jsx|[cm]?ts|tsx)$/;
@@ -218,7 +218,8 @@ export function spans(path, text) {
     const chain = callChain(node);
     if (chain && TESTS.has(chain.base)) tests.push({ ...at(node), skip: skips(chain) });
     else if (chain && SUITES.has(chain.base)) {
-      if (skips(chain)) skipping.push(at(node));
+      const fn = skips(chain) && body(node);
+      if (fn) skipping.push(at(fn));
     } else if (isExpectCall(node)) expects.push(at(node));
     else if (testShaped(node)) shaped.push(at(node));
   });

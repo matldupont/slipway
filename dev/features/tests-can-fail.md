@@ -268,7 +268,7 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    `run: node … node_modules/vitest/vitest.mjs run …`." This is not a shell parser and does not become one:
    a script it cannot read is the project's to state. The `run` word, `--watch`, `--reporter` and
    `--outputFile` are dropped from what is read, since the step gives its own. A flag whose name, before
-   any `=` and read as the parser writes it, would land outside the options the runner reads or in its list of
+   any `=` (past a leading `no-`, the whole word) and read as the parser writes it, would land outside the options the runner reads or in its list of
    file filters is not read either, nor a word made only of dashes, after which the runner reads no option: no
    option of Vitest 4 or 5 is named either way (#652).
 
@@ -320,11 +320,13 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    every test is skipped lists nothing and is `never-run` too: the step cannot tell it from a file no run
    picks up, and fails closed (the owner's call, 2026-11-04, #633). Its message names both causes (§5); a
    skipped test in a file the runner lists is `skipped` (step 8). A changed test call the listing names no
-   test in is `skipped` only when its own text, or a `describe` around it, carries `.skip`, `.todo`, `skipIf`
-   or `runIf`. Any other was left out by something its text does not hold (a filter in the package's call or
+   test in is `skipped` only when its own text, or a `describe` whose function it sits in, carries `.skip`,
+   `.todo`, `skipIf` or `runIf`; a `.only` on the same call, `skipIf(false)` and `runIf(true)` skip nothing, as
+   in Vitest. A test is read through a namespace or a global (`v.it`), an optional call, a TypeScript assertion
+   or a sequence. Any other was left out by something its text does not hold (a filter in the package's call or
    config, a `.only` beside it) and is not judged: `narrowed`, a reason the owner did not give. A call shaped
-   like a test that the step cannot read as one (a name, then a function, on an alias or a computed modifier)
-   is such a call, with no skip in its text (the owner's calls, 2026-11-04 and 2026-11-05, #652). Any other changed test file no call lists is not a test (a helper or a data file
+   like a test that the step cannot read as one (a callee naming `it` or `test` in a form it does not read, or
+   a name and then a function on an alias or a computed modifier) is such a call, with no skip in its text (the owner's calls, 2026-11-04 and 2026-11-05, #652). Any other changed test file no call lists is not a test (a helper or a data file
    under `__tests__/`, a `*.test.*` file in another language in a package that uses Vitest): it is no
    finding, and the record names it for the summary's "{n} changed files under a test name or folder are not
    tests".

@@ -157,7 +157,7 @@ test('each option refused today stays refused when its name is reached another w
   }
   for (const key of ['constructor', 'hasOwnProperty', 'toString', 'valueOf', 'isPrototypeOf']) assert.match(runnerCall(`vitest run --${key}=x`).unreadable ?? '', OUTSIDE, key);
   // The parser writes `--has-own-property` as hasOwnProperty, and `--no-x` as x.
-  for (const form of ['--has-own-property=x', '--to-string=x', '--value-of=x', '--is-prototype-of=x', '--no-to-string', '--no-constructor.x', '--prototype=x']) assert.match(runnerCall(`vitest run ${form}`).unreadable ?? '', OUTSIDE, form);
+  for (const form of ['--has-own-property=x', '--to-string=x', '--value-of=x', '--is-prototype-of=x', '--no-to-string', '--no-constructor.x', '--prototype=x', '--no-expect.a=b.__proto__.allowOnly', '--=x.__proto__.testNamePattern=nomatch', '-=x']) assert.match(runnerCall(`vitest run ${form}`).unreadable ?? '', OUTSIDE, form);
 });
 
 test('an argument the checks accepted before #652 and the runner reads is still accepted, a _ in its value too', () => {

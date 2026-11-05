@@ -37,6 +37,9 @@ for (const [what, o, adds] of [
   ['a tags filter in the Vitest config', { config: { tagsFilter: ['old'] }, base: HEAD + it('old', "{ tags: ['old'] }, ") }, it('adds')],
   ['a tag the Vitest config skips', { config: { tags: [{ name: 'slow', skip: true }] } }, it('adds', "{ tags: ['slow'] }, ")],
   ['an alias of it.skip the step cannot read', {}, `const later = it.skip;\nlater('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['a test called through a namespace import', { config: { namePattern: '^old$' } }, `import * as v from 'vitest';\nv.it('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['an optional call of it', { config: { namePattern: '^old$' } }, `it?.('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['a skipIf(false), which skips nothing', { config: { namePattern: '^old$' } }, `it.skipIf(false)('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
 ]) {
   test(`${what} leaves a new test out: narrowed, and nothing-judged, never the owner's skip (#652)`, (t) => {
     const p = routed(o);

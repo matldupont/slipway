@@ -24,14 +24,16 @@ const clusterWithPath = (word) => /^-[^-]/.test(word) && word.split('=')[0].leng
 // The parser reads a one-letter flag written with two dashes (`--t`, `--r=x`) as the one-dash flag.
 // It writes a flag's name into the options it hands the runner, split at each `.`, and keeps the words it leaves
 // behind as file filters under `_`. A name holding `_`, or a segment every object already has (`constructor`,
-// `toString`…) or `prototype`, is written outside those options or into that list. Each segment is read as the parser
-// writes it: past a leading `no-`, and with `-x` as `X` (`--no-to-string` is `toString`). No option of Vitest 4 or 5
-// is named any of these ways.
+// `toString`…) or `prototype`, is written outside those options or into that list. Each name is read as the parser
+// reads it: a word with `=` first after its dashes has none the step can read; past a leading `no-` the name runs on
+// through any `=`; and each segment is read with `-x` as `X` (`--no-to-string` is `toString`). No option of Vitest 4
+// or 5 is named any of these ways.
 const OBJECT_KEYS = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
 const outsideOptions = (word) => {
-  const name = word.split('=')[0];
-  const keys = name.replace(/^-+/, '').replace(/^no-/, '').split('.');
-  return name.includes('_') || keys.some((key) => OBJECT_KEYS.has(key) || OBJECT_KEYS.has(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())));
+  const bare = word.replace(/^-+/, '');
+  if (bare.startsWith('=')) return true;
+  const name = bare.startsWith('no-') ? bare.slice(3) : bare.split('=')[0];
+  return name.includes('_') || name.split('.').some((key) => OBJECT_KEYS.has(key) || OBJECT_KEYS.has(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())));
 };
 const oneLetter = (word) => (/^--[A-Za-z](=|$)/.test(word) ? word.slice(1) : word);
 // Flags whose value is the config file or the folder the runner starts from: it stays inside the package. Other
@@ -74,7 +76,7 @@ export function runnerCall(script) {
     if (word === '--watch' || word === '--run') continue;
     // The parser reads no word after a bare `--` as an option, so the step's own flags after the call's would be lost.
     if (/^-+$/.test(word)) return { unreadable: `it passes ${word}, after which the runner reads no option` };
-    if (word.startsWith('-') && outsideOptions(word)) return { unreadable: `it passes ${word.split('=')[0]}, which the runner's argument parser writes outside its options` };
+    if (word.startsWith('-') && outsideOptions(word)) return { unreadable: `it passes ${/^-+=/.test(word) ? word : word.split('=')[0]}, which the runner's argument parser writes outside its options` };
     if (DROPPED.has(base)) {
       if (!word.includes('=') && !words[at]?.startsWith('-')) at += 1;
       continue;
