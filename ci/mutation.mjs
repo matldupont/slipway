@@ -14,11 +14,11 @@ import { expiryProblem } from './checks/lib/exceptions.mjs';
 import { trustedGit } from './checks/lib/manifest.mjs';
 import { escapeOutput } from './checks/lib/report.mjs';
 import { spans } from './checks/lib/mutants.mjs';
-import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
+import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, reportOf, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
 import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
-import { newTests, packageOf, safely, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
+import { mayHide, newTests, packageOf, safely, skippedEntry, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
 import { readTestsCanFail, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
 import { isRecordedMajor } from './checks/lib/runner-output.mjs';
 import { readList } from './checks/lib/yaml-list.mjs';
@@ -204,6 +204,7 @@ async function body(root, record, ctx, deadline) {
   }
 
   // §3.5: the listing of each call, and which tests are new.
+  const excused = Boolean(mechanical && !record.mechanicalSpent);
   const units = [];
   for (const [pkg, entries] of byPackage) {
     const scripts = config.runs.get(pkg.name) ?? (typeof pkg.json.scripts?.test === 'string' ? [pkg.json.scripts.test] : []);
@@ -232,20 +233,21 @@ async function body(root, record, ctx, deadline) {
       const text = readFileSync(join(ctx.copy, entry.file), 'utf8');
       const read = safely(spans, entry.file, text);
       if (read.unreadable) record.unreadable.push({ file: entry.file, reason: esc(read.unreadable) });
-      const found = newTests(by.tests.filter((t) => t.file === entry.file), read, changedLines(top, record.base, record.head, entry));
-      if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: 'a test it lists is in no test call this step reads (an alias of it or test, or test.extend)' });
-      // A changed call the runner lists no test in is the owner's skip only when its own text says so (§3.5).
-      for (const { line, skip, read: known } of found.unlisted) {
-        record.notJudged.push(skip
-          ? { file: entry.file, name: null, why: 'skipped', detail: `the runner lists no test in the call at line ${line}: skipped or todo before it runs` }
-          : { file: entry.file, name: null, why: 'narrowed', detail: known ? `the runner lists no test in the call at line ${line}, and its call holds no skip` : `the call at line ${line} is not one this step reads as a test, and the runner lists no test in it` });
-      }
+      const lines = changedLines(top, record.base, record.head, entry);
+      const listedHere = by.tests.filter((t) => t.file === entry.file);
+      // The listing leaves out a test skipped before it runs: where one may hide, the clean run's report says (§3.5).
+      const report = !excused && mayHide(listedHere, read, lines, text) ? await reportOf(ctx, { ...by.unit, file: entry.file }) : null;
+      const found = newTests(report?.loaded ? report.tests : listedHere, read, lines);
+      if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)' });
+      // A new test the clean run skips is not judged (§3.8).
+      for (const g of found.groups.filter((x) => !x.run)) record.notJudged.push(skippedEntry(entry.file, g));
       if (found.outside && !entry.added) record.outsideAnyTest.push({ file: entry.file });
-      if (found.groups.length) units.push({ ...by.unit, file: entry.file, text, expects: read.unreadable ? [] : read.expects, groups: found.groups });
+      const run = found.groups.filter((g) => g.run);
+      if (run.length) units.push({ ...by.unit, file: entry.file, text, expects: read.unreadable ? [] : read.expects, groups: run, first: report ?? undefined });
     }
   }
 
-  if (mechanical && !record.mechanicalSpent) {
+  if (excused) {
     record.mechanical = true;
     const detail = `${mechanical.reason} (until ${mechanical.expires})`;
     for (const unit of units) for (const g of unit.groups) record.notJudged.push({ file: unit.file, name: g.name, why: 'mechanical', detail });

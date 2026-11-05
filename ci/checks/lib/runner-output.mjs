@@ -50,7 +50,7 @@ export function readResult(value, pkg, version) {
       if (!isObject(a) || typeof a.title !== 'string' || typeof a.status !== 'string') throw shape(RESULT, pkg, version);
       const messages = a.failureMessages ?? [];
       if (a.status === 'failed' && (!Array.isArray(messages) || !messages.length || messages.some((m) => typeof m !== 'string'))) throw shape(RESULT, pkg, version);
-      return { name: titleOf(a), status: a.status, failureMessages: messages };
+      return { name: titleOf(a), status: a.status, failureMessages: messages, line: Number.isInteger(a.location?.line) ? a.location.line : null };
     });
     // A file that failed with no test in it did not load: a change broke it, or it never could load.
     return { file: file.name, loaded: !(file.status === 'failed' && tests.length === 0), tests };

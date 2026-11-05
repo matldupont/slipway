@@ -35,6 +35,13 @@ const outsideOptions = (word) => {
   const name = bare.startsWith('no-') ? bare.slice(3) : bare.split('=')[0];
   return name.includes('_') || name.split('.').some((key) => OBJECT_KEYS.has(key) || OBJECT_KEYS.has(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())));
 };
+// `--no-<option>.<key>` hands the runner an object for that option, which it reads as set: the option it names.
+const negated = (word) => {
+  const name = word.startsWith('--no-') ? word.slice(5).split('=')[0] : '';
+  if (!name.includes('.')) return null;
+  const base = name.split('.')[0];
+  return base.length === 1 ? `-${base}` : `--${base.replace(/-([a-z])/g, (_, c) => c.toUpperCase())}`;
+};
 const oneLetter = (word) => (/^--[A-Za-z](=|$)/.test(word) ? word.slice(1) : word);
 // Flags whose value is the config file or the folder the runner starts from: it stays inside the package. Other
 // flags that name a path (setup files, a node flag) are not read here.
@@ -81,6 +88,7 @@ export function runnerCall(script) {
       if (!word.includes('=') && !words[at]?.startsWith('-')) at += 1;
       continue;
     }
+    if (negated(word) && refused(negated(word))) return { unreadable: `it passes ${word.split('=')[0]}, which changes which tests a one-file run executes` };
     if (refused(name) || refused(word) || clusterWithT(word)) return { unreadable: `it passes ${clusterWithT(word) ? word.split('=')[0] : name}, which changes which tests a one-file run executes` };
     if (clusterWithPath(word)) return { unreadable: `it passes ${word.split('=')[0]}, which names the root or config inside a cluster of flags` };
     if (word.includes('=') && PATHS.has(name) && leaves(word.slice(word.indexOf('=') + 1))) return { unreadable: `its ${name} names a path outside the package` };

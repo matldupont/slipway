@@ -154,7 +154,7 @@ test('spans() gives the lines of each test call and each expect call, and none f
   assert.deepEqual(spans('tests.fixture.ts', fixture('tests.fixture.ts')), {
     tests: [{ first: 8, last: 10, skip: false }, { first: 11, last: 19, skip: true }, { first: 20, last: 26, skip: false }],
     expects: [{ first: 9, last: 9 }, { first: 12, last: 17 }, { first: 25, last: 25 }],
-    others: [],
+    imports: [{ first: 1, last: 1 }],
   });
 });
 

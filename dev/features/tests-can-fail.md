@@ -270,7 +270,8 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    `--outputFile` are dropped from what is read, since the step gives its own. A flag whose name, before
    any `=` (past a leading `no-`, the whole word) and read as the parser writes it, would land outside the options the runner reads or in its list of
    file filters is not read either, nor a word made only of dashes, after which the runner reads no option: no
-   option of Vitest 4 or 5 is named either way (#652).
+   option of Vitest 4 or 5 is named either way. Nor is a refused option negated with a key after it, which hands
+   the runner an object it reads as that option set (#652).
 
    `ci/tests-can-fail.yaml`, when it exists (§6), is one list read by `readList` in strict mode:
 
@@ -319,16 +320,20 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    the entry's reason. The listing names no test that is skipped or `todo` before it runs, so a file whose
    every test is skipped lists nothing and is `never-run` too: the step cannot tell it from a file no run
    picks up, and fails closed (the owner's call, 2026-11-04, #633). Its message names both causes (§5); a
-   skipped test in a file the runner lists is `skipped` (step 8). A changed test call the listing names no
-   test in is `skipped` only when its own text, or a `describe` whose function it sits in, carries `.skip`,
-   `.todo`, `skipIf` or `runIf`; a `.only` on the same call, `skipIf(false)` and `runIf(true)` skip nothing, as
-   in Vitest. A test is read through a namespace or a global (`v.it`), an optional call, a TypeScript assertion
-   or a sequence. Any other was left out by something its text does not hold (a filter in the package's call or
-   config, a `.only` beside it) and is not judged: `narrowed`, a reason the owner did not give. A call shaped
-   like a test that the step cannot read as one is such a call: a callee naming `it` or `test` in a form it does
-   not read, or a name and then a function on an alias of either (a name the file sets from `it` or `test`, or
-   imports from `vitest` under another name) or on a chain with a modifier or a computed key; a helper or a
-   route on another name is not one, with no skip in its text (the owner's calls, 2026-11-04 and 2026-11-05, #652). Any other changed test file no call lists is not a test (a helper or a data file
+   skipped test in a file the runner lists is `skipped` (step 8). The listing leaves those tests out, so
+   where it may hide one (a changed line, not blank and in no import, outside every call it places a test in,
+   or a file the parser cannot read) the step reads the runner's own report of one clean run of the file: run
+   with `--reporter=json`, `--outputFile` at a path the step gives and `--includeTaskLocation`, read from that
+   file and never from what the run prints, since a test can print text shaped like a report. The report lists
+   every test the runner collects, a skipped one included, with its line, and that run is the file's baseline
+   too (§3.8). A report that is missing, does not parse, or gives a test no line stops the run: it is never a
+   pass. A new test is one the report places in a changed call, by the rule above. One the clean run skips is
+   `skipped` only when its own call, or a `describe` whose function it sits in, carries `.skip`, `.todo`,
+   `skipIf` or `runIf`; a `.only` on the same call, and a condition whose text skips nothing (`skipIf(false)`,
+   `runIf(1)`), skip nothing, as in Vitest. Any other was skipped by something its text does not hold (a
+   filter in the package's call or config, a `.only` beside it, a hook) and is not judged: `narrowed`, a
+   reason the owner did not give; one whose call the step cannot read for a skip is `narrowed` too (the
+   owner's calls, 2026-11-04 and 2026-11-05, #652). Any other changed test file no call lists is not a test (a helper or a data file
    under `__tests__/`, a `*.test.*` file in another language in a package that uses Vitest): it is no
    finding, and the record names it for the summary's "{n} changed files under a test name or folder are not
    tests".
@@ -532,8 +537,8 @@ The fix is printed on its own `Fix:` line.
 - `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass, for {k} reasons: each
   test's not-judged warning says why and what to do. `` Fix: `` Read each test's not-judged warning and do what it
   says, or excuse a test file in `ci/exceptions.yaml` with a date. `` When `narrowed` is the one reason, the fix is
-  `` Remove the filter or `.only` that leaves the new tests out, or write each as `it(…)` with any skip on its
-  call, then run `pnpm tests-can-fail`. ``, and beside another `` Remove the filter or `.only` that leaves a test out, and do what
+  `` Remove the filter, `.only` or hook that skips the new tests, or put `.skip` on their calls, then run
+  `pnpm tests-can-fail`. ``, and beside another `` Remove the filter, `.only` or hook that skips a test, and do what
   each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`. `` (#652). Its length is fixed, so
   it fits whatever the record holds; each reason's next action is on the not-judged warning of each test it counts, and only
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
@@ -547,8 +552,8 @@ The fix is printed on its own `Fix:` line.
   changed"; "its subject `{file}` could not be parsed"; "its subject `{file}` is not JavaScript or TypeScript";
   "there is nothing this step can change in `{file}`, which is all it imports"; "every change this step made to
   `{file}` stopped the test file loading"; "it is kept out in `ci/tests-can-fail.yaml`: {reason}"; "its package
-  {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped"; "the runner leaves
-  it out; its call has no skip", or for a call it cannot read "the step cannot read its call as a test"; "excused until
+  {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped"; "the run skips
+  it; its call has no skip", or for a call it cannot read "the run skips it; the step cannot read its call"; "excused until
   {date}: {reason}". Each has its fix, as a finding has, so a not-judged line names what to do too; the
   `other-runner` one names `tests-can-fail#other-runner`.
 - another commit: `` This record is for commit {a}, not the one being checked ({b}). Run
@@ -1261,4 +1266,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-02 · MODIFIED · the review of 0.5 (`docs/reviews/2026-11-02-tests-can-fail-0.5.md`, the last) carried in by the owner's rule: its AR-1, which changed a guarantee, went to the owner, who narrowed it to a Known limitations line with two fixture-backed lines under steps 3 and 5; its AR-2 to AR-7, and W1's third clause it named, are acceptance lines under steps 3, 4 and 5. Version stays 0.5: no Contract, Acceptance or Verify text changed
 - 2026-11-04 · MODIFIED · step 3's corrections from #631's worker, built in #632 on the owner's yes: §2 reads more test forms, an `imports()`, and a text with a line break git does not count as unreadable; a test the runner lists in no call `spans()` reads makes its file's tests new (§3.5); the parser's reason is escaped (§5); runner calls get a fixed environment, and env guards are not changed (§2, §3.4); `no-package` and the record's new fields (§3.3, §3.10); four Known limitations lines. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
 - 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5's findings and warnings take report.mjs's shape (one sentence and a fix that starts with a verb, each at most 160 characters), so its wording is rewritten to fit, with the same facts; `flaky` gains its second cause, `excuse-expired` its words, `nothing-judged` a line of fixed length that points to each test's not-judged warning, where its reason's next action is (AR-5 and the Verify line reworded on the owner's call), and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose; a run stopped at its limit before it marked any test fails on the run (§4, §5, §7), and `pnpm tests-can-fail` judges with `ci/exceptions.yaml` as the commit holds it. Version stays 0.5
-- 2026-11-05 · MODIFIED · #652's corrections, on the owner's calls of 2026-11-04 and 2026-11-05: §3.3 does not read a flag whose name, read as the parser writes it, lands outside the runner's options or in its list of file filters, nor a word made only of dashes; §3.5 makes a changed call the runner left out `skipped` only when its own text or a `describe` around it skips it, and any other, a test-shaped call the step cannot read included, not judged, `narrowed`, a reason added to the closed list that the owner did not give (§4, §5); `nothing-judged` names its next action (§5); §3.8 says so. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
+- 2026-11-05 · MODIFIED · #652's corrections, on the owner's calls of 2026-11-04 and 2026-11-05: §3.3 does not read a flag whose name, read as the parser writes it, lands outside the runner's options or in its list of file filters, nor a word made only of dashes, nor a negated refused option with a key after it; §3.5 reads, where the listing may hide a test, the runner's own report of a clean run from the file it writes, which lists skipped tests with their lines, and stops on a report that is missing, does not parse or lacks a line; a new test the run skips is `skipped` only when its own call or a `describe` around it says skip, any other not judged, `narrowed`, a reason added to the closed list that the owner did not give (§4, §5); `nothing-judged` names its next action (§5); §3.8 says so. The guarantees and Known limitations are unchanged. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do

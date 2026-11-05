@@ -143,17 +143,16 @@ test('a test the runner lists in no call spans() reads (an alias, test.extend) m
   assert.match(record.unreadable.find((u) => u.file === FILE).reason, /an alias of it or test, or test\.extend/);
 });
 
-test('a new test skipped or todo before it runs, which the runner does not list, is not judged, skipped, and named by its line', (t) => {
+test('a new test skipped or todo before it runs, which the runner does not list, is not judged, skipped, and named from the runner\'s report (#652)', (t) => {
   // An old skipped test the change does not touch is not named.
   const old = "\nit.skip('old', () => {});\n";
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: `${testFile(['kept'])}${old}` } });
   t.after(() => p.remove());
   p.commit({ [FILE]: `${testFile(['kept', 'new'])}${old}\nit.skip('later', () => {\n  expect(add(1, 2)).toBe(3);\n});\n\nit.todo('one day');\n` });
   let { record } = p.run();
-  const named = (r) => r.notJudged.map((n) => [n.file, n.why, n.detail]);
-  const at = (file, line) => [file, 'skipped', `the runner lists no test in the call at line ${line}: skipped or todo before it runs`];
+  const named = (r) => r.notJudged.map((n) => [n.file, n.name, n.why]);
   assert.deepEqual(record.tests.map((x) => x.name), ['new']);
-  assert.deepEqual(named(record), [at(FILE, 14), at(FILE, 18)]);
+  assert.deepEqual(named(record), [[FILE, 'later', 'skipped'], [FILE, 'one day', 'skipped']]);
   // A file whose every test is skipped or todo is listed by no run: never-run, as a file no run picks up is.
   const later = 'pkgs/app/src/later.test.ts';
   p.commit({ [later]: "import { it } from 'vitest';\n\nit.skip('a', () => {});\nit.todo('b');\n" });
@@ -164,5 +163,5 @@ test('a new test skipped or todo before it runs, which the runner does not list,
   const alias = 'pkgs/app/src/alias.test.ts';
   p.commit({ [alias]: "import { test } from 'vitest';\nconst fixtureTest = test.extend({});\n\nfixtureTest('aliased', () => {});\ntest.todo('soon');\n" });
   ({ record } = p.run());
-  assert.deepEqual(named(record).filter(([file, why]) => file === alias && why === 'skipped'), [at(alias, 5)]);
+  assert.deepEqual(named(record).filter(([file, , why]) => file === alias && why === 'skipped'), [[alias, 'soon', 'skipped']]);
 });

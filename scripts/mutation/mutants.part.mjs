@@ -44,36 +44,22 @@ test('no change is made in a guard that reads the environment; the rest of the f
   assert.ok(mutants('a.js', 'if (env.X) f();').some((c) => c.kind === 'condition'), 'a name that is not process.env is changed');
 });
 
-test('spans() marks a test skip only when its own call or a describe around it says skip, todo, skipIf or runIf (#652)', () => {
+test('spans() marks a test skip only when its own call or a describe whose function it sits in says skip, todo, skipIf or runIf (#652)', () => {
   const code = [
     "it('a', () => {});", "it.skip('b', () => {});", "it.todo('c');", "it.skipIf(x)('d', () => {});", "it.runIf(x).each([1])('e', () => {});",
     "describe.skip('s', () => {", "  it('f', () => { on('x', () => {}); });", "});", "describe.skipIf(x)('t', () => { describe('u', () => { it('g', () => {}); }); });",
-    "it('h', { skip: true }, () => {});", "it.only('i', () => {});",
+    "it('h', { skip: true }, () => {});", "it.only('i', () => {});", "describe.shuffle.skip('v', () => { it('j', () => {}); });",
   ].join('\n');
-  assert.deepEqual(spans('a.js', code).tests.map((t) => t.skip), [false, true, true, true, true, true, true, false, false]);
-  assert.deepEqual(spans('a.js', code).others, [], 'a call inside a test is not one');
+  assert.deepEqual(spans('a.js', code).tests.map((t) => t.skip), [false, true, true, true, true, true, true, false, false, true]);
 });
 
-test('spans() gives a call shaped like a test it cannot read as one: an alias of it or test, a marked chain, a computed modifier; never a route, a mock or a helper (#652)', () => {
+test('spans() reads a test through an optional call, a TypeScript assertion or a sequence, never a member on another object; a condition whose text skips nothing is no skip, and .only wins (#652)', () => {
   const code = [
-    "import { it as each, describe } from 'vitest';", "const later = it.skip;", "const adds = (n, f) => it(n, f);", "later('a', () => {});", "myTest.skip('b', async () => {});",
-    "it[mode]('c', function () {});", "each('d', () => {});", "helper.each([1])('e', () => {});", "later('f', fnRef);", "later(name, () => {});",
-    "describe.skip('s', () => { later('g', () => {}); });",
-    // Never one: a route, a mock, a test inside a wrapper, a helper on another name, one inside a hook, the wrapper's own call.
-    "app.get('/x', () => {});", "vi.mock('./x', () => ({}));", "vi['mock']('./y', () => ({}));", "wrap('h', () => { it('i', () => {}); });",
-    "registerHandler('/x', () => {});", "beforeEach(() => { addEventListener('message', () => {}); });", "adds('j', () => {});",
+    "it?.('a', () => {});", "it!('b', () => {});", "(it as any)('c', () => {});", "(0, it)('d', () => {});",
+    "it.runIf(true)('e', () => {});", "it.skipIf(false)('f', () => {});", "it.skipIf(0)('g', () => {});", "it.skipIf()('h', () => {});", "it.runIf(!0)('i', () => {});",
+    "it.only.skip('j', () => {});", "describe.skip('s', () => {}, it('k', () => {}));", "it.skip?.('l', () => {});", "it.runIf(null)('m', () => {});", "it.skipIf(cond)('n', () => {});",
+    "const ok = /^a/.test('abc');", "v.it('o', () => {});", "schema.test('p', 'msg', () => true);", "it.runIf(/darwin/.test(process.platform))('q', () => {});",
   ].join('\n');
-  assert.deepEqual(spans('a.ts', code).others, [4, 5, 6, 7, 8, 9, 10, 11].map((n) => ({ first: n, last: n, skip: n === 11 })));
-});
-
-test('spans() reads a test through a namespace, a global, an optional call, a TypeScript assertion or a sequence, and gives the callee forms it cannot read; skipIf(false), runIf(true) and .only skip nothing (#652)', () => {
-  const code = [
-    "v.it('a', () => {});", "globalThis.test('b', () => {});", "it?.('c', () => {});", "it!('d', () => {});", "(it as any)('e', () => {});", "(0, it)('f', () => {});",
-    "it.runIf(true)('g', () => {});", "it.skipIf(false)('h', () => {});", "it.only.skip('i', () => {});", "describe.skip('s', () => {}, it('j', () => {}));", "it.skip?.('k', () => {});",
-    "it.call(null, 'l', () => {});", "[it][0]('m', () => {});", "later('n', fnRef);", "later(name, () => {});", "const myTest = test.extend({ a: async ({}, use) => use(1) });",
-    "const later = it.skip;",
-  ].join('\n');
-  const read = spans('a.test.ts', code);
-  assert.deepEqual(read.tests.map((t) => [t.first, t.skip]), [[1, false], [2, false], [3, false], [4, false], [5, false], [6, false], [7, false], [8, false], [9, false], [10, false], [11, true]]);
-  assert.deepEqual(read.others.map((o) => o.first), [12, 13, 14, 15]);
+  const tests = spans('a.ts', code).tests.map((t) => [t.first, t.skip]);
+  assert.deepEqual(tests, [[1, false], [2, false], [3, false], [4, false], [5, false], [6, false], [7, false], [8, false], [9, false], [10, false], [11, false], [12, true], [13, true], [14, true], [18, true]]);
 });

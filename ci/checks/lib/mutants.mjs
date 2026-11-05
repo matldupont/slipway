@@ -3,7 +3,7 @@
 // re-exports from. This is the only file that imports the parser. Pure: it reads text it is handed.
 
 import { parse } from './vendor/babel-parser.mjs';
-import { aliasName, body, callChain, skips, SUITES, testShaped, TESTS } from './test-calls.mjs';
+import { body, callChain, skips, SUITES, TESTS } from './test-calls.mjs';
 
 const NOT_SOURCE = 'not JavaScript or TypeScript';
 const SOURCE = /\.(?:[cm]?js|jsx|[cm]?ts|tsx)$/;
@@ -203,40 +203,29 @@ export function mutants(path, text) {
 
 const isExpectCall = (node) => node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'expect';
 
-// The lines of each test call and each expect call. A test is `skip` when its own call, or a describe around it, skips
-// it (SKIPS); `others` are the test-shaped calls neither holding a test call nor inside one (§3.5).
+// The lines of each test call and each expect call. A test is `skip` when its own call, or a describe whose function
+// it sits in, skips it (test-calls.mjs's SKIPS; §3.5, §3.8); and the lines of each import declaration.
 export function spans(path, text) {
   const program = read(path, text);
   if (program.unreadable) return program;
   const lineAt = lineIndex(text);
   const tests = [];
   const expects = [];
-  const shaped = [];
   const skipping = [];
-  const aliases = new Set(program.body.flatMap(aliasName));
   const at = (node) => ({ first: lineAt(node.start), last: lineAt(node.end - 1), start: node.start, end: node.end });
   walk(program, (node) => {
-    for (const name of aliasName(node)) aliases.add(name);
     const chain = callChain(node);
     if (chain && TESTS.has(chain.base)) tests.push({ ...at(node), skip: skips(chain) });
     else if (chain && SUITES.has(chain.base)) {
       const fn = skips(chain) && body(node);
       if (fn) skipping.push(at(fn));
     } else if (isExpectCall(node)) expects.push(at(node));
-    else {
-      const s = testShaped(node);
-      if (s) shaped.push({ ...at(node), ...s });
-    }
   });
-  const inside = (a, b) => b.start <= a.start && a.end <= b.end;
-  const kept = shaped.filter((s) => s.marked || aliases.has(s.root));
-  const others = kept.filter((o) => !tests.some((t) => inside(t, o) || inside(o, t)) && !kept.some((s) => s !== o && inside(o, s)));
   const lines = ({ first, last }) => ({ first, last });
-  const skipped = (c) => skipping.some((s) => inside(c, s));
   return {
-    tests: tests.map((t) => ({ ...lines(t), skip: t.skip || skipped(t) })),
+    tests: tests.map((t) => ({ ...lines(t), skip: t.skip || skipping.some((s) => s.start <= t.start && t.end <= s.end) })),
     expects: expects.map(lines),
-    others: others.map((o) => ({ ...lines(o), skip: skipped(o) })),
+    imports: program.body.filter((n) => n.type === 'ImportDeclaration').map((n) => lines(at(n))),
   };
 }
 

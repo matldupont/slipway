@@ -6,6 +6,7 @@ import { join, posix } from 'node:path';
 import { discoverWorkspace } from './workspace.mjs';
 import { imports, mutants, reExports } from './mutants.mjs';
 import { EXTENSIONS, looksLikeTest } from './mutation-git.mjs';
+import { notRun } from './runner-output.mjs';
 
 // §3.6: code written for the tests, never a subject. The list is closed: it changes by an edit to the Contract.
 const SUPPORT_DIRS = new Set(['__tests__', '__mocks__', '__fixtures__', 'test', 'tests', 'fixtures', 'mocks']);
@@ -48,36 +49,50 @@ export const packageOf = (packages, file) => packages.find((p) => p.dir === '' |
 export const within = (pkg, file) => (pkg.dir ? file.slice(pkg.dir.length + 1) : file);
 
 /**
- * The new tests of one listed test file (§3.5). A test is new when a changed line falls inside its own call, or a
- * hunk that only removes lines sits inside it; tests listed on one call are one group. When `read` is unreadable, or
- * a listed test falls inside no call spans() knows (an alias, test.extend), every test of the file is new.
- * @param {Array<{ name: string, line: number }>} listed
- * @returns {{ groups: Array<{ name: string, line: number, names: Set<string> }>, outside: boolean, every: boolean,
- *   unlisted: Array<{ line: number, skip: boolean }> }}
+ * The new tests of one test file (§3.5), from the runner's report of a clean run (or its listing, when the file did
+ * not load). A test is new when a changed line falls inside its own call, or a hunk that only removes lines sits inside
+ * it; tests on one call are one group. When `read` is unreadable, or a test falls inside no call spans() knows (an
+ * alias, test.extend), every test of the file is new. A group is `run` when the clean run ran one of its tests, and
+ * `skip` when its call, or a describe around it, says skip; `read` when the step found its call.
+ * @param {Array<{ name: string, line: number, status?: string }>} reported
+ * @returns {{ groups: Array<{ name: string, line: number, names: Set<string>, run: boolean, skip: boolean, read: boolean }>, outside: boolean, every: boolean }}
  */
-export function newTests(listed, read, { added, removedAfter }) {
+export function newTests(reported, read, { added, removedAfter }) {
   const calls = read.unreadable ? [] : read.tests;
   const callOf = (line) => calls.filter((c) => line >= c.first && line <= c.last).sort((a, b) => a.last - a.first - (b.last - b.first))[0] ?? null;
-  const every = Boolean(read.unreadable) || listed.some((t) => !callOf(t.line));
+  const every = Boolean(read.unreadable) || reported.some((t) => !callOf(t.line));
   const groups = new Map();
-  for (const t of listed) {
-    const call = every ? null : callOf(t.line);
+  for (const t of reported) {
+    const found = callOf(t.line);
+    const call = every ? null : found;
     const key = call ? call.first : t.line;
-    const group = groups.get(key) ?? { name: t.name, line: key, names: new Set(), call };
+    const group = groups.get(key) ?? { name: t.name, line: key, names: new Set(), call, run: false, skip: found?.skip === true, read: Boolean(found) };
     group.names.add(t.name);
+    group.run ||= t.status === undefined || !notRun(t.status);
     groups.set(key, group);
   }
   const marks = (call) => [...added].some((n) => n >= call.first && n <= call.last) || removedAfter.some((n) => n >= call.first && n + 1 <= call.last);
   const fresh = [...groups.values()].filter((g) => every || marks(g.call));
   const inAnyCall = (n) => calls.some((c) => n >= c.first && n <= c.last);
   const outside = !every && ([...added].some((n) => !inAnyCall(n)) || removedAfter.some((n) => !calls.some((c) => n >= c.first && n + 1 <= c.last)));
-  // A changed call the runner lists no test in (§3.8), a test-shaped one it cannot read included: `skip` when the
-  // call's own text, or a describe around it, skips it.
-  const others = read.unreadable ? [] : read.others;
-  const unlisted = [...calls, ...others].filter((c) => marks(c) && !listed.some((t) => t.line >= c.first && t.line <= c.last))
-    .map((c) => ({ line: c.first, skip: c.skip === true, read: calls.includes(c) })).sort((a, b) => a.line - b.line);
-  return { groups: fresh.map(({ name, line, names, call }) => ({ name, line, names, skip: call?.skip === true })), outside, every, unlisted };
+  return { groups: fresh.map(({ name, line, names, run, skip, read: known }) => ({ name, line, names, run, skip, read: known })), outside, every };
 }
+
+// §3.5: whether the listing can have left a new test out: a changed line, not blank and in no import, outside every
+// call it places a test in, or a file spans() cannot read. Only then is the runner's report of a clean run read, so
+// finding a test needs no form of call.
+export function mayHide(listed, read, { added, removedAfter }, text) {
+  if (read.unreadable) return true;
+  const lines = text.split('\n');
+  const covered = [...read.tests.filter((c) => listed.some((t) => t.line >= c.first && t.line <= c.last)), ...read.imports];
+  return [...added, ...removedAfter].some((n) => (lines[n - 1] ?? '').trim() !== '' && !covered.some((c) => n >= c.first && n <= c.last));
+}
+
+// §3.8: a new test the clean run skips is the owner's skip only when its own call, or a describe around it, says so;
+// any other is narrowed, a reason the owner did not give.
+export const skippedEntry = (file, g) => (g.skip
+  ? { file, name: g.name, why: 'skipped', detail: null }
+  : { file, name: g.name, why: 'narrowed', detail: g.read ? 'the run skips it, and its call holds no skip' : 'the run skips it, in a call this step cannot read for a skip' });
 
 // A relative import, resolved to a tracked file inside the repository: as written, with each extension, `.js` read as
 // its TypeScript source, or as a folder's index.

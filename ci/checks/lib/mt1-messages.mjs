@@ -29,10 +29,10 @@ const REASONS = {
   'other-runner': (d, live) => [`its package ${codeSpan(e(d))} does not use Vitest`, live ? 'Remove it (`tests-can-fail#other-runner` in `ci/exceptions.yaml`) once the package moves to Vitest.' : 'Move the package to Vitest, or excuse its runner with `tests-can-fail#other-runner` in `ci/exceptions.yaml`.'],
   'no-package': () => ['it is in no package of the workspace', 'Rename or move it into a package of the workspace, so a run finds it.'],
   skipped: () => ['it is skipped', `Remove the skip, then ${AGAIN} so the test is judged.`],
-  // §3.5, §3.8: left out, and no skip on its own call or a describe around it says why; or a call this step cannot read.
-  narrowed: (d) => (String(d ?? '').includes('not one this step reads')
-    ? ['the step cannot read its call as a test', `Write it as \`it(…)\` or \`test(…)\`, any \`.skip\` on that call, then ${AGAIN}.`]
-    : ['the runner leaves it out; its call has no skip', `Remove the config or script filter, or \`.only\`, that drops it, then ${AGAIN}.`]),
+  // §3.5, §3.8: the clean run skips it, and no skip on its own call or a describe around it says why.
+  narrowed: (d) => (String(d ?? '').includes('cannot read')
+    ? ['the run skips it; the step cannot read its call', `Write it as \`it(…)\` or \`test(…)\`, any \`.skip\` on that call, then ${AGAIN}.`]
+    : ['the run skips it; its call has no skip', `Remove the filter, \`.only\` or hook skipping it, or mark its call \`.skip\`, then ${AGAIN}.`]),
   mechanical: (d) => [`this pull request is excused as a mechanical change ${untilReason(d)}`, 'Remove it from `ci/exceptions.yaml` in the next pull request, as it counts only in this one.'],
   excused: (d) => [`excused ${untilReason(d)}`, 'Remove its entry from `ci/exceptions.yaml` once the test checks what the code does.'],
   // §3.8's notJudged flaky: red, then green, before any change. The tests state `flaky` (§3.9) is a finding, worded apart.
@@ -107,8 +107,8 @@ export function nothingJudged(counted, total) {
     fix: !counted.narrowed
       ? 'Read each test\'s not-judged warning and do what it says, or excuse a test file in `ci/exceptions.yaml` with a date.'
       : k === 1
-        ? `Remove the filter or \`.only\` that leaves the new tests out, or write each as \`it(…)\` with any skip on its call, then ${AGAIN}.`
-        : 'Remove the filter or `.only` that leaves a test out, and do what each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`.',
+        ? `Remove the filter, \`.only\` or hook that skips the new tests, or put \`.skip\` on their calls, then ${AGAIN}.`
+        : 'Remove the filter, `.only` or hook that skips a test, and do what each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`.',
   };
 }
 

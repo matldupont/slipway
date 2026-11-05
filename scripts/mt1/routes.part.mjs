@@ -30,14 +30,14 @@ for (const [what, script] of [
   });
 }
 
-const NARROWED = [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed`]];
+const NARROWED = [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed/adds`]];
 for (const [what, o, adds] of [
   ['a name filter in the Vitest config', { config: { namePattern: '^old$' } }, it('adds')],
   ['a value on a true/false flag (the runner keeps it as a file:line filter)', { test: 'vitest run --passWithNoTests=src/cart.test.ts:4' }, it('adds')],
   ['a tags filter in the Vitest config', { config: { tagsFilter: ['old'] }, base: HEAD + it('old', "{ tags: ['old'] }, ") }, it('adds')],
   ['a tag the Vitest config skips', { config: { tags: [{ name: 'slow', skip: true }] } }, it('adds', "{ tags: ['slow'] }, ")],
-  ['an alias of it.skip the step cannot read', { fix: /^Write it as `it\(…\)` or `test\(…\)`/ }, `const later = it.skip;\nlater('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
-  ['a test called through a namespace import', { config: { namePattern: '^old$' } }, `import * as v from 'vitest';\nv.it('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['an alias of it.skip the step cannot read', { config: { aliases: ['later'], tests: { adds: { skipped: true } } }, want: [1, [`${FILE}:4#kills-nothing`], [`${FILE}#not-judged/narrowed/adds`, `${FILE}#unreadable`]], fix: /^Write it as `it\(…\)` or `test\(…\)`/ }, `const later = it.skip;\nlater('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['a test called through a namespace import', { config: { namePattern: '^old$', aliases: ['v'] }, want: [1, [`${FILE}:4#kills-nothing`], [`${FILE}#not-judged/narrowed/adds`, `${FILE}#unreadable`]], fix: /^Write it as `it\(…\)` or `test\(…\)`/ }, `import * as v from 'vitest';\nv.it('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
   ['an optional call of it', { config: { namePattern: '^old$' } }, `it?.('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
   ['a .only on the test the base has', { base: HEAD + `it.only('old', () => {\n  expect(add(1, 2)).toBe(3);\n});\n` }, it('adds')],
   ['a skipIf(false), which skips nothing', { config: { namePattern: '^old$' } }, `it.skipIf(false)('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
@@ -47,9 +47,9 @@ for (const [what, o, adds] of [
     removeAll(t, p);
     p.commit({ [FILE]: `${o.base ?? testFile(['old'])}\n${adds}` });
     const r = mt1(p);
-    assert.deepEqual([r.status, r.ids, r.warned], NARROWED, r.out);
-    assert.match(r.json.warnings[0].fix, o.fix ?? /^Remove the config or script filter, or `\.only`, that drops it/);
-    assert.match(r.json.findings[0].fix, /^Remove the filter or `\.only` that leaves the new tests out/);
+    assert.deepEqual([r.status, r.ids, r.warned.sort()], o.want ?? NARROWED, r.out);
+    assert.match(r.json.warnings.find((w) => w.where.includes('narrowed')).fix, o.fix ?? /^Remove the filter, `\.only` or hook skipping it, or mark its call `\.skip`/);
+    if (!o.want) assert.match(r.json.findings[0].fix, /^Remove the filter, `\.only` or hook that skips the new tests/);
   });
 }
 
@@ -58,7 +58,7 @@ test('beside a narrowed test, one its own call skips stays the owner\'s skip (#6
   removeAll(t, p);
   p.commit({ [FILE]: `${testFile(['old', 'adds'])}\nit.skip('later', () => {});\n` });
   const r = mt1(p);
-  assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed`, `${FILE}#not-judged/skipped`]], r.out);
+  assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed/adds`, `${FILE}#not-judged/skipped/later`]], r.out);
 });
 
 test('a new test inside describe.skip is the owner\'s skip: the run passes, naming it (#652)', (t) => {
@@ -66,7 +66,7 @@ test('a new test inside describe.skip is the owner\'s skip: the run passes, nami
   removeAll(t, p);
   p.commit({ [FILE]: `${HEAD}${it('old')}\ndescribe.skip('later', () => {\n  ${it('adds').trimEnd().split('\n').join('\n  ')}\n});\n` });
   const r = mt1(p);
-  assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped`]], r.out);
+  assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped/adds`]], r.out);
 });
 
 test('a new test the run skips with no skip on its own call is narrowed, never the owner\'s skip (#652)', (t) => {
@@ -85,3 +85,20 @@ test('a new test the run skips whose own call says skipIf stays the owner\'s ski
   const r = mt1(p);
   assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped/adds`]], r.out);
 });
+
+// §3.5: where the listing may hide a test (here a changed line outside every listed test), the clean run's report is
+// read from the file the runner writes. One missing, one that does not parse, or one without a test's line stops the run.
+for (const [what, config, says] of [
+  ['writes no report', { noResult: true }, /wrote no report of `pkgs\/app\/src\/cart\.test\.ts` at the path this step gave it/],
+  ['writes a report that does not parse', { badReport: true }, /wrote no report of `pkgs\/app\/src\/cart\.test\.ts` at the path this step gave it/],
+  ['reports a test with no line', { noReportLine: true }, /report of `pkgs\/app\/src\/cart\.test\.ts` gives no line for "old"/],
+]) {
+  test(`a runner that ${what} stops the run, never a pass (#652)`, (t) => {
+    const p = routed({ config });
+    removeAll(t, p);
+    p.commit({ [FILE]: `${testFile(['old', 'adds'])}\nconst later = 1;\n` });
+    const r = mt1(p);
+    assert.equal(r.status, 2, r.out);
+    assert.match(r.out, says);
+  });
+}
