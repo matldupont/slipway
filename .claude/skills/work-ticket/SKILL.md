@@ -85,7 +85,7 @@ PHASE 1: CAN IT START
 Issue:        #{n} — {title} · lane {lane}
 Requirement:  {F-ID | feature doc | parent #n} | none — asked
 Milestone:    {id, in its Contents} | none by design — "{Milestone roadmap, quoted}" | outside or none active — asked
-Dependencies: {#n closed ✓ | PR #n merged ✓ | #n OPEN ✗ | PR #n closed unmerged ✗} | none
+Dependencies: {#n closed ✓ | PR #n merged ✓ | #n OPEN ✗ | PR #n closed unmerged ✗ | #n not found ✗} | none
 Code claims:  re-verified @ {sha} | refuted: {what the code does} | none
 Overlap:      {PR or issue #n on {path} | recent commits on {path}} | none
 Too much:     {flags} | none
