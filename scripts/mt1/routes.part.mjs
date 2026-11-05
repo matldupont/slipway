@@ -19,6 +19,7 @@ for (const [what, script] of [
   ['a file filter set through the parser\'s list of left-behind words', 'vitest run --_=src/other.test.ts'],
   ['a plain -t', 'vitest run -t=nomatch'],
   ['a bare --', 'vitest run --'],
+  ['a refused option negated with a dotted key', 'vitest run --no-testNamePattern.x'],
 ]) {
   test(`${what} in the test script is refused: the run stops, never a pass (#652)`, (t) => {
     const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: script, config: { tests: { adds: { failsWhen: CHANGED } } } });
