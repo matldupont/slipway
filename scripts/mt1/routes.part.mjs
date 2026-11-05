@@ -50,7 +50,7 @@ for (const [what, o, adds] of [
     const r = mt1(p);
     assert.deepEqual([r.status, r.ids, r.warned.sort()], o.want ?? NARROWED, r.out);
     assert.match(r.json.warnings.find((w) => w.where.includes('narrowed')).fix, o.fix ?? /^Remove the filter, `\.only` or hook skipping it, or mark its call `\.skip`/);
-    if (!o.want) assert.match(r.json.findings[0].fix, /^Remove what keeps each new test from running, as its not-judged warning says/);
+    if (!o.want) assert.match(r.json.findings[0].fix, /^Read each new test's not-judged warning and do what it says, so it runs/);
   });
 }
 
@@ -185,4 +185,14 @@ test('beside an alias test, under the mechanical excuse, a new test the listing 
   const r = mt1(p);
   assert.ok(r.warned.includes(`${FILE}#not-judged/mechanical`), r.out);
   assert.equal(r.status, 0, r.out);
+});
+
+// An import covers only the lines it has alone: a skip the step cannot read, written beside one, reads the report.
+test('a skip the step cannot read, on the line of an import, is narrowed (#652)', (t) => {
+  const base = `${HEAD}const fixtureTest = it;\n${it('old')}`;
+  const p = routed({ base, config: { tests: { old: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${base}fixtureTest.skip('adds', () => {}); import { add as plus } from './cart';\n` });
+  const r = mt1(p);
+  assert.ok(r.warned.includes(`${FILE}#not-judged/narrowed/adds`), r.out);
 });

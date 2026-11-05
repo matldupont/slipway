@@ -262,3 +262,9 @@ test('mayHide: a changed line in a test call the listing places no test in, on a
   // A blank line added inside a listed test, or a removal inside one, leaves nothing hidden.
   assert.equal(mayHide([{ line: 2 }, { line: 3 }], spans('a.test.ts', afterBlank), { added: new Set([5]), removedAfter: [4] }, afterBlank), false);
 });
+
+test('spans: an import counts only for the lines it has alone (#652)', () => {
+  const text = "import { it } from 'vitest';\nlater.skip('adds', () => {}); import { a } from './a';\nimport { b } from './b'; // why\n";
+  assert.deepEqual(spans('a.test.ts', text).imports, [{ first: 1, last: 1 }, { first: 3, last: 3 }]);
+  assert.equal(mayHide([], spans('a.test.ts', text), { added: new Set([2]), removedAfter: [] }, text), true);
+});

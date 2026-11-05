@@ -95,9 +95,9 @@ test('a new test the runner leaves out with no skip in its text is narrowed, whi
   // Its warning, past the file it names, is 160 characters at most, and says what to do; nothing-judged names it too.
   // Past the file and the test it names, each warning is 160 characters at most.
   for (const w of [alone.warnings[0], unread.warnings[0]]) assert.ok(w.detail.replace(`\`${narrowed.file}\` › "adds"`, '').length + 1 + w.fix.length <= 160, w.detail);
-  assert.match(alone.findings[0].fix, /^Remove what keeps each new test from running, as its not-judged warning says/);
+  assert.match(alone.findings[0].fix, /^Read each new test's not-judged warning and do what it says, so it runs or is skipped by its own call/);
   const mixed = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed, nj('no-subject')] }));
-  assert.match(mixed.findings[0].fix, /^Remove what skips each new test, or put `\.skip` on its call, and do what each other not-judged warning says/);
+  assert.match(mixed.findings[0].fix, /^Read each not-judged warning and do what it says, so each new test runs or is skipped by its own call, or excuse/);
   for (const f of [alone.findings[0], mixed.findings[0]]) assert.ok(f.fix.length <= 160, f.fix);
   const beside = judge(rec({ changedTestFiles: [FILE], tests: [judged()], notJudged: [narrowed] }));
   assert.deepEqual([beside.exit, beside.ids], [0, []]);

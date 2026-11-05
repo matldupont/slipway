@@ -109,8 +109,8 @@ export function nothingJudged(counted, total) {
     fix: !counted.narrowed
       ? 'Read each test\'s not-judged warning and do what it says, or excuse a test file in `ci/exceptions.yaml` with a date.'
       : k === 1
-        ? `Remove what keeps each new test from running, as its not-judged warning says, or put \`.skip\` on its call, then ${AGAIN}.`
-        : 'Remove what skips each new test, or put `.skip` on its call, and do what each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`.',
+        ? `Read each new test's not-judged warning and do what it says, so it runs or is skipped by its own call, then ${AGAIN}.`
+        : 'Read each not-judged warning and do what it says, so each new test runs or is skipped by its own call, or excuse its file in `ci/exceptions.yaml` with a date.',
   };
 }
 
