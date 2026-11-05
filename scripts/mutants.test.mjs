@@ -15,6 +15,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { parse } from '../ci/checks/lib/vendor/babel-parser.mjs';
 import { imports, mutants, OTHER_BREAK_REASON, reExports, spans } from '../ci/checks/lib/mutants.mjs';
+import { mayHide } from '../ci/checks/lib/mutation-tests.mjs';
 
 const VENDOR = fileURLToPath(new URL('../ci/checks/lib/vendor/', import.meta.url));
 const PARSER = '7d39f3039056b4e4e05daecd69c4391beeed1769429128a2ba3d3113dffe4072';
@@ -249,4 +250,15 @@ test('every extension of the list is read, and decorators and plain JavaScript a
 test('a very wide array is read, not a crash', () => {
   assert.equal(mutants('a.js', `x = [${'true,'.repeat(200000)}];`).length, 200000);
   assert.equal(spans('a.js', 'x;\n'.repeat(200000)).tests.length, 0);
+});
+
+// §3.5 (#652): where the listing may hide a new test, by spans() on real text: a changed line inside a test call the
+// listing places no test in, even on an import's line or after a blank one, reads the runner's report.
+test('mayHide: a changed line in a test call the listing places no test in, on an import line or after a blank one', () => {
+  const onImport = "import { it } from 'vitest'; it.skip('adds', () => {});\nit('old', () => {});\n";
+  assert.equal(mayHide([{ line: 2 }], spans('a.test.ts', onImport), { added: new Set([1]), removedAfter: [] }, onImport), true);
+  const afterBlank = "import { it } from 'vitest';\nit('old', () => {});\nit('adds', () => {\n  const x = 1;\n\n});\n";
+  assert.equal(mayHide([{ line: 2 }], spans('a.test.ts', afterBlank), { added: new Set(), removedAfter: [5] }, afterBlank), true);
+  // A blank line added inside a listed test, or a removal inside one, leaves nothing hidden.
+  assert.equal(mayHide([{ line: 2 }, { line: 3 }], spans('a.test.ts', afterBlank), { added: new Set([5]), removedAfter: [4] }, afterBlank), false);
 });
