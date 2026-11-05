@@ -18,7 +18,7 @@ for (const [what, script] of [
   ['a name filter set through the prototype key', 'vitest run --__proto__.testNamePattern=nomatch'],
   ['a file filter set through the parser\'s list of left-behind words', 'vitest run --_=src/other.test.ts'],
   ['a plain -t', 'vitest run -t nomatch'],
-  ['a bare --, after which the runner reads no option', 'vitest run --'],
+  ['a bare --', 'vitest run --'],
 ]) {
   test(`${what} in the test script is refused: the run stops, never a pass (#652)`, (t) => {
     const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: script, config: { tests: { adds: { failsWhen: CHANGED } } } });
@@ -33,7 +33,7 @@ for (const [what, script] of [
 const NARROWED = [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed`]];
 for (const [what, o, adds] of [
   ['a name filter in the Vitest config', { config: { namePattern: '^old$' } }, it('adds')],
-  ['a value on a true/false flag, which the runner keeps as a file:line filter', { test: 'vitest run --passWithNoTests=src/cart.test.ts:4' }, it('adds')],
+  ['a value on a true/false flag (the runner keeps it as a file:line filter)', { test: 'vitest run --passWithNoTests=src/cart.test.ts:4' }, it('adds')],
   ['a tags filter in the Vitest config', { config: { tagsFilter: ['old'] }, base: HEAD + it('old', "{ tags: ['old'] }, ") }, it('adds')],
   ['a tag the Vitest config skips', { config: { tags: [{ name: 'slow', skip: true }] } }, it('adds', "{ tags: ['slow'] }, ")],
   ['an alias of it.skip the step cannot read', {}, `const later = it.skip;\nlater('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
