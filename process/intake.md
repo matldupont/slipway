@@ -112,7 +112,7 @@ The body reads as the repository's issue form would render it, so the checks tha
   in, and the body says so: `Verified against: <short sha> <yyyy-mm-dd>`, with what was read (L-18). A claim
   that does not survive the re-read is not filed.
 - **Links:** `Part of: #n` for a parent, then `Follows: #n`, `Blocked by: #n`, `Decision: <id>`, and
-  `Lane: trivial | bounded | feature`. A bug adds `Regression of: #n` and `Breaks: #n`.
+  `Lane: trivial | bounded | feature`. A `Blocked by:` number may be an issue or a pull request. A bug adds `Regression of: #n` and `Breaks: #n`.
 - **`Touches:`** (optional, after the ids and before `Lane:`): the files the PR will change, so a reader can tell
   which ready issues are safe to run side by side. Entries are repository paths or globs, comma-separated, each
   made of `A-Z a-z 0-9 . _ - / *`, no `..`, no leading `/`; backticks around an entry are ignored. Write every

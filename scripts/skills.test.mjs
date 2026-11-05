@@ -271,6 +271,27 @@ test('work-ticket\'s Links line says a closing word before an issue number close
   assert.ok(md.trimEnd().split('\n').length <= 300, 'work-ticket must fit in 300 lines');
 });
 
+// #646: a Blocked by number may be a pull request; a merged one clears, an open one stops, one closed unmerged holds.
+test('process/intake.md → Links says a Blocked by number may be an issue or a pull request', () => {
+  const links = (intake.split('\n').find((l) => l.startsWith('- **Links:**')) ?? '') + ' ' + (intake.split('\n')[intake.split('\n').findIndex((l) => l.startsWith('- **Links:**')) + 1] ?? '');
+  assert.match(links.replace(/\s+/g, ' '), /A `Blocked by:` number may be an issue or a pull request\./, 'Links must say a Blocked by number may be a pull request');
+});
+
+test('work-ticket Phase 1 step 3 clears a closed issue or merged pull request, stops on an open one, and holds on a pull request closed unmerged', () => {
+  const step = (read(skillPath('work-ticket')).match(/\n3\. \*\*Dependencies\.\*\*[\s\S]*?\n4\. /)?.[0] ?? '').replace(/\s+/g, ' ');
+  assert.match(step, /an issue or a pull request/, 'step 3 must read a blocker as an issue or a pull request');
+  assert.match(step, /A closed issue or a merged pull request is cleared\./, 'a closed issue or merged pull request must clear');
+  assert.match(step, /An open issue or pull request: stop\./, 'an open issue or pull request must stop');
+  assert.match(step, /`gh pr view \{n\} --repo \{repo\} --json state`, else `gh issue view \{n\} --repo \{repo\} --json state,url`/, 'step 3 must read a pull request first, in the issue repo, with the number as digits');
+  assert.match(step, /A number neither read finds: stop\./, 'a number neither command finds must stop');
+  assert.match(step, /\(`\{n\}`, digits only\)/, 'the blocker number must be digits only');
+  assert.match(step, /a `\/pull\/` url from `gh issue view` is a pull request, never a closed issue/, 'a pull request found through gh issue view must never clear as a closed issue');
+  assert.match(step, /pull request in `\{repo\}`/, 'the blocker is read in the issue repo');
+  const report = section(read(skillPath('work-ticket')), 'Phase 1 — Can it start', 2) ?? '';
+  assert.match(report, /Dependencies: \{#n closed ✓ \| PR #n merged ✓ \| #n OPEN ✗ \| PR #n closed unmerged ✗ \| #n not found ✗\}/, 'the Phase 1 report must have a form for a merged pull request, one closed unmerged and a number not found');
+  assert.match(step, /A pull request closed unmerged holds the ticket: stop with "PR #n closed unmerged; check the wait"/, 'a pull request closed unmerged must hold');
+});
+
 // #437: a PR was marked ready with the pr-body check red; Phase 6 runs P1 on the final body first, intake says the same for a hand-made PR.
 test('work-ticket Phase 6 runs P1 on the final body before `gh pr ready`, and intake.md says the same for a PR made by hand', () => {
   const phase = (section(read(skillPath('work-ticket')), 'Phase 6 — Ready', 2) ?? '').replace(/\s+/g, ' ');
