@@ -24,11 +24,14 @@ const clusterWithPath = (word) => /^-[^-]/.test(word) && word.split('=')[0].leng
 // The parser reads a one-letter flag written with two dashes (`--t`, `--r=x`) as the one-dash flag.
 // It writes a flag's name into the options it hands the runner, split at each `.`, and keeps the words it leaves
 // behind as file filters under `_`. A name holding `_`, or a segment every object already has (`constructor`,
-// `toString`…), is written outside those options or into that list. No option of Vitest 4 or 5 is named either way.
-const OBJECT_KEYS = new Set(Object.getOwnPropertyNames(Object.prototype));
+// `toString`…) or `prototype`, is written outside those options or into that list. Each segment is read as the parser
+// writes it: past a leading `no-`, and with `-x` as `X` (`--no-to-string` is `toString`). No option of Vitest 4 or 5
+// is named any of these ways.
+const OBJECT_KEYS = new Set([...Object.getOwnPropertyNames(Object.prototype), 'prototype']);
 const outsideOptions = (word) => {
   const name = word.split('=')[0];
-  return name.includes('_') || name.replace(/^-+/, '').split('.').some((key) => OBJECT_KEYS.has(key));
+  const keys = name.replace(/^-+/, '').replace(/^no-/, '').split('.');
+  return name.includes('_') || keys.some((key) => OBJECT_KEYS.has(key) || OBJECT_KEYS.has(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())));
 };
 const oneLetter = (word) => (/^--[A-Za-z](=|$)/.test(word) ? word.slice(1) : word);
 // Flags whose value is the config file or the folder the runner starts from: it stays inside the package. Other

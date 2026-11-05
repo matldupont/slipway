@@ -147,13 +147,15 @@ test('each option refused today stays refused when its name is reached another w
   const kebab = (name) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
   for (const name of ['--coverage', '--shard', '--changed', '--bail', '--testNamePattern', '-t', '--related', '--tagsFilter']) {
     const bare = name.replace(/^-+/, '');
-    const forms = [`--__proto__.${bare}=x`, `--constructor.prototype.${bare}=x`, `${kebab(`--${bare}`)}=x`, `--no-__proto__.${bare}`];
+    const forms = [`--__proto__.${bare}=x`, `--constructor.prototype.${bare}=x`, `${kebab(`--${bare}`)}=x`, `--no-__proto__.${bare}`, `--no-constructor.prototype.${bare}`, `--x.prototype.${bare}=x`];
     // A dotted name is the option itself (`--coverage.enabled`); `--t.x` names a key the runner never reads as -t.
     if (bare.length > 1) forms.push(`--${bare}.x=y`);
     else forms.push('-ut=x', '---t=x');
     for (const form of forms) assert.ok(runnerCall(`vitest run ${form}`).unreadable, `${name}: ${form}`);
   }
   for (const key of ['constructor', 'hasOwnProperty', 'toString', 'valueOf', 'isPrototypeOf']) assert.match(runnerCall(`vitest run --${key}=x`).unreadable ?? '', OUTSIDE, key);
+  // The parser writes `--has-own-property` as hasOwnProperty, and `--no-x` as x.
+  for (const form of ['--has-own-property=x', '--to-string=x', '--value-of=x', '--is-prototype-of=x', '--no-to-string', '--no-constructor.x', '--prototype=x']) assert.match(runnerCall(`vitest run ${form}`).unreadable ?? '', OUTSIDE, form);
 });
 
 test('an argument the checks accepted before #652 and the runner reads is still accepted, a _ in its value too', () => {
