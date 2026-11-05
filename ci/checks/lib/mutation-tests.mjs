@@ -75,6 +75,13 @@ export function newTests(listed, read, { added, removedAfter }) {
   return { groups: fresh.map(({ name, line, names }) => ({ name, line, names })), outside, every, unlisted };
 }
 
+// §3.5: of the changed calls the runner lists no test in (newTests' `unlisted`, by first line), the ones a listing of
+// the same file with every name let through lists a test in: a name filter left them out, not a skip or a todo.
+export function narrowedLines(unlisted, read, everyName) {
+  const calls = read.unreadable ? [] : read.tests;
+  return unlisted.filter((first) => calls.some((c) => c.first === first && everyName.some((t) => t.line >= c.first && t.line <= c.last)));
+}
+
 // A relative import, resolved to a tracked file inside the repository: as written, with each extension, `.js` read as
 // its TypeScript source, or as a folder's index.
 function resolve(tracked, fromFile, spec) {

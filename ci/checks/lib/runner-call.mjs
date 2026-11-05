@@ -22,6 +22,14 @@ const clusterWithT = (word) => dashes(word) > 2 || (/^-[^-]/.test(word) && word.
 // A cluster holding `r` or `c` (`-ur=`) names the root or config past the path check below: each flag goes on its own.
 const clusterWithPath = (word) => /^-[^-]/.test(word) && word.split('=')[0].length > 2 && /[rc]/.test(word.split('=')[0]);
 // The parser reads a one-letter flag written with two dashes (`--t`, `--r=x`) as the one-dash flag.
+// It writes a flag's name into the options it hands the runner, split at each `.`, and keeps the words it leaves
+// behind as file filters under `_`. A name holding `_`, or a segment every object already has (`constructor`,
+// `toString`…), is written outside those options or into that list. No option of Vitest 4 or 5 is named either way.
+const OBJECT_KEYS = new Set(Object.getOwnPropertyNames(Object.prototype));
+const outsideOptions = (word) => {
+  const name = word.split('=')[0];
+  return name.includes('_') || name.replace(/^-+/, '').split('.').some((key) => OBJECT_KEYS.has(key));
+};
 const oneLetter = (word) => (/^--[A-Za-z](=|$)/.test(word) ? word.slice(1) : word);
 // Flags whose value is the config file or the folder the runner starts from: it stays inside the package. Other
 // flags that name a path (setup files, a node flag) are not read here.
@@ -61,6 +69,7 @@ export function runnerCall(script) {
     // --outputFile.json=x and --reporter.x are the same flags, keyed by reporter.
     const base = name.split('.')[0];
     if (word === '--watch' || word === '--run') continue;
+    if (word.startsWith('-') && outsideOptions(word)) return { unreadable: `it passes ${word.split('=')[0]}, which the runner's argument parser writes outside its options` };
     if (DROPPED.has(base)) {
       if (!word.includes('=') && !words[at]?.startsWith('-')) at += 1;
       continue;

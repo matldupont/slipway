@@ -3,13 +3,15 @@
 // of config.json beside it. A test is found by a line `it('name'` or `test('name'` (any modifiers or each form) of a
 // `*.test.*` or `*.spec.*` file under the folder it runs in. Each rule is read only by this file.
 //
-// config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], sleepMs, runSleepMs,
+// config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, sleepMs, runSleepMs,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
 //   noFailureMessages }
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
 //   connection: true,
 //   needsFile: "<path from the copy's root>" }
+// namePattern stands for a name filter in the package's Vitest config: `list` gives only the names it matches, unless
+// a `-t` or `--testNamePattern=` argument is given, which Vitest reads over its config.
 // A run is a changed one when a `failsWhen` or `loadFailsWhen` entry holds; the sleeps and the marker read that.
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
@@ -58,8 +60,15 @@ const changed = (rules = []) => rules.some((r) => !(readFileSync(join(copy, r.fi
 
 if (args[0] === 'list') {
   const unlisted = new Set((config.unlisted ?? []).map((f) => join(copy, f)));
+  // The last name filter on the command line wins, `-t <pattern>` or `--testNamePattern=<pattern>`.
+  let pattern = config.namePattern;
+  args.forEach((a, i) => {
+    if (a === '-t') pattern = args[i + 1];
+    else if (a.startsWith('--testNamePattern=')) pattern = a.slice('--testNamePattern='.length);
+  });
+  const named = (t) => pattern === undefined || new RegExp(pattern).test(t.name);
   const listing = files(process.cwd()).filter((f) => !unlisted.has(f)).flatMap((file) =>
-    testsOf(file).map((t) => (config.noLine ? { name: t.name, file } : { name: t.name, file, location: { line: t.line, column: 3 } })));
+    testsOf(file).filter(named).map((t) => (config.noLine ? { name: t.name, file } : { name: t.name, file, location: { line: t.line, column: 3 } })));
   process.stdout.write(JSON.stringify(listing));
   process.exit(0);
 }

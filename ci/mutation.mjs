@@ -14,11 +14,11 @@ import { expiryProblem } from './checks/lib/exceptions.mjs';
 import { trustedGit } from './checks/lib/manifest.mjs';
 import { escapeOutput } from './checks/lib/report.mjs';
 import { spans } from './checks/lib/mutants.mjs';
-import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
+import { argvOf, CALL_LIMIT_MS, esc, EVERY_NAME, leftMessage, listTests, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
 import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
-import { newTests, packageOf, safely, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
+import { narrowedLines, newTests, packageOf, safely, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
 import { readTestsCanFail, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
 import { isRecordedMajor } from './checks/lib/runner-output.mjs';
 import { readList } from './checks/lib/yaml-list.mjs';
@@ -234,7 +234,15 @@ async function body(root, record, ctx, deadline) {
       if (read.unreadable) record.unreadable.push({ file: entry.file, reason: esc(read.unreadable) });
       const found = newTests(by.tests.filter((t) => t.file === entry.file), read, changedLines(top, record.base, record.head, entry));
       if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: 'a test it lists is in no test call this step reads (an alias of it or test, or test.extend)' });
-      for (const line of found.unlisted) record.notJudged.push({ file: entry.file, name: null, why: 'skipped', detail: `the runner lists no test in the call at line ${line}: skipped or todo before it runs` });
+      // A changed call the runner lists no test in is the owner's skip only when a listing that lets every name through
+      // leaves it out too (§3.5); that listing runs once per call, and only when a call is unlisted.
+      if (found.unlisted.length) by.everyName ??= await listTests(ctx, by.unit, [EVERY_NAME]);
+      const narrowed = found.unlisted.length ? narrowedLines(found.unlisted, read, by.everyName.filter((t) => t.file === entry.file)) : [];
+      for (const line of found.unlisted) {
+        record.notJudged.push(narrowed.includes(line)
+          ? { file: entry.file, name: null, why: 'narrowed', detail: `the runner lists no test in the call at line ${line}, and lists one there when every name is let through` }
+          : { file: entry.file, name: null, why: 'skipped', detail: `the runner lists no test in the call at line ${line}: skipped or todo before it runs` });
+      }
       if (found.outside && !entry.added) record.outsideAnyTest.push({ file: entry.file });
       if (found.groups.length) units.push({ ...by.unit, file: entry.file, text, expects: read.unreadable ? [] : read.expects, groups: found.groups });
     }

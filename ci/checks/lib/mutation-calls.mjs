@@ -57,14 +57,19 @@ const parsed = (text, from) => {
   }
 };
 
+// §3.5: the step's own name filter, matching every name, given after the call's arguments. Vitest reads its command
+// line over its config file, so a listing with it leaves out no test for its name.
+export const EVERY_NAME = '--testNamePattern=.*';
+
 /**
- * A call's listing (§3.5): each test's file (inside the repository), name and line.
+ * A call's listing (§3.5): each test's file (inside the repository), name and line. `extra` comes after the call's
+ * own arguments.
  * @returns {Promise<Array<{ file: string, name: string, line: number }>>}
  */
-export async function listTests(ctx, unit) {
+export async function listTests(ctx, unit, extra = []) {
   const out = join(ctx.dir, 'listing.json');
   const log = join(ctx.dir, 'listing.log');
-  const r = await ctx.groups.run([...unit.argv, 'list', '--json', '--includeTaskLocation', ...unit.call.args], { cwd: join(ctx.copy, unit.pkg.dir), env: ctx.env, log, out, limitMs: ctx.callLimit() });
+  const r = await ctx.groups.run([...unit.argv, 'list', '--json', '--includeTaskLocation', ...unit.call.args, ...extra], { cwd: join(ctx.copy, unit.pkg.dir), env: ctx.env, log, out, limitMs: ctx.callLimit() });
   ctx.checkpoint(r);
   const value = parsed(readFileSync(out, 'utf8'), '[');
   try {

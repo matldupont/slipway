@@ -29,6 +29,8 @@ const REASONS = {
   'other-runner': (d, live) => [`its package ${codeSpan(e(d))} does not use Vitest`, live ? 'Remove it (`tests-can-fail#other-runner` in `ci/exceptions.yaml`) once the package moves to Vitest.' : 'Move the package to Vitest, or excuse its runner with `tests-can-fail#other-runner` in `ci/exceptions.yaml`.'],
   'no-package': () => ['it is in no package of the workspace', 'Rename or move it into a package of the workspace, so a run finds it.'],
   skipped: () => ['it is skipped', `Remove the skip, then ${AGAIN} so the test is judged.`],
+  // §3.5: listed only when every name is let through, so a name filter in the package's call or config left it out.
+  narrowed: () => ['the runner lists it only when every test name is let through', `Remove the name filter from the package's test script or Vitest config, then ${AGAIN}.`],
   mechanical: (d) => [`this pull request is excused as a mechanical change ${untilReason(d)}`, 'Remove it from `ci/exceptions.yaml` in the next pull request, as it counts only in this one.'],
   excused: (d) => [`excused ${untilReason(d)}`, 'Remove its entry from `ci/exceptions.yaml` once the test checks what the code does.'],
   // §3.8's notJudged flaky: red, then green, before any change. The tests state `flaky` (§3.9) is a finding, worded apart.

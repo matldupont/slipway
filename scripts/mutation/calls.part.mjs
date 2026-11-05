@@ -133,3 +133,30 @@ test('a short-flag cluster holding t, any single-dash word holding t, and --t ar
   for (const script of ['vitest run -ur=/abs', 'vitest run -uc=../../x.ts', 'vitest run -uc=vitest.config.ts']) assert.match(runnerCall(script).unreadable ?? '', /names the root or config inside a cluster of flags/, script);
   assert.deepEqual(runnerCall('vitest run --c=vitest.unit.ts').args, ['-c=vitest.unit.ts']);
 });
+
+// #652: the runner's argument parser writes a flag's name into its options object, split at each `.`, and keeps its
+// file filters under `_`. A name that holds `_`, or a segment every object already has, is refused.
+const OUTSIDE = /which the runner's argument parser writes outside its options/;
+
+test('a flag the parser writes into the prototype, and a flag naming its list of file filters, are refused (#652)', () => {
+  for (const script of ['vitest run --__proto__.testNamePattern=foo', 'vitest run --__proto__.testNamePattern foo']) assert.match(runnerCall(script).unreadable ?? '', OUTSIDE, script);
+  for (const script of ['vitest run --_=src/a.test.ts', 'vitest run -_=src/a.test.ts', 'vitest run --_ src/a.test.ts']) assert.match(runnerCall(script).unreadable ?? '', OUTSIDE, script);
+});
+
+test('each option refused today stays refused when its name is reached another way than its plain spelling (#652)', () => {
+  const kebab = (name) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+  for (const name of ['--coverage', '--shard', '--changed', '--bail', '--testNamePattern', '-t', '--related', '--tagsFilter']) {
+    const bare = name.replace(/^-+/, '');
+    const forms = [`--__proto__.${bare}=x`, `--constructor.prototype.${bare}=x`, `${kebab(`--${bare}`)}=x`, `--no-__proto__.${bare}`];
+    // A dotted name is the option itself (`--coverage.enabled`); `--t.x` names a key the runner never reads as -t.
+    if (bare.length > 1) forms.push(`--${bare}.x=y`);
+    else forms.push('-ut=x', '---t=x');
+    for (const form of forms) assert.ok(runnerCall(`vitest run ${form}`).unreadable, `${name}: ${form}`);
+  }
+  for (const key of ['constructor', 'hasOwnProperty', 'toString', 'valueOf', 'isPrototypeOf']) assert.match(runnerCall(`vitest run --${key}=x`).unreadable ?? '', OUTSIDE, key);
+});
+
+test('an argument the checks accepted before #652 and the runner reads is still accepted, a _ in its value too', () => {
+  const kept = ['--project', 'unit', '--config=vitest_unit.ts', '--environment=node', '--pool=forks', '--mode=test', '--passWithNoTests', '--silent', '--globals', '--project', 'my_unit'];
+  assert.deepEqual(runnerCall(`vitest run ${kept.join(' ')}`).args, kept);
+});

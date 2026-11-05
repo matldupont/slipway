@@ -18,7 +18,7 @@ const KNOWN_BAD = fileURLToPath(new URL('../../ci/fixtures/known-bad/mt1/', impo
 // §5's next actions, read whatever the case of their first letter, since one can start a sentence or follow "then".
 const ACTIONS = ['Assert on', 'excuse', 'Rename or move', 'keep it out', 'Make it pass', 'Run `pnpm tests-can-fail`', 'Write the call', 'Remove it'];
 const acts = (text) => ACTIONS.some((a) => text.toLowerCase().includes(a.toLowerCase()));
-const REASONS = ['no-subject', 'support-only', 'could-not-be-parsed', 'other-language', 'no-change-to-make', 'every-change-dropped', 'kept-out', 'other-runner', 'no-package', 'skipped', 'mechanical', 'excused', 'flaky'];
+const REASONS = ['no-subject', 'support-only', 'could-not-be-parsed', 'other-language', 'no-change-to-make', 'every-change-dropped', 'kept-out', 'other-runner', 'no-package', 'skipped', 'narrowed', 'mechanical', 'excused', 'flaky'];
 
 // One record holding a test of every finding and every reason a test is not judged, and the registry entries that
 // make the expiry findings and the spent warning.

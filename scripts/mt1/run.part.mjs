@@ -180,3 +180,33 @@ test('MT1 --run never prints the CI command marker raw, on stdout or in its prog
   assert.match(r.out, /judging pkgs\/app\/src\/.*cart\.test\.ts/);
   assert.doesNotMatch(r.out, /##\[/);
 });
+
+// #652: a new test the runner leaves out is the owner's skip only when a listing that lets every name through leaves
+// it out too. One inert fixture per route that narrows the run: none is a pass.
+test('a name filter set through the prototype key in the test script is refused: the run stops, never a pass (#652)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: 'vitest run --__proto__.testNamePattern=nomatch', config: { tests: { adds: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: testFile(['adds']) });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /`app`'s `test` script is not a plain call to the test runner/);
+});
+
+test('a plain -t in the test script is refused: the run stops, never a pass (#652)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: 'vitest run -t nomatch', config: { tests: { adds: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: testFile(['adds']) });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /`app`'s `test` script is not a plain call to the test runner/);
+});
+
+test('a name filter in the Vitest config leaves a new test out: narrowed, and nothing-judged; a real skip beside it stays skipped (#652)', (t) => {
+  // An old test the filter lets through keeps the file listed, so the new ones are left out of a listed file.
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: testFile(['old']) }, config: { namePattern: '^old$', tests: { adds: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}\nit.skip('later', () => {});\n` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed`, `${FILE}#not-judged/skipped`]], r.out);
+  assert.match(r.json.warnings[0].fix, /^Remove the name filter from the package's test script or Vitest config/);
+});
