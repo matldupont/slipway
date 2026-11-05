@@ -267,7 +267,11 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    the call in `ci/tests-can-fail.yaml`: `- package: {package}` and `run: vitest run …` or
    `run: node … node_modules/vitest/vitest.mjs run …`." This is not a shell parser and does not become one:
    a script it cannot read is the project's to state. The `run` word, `--watch`, `--reporter` and
-   `--outputFile` are dropped from what is read, since the step gives its own.
+   `--outputFile` are dropped from what is read, since the step gives its own. A flag whose name, before
+   any `=` (past a leading `no-`, the whole word) and read as the parser writes it, would land outside the options the runner reads or in its list of
+   file filters is not read either, nor a word made only of dashes, after which the runner reads no option: no
+   option of Vitest 4 or 5 is named either way. Nor is a refused option negated with a key after it, after any
+   number of dashes, which hands the runner an object it reads as that option set (#652).
 
    `ci/tests-can-fail.yaml`, when it exists (§6), is one list read by `readList` in strict mode:
 
@@ -316,7 +320,24 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    the entry's reason. The listing names no test that is skipped or `todo` before it runs, so a file whose
    every test is skipped lists nothing and is `never-run` too: the step cannot tell it from a file no run
    picks up, and fails closed (the owner's call, 2026-11-04, #633). Its message names both causes (§5); a
-   skipped test in a file the runner lists is `skipped` (step 8). Any other changed test file no call lists is not a test (a helper or a data file
+   skipped test in a file the runner lists is `skipped` (step 8). The listing leaves those tests out, so
+   where it may hide one (a changed line inside a test call it places no test in; an added line, not blank,
+   outside every call it places a test in and every import alone on its lines; a hunk that only removes lines, the same by the line
+   it follows; or a file the parser cannot read) the step reads the runner's own report of one clean run of the file: run
+   with `--reporter=json`, `--outputFile` at a path the step gives and `--includeTaskLocation`, read from that
+   file and never from what the run prints, since a test can print text shaped like a report. The report lists
+   every test the runner collects, a skipped one included, with its line, and that run is the file's baseline
+   too (§3.8). A report that is missing, does not parse, gives a test no line, or holds the file as not loaded
+   stops the run: it is never a pass. A new test is one the report places in a changed call, by the rule above.
+   A changed test call the report places no test in (behind a condition, over an empty table, never called) is
+   named by its line, by the rule below; under `tests-can-fail#mechanical` (§3.7), which reads only the
+   listing, a changed call the listing places no test in is named `mechanical`. One the clean run skips is
+   `skipped` only when its own call, or a `describe` whose function it sits in, carries `.skip`, `.todo`,
+   `skipIf` or `runIf`; a `.only` on the same call, and a condition whose text skips nothing (`skipIf(false)`,
+   `runIf(1)`), skip nothing, as in Vitest. Any other was skipped by something its text does not hold (a
+   filter in the package's call or config, a `.only` beside it, a hook) and is not judged: `narrowed`, a
+   reason the owner did not give; one whose call the step cannot read for a skip is `narrowed` too (the
+   owner's calls, 2026-11-04 and 2026-11-05, #652). Any other changed test file no call lists is not a test (a helper or a data file
    under `__tests__/`, a `*.test.*` file in another language in a package that uses Vitest): it is no
    finding, and the record names it for the summary's "{n} changed files under a test name or folder are not
    tests".
@@ -379,7 +400,8 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    there, then run `pnpm tests-can-fail` again." Red, then
    green, is **not judged**: `flaky`. Its runs under the
    changes of step 9 are not made, so it is neither a test that can fail nor a pass, and the run goes on
-   with the others. One that is skipped or `todo` is not judged: `skipped`; a file whose every test is
+   with the others. One that is skipped or `todo` is not judged: `skipped` when its own call, or a `describe` whose
+   function it sits in, says skip (step 5), else `narrowed`, as a hook that skips it as it runs is not its text; a file whose every test is
    skipped is `never-run` (step 5). A test red once in the copy and
    green on its next run was seen on a real project.
 9. **Judging, one test file at a time**, the file with the fewest changes to try first; the record keeps
@@ -466,7 +488,8 @@ is what `/work-ticket` runs.
 A new test is one in `tests` or in `notJudged`. The reasons the owner gave never make `nothing-judged`:
 `excused`, `kept-out`, `mechanical`, and `other-runner` while `tests-can-fail#other-runner` is unexpired in
 `ci/exceptions.yaml`, which the verdict reads as it does for `excuse-expired`. Neither does `skipped`, which
-is the test's own text. `flaky` from §3.8 does: a pull request whose only new tests are flaky in the copy is
+is the test's own text. `narrowed` does (§3.5): what left it out is not the test's own text, so a pull
+request whose only new tests the runner leaves out with no skip in their text is not a pass (#652). `flaky` from §3.8 does: a pull request whose only new tests are flaky in the copy is
 not a pass. So one unjudged test beside a judged one stays a warning, and
 a pull request the step could judge nothing of is not a pass (D-037).
 
@@ -477,7 +500,7 @@ line gives the counts: new tests, passed, failed, not judged. Then two shares, a
 it is zero (D-037, amended 2026-11-02): the share of new tests not judged for a reason the rule causes
 (`no-subject`, `support-only`, `could-not-be-parsed`, `other-language`, `no-change-to-make`,
 `every-change-dropped`, and `other-runner` with no unexpired entry), and the share not judged for any reason. The reasons the owner
-gave, `skipped`, and `flaky` (a test red in the copy, as the owner set it) count in the second only. After them comes one line for each of these that is not
+gave, `skipped`, `narrowed`, and `flaky` (a test red in the copy, as the owner set it) count in the second only. After them comes one line for each of these that is not
 zero, in the words of §3: test files stopped at a cap, each with the changes not tried; test files removed or
 renamed away; changed files that are not tests; test files changed outside any test; test support files left
 out.
@@ -517,8 +540,11 @@ The fix is printed on its own `Fix:` line.
   time ({limit} minutes) before it judged any new test, so this is not a pass. ``, with the same fix.
 - `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass, for {k} reasons: each
   test's not-judged warning says why and what to do. `` Fix: `` Read each test's not-judged warning and do what it
-  says, or excuse a test file in `ci/exceptions.yaml` with a date. `` Its length is fixed, so it fits whatever the
-  record holds; each reason's next action is on the not-judged warning of each test it counts, and only
+  says, or excuse a test file in `ci/exceptions.yaml` with a date. `` When `narrowed` is the one reason, the fix is
+  `` Read each new test's not-judged warning and do what it says, so it runs or is skipped by its own call, then run
+  `pnpm tests-can-fail`. ``, and beside another `` Read each not-judged warning and do what it says, so each new test
+  runs or is skipped by its own call, or excuse its file in `ci/exceptions.yaml` with a date. `` (#652). Its length is fixed, so
+  it fits whatever the record holds; each reason's next action is on the not-judged warning of each test it counts, and only
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
 - `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
   off Vitest) | nothing, for a test file's id} {expired {date} | has no `expires:` date | has an `expires:` that
@@ -530,7 +556,10 @@ The fix is printed on its own `Fix:` line.
   changed"; "its subject `{file}` could not be parsed"; "its subject `{file}` is not JavaScript or TypeScript";
   "there is nothing this step can change in `{file}`, which is all it imports"; "every change this step made to
   `{file}` stopped the test file loading"; "it is kept out in `ci/tests-can-fail.yaml`: {reason}"; "its package
-  {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped"; "excused until
+  {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped", or for a call the runner
+  reports no test in "the runner reports no test in the call at line {n}, which says skip"; "the run skips it; its
+  call has no skip", for a call it cannot read "the run skips it; the step cannot read its call", and for a call the
+  runner reports no test in "the runner reports no test in the call at line {n}"; "excused until
   {date}: {reason}". Each has its fix, as a finding has, so a not-judged line names what to do too; the
   `other-runner` one names `tests-can-fail#other-runner`.
 - another commit: `` This record is for commit {a}, not the one being checked ({b}). Run
@@ -739,6 +768,8 @@ nothing else; and a result copied into a pull request by hand.
   and names it.
 - **A test written through an alias of `it` or a `test.extend` fixture has no call of its own** that §2 reads.
   When the runner lists one, its file is read as one `spans()` cannot read, so every test in it is judged (#632).
+  Under `tests-can-fail#mechanical`, which reads only the listing (§3.5), one the listing leaves out is not named (the
+  owner's call, 2026-11-05, #652).
 - **A file holding a line break git does not count is not read.** A lone CR, U+2028 or U+2029, in a test file or a
   subject, makes it `could-not-be-parsed` (a test file: every test new), not a file whose lines may drift.
 - **Runner calls keep the real `HOME`**, so files under it stay readable to the tests the step runs. The rest of
@@ -1243,3 +1274,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-02 · MODIFIED · the review of 0.5 (`docs/reviews/2026-11-02-tests-can-fail-0.5.md`, the last) carried in by the owner's rule: its AR-1, which changed a guarantee, went to the owner, who narrowed it to a Known limitations line with two fixture-backed lines under steps 3 and 5; its AR-2 to AR-7, and W1's third clause it named, are acceptance lines under steps 3, 4 and 5. Version stays 0.5: no Contract, Acceptance or Verify text changed
 - 2026-11-04 · MODIFIED · step 3's corrections from #631's worker, built in #632 on the owner's yes: §2 reads more test forms, an `imports()`, and a text with a line break git does not count as unreadable; a test the runner lists in no call `spans()` reads makes its file's tests new (§3.5); the parser's reason is escaped (§5); runner calls get a fixed environment, and env guards are not changed (§2, §3.4); `no-package` and the record's new fields (§3.3, §3.10); four Known limitations lines. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
 - 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5's findings and warnings take report.mjs's shape (one sentence and a fix that starts with a verb, each at most 160 characters), so its wording is rewritten to fit, with the same facts; `flaky` gains its second cause, `excuse-expired` its words, `nothing-judged` a line of fixed length that points to each test's not-judged warning, where its reason's next action is (AR-5 and the Verify line reworded on the owner's call), and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose; a run stopped at its limit before it marked any test fails on the run (§4, §5, §7), and `pnpm tests-can-fail` judges with `ci/exceptions.yaml` as the commit holds it. Version stays 0.5
+- 2026-11-05 · MODIFIED · #652's corrections, on the owner's calls of 2026-11-04 and 2026-11-05: §3.3 does not read a flag whose name, read as the parser writes it, lands outside the runner's options or in its list of file filters, nor a word made only of dashes, nor a negated refused option with a key after it, after any number of dashes; §3.5 reads, where the listing may hide a test, the runner's own report of a clean run from the file it writes, which lists skipped tests with their lines, and stops on a report that is missing, does not parse, lacks a line or holds the file as not loaded, and names a changed test call that holds no reported test; an import covers only the lines it has alone; Known limitations adds that under `tests-can-fail#mechanical` a test written through an alias that the listing leaves out is not named (the owner's call, 2026-11-05); a new test the run skips is `skipped` only when its own call or a `describe` around it says skip, any other not judged, `narrowed`, a reason added to the closed list that the owner did not give (§4, §5); `nothing-judged` names its next action (§5); §3.8 says so. The guarantees are unchanged; Known limitations gains the one line above. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do

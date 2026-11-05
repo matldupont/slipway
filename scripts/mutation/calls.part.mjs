@@ -133,3 +133,38 @@ test('a short-flag cluster holding t, any single-dash word holding t, and --t ar
   for (const script of ['vitest run -ur=/abs', 'vitest run -uc=../../x.ts', 'vitest run -uc=vitest.config.ts']) assert.match(runnerCall(script).unreadable ?? '', /names the root or config inside a cluster of flags/, script);
   assert.deepEqual(runnerCall('vitest run --c=vitest.unit.ts').args, ['-c=vitest.unit.ts']);
 });
+
+// #652: the runner's argument parser writes a flag's name into its options object, split at each `.`, and keeps its
+// file filters under `_`. A name that holds `_`, or a segment every object already has, is refused.
+const OUTSIDE = /which the runner's argument parser writes outside its options/;
+
+test('a flag the parser writes into the prototype, and a flag naming its list of file filters, are refused (#652)', () => {
+  for (const script of ['vitest run --__proto__.testNamePattern=foo', 'vitest run --__proto__.testNamePattern foo']) assert.match(runnerCall(script).unreadable ?? '', OUTSIDE, script);
+  for (const script of ['vitest run --_=src/a.test.ts', 'vitest run -_=src/a.test.ts', 'vitest run --_ src/a.test.ts']) assert.match(runnerCall(script).unreadable ?? '', OUTSIDE, script);
+  // After a bare `--` the runner reads no option, so the step's own flags given after the call's would be lost.
+  for (const script of ['vitest run --', 'vitest run -- --silent', 'vitest run -']) assert.match(runnerCall(script).unreadable ?? '', /after which the runner reads no option/, script);
+});
+
+test('each option refused today stays refused when its name is reached another way than its plain spelling (#652)', () => {
+  const kebab = (name) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+  for (const name of ['--coverage', '--shard', '--changed', '--bail', '--testNamePattern', '-t', '--related', '--tagsFilter']) {
+    const bare = name.replace(/^-+/, '');
+    const forms = [`--__proto__.${bare}=x`, `--constructor.prototype.${bare}=x`, `${kebab(`--${bare}`)}=x`, `--no-__proto__.${bare}`, `--no-constructor.prototype.${bare}`, `--x.prototype.${bare}=x`];
+    // A dotted name is the option itself (`--coverage.enabled`); `--t.x` names a key the runner never reads as -t.
+    if (bare.length > 1) forms.push(`--${bare}.x=y`);
+    else forms.push('-ut=x', '---t=x');
+    for (const form of forms) assert.ok(runnerCall(`vitest run ${form}`).unreadable, `${name}: ${form}`);
+  }
+  for (const key of ['constructor', 'hasOwnProperty', 'toString', 'valueOf', 'isPrototypeOf']) assert.match(runnerCall(`vitest run --${key}=x`).unreadable ?? '', OUTSIDE, key);
+  // The parser writes `--has-own-property` as hasOwnProperty, and `--no-x` as x.
+  for (const form of ['--has-own-property=x', '--to-string=x', '--value-of=x', '--is-prototype-of=x', '--no-to-string', '--no-constructor.x', '--prototype=x', '--no-expect.a=b.__proto__.allowOnly', '--=x.__proto__.testNamePattern=nomatch', '-=x']) assert.match(runnerCall(`vitest run ${form}`).unreadable ?? '', OUTSIDE, form);
+});
+
+test('an argument the checks accepted before #652 and the runner reads is still accepted, a _ in its value too', () => {
+  const kept = ['--project', 'unit', '--config=vitest_unit.ts', '--environment=node', '--pool=forks', '--mode=test', '--passWithNoTests', '--silent', '--globals', '--project', 'my_unit'];
+  assert.deepEqual(runnerCall(`vitest run ${kept.join(' ')}`).args, kept);
+  // `--no-<option>` sets that option false, which narrows nothing or stops the runner: each refused option's is
+  // accepted on purpose. With a key after it (`--no-<option>.x`) it hands the option an object, read as set: refused.
+  for (const form of ['--no-testNamePattern.x', '--no-test-name-pattern.x', '--no-testNamePattern.x=y', '--no-t.x', '--no-tagsFilter.x', '--no-shard.x', '-no-bail.x', '-no-bail.x=1', '---no-coverage.x']) assert.ok(runnerCall(`vitest run ${form}`).unreadable, form);
+  for (const form of ['--no-testNamePattern', '--no-test-name-pattern', '--no-t', '--no-tagsFilter', '--no-shard', '--no-changed', '--no-related', '--no-bail', '--no-coverage']) assert.ok(!runnerCall(`vitest run ${form}`).unreadable, form);
+});

@@ -15,7 +15,7 @@ test('spans() reads it.fails, .sequential, .for, .skipIf and .runIf as test call
 
 test('a chain of 20,000 modifier links is read, not a RangeError', () => {
   const code = `it${'.only'.repeat(20000)}('x', () => {});`;
-  assert.deepEqual(spans('a.js', code).tests, [{ first: 1, last: 1 }]);
+  assert.deepEqual(spans('a.js', code).tests, [{ first: 1, last: 1, skip: false }]);
 });
 
 test('imports() gives what a file imports and re-exports from, and leaves type-only imports out', () => {
@@ -42,4 +42,24 @@ test('no change is made in a guard that reads the environment; the rest of the f
   assert.deepEqual(on(5).sort(), ['condition', 'condition', 'literal', 'operator']);
   assert.ok(changes.some((c) => c.kind === 'body' && c.line === 1), 'the function body is still changed');
   assert.ok(mutants('a.js', 'if (env.X) f();').some((c) => c.kind === 'condition'), 'a name that is not process.env is changed');
+});
+
+test('spans() marks a test skip only when its own call or a describe whose function it sits in says skip, todo, skipIf or runIf (#652)', () => {
+  const code = [
+    "it('a', () => {});", "it.skip('b', () => {});", "it.todo('c');", "it.skipIf(x)('d', () => {});", "it.runIf(x).each([1])('e', () => {});",
+    "describe.skip('s', () => {", "  it('f', () => { on('x', () => {}); });", "});", "describe.skipIf(x)('t', () => { describe('u', () => { it('g', () => {}); }); });",
+    "it('h', { skip: true }, () => {});", "it.only('i', () => {});", "describe.shuffle.skip('v', () => { it('j', () => {}); });",
+  ].join('\n');
+  assert.deepEqual(spans('a.js', code).tests.map((t) => t.skip), [false, true, true, true, true, true, true, false, false, true]);
+});
+
+test('spans() reads a test through an optional call, a TypeScript assertion or a sequence, never a member on another object; a condition whose text skips nothing is no skip, and .only wins (#652)', () => {
+  const code = [
+    "it?.('a', () => {});", "it!('b', () => {});", "(it as any)('c', () => {});", "(0, it)('d', () => {});",
+    "it.runIf(true)('e', () => {});", "it.skipIf(false)('f', () => {});", "it.skipIf(0)('g', () => {});", "it.skipIf()('h', () => {});", "it.runIf(!0)('i', () => {});",
+    "it.only.skip('j', () => {});", "describe.skip('s', () => {}, it('k', () => {}));", "it.skip?.('l', () => {});", "it.runIf(null)('m', () => {});", "it.skipIf(cond)('n', () => {});",
+    "const ok = /^a/.test('abc');", "v.it('o', () => {});", "schema.test('p', 'msg', () => true);", "it.runIf(/darwin/.test(process.platform))('q', () => {});",
+  ].join('\n');
+  const tests = spans('a.ts', code).tests.map((t) => [t.first, t.skip]);
+  assert.deepEqual(tests, [[1, false], [2, false], [3, false], [4, false], [5, false], [6, false], [7, false], [8, false], [9, false], [10, false], [11, false], [12, true], [13, true], [14, true], [18, true]]);
 });

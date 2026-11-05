@@ -12,18 +12,18 @@ import { verdict } from '../../ci/checks/meta/mt1-tests-can-fail.mjs';
 import { CART, project, testFile } from '../mutation/project.mjs';
 
 const MT1 = fileURLToPath(new URL('../../ci/checks/meta/mt1-tests-can-fail.mjs', import.meta.url));
-const FILE = 'pkgs/app/src/cart.test.ts';
-const CHANGED = [{ file: 'pkgs/app/src/cart.ts', line: 2, has: 'return a + b' }];
-const EXCEPTION = (id, reason = 'a rename across test files') => `exceptions:\n  - id: ${id}\n    expires: 2099-01-01\n    reason: ${reason}\n    owner: test\n`;
+export const FILE = 'pkgs/app/src/cart.test.ts';
+export const CHANGED = [{ file: 'pkgs/app/src/cart.ts', line: 2, has: 'return a + b' }];
+export const EXCEPTION = (id, reason = 'a rename across test files') => `exceptions:\n  - id: ${id}\n    expires: 2099-01-01\n    reason: ${reason}\n    owner: test\n`;
 
 // `pnpm tests-can-fail`'s command, in the project: its exit, its report and its printed lines.
-function mt1(p) {
+export function mt1(p) {
   const r = spawnSync(process.execPath, [MT1, '--run'], { cwd: p.root, encoding: 'utf8', env: { ...process.env, CHECK_JSON: '1', CHECK_TODAY: '2026-11-04' }, timeout: 120_000 });
   const line = r.stdout.split('\n').findLast((l) => l.startsWith('@@json '));
   const json = line ? JSON.parse(line.slice('@@json '.length)) : null;
   return { status: r.status, out: r.stdout + r.stderr, json, ids: json?.findings.map((f) => f.where) ?? [], warned: json?.warnings.map((w) => w.where) ?? [] };
 }
-const removeAll = (t, p) => t.after(() => p.remove());
+export const removeAll = (t, p) => t.after(() => p.remove());
 
 test('MT1 --run judges HEAD in the process: a test that fails on a change passes, with the summary line', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, config: { tests: { adds: { failsWhen: CHANGED } } } });

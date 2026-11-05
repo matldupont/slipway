@@ -3,6 +3,7 @@
 // re-exports from. This is the only file that imports the parser. Pure: it reads text it is handed.
 
 import { parse } from './vendor/babel-parser.mjs';
+import { body, callChain, skips, SUITES, TESTS } from './test-calls.mjs';
 
 const NOT_SOURCE = 'not JavaScript or TypeScript';
 const SOURCE = /\.(?:[cm]?js|jsx|[cm]?ts|tsx)$/;
@@ -16,10 +17,6 @@ const TYPE_KEYS = new Set(['typeAnnotation', 'typeParameters', 'typeArguments', 
 const FLIP = new Map([['===', '!=='], ['==', '!='], ['<', '<='], ['>', '>='], ['&&', '||'], ['+', '-'], ['*', '/']]);
 for (const [from, to] of [...FLIP]) FLIP.set(to, from);
 const KIND_ORDER = ['body', 'condition', 'operator', 'literal'];
-const TEST_MODIFIERS = new Set(['only', 'skip', 'todo', 'concurrent', 'sequential', 'fails']);
-// The forms that take their own call before the test's: it.each(rows)('x', fn), it.for(rows)('x', fn),
-// it.skipIf(c)('x', fn), it.runIf(c)('x', fn), and it.each`table`('x', fn).
-const CALL_FORMS = new Set(['each', 'for', 'skipIf', 'runIf']);
 // A line break git does not count, and the parser and V8 do: lines would drift between a diff and a stack.
 const OTHER_BREAK = /\r(?!\n)|[\u2028\u2029]/;
 export const OTHER_BREAK_REASON = 'it holds a line break git does not count (a lone CR, U+2028 or U+2029)';
@@ -204,47 +201,35 @@ export function mutants(path, text) {
     .map(({ change }) => change);
 }
 
-// Whether a callee is it or test, through its modifiers and the forms that take a call first: it.only,
-// it.concurrent.skip, it.each(rows), it.skipIf(c).each`table`. A loop, not a recursion: a chain of 12,000 `.only`
-// links parses, and a recursion would overflow on it.
-function isTestCallee(callee) {
-  let at = callee;
-  for (;;) {
-    if (at.type === 'Identifier') return at.name === 'it' || at.name === 'test';
-    if (at.type === 'MemberExpression') {
-      if (at.computed || at.property.type !== 'Identifier' || !TEST_MODIFIERS.has(at.property.name)) return false;
-      at = at.object;
-    } else if (at.type === 'CallExpression' || at.type === 'TaggedTemplateExpression') {
-      const inner = at.type === 'CallExpression' ? at.callee : at.tag;
-      if (inner.type !== 'MemberExpression' || inner.computed || inner.property.type !== 'Identifier' || !CALL_FORMS.has(inner.property.name)) return false;
-      if (at.type === 'TaggedTemplateExpression' && inner.property.name !== 'each' && inner.property.name !== 'for') return false;
-      at = inner.object;
-    } else return false;
-  }
-}
-
-// A call that declares one test: it('x', fn), it.only('x', fn), it.each(rows)('x', fn), it.each`table`('x', fn),
-// it.for(rows)('x', fn), it.skipIf(c)('x', fn). The inner call of a form (it.each(rows)) declares none.
-function isTestCall(node) {
-  if (node.type !== 'CallExpression') return false;
-  const { callee } = node;
-  if (callee.type === 'MemberExpression' && !callee.computed && callee.property.type === 'Identifier' && CALL_FORMS.has(callee.property.name)) return false;
-  return isTestCallee(callee);
-}
-
 const isExpectCall = (node) => node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'expect';
 
+// The lines of each test call and each expect call. A test is `skip` when its own call, or a describe whose function
+// it sits in, skips it (test-calls.mjs's SKIPS; §3.5, §3.8); and the lines of each import declaration that nothing
+// else shares a line with, so a test written beside an import is never read as part of it (#652).
 export function spans(path, text) {
   const program = read(path, text);
   if (program.unreadable) return program;
   const lineAt = lineIndex(text);
   const tests = [];
   const expects = [];
+  const skipping = [];
+  const at = (node) => ({ first: lineAt(node.start), last: lineAt(node.end - 1), start: node.start, end: node.end });
   walk(program, (node) => {
-    const into = isTestCall(node) ? tests : isExpectCall(node) ? expects : null;
-    if (into) into.push({ first: lineAt(node.start), last: lineAt(node.end - 1) });
+    const chain = callChain(node);
+    if (chain && TESTS.has(chain.base)) tests.push({ ...at(node), skip: skips(chain) });
+    else if (chain && SUITES.has(chain.base)) {
+      const fn = skips(chain) && body(node);
+      if (fn) skipping.push(at(fn));
+    } else if (isExpectCall(node)) expects.push(at(node));
   });
-  return { tests, expects };
+  const lines = ({ first, last }) => ({ first, last });
+  const alone = (n) => /^[ \t]*$/.test(text.slice(text.lastIndexOf('\n', n.start - 1) + 1, n.start))
+    && /^[ \t]*(?:\/\/[^\n]*)?(?:\r?\n|$)/.test(text.slice(n.end));
+  return {
+    tests: tests.map((t) => ({ ...lines(t), skip: t.skip || skipping.some((s) => s.start <= t.start && t.end <= s.end) })),
+    expects: expects.map(lines),
+    imports: program.body.filter((n) => n.type === 'ImportDeclaration' && alone(n)).map((n) => lines(at(n))),
+  };
 }
 
 // The paths a file imports from or re-exports from, as written; a type-only import is left out (§3.6).

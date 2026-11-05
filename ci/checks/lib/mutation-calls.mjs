@@ -78,13 +78,13 @@ export async function listTests(ctx, unit) {
 
 /**
  * One run of one test file (§3.8, §3.9). `hung` when the call passed its limit; `none` when it wrote no result.
- * @returns {Promise<{ hung: boolean, none: boolean, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[] }>, log: string }>}
+ * @returns {Promise<{ hung: boolean, none: boolean, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null }>, log: string }>}
  */
 export async function runFile(ctx, unit) {
   const out = join(ctx.dir, 'result.json');
   const log = join(ctx.dir, 'run.log');
   rmSync(out, { force: true });
-  const argv = [...unit.argv, 'run', within(unit.pkg, unit.file), '--reporter=json', `--outputFile=${out}`, ...unit.call.args];
+  const argv = [...unit.argv, 'run', within(unit.pkg, unit.file), '--reporter=json', `--outputFile=${out}`, '--includeTaskLocation', ...unit.call.args];
   const r = await ctx.groups.run(argv, { cwd: join(ctx.copy, unit.pkg.dir), env: ctx.env, log, limitMs: ctx.callLimit() });
   ctx.checkpoint(r);
   if (r.timedOut) return { hung: true, none: false, loaded: false, tests: [], log };
@@ -99,6 +99,24 @@ export async function runFile(ctx, unit) {
   }
   const mine = files.filter((f) => f.file === join(ctx.copy, unit.file));
   return { hung: false, none: false, loaded: mine.length > 0 && mine.every((f) => f.loaded), tests: mine.flatMap((f) => f.tests), log };
+}
+
+/**
+ * §3.5: the tests of one test file and how a clean run ends each, from the runner's own report, read from the file it
+ * writes at the path the step gives (never its output, which a test can print to). A report that is missing, or that
+ * gives a test no line, or that does not hold the file as loaded, stops the run: it is never a pass. The run is the
+ * file's baseline too.
+ * @returns {Promise<{ loaded: boolean, tests: Array<{ name: string, status: string, line: number }> }>}
+ */
+export async function reportOf(ctx, unit) {
+  const r = await runFile(ctx, unit);
+  const again = 'then run `pnpm tests-can-fail` again';
+  if (r.hung) throw new Stop(`The clean run of \`${esc(unit.file)}\` did not finish in its limit, so this step cannot tell which of its tests ran. Make it finish, ${again}.`);
+  if (r.none) throw new Stop(`The test runner wrote no report of \`${esc(unit.file)}\` at the path this step gave it that parses, so this step cannot tell which of its tests ran. Check that \`${esc(unit.pkg.name)}\`'s Vitest config does not send a reporter's output elsewhere and that the run ends, ${again}.\n${esc(lastLines(r.log))}`);
+  if (!r.loaded) throw new Stop(`The clean run of \`${esc(unit.file)}\` did not load it, so this step cannot tell which of its tests are new. Make it load, ${again}.\n${esc(lastLines(r.log))}`);
+  const lineless = r.tests.find((t) => t.line === null);
+  if (lineless) throw new Stop(`The test runner's report of \`${esc(unit.file)}\` gives no line for "${esc(lineless.name)}", so this step cannot tell whether it is new. Check that \`${esc(unit.pkg.name)}\`'s call does not turn task locations off, and that this Vitest version still reports a test's \`location\`, ${again}.`);
+  return r;
 }
 
 // §3.8: red twice in a clean copy. Every new test red, or a connection error, names ci/before-verify.sh's services first (AR-1).

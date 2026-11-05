@@ -1,0 +1,50 @@
+{
+ "head": "1111111111111111111111111111111111111111",
+ "base": "2222222222222222222222222222222222222222",
+ "seconds": 40,
+ "budget": 120,
+ "limit": 600,
+ "outOfTime": false,
+ "stopped": null,
+ "signal": null,
+ "uncommitted": 0,
+ "changedTestFiles": [
+  "pkgs/app/src/a.test.ts",
+  "pkgs/app/src/b.test.ts"
+ ],
+ "runs": [
+  {
+   "package": "app",
+   "call": "vitest run",
+   "version": "5.0.3"
+  }
+ ],
+ "order": [],
+ "tests": [],
+ "neverRun": [],
+ "notJudged": [
+  {
+   "file": "pkgs/app/src/a.test.ts",
+   "name": "adds",
+   "why": "narrowed",
+   "detail": "the run skips it, and its call holds no skip"
+  },
+  {
+   "file": "pkgs/app/src/b.test.ts",
+   "name": null,
+   "why": "skipped",
+   "detail": "the runner reports no test in the call at line 4, which says skip"
+  }
+ ],
+ "unreadable": [],
+ "support": [],
+ "noChange": [],
+ "notTests": [],
+ "outsideAnyTest": [],
+ "removedTestFiles": 0,
+ "mechanical": false,
+ "mechanicalSpent": false,
+ "excuseProblems": [],
+ "capped": [],
+ "leftProcesses": 0
+}

@@ -6,7 +6,7 @@ import { writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { esc, redMessage, runFile, Stop } from './mutation-calls.mjs';
 import { lastLines } from './mutation-processes.mjs';
-import { queueOf, subjectsOf, whyNoSubject } from './mutation-tests.mjs';
+import { queueOf, skippedEntry, subjectsOf, whyNoSubject } from './mutation-tests.mjs';
 import { failure, notRun } from './runner-output.mjs';
 
 export class OutOfTime extends Error {}
@@ -59,7 +59,7 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
 
     // §3.8: the baseline, and once more for a file with a red new test.
     const first = new Map();
-    for (const unit of ready) first.set(unit, await runFile(ctx, unit));
+    for (const unit of ready) first.set(unit, unit.first ?? await runFile(ctx, unit));
     const red = ready.flatMap((unit) => unit.groups.filter((g) => baseline(first.get(unit), g) === 'red').map((g) => ({ unit, g })));
     const everyRed = red.length > 0 && red.length === ready.reduce((n, u) => n + u.groups.length, 0);
     const connection = ready.some((u) => connectionError(first.get(u)));
@@ -74,7 +74,7 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
       unit.groups = unit.groups.filter((g) => {
         if (!pending.has(g)) return false;
         if (baseline(first.get(unit), g) !== 'skipped') return true;
-        record.notJudged.push({ file: unit.file, name: g.name, why: 'skipped', detail: null });
+        record.notJudged.push(skippedEntry(unit.file, g));
         pending.delete(g);
         return false;
       });

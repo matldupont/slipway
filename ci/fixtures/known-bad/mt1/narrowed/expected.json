@@ -1,0 +1,18 @@
+{
+ "_note": "Two new tests, none judged: one the runner left out with no skip in its text (narrowed, which the owner did not give, #652) and one skipped in its own text. Nothing-judged, beside the two warnings that name them.",
+ "env": {
+  "CHECK_TODAY": "2026-11-04",
+  "CHECK_HEAD": "1111111111111111111111111111111111111111"
+ },
+ "exit": 1,
+ "findings": [
+  "nothing-judged"
+ ],
+ "warnings": [
+  "pkgs/app/src/a.test.ts#not-judged/narrowed/adds",
+  "pkgs/app/src/b.test.ts#not-judged/skipped"
+ ],
+ "details": {
+  "nothing-judged": "None of the 2 new or edited tests was judged, so this is not a pass, for 1 reason: each test's not-judged warning says why and what to do."
+ }
+}

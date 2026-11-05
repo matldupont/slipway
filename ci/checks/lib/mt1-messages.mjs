@@ -28,7 +28,13 @@ const REASONS = {
   'kept-out': (d) => [`it is kept out in \`ci/tests-can-fail.yaml\`: ${e(d)}`, 'Remove its `keep-out:` entry from `ci/tests-can-fail.yaml` once the file should be judged.'],
   'other-runner': (d, live) => [`its package ${codeSpan(e(d))} does not use Vitest`, live ? 'Remove it (`tests-can-fail#other-runner` in `ci/exceptions.yaml`) once the package moves to Vitest.' : 'Move the package to Vitest, or excuse its runner with `tests-can-fail#other-runner` in `ci/exceptions.yaml`.'],
   'no-package': () => ['it is in no package of the workspace', 'Rename or move it into a package of the workspace, so a run finds it.'],
-  skipped: () => ['it is skipped', `Remove the skip, then ${AGAIN} so the test is judged.`],
+  skipped: (d) => [d ? e(d) : 'it is skipped', `Remove the skip, then ${AGAIN} so the test is judged.`],
+  // §3.5, §3.8: the clean run skips it, and no skip on its own call or a describe around it says why.
+  narrowed: (d) => (String(d ?? '').startsWith('the runner reports no test')
+    ? [e(d), `Take the condition off its call, or mark it \`.skip\`, then ${AGAIN}.`]
+    : String(d ?? '').includes('cannot read')
+      ? ['the run skips it; the step cannot read its call', `Write it as \`it(…)\` or \`test(…)\`, any \`.skip\` on that call, then ${AGAIN}.`]
+      : ['the run skips it; its call has no skip', `Remove the filter, \`.only\` or hook skipping it, or mark its call \`.skip\`, then ${AGAIN}.`]),
   mechanical: (d) => [`this pull request is excused as a mechanical change ${untilReason(d)}`, 'Remove it from `ci/exceptions.yaml` in the next pull request, as it counts only in this one.'],
   excused: (d) => [`excused ${untilReason(d)}`, 'Remove its entry from `ci/exceptions.yaml` once the test checks what the code does.'],
   // §3.8's notJudged flaky: red, then green, before any change. The tests state `flaky` (§3.9) is a finding, worded apart.
@@ -100,7 +106,11 @@ export function nothingJudged(counted, total) {
   return {
     where: 'nothing-judged',
     detail: `None of the ${total} new or edited tests was judged, so this is not a pass, for ${k} ${k === 1 ? 'reason' : 'reasons'}: each test's not-judged warning says why and what to do.`,
-    fix: 'Read each test\'s not-judged warning and do what it says, or excuse a test file in `ci/exceptions.yaml` with a date.',
+    fix: !counted.narrowed
+      ? 'Read each test\'s not-judged warning and do what it says, or excuse a test file in `ci/exceptions.yaml` with a date.'
+      : k === 1
+        ? `Read each new test's not-judged warning and do what it says, so it runs or is skipped by its own call, then ${AGAIN}.`
+        : 'Read each not-judged warning and do what it says, so each new test runs or is skipped by its own call, or excuse its file in `ci/exceptions.yaml` with a date.',
   };
 }
 

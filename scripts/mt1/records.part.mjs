@@ -84,6 +84,26 @@ test('new tests all excused, kept out, skipped or mechanical pass, each named; a
   assert.deepEqual(judge(other, { registry: [entry('tests-can-fail#other-runner', '2026-01-01')] }).ids, ['ci/exceptions.yaml:tests-can-fail#other-runner#excuse-expired', 'nothing-judged']);
 });
 
+test('a new test the runner leaves out with no skip in its text is narrowed, which the owner did not give: nothing-judged alone, a warning beside a judged test (#652)', () => {
+  const narrowed = nj('narrowed', { name: 'adds', detail: 'the run skips it, and its call holds no skip' });
+  const alone = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed] }));
+  assert.deepEqual([alone.exit, alone.ids, alone.warned], [1, ['nothing-judged'], [`${narrowed.file}#not-judged/narrowed/adds`]]);
+  assert.match(alone.warnings[0].detail, /the run skips it; its call has no skip\.$/);
+  const unread = judge(rec({ changedTestFiles: [FILE], notJudged: [{ ...narrowed, detail: 'the run skips it, in a call this step cannot read for a skip' }] }));
+  assert.match(unread.warnings[0].detail, /the run skips it; the step cannot read its call\.$/);
+  assert.match(unread.warnings[0].fix, /^Write it as `it\(…\)` or `test\(…\)`, any `\.skip` on that call/);
+  // Its warning, past the file it names, is 160 characters at most, and says what to do; nothing-judged names it too.
+  // Past the file and the test it names, each warning is 160 characters at most.
+  for (const w of [alone.warnings[0], unread.warnings[0]]) assert.ok(w.detail.replace(`\`${narrowed.file}\` › "adds"`, '').length + 1 + w.fix.length <= 160, w.detail);
+  assert.match(alone.findings[0].fix, /^Read each new test's not-judged warning and do what it says, so it runs or is skipped by its own call/);
+  const mixed = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed, nj('no-subject')] }));
+  assert.match(mixed.findings[0].fix, /^Read each not-judged warning and do what it says, so each new test runs or is skipped by its own call, or excuse/);
+  for (const f of [alone.findings[0], mixed.findings[0]]) assert.ok(f.fix.length <= 160, f.fix);
+  const beside = judge(rec({ changedTestFiles: [FILE], tests: [judged()], notJudged: [narrowed] }));
+  assert.deepEqual([beside.exit, beside.ids], [0, []]);
+  assert.deepEqual(judge(rec({ changedTestFiles: [FILE], notJudged: [nj('skipped')] })).exit, 0);
+});
+
 test('a test every change of which stopped its file loading is named beside a judged test, and is nothing-judged alone, never a fault in the record', () => {
   const dropped = nj('every-change-dropped', { detail: 'pkgs/app/src/cart.ts' });
   const beside = judge(rec({ changedTestFiles: [FILE], tests: [judged()], notJudged: [dropped] }));
