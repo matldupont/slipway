@@ -282,6 +282,9 @@ test('work-ticket Phase 1 step 3 clears a closed issue or merged pull request, s
   assert.match(step, /an issue or a pull request/, 'step 3 must read a blocker as an issue or a pull request');
   assert.match(step, /A closed issue or a merged pull request is cleared\./, 'a closed issue or merged pull request must clear');
   assert.match(step, /An open issue or pull request: stop\./, 'an open issue or pull request must stop');
+  assert.match(step, /`gh pr view \{n\} --repo \{repo\} --json state`, else `gh issue view \{n\} --repo \{repo\} --json state,url`/, 'step 3 must read a pull request first, in the issue repo, with the number as digits');
+  assert.match(step, /A number neither read finds: stop\./, 'a number neither command finds must stop');
+  assert.match(read(skillPath('work-ticket')), /Dependencies: \{#n closed ✓ \| PR #n merged ✓ \| #n OPEN ✗ \| PR #n closed unmerged ✗\}/, 'the Phase 1 report must have a form for a merged pull request and one closed unmerged');
   assert.match(step, /A pull request closed unmerged holds the ticket: stop with "PR #n closed unmerged; check the wait"/, 'a pull request closed unmerged must hold');
 });
 

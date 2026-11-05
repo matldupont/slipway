@@ -1,6 +1,6 @@
 ---
 name: work-ticket
-description: Take one issue from filed to a pull request ready to merge — check it can start (dependencies closed, its claims about the code still true, nobody else on the same files), find the holes in its acceptance before writing code, build it area by area with a test per acceptance line, run the project's quality gate, open a draft PR, have it reviewed cold from a fresh context against what the issue promises, fix, and mark it ready. Use when the user says "work ticket 46", "build #46", "pick up this issue", "implement this issue", or runs /work-ticket with an issue number; with no number, it reviews and ships the change already on the current branch. Not for filing work (/log-feature, /log-bug, /log-followup).
+description: Take one issue from filed to a pull request ready to merge — check it can start (dependencies cleared, its claims about the code still true, nobody else on the same files), find the holes in its acceptance before writing code, build it area by area with a test per acceptance line, run the project's quality gate, open a draft PR, have it reviewed cold from a fresh context against what the issue promises, fix, and mark it ready. Use when the user says "work ticket 46", "build #46", "pick up this issue", "implement this issue", or runs /work-ticket with an issue number; with no number, it reviews and ships the change already on the current branch. Not for filing work (/log-feature, /log-bug, /log-followup).
 ---
 
 # Work a ticket
@@ -64,8 +64,8 @@ invariants and the stack rules; the intent is read from the diff, and the commit
    through the tracker's connector only, never a URL from the issue: stack frames and counts, never user
    data, and in the PR only its id. Check the issue's root cause against the frames before trusting its file
    list; the failure often sits a layer or two above the part the issue names.
-3. **Dependencies.** Every `Blocked by:` or `Depends on:` number (`#` and digits) is an issue or a pull request: read it with `gh pr view` first, `gh issue view` when that fails. A closed issue or a merged pull request is cleared. An open issue or pull request: stop. A pull request closed unmerged
-   holds the ticket: stop with "PR #n closed unmerged; check the wait" (`gh issue view` calls it CLOSED).
+3. **Dependencies.** Every `Blocked by:` or `Depends on:` number (`{n}`, digits only) is an issue or a pull request in `{repo}`: read it with `gh pr view {n} --repo {repo} --json state`, else `gh issue view {n} --repo {repo} --json state,url`. A closed issue or a merged pull request is cleared. An open issue or pull request: stop. A number neither read finds: stop. A pull request closed unmerged
+   holds the ticket: stop with "PR #n closed unmerged; check the wait" (`gh pr view` reads it as CLOSED; a `/pull/` url from `gh issue view` is a pull request, never a closed issue).
 4. **Requirement.** Map the goal to an F-ID in the PRD, a doc in `Feature docs dir`, or the parent issue. A
    PRD that is still the template: say so and point at `/kickoff`. No mapping: ask, "Nothing in
    {Product name}'s plan asks for this yet. Build it anyway?"
@@ -85,7 +85,7 @@ PHASE 1: CAN IT START
 Issue:        #{n} — {title} · lane {lane}
 Requirement:  {F-ID | feature doc | parent #n} | none — asked
 Milestone:    {id, in its Contents} | none by design — "{Milestone roadmap, quoted}" | outside or none active — asked
-Dependencies: {#n closed ✓ | #n OPEN ✗} | none
+Dependencies: {#n closed ✓ | PR #n merged ✓ | #n OPEN ✗ | PR #n closed unmerged ✗} | none
 Code claims:  re-verified @ {sha} | refuted: {what the code does} | none
 Overlap:      {PR or issue #n on {path} | recent commits on {path}} | none
 Too much:     {flags} | none
