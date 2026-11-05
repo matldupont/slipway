@@ -192,6 +192,15 @@ test('a name filter set through the prototype key in the test script is refused:
   assert.match(r.out, /`app`'s `test` script is not a plain call to the test runner/);
 });
 
+test('a file filter set through the parser\'s list of left-behind words in the test script is refused: the run stops, never a pass (#652)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: 'vitest run --_=src/other.test.ts', config: { tests: { adds: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: testFile(['adds']) });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /`app`'s `test` script is not a plain call to the test runner/);
+});
+
 test('a plain -t in the test script is refused: the run stops, never a pass (#652)', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, test: 'vitest run -t nomatch', config: { tests: { adds: { failsWhen: CHANGED } } } });
   removeAll(t, p);
