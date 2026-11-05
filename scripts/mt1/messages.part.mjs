@@ -144,7 +144,7 @@ test('no text of the record prints raw: C0, C1 and bidi characters in every fiel
 });
 
 test('each known-bad fixture of MT1 is one PC1 runs, and every reason a record can give has its wording', () => {
-  assert.deepEqual(readdirSync(KNOWN_BAD).sort(), ['findings', 'lacks-field', 'no-record', 'not-json', 'nothing-judged', 'other-head', 'out-of-time-early', 'stopped', 'tried-zero']);
+  assert.deepEqual(readdirSync(KNOWN_BAD).sort(), ['findings', 'lacks-field', 'narrowed', 'no-record', 'not-json', 'nothing-judged', 'other-head', 'out-of-time-early', 'stopped', 'tried-zero']);
   const judge = readFileSync(fileURLToPath(new URL('../../ci/checks/lib/mutation-judge.mjs', import.meta.url)), 'utf8') + readFileSync(fileURLToPath(new URL('../../ci/mutation.mjs', import.meta.url)), 'utf8') + readFileSync(fileURLToPath(new URL('../../ci/checks/lib/mutation-tests.mjs', import.meta.url)), 'utf8');
   const given = new Set([...judge.matchAll(/why: '([a-z-]+)'/g), ...judge.matchAll(/notJudged\([^,]+, '([a-z-]+)'/g), ...judge.matchAll(/'(other-runner|kept-out|excused|no-package|mechanical|skipped|flaky|no-subject|support-only|could-not-be-parsed|other-language|no-change-to-make|every-change-dropped)'/g)].map((x) => x[1]));
   for (const why of given) assert.ok(REASONS.includes(why), `the run gives ${why}, which this test does not word`);
