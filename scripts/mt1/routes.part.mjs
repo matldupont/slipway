@@ -102,3 +102,14 @@ for (const [what, config, says] of [
     assert.match(r.out, says);
   });
 }
+
+test('a new test the run skips is narrowed by the report itself, before its subjects are read: one with no subject is not no-subject (#652)', (t) => {
+  // No file beside it and no import: a test the run ran would be no-subject.
+  const lone = 'pkgs/app/src/lone.test.ts';
+  const bare = (names) => testFile(names, { imports: '' });
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [lone]: bare(['old']) }, config: { namePattern: '^old$', tests: { adds: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [lone]: bare(['old', 'adds']) });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${lone}#not-judged/narrowed/adds`]], r.out);
+});
