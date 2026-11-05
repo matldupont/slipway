@@ -50,7 +50,7 @@ for (const [what, o, adds] of [
     const r = mt1(p);
     assert.deepEqual([r.status, r.ids, r.warned.sort()], o.want ?? NARROWED, r.out);
     assert.match(r.json.warnings.find((w) => w.where.includes('narrowed')).fix, o.fix ?? /^Remove the filter, `\.only` or hook skipping it, or mark its call `\.skip`/);
-    if (!o.want) assert.match(r.json.findings[0].fix, /^Make each new test run, as its not-judged warning says/);
+    if (!o.want) assert.match(r.json.findings[0].fix, /^Remove what keeps each new test from running, as its not-judged warning says/);
   });
 }
 

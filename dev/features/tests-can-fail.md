@@ -541,8 +541,8 @@ The fix is printed on its own `Fix:` line.
 - `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass, for {k} reasons: each
   test's not-judged warning says why and what to do. `` Fix: `` Read each test's not-judged warning and do what it
   says, or excuse a test file in `ci/exceptions.yaml` with a date. `` When `narrowed` is the one reason, the fix is
-  `` Make each new test run, as its not-judged warning says, or put `.skip` on its call, then run
-  `pnpm tests-can-fail`. ``, and beside another `` Make each skipped new test run, or put `.skip` on its call, and do
+  `` Remove what keeps each new test from running, as its not-judged warning says, or put `.skip` on its call, then
+  run `pnpm tests-can-fail`. ``, and beside another `` Remove what skips each new test, or put `.skip` on its call, and do
   what each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`. `` (#652). Its length is fixed, so
   it fits whatever the record holds; each reason's next action is on the not-judged warning of each test it counts, and only
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
