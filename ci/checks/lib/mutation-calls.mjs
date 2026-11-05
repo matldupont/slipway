@@ -112,10 +112,10 @@ export async function reportOf(ctx, unit) {
   const r = await runFile(ctx, unit);
   const again = 'then run `pnpm tests-can-fail` again';
   if (r.hung) throw new Stop(`The clean run of \`${esc(unit.file)}\` did not finish in its limit, so this step cannot tell which of its tests ran. Make it finish, ${again}.`);
-  if (r.none) throw new Stop(`The test runner wrote no report of \`${esc(unit.file)}\` at the path this step gave it, so this step cannot tell which of its tests ran. Check that \`${esc(unit.pkg.name)}\`'s Vitest config does not send a reporter's output elsewhere, ${again}.\n${esc(lastLines(r.log))}`);
-  if (!r.loaded) return r;
+  if (r.none) throw new Stop(`The test runner wrote no report of \`${esc(unit.file)}\` at the path this step gave it that parses, so this step cannot tell which of its tests ran. Check that \`${esc(unit.pkg.name)}\`'s Vitest config does not send a reporter's output elsewhere and that the run ends, ${again}.\n${esc(lastLines(r.log))}`);
+  if (!r.loaded) throw new Stop(`The clean run of \`${esc(unit.file)}\` did not load it, so this step cannot tell which of its tests are new. Make it load, ${again}.\n${esc(lastLines(r.log))}`);
   const lineless = r.tests.find((t) => t.line === null);
-  if (lineless) throw new Stop(`The test runner's report of \`${esc(unit.file)}\` gives no line for "${esc(lineless.name)}", so this step cannot tell whether it is new. Check that \`${esc(unit.pkg.name)}\`'s call does not turn task locations off, ${again}.`);
+  if (lineless) throw new Stop(`The test runner's report of \`${esc(unit.file)}\` gives no line for "${esc(lineless.name)}", so this step cannot tell whether it is new. Check that \`${esc(unit.pkg.name)}\`'s call does not turn task locations off, and that this Vitest version still reports a test's \`location\`, ${again}.`);
   return r;
 }
 

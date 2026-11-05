@@ -30,9 +30,11 @@ const REASONS = {
   'no-package': () => ['it is in no package of the workspace', 'Rename or move it into a package of the workspace, so a run finds it.'],
   skipped: () => ['it is skipped', `Remove the skip, then ${AGAIN} so the test is judged.`],
   // §3.5, §3.8: the clean run skips it, and no skip on its own call or a describe around it says why.
-  narrowed: (d) => (String(d ?? '').includes('cannot read')
-    ? ['the run skips it; the step cannot read its call', `Write it as \`it(…)\` or \`test(…)\`, any \`.skip\` on that call, then ${AGAIN}.`]
-    : ['the run skips it; its call has no skip', `Remove the filter, \`.only\` or hook skipping it, or mark its call \`.skip\`, then ${AGAIN}.`]),
+  narrowed: (d) => (String(d ?? '').startsWith('the runner reports no test')
+    ? [e(d), `Take the condition off its call, or mark it \`.skip\`, then ${AGAIN}.`]
+    : String(d ?? '').includes('cannot read')
+      ? ['the run skips it; the step cannot read its call', `Write it as \`it(…)\` or \`test(…)\`, any \`.skip\` on that call, then ${AGAIN}.`]
+      : ['the run skips it; its call has no skip', `Remove the filter, \`.only\` or hook skipping it, or mark its call \`.skip\`, then ${AGAIN}.`]),
   mechanical: (d) => [`this pull request is excused as a mechanical change ${untilReason(d)}`, 'Remove it from `ci/exceptions.yaml` in the next pull request, as it counts only in this one.'],
   excused: (d) => [`excused ${untilReason(d)}`, 'Remove its entry from `ci/exceptions.yaml` once the test checks what the code does.'],
   // §3.8's notJudged flaky: red, then green, before any change. The tests state `flaky` (§3.9) is a finding, worded apart.

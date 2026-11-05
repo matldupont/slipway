@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { CART, project, testFile } from '../mutation/project.mjs';
-import { CHANGED, FILE, mt1, removeAll } from './run.part.mjs';
+import { CHANGED, EXCEPTION, FILE, mt1, removeAll } from './run.part.mjs';
 
 const STOPS = /`app`'s `test` script is not a plain call to the test runner/;
 const it = (name, opts = '') => `it('${name}', ${opts}() => {\n  expect(add(1, 2)).toBe(3);\n});\n`;
@@ -93,6 +93,7 @@ for (const [what, config, says] of [
   ['writes no report', { noResult: true }, /wrote no report of `pkgs\/app\/src\/cart\.test\.ts` at the path this step gave it/],
   ['writes a report that does not parse', { badReport: true }, /wrote no report of `pkgs\/app\/src\/cart\.test\.ts` at the path this step gave it/],
   ['reports a test with no line', { noReportLine: true }, /report of `pkgs\/app\/src\/cart\.test\.ts` gives no line for "old"/],
+  ['lists the file but does not load it in its run', { tests: { old: { loadFailsWhen: [{ file: 'pkgs/app/src/cart.ts', line: 1, has: 'never there' }] } } }, /clean run of `pkgs\/app\/src\/cart\.test\.ts` did not load it/],
 ]) {
   test(`a runner that ${what} stops the run, never a pass (#652)`, (t) => {
     const p = routed({ config });
@@ -113,4 +114,53 @@ test('a new test the run skips is narrowed by the report itself, before its subj
   p.commit({ [lone]: bare(['old', 'adds']) });
   const r = mt1(p);
   assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${lone}#not-judged/narrowed/adds`]], r.out);
+});
+
+// §3.5: a changed call the runner reports no test in (gated by a condition, an empty table, never called) is named by
+// its line: the owner's skip when its call says skip, else narrowed. The stand-in, like Vitest here, collects no test
+// from a call behind an `if`.
+const gated = (mod = '') => `if (process.env.NOT_SET) it${mod}('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`;
+test('a new test call the runner reports no test in is narrowed, never a silent pass (#652)', (t) => {
+  const p = routed({});
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old'])}\n${gated()}` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed`]], r.out);
+  const w = r.json.warnings[0];
+  assert.match(w.detail, /the runner reports no test in the call at line \d+\.$/);
+  assert.match(w.fix, /^Take the condition off its call, or mark it `\.skip`/);
+  assert.ok(w.detail.replace(`\`${FILE}\``, '').length + 1 + w.fix.length <= 160, w.detail);
+});
+
+test('one the runner reports no test in, whose own call says skip, is the owner\'s skip (#652)', (t) => {
+  const p = routed({});
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old'])}\n${gated('.skip')}` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped`]], r.out);
+});
+
+test('a skipped new test on an import\'s line is named (#652)', (t) => {
+  const p = routed({ base: HEAD + it('old') });
+  removeAll(t, p);
+  p.commit({ [FILE]: HEAD.replace("from 'vitest';", "from 'vitest'; it.skip('adds', () => {});") + it('old') });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped`]], r.out);
+});
+
+test('a test the listing hides, changed only by a line removed after a blank one, is narrowed (#652)', (t) => {
+  const adds = (more) => `it('adds', () => {\n  expect(add(1, 2)).toBe(3);\n\n${more}});\n`;
+  const p = routed({ config: { namePattern: '^old$' }, base: `${testFile(['old'])}\n${adds("  console.log('x');\n")}` });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old'])}\n${adds('')}` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], NARROWED, r.out);
+});
+
+test('under the mechanical excuse, a new test the listing hides is still named (#652)', (t) => {
+  const p = routed({});
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}\nit.skip('later', () => {});\n`, 'ci/exceptions.yaml': EXCEPTION('tests-can-fail#mechanical') });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.warned.sort()], [0, [`${FILE}#not-judged/mechanical`, `${FILE}#not-judged/mechanical/adds`]], r.out);
 });

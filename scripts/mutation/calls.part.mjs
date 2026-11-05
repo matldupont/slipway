@@ -165,6 +165,6 @@ test('an argument the checks accepted before #652 and the runner reads is still 
   assert.deepEqual(runnerCall(`vitest run ${kept.join(' ')}`).args, kept);
   // `--no-<option>` sets that option false, which narrows nothing or stops the runner: each refused option's is
   // accepted on purpose. With a key after it (`--no-<option>.x`) it hands the option an object, read as set: refused.
-  for (const form of ['--no-testNamePattern.x', '--no-test-name-pattern.x', '--no-testNamePattern.x=y', '--no-t.x', '--no-tagsFilter.x', '--no-shard.x']) assert.ok(runnerCall(`vitest run ${form}`).unreadable, form);
+  for (const form of ['--no-testNamePattern.x', '--no-test-name-pattern.x', '--no-testNamePattern.x=y', '--no-t.x', '--no-tagsFilter.x', '--no-shard.x', '-no-bail.x', '-no-bail.x=1', '---no-coverage.x']) assert.ok(runnerCall(`vitest run ${form}`).unreadable, form);
   for (const form of ['--no-testNamePattern', '--no-test-name-pattern', '--no-t', '--no-tagsFilter', '--no-shard', '--no-changed', '--no-related', '--no-bail', '--no-coverage']) assert.ok(!runnerCall(`vitest run ${form}`).unreadable, form);
 });

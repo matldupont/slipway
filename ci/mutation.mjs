@@ -18,7 +18,7 @@ import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, reportOf, runnerEnv
 import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
-import { mayHide, newTests, packageOf, safely, skippedEntry, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
+import { mayHide, newTests, packageOf, safely, skippedEntry, unreportedEntry, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
 import { readTestsCanFail, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
 import { isRecordedMajor } from './checks/lib/runner-output.mjs';
 import { readList } from './checks/lib/yaml-list.mjs';
@@ -205,6 +205,7 @@ async function body(root, record, ctx, deadline) {
 
   // §3.5: the listing of each call, and which tests are new.
   const excused = Boolean(mechanical && !record.mechanicalSpent);
+  const mechanicalWhy = excused ? `${mechanical.reason} (until ${mechanical.expires})` : null;
   const units = [];
   for (const [pkg, entries] of byPackage) {
     const scripts = config.runs.get(pkg.name) ?? (typeof pkg.json.scripts?.test === 'string' ? [pkg.json.scripts.test] : []);
@@ -237,10 +238,11 @@ async function body(root, record, ctx, deadline) {
       const listedHere = by.tests.filter((t) => t.file === entry.file);
       // The listing leaves out a test skipped before it runs: where one may hide, the clean run's report says (§3.5).
       const report = !excused && mayHide(listedHere, read, lines, text) ? await reportOf(ctx, { ...by.unit, file: entry.file }) : null;
-      const found = newTests(report?.loaded ? report.tests : listedHere, read, lines);
+      const found = newTests(report ? report.tests : listedHere, read, lines);
       if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)' });
       // A new test the clean run skips is not judged (§3.8).
       for (const g of found.groups.filter((x) => !x.run)) record.notJudged.push(skippedEntry(entry.file, g));
+      for (const c of found.unreported) record.notJudged.push(excused ? { file: entry.file, name: null, why: 'mechanical', detail: mechanicalWhy } : unreportedEntry(entry.file, c));
       if (found.outside && !entry.added) record.outsideAnyTest.push({ file: entry.file });
       const run = found.groups.filter((g) => g.run);
       if (run.length) units.push({ ...by.unit, file: entry.file, text, expects: read.unreadable ? [] : read.expects, groups: run, first: report ?? undefined });
@@ -249,8 +251,7 @@ async function body(root, record, ctx, deadline) {
 
   if (excused) {
     record.mechanical = true;
-    const detail = `${mechanical.reason} (until ${mechanical.expires})`;
-    for (const unit of units) for (const g of unit.groups) record.notJudged.push({ file: unit.file, name: g.name, why: 'mechanical', detail });
+    for (const unit of units) for (const g of unit.groups) record.notJudged.push({ file: unit.file, name: g.name, why: 'mechanical', detail: mechanicalWhy });
     return;
   }
   const own = (file) => (paths.includes(file) ? changedLines(top, record.base, record.head, { file, from: file }).added : new Set());

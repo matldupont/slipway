@@ -14,7 +14,7 @@ import { CART, project, testFile } from '../mutation/project.mjs';
 const MT1 = fileURLToPath(new URL('../../ci/checks/meta/mt1-tests-can-fail.mjs', import.meta.url));
 export const FILE = 'pkgs/app/src/cart.test.ts';
 export const CHANGED = [{ file: 'pkgs/app/src/cart.ts', line: 2, has: 'return a + b' }];
-const EXCEPTION = (id, reason = 'a rename across test files') => `exceptions:\n  - id: ${id}\n    expires: 2099-01-01\n    reason: ${reason}\n    owner: test\n`;
+export const EXCEPTION = (id, reason = 'a rename across test files') => `exceptions:\n  - id: ${id}\n    expires: 2099-01-01\n    reason: ${reason}\n    owner: test\n`;
 
 // `pnpm tests-can-fail`'s command, in the project: its exit, its report and its printed lines.
 export function mt1(p) {

@@ -55,7 +55,7 @@ export const within = (pkg, file) => (pkg.dir ? file.slice(pkg.dir.length + 1) :
  * alias, test.extend), every test of the file is new. A group is `run` when the clean run ran one of its tests, and
  * `skip` when its call, or a describe around it, says skip; `read` when the step found its call.
  * @param {Array<{ name: string, line: number, status?: string }>} reported
- * @returns {{ groups: Array<{ name: string, line: number, names: Set<string>, run: boolean, skip: boolean, read: boolean }>, outside: boolean, every: boolean }}
+ * @returns {{ groups: Array<{ name: string, line: number, names: Set<string>, run: boolean, skip: boolean, read: boolean }>, outside: boolean, every: boolean, unreported: Array<{ line: number, skip: boolean }> }}
  */
 export function newTests(reported, read, { added, removedAfter }) {
   const calls = read.unreadable ? [] : read.tests;
@@ -75,17 +75,24 @@ export function newTests(reported, read, { added, removedAfter }) {
   const fresh = [...groups.values()].filter((g) => every || marks(g.call));
   const inAnyCall = (n) => calls.some((c) => n >= c.first && n <= c.last);
   const outside = !every && ([...added].some((n) => !inAnyCall(n)) || removedAfter.some((n) => !calls.some((c) => n >= c.first && n + 1 <= c.last)));
-  return { groups: fresh.map(({ name, line, names, run, skip, read: known }) => ({ name, line, names, run, skip, read: known })), outside, every };
+  // A changed call the runner reports no test in: gated by a condition, an empty table, or never called (§3.5).
+  const unreported = every ? [] : calls.filter((c) => marks(c) && !reported.some((t) => t.line >= c.first && t.line <= c.last)).map((c) => ({ line: c.first, skip: c.skip === true }));
+  return { groups: fresh.map(({ name, line, names, run, skip, read: known }) => ({ name, line, names, run, skip, read: known })), outside, every, unreported };
 }
 
-// §3.5: whether the listing can have left a new test out: a changed line, not blank and in no import, outside every
-// call it places a test in, or a file spans() cannot read. Only then is the runner's report of a clean run read, so
-// finding a test needs no form of call.
+// §3.5: whether the listing can have left a new test out: a changed line inside a test call it places no test in, or
+// an added line, not blank, outside every call it places a test in and every import; a hunk that only removes lines,
+// the same by the line it follows; or a file spans() cannot read. Only then is the runner's report of a clean run read,
+// so finding a test needs no form of call.
 export function mayHide(listed, read, { added, removedAfter }, text) {
   if (read.unreadable) return true;
   const lines = text.split('\n');
-  const covered = [...read.tests.filter((c) => listed.some((t) => t.line >= c.first && t.line <= c.last)), ...read.imports];
-  return [...added, ...removedAfter].some((n) => (lines[n - 1] ?? '').trim() !== '' && !covered.some((c) => n >= c.first && n <= c.last));
+  const holds = (c) => listed.some((t) => t.line >= c.first && t.line <= c.last);
+  const covered = [...read.tests.filter(holds), ...read.imports];
+  const empty = read.tests.filter((c) => !holds(c));
+  const isIn = (n, c, after = 0) => n >= c.first && n + after <= c.last;
+  return [...added].some((n) => empty.some((c) => isIn(n, c)) || (lines[n - 1] ?? '').trim() !== '' && !covered.some((c) => isIn(n, c)))
+    || removedAfter.some((n) => empty.some((c) => isIn(n, c, 1)) || !covered.some((c) => isIn(n, c)));
 }
 
 // §3.8: a new test the clean run skips is the owner's skip only when its own call, or a describe around it, says so;
@@ -93,6 +100,10 @@ export function mayHide(listed, read, { added, removedAfter }, text) {
 export const skippedEntry = (file, g) => (g.skip
   ? { file, name: g.name, why: 'skipped', detail: null }
   : { file, name: g.name, why: 'narrowed', detail: g.read ? 'the run skips it, and its call holds no skip' : 'the run skips it, in a call this step cannot read for a skip' });
+// §3.5: a changed call the runner reports no test in is named by its line, by the same rule.
+export const unreportedEntry = (file, c) => (c.skip
+  ? { file, name: null, why: 'skipped', detail: `the runner reports no test in the call at line ${c.line}, which says skip` }
+  : { file, name: null, why: 'narrowed', detail: `the runner reports no test in the call at line ${c.line}` });
 
 // A relative import, resolved to a tracked file inside the repository: as written, with each extension, `.js` read as
 // its TypeScript source, or as a folder's index.

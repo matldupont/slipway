@@ -35,9 +35,10 @@ const outsideOptions = (word) => {
   const name = bare.startsWith('no-') ? bare.slice(3) : bare.split('=')[0];
   return name.includes('_') || name.split('.').some((key) => OBJECT_KEYS.has(key) || OBJECT_KEYS.has(key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())));
 };
-// `--no-<option>.<key>` hands the runner an object for that option, which it reads as set: the option it names.
+// `--no-<option>.<key>` (after any number of dashes) hands the runner an object for that option, which it reads as set:
+// the option it names.
 const negated = (word) => {
-  const name = word.startsWith('--no-') ? word.slice(5).split('=')[0] : '';
+  const name = /^-+no-/.test(word) ? word.replace(/^-+no-/, '').split('=')[0] : '';
   if (!name.includes('.')) return null;
   const base = name.split('.')[0];
   return base.length === 1 ? `-${base}` : `--${base.replace(/-([a-z])/g, (_, c) => c.toUpperCase())}`;
