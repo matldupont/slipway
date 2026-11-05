@@ -31,7 +31,7 @@ const PREFIX = 'tests-can-fail-';
 export const SIGNAL_STOP_MS = 10_000;
 const SIGNALS = { SIGINT: 2, SIGTERM: 15, SIGHUP: 1 };
 
-const emptyRecord = (limit) => ({
+export const emptyRecord = (limit) => ({
   head: null, base: null, seconds: 0, budget: BUDGET_SECONDS, limit, outOfTime: false, stopped: null, signal: null,
   uncommitted: 0, changedTestFiles: [], runs: [], order: [], tests: [], neverRun: [], notJudged: [], unreadable: [],
   support: [], noChange: [], notTests: [], outsideAnyTest: [], removedTestFiles: 0, mechanical: false, mechanicalSpent: false,
@@ -51,7 +51,7 @@ function sweep(now) {
   }
 }
 
-const registryOf = (text) => (text === null ? [] : readList(text, ['id', 'expires', 'reason', 'owner'], { strict: true }));
+export const registryOf = (text) => (text === null ? [] : readList(text, ['id', 'expires', 'reason', 'owner'], { strict: true }));
 
 /**
  * @param {{ root?: string, limitSeconds?: number }} [o]
@@ -62,7 +62,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
   const deadline = started + limitSeconds * 1000;
   const record = emptyRecord(limitSeconds);
   const groups = new Groups();
-  const ctx = { groups, dir: null, copy: null, env: runnerEnv(), signalled: null, say };
+  const ctx = { groups, top: null, dir: null, copy: null, env: runnerEnv(), signalled: null, say };
   ctx.callLimit = () => Math.min(CALL_LIMIT_MS, deadline - Date.now());
   ctx.checkpoint = (r) => {
     if (ctx.signalled) throw new Stop(`The run was stopped by ${ctx.signalled}.`);
@@ -89,7 +89,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
   } finally {
     await groups.stopAll();
     if (ctx.dir) {
-      const left = namingFolder(ctx.dir);
+      const left = namingFolder(ctx.dir, ctx.top);
       if (left === null) record.stopped ??= 'pgrep could not say whether a process this check started is still running, so the run cannot show it leaves nothing running.';
       else if (left.length) {
         killPids(left);
@@ -110,6 +110,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
 
 async function body(root, record, ctx, deadline) {
   const top = trustedGit(root, ['rev-parse', '--show-toplevel']).trim();
+  ctx.top = top;
   record.head = revParse(top, 'HEAD');
   const from = defaultBranch(top);
   if (!from) throw new Stop(NO_DEFAULT);
@@ -256,7 +257,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.ar
     process.stderr.write('--limit-seconds takes a number of seconds above 0\n');
     process.exit(2);
   }
-  const record = await runMutation({ limitSeconds, say: (line) => process.stderr.write(`tests-can-fail: ${esc(line)}\n`) });
+  const record = await runMutation({ limitSeconds, say: (line) => process.stderr.write(`tests-can-fail: ${esc(line).replace(/##\[/g, '\\u0023\\u0023\\u005b')}\n`) });
   // A pull request's text in the record is printed through the report's escape, as JSON escapes.
   process.stdout.write(`${escapeOutput(JSON.stringify(record, null, 1))}\n`);
   process.exit(record.signal ? 128 + SIGNALS[record.signal] : record.stopped ? 2 : 0);

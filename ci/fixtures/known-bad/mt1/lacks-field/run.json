@@ -1,0 +1,33 @@
+{
+ "head": "1111111111111111111111111111111111111111",
+ "base": "2222222222222222222222222222222222222222",
+ "seconds": 40,
+ "budget": 120,
+ "limit": 600,
+ "outOfTime": false,
+ "stopped": null,
+ "signal": null,
+ "uncommitted": 0,
+ "changedTestFiles": [],
+ "runs": [
+  {
+   "package": "app",
+   "call": "vitest run",
+   "version": "5.0.3"
+  }
+ ],
+ "order": [],
+ "tests": [],
+ "neverRun": [],
+ "unreadable": [],
+ "support": [],
+ "noChange": [],
+ "notTests": [],
+ "outsideAnyTest": [],
+ "removedTestFiles": 0,
+ "mechanical": false,
+ "mechanicalSpent": false,
+ "excuseProblems": [],
+ "capped": [],
+ "leftProcesses": 0
+}

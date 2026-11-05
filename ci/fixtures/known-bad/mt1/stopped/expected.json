@@ -1,0 +1,9 @@
+{
+ "_note": "A run that stopped: exit 2 with its own message (§1, processes left).",
+ "env": {
+  "CHECK_TODAY": "2026-11-04",
+  "CHECK_HEAD": "1111111111111111111111111111111111111111"
+ },
+ "exit": 2,
+ "broken": "2 processes this check started were still running and were stopped."
+}

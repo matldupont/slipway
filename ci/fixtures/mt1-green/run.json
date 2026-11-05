@@ -1,0 +1,101 @@
+{
+ "head": "1111111111111111111111111111111111111111",
+ "base": "2222222222222222222222222222222222222222",
+ "seconds": 40,
+ "budget": 120,
+ "limit": 600,
+ "outOfTime": false,
+ "stopped": null,
+ "signal": null,
+ "uncommitted": 0,
+ "changedTestFiles": [
+  "pkgs/app/src/cart.test.ts",
+  "pkgs/app/src/s.test.ts",
+  "pkgs/app/src/o.test.ts",
+  "pkgs/app/src/x.test.ts",
+  "pkgs/app/src/k.test.ts",
+  "pkgs/app/src/f.test.ts",
+  "pkgs/other/src/r.test.ts"
+ ],
+ "runs": [
+  {
+   "package": "app",
+   "call": "vitest run",
+   "version": "5.0.3"
+  }
+ ],
+ "order": [],
+ "tests": [
+  {
+   "package": "app",
+   "file": "pkgs/app/src/cart.test.ts",
+   "name": "adds",
+   "line": 3,
+   "subjects": [
+    "pkgs/app/src/cart.ts"
+   ],
+   "tried": 1,
+   "failedOn": {
+    "file": "pkgs/app/src/cart.ts",
+    "line": 2,
+    "kind": "body",
+    "by": "assertion"
+   },
+   "crashes": 0,
+   "lastCrash": null,
+   "unreadFailures": 0,
+   "lastUnread": null,
+   "state": "judged"
+  }
+ ],
+ "neverRun": [],
+ "notJudged": [
+  {
+   "file": "pkgs/app/src/s.test.ts",
+   "name": "uses a factory",
+   "why": "support-only",
+   "detail": "pkgs/app/src/factories.ts"
+  },
+  {
+   "file": "pkgs/app/src/o.test.ts",
+   "name": "reads styles",
+   "why": "other-language",
+   "detail": "pkgs/app/src/theme.css"
+  },
+  {
+   "file": "pkgs/app/src/x.test.ts",
+   "name": null,
+   "why": "excused",
+   "detail": "it reads source text, not what code does (until 2099-12-31)"
+  },
+  {
+   "file": "pkgs/app/src/k.test.ts",
+   "name": "later",
+   "why": "skipped",
+   "detail": null
+  },
+  {
+   "file": "pkgs/app/src/f.test.ts",
+   "name": "sometimes",
+   "why": "flaky",
+   "detail": null
+  },
+  {
+   "file": "pkgs/other/src/r.test.ts",
+   "name": null,
+   "why": "other-runner",
+   "detail": "other"
+  }
+ ],
+ "unreadable": [],
+ "support": [],
+ "noChange": [],
+ "notTests": [],
+ "outsideAnyTest": [],
+ "removedTestFiles": 0,
+ "mechanical": false,
+ "mechanicalSpent": false,
+ "excuseProblems": [],
+ "capped": [],
+ "leftProcesses": 0
+}

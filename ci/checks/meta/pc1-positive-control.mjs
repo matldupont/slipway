@@ -45,9 +45,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const ownRoot = process.argv[2] === undefined;
 const fixturesRoot = ownRoot ? resolve(here, '..', '..', 'fixtures', 'known-bad') : resolve(process.argv[2]);
 
-// The only environment a fixture may set: the dates the clock checks read, and W1's template-fixture switch
-// (it lifts the top-of-checkout condition only; slipway's root commit is still required).
-const FIXTURE_ENV = ['CHECK_TODAY', 'CHECK_NOW', 'SLIPWAY_TEMPLATE_FIXTURE'];
+// The only environment a fixture may set: the dates the clock checks read, W1's template-fixture switch
+// (it lifts the top-of-checkout condition only; slipway's root commit is still required), and the commit MT1 holds a
+// recorded run to, since a fixture has no commit of its own.
+const FIXTURE_ENV = ['CHECK_TODAY', 'CHECK_NOW', 'SLIPWAY_TEMPLATE_FIXTURE', 'CHECK_HEAD'];
 const INERT = 'inert placeholder written by PC1 for a known-bad fixture\n';
 // A tracked path is relative, stays inside the repository, and names no part of .git.
 const safePath = (p) =>

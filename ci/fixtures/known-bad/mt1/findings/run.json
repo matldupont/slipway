@@ -1,0 +1,190 @@
+{
+ "head": "1111111111111111111111111111111111111111",
+ "base": "2222222222222222222222222222222222222222",
+ "seconds": 40,
+ "budget": 120,
+ "limit": 600,
+ "outOfTime": false,
+ "stopped": null,
+ "signal": null,
+ "uncommitted": 0,
+ "changedTestFiles": [
+  "pkgs/app/src/cart.test.ts",
+  "pkgs/app/src/order.test.ts",
+  "pkgs/app/src/never.test.ts",
+  "pkgs/app/src/types.test.ts",
+  "pkgs/app/src/broken.test.ts",
+  "pkgs/app/src/consts.test.ts",
+  "pkgs/app/src/legacy/old.test.ts"
+ ],
+ "runs": [
+  {
+   "package": "app",
+   "call": "vitest run",
+   "version": "5.0.3"
+  }
+ ],
+ "order": [
+  "pkgs/app/src/cart.test.ts",
+  "pkgs/app/src/order.test.ts"
+ ],
+ "tests": [
+  {
+   "package": "app",
+   "file": "pkgs/app/src/cart.test.ts",
+   "name": "kills nothing",
+   "line": 5,
+   "subjects": [
+    "pkgs/app/src/cart.ts"
+   ],
+   "tried": 14,
+   "failedOn": null,
+   "crashes": 0,
+   "lastCrash": null,
+   "unreadFailures": 0,
+   "lastUnread": null,
+   "state": "judged"
+  },
+  {
+   "package": "app",
+   "file": "pkgs/app/src/cart.test.ts",
+   "name": "only crashes",
+   "line": 9,
+   "subjects": [
+    "pkgs/app/src/cart.ts"
+   ],
+   "tried": 6,
+   "failedOn": null,
+   "crashes": 3,
+   "lastCrash": {
+    "type": "TypeError",
+    "file": "pkgs/app/src/cart.ts",
+    "line": 4
+   },
+   "unreadFailures": 0,
+   "lastUnread": null,
+   "state": "judged"
+  },
+  {
+   "package": "app",
+   "file": "pkgs/app/src/order.test.ts",
+   "name": "flaky",
+   "line": 4,
+   "subjects": [
+    "pkgs/app/src/order.ts"
+   ],
+   "tried": 1,
+   "failedOn": {
+    "file": "pkgs/app/src/cart.ts",
+    "line": 2,
+    "kind": "body",
+    "by": "assertion"
+   },
+   "crashes": 0,
+   "lastCrash": null,
+   "unreadFailures": 0,
+   "lastUnread": null,
+   "state": "flaky"
+  },
+  {
+   "package": "app",
+   "file": "pkgs/app/src/order.test.ts",
+   "name": "slow",
+   "line": 12,
+   "subjects": [
+    "pkgs/app/src/order.ts"
+   ],
+   "tried": 2,
+   "failedOn": null,
+   "crashes": 0,
+   "lastCrash": null,
+   "unreadFailures": 0,
+   "lastUnread": null,
+   "state": "out-of-time"
+  },
+  {
+   "package": "app",
+   "file": "pkgs/app/src/cart.test.ts",
+   "name": "adds",
+   "line": 13,
+   "subjects": [
+    "pkgs/app/src/cart.ts"
+   ],
+   "tried": 1,
+   "failedOn": {
+    "file": "pkgs/app/src/cart.ts",
+    "line": 2,
+    "kind": "body",
+    "by": "assertion"
+   },
+   "crashes": 0,
+   "lastCrash": null,
+   "unreadFailures": 0,
+   "lastUnread": null,
+   "state": "judged"
+  },
+  {
+   "package": "app",
+   "file": "pkgs/app/src/order.test.ts",
+   "name": "totals",
+   "line": 20,
+   "subjects": [
+    "pkgs/app/src/order.ts"
+   ],
+   "tried": 1,
+   "failedOn": {
+    "file": "pkgs/app/src/cart.ts",
+    "line": 2,
+    "kind": "body",
+    "by": "assertion"
+   },
+   "crashes": 0,
+   "lastCrash": null,
+   "unreadFailures": 0,
+   "lastUnread": null,
+   "state": "judged"
+  }
+ ],
+ "neverRun": [
+  {
+   "file": "pkgs/app/src/never.test.ts"
+  }
+ ],
+ "notJudged": [
+  {
+   "file": "pkgs/app/src/types.test.ts",
+   "name": "reads types",
+   "why": "no-subject",
+   "detail": null
+  },
+  {
+   "file": "pkgs/app/src/broken.test.ts",
+   "name": "parses",
+   "why": "could-not-be-parsed",
+   "detail": "pkgs/app/src/broken.ts"
+  },
+  {
+   "file": "pkgs/app/src/consts.test.ts",
+   "name": "has constants",
+   "why": "no-change-to-make",
+   "detail": "pkgs/app/src/consts.ts"
+  },
+  {
+   "file": "pkgs/app/src/legacy/old.test.ts",
+   "name": null,
+   "why": "kept-out",
+   "detail": "the legacy suite moves to Vitest in #12"
+  }
+ ],
+ "unreadable": [],
+ "support": [],
+ "noChange": [],
+ "notTests": [],
+ "outsideAnyTest": [],
+ "removedTestFiles": 0,
+ "mechanical": false,
+ "mechanicalSpent": false,
+ "excuseProblems": [],
+ "capped": [],
+ "leftProcesses": 0
+}

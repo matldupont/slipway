@@ -103,7 +103,7 @@ export async function runFile(ctx, unit) {
 
 // §3.8: red twice in a clean copy. Every new test red, or a connection error, names ci/before-verify.sh's services first (AR-1).
 export function redMessage(unit, name, { everyRed, connection }) {
-  const red = `\`${esc(unit.file)}\` › "${esc(name)}" is red in a clean copy of this commit, before anything is changed. If it passes in your checkout, it needs a file that git does not track and \`ci/before-verify.sh\` does not make, or a service that script starts and that did not come up.`;
+  const red = `\`${esc(unit.file)}\` › "${esc(name)}" is red in a clean copy of this commit, before anything is changed. If it passes in your checkout, it needs a file that git does not track and \`ci/before-verify.sh\` does not make, or a service that script starts and that did not come up. Make it pass there, then run \`pnpm tests-can-fail\` again.`;
   if (!everyRed && !connection) return red;
   const why = connection ? 'a test failed on a connection error' : 'every new test is red in a clean copy of this commit';
   return `A service \`ci/before-verify.sh\` starts may not be up, or one from an earlier run may still hold its port: ${why}. Check those services first. ${red}`;

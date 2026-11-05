@@ -1,6 +1,6 @@
 // ci/exceptions.yaml, the exception registry: one dated entry per excused finding. FO1 reads the entries that
 // excuse a `continue-on-error`; LK1 reads the ones whose id starts `pnpm-lock.yaml#` (lib/pnpm-lock.mjs); DS1 the
-// ones whose id starts `docs/milestones#` (MILESTONE_PREFIX). All judge an entry's date by expiryProblem, so one rule
+// ones whose id starts `docs/milestones#` (MILESTONE_PREFIX); MT1 the ones whose id starts `tests-can-fail#`. All judge an entry's date by expiryProblem, so one rule
 // decides when an excuse has ended, and LK1 and DS1 judge its reason and owner by said().
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -9,6 +9,10 @@ import { readList } from './yaml-list.mjs';
 // DS1's entries: `docs/milestones#<id>/accessibility`, a milestone whose screens cannot yet show how they meet
 // WCAG 2.2 AA (F-14 §3). Every id with this prefix is DS1's to judge, a malformed one included; FO1 skips them.
 export const MILESTONE_PREFIX = 'docs/milestones#';
+
+// The tests-can-fail step's entries (dev/features/tests-can-fail.md §3.7): `tests-can-fail#<test file>`,
+// `#mechanical` and `#other-runner`. MT1 judges every id with this prefix; FO1 skips them.
+export const TESTS_CAN_FAIL_PREFIX = 'tests-can-fail#';
 
 // Text that says something: a word or number, not blank, YAML's spellings of no value, or an indicator (`|`, `[]`,
 // `&a`, `!!null`).

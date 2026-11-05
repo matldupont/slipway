@@ -5,6 +5,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 import { closeSync, openSync, readFileSync } from 'node:fs';
+import { trustedEnv } from './manifest.mjs';
 
 // How long a group has between SIGTERM and SIGKILL.
 export const STOP_WAIT_MS = 2000;
@@ -90,11 +91,20 @@ export class Groups {
 export const escapeRegExp = (text) => text.replace(/[\\^$.*+?()[\]{}|/-]/g, '\\$&');
 
 /**
- * The pids of this user's processes whose command line names `folder`, or null when pgrep cannot say.
+ * The pids of this user's processes whose command line names `folder`, or null when pgrep cannot say. `top` is the
+ * checkout the step runs in, whose folders are kept off pgrep's PATH.
  * @returns {number[] | null}
  */
-export function namingFolder(folder) {
-  const r = spawnSync('pgrep', ['-U', String(process.getuid()), '-f', escapeRegExp(folder)], { encoding: 'utf8' });
+export function namingFolder(folder, top = null) {
+  // pgrep is looked up on a PATH with no entry in the repository or under node_modules: under `pnpm tests-can-fail`
+  // node_modules/.bin comes first, and a dependency's own `pgrep` there could answer "none" for it.
+  let env;
+  try {
+    env = trustedEnv(top);
+  } catch {
+    return null;
+  }
+  const r = spawnSync('pgrep', ['-U', String(process.getuid()), '-f', escapeRegExp(folder)], { encoding: 'utf8', env });
   if (r.error || r.signal) return null;
   if (r.status === 1) return [];
   if (r.status !== 0) return null;

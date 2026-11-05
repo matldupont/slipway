@@ -1,0 +1,5 @@
+exceptions:
+  - id: tests-can-fail#pkgs/app/src/x.test.ts
+    reason: it reads source text, not what code does
+    owner: build lead
+    expires: 2099-12-31
