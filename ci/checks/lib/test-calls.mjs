@@ -2,7 +2,7 @@
 // call shaped like a test that it cannot read as one, and whether its own text skips it. Pure: it reads the nodes
 // mutants.mjs's parser gives, and imports no parser itself.
 
-const TEST_MODIFIERS = new Set(['only', 'skip', 'todo', 'concurrent', 'sequential', 'fails']);
+const TEST_MODIFIERS = new Set(['only', 'skip', 'todo', 'concurrent', 'sequential', 'fails', 'shuffle']);
 // The forms that take their own call before the test's: it.each(rows)('x', fn), it.for(rows)('x', fn),
 // it.skipIf(c)('x', fn), it.runIf(c)('x', fn), and it.each`table`('x', fn).
 const CALL_FORMS = new Set(['each', 'for', 'skipIf', 'runIf']);
@@ -81,22 +81,35 @@ function namesTest(callee) {
   }
   return false;
 }
-// A call shaped like a test that the step cannot read as one, asked of a call callChain() reads as no test or suite:
-// one whose callee names it or test with a name or a function among its arguments (`it.call(null, 'x', fn)`), or one
-// on another name that passes a name and then a function, or a function after any first argument (an alias of it.skip,
-// test.extend's test, a computed modifier). Only the modifiers' own names or a computed key may sit on that other
-// name's chain, so `app.get('/x', fn)` is not one, nor vi.mock or expect.
+// A call shaped like a test that the step cannot read as one, asked of a call callChain() reads as no test or suite.
+// `{ root: null }` when its callee names it or test, with a name or a function among its arguments
+// (`it.call(null, 'x', fn)`). Otherwise `{ root, marked }` for a call on another name that passes a name and then a
+// function, or a function after any first argument: `marked` when a modifier, a form or a computed key sits on its
+// chain (`later.skip('x', fn)`); spans() keeps an unmarked one only when its root is an alias of it or test. Only those
+// links may sit on the chain, so `app.get('/x', fn)` is not one, nor vi.mock or expect. Null when it is not one.
 export function testShaped(node) {
-  if (!isCall(node)) return false;
+  if (!isCall(node)) return null;
   const args = node.arguments;
   const named = (a) => a.type === 'StringLiteral' || a.type === 'TemplateLiteral';
-  if (namesTest(node.callee)) return args.some((a) => named(a) || FUNCTIONS.has(a.type));
-  if (args.length < 2 || !args.slice(1, 3).some((a) => FUNCTIONS.has(a.type) || (named(args[0]) && a.type === 'Identifier'))) return false;
+  if (namesTest(node.callee)) return args.some((a) => named(a) || FUNCTIONS.has(a.type)) ? { root: null, marked: true } : null;
+  if (args.length < 2 || !args.slice(1, 3).some((a) => FUNCTIONS.has(a.type) || (named(args[0]) && a.type === 'Identifier'))) return null;
   let at = unwrap(node.callee);
-  while (isMember(at) && (at.computed || TEST_MODIFIERS.has(nameOf(at)) || CALL_FORMS.has(nameOf(at)))) at = unwrap(at.object);
-  while (isCall(at)) {
-    const c = unwrap(at.callee);
-    at = isMember(c) ? unwrap(c.object) : c;
+  let marked = false;
+  for (;;) {
+    if (isMember(at) && (at.computed || TEST_MODIFIERS.has(nameOf(at)) || CALL_FORMS.has(nameOf(at)))) at = unwrap(at.object);
+    else if (isCall(at)) {
+      const c = unwrap(at.callee);
+      at = isMember(c) ? unwrap(c.object) : c;
+    } else break;
+    marked = true;
   }
-  return at.type === 'Identifier' && at.name !== 'vi' && at.name !== 'expect';
+  return at.type === 'Identifier' && at.name !== 'vi' && at.name !== 'expect' ? { root: at.name, marked } : null;
+}
+// A name the file makes an alias of it or test: `const later = it.skip`, `const myTest = test.extend(…)`, or an import
+// of it, test or a suite from 'vitest' under another name. A function that calls it (`(n, f) => it(n, f)`) is not one:
+// the runner lists its test at that call.
+export function aliasName(node) {
+  if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && node.init && !FUNCTIONS.has(unwrap(node.init).type) && namesTest(node.init)) return [node.id.name];
+  if (node.type !== 'ImportDeclaration' || node.source.value !== 'vitest') return [];
+  return node.specifiers.filter((s) => s.type === 'ImportSpecifier' && s.local.name !== (s.imported.name ?? s.imported.value)).map((s) => s.local.name);
 }

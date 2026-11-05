@@ -14,8 +14,9 @@
 // What Vitest leaves out of `list`, each standing for its own: namePattern, a name filter in the package's Vitest config;
 // tagsFilter: [tag], its tags filter (a test is kept when its line holds `tags: ['<tag>']`); tags: [{ name, skip }], a
 // tag the config skips; a value given to `--passWithNoTests=` or `--globals=`, which the runner keeps as a file filter
-// (`<path>:<line>` keeps that line's test of that file only); `.skip(` or `.todo(` on a test's line; and a
-// `describe.skip(` block, up to the `});` at the start of a line that closes it.
+// (`<path>:<line>` keeps that line's test of that file only); `.skip(` or `.todo(` on a test's line; a
+// `describe.skip(` block, up to the `});` at the start of a line that closes it; and every test of a file with a
+// `.only(` test but those.
 // A run is a changed one when a `failsWhen` or `loadFailsWhen` entry holds; the sleeps and the marker read that.
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
@@ -46,12 +47,14 @@ if (config.sleepMs) sleep(config.sleepMs);
 const TEST_LINE = /^\s*(?:(?:it|test|\w+Test)\b[\w.]*(?:\([^)]*\))?|\]\))\(\s*['"]([^'"]+)['"]/;
 function testsOf(abs) {
   let skipped = false;
-  return readFileSync(abs, 'utf8').split('\n').flatMap((text, i) => {
+  const lines = readFileSync(abs, 'utf8').split('\n');
+  const only = lines.some((l) => TEST_LINE.test(l) && l.includes('.only('));
+  return lines.flatMap((text, i) => {
     if (/^describe\.skip\(/.test(text)) skipped = true;
     else if (/^\}\);?\s*$/.test(text)) skipped = false;
     const m = TEST_LINE.exec(text);
     // Vitest's listing leaves out a test skipped or todo before it runs.
-    if (!m || skipped || /\.(?:skip|todo)\(/.test(text)) return [];
+    if (!m || skipped || /\.(?:skip|todo)\(/.test(text) || (only && !text.includes('.only('))) return [];
     const tags = /tags: \[([^\]]*)\]/.exec(text)?.[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')) ?? [];
     const rows = config.rows?.[m[1]];
     const at = { line: i + 1, rule: m[1], tags };

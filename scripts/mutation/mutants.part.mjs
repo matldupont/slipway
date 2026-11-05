@@ -54,12 +54,16 @@ test('spans() marks a test skip only when its own call or a describe around it s
   assert.deepEqual(spans('a.js', code).others, [], 'a call inside a test is not one');
 });
 
-test('spans() gives a call shaped like a test it cannot read as one: an alias, test.extend\'s test, a computed modifier; never a route or a mock (#652)', () => {
+test('spans() gives a call shaped like a test it cannot read as one: an alias of it or test, a marked chain, a computed modifier; never a route, a mock or a helper (#652)', () => {
   const code = [
-    "const later = it.skip;", "later('a', () => {});", "myTest.skip('b', async () => {});", "it[mode]('c', function () {});",
-    "app.get('/x', () => {});", "vi.mock('./x', () => ({}));", "wrap('d', () => { it('e', () => {}); });", "outer('f', () => { inner('g', () => {}); });",
+    "import { it as each, describe } from 'vitest';", "const later = it.skip;", "const adds = (n, f) => it(n, f);", "later('a', () => {});", "myTest.skip('b', async () => {});",
+    "it[mode]('c', function () {});", "each('d', () => {});", "helper.each([1])('e', () => {});", "later('f', fnRef);", "later(name, () => {});",
+    "describe.skip('s', () => { later('g', () => {}); });",
+    // Never one: a route, a mock, a test inside a wrapper, a helper on another name, one inside a hook, the wrapper's own call.
+    "app.get('/x', () => {});", "vi.mock('./x', () => ({}));", "vi['mock']('./y', () => ({}));", "wrap('h', () => { it('i', () => {}); });",
+    "registerHandler('/x', () => {});", "beforeEach(() => { addEventListener('message', () => {}); });", "adds('j', () => {});",
   ].join('\n');
-  assert.deepEqual(spans('a.js', code).others, [{ first: 2, last: 2 }, { first: 3, last: 3 }, { first: 4, last: 4 }, { first: 8, last: 8 }]);
+  assert.deepEqual(spans('a.ts', code).others, [4, 5, 6, 7, 8, 9, 10, 11].map((n) => ({ first: n, last: n, skip: n === 11 })));
 });
 
 test('spans() reads a test through a namespace, a global, an optional call, a TypeScript assertion or a sequence, and gives the callee forms it cannot read; skipIf(false), runIf(true) and .only skip nothing (#652)', () => {
@@ -67,6 +71,7 @@ test('spans() reads a test through a namespace, a global, an optional call, a Ty
     "v.it('a', () => {});", "globalThis.test('b', () => {});", "it?.('c', () => {});", "it!('d', () => {});", "(it as any)('e', () => {});", "(0, it)('f', () => {});",
     "it.runIf(true)('g', () => {});", "it.skipIf(false)('h', () => {});", "it.only.skip('i', () => {});", "describe.skip('s', () => {}, it('j', () => {}));", "it.skip?.('k', () => {});",
     "it.call(null, 'l', () => {});", "[it][0]('m', () => {});", "later('n', fnRef);", "later(name, () => {});", "const myTest = test.extend({ a: async ({}, use) => use(1) });",
+    "const later = it.skip;",
   ].join('\n');
   const read = spans('a.test.ts', code);
   assert.deepEqual(read.tests.map((t) => [t.first, t.skip]), [[1, false], [2, false], [3, false], [4, false], [5, false], [6, false], [7, false], [8, false], [9, false], [10, false], [11, true]]);

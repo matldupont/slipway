@@ -75,8 +75,8 @@ export function newTests(listed, read, { added, removedAfter }) {
   // call's own text, or a describe around it, skips it.
   const others = read.unreadable ? [] : read.others;
   const unlisted = [...calls, ...others].filter((c) => marks(c) && !listed.some((t) => t.line >= c.first && t.line <= c.last))
-    .map((c) => ({ line: c.first, skip: c.skip === true })).sort((a, b) => a.line - b.line);
-  return { groups: fresh.map(({ name, line, names }) => ({ name, line, names })), outside, every, unlisted };
+    .map((c) => ({ line: c.first, skip: c.skip === true, read: calls.includes(c) })).sort((a, b) => a.line - b.line);
+  return { groups: fresh.map(({ name, line, names, call }) => ({ name, line, names, skip: call?.skip === true })), outside, every, unlisted };
 }
 
 // A relative import, resolved to a tracked file inside the repository: as written, with each extension, `.js` read as

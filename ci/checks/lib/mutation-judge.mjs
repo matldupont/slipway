@@ -74,7 +74,8 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
       unit.groups = unit.groups.filter((g) => {
         if (!pending.has(g)) return false;
         if (baseline(first.get(unit), g) !== 'skipped') return true;
-        record.notJudged.push({ file: unit.file, name: g.name, why: 'skipped', detail: null });
+        // The owner's skip only when its own call or a describe around it says so (§3.8); any other is narrowed.
+        record.notJudged.push(g.skip ? { file: unit.file, name: g.name, why: 'skipped', detail: null } : { file: unit.file, name: g.name, why: 'narrowed', detail: 'the run skips it, and its call holds no skip' });
         pending.delete(g);
         return false;
       });

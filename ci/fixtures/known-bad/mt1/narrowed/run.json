@@ -27,7 +27,7 @@
    "file": "pkgs/app/src/a.test.ts",
    "name": null,
    "why": "narrowed",
-   "detail": "the runner lists no test in the call at line 4, and its text holds no skip or todo"
+   "detail": "the runner lists no test in the call at line 4, and its call holds no skip"
   },
   {
    "file": "pkgs/app/src/b.test.ts",

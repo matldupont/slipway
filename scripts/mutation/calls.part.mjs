@@ -163,4 +163,6 @@ test('each option refused today stays refused when its name is reached another w
 test('an argument the checks accepted before #652 and the runner reads is still accepted, a _ in its value too', () => {
   const kept = ['--project', 'unit', '--config=vitest_unit.ts', '--environment=node', '--pool=forks', '--mode=test', '--passWithNoTests', '--silent', '--globals', '--project', 'my_unit'];
   assert.deepEqual(runnerCall(`vitest run ${kept.join(' ')}`).args, kept);
+  // `--no-<option>` sets that option false, which narrows nothing: each refused option's is accepted on purpose.
+  for (const form of ['--no-testNamePattern', '--no-test-name-pattern', '--no-t', '--no-tagsFilter', '--no-shard', '--no-changed', '--no-related', '--no-bail', '--no-coverage']) assert.ok(!runnerCall(`vitest run ${form}`).unreadable, form);
 });

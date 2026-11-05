@@ -235,10 +235,10 @@ async function body(root, record, ctx, deadline) {
       const found = newTests(by.tests.filter((t) => t.file === entry.file), read, changedLines(top, record.base, record.head, entry));
       if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: 'a test it lists is in no test call this step reads (an alias of it or test, or test.extend)' });
       // A changed call the runner lists no test in is the owner's skip only when its own text says so (§3.5).
-      for (const { line, skip } of found.unlisted) {
+      for (const { line, skip, read: known } of found.unlisted) {
         record.notJudged.push(skip
           ? { file: entry.file, name: null, why: 'skipped', detail: `the runner lists no test in the call at line ${line}: skipped or todo before it runs` }
-          : { file: entry.file, name: null, why: 'narrowed', detail: `the runner lists no test in the call at line ${line}, and its text holds no skip or todo` });
+          : { file: entry.file, name: null, why: 'narrowed', detail: known ? `the runner lists no test in the call at line ${line}, and its call holds no skip` : `the call at line ${line} is not one this step reads as a test, and the runner lists no test in it` });
       }
       if (found.outside && !entry.added) record.outsideAnyTest.push({ file: entry.file });
       if (found.groups.length) units.push({ ...by.unit, file: entry.file, text, expects: read.unreadable ? [] : read.expects, groups: found.groups });

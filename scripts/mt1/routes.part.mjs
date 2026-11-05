@@ -17,7 +17,7 @@ const routed = (o) => project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: o.
 for (const [what, script] of [
   ['a name filter set through the prototype key', 'vitest run --__proto__.testNamePattern=nomatch'],
   ['a file filter set through the parser\'s list of left-behind words', 'vitest run --_=src/other.test.ts'],
-  ['a plain -t', 'vitest run -t nomatch'],
+  ['a plain -t', 'vitest run -t=nomatch'],
   ['a bare --', 'vitest run --'],
 ]) {
   test(`${what} in the test script is refused: the run stops, never a pass (#652)`, (t) => {
@@ -36,9 +36,10 @@ for (const [what, o, adds] of [
   ['a value on a true/false flag (the runner keeps it as a file:line filter)', { test: 'vitest run --passWithNoTests=src/cart.test.ts:4' }, it('adds')],
   ['a tags filter in the Vitest config', { config: { tagsFilter: ['old'] }, base: HEAD + it('old', "{ tags: ['old'] }, ") }, it('adds')],
   ['a tag the Vitest config skips', { config: { tags: [{ name: 'slow', skip: true }] } }, it('adds', "{ tags: ['slow'] }, ")],
-  ['an alias of it.skip the step cannot read', {}, `const later = it.skip;\nlater('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['an alias of it.skip the step cannot read', { fix: /^Write it as `it\(…\)` or `test\(…\)`/ }, `const later = it.skip;\nlater('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
   ['a test called through a namespace import', { config: { namePattern: '^old$' } }, `import * as v from 'vitest';\nv.it('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
   ['an optional call of it', { config: { namePattern: '^old$' } }, `it?.('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['a .only on the test the base has', { base: HEAD + `it.only('old', () => {\n  expect(add(1, 2)).toBe(3);\n});\n` }, it('adds')],
   ['a skipIf(false), which skips nothing', { config: { namePattern: '^old$' } }, `it.skipIf(false)('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
 ]) {
   test(`${what} leaves a new test out: narrowed, and nothing-judged, never the owner's skip (#652)`, (t) => {
@@ -47,7 +48,7 @@ for (const [what, o, adds] of [
     p.commit({ [FILE]: `${o.base ?? testFile(['old'])}\n${adds}` });
     const r = mt1(p);
     assert.deepEqual([r.status, r.ids, r.warned], NARROWED, r.out);
-    assert.match(r.json.warnings[0].fix, /^Remove the config filter or `\.only` that drops it/);
+    assert.match(r.json.warnings[0].fix, o.fix ?? /^Remove the config or script filter, or `\.only`, that drops it/);
     assert.match(r.json.findings[0].fix, /^Remove the filter or `\.only` that leaves the new tests out/);
   });
 }
@@ -66,4 +67,21 @@ test('a new test inside describe.skip is the owner\'s skip: the run passes, nami
   p.commit({ [FILE]: `${HEAD}${it('old')}\ndescribe.skip('later', () => {\n  ${it('adds').trimEnd().split('\n').join('\n  ')}\n});\n` });
   const r = mt1(p);
   assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped`]], r.out);
+});
+
+test('a new test the run skips with no skip on its own call is narrowed, never the owner\'s skip (#652)', (t) => {
+  // The stand-in's skipped rule stands for a test a hook skips as it runs (`ctx.skip()` in a beforeEach).
+  const p = routed({ config: { tests: { adds: { skipped: true } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: testFile(['old', 'adds']) });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${FILE}#not-judged/narrowed/adds`]], r.out);
+});
+
+test('a new test the run skips whose own call says skipIf stays the owner\'s skip: the run passes, naming it (#652)', (t) => {
+  const p = routed({ config: { tests: { adds: { skipped: true } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old'])}\nit.skipIf(process.env.CI)('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped/adds`]], r.out);
 });

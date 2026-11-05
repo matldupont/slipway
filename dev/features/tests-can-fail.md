@@ -325,8 +325,10 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    in Vitest. A test is read through a namespace or a global (`v.it`), an optional call, a TypeScript assertion
    or a sequence. Any other was left out by something its text does not hold (a filter in the package's call or
    config, a `.only` beside it) and is not judged: `narrowed`, a reason the owner did not give. A call shaped
-   like a test that the step cannot read as one (a callee naming `it` or `test` in a form it does not read, or
-   a name and then a function on an alias or a computed modifier) is such a call, with no skip in its text (the owner's calls, 2026-11-04 and 2026-11-05, #652). Any other changed test file no call lists is not a test (a helper or a data file
+   like a test that the step cannot read as one is such a call: a callee naming `it` or `test` in a form it does
+   not read, or a name and then a function on an alias of either (a name the file sets from `it` or `test`, or
+   imports from `vitest` under another name) or on a chain with a modifier or a computed key; a helper or a
+   route on another name is not one, with no skip in its text (the owner's calls, 2026-11-04 and 2026-11-05, #652). Any other changed test file no call lists is not a test (a helper or a data file
    under `__tests__/`, a `*.test.*` file in another language in a package that uses Vitest): it is no
    finding, and the record names it for the summary's "{n} changed files under a test name or folder are not
    tests".
@@ -389,8 +391,8 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    there, then run `pnpm tests-can-fail` again." Red, then
    green, is **not judged**: `flaky`. Its runs under the
    changes of step 9 are not made, so it is neither a test that can fail nor a pass, and the run goes on
-   with the others. One that is skipped or `todo` is not judged: `skipped`, or `narrowed` when no skip in its own
-   text says why (step 5); a file whose every test is
+   with the others. One that is skipped or `todo` is not judged: `skipped` when its own call, or a `describe` whose
+   function it sits in, says skip (step 5), else `narrowed`, as a hook that skips it as it runs is not its text; a file whose every test is
    skipped is `never-run` (step 5). A test red once in the copy and
    green on its next run was seen on a real project.
 9. **Judging, one test file at a time**, the file with the fewest changes to try first; the record keeps
@@ -530,8 +532,8 @@ The fix is printed on its own `Fix:` line.
 - `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass, for {k} reasons: each
   test's not-judged warning says why and what to do. `` Fix: `` Read each test's not-judged warning and do what it
   says, or excuse a test file in `ci/exceptions.yaml` with a date. `` When `narrowed` is the one reason, the fix is
-  `` Remove the filter or `.only` that leaves the new tests out (in the Vitest config, or beside them), then run
-  `pnpm tests-can-fail`. ``, and beside another `` Remove the filter or `.only` that leaves a test out, and do what
+  `` Remove the filter or `.only` that leaves the new tests out, or write each as `it(…)` with any skip on its
+  call, then run `pnpm tests-can-fail`. ``, and beside another `` Remove the filter or `.only` that leaves a test out, and do what
   each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`. `` (#652). Its length is fixed, so
   it fits whatever the record holds; each reason's next action is on the not-judged warning of each test it counts, and only
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
@@ -546,7 +548,7 @@ The fix is printed on its own `Fix:` line.
   "there is nothing this step can change in `{file}`, which is all it imports"; "every change this step made to
   `{file}` stopped the test file loading"; "it is kept out in `ci/tests-can-fail.yaml`: {reason}"; "its package
   {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped"; "the runner leaves
-  it out, and no skip or todo says why"; "excused until
+  it out; its call has no skip", or for a call it cannot read "the step cannot read its call as a test"; "excused until
   {date}: {reason}". Each has its fix, as a finding has, so a not-judged line names what to do too; the
   `other-runner` one names `tests-can-fail#other-runner`.
 - another commit: `` This record is for commit {a}, not the one being checked ({b}). Run

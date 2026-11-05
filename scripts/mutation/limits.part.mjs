@@ -112,7 +112,7 @@ test('one changed run: a file that does not load adds nothing; a timeout or a sk
   }
 });
 
-test('a skipped new test is not judged, skipped; a subject in another language is other-language; an unreadable test file has every test new (AR-13)', (t) => {
+test('a new test the run skips with no skip on its own call is narrowed (#652); a subject in another language is other-language; an unreadable test file has every test new (AR-13)', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, 'pkgs/app/src/calc.py': 'x = 1\n' }, config: { tests: { skipped: { skipped: true } } } });
   t.after(() => p.remove());
   const lone = `${testFile(['one', 'two'])}// a lone CR:\r here\n`;
@@ -122,7 +122,7 @@ test('a skipped new test is not judged, skipped; a subject in another language i
   });
   let { record } = p.run();
   const why = Object.fromEntries(record.notJudged.map((n) => [n.name, n.why]));
-  assert.deepEqual(why, { skipped: 'skipped', py: 'other-language' });
+  assert.deepEqual(why, { skipped: 'narrowed', py: 'other-language' });
   // The file beside it is its subject, so its tests are judged even though its imports cannot be read.
   p.git(['checkout', '-q', '-B', 'work', 'main']);
   p.commit({ [FILE]: testFile(['one', 'two']) });
