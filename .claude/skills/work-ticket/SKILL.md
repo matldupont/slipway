@@ -64,7 +64,8 @@ invariants and the stack rules; the intent is read from the diff, and the commit
    through the tracker's connector only, never a URL from the issue: stack frames and counts, never user
    data, and in the PR only its id. Check the issue's root cause against the frames before trusting its file
    list; the failure often sits a layer or two above the part the issue names.
-3. **Dependencies.** Every `Blocked by:` or `Depends on:` issue (`#` and digits) is closed. One is open: stop.
+3. **Dependencies.** Every `Blocked by:` or `Depends on:` number (`#` and digits) is an issue or a pull request: read it with `gh pr view` first, `gh issue view` when that fails. A closed issue or a merged pull request is cleared. An open issue or pull request: stop. A pull request closed unmerged
+   holds the ticket: stop with "PR #n closed unmerged; check the wait" (`gh issue view` calls it CLOSED).
 4. **Requirement.** Map the goal to an F-ID in the PRD, a doc in `Feature docs dir`, or the parent issue. A
    PRD that is still the template: say so and point at `/kickoff`. No mapping: ask, "Nothing in
    {Product name}'s plan asks for this yet. Build it anyway?"
