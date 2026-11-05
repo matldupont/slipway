@@ -25,7 +25,7 @@
  "notJudged": [
   {
    "file": "pkgs/app/src/a.test.ts",
-   "name": null,
+   "name": "adds",
    "why": "narrowed",
    "detail": "the run skips it, and its call holds no skip"
   },

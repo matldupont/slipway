@@ -104,8 +104,8 @@ export async function runFile(ctx, unit) {
 /**
  * §3.5: the tests of one test file and how a clean run ends each, from the runner's own report, read from the file it
  * writes at the path the step gives (never its output, which a test can print to). A report that is missing, or that
- * gives a test no line, stops the run: it is never a pass. The run is the file's baseline too; one that did not load
- * is left to the baseline to name.
+ * gives a test no line, or that does not hold the file as loaded, stops the run: it is never a pass. The run is the
+ * file's baseline too.
  * @returns {Promise<{ loaded: boolean, tests: Array<{ name: string, status: string, line: number }> }>}
  */
 export async function reportOf(ctx, unit) {

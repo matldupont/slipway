@@ -9,7 +9,7 @@
   "nothing-judged"
  ],
  "warnings": [
-  "pkgs/app/src/a.test.ts#not-judged/narrowed",
+  "pkgs/app/src/a.test.ts#not-judged/narrowed/adds",
   "pkgs/app/src/b.test.ts#not-judged/skipped"
  ],
  "details": {

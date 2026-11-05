@@ -541,9 +541,9 @@ The fix is printed on its own `Fix:` line.
 - `nothing-judged`: `` None of the {n} new or edited tests was judged, so this is not a pass, for {k} reasons: each
   test's not-judged warning says why and what to do. `` Fix: `` Read each test's not-judged warning and do what it
   says, or excuse a test file in `ci/exceptions.yaml` with a date. `` When `narrowed` is the one reason, the fix is
-  `` Remove the filter, `.only` or hook that skips the new tests, or put `.skip` on their calls, then run
-  `pnpm tests-can-fail`. ``, and beside another `` Remove the filter, `.only` or hook that skips a test, and do what
-  each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`. `` (#652). Its length is fixed, so
+  `` Make each new test run, as its not-judged warning says, or put `.skip` on its call, then run
+  `pnpm tests-can-fail`. ``, and beside another `` Make each skipped new test run, or put `.skip` on its call, and do
+  what each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`. `` (#652). Its length is fixed, so
   it fits whatever the record holds; each reason's next action is on the not-judged warning of each test it counts, and only
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
 - `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
@@ -556,8 +556,10 @@ The fix is printed on its own `Fix:` line.
   changed"; "its subject `{file}` could not be parsed"; "its subject `{file}` is not JavaScript or TypeScript";
   "there is nothing this step can change in `{file}`, which is all it imports"; "every change this step made to
   `{file}` stopped the test file loading"; "it is kept out in `ci/tests-can-fail.yaml`: {reason}"; "its package
-  {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped"; "the run skips
-  it; its call has no skip", or for a call it cannot read "the run skips it; the step cannot read its call"; "excused until
+  {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped", or for a call the runner
+  reports no test in "the runner reports no test in the call at line {n}, which says skip"; "the run skips it; its
+  call has no skip", for a call it cannot read "the run skips it; the step cannot read its call", and for a call the
+  runner reports no test in "the runner reports no test in the call at line {n}"; "excused until
   {date}: {reason}". Each has its fix, as a finding has, so a not-judged line names what to do too; the
   `other-runner` one names `tests-can-fail#other-runner`.
 - another commit: `` This record is for commit {a}, not the one being checked ({b}). Run

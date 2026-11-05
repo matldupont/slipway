@@ -28,7 +28,7 @@ const REASONS = {
   'kept-out': (d) => [`it is kept out in \`ci/tests-can-fail.yaml\`: ${e(d)}`, 'Remove its `keep-out:` entry from `ci/tests-can-fail.yaml` once the file should be judged.'],
   'other-runner': (d, live) => [`its package ${codeSpan(e(d))} does not use Vitest`, live ? 'Remove it (`tests-can-fail#other-runner` in `ci/exceptions.yaml`) once the package moves to Vitest.' : 'Move the package to Vitest, or excuse its runner with `tests-can-fail#other-runner` in `ci/exceptions.yaml`.'],
   'no-package': () => ['it is in no package of the workspace', 'Rename or move it into a package of the workspace, so a run finds it.'],
-  skipped: () => ['it is skipped', `Remove the skip, then ${AGAIN} so the test is judged.`],
+  skipped: (d) => [d ? e(d) : 'it is skipped', `Remove the skip, then ${AGAIN} so the test is judged.`],
   // §3.5, §3.8: the clean run skips it, and no skip on its own call or a describe around it says why.
   narrowed: (d) => (String(d ?? '').startsWith('the runner reports no test')
     ? [e(d), `Take the condition off its call, or mark it \`.skip\`, then ${AGAIN}.`]
@@ -109,8 +109,8 @@ export function nothingJudged(counted, total) {
     fix: !counted.narrowed
       ? 'Read each test\'s not-judged warning and do what it says, or excuse a test file in `ci/exceptions.yaml` with a date.'
       : k === 1
-        ? `Remove the filter, \`.only\` or hook that skips the new tests, or put \`.skip\` on their calls, then ${AGAIN}.`
-        : 'Remove the filter, `.only` or hook that skips a test, and do what each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`.',
+        ? `Make each new test run, as its not-judged warning says, or put \`.skip\` on its call, then ${AGAIN}.`
+        : 'Make each skipped new test run, or put `.skip` on its call, and do what each other not-judged warning says, or excuse its file in `ci/exceptions.yaml`.',
   };
 }
 

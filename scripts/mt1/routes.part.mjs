@@ -50,7 +50,7 @@ for (const [what, o, adds] of [
     const r = mt1(p);
     assert.deepEqual([r.status, r.ids, r.warned.sort()], o.want ?? NARROWED, r.out);
     assert.match(r.json.warnings.find((w) => w.where.includes('narrowed')).fix, o.fix ?? /^Remove the filter, `\.only` or hook skipping it, or mark its call `\.skip`/);
-    if (!o.want) assert.match(r.json.findings[0].fix, /^Remove the filter, `\.only` or hook that skips the new tests/);
+    if (!o.want) assert.match(r.json.findings[0].fix, /^Make each new test run, as its not-judged warning says/);
   });
 }
 
@@ -138,8 +138,10 @@ test('one the runner reports no test in, whose own call says skip, is the owner\
   p.commit({ [FILE]: `${testFile(['old'])}\n${gated('.skip')}` });
   const r = mt1(p);
   assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped`]], r.out);
+  assert.match(r.json.warnings[0].detail, /the runner reports no test in the call at line \d+, which says skip\.$/);
 });
 
+// The stand-in sees no test on an import's line, so this pins the naming; scripts/mutants.test.mjs pins mayHide's part.
 test('a skipped new test on an import\'s line is named (#652)', (t) => {
   const p = routed({ base: HEAD + it('old') });
   removeAll(t, p);
@@ -163,4 +165,24 @@ test('under the mechanical excuse, a new test the listing hides is still named (
   p.commit({ [FILE]: `${testFile(['old', 'adds'])}\nit.skip('later', () => {});\n`, 'ci/exceptions.yaml': EXCEPTION('tests-can-fail#mechanical') });
   const r = mt1(p);
   assert.deepEqual([r.status, r.warned.sort()], [0, [`${FILE}#not-judged/mechanical`, `${FILE}#not-judged/mechanical/adds`]], r.out);
+});
+
+// A file whose tests are all new, because one sits in no call the step reads (an alias, test.extend), still names a
+// changed call the runner reports no test in.
+const aliased = `${HEAD}const fixtureTest = it;\nfixtureTest('old', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`;
+test('beside an alias test, a new call the runner reports no test in is still named (#652)', (t) => {
+  const p = routed({ base: aliased, config: { tests: { old: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${aliased}\n${gated()}` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.warned.sort()], [0, [`${FILE}#not-judged/narrowed`, `${FILE}#unreadable`]], r.out);
+});
+
+test('beside an alias test, under the mechanical excuse, a new test the listing hides is still named (#652)', (t) => {
+  const p = routed({ base: aliased, config: { tests: { old: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${aliased}\nit.skip('later', () => {});\n`, 'ci/exceptions.yaml': EXCEPTION('tests-can-fail#mechanical') });
+  const r = mt1(p);
+  assert.ok(r.warned.includes(`${FILE}#not-judged/mechanical`), r.out);
+  assert.equal(r.status, 0, r.out);
 });

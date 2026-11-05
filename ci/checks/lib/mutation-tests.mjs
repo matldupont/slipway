@@ -49,10 +49,10 @@ export const packageOf = (packages, file) => packages.find((p) => p.dir === '' |
 export const within = (pkg, file) => (pkg.dir ? file.slice(pkg.dir.length + 1) : file);
 
 /**
- * The new tests of one test file (§3.5), from the runner's report of a clean run (or its listing, when the file did
- * not load). A test is new when a changed line falls inside its own call, or a hunk that only removes lines sits inside
+ * The new tests of one test file (§3.5), from the runner's report of a clean run (or its listing, where nothing may
+ * hide a test, or under the mechanical excuse). A test is new when a changed line falls inside its own call, or a hunk that only removes lines sits inside
  * it; tests on one call are one group. When `read` is unreadable, or a test falls inside no call spans() knows (an
- * alias, test.extend), every test of the file is new. A group is `run` when the clean run ran one of its tests, and
+ * alias, test.extend), every test of the file is new; a changed call it reads with no test in it is still named. A group is `run` when the clean run ran one of its tests, and
  * `skip` when its call, or a describe around it, says skip; `read` when the step found its call.
  * @param {Array<{ name: string, line: number, status?: string }>} reported
  * @returns {{ groups: Array<{ name: string, line: number, names: Set<string>, run: boolean, skip: boolean, read: boolean }>, outside: boolean, every: boolean, unreported: Array<{ line: number, skip: boolean }> }}
@@ -76,7 +76,7 @@ export function newTests(reported, read, { added, removedAfter }) {
   const inAnyCall = (n) => calls.some((c) => n >= c.first && n <= c.last);
   const outside = !every && ([...added].some((n) => !inAnyCall(n)) || removedAfter.some((n) => !calls.some((c) => n >= c.first && n + 1 <= c.last)));
   // A changed call the runner reports no test in: gated by a condition, an empty table, or never called (§3.5).
-  const unreported = every ? [] : calls.filter((c) => marks(c) && !reported.some((t) => t.line >= c.first && t.line <= c.last)).map((c) => ({ line: c.first, skip: c.skip === true }));
+  const unreported = calls.filter((c) => marks(c) && !reported.some((t) => t.line >= c.first && t.line <= c.last)).map((c) => ({ line: c.first, skip: c.skip === true }));
   return { groups: fresh.map(({ name, line, names, run, skip, read: known }) => ({ name, line, names, run, skip, read: known })), outside, every, unreported };
 }
 
