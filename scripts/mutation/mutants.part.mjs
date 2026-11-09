@@ -117,3 +117,10 @@ test('a file with a tagged-template table trusts none of its places: every test 
   const onPoint = reported.map((t) => (t.name.startsWith('two') ? { ...t, line: 8, column: 2 } : t));
   assert.equal(newTests(onPoint, spans('a.test.ts', text), { added: new Set([9, 10, 11, 12, 13]), removedAfter: [] }, text).every, true);
 });
+
+test('a test placed inside a call but at none of its points belongs to no call the step reads: every test is new (#655)', () => {
+  const text = "import { it, expect } from 'vitest';\nconst check = it;\nit('x', () => {\n  expect(1).toBe(1);\n}, check('y', () => {}));\n";
+  const lines = { added: new Set([5]), removedAfter: [] };
+  const found = newTests([{ ...placed(text, 3, "it('x'"), name: 'x' }, { ...placed(text, 5, "check('y'"), name: 'y' }], spans('a.test.ts', text), lines, text);
+  assert.deepEqual([found.every, found.groups.map((g) => [g.name, g.read])], [true, [['x', true], ['y', false]]]);
+});
