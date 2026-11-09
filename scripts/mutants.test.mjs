@@ -152,7 +152,8 @@ test('a source the parser cannot read is unreadable with the parser\'s reason; a
 });
 
 test('spans() gives the lines of each test call and each expect call, and none for a hook or a helper', () => {
-  assert.deepEqual(spans('tests.fixture.ts', fixture('tests.fixture.ts')), {
+  const read = spans('tests.fixture.ts', fixture('tests.fixture.ts'));
+  assert.deepEqual({ ...read, tests: read.tests.map(({ points, ...t }) => t) }, {
     tests: [{ first: 8, last: 10, start: 115, end: 166, skip: false }, { first: 11, last: 19, start: 168, end: 265, skip: true }, { first: 20, last: 26, start: 267, end: 363, skip: false }],
     expects: [{ first: 9, last: 9 }, { first: 12, last: 17 }, { first: 25, last: 25 }],
     imports: [{ first: 1, last: 1 }],
@@ -190,7 +191,7 @@ test('a very deep chain of calls is read, not a crash', () => {
 
 test('lines count \\n only, as git does, in mutants() and in spans(); CRLF reads as one break', () => {
   const code = `const s = "x";\r\nit('a', () => {\r\n  expect(1).toBe(1);\r\n});\n`;
-  assert.deepEqual(spans('a.js', code).tests, [{ first: 2, last: 4, start: 16, end: 57, skip: false }]);
+  assert.deepEqual(spans('a.js', code).tests.map(({ points, ...t }) => t), [{ first: 2, last: 4, start: 16, end: 57, skip: false }]);
   assert.deepEqual(spans('a.js', code).expects, [{ first: 3, last: 3 }]);
   assert.equal(mutants('a.js', code).find((change) => change.kind === 'body').line, 2);
 });

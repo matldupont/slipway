@@ -77,8 +77,9 @@ export async function listTests(ctx, unit) {
 }
 
 /**
- * One run of one test file (§3.8, §3.9). `hung` when the call passed its limit; `none` when it wrote no result.
- * @returns {Promise<{ hung: boolean, none: boolean, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null, column: number | null }>, log: string }>}
+ * One run of one test file (§3.8, §3.9). `hung` when the call passed its limit; `none` when it wrote no result;
+ * `copies`, how many times the result holds the file (once per Vitest project that runs it).
+ * @returns {Promise<{ hung: boolean, none: boolean, loaded: boolean, copies?: number, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null, column: number | null }>, log: string }>}
  */
 export async function runFile(ctx, unit) {
   const out = join(ctx.dir, 'result.json');
@@ -98,7 +99,7 @@ export async function runFile(ctx, unit) {
     throw e;
   }
   const mine = files.filter((f) => f.file === join(ctx.copy, unit.file));
-  return { hung: false, none: false, loaded: mine.length > 0 && mine.every((f) => f.loaded), tests: mine.flatMap((f) => f.tests), log };
+  return { hung: false, none: false, loaded: mine.length > 0 && mine.every((f) => f.loaded), tests: mine.flatMap((f) => f.tests), copies: mine.length, log };
 }
 
 /**

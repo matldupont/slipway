@@ -55,3 +55,33 @@ test('a run whose report places no test stops the run, never a match by name (#6
   assert.equal(r.status, 2, r.out);
   assert.match(r.out, /report of `pkgs\/app\/src\/cart\.test\.ts` gives no line and column for "old"/);
 });
+
+for (const [when, what] of [['changed', 'a run with a change'], ['after', 'the untouched run after the changes']]) {
+  test(`${what} that places no test stops the run, never a match by name (#655)`, (t) => {
+    const p = at({ config: { noColumnWhen: when } });
+    removeAll(t, p);
+    p.commit({ [FILE]: testFile(['old', 'adds']) });
+    const r = mt1(p);
+    assert.equal(r.status, 2, r.out);
+    assert.match(r.out, /report of `pkgs\/app\/src\/cart\.test\.ts` gives no line and column for "old"/);
+  });
+}
+
+test('a row the run skips, beside one it runs, is named once (#655)', (t) => {
+  const each = (more) => `${testFile(['old'])}${more}it.each([[1, 2], [2, 3]])('loop %i', (a, b) => {\n  expect(add(a, 1)).toBe(b);\n});\n`;
+  const p = at({ base: each(''), config: { rows: { 'loop %i': 2 }, tests: { 'loop 1': { skipped: true }, 'loop %i': { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  // The line outside every test makes the step read the clean run's report.
+  p.commit({ [FILE]: each('const later = 1;\n').replace('[2, 3]]', '[2, 3], ]') });
+  const r = mt1(p);
+  assert.equal(r.warned.filter((w) => w.endsWith('/loop 1')).length, 1, r.out);
+});
+
+test('two Vitest projects that run one file stop the run, naming the projects, not the test names (#655)', (t) => {
+  const p = at({ config: { copies: 2 } });
+  removeAll(t, p);
+  p.commit({ [FILE]: testFile(['old', 'adds']) });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /is run by more than one Vitest project in `app`'s call/);
+});

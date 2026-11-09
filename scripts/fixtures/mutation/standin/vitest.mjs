@@ -4,10 +4,10 @@
 // `*.test.*` or `*.spec.*` file under the folder it runs in. Each rule is read only by this file.
 //
 // config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, tagsFilter, tags,
-//   sleepMs, runSleepMs, noReportColumn,
+//   sleepMs, runSleepMs, noReportColumn, noColumnWhen, copies,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
 //   noFailureMessages }
-// A rule is keyed by a test's name, or by `<name>@<line>` for the test of that name on that line only.
+// A rule is keyed by a test's name (a row's own, or its call's with %i), or by `<name>@<line>` for that line only.
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
 //   connection: true,
@@ -47,7 +47,7 @@ if (config.sleepMs) sleep(config.sleepMs);
 
 // A test's call: it('x', test.only('x', it.each([1])('x', an alias such as fixtureTest('x', or the `])('x'` that
 // closes an it.each of rows; at the start of a line, after `);` or after `=> {`, so a line can hold more than one.
-// Each is placed at the column it starts at, as Vitest places a test inside its own call.
+// Each is placed where Vitest places it: at its call's name, or at the `(` that follows `])`.
 const TEST_CALL = new RegExp(`(?<=^\\s*|\\)\\s*;\\s*|=>\\s*\\{\\s*)(?:(?:it|test|\\w+Test${(config.aliases ?? []).map((a) => `|${a}`).join('')})\\b[\\w.]*(?:\\([^)]*\\))?(?:\\?\\.)?|\\]\\))\\(\\s*['"]([^'"]+)['"]`, 'g');
 const callsOf = (text) => [...text.matchAll(TEST_CALL)].map((m, k, all) => ({ m, own: text.slice(m.index, all[k + 1]?.index ?? text.length) }));
 function testsOf(abs) {
@@ -62,7 +62,7 @@ function testsOf(abs) {
       const out = /\.todo\(/.test(own) ? 'todo' : skipped || /\.skip\(/.test(own) || (only && !own.includes('.only(')) ? 'skipped' : null;
       const tags = /tags: \[([^\]]*)\]/.exec(own)?.[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')) ?? [];
       const rows = config.rows?.[m[1]];
-      const at = { line: i + 1, column: m.index + 1, rule: m[1], tags, out };
+      const at = { line: i + 1, column: m.index + 1 + (m[0].startsWith('])') ? 2 : 0), rule: m[1], tags, out };
       return rows ? Array.from({ length: rows }, (_, k) => ({ ...at, name: m[1].replace('%i', String(k + 1)) })) : [{ ...at, name: m[1] }];
     });
   });
@@ -114,19 +114,23 @@ if (!untouched && config.changedSleepMs) {
   await new Promise(() => {});
 }
 const located = args.includes('--includeTaskLocation') && !config.noReportLine;
+// noColumnWhen: 'changed' leaves the column out of a run with a change, 'after' out of an untouched run after one.
+const columnless = config.noReportColumn || (config.noColumnWhen === 'changed' && !untouched) || (config.noColumnWhen === 'after' && untouched && state.sawChange);
+const where = (t) => (located ? { location: columnless ? { line: t.line } : { line: t.line, column: t.column } } : {});
 const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
-  const where = located ? { location: config.noReportColumn ? { line: t.line } : { line: t.line, column: t.column } } : {};
-  if (!kept(file, t)) return { ancestorTitles: [], fullName: t.name, status: t.out === 'todo' ? 'todo' : 'skipped', title: t.name, failureMessages: [], ...where };
-  const rule = config.tests?.[`${t.rule}@${t.line}`] ?? config.tests?.[t.rule] ?? {};
+  if (!kept(file, t)) return { ancestorTitles: [], fullName: t.name, status: t.out === 'todo' ? 'todo' : 'skipped', title: t.name, failureMessages: [], ...where(t) };
+  const rule = [`${t.name}@${t.line}`, t.name, `${t.rule}@${t.line}`, t.rule].map((k) => config.tests?.[k]).find(Boolean) ?? {};
   const missing = rule.needsFile && !existsSync(join(copy, rule.needsFile));
   const fails = rule.always || missing || (rule.redOnce && run === 1) || (rule.redTwice && run <= 2) || changed(rule.failsWhen) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
   const status = rule.skipped || changed(rule.skipsWhen) ? 'skipped' : fails ? 'failed' : 'passed';
-  return { ancestorTitles: [], fullName: t.name, status, title: t.name, failureMessages: status === 'failed' && !config.noFailureMessages ? [failureOf(rule)] : [], ...where };
+  return { ancestorTitles: [], fullName: t.name, status, title: t.name, failureMessages: status === 'failed' && !config.noFailureMessages ? [failureOf(rule)] : [], ...where(t) };
 });
 if (!untouched) state.sawChange = true;
 writeFileSync(statePath, JSON.stringify(state));
 if (config.noResult) process.exit(1);
-const result = { testResults: [{ assertionResults, status: loadFails || assertionResults.some((a) => a.status === 'failed') ? 'failed' : 'passed', message: '', name: file }] };
+// copies: n reports the file n times, as Vitest does when n projects of one call run it.
+const one = { assertionResults, status: loadFails || assertionResults.some((a) => a.status === 'failed') ? 'failed' : 'passed', message: '', name: file };
+const result = { testResults: Array.from({ length: config.copies ?? 1 }, () => one) };
 // badReport writes a report that does not parse, as a runner cut off mid-write would.
 writeFileSync(out, config.badReport ? '{"testResults": [' : JSON.stringify(result));
 process.exit(assertionResults.some((a) => a.status === 'failed') || loadFails ? 1 : 0);

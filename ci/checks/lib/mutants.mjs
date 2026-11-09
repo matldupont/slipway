@@ -203,10 +203,41 @@ export function mutants(path, text) {
 
 const isExpectCall = (node) => node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'expect';
 
-// The lines of each test call and each expect call, and a test call's offsets in the text, which place the tests the
-// runner reports in it (§3.5). A test is `skip` when its own call, or a describe whose function it sits in, skips it
+// The lines of each test call and each expect call, and a test call's offsets in the text and the points Vitest can
+// place its tests at (§3.5). A test is `skip` when its own call, or a describe whose function it sits in, skips it
 // (test-calls.mjs's SKIPS; §3.5, §3.8); and the lines of each import declaration that nothing else shares a line
 // with, so a test written beside an import is never read as part of it (#652).
+// Whether a test call's chain holds a tagged-template table (it.each`…`('x', fn)): Vitest can place its tests lines
+// away from the call, inside another one, so the step trusts no place in that file (#655).
+function tagged(call) {
+  for (let at = call.callee; at;) {
+    if (at.type === 'TaggedTemplateExpression') return true;
+    at = at.tag ?? at.callee ?? at.object ?? at.expression ?? null;
+  }
+  return false;
+}
+
+// The places Vitest can give a test of this call: V8 places a call at its name when the callee is a name, at the
+// property when it is a member, and at the parenthesis that opens its arguments otherwise; a chain (it.skip.each(rows))
+// has one of each link. Nothing between them is a place (#655).
+function pointsOf(call, text) {
+  const out = [];
+  for (let at = call; at;) {
+    if (at.type === 'CallExpression' || at.type === 'OptionalCallExpression') {
+      out.push(text.indexOf('(', at.callee.end));
+      at = at.callee;
+    } else if (at.type === 'TaggedTemplateExpression') at = at.tag;
+    else if (at.type === 'MemberExpression' || at.type === 'OptionalMemberExpression') {
+      out.push(at.property.start);
+      at = at.object;
+    } else if (at.type === 'Identifier') {
+      out.push(at.start);
+      at = null;
+    } else at = at.expression ?? null;
+  }
+  return out;
+}
+
 export function spans(path, text) {
   const program = read(path, text);
   if (program.unreadable) return program;
@@ -217,7 +248,7 @@ export function spans(path, text) {
   const at = (node) => ({ first: lineAt(node.start), last: lineAt(node.end - 1), start: node.start, end: node.end });
   walk(program, (node) => {
     const chain = callChain(node);
-    if (chain && TESTS.has(chain.base)) tests.push({ ...at(node), skip: skips(chain) });
+    if (chain && TESTS.has(chain.base)) tests.push({ ...at(node), skip: skips(chain), tagged: tagged(node), points: pointsOf(node, text) });
     else if (chain && SUITES.has(chain.base)) {
       const fn = skips(chain) && body(node);
       if (fn) skipping.push(at(fn));
@@ -227,7 +258,7 @@ export function spans(path, text) {
   const alone = (n) => /^[ \t]*$/.test(text.slice(text.lastIndexOf('\n', n.start - 1) + 1, n.start))
     && /^[ \t]*(?:\/\/[^\n]*)?(?:\r?\n|$)/.test(text.slice(n.end));
   return {
-    tests: tests.map((t) => ({ ...lines(t), start: t.start, end: t.end, skip: t.skip || skipping.some((s) => s.start <= t.start && t.end <= s.end) })),
+    tests: tests.map((t) => ({ ...lines(t), start: t.start, end: t.end, points: t.points, skip: t.skip || skipping.some((s) => s.start <= t.start && t.end <= s.end), ...(t.tagged ? { tagged: true } : {}) })),
     expects: expects.map(lines),
     imports: program.body.filter((n) => n.type === 'ImportDeclaration' && alone(n)).map((n) => lines(at(n))),
   };

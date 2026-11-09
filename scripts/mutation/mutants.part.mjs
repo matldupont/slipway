@@ -17,7 +17,7 @@ test('spans() reads it.fails, .sequential, .for, .skipIf and .runIf as test call
 
 test('a chain of 20,000 modifier links is read, not a RangeError', () => {
   const code = `it${'.only'.repeat(20000)}('x', () => {});`;
-  assert.deepEqual(spans('a.js', code).tests, [{ first: 1, last: 1, start: 0, end: code.length - 1, skip: false }]);
+  assert.deepEqual(spans('a.js', code).tests.map(({ points, ...t }) => t), [{ first: 1, last: 1, start: 0, end: code.length - 1, skip: false }]);
 });
 
 test('imports() gives what a file imports and re-exports from, and leaves type-only imports out', () => {
@@ -91,4 +91,29 @@ test('a skip the step cannot read, on the closing line of a listed test, reads t
   // What a call leaves on its own lines is closing text only: nothing hides there.
   const closed = "import { it, expect } from 'vitest';\nit('c', () => {\n  expect(3).toBe(3);\n}); // done\n";
   assert.equal(mayHide([{ ...placed(closed, 2, "it('c'"), name: 'c' }], spans('a.test.ts', closed), { added: new Set([4]), removedAfter: [] }, closed), false);
+});
+
+test('spans() gives each test call the points Vitest places a test at: its name, each property and each opening parenthesis, and nothing between them (#655)', () => {
+  const code = "it('a', f);\nit.skip.each([1])('b', f);\n(0, it)('c', f);\nit.each`\n  x\n  ${1}\n`('d', f);\n";
+  const at = (t) => t.points.map((o) => code.slice(o, o + 4));
+  const [a, b, c, d] = spans('a.js', code).tests;
+  assert.deepEqual([at(a), at(b), at(c), at(d)], [["('a'", "it('"], ["('b'", "([1]", 'each', 'skip', 'it.s'], ["('c'"], ["('d'", 'each', 'it.e']]);
+  assert.deepEqual([a.tagged, b.tagged, c.tagged, d.tagged], [undefined, undefined, undefined, true]);
+});
+
+// Vitest 5.0.3's own places for this text, read off a real run: the tagged tables' rows sit lines below their calls,
+// inside other ones. No place in a file with a tagged table is trusted, so every test in it is new (#655).
+test('a file with a tagged-template table trusts none of its places: every test is new, each on its own (#655)', () => {
+  const text = [
+    "import { it, expect } from 'vitest';", "import { double } from './num';", "it('a', () => { expect(double(1)).toBe(2); });",
+    'it.each`', '  x', '  ${1}', '  ${2}', "`('zero $x', ({ x }) => { expect(double(x)).toBe(x * 2); });",
+    'it.each`', '  x', '  ${1}', '  ${2}', "`('two $x', ({ x }) => { double(x); expect(true).toBe(true); });",
+    "it('v1', () => {", '  expect(1).toBe(1);', '});', "it('v2', () => {", '  expect(1).toBe(1);', '});', '',
+  ].join('\n');
+  const reported = [['a', 3, 1], ['zero 1', 12, 2], ['zero 2', 12, 2], ['two 1', 19, 2], ['two 2', 19, 2], ['v1', 14, 1], ['v2', 17, 1]].map(([name, line, column]) => ({ name, line, column, status: 'passed' }));
+  const found = newTests(reported, spans('a.test.ts', text), { added: new Set([9, 10, 11, 12, 13]), removedAfter: [] }, text);
+  assert.deepEqual([found.every, found.tagged, found.groups.map((g) => g.name)], [true, true, reported.map((t) => t.name)]);
+  // A row placed exactly at a point of another call (here the `(` after `zero`'s table) is still not trusted.
+  const onPoint = reported.map((t) => (t.name.startsWith('two') ? { ...t, line: 8, column: 2 } : t));
+  assert.equal(newTests(onPoint, spans('a.test.ts', text), { added: new Set([9, 10, 11, 12, 13]), removedAfter: [] }, text).every, true);
 });
