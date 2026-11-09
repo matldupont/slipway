@@ -238,7 +238,7 @@ async function body(root, record, ctx, deadline) {
       const listedHere = by.tests.filter((t) => t.file === entry.file);
       // The listing leaves out a test skipped before it runs: where one may hide, the clean run's report says (§3.5).
       const report = !excused && mayHide(listedHere, read, lines, text) ? await reportOf(ctx, { ...by.unit, file: entry.file }) : null;
-      const found = newTests(report ? report.tests : listedHere, read, lines);
+      const found = newTests(report ? report.tests : listedHere, read, lines, text);
       if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)' });
       // A new test the clean run skips is not judged (§3.8).
       for (const g of found.groups.filter((x) => !x.run)) record.notJudged.push(skippedEntry(entry.file, g));

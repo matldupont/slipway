@@ -348,9 +348,11 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    whole lies inside no call, and marks none. So a changed import, hook,
    helper or `describe` line marks no test new, and neither does a line between two tests; a test file with
    such a change is named in the record, for the summary's "{n} test files changed outside any test" (Known
-   limitations). Tests the runner
-   lists on one line (`it.each`, a loop that calls `it`) are one group: new when a changed line falls inside
-   that call, judged once by the first one listed, and named by the call's line. A test file `spans()`
+   limitations). A test belongs to the call that holds the place the runner gives it (its line and column, inside
+   its own call), never to a call it only shares a line with; it is known by that place and its name together,
+   never by one alone (#655). Tests one call makes (`it.each`, a loop that calls `it`, a `describe.each`) share a
+   place: new when a changed line falls inside that call, each judged on its own, and named by the call's line.
+   Two tests at one place with one name, or a result that gives a test no place, stop the run. A test file `spans()`
    cannot read has every test in it treated as new, and so does one where a test the runner lists falls inside no
    test call `spans()` reads (an alias of `it`, a `test.extend` fixture; #632). A test the pull request did not
    touch is never judged.
@@ -738,8 +740,8 @@ nothing else; and a result copied into a pull request by hand.
   in front, or goes through another tool stops the step until `ci/tests-can-fail.yaml` states the call.
 - **A change that breaks the test file's loading, or hangs it, counts for nothing.** A test whose only effect
   on a change is one of those is named `kills-nothing`.
-- **Tests on one line are judged as one.** The rows of an `it.each`, or of a loop, pass or fail on the first
-  one listed.
+- **Tests one call makes need their own names.** The rows of an `it.each`, a loop or a `describe.each` share one
+  place, so each is told apart by its name; two with the same name stop the run (#655).
 - **Fewer kinds of change than a mutation tool makes.** Enough for "can this test fail"; not a measure of how
   good the tests are.
 - **The time is the building machine's.** §7's figures were measured on one laptop with the probe, which

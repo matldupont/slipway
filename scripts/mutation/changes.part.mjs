@@ -43,14 +43,13 @@ test('a describe line, a hook and whitespace mark no test new; a blank line or w
   assert.deepEqual([newNames(record), record.outsideAnyTest], [[], []]);
 });
 
-test('a changed row of an it.each of three makes one new test, the group, named by the call\'s line', (t) => {
+test('a changed row of an it.each of three makes each row a new test, judged on its own and named by the call\'s line (#655)', (t) => {
   const each = (row) => `import { it, expect } from 'vitest';\nimport { add } from './cart';\n\nit.each([\n  [1, 2],\n  ${row},\n  [3, 4],\n])('adds %i', (a, b) => {\n  expect(add(a, 1)).toBe(b);\n});\n`;
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: each('[2, 3]') }, config: { rows: { 'adds %i': 3 } } });
   t.after(() => p.remove());
   p.commit({ [FILE]: each('[5, 6]') });
   const { record } = p.run();
-  assert.equal(record.tests.length, 1);
-  assert.deepEqual([record.tests[0].name, record.tests[0].line], ['adds 1', 4]);
+  assert.deepEqual(record.tests.map((x) => [x.name, x.line]), [['adds 1', 4], ['adds 2', 4], ['adds 3', 4]]);
 });
 
 test('a renamed test file with one line changed inside one test lists only that test', (t) => {

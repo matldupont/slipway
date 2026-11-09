@@ -92,7 +92,7 @@ test('a new test the run skips whose own call says skipIf stays the owner\'s ski
 for (const [what, config, says] of [
   ['writes no report', { noResult: true }, /wrote no report of `pkgs\/app\/src\/cart\.test\.ts` at the path this step gave it/],
   ['writes a report that does not parse', { badReport: true }, /wrote no report of `pkgs\/app\/src\/cart\.test\.ts` at the path this step gave it/],
-  ['reports a test with no line', { noReportLine: true }, /report of `pkgs\/app\/src\/cart\.test\.ts` gives no line for "old"/],
+  ['reports a test with no line', { noReportLine: true }, /report of `pkgs\/app\/src\/cart\.test\.ts` gives no line and column for "old"/],
   ['lists the file but does not load it in its run', { tests: { old: { loadFailsWhen: [{ file: 'pkgs/app/src/cart.ts', line: 1, has: 'never there' }] } } }, /clean run of `pkgs\/app\/src\/cart\.test\.ts` did not load it/],
 ]) {
   test(`a runner that ${what} stops the run, never a pass (#652)`, (t) => {

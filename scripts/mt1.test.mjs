@@ -8,4 +8,5 @@ import './mt1/records.part.mjs';
 import './mt1/messages.part.mjs';
 import './mt1/run.part.mjs';
 import './mt1/routes.part.mjs';
+import './mt1/places.part.mjs';
 import './mt1/wiring.part.mjs';

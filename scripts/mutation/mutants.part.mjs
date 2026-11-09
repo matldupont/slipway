@@ -1,9 +1,11 @@
 // scripts/mutation.test.mjs, part: what the run asks of ci/checks/lib/mutants.mjs beyond step 2 — the test forms
-// spans() reads, a deep modifier chain, the paths a test file imports, and the guards no change is made in.
+// spans() reads, a deep modifier chain, the paths a test file imports, the guards no change is made in, and the call
+// each test the runner places belongs to.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { imports, mutants, spans } from '../../ci/checks/lib/mutants.mjs';
+import { mayHide, newTests } from '../../ci/checks/lib/mutation-tests.mjs';
 
 test('spans() reads it.fails, .sequential, .for, .skipIf and .runIf as test calls, and their inner call as none', () => {
   const count = (code) => spans('a.js', code).tests.length;
@@ -15,7 +17,7 @@ test('spans() reads it.fails, .sequential, .for, .skipIf and .runIf as test call
 
 test('a chain of 20,000 modifier links is read, not a RangeError', () => {
   const code = `it${'.only'.repeat(20000)}('x', () => {});`;
-  assert.deepEqual(spans('a.js', code).tests, [{ first: 1, last: 1, skip: false }]);
+  assert.deepEqual(spans('a.js', code).tests, [{ first: 1, last: 1, start: 0, end: code.length - 1, skip: false }]);
 });
 
 test('imports() gives what a file imports and re-exports from, and leaves type-only imports out', () => {
@@ -62,4 +64,31 @@ test('spans() reads a test through an optional call, a TypeScript assertion or a
   ].join('\n');
   const tests = spans('a.ts', code).tests.map((t) => [t.first, t.skip]);
   assert.deepEqual(tests, [[1, false], [2, false], [3, false], [4, false], [5, false], [6, false], [7, false], [8, false], [9, false], [10, false], [11, false], [12, true], [13, true], [14, true], [18, true]]);
+});
+
+// #655: a test belongs to the call that holds its place (its line and column, as Vitest gives them), never to a call it
+// only shares a line with. Read on real text.
+const placed = (text, line, name, status) => ({ name, line, column: text.split('\n')[line - 1].indexOf(name) + 1, status });
+test('two test calls on one line are two tests, and a second the runner places nothing in is still named (#655)', () => {
+  const text = "import { it, expect } from 'vitest';\nit('a', () => { expect(1).toBe(1); }); if (env) it('b', () => { expect(2).toBe(2); });\n";
+  const lines = { added: new Set([2]), removedAfter: [] };
+  const a = placed(text, 2, "it('a'");
+  const b = placed(text, 2, "it('b'");
+  const both = newTests([{ ...a, name: 'a' }, { ...b, name: 'b' }], spans('a.test.ts', text), lines, text);
+  assert.deepEqual([both.groups.map((g) => [g.name, g.line, g.read]), both.unreported, both.every], [[['a', 2, true], ['b', 2, true]], [], false]);
+  const one = newTests([{ ...a, name: 'a' }], spans('a.test.ts', text), lines, text);
+  assert.deepEqual([one.groups.map((g) => g.name), one.unreported], [['a'], [{ line: 2, skip: false }]]);
+});
+
+test('a skip the step cannot read, on the closing line of a listed test, reads the report and makes every test new (#655)', () => {
+  const text = "import { it, expect } from 'vitest';\nconst fixtureTest = it;\nit('c', () => {\n  expect(3).toBe(3);\n}); fixtureTest.skip('d', () => {});\n";
+  const read = spans('a.test.ts', text);
+  const lines = { added: new Set([5]), removedAfter: [] };
+  const c = { ...placed(text, 3, "it('c'"), name: 'c' };
+  assert.equal(mayHide([c], read, lines, text), true);
+  const found = newTests([c, { ...placed(text, 5, "skip('d'"), name: 'd', status: 'skipped' }], read, lines, text);
+  assert.deepEqual([found.every, found.groups.map((g) => [g.name, g.run, g.read])], [true, [['c', true, true], ['d', false, false]]]);
+  // What a call leaves on its own lines is closing text only: nothing hides there.
+  const closed = "import { it, expect } from 'vitest';\nit('c', () => {\n  expect(3).toBe(3);\n}); // done\n";
+  assert.equal(mayHide([{ ...placed(closed, 2, "it('c'"), name: 'c' }], spans('a.test.ts', closed), { added: new Set([4]), removedAfter: [] }, closed), false);
 });

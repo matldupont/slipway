@@ -1,12 +1,13 @@
 // A stand-in for Vitest, for scripts/mutation.test.mjs: it answers `list --json --includeTaskLocation` and
 // `run <file> --reporter=json --outputFile=<path>` in the shapes recorded in scripts/fixtures/vitest/, from the rules
-// of config.json beside it. A test is found by a line `it('name'` or `test('name'` (any modifiers or each form) of a
+// of config.json beside it. A test is found by a call `it('name'` or `test('name'` (any modifiers or each form) of a
 // `*.test.*` or `*.spec.*` file under the folder it runs in. Each rule is read only by this file.
 //
 // config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, tagsFilter, tags,
-//   sleepMs, runSleepMs,
+//   sleepMs, runSleepMs, noReportColumn,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
 //   noFailureMessages }
+// A rule is keyed by a test's name, or by `<name>@<line>` for the test of that name on that line only.
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
 //   connection: true,
@@ -14,11 +15,11 @@
 // What Vitest leaves out of `list`, each standing for its own: namePattern, a name filter in the package's Vitest config;
 // tagsFilter: [tag], its tags filter (a test is kept when its line holds `tags: ['<tag>']`); tags: [{ name, skip }], a
 // tag the config skips; a value given to `--passWithNoTests=` or `--globals=`, which the runner keeps as a file filter
-// (`<path>:<line>` keeps that line's test of that file only); `.skip(` or `.todo(` on a test's line; a
+// (`<path>:<line>` keeps that line's test of that file only); `.skip(` or `.todo(` in a test's call; a
 // `describe.skip(` block, up to the `});` at the start of a line that closes it; and every test of a file with a
 // `.only(` test but those. `run` reports each of these as skipped (todo for `.todo(`), as Vitest's report does, each
-// with its line when `--includeTaskLocation` is given (none with noReportLine; badReport writes one that does not
-// parse); `aliases: [name]` are test calls too.
+// with its line and column when `--includeTaskLocation` is given (none with noReportLine, no column with
+// noReportColumn; badReport writes one that does not parse); `aliases: [name]` are test calls too.
 // A run is a changed one when a `failsWhen` or `loadFailsWhen` entry holds; the sleeps and the marker read that.
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
@@ -44,24 +45,26 @@ if (config.record && config.project) {
 if (config.worker) spawn(process.execPath, [join(here, 'worker.mjs'), String(config.slowStop ?? 0)], { stdio: 'ignore' });
 if (config.sleepMs) sleep(config.sleepMs);
 
-// A test's line: it('x', test.only('x', it.each([1])('x', an alias such as fixtureTest('x', or the `])('x'` that
-// closes an it.each of rows.
-const TEST_LINE = new RegExp(`^\\s*(?:(?:it|test|\\w+Test${(config.aliases ?? []).map((a) => `|${a}`).join('')})\\b[\\w.]*(?:\\([^)]*\\))?(?:\\?\\.)?|\\]\\))\\(\\s*['"]([^'"]+)['"]`);
+// A test's call: it('x', test.only('x', it.each([1])('x', an alias such as fixtureTest('x', or the `])('x'` that
+// closes an it.each of rows; at the start of a line, after `);` or after `=> {`, so a line can hold more than one.
+// Each is placed at the column it starts at, as Vitest places a test inside its own call.
+const TEST_CALL = new RegExp(`(?<=^\\s*|\\)\\s*;\\s*|=>\\s*\\{\\s*)(?:(?:it|test|\\w+Test${(config.aliases ?? []).map((a) => `|${a}`).join('')})\\b[\\w.]*(?:\\([^)]*\\))?(?:\\?\\.)?|\\]\\))\\(\\s*['"]([^'"]+)['"]`, 'g');
+const callsOf = (text) => [...text.matchAll(TEST_CALL)].map((m, k, all) => ({ m, own: text.slice(m.index, all[k + 1]?.index ?? text.length) }));
 function testsOf(abs) {
   let skipped = false;
   const lines = readFileSync(abs, 'utf8').split('\n');
-  const only = lines.some((l) => TEST_LINE.test(l) && l.includes('.only('));
+  const only = lines.some((l) => callsOf(l).some((c) => c.own.includes('.only(')));
   return lines.flatMap((text, i) => {
     if (/^describe\.skip\(/.test(text)) skipped = true;
     else if (/^\}\);?\s*$/.test(text)) skipped = false;
-    const m = TEST_LINE.exec(text);
-    if (!m) return [];
-    // Vitest's listing leaves out a test skipped or todo before it runs; its run reports it, as skipped or todo.
-    const out = /\.todo\(/.test(text) ? 'todo' : skipped || /\.skip\(/.test(text) || (only && !text.includes('.only(')) ? 'skipped' : null;
-    const tags = /tags: \[([^\]]*)\]/.exec(text)?.[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')) ?? [];
-    const rows = config.rows?.[m[1]];
-    const at = { line: i + 1, rule: m[1], tags, out };
-    return rows ? Array.from({ length: rows }, (_, k) => ({ ...at, name: m[1].replace('%i', String(k + 1)) })) : [{ ...at, name: m[1] }];
+    return callsOf(text).flatMap(({ m, own }) => {
+      // Vitest's listing leaves out a test skipped or todo before it runs; its run reports it, as skipped or todo.
+      const out = /\.todo\(/.test(own) ? 'todo' : skipped || /\.skip\(/.test(own) || (only && !own.includes('.only(')) ? 'skipped' : null;
+      const tags = /tags: \[([^\]]*)\]/.exec(own)?.[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')) ?? [];
+      const rows = config.rows?.[m[1]];
+      const at = { line: i + 1, column: m.index + 1, rule: m[1], tags, out };
+      return rows ? Array.from({ length: rows }, (_, k) => ({ ...at, name: m[1].replace('%i', String(k + 1)) })) : [{ ...at, name: m[1] }];
+    });
   });
 }
 function files(dir) {
@@ -82,7 +85,7 @@ const kept = (file, t) => !t.out && named(t) && tagged(t) && (!filters.length ||
 if (args[0] === 'list') {
   const unlisted = new Set((config.unlisted ?? []).map((f) => join(copy, f)));
   const listing = files(process.cwd()).filter((f) => !unlisted.has(f)).flatMap((file) =>
-    testsOf(file).filter((t) => kept(file, t)).map((t) => (config.noLine ? { name: t.name, file } : { name: t.name, file, location: { line: t.line, column: 3 } })));
+    testsOf(file).filter((t) => kept(file, t)).map((t) => (config.noLine ? { name: t.name, file } : { name: t.name, file, location: { line: t.line, column: t.column } })));
   process.stdout.write(JSON.stringify(listing));
   process.exit(0);
 }
@@ -112,9 +115,9 @@ if (!untouched && config.changedSleepMs) {
 }
 const located = args.includes('--includeTaskLocation') && !config.noReportLine;
 const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
-  const where = located ? { location: { line: t.line, column: 3 } } : {};
+  const where = located ? { location: config.noReportColumn ? { line: t.line } : { line: t.line, column: t.column } } : {};
   if (!kept(file, t)) return { ancestorTitles: [], fullName: t.name, status: t.out === 'todo' ? 'todo' : 'skipped', title: t.name, failureMessages: [], ...where };
-  const rule = config.tests?.[t.rule] ?? {};
+  const rule = config.tests?.[`${t.rule}@${t.line}`] ?? config.tests?.[t.rule] ?? {};
   const missing = rule.needsFile && !existsSync(join(copy, rule.needsFile));
   const fails = rule.always || missing || (rule.redOnce && run === 1) || (rule.redTwice && run <= 2) || changed(rule.failsWhen) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
   const status = rule.skipped || changed(rule.skipsWhen) ? 'skipped' : fails ? 'failed' : 'passed';

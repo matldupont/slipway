@@ -153,7 +153,7 @@ test('a source the parser cannot read is unreadable with the parser\'s reason; a
 
 test('spans() gives the lines of each test call and each expect call, and none for a hook or a helper', () => {
   assert.deepEqual(spans('tests.fixture.ts', fixture('tests.fixture.ts')), {
-    tests: [{ first: 8, last: 10, skip: false }, { first: 11, last: 19, skip: true }, { first: 20, last: 26, skip: false }],
+    tests: [{ first: 8, last: 10, start: 115, end: 166, skip: false }, { first: 11, last: 19, start: 168, end: 265, skip: true }, { first: 20, last: 26, start: 267, end: 363, skip: false }],
     expects: [{ first: 9, last: 9 }, { first: 12, last: 17 }, { first: 25, last: 25 }],
     imports: [{ first: 1, last: 1 }],
   });
@@ -190,7 +190,7 @@ test('a very deep chain of calls is read, not a crash', () => {
 
 test('lines count \\n only, as git does, in mutants() and in spans(); CRLF reads as one break', () => {
   const code = `const s = "x";\r\nit('a', () => {\r\n  expect(1).toBe(1);\r\n});\n`;
-  assert.deepEqual(spans('a.js', code).tests, [{ first: 2, last: 4, skip: false }]);
+  assert.deepEqual(spans('a.js', code).tests, [{ first: 2, last: 4, start: 16, end: 57, skip: false }]);
   assert.deepEqual(spans('a.js', code).expects, [{ first: 3, last: 3 }]);
   assert.equal(mutants('a.js', code).find((change) => change.kind === 'body').line, 2);
 });
@@ -256,15 +256,16 @@ test('a very wide array is read, not a crash', () => {
 // listing places no test in, even on an import's line or after a blank one, reads the runner's report.
 test('mayHide: a changed line in a test call the listing places no test in, on an import line or after a blank one', () => {
   const onImport = "import { it } from 'vitest'; it.skip('adds', () => {});\nit('old', () => {});\n";
-  assert.equal(mayHide([{ line: 2 }], spans('a.test.ts', onImport), { added: new Set([1]), removedAfter: [] }, onImport), true);
+  assert.equal(mayHide([{ line: 2, column: 1 }], spans('a.test.ts', onImport), { added: new Set([1]), removedAfter: [] }, onImport), true);
   const afterBlank = "import { it } from 'vitest';\nit('old', () => {});\nit('adds', () => {\n  const x = 1;\n\n});\n";
-  assert.equal(mayHide([{ line: 2 }], spans('a.test.ts', afterBlank), { added: new Set(), removedAfter: [5] }, afterBlank), true);
+  assert.equal(mayHide([{ line: 2, column: 1 }], spans('a.test.ts', afterBlank), { added: new Set(), removedAfter: [5] }, afterBlank), true);
   // A blank line added inside a listed test, or a removal inside one, leaves nothing hidden.
-  assert.equal(mayHide([{ line: 2 }, { line: 3 }], spans('a.test.ts', afterBlank), { added: new Set([5]), removedAfter: [4] }, afterBlank), false);
+  assert.equal(mayHide([{ line: 2, column: 1 }, { line: 3, column: 1 }], spans('a.test.ts', afterBlank), { added: new Set([5]), removedAfter: [4] }, afterBlank), false);
 });
 
-test('spans: an import counts only for the lines it has alone (#652)', () => {
-  const text = "import { it } from 'vitest';\nlater.skip('adds', () => {}); import { a } from './a';\nimport { b } from './b'; // why\n";
+test('spans: an import counts only for the lines it has alone, with nothing before it or after it (#652, #655)', () => {
+  const text = "import { it } from 'vitest';\nlater.skip('adds', () => {}); import { a } from './a';\nimport { b } from './b'; // why\nimport { c } from './c'; later.skip('more', () => {});\n";
   assert.deepEqual(spans('a.test.ts', text).imports, [{ first: 1, last: 1 }, { first: 3, last: 3 }]);
   assert.equal(mayHide([], spans('a.test.ts', text), { added: new Set([2]), removedAfter: [] }, text), true);
+  assert.equal(mayHide([], spans('a.test.ts', text), { added: new Set([4]), removedAfter: [] }, text), true);
 });
