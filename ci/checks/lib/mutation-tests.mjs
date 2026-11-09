@@ -50,13 +50,9 @@ export const within = (pkg, file) => (pkg.dir ? file.slice(pkg.dir.length + 1) :
 
 // Where the runner places a test: the offset of its line and column (both counted from 1) in the file's text, or null
 // when that place is not in the text. A test belongs to the call one of whose points (spans()) is its place (#655).
-const lineStarts = (text) => {
+export function placeIn(text) {
   const starts = [0];
   for (let at = text.indexOf('\n'); at >= 0; at = text.indexOf('\n', at + 1)) starts.push(at + 1);
-  return starts;
-};
-export function placeIn(text) {
-  const starts = lineStarts(text);
   return ({ line, column }) => {
     if (!Number.isInteger(line) || !Number.isInteger(column) || line < 1 || column < 1 || line > starts.length) return null;
     const offset = starts[line - 1] + column - 1;
@@ -67,8 +63,8 @@ export function placeIn(text) {
 const callAt = (calls, offset) => (offset === null ? null : calls.find((c) => c.points.includes(offset)) ?? null);
 
 /**
- * The new tests of one test file (§3.5), from the runner's report of a clean run (or its listing, where nothing may
- * hide a test, or under the mechanical excuse). Each test belongs to the call its place (its line and column) is a
+ * The new tests of one test file (§3.5), from the runner's report of a clean run (or its listing, under the
+ * mechanical excuse). Each test belongs to the call its place (its line and column) is a
  * point of, never to a call it only shares a line with or sits inside, and each is its own entry. A test is new when a changed line
  * falls inside its own call, or a hunk that only removes lines sits inside it. When `read` is unreadable, or a test
  * falls inside no call spans() knows (an alias, test.extend), or the file holds a tagged-template table, whose places
@@ -96,42 +92,6 @@ export function newTests(reported, read, { added, removedAfter }, text) {
   // A changed call the runner places no test in: gated by a condition, an empty table, or never called (§3.5).
   const unreported = calls.filter((c) => marks(c) && !owner.includes(c)).map((c) => ({ line: c.first, skip: c.skip === true }));
   return { groups: fresh.map(({ call, ...g }) => g), outside, every, tagged, unreported };
-}
-
-// §3.5: whether the listing can have left a new test out: a changed line inside a test call it places no test in, or
-// an added line, not blank, that the calls it places a test in and the imports alone on their lines do not hold whole
-// (all but spaces, closing brackets, `;`, `,` and a trailing comment); a hunk that only removes lines, the same by the
-// line it follows; or a file spans() cannot read. Only then is the runner's report of a clean run read, so finding a
-// test needs no form of call.
-export function mayHide(listed, read, { added, removedAfter }, text) {
-  if (read.unreadable) return true;
-  const place = placeIn(text);
-  const at = listed.map((t) => place(t));
-  const holds = (c) => at.some((o) => o !== null && c.points.includes(o));
-  const full = read.tests.filter(holds);
-  const covered = [...full, ...read.imports];
-  const empty = read.tests.filter((c) => !holds(c));
-  const isIn = (n, c, after = 0) => n >= c.first && n + after <= c.last;
-  const starts = lineStarts(text);
-  const lines = text.split('\n');
-  // Line n is held whole when an import alone on it holds it, or what the calls on it leave is only closing text.
-  const whole = (n) => {
-    if (read.imports.some((c) => isIn(n, c))) return true;
-    const from = starts[n - 1];
-    const to = starts[n] ?? text.length;
-    const on = full.filter((c) => c.start < to && c.end > from).sort((a, b) => a.start - b.start);
-    if (!on.length) return false;
-    let rest = '';
-    let i = from;
-    for (const c of on) {
-      if (c.start > i) rest += text.slice(i, c.start);
-      i = Math.max(i, c.end);
-    }
-    rest += text.slice(Math.min(i, to), to);
-    return /^[\s;,)\]}]*(?:\/\/[^\n]*)?\s*$/.test(rest);
-  };
-  return [...added].some((n) => empty.some((c) => isIn(n, c)) || (lines[n - 1] ?? '').trim() !== '' && !whole(n))
-    || removedAfter.some((n) => empty.some((c) => isIn(n, c, 1)) || !covered.some((c) => isIn(n, c)));
 }
 
 // §3.8: a new test the clean run skips is the owner's skip only when its own call, or a describe around it, says so;

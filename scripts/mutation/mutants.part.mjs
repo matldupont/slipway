@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { imports, mutants, spans } from '../../ci/checks/lib/mutants.mjs';
-import { mayHide, newTests } from '../../ci/checks/lib/mutation-tests.mjs';
+import { newTests } from '../../ci/checks/lib/mutation-tests.mjs';
 
 test('spans() reads it.fails, .sequential, .for, .skipIf and .runIf as test calls, and their inner call as none', () => {
   const count = (code) => spans('a.js', code).tests.length;
@@ -80,17 +80,13 @@ test('two test calls on one line are two tests, and a second the runner places n
   assert.deepEqual([one.groups.map((g) => g.name), one.unreported], [['a'], [{ line: 2, skip: false }]]);
 });
 
-test('a skip the step cannot read, on the closing line of a listed test, reads the report and makes every test new (#655)', () => {
+test('a skip the step cannot read, on the closing line of a test, makes every test new (#655)', () => {
   const text = "import { it, expect } from 'vitest';\nconst fixtureTest = it;\nit('c', () => {\n  expect(3).toBe(3);\n}); fixtureTest.skip('d', () => {});\n";
   const read = spans('a.test.ts', text);
   const lines = { added: new Set([5]), removedAfter: [] };
   const c = { ...placed(text, 3, "it('c'"), name: 'c' };
-  assert.equal(mayHide([c], read, lines, text), true);
   const found = newTests([c, { ...placed(text, 5, "skip('d'"), name: 'd', status: 'skipped' }], read, lines, text);
   assert.deepEqual([found.every, found.groups.map((g) => [g.name, g.run, g.read])], [true, [['c', true, true], ['d', false, false]]]);
-  // What a call leaves on its own lines is closing text only: nothing hides there.
-  const closed = "import { it, expect } from 'vitest';\nit('c', () => {\n  expect(3).toBe(3);\n}); // done\n";
-  assert.equal(mayHide([{ ...placed(closed, 2, "it('c'"), name: 'c' }], spans('a.test.ts', closed), { added: new Set([4]), removedAfter: [] }, closed), false);
 });
 
 test('spans() gives each test call the points Vitest places a test at: its name, each property and each opening parenthesis, and nothing between them (#655)', () => {

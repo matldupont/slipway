@@ -4,7 +4,7 @@
 // `*.test.*` or `*.spec.*` file under the folder it runs in. Each rule is read only by this file.
 //
 // config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, tagsFilter, tags,
-//   sleepMs, runSleepMs, noReportColumn, noColumnWhen, copies,
+//   sleepMs, runSleepMs, changedRunSleepMs, noReportColumn, noColumnWhen, copies,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
 //   noFailureMessages }
 // A rule is keyed by a test's name (a row's own, or its call's with %i), or by `<name>@<line>` for that line only.
@@ -19,7 +19,8 @@
 // `describe.skip(` block, up to the `});` at the start of a line that closes it; and every test of a file with a
 // `.only(` test but those. `run` reports each of these as skipped (todo for `.todo(`), as Vitest's report does, each
 // with its line and column when `--includeTaskLocation` is given (none with noReportLine, no column with
-// noReportColumn; badReport writes one that does not parse); `aliases: [name]` are test calls too.
+// noReportColumn; badReport writes one that does not parse); `aliases: [name]` are test calls too, which `list`
+// leaves out with unlistedAliases, as Vitest 5's listing, read from the file without running it, does.
 // A run is a changed one when a `failsWhen` or `loadFailsWhen` entry holds; the sleeps and the marker read that.
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
@@ -62,7 +63,8 @@ function testsOf(abs) {
       const out = /\.todo\(/.test(own) ? 'todo' : skipped || /\.skip\(/.test(own) || (only && !own.includes('.only(')) ? 'skipped' : null;
       const tags = /tags: \[([^\]]*)\]/.exec(own)?.[1].split(',').map((s) => s.trim().replace(/^['"]|['"]$/g, '')) ?? [];
       const rows = config.rows?.[m[1]];
-      const at = { line: i + 1, column: m.index + 1 + (m[0].startsWith('])') ? 2 : 0), rule: m[1], tags, out };
+      const alias = !/^(?:it|test|\w+Test|\])/.test(m[0]);
+      const at = { alias, line: i + 1, column: m.index + 1 + (m[0].startsWith('])') ? 2 : 0), rule: m[1], tags, out };
       return rows ? Array.from({ length: rows }, (_, k) => ({ ...at, name: m[1].replace('%i', String(k + 1)) })) : [{ ...at, name: m[1] }];
     });
   });
@@ -85,7 +87,7 @@ const kept = (file, t) => !t.out && named(t) && tagged(t) && (!filters.length ||
 if (args[0] === 'list') {
   const unlisted = new Set((config.unlisted ?? []).map((f) => join(copy, f)));
   const listing = files(process.cwd()).filter((f) => !unlisted.has(f)).flatMap((file) =>
-    testsOf(file).filter((t) => kept(file, t)).map((t) => (config.noLine ? { name: t.name, file } : { name: t.name, file, location: { line: t.line, column: t.column } })));
+    testsOf(file).filter((t) => kept(file, t) && !(config.unlistedAliases && t.alias)).map((t) => (config.noLine ? { name: t.name, file } : { name: t.name, file, location: { line: t.line, column: t.column } })));
   process.stdout.write(JSON.stringify(listing));
   process.exit(0);
 }
@@ -106,6 +108,8 @@ const key = relative(copy, file);
 const run = (state.runs[key] = (state.runs[key] ?? 0) + 1);
 const loadFails = rules.some((r) => changed(r.loadFailsWhen));
 if (config.runSleepMs) sleep(config.runSleepMs);
+// changedRunSleepMs: a run with a change takes that long, then answers as any run does.
+if (!untouched && config.changedRunSleepMs) sleep(config.changedRunSleepMs);
 // A process a test starts outside the runner's group, on a run with a change: the step's groups do not reach it.
 if (!untouched && config.detachedWorker) spawn(process.execPath, [join(here, 'worker.mjs')], { stdio: 'ignore', detached: true }).unref();
 if (!untouched && config.marker) writeFileSync(config.marker, String(process.pid));

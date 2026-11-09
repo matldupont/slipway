@@ -61,15 +61,30 @@ test('a test that fails once on a change and again with nothing changed is a fla
   assert.deepEqual([r.status, r.ids], [1, [`${FILE}:4#flaky`]], r.out);
 });
 
+// The stand-in tells a run with a change by a rule: any line of the three subjects changed.
+const CHANGES = { failsWhen: [['a', 9], ['b', 2], ['c', 5]].flatMap(([n, k]) => Array.from({ length: k }, (_, i) => ({ file: `pkgs/app/src/${n}.ts`, line: i + 1, has: `export function f${i}() { return ${i}; }` }))) };
 test('at the limit every unfinished test is out-of-time, and the verdict names each with "ran out of time" and "not a pass"', (t) => {
   const subject = (n) => Array.from({ length: n }, (_, i) => `export function f${i}() { return ${i}; }\n`).join('');
-  const p = project({ base: { 'pkgs/app/src/a.ts': subject(9), 'pkgs/app/src/b.ts': subject(2), 'pkgs/app/src/c.ts': subject(5) }, config: { runSleepMs: 2000 } });
+  const p = project({ base: { 'pkgs/app/src/a.ts': subject(9), 'pkgs/app/src/b.ts': subject(2), 'pkgs/app/src/c.ts': subject(5) }, config: { changedRunSleepMs: 6000, tests: { changes: CHANGES } } });
   removeAll(t, p);
   p.commit(Object.fromEntries(['a', 'b', 'c'].map((n) => [`pkgs/app/src/${n}.test.ts`, testFile([n], { imports: `import { f0 as add } from './${n}';` })])));
   const { record } = p.run(['--limit-seconds', '5']);
   const v = verdict(record, { today: '2026-11-04', head: record.head });
   assert.deepEqual(v.findings.map((f) => f.where).sort(), ['a', 'b', 'c'].map((n) => `pkgs/app/src/${n}.test.ts:4#out-of-time`));
   for (const f of v.findings) assert.match(f.detail, /ran out of time \(0\.1 minutes\).*not a pass/);
+});
+
+// The clean run of each changed test file comes before judging (#655): a limit that falls there judged no test, and
+// the verdict says so, red, with no test named.
+test('at the limit during the clean runs, before judging, the verdict is out of time with no test judged, never a pass (#655)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, config: { runSleepMs: 2000 } });
+  removeAll(t, p);
+  p.commit(Object.fromEntries(['a', 'b', 'c'].map((n) => [`pkgs/app/src/${n}.test.ts`, testFile([n])])));
+  const { record } = p.run(['--limit-seconds', '5']);
+  assert.deepEqual([record.outOfTime, record.tests], [true, []]);
+  const v = verdict(record, { today: '2026-11-04', head: record.head });
+  assert.deepEqual(v.findings.map((f) => f.where), ['run#out-of-time'], 'a finding: red, never a pass');
+  assert.match(v.findings[0].detail, /ran out of time \(0\.1 minutes\) before it judged any new test, so this is not a pass/);
 });
 
 test('a deleted expect is kills-nothing; a deleted test file or one renamed away passes, naming the file removed', (t) => {

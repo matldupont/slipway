@@ -47,7 +47,6 @@ test('two tests at one place with one name stop the run, never a pass (#655)', (
 });
 
 test('a run whose report places no test stops the run, never a match by name (#655)', (t) => {
-  // The listing places every test, so nothing may hide and the step reads no report before the baseline.
   const p = at({ config: { noReportColumn: true } });
   removeAll(t, p);
   p.commit({ [FILE]: testFile(['old', 'adds']) });
@@ -71,7 +70,6 @@ test('a row the run skips, beside one it runs, is named once (#655)', (t) => {
   const each = (more) => `${testFile(['old'])}${more}it.each([[1, 2], [2, 3]])('loop %i', (a, b) => {\n  expect(add(a, 1)).toBe(b);\n});\n`;
   const p = at({ base: each(''), config: { rows: { 'loop %i': 2 }, tests: { 'loop 1': { skipped: true }, 'loop %i': { failsWhen: CHANGED } } } });
   removeAll(t, p);
-  // The line outside every test makes the step read the clean run's report.
   p.commit({ [FILE]: each('const later = 1;\n').replace('[2, 3]]', '[2, 3], ]') });
   const r = mt1(p);
   assert.equal(r.warned.filter((w) => w.endsWith('/loop 1')).length, 1, r.out);
@@ -84,4 +82,16 @@ test('two Vitest projects that run one file stop the run, naming the projects, n
   const r = mt1(p);
   assert.equal(r.status, 2, r.out);
   assert.match(r.out, /is run by more than one Vitest project in `app`'s call/);
+});
+
+// Vitest 5 lists a file without running it, so a test called by another name is in its listing nowhere: the step reads
+// the clean run's report for every changed test file, never the listing alone.
+test('a test the listing leaves out, made live by removing the guard above it, is judged (#655)', (t) => {
+  const guarded = (guard) => `${testFile(['old'])}const check = it;\n${guard}check('nothing', () => {\n  add(1, 2);\n});\n`;
+  const p = at({ base: guarded('if (process.env.NOT_SET)\n'), config: { aliases: ['check'], unlistedAliases: true } });
+  removeAll(t, p);
+  p.commit({ [FILE]: guarded('') });
+  const r = mt1(p);
+  assert.equal(r.status, 1, r.out);
+  assert.ok(r.ids.some((id) => id.endsWith('#kills-nothing')) && /"nothing" passed on all/.test(r.out), r.out);
 });

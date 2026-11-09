@@ -24,7 +24,9 @@ test('a test that fails once on a change and again with nothing changed is flaky
 
 test('at the limit the run stops, in the order of fewest changes first, and every unfinished test is out-of-time', (t) => {
   const base = { 'pkgs/app/src/a.ts': subject(9), 'pkgs/app/src/b.ts': subject(2), 'pkgs/app/src/c.ts': subject(5) };
-  const p = project({ base, config: { runSleepMs: 2000 } });
+  // The clean runs are quick and the first change is slow, so the limit falls while judging (#655).
+  const changes = { failsWhen: [['a', 9], ['b', 2], ['c', 5]].flatMap(([n, k]) => Array.from({ length: k }, (_, i) => ({ file: `pkgs/app/src/${n}.ts`, line: i + 1, has: `export function f${i}() { return ${i}; }` }))) };
+  const p = project({ base, config: { changedRunSleepMs: 6000, tests: { changes } } });
   t.after(() => p.remove());
   p.commit(Object.fromEntries(['a', 'b', 'c'].map((n) => [`pkgs/app/src/${n}.test.ts`, testFile([n], { imports: `import { f0 as add } from './${n}';` })])));
   const started = Date.now();

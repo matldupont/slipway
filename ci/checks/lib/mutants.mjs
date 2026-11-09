@@ -203,10 +203,6 @@ export function mutants(path, text) {
 
 const isExpectCall = (node) => node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'expect';
 
-// The lines of each test call and each expect call, and a test call's offsets in the text and the points Vitest can
-// place its tests at (§3.5). A test is `skip` when its own call, or a describe whose function it sits in, skips it
-// (test-calls.mjs's SKIPS; §3.5, §3.8); and the lines of each import declaration that nothing else shares a line
-// with, so a test written beside an import is never read as part of it (#652).
 // Whether a test call's chain holds a tagged-template table (it.each`…`('x', fn)): Vitest can place its tests lines
 // away from the call, inside another one, so the step trusts no place in that file (#655).
 function tagged(call) {
@@ -238,6 +234,9 @@ function pointsOf(call, text) {
   return out;
 }
 
+// The lines of each test call and each expect call, and a test call's offsets in the text and the points Vitest can
+// place its tests at (§3.5). A test is `skip` when its own call, or a describe whose function it sits in, skips it
+// (test-calls.mjs's SKIPS; §3.5, §3.8).
 export function spans(path, text) {
   const program = read(path, text);
   if (program.unreadable) return program;
@@ -255,12 +254,9 @@ export function spans(path, text) {
     } else if (isExpectCall(node)) expects.push(at(node));
   });
   const lines = ({ first, last }) => ({ first, last });
-  const alone = (n) => /^[ \t]*$/.test(text.slice(text.lastIndexOf('\n', n.start - 1) + 1, n.start))
-    && /^[ \t]*(?:\/\/[^\n]*)?(?:\r?\n|$)/.test(text.slice(n.end));
   return {
     tests: tests.map((t) => ({ ...lines(t), start: t.start, end: t.end, points: t.points, skip: t.skip || skipping.some((s) => s.start <= t.start && t.end <= s.end), ...(t.tagged ? { tagged: true } : {}) })),
     expects: expects.map(lines),
-    imports: program.body.filter((n) => n.type === 'ImportDeclaration' && alone(n)).map((n) => lines(at(n))),
   };
 }
 
