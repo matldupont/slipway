@@ -4,7 +4,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
-import { esc, redMessage, runFile, Stop } from './mutation-calls.mjs';
+import { esc, placed, redMessage, runFile, Stop } from './mutation-calls.mjs';
 import { lastLines } from './mutation-processes.mjs';
 import { queueOf, skippedEntry, subjectsOf, whyNoSubject } from './mutation-tests.mjs';
 import { failure, notRun } from './runner-output.mjs';
@@ -16,13 +16,32 @@ const addFiles = (list, files) => {
   for (const file of files) if (!list.some((x) => x.file === file)) list.push({ file });
 };
 
-// Each group of a baseline run: red (failed, missing, or its file did not load), skipped (every test of it skipped or
-// todo), or green.
-function baseline(res, group) {
-  const mine = res.tests.filter((t) => group.names.has(t.name));
-  if (!res.loaded || !mine.length || mine.some((t) => t.status === 'failed')) return 'red';
-  return mine.every((t) => notRun(t.status)) ? 'skipped' : 'green';
+// A test of a run is known by its place (line and column) and its name together, never by one alone (#655).
+const keyOf = (t) => `${t.line}:${t.column}\u0000${t.name}`;
+const at = (t, place) => t.line === place.line && t.column === place.column;
+
+// Each new test of a baseline run: red (failed, missing, or its file did not load), skipped (skipped or todo), or green.
+function baseline(res, test) {
+  const mine = !test.key || !res.loaded ? undefined : res.tests.find((t) => keyOf(t) === test.key);
+  if (!mine || mine.status === 'failed') return 'red';
+  return notRun(mine.status) ? 'skipped' : 'green';
 }
+
+// §3.8: each new test is the clean run's test with its place and name, judged on its own: the rows of an it.each, a loop
+// or a describe.each share a place and differ by name. A new test the clean run does not hold is red; two tests at one
+// place with one name cannot be told apart, and the run stops (#655).
+function ownTests(unit, res) {
+  const tests = res.loaded ? res.tests : [];
+  return unit.groups.map((g) => {
+    const mine = tests.filter((t) => at(t, g.at) && t.name === g.name);
+    if (mine.length > 1) throw new Stop(twins(unit, res, mine[0], g.at));
+    return { ...g, key: mine.length ? keyOf(mine[0]) : null };
+  });
+}
+// Two tests at one place with one name: the same test run by two Vitest projects in one call, or two of one name.
+const twins = (unit, res, t, place) => (res.copies > 1
+  ? `\`${esc(unit.file)}\` is run by more than one Vitest project in \`${esc(unit.pkg.name)}\`'s call, so this step cannot tell "${esc(t.name)}" in one from the other. Name one project with \`--project\` in the call this step runs, then run \`pnpm tests-can-fail\` again.`
+  : `\`${esc(unit.file)}\` has two tests named "${esc(t.name)}" at line ${place.line}, column ${place.column}, so this step cannot tell them apart. Give each its own name, then run \`pnpm tests-can-fail\` again.`);
 const connectionError = (res) => res.tests.some((t) => t.failureMessages.some((m) => /ECONNREFUSED|ECONNRESET|connect ETIMEDOUT/.test(m)));
 
 /**
@@ -57,14 +76,30 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
     ready.sort((a, b) => a.queue.length - b.queue.length);
     record.order = ready.map((u) => u.file);
 
-    // §3.8: the baseline, and once more for a file with a red new test.
+    // §3.8: the baseline, and once more for a file with a red new test. A file that did not load has its new tests
+    // told apart by the run after it.
+    const regroup = (unit, res) => {
+      for (const g of unit.groups) pending.delete(g);
+      unit.groups = ownTests(unit, res);
+      for (const g of unit.groups) pending.set(g, unit);
+    };
     const first = new Map();
-    for (const unit of ready) first.set(unit, unit.first ?? await runFile(ctx, unit));
-    const red = ready.flatMap((unit) => unit.groups.filter((g) => baseline(first.get(unit), g) === 'red').map((g) => ({ unit, g })));
-    const everyRed = red.length > 0 && red.length === ready.reduce((n, u) => n + u.groups.length, 0);
+    for (const unit of ready) {
+      const res = unit.first ?? await runFile(ctx, unit);
+      first.set(unit, res.loaded ? placed(unit, res) : res);
+      if (res.loaded) regroup(unit, res);
+    }
+    const redIn = (unit) => unit.groups.filter((g) => baseline(first.get(unit), g) === 'red');
+    const everyRed = ready.some((u) => redIn(u).length) && ready.every((u) => redIn(u).length === u.groups.length);
     const connection = ready.some((u) => connectionError(first.get(u)));
     const again = new Map();
-    for (const unit of ready) if (red.some((r) => r.unit === unit)) again.set(unit, await runFile(ctx, unit));
+    for (const unit of ready) {
+      if (!redIn(unit).length) continue;
+      const res = await runFile(ctx, unit);
+      again.set(unit, res.loaded ? placed(unit, res) : res);
+      if (!first.get(unit).loaded && res.loaded) regroup(unit, res);
+    }
+    const red = ready.flatMap((unit) => redIn(unit).map((g) => ({ unit, g })));
     for (const { unit, g } of red) {
       if (baseline(again.get(unit), g) === 'red') throw new Stop(redMessage(unit, g.name, { everyRed, connection }));
       record.notJudged.push({ file: unit.file, name: g.name, why: 'flaky', detail: null });
@@ -113,9 +148,10 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
     if (res.none) throw new Stop(`The test runner wrote no result for \`${esc(unit.file)}\`:\n${esc(lastLines(res.log))}`);
     // A change that hangs the file or stops it loading says nothing about a test: dropped, not counted.
     if (res.hung || !res.loaded) continue;
+    placed(unit, res);
     for (const g of open) g.rec.tried += 1;
     for (const t of res.tests) {
-      const g = t.status === 'failed' && open.find((x) => x.names.has(t.name) && !x.rec.failedOn);
+      const g = t.status === 'failed' && open.find((x) => x.key === keyOf(t) && !x.rec.failedOn);
       if (!g) continue;
       const f = failure(t.failureMessages, testAbs, unit.expects);
       if (f.counts) g.rec.failedOn = { file: pool.file, line: change.line, kind: change.kind, by: f.by };
@@ -143,9 +179,10 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
   // Then the file once more, untouched: a new test that fails there failed with nothing changed.
   ctx.checkpoint();
   const again = await runFile(ctx, unit);
-  const redAgain = new Set(again.tests.filter((t) => t.status === 'failed').map((t) => t.name));
+  if (!again.hung && again.loaded) placed(unit, again);
+  const redAgain = new Set(again.tests.filter((t) => t.status === 'failed').map(keyOf));
   for (const g of unit.groups) {
-    const flaky = again.hung || again.none || !again.loaded || [...g.names].some((n) => redAgain.has(n));
+    const flaky = again.hung || again.none || !again.loaded || redAgain.has(g.key);
     record.tests.push({ ...g.rec, state: flaky ? 'flaky' : 'judged' });
     pending.delete(g);
   }

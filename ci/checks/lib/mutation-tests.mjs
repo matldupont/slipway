@@ -48,51 +48,51 @@ export function workspacePackages(copy) {
 export const packageOf = (packages, file) => packages.find((p) => p.dir === '' || file.startsWith(`${p.dir}/`)) ?? null;
 export const within = (pkg, file) => (pkg.dir ? file.slice(pkg.dir.length + 1) : file);
 
+// Where the runner places a test: the offset of its line and column (both counted from 1) in the file's text, or null
+// when that place is not in the text. A test belongs to the call one of whose points (spans()) is its place (#655).
+export function placeIn(text) {
+  const starts = [0];
+  for (let at = text.indexOf('\n'); at >= 0; at = text.indexOf('\n', at + 1)) starts.push(at + 1);
+  return ({ line, column }) => {
+    if (!Number.isInteger(line) || !Number.isInteger(column) || line < 1 || column < 1 || line > starts.length) return null;
+    const offset = starts[line - 1] + column - 1;
+    return offset < (line < starts.length ? starts[line] - 1 : text.length) ? offset : null;
+  };
+}
+// The test call a place is one of the points of, or null.
+const callAt = (calls, offset) => (offset === null ? null : calls.find((c) => c.points.includes(offset)) ?? null);
+
 /**
- * The new tests of one test file (§3.5), from the runner's report of a clean run (or its listing, where nothing may
- * hide a test, or under the mechanical excuse). A test is new when a changed line falls inside its own call, or a hunk that only removes lines sits inside
- * it; tests on one call are one group. When `read` is unreadable, or a test falls inside no call spans() knows (an
- * alias, test.extend), every test of the file is new; a changed call it reads with no test in it is still named. A group is `run` when the clean run ran one of its tests, and
- * `skip` when its call, or a describe around it, says skip; `read` when the step found its call.
- * @param {Array<{ name: string, line: number, status?: string }>} reported
- * @returns {{ groups: Array<{ name: string, line: number, names: Set<string>, run: boolean, skip: boolean, read: boolean }>, outside: boolean, every: boolean, unreported: Array<{ line: number, skip: boolean }> }}
+ * The new tests of one test file (§3.5), from the runner's report of a clean run (or its listing, under the
+ * mechanical excuse). Each test belongs to the call its place (its line and column) is a
+ * point of, never to a call it only shares a line with or sits inside, and each is its own entry. A test is new when a changed line
+ * falls inside its own call, or a hunk that only removes lines sits inside it. When `read` is unreadable, or a test
+ * is at no point of a call spans() knows (an alias, test.extend), or spans() trusts no place in the file (a tagged
+ * template, a source map comment), every test of the file is new, each judged on its own; a changed call it reads
+ * with no test in it is still named. An entry is `run` when the clean run ran it, and `skip` when its call, or a
+ * describe around it, says skip; `read` when the step found its call; `line` is its call's first line.
+ * @param {Array<{ name: string, line: number, column: number, status?: string }>} reported
+ * @returns {{ groups: Array<{ name: string, line: number, at: { line: number, column: number }, run: boolean, skip: boolean, read: boolean }>, outside: boolean, every: boolean, untrusted: string | null, unreported: Array<{ line: number, skip: boolean, untrusted: string | null }> }}
  */
-export function newTests(reported, read, { added, removedAfter }) {
+export function newTests(reported, read, { added, removedAfter }, text) {
   const calls = read.unreadable ? [] : read.tests;
-  const callOf = (line) => calls.filter((c) => line >= c.first && line <= c.last).sort((a, b) => a.last - a.first - (b.last - b.first))[0] ?? null;
-  const every = Boolean(read.unreadable) || reported.some((t) => !callOf(t.line));
-  const groups = new Map();
-  for (const t of reported) {
-    const found = callOf(t.line);
-    const call = every ? null : found;
-    const key = call ? call.first : t.line;
-    const group = groups.get(key) ?? { name: t.name, line: key, names: new Set(), call, run: false, skip: found?.skip === true, read: Boolean(found) };
-    group.names.add(t.name);
-    group.run ||= t.status === undefined || !notRun(t.status);
-    groups.set(key, group);
-  }
+  const place = placeIn(text);
+  // A file spans() trusts no place in: no test is tied to a call by its place.
+  const untrusted = read.unreadable ? null : read.untrusted;
+  const owner = reported.map((t) => (untrusted ? null : callAt(calls, place(t))));
+  const every = Boolean(read.unreadable) || Boolean(untrusted) || owner.some((c) => !c);
   const marks = (call) => [...added].some((n) => n >= call.first && n <= call.last) || removedAfter.some((n) => n >= call.first && n + 1 <= call.last);
-  const fresh = [...groups.values()].filter((g) => every || marks(g.call));
+  const groups = reported.map((t, i) => {
+    const found = owner[i];
+    return { name: t.name, line: every || !found ? t.line : found.first, at: { line: t.line, column: t.column }, call: found, run: t.status === undefined || !notRun(t.status), skip: found?.skip === true, read: Boolean(found) };
+  });
+  const fresh = groups.filter((g) => every || marks(g.call));
   const inAnyCall = (n) => calls.some((c) => n >= c.first && n <= c.last);
   const outside = !every && ([...added].some((n) => !inAnyCall(n)) || removedAfter.some((n) => !calls.some((c) => n >= c.first && n + 1 <= c.last)));
-  // A changed call the runner reports no test in: gated by a condition, an empty table, or never called (§3.5).
-  const unreported = calls.filter((c) => marks(c) && !reported.some((t) => t.line >= c.first && t.line <= c.last)).map((c) => ({ line: c.first, skip: c.skip === true }));
-  return { groups: fresh.map(({ name, line, names, run, skip, read: known }) => ({ name, line, names, run, skip, read: known })), outside, every, unreported };
-}
-
-// §3.5: whether the listing can have left a new test out: a changed line inside a test call it places no test in, or
-// an added line, not blank, outside every call it places a test in and every import; a hunk that only removes lines,
-// the same by the line it follows; or a file spans() cannot read. Only then is the runner's report of a clean run read,
-// so finding a test needs no form of call.
-export function mayHide(listed, read, { added, removedAfter }, text) {
-  if (read.unreadable) return true;
-  const lines = text.split('\n');
-  const holds = (c) => listed.some((t) => t.line >= c.first && t.line <= c.last);
-  const covered = [...read.tests.filter(holds), ...read.imports];
-  const empty = read.tests.filter((c) => !holds(c));
-  const isIn = (n, c, after = 0) => n >= c.first && n + after <= c.last;
-  return [...added].some((n) => empty.some((c) => isIn(n, c)) || (lines[n - 1] ?? '').trim() !== '' && !covered.some((c) => isIn(n, c)))
-    || removedAfter.some((n) => empty.some((c) => isIn(n, c, 1)) || !covered.some((c) => isIn(n, c)));
+  // A changed call the runner places no test in: gated by a condition, an empty table, or never called (§3.5).
+  // In a file whose places are not trusted, the step cannot tell such a call from one whose tests ran: it names each.
+  const unreported = calls.filter((c) => marks(c) && !owner.includes(c)).map((c) => ({ line: c.first, skip: c.skip === true, untrusted }));
+  return { groups: fresh.map(({ call, ...g }) => g), outside, every, untrusted, unreported };
 }
 
 // §3.8: a new test the clean run skips is the owner's skip only when its own call, or a describe around it, says so;
@@ -100,8 +100,11 @@ export function mayHide(listed, read, { added, removedAfter }, text) {
 export const skippedEntry = (file, g) => (g.skip
   ? { file, name: g.name, why: 'skipped', detail: null }
   : { file, name: g.name, why: 'narrowed', detail: g.read ? 'the run skips it, and its call holds no skip' : 'the run skips it, in a call this step cannot read for a skip' });
-// §3.5: a changed call the runner reports no test in is named by its line, by the same rule.
-export const unreportedEntry = (file, c) => (c.skip
+// §3.5: a changed call the runner reports no test in is named by its line, by the same rule; in a file whose places are
+// not trusted, every changed call is, since the step cannot tell.
+export const unreportedEntry = (file, c) => (c.untrusted
+  ? { file, name: null, why: 'narrowed', detail: `this step cannot tell whether the runner ran a test in the call at line ${c.line}, since ${c.untrusted} in the file moves where the runner says a test is` }
+  : c.skip
   ? { file, name: null, why: 'skipped', detail: `the runner reports no test in the call at line ${c.line}, which says skip` }
   : { file, name: null, why: 'narrowed', detail: `the runner reports no test in the call at line ${c.line}` });
 

@@ -58,8 +58,8 @@ const parsed = (text, from) => {
 };
 
 /**
- * A call's listing (§3.5): each test's file (inside the repository), name and line.
- * @returns {Promise<Array<{ file: string, name: string, line: number }>>}
+ * A call's listing (§3.5): each test's file (inside the repository), name, line and column.
+ * @returns {Promise<Array<{ file: string, name: string, line: number, column: number }>>}
  */
 export async function listTests(ctx, unit) {
   const out = join(ctx.dir, 'listing.json');
@@ -77,8 +77,9 @@ export async function listTests(ctx, unit) {
 }
 
 /**
- * One run of one test file (§3.8, §3.9). `hung` when the call passed its limit; `none` when it wrote no result.
- * @returns {Promise<{ hung: boolean, none: boolean, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null }>, log: string }>}
+ * One run of one test file (§3.8, §3.9). `hung` when the call passed its limit; `none` when it wrote no result;
+ * `copies`, how many times the result holds the file (once per Vitest project that runs it).
+ * @returns {Promise<{ hung: boolean, none: boolean, loaded: boolean, copies?: number, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null, column: number | null }>, log: string }>}
  */
 export async function runFile(ctx, unit) {
   const out = join(ctx.dir, 'result.json');
@@ -98,15 +99,15 @@ export async function runFile(ctx, unit) {
     throw e;
   }
   const mine = files.filter((f) => f.file === join(ctx.copy, unit.file));
-  return { hung: false, none: false, loaded: mine.length > 0 && mine.every((f) => f.loaded), tests: mine.flatMap((f) => f.tests), log };
+  return { hung: false, none: false, loaded: mine.length > 0 && mine.every((f) => f.loaded), tests: mine.flatMap((f) => f.tests), copies: mine.length, log };
 }
 
 /**
  * §3.5: the tests of one test file and how a clean run ends each, from the runner's own report, read from the file it
  * writes at the path the step gives (never its output, which a test can print to). A report that is missing, or that
- * gives a test no line, or that does not hold the file as loaded, stops the run: it is never a pass. The run is the
+ * gives a test no line and column, or that does not hold the file as loaded, stops the run: it is never a pass. The run is the
  * file's baseline too.
- * @returns {Promise<{ loaded: boolean, tests: Array<{ name: string, status: string, line: number }> }>}
+ * @returns {Promise<{ loaded: boolean, tests: Array<{ name: string, status: string, line: number, column: number }> }>}
  */
 export async function reportOf(ctx, unit) {
   const r = await runFile(ctx, unit);
@@ -114,8 +115,14 @@ export async function reportOf(ctx, unit) {
   if (r.hung) throw new Stop(`The clean run of \`${esc(unit.file)}\` did not finish in its limit, so this step cannot tell which of its tests ran. Make it finish, ${again}.`);
   if (r.none) throw new Stop(`The test runner wrote no report of \`${esc(unit.file)}\` at the path this step gave it that parses, so this step cannot tell which of its tests ran. Check that \`${esc(unit.pkg.name)}\`'s Vitest config does not send a reporter's output elsewhere and that the run ends, ${again}.\n${esc(lastLines(r.log))}`);
   if (!r.loaded) throw new Stop(`The clean run of \`${esc(unit.file)}\` did not load it, so this step cannot tell which of its tests are new. Make it load, ${again}.\n${esc(lastLines(r.log))}`);
-  const lineless = r.tests.find((t) => t.line === null);
-  if (lineless) throw new Stop(`The test runner's report of \`${esc(unit.file)}\` gives no line for "${esc(lineless.name)}", so this step cannot tell whether it is new. Check that \`${esc(unit.pkg.name)}\`'s call does not turn task locations off, and that this Vitest version still reports a test's \`location\`, ${again}.`);
+  return placed(unit, r);
+}
+
+// §3.5, §3.8: a test a result gives no line and column is one this step cannot place, so the run stops: a test is
+// never matched by its name or its line alone (#655).
+export function placed(unit, r) {
+  const lost = r.tests.find((t) => t.line === null || t.column === null);
+  if (lost) throw new Stop(`The test runner's report of \`${esc(unit.file)}\` gives no line and column for "${esc(lost.name)}", so this step cannot tell which test it is. Check that \`${esc(unit.pkg.name)}\`'s call does not turn task locations off, and that this Vitest version still reports a test's \`location\`, then run \`pnpm tests-can-fail\` again.`);
   return r;
 }
 

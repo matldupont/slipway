@@ -32,9 +32,11 @@ const REASONS = {
   // §3.5, §3.8: the clean run skips it, and no skip on its own call or a describe around it says why.
   narrowed: (d) => (String(d ?? '').startsWith('the runner reports no test')
     ? [e(d), `Take the condition off its call, or mark it \`.skip\`, then ${AGAIN}.`]
-    : String(d ?? '').includes('cannot read')
-      ? ['the run skips it; the step cannot read its call', `Write it as \`it(…)\` or \`test(…)\`, any \`.skip\` on that call, then ${AGAIN}.`]
-      : ['the run skips it; its call has no skip', `Remove the filter, \`.only\` or hook skipping it, or mark its call \`.skip\`, then ${AGAIN}.`]),
+    : String(d ?? '').startsWith('this step cannot tell whether')
+      ? [e(d), `Take off any condition or empty table that keeps that call's tests from running, or mark it \`.skip\`, then ${AGAIN}.`]
+      : String(d ?? '').includes('cannot read')
+        ? ['the run skips it; the step cannot read its call', `Write it as \`it(…)\` or \`test(…)\`, any \`.skip\` on that call, then ${AGAIN}.`]
+        : ['the run skips it; its call has no skip', `Remove the filter, \`.only\` or hook skipping it, or mark its call \`.skip\`, then ${AGAIN}.`]),
   mechanical: (d) => [`this pull request is excused as a mechanical change ${untilReason(d)}`, 'Remove it from `ci/exceptions.yaml` in the next pull request, as it counts only in this one.'],
   excused: (d) => [`excused ${untilReason(d)}`, 'Remove its entry from `ci/exceptions.yaml` once the test checks what the code does.'],
   // §3.8's notJudged flaky: red, then green, before any change. The tests state `flaky` (§3.9) is a finding, worded apart.
@@ -132,11 +134,20 @@ export const spentMechanical = () => ({
   fix: 'Remove it.',
 });
 
-export const unreadable = (u) => ({
-  where: e(`${u.file}#unreadable`),
-  detail: `${file(u.file)} could not be read as tests, so every test in it was treated as new: ${e(u.reason)}.`,
-  fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
-});
+// A file whose places the step does not trust (a tagged template, a source map comment) reads fine: its tests are all
+// judged, old ones too, and the fix is where to put new tests, not how to write them (#655).
+const MOVES = 'moves where the runner says a test is';
+export const unreadable = (u) => (String(u.reason ?? '').includes(MOVES)
+  ? {
+    where: e(`${u.file}#unreadable`),
+    detail: `${file(u.file)} has every test in it judged, old ones too: ${e(u.reason)}.`,
+    fix: `Put new tests in a file with no tagged template or source map comment to have only them judged, ${EXCUSE}.`,
+  }
+  : {
+    where: e(`${u.file}#unreadable`),
+    detail: `${file(u.file)} could not be read as tests, so every test in it was treated as new: ${e(u.reason)}.`,
+    fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
+  });
 
 export const overBudget = (seconds, budget) => ({
   where: 'run#over-budget',

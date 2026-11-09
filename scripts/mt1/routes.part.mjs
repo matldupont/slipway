@@ -87,12 +87,11 @@ test('a new test the run skips whose own call says skipIf stays the owner\'s ski
   assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped/adds`]], r.out);
 });
 
-// §3.5: where the listing may hide a test (here a changed line outside every listed test), the clean run's report is
-// read from the file the runner writes. One missing, one that does not parse, or one without a test's line stops the run.
+// §3.5: the clean run's report is read from the file the runner writes. One missing, one that does not parse, or one without a test's line stops the run.
 for (const [what, config, says] of [
   ['writes no report', { noResult: true }, /wrote no report of `pkgs\/app\/src\/cart\.test\.ts` at the path this step gave it/],
   ['writes a report that does not parse', { badReport: true }, /wrote no report of `pkgs\/app\/src\/cart\.test\.ts` at the path this step gave it/],
-  ['reports a test with no line', { noReportLine: true }, /report of `pkgs\/app\/src\/cart\.test\.ts` gives no line for "old"/],
+  ['reports a test with no line', { noReportLine: true }, /report of `pkgs\/app\/src\/cart\.test\.ts` gives no line and column for "old"/],
   ['lists the file but does not load it in its run', { tests: { old: { loadFailsWhen: [{ file: 'pkgs/app/src/cart.ts', line: 1, has: 'never there' }] } } }, /clean run of `pkgs\/app\/src\/cart\.test\.ts` did not load it/],
 ]) {
   test(`a runner that ${what} stops the run, never a pass (#652)`, (t) => {
@@ -141,7 +140,7 @@ test('one the runner reports no test in, whose own call says skip, is the owner\
   assert.match(r.json.warnings[0].detail, /the runner reports no test in the call at line \d+, which says skip\.$/);
 });
 
-// The stand-in sees no test on an import's line, so this pins the naming; scripts/mutants.test.mjs pins mayHide's part.
+// The stand-in sees no test on an import's line, so this pins the naming.
 test('a skipped new test on an import\'s line is named (#652)', (t) => {
   const p = routed({ base: HEAD + it('old') });
   removeAll(t, p);

@@ -212,7 +212,10 @@ Nothing else ties it to a version, and §8 says how each of the three is held.
 - `spans(path, text)` returns, for a test file, the first and last line of each test call (`it`, `test`, and
   their `.each`, `.for`, `.only`, `.skip`, `.todo`, `.concurrent`, `.sequential`, `.fails`, `.skipIf(…)` and
   `.runIf(…)` forms) and of each `expect(...)` call (the call itself, from `expect` to the parenthesis that
-  closes its argument; not the matcher after it), or `{ unreadable: reason }`. §3.5 and §3.9 use them.
+  closes its argument; not the matcher after it), or `{ unreadable: reason }`. Each test call also has its offsets
+  and its points: where Vitest can place one of its tests (its name, each property of its chain, each parenthesis
+  that opens arguments), and, as `untrusted`, why no place in the file can be trusted: a tagged template anywhere in
+  it, or a source map comment (#655). §3.5 and §3.9 use them.
 - `imports(path, text)` returns the paths a file imports or re-exports from, a type-only import left out, for §3.6.
 - A text holding a line break git does not count (a lone CR, U+2028 or U+2029) is `{ unreadable: reason }` to all
   four: V8 breaks a stack's lines there and git does not, so a crash's line would name another line (#632).
@@ -313,22 +316,22 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    started is stopped (§1). Measured 2026-10-08: 0.2 s to write the tree and 1.4 s to install on the scratch
    project of D-037.
 5. **Which tests are judged.** For each runner call, `list --json --includeTaskLocation` gives the tests it
-   runs, each with its file, name and first line; a listed test with no line is exit 2 ("the test runner did
-   not say where each test is": §8). A changed test file no call lists, whose name is `*.test.<ext>` or
+   runs, each with its file, name, line and column; a listed test with no line or column is exit 2 ("the test
+   runner did not say where each test is": §8). A changed test file no call lists, whose name is `*.test.<ext>` or
    `*.spec.<ext>` with one of §2's eight extensions, is a **finding**, `never-run`, unless
    a `keep-out:` entry names it or a folder above it, in which case it is **not judged**: `kept-out`, with
    the entry's reason. The listing names no test that is skipped or `todo` before it runs, so a file whose
    every test is skipped lists nothing and is `never-run` too: the step cannot tell it from a file no run
    picks up, and fails closed (the owner's call, 2026-11-04, #633). Its message names both causes (§5); a
-   skipped test in a file the runner lists is `skipped` (step 8). The listing leaves those tests out, so
-   where it may hide one (a changed line inside a test call it places no test in; an added line, not blank,
-   outside every call it places a test in and every import alone on its lines; a hunk that only removes lines, the same by the line
-   it follows; or a file the parser cannot read) the step reads the runner's own report of one clean run of the file: run
+   skipped test in a file the runner lists is `skipped` (step 8). The listing can leave a test out (one skipped
+   before it runs; on Vitest 5, which reads files without running them, one called through another name), so
+   for each changed test file it lists, the step reads the runner's own report of one clean run of the file
+   (#655): run
    with `--reporter=json`, `--outputFile` at a path the step gives and `--includeTaskLocation`, read from that
    file and never from what the run prints, since a test can print text shaped like a report. The report lists
-   every test the runner collects, a skipped one included, with its line, and that run is the file's baseline
-   too (§3.8). A report that is missing, does not parse, gives a test no line, or holds the file as not loaded
-   stops the run: it is never a pass. A new test is one the report places in a changed call, by the rule above.
+   every test the runner collects, a skipped one included, with its line and column, and that run is the file's
+   baseline too (§3.8). A report that is missing, does not parse, gives a test no line and column, or holds the
+   file as not loaded stops the run: it is never a pass. A new test is one the report places in a changed call, by the rule above.
    A changed test call the report places no test in (behind a condition, over an empty table, never called) is
    named by its line, by the rule below; under `tests-can-fail#mechanical` (§3.7), which reads only the
    listing, a changed call the listing places no test in is named `mechanical`. One the clean run skips is
@@ -348,9 +351,15 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    whole lies inside no call, and marks none. So a changed import, hook,
    helper or `describe` line marks no test new, and neither does a line between two tests; a test file with
    such a change is named in the record, for the summary's "{n} test files changed outside any test" (Known
-   limitations). Tests the runner
-   lists on one line (`it.each`, a loop that calls `it`) are one group: new when a changed line falls inside
-   that call, judged once by the first one listed, and named by the call's line. A test file `spans()`
+   limitations). A test belongs to the call whose point is the place the runner gives it (its line and column),
+   never to a call it only shares a line with or sits inside; it is known by that place and its name together,
+   never by one alone (#655). Tests one call makes (`it.each`, a loop that calls `it`, a `describe.each`) share a
+   place: new when a changed line falls inside that call, each judged on its own, and named by the call's line.
+   Two tests at one place with one name, or a result that gives a test no place, stop the run. A place that is
+   no point of a call `spans()` reads belongs to none, and a file with a tagged template anywhere in it (an
+   `` it.each`…` `` table's rows can be placed lines away) or a source map comment (it moves every place) trusts none
+   of its places: in both, every test is new, old ones too, and in the second every changed call is named, since
+   the step cannot tell one whose tests did not run. A test file `spans()`
    cannot read has every test in it treated as new, and so does one where a test the runner lists falls inside no
    test call `spans()` reads (an alias of `it`, a `test.extend` fixture; #632). A test the pull request did not
    touch is never judged.
@@ -559,7 +568,9 @@ The fix is printed on its own `Fix:` line.
   {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped", or for a call the runner
   reports no test in "the runner reports no test in the call at line {n}, which says skip"; "the run skips it; its
   call has no skip", for a call it cannot read "the run skips it; the step cannot read its call", and for a call the
-  runner reports no test in "the runner reports no test in the call at line {n}"; "excused until
+  runner reports no test in "the runner reports no test in the call at line {n}", or in a file whose places are
+  not trusted "this step cannot tell whether the runner ran a test in the call at line {n}, since {cause} in the
+  file moves where the runner says a test is"; "excused until
   {date}: {reason}". Each has its fix, as a finding has, so a not-judged line names what to do too; the
   `other-runner` one names `tests-can-fail#other-runner`.
 - another commit: `` This record is for commit {a}, not the one being checked ({b}). Run
@@ -606,7 +617,7 @@ a line inside an `expect`). The functions that read them (`ci/checks/lib/runner-
 on those files, so a reader of the format is tested on the format. The stand-in runner of
 `scripts/mutation.test.mjs` answers with the same files.
 
-A listing with no line for a test, a result that is not the shape recorded, or a failed test with no
+A listing with no line or column for a test, a result that is not the shape recorded, or a failed test with no
 `failureMessages` is exit 2 with the last message of §5, which names the range and the version found, so a
 runner release that moves a field is named as that and not as a fault in the pull request.
 
@@ -738,8 +749,8 @@ nothing else; and a result copied into a pull request by hand.
   in front, or goes through another tool stops the step until `ci/tests-can-fail.yaml` states the call.
 - **A change that breaks the test file's loading, or hangs it, counts for nothing.** A test whose only effect
   on a change is one of those is named `kills-nothing`.
-- **Tests on one line are judged as one.** The rows of an `it.each`, or of a loop, pass or fail on the first
-  one listed.
+- **Tests one call makes need their own names.** The rows of an `it.each`, a loop or a `describe.each` share one
+  place, so each is told apart by its name; two with the same name stop the run (#655).
 - **Fewer kinds of change than a mutation tool makes.** Enough for "can this test fail"; not a measure of how
   good the tests are.
 - **The time is the building machine's.** §7's figures were measured on one laptop with the probe, which

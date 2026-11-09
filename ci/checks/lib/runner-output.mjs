@@ -25,22 +25,26 @@ export const titleOf = (entry) => [...(entry.ancestorTitles ?? []).filter(Boolea
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
 /**
- * The listing: each test's absolute file, name and first line. A test with no line throws RunnerShape.
- * @returns {Array<{ file: string, name: string, line: number }>}
+ * The listing: each test's absolute file, name, and the line and column of its call. A test with no line or column
+ * throws RunnerShape.
+ * @returns {Array<{ file: string, name: string, line: number, column: number }>}
  */
 export function readListing(value, pkg, version) {
   if (!Array.isArray(value)) throw shape(LISTING, pkg, version);
   return value.map((t) => {
     const line = t?.location?.line;
-    if (!isObject(t) || typeof t.file !== 'string' || typeof t.name !== 'string' || !Number.isInteger(line) || line < 1) throw shape(LISTING, pkg, version);
-    return { file: t.file, name: t.name, line };
+    const column = t?.location?.column;
+    const placed = Number.isInteger(line) && line >= 1 && Number.isInteger(column) && column >= 1;
+    if (!isObject(t) || typeof t.file !== 'string' || typeof t.name !== 'string' || !placed) throw shape(LISTING, pkg, version);
+    return { file: t.file, name: t.name, line, column };
   });
 }
 
 /**
- * A result: for each test file, whether it loaded, and each test's name, status and failure messages. A result
- * not of the recorded shape, or a failed test with no failureMessages, throws RunnerShape.
- * @returns {Array<{ file: string, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[] }> }>}
+ * A result: for each test file, whether it loaded, and each test's name, status, failure messages, and the line and
+ * column of its call (each null when the result gives none). A result not of the recorded shape, or a failed test
+ * with no failureMessages, throws RunnerShape.
+ * @returns {Array<{ file: string, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null, column: number | null }> }>}
  */
 export function readResult(value, pkg, version) {
   if (!isObject(value) || !Array.isArray(value.testResults)) throw shape(RESULT, pkg, version);
@@ -50,7 +54,8 @@ export function readResult(value, pkg, version) {
       if (!isObject(a) || typeof a.title !== 'string' || typeof a.status !== 'string') throw shape(RESULT, pkg, version);
       const messages = a.failureMessages ?? [];
       if (a.status === 'failed' && (!Array.isArray(messages) || !messages.length || messages.some((m) => typeof m !== 'string'))) throw shape(RESULT, pkg, version);
-      return { name: titleOf(a), status: a.status, failureMessages: messages, line: Number.isInteger(a.location?.line) ? a.location.line : null };
+      const where = (v) => (Number.isInteger(v) && v >= 1 ? v : null);
+      return { name: titleOf(a), status: a.status, failureMessages: messages, line: where(a.location?.line), column: where(a.location?.column) };
     });
     // A file that failed with no test in it did not load: a change broke it, or it never could load.
     return { file: file.name, loaded: !(file.status === 'failed' && tests.length === 0), tests };

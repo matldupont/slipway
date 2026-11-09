@@ -1,9 +1,11 @@
 // scripts/mutation.test.mjs, part: what the run asks of ci/checks/lib/mutants.mjs beyond step 2 — the test forms
-// spans() reads, a deep modifier chain, the paths a test file imports, and the guards no change is made in.
+// spans() reads, a deep modifier chain, the paths a test file imports, the guards no change is made in, and the call
+// each test the runner places belongs to.
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { imports, mutants, spans } from '../../ci/checks/lib/mutants.mjs';
+import { newTests } from '../../ci/checks/lib/mutation-tests.mjs';
 
 test('spans() reads it.fails, .sequential, .for, .skipIf and .runIf as test calls, and their inner call as none', () => {
   const count = (code) => spans('a.js', code).tests.length;
@@ -15,7 +17,7 @@ test('spans() reads it.fails, .sequential, .for, .skipIf and .runIf as test call
 
 test('a chain of 20,000 modifier links is read, not a RangeError', () => {
   const code = `it${'.only'.repeat(20000)}('x', () => {});`;
-  assert.deepEqual(spans('a.js', code).tests, [{ first: 1, last: 1, skip: false }]);
+  assert.deepEqual(spans('a.js', code).tests.map(({ points, ...t }) => t), [{ first: 1, last: 1, start: 0, end: code.length - 1, skip: false }]);
 });
 
 test('imports() gives what a file imports and re-exports from, and leaves type-only imports out', () => {
@@ -62,4 +64,73 @@ test('spans() reads a test through an optional call, a TypeScript assertion or a
   ].join('\n');
   const tests = spans('a.ts', code).tests.map((t) => [t.first, t.skip]);
   assert.deepEqual(tests, [[1, false], [2, false], [3, false], [4, false], [5, false], [6, false], [7, false], [8, false], [9, false], [10, false], [11, false], [12, true], [13, true], [14, true], [18, true]]);
+});
+
+// #655: a test belongs to the call that holds its place (its line and column, as Vitest gives them), never to a call it
+// only shares a line with. Read on real text.
+const placed = (text, line, name, status) => ({ name, line, column: text.split('\n')[line - 1].indexOf(name) + 1, status });
+test('two test calls on one line are two tests, and a second the runner places nothing in is still named (#655)', () => {
+  const text = "import { it, expect } from 'vitest';\nit('a', () => { expect(1).toBe(1); }); if (env) it('b', () => { expect(2).toBe(2); });\n";
+  const lines = { added: new Set([2]), removedAfter: [] };
+  const a = placed(text, 2, "it('a'");
+  const b = placed(text, 2, "it('b'");
+  const both = newTests([{ ...a, name: 'a' }, { ...b, name: 'b' }], spans('a.test.ts', text), lines, text);
+  assert.deepEqual([both.groups.map((g) => [g.name, g.line, g.read]), both.unreported, both.every], [[['a', 2, true], ['b', 2, true]], [], false]);
+  const one = newTests([{ ...a, name: 'a' }], spans('a.test.ts', text), lines, text);
+  assert.deepEqual([one.groups.map((g) => g.name), one.unreported], [['a'], [{ line: 2, skip: false, untrusted: null }]]);
+});
+
+test('a skip the step cannot read, on the closing line of a test, makes every test new (#655)', () => {
+  const text = "import { it, expect } from 'vitest';\nconst fixtureTest = it;\nit('c', () => {\n  expect(3).toBe(3);\n}); fixtureTest.skip('d', () => {});\n";
+  const read = spans('a.test.ts', text);
+  const lines = { added: new Set([5]), removedAfter: [] };
+  const c = { ...placed(text, 3, "it('c'"), name: 'c' };
+  const found = newTests([c, { ...placed(text, 5, "skip('d'"), name: 'd', status: 'skipped' }], read, lines, text);
+  assert.deepEqual([found.every, found.groups.map((g) => [g.name, g.run, g.read])], [true, [['c', true, true], ['d', false, false]]]);
+});
+
+test('spans() gives each test call the points Vitest places a test at: its name, each property and each opening parenthesis, and nothing between them (#655)', () => {
+  const code = "it('a', f);\nit.skip.each([1])('b', f);\n(0, it)('c', f);\nit.each`\n  x\n  ${1}\n`('d', f);\n";
+  const at = (t) => t.points.map((o) => code.slice(o, o + 4));
+  const [a, b, c, d] = spans('a.js', code).tests;
+  assert.deepEqual([at(a), at(b), at(c), at(d)], [["('a'", "it('"], ["('b'", "([1]", 'each', 'skip', 'it.s'], ["('c'"], ["('d'", 'each', 'it.e']]);
+});
+
+// Vitest 5.0.3's own places for this text, read off a real run: the tagged tables' rows sit lines below their calls,
+// inside other ones. No place in a file with a tagged table is trusted, so every test in it is new (#655).
+test('a file with a tagged-template table trusts none of its places: every test is new, each on its own (#655)', () => {
+  const text = [
+    "import { it, expect } from 'vitest';", "import { double } from './num';", "it('a', () => { expect(double(1)).toBe(2); });",
+    'it.each`', '  x', '  ${1}', '  ${2}', "`('zero $x', ({ x }) => { expect(double(x)).toBe(x * 2); });",
+    'it.each`', '  x', '  ${1}', '  ${2}', "`('two $x', ({ x }) => { double(x); expect(true).toBe(true); });",
+    "it('v1', () => {", '  expect(1).toBe(1);', '});', "it('v2', () => {", '  expect(1).toBe(1);', '});', '',
+  ].join('\n');
+  const reported = [['a', 3, 1], ['zero 1', 12, 2], ['zero 2', 12, 2], ['two 1', 19, 2], ['two 2', 19, 2], ['v1', 14, 1], ['v2', 17, 1]].map(([name, line, column]) => ({ name, line, column, status: 'passed' }));
+  const found = newTests(reported, spans('a.test.ts', text), { added: new Set([9, 10, 11, 12, 13]), removedAfter: [] }, text);
+  assert.deepEqual([found.every, found.untrusted, found.groups.map((g) => g.name)], [true, 'a tagged template', reported.map((t) => t.name)]);
+  // A row placed exactly at a point of another call (here the `(` after `zero`'s table) is still not trusted.
+  const onPoint = reported.map((t) => (t.name.startsWith('two') ? { ...t, line: 8, column: 2 } : t));
+  assert.equal(newTests(onPoint, spans('a.test.ts', text), { added: new Set([9, 10, 11, 12, 13]), removedAfter: [] }, text).every, true);
+});
+
+test('a test placed inside a call but at none of its points belongs to no call the step reads: every test is new (#655)', () => {
+  const text = "import { it, expect } from 'vitest';\nconst check = it;\nit('x', () => {\n  expect(1).toBe(1);\n}, check('y', () => {}));\n";
+  const lines = { added: new Set([5]), removedAfter: [] };
+  const found = newTests([{ ...placed(text, 3, "it('x'"), name: 'x' }, { ...placed(text, 5, "check('y'"), name: 'y' }], spans('a.test.ts', text), lines, text);
+  assert.deepEqual([found.every, found.groups.map((g) => [g.name, g.read])], [true, [['x', true], ['y', false]]]);
+});
+
+// Any tagged template, whatever calls it, or a source map comment, makes spans() trust no place in the file (#655).
+test('spans() trusts no place in a file with any tagged template or a source map comment; every test in it is new (#655)', () => {
+  const untrusted = (code) => spans('a.ts', code).untrusted;
+  assert.equal(untrusted("it('a', f);\n"), null);
+  for (const code of ["const check = it;\ncheck.each`\n  x\n  ${1}\n `\n('row $x', f);\nit('old', f);\n", "const withNum = it.extend({});\nwithNum.each`\n  x\n`('r', f);\n", "const style = css`a`;\nit('a', f);\n"]) {
+    assert.equal(untrusted(code), 'a tagged template', code);
+  }
+  assert.equal(untrusted("it('a', f);\n//# sourceMappingURL=data:application/json;base64,e30=\n"), 'a source map comment');
+  // Rows of an aliased table placed exactly on the `(` of the old call below are not that call's: every test is new.
+  const text = "import { it } from 'vitest';\nconst check = it;\ncheck.each`\n  x\n  ${1}\n `\n('row $x', () => {});\nit('old', () => {});\n";
+  const reported = [{ name: 'row 1', line: 8, column: 3 }, { name: 'old', line: 8, column: 1 }];
+  const found = newTests(reported, spans('a.test.ts', text), { added: new Set([2, 3, 4, 5, 6, 7]), removedAfter: [] }, text);
+  assert.deepEqual([found.every, found.groups.map((g) => g.name)], [true, ['row 1', 'old']]);
 });
