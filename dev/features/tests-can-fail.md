@@ -214,7 +214,8 @@ Nothing else ties it to a version, and §8 says how each of the three is held.
   `.runIf(…)` forms) and of each `expect(...)` call (the call itself, from `expect` to the parenthesis that
   closes its argument; not the matcher after it), or `{ unreadable: reason }`. Each test call also has its offsets
   and its points: where Vitest can place one of its tests (its name, each property of its chain, each parenthesis
-  that opens arguments), and whether its chain holds a tagged-template table (#655). §3.5 and §3.9 use them.
+  that opens arguments), and, as `untrusted`, why no place in the file can be trusted: a tagged template anywhere in
+  it, or a source map comment (#655). §3.5 and §3.9 use them.
 - `imports(path, text)` returns the paths a file imports or re-exports from, a type-only import left out, for §3.6.
 - A text holding a line break git does not count (a lone CR, U+2028 or U+2029) is `{ unreadable: reason }` to all
   four: V8 breaks a stack's lines there and git does not, so a crash's line would name another line (#632).
@@ -355,8 +356,10 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    never by one alone (#655). Tests one call makes (`it.each`, a loop that calls `it`, a `describe.each`) share a
    place: new when a changed line falls inside that call, each judged on its own, and named by the call's line.
    Two tests at one place with one name, or a result that gives a test no place, stop the run. A place that is
-   no point of a call `spans()` reads belongs to none, and a file with a tagged-template table (`` it.each`…` ``),
-   whose rows Vitest can place lines away, trusts none of its places: in both, every test is new. A test file `spans()`
+   no point of a call `spans()` reads belongs to none, and a file with a tagged template anywhere in it (an
+   `` it.each`…` `` table's rows can be placed lines away) or a source map comment (it moves every place) trusts none
+   of its places: in both, every test is new, old ones too, and in the second every changed call is named, since
+   the step cannot tell one whose tests did not run. A test file `spans()`
    cannot read has every test in it treated as new, and so does one where a test the runner lists falls inside no
    test call `spans()` reads (an alias of `it`, a `test.extend` fixture; #632). A test the pull request did not
    touch is never judged.
@@ -565,7 +568,9 @@ The fix is printed on its own `Fix:` line.
   {package} does not use Vitest"; "it is in no package of the workspace"; "it is skipped", or for a call the runner
   reports no test in "the runner reports no test in the call at line {n}, which says skip"; "the run skips it; its
   call has no skip", for a call it cannot read "the run skips it; the step cannot read its call", and for a call the
-  runner reports no test in "the runner reports no test in the call at line {n}"; "excused until
+  runner reports no test in "the runner reports no test in the call at line {n}", or in a file whose places are
+  not trusted "this step cannot tell whether the runner ran a test in the call at line {n}, since {cause} in the
+  file moves where the runner says a test is"; "excused until
   {date}: {reason}". Each has its fix, as a finding has, so a not-judged line names what to do too; the
   `other-runner` one names `tests-can-fail#other-runner`.
 - another commit: `` This record is for commit {a}, not the one being checked ({b}). Run

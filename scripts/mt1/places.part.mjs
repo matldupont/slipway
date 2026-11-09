@@ -95,3 +95,18 @@ test('a test the listing leaves out, made live by removing the guard above it, i
   assert.equal(r.status, 1, r.out);
   assert.ok(r.ids.some((id) => id.endsWith('#kills-nothing')) && /"nothing" passed on all/.test(r.out), r.out);
 });
+
+test('in a file whose places are not trusted, a new test is judged and each changed call is named, saying why (#655)', (t) => {
+  // Every test in the file is new, the old one too: each has a rule that fails on a change.
+  const p = at({ base: `${testFile(['old'])}//# sourceMappingURL=cart.test.js.map\n`, config: { tests: { adds: { failsWhen: CHANGED }, old: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}//# sourceMappingURL=cart.test.js.map\n` });
+  const r = mt1(p);
+  assert.equal(r.status, 0, r.out);
+  const w = r.json.warnings.find((x) => x.where === `${FILE}#not-judged/narrowed`);
+  assert.match(w?.detail ?? '', /cannot tell whether the runner ran a test in the call at line \d+, since a source map comment in the file moves/, r.out);
+  assert.match(w.fix, /^Take off any condition or empty table/);
+  const u = r.json.warnings.find((x) => x.where === `${FILE}#unreadable`);
+  assert.match(u?.detail ?? '', /has every test in it judged, old ones too: a source map comment in it moves where the runner says a test is/, r.out);
+  assert.match(u.fix, /^Put new tests in a file with no tagged template or source map comment/);
+});

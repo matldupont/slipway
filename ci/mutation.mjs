@@ -240,7 +240,7 @@ async function body(root, record, ctx, deadline) {
       // them, any it calls by another name), so the clean run's report says which tests the file has (§3.5, #655).
       const report = excused ? null : await reportOf(ctx, { ...by.unit, file: entry.file });
       const found = newTests(report ? report.tests : listedHere, read, lines, text);
-      if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)' });
+      if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: found.untrusted ? `${found.untrusted} in it moves where the runner says a test is` : 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)' });
       // A new test the clean run skips is not judged (§3.8).
       for (const g of found.groups.filter((x) => !x.run)) record.notJudged.push(skippedEntry(entry.file, g));
       for (const c of found.unreported) record.notJudged.push(excused ? { file: entry.file, name: null, why: 'mechanical', detail: mechanicalWhy } : unreportedEntry(entry.file, c));

@@ -77,7 +77,7 @@ test('two test calls on one line are two tests, and a second the runner places n
   const both = newTests([{ ...a, name: 'a' }, { ...b, name: 'b' }], spans('a.test.ts', text), lines, text);
   assert.deepEqual([both.groups.map((g) => [g.name, g.line, g.read]), both.unreported, both.every], [[['a', 2, true], ['b', 2, true]], [], false]);
   const one = newTests([{ ...a, name: 'a' }], spans('a.test.ts', text), lines, text);
-  assert.deepEqual([one.groups.map((g) => g.name), one.unreported], [['a'], [{ line: 2, skip: false }]]);
+  assert.deepEqual([one.groups.map((g) => g.name), one.unreported], [['a'], [{ line: 2, skip: false, untrusted: null }]]);
 });
 
 test('a skip the step cannot read, on the closing line of a test, makes every test new (#655)', () => {
@@ -94,7 +94,6 @@ test('spans() gives each test call the points Vitest places a test at: its name,
   const at = (t) => t.points.map((o) => code.slice(o, o + 4));
   const [a, b, c, d] = spans('a.js', code).tests;
   assert.deepEqual([at(a), at(b), at(c), at(d)], [["('a'", "it('"], ["('b'", "([1]", 'each', 'skip', 'it.s'], ["('c'"], ["('d'", 'each', 'it.e']]);
-  assert.deepEqual([a.tagged, b.tagged, c.tagged, d.tagged], [undefined, undefined, undefined, true]);
 });
 
 // Vitest 5.0.3's own places for this text, read off a real run: the tagged tables' rows sit lines below their calls,
@@ -108,7 +107,7 @@ test('a file with a tagged-template table trusts none of its places: every test 
   ].join('\n');
   const reported = [['a', 3, 1], ['zero 1', 12, 2], ['zero 2', 12, 2], ['two 1', 19, 2], ['two 2', 19, 2], ['v1', 14, 1], ['v2', 17, 1]].map(([name, line, column]) => ({ name, line, column, status: 'passed' }));
   const found = newTests(reported, spans('a.test.ts', text), { added: new Set([9, 10, 11, 12, 13]), removedAfter: [] }, text);
-  assert.deepEqual([found.every, found.tagged, found.groups.map((g) => g.name)], [true, true, reported.map((t) => t.name)]);
+  assert.deepEqual([found.every, found.untrusted, found.groups.map((g) => g.name)], [true, 'a tagged template', reported.map((t) => t.name)]);
   // A row placed exactly at a point of another call (here the `(` after `zero`'s table) is still not trusted.
   const onPoint = reported.map((t) => (t.name.startsWith('two') ? { ...t, line: 8, column: 2 } : t));
   assert.equal(newTests(onPoint, spans('a.test.ts', text), { added: new Set([9, 10, 11, 12, 13]), removedAfter: [] }, text).every, true);
@@ -119,4 +118,19 @@ test('a test placed inside a call but at none of its points belongs to no call t
   const lines = { added: new Set([5]), removedAfter: [] };
   const found = newTests([{ ...placed(text, 3, "it('x'"), name: 'x' }, { ...placed(text, 5, "check('y'"), name: 'y' }], spans('a.test.ts', text), lines, text);
   assert.deepEqual([found.every, found.groups.map((g) => [g.name, g.read])], [true, [['x', true], ['y', false]]]);
+});
+
+// Any tagged template, whatever calls it, or a source map comment, makes spans() trust no place in the file (#655).
+test('spans() trusts no place in a file with any tagged template or a source map comment; every test in it is new (#655)', () => {
+  const untrusted = (code) => spans('a.ts', code).untrusted;
+  assert.equal(untrusted("it('a', f);\n"), null);
+  for (const code of ["const check = it;\ncheck.each`\n  x\n  ${1}\n `\n('row $x', f);\nit('old', f);\n", "const withNum = it.extend({});\nwithNum.each`\n  x\n`('r', f);\n", "const style = css`a`;\nit('a', f);\n"]) {
+    assert.equal(untrusted(code), 'a tagged template', code);
+  }
+  assert.equal(untrusted("it('a', f);\n//# sourceMappingURL=data:application/json;base64,e30=\n"), 'a source map comment');
+  // Rows of an aliased table placed exactly on the `(` of the old call below are not that call's: every test is new.
+  const text = "import { it } from 'vitest';\nconst check = it;\ncheck.each`\n  x\n  ${1}\n `\n('row $x', () => {});\nit('old', () => {});\n";
+  const reported = [{ name: 'row 1', line: 8, column: 3 }, { name: 'old', line: 8, column: 1 }];
+  const found = newTests(reported, spans('a.test.ts', text), { added: new Set([2, 3, 4, 5, 6, 7]), removedAfter: [] }, text);
+  assert.deepEqual([found.every, found.groups.map((g) => g.name)], [true, ['row 1', 'old']]);
 });

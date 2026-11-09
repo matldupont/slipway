@@ -203,16 +203,6 @@ export function mutants(path, text) {
 
 const isExpectCall = (node) => node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'expect';
 
-// Whether a test call's chain holds a tagged-template table (it.each`…`('x', fn)): Vitest can place its tests lines
-// away from the call, inside another one, so the step trusts no place in that file (#655).
-function tagged(call) {
-  for (let at = call.callee; at;) {
-    if (at.type === 'TaggedTemplateExpression') return true;
-    at = at.tag ?? at.callee ?? at.object ?? at.expression ?? null;
-  }
-  return false;
-}
-
 // The places Vitest can give a test of this call: V8 places a call at its name when the callee is a name, at the
 // property when it is a member, and at the parenthesis that opens its arguments otherwise; a chain (it.skip.each(rows))
 // has one of each link. Nothing between them is a place (#655).
@@ -234,8 +224,8 @@ function pointsOf(call, text) {
   return out;
 }
 
-// The lines of each test call and each expect call, and a test call's offsets in the text and the points Vitest can
-// place its tests at (§3.5). A test is `skip` when its own call, or a describe whose function it sits in, skips it
+// The lines of each test call and each expect call, a test call's offsets in the text and the points Vitest can place
+// its tests at, and why no place in the file can be trusted, if one cannot (§3.5). A test is `skip` when its own call, or a describe whose function it sits in, skips it
 // (test-calls.mjs's SKIPS; §3.5, §3.8).
 export function spans(path, text) {
   const program = read(path, text);
@@ -244,10 +234,12 @@ export function spans(path, text) {
   const tests = [];
   const expects = [];
   const skipping = [];
+  let tagged = false;
   const at = (node) => ({ first: lineAt(node.start), last: lineAt(node.end - 1), start: node.start, end: node.end });
   walk(program, (node) => {
     const chain = callChain(node);
-    if (chain && TESTS.has(chain.base)) tests.push({ ...at(node), skip: skips(chain), tagged: tagged(node), points: pointsOf(node, text) });
+    if (node.type === 'TaggedTemplateExpression') tagged = true;
+    if (chain && TESTS.has(chain.base)) tests.push({ ...at(node), skip: skips(chain), points: pointsOf(node, text) });
     else if (chain && SUITES.has(chain.base)) {
       const fn = skips(chain) && body(node);
       if (fn) skipping.push(at(fn));
@@ -255,8 +247,11 @@ export function spans(path, text) {
   });
   const lines = ({ first, last }) => ({ first, last });
   return {
-    tests: tests.map((t) => ({ ...lines(t), start: t.start, end: t.end, points: t.points, skip: t.skip || skipping.some((s) => s.start <= t.start && t.end <= s.end), ...(t.tagged ? { tagged: true } : {}) })),
+    tests: tests.map((t) => ({ ...lines(t), start: t.start, end: t.end, points: t.points, skip: t.skip || skipping.some((s) => s.start <= t.start && t.end <= s.end) })),
     expects: expects.map(lines),
+    // A file whose places Vitest can give away from their calls: a tagged template anywhere in it (its rows land lines
+    // away), or a source map comment (it moves every place). The step trusts no place in it (#655).
+    untrusted: tagged ? 'a tagged template' : /sourceMappingURL/.test(text) ? 'a source map comment' : null,
   };
 }
 

@@ -155,6 +155,7 @@ test('spans() gives the lines of each test call and each expect call, and none f
   assert.deepEqual({ ...read, tests: read.tests.map(({ points, ...t }) => t) }, {
     tests: [{ first: 8, last: 10, start: 115, end: 166, skip: false }, { first: 11, last: 19, start: 168, end: 265, skip: true }, { first: 20, last: 26, start: 267, end: 363, skip: false }],
     expects: [{ first: 9, last: 9 }, { first: 12, last: 17 }, { first: 25, last: 25 }],
+    untrusted: null,
   });
 });
 

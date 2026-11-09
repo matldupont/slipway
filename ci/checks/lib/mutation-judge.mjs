@@ -27,27 +27,16 @@ function baseline(res, test) {
   return notRun(mine.status) ? 'skipped' : 'green';
 }
 
-// §3.8: each new test is the clean run's test at its place, judged on its own: the rows of an it.each, a loop or a
-// describe.each share a place and differ by name. A new test from the report is the one test with its place and name;
-// one from a listing that gives a call's rows under one title (Vitest 5) is each test at its place. A place the clean
-// run has no test at is red; two tests at one place with one name cannot be told apart, and the run stops (#655).
+// §3.8: each new test is the clean run's test with its place and name, judged on its own: the rows of an it.each, a loop
+// or a describe.each share a place and differ by name. A new test the clean run does not hold is red; two tests at one
+// place with one name cannot be told apart, and the run stops (#655).
 function ownTests(unit, res) {
-  const out = [];
-  const done = new Set();
   const tests = res.loaded ? res.tests : [];
-  for (const g of unit.groups) {
-    const exact = tests.filter((t) => at(t, g.at) && t.name === g.name);
-    const mine = exact.length ? exact : tests.filter((t) => at(t, g.at));
-    if (!mine.length) out.push({ ...g, key: null });
-    for (const t of mine) {
-      const key = keyOf(t);
-      if (done.has(key)) continue;
-      if (mine.filter((x) => x.name === t.name).length > 1) throw new Stop(twins(unit, res, t, g.at));
-      done.add(key);
-      out.push({ ...g, name: t.name, key });
-    }
-  }
-  return out;
+  return unit.groups.map((g) => {
+    const mine = tests.filter((t) => at(t, g.at) && t.name === g.name);
+    if (mine.length > 1) throw new Stop(twins(unit, res, mine[0], g.at));
+    return { ...g, key: mine.length ? keyOf(mine[0]) : null };
+  });
 }
 // Two tests at one place with one name: the same test run by two Vitest projects in one call, or two of one name.
 const twins = (unit, res, t, place) => (res.copies > 1
