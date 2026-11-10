@@ -2,6 +2,7 @@
 // §3.3, §3.5, §3.6, §3.9). Reads the copy of HEAD and the parser's answers; starts nothing.
 
 import { readFileSync } from 'node:fs';
+import { builtinModules } from 'node:module';
 import { join, posix } from 'node:path';
 import { discoverWorkspace } from './workspace.mjs';
 import { imports, mutants, reExports } from './mutants.mjs';
@@ -14,6 +15,8 @@ const SUPPORT_NAMES = new Set(['test-utils', 'factories', 'setup']);
 const DEPTH = 3;
 const CAP = 30;
 export const NOT_SOURCE = 'not JavaScript or TypeScript';
+export const READS_FILES = 'reads files';
+const FS = new Set(['fs', 'node:fs', 'fs/promises', 'node:fs/promises']);
 
 // Matched on the path inside the repository (AR-10 of the 0.3 review): where the checkout sits never makes a file support.
 export function isSupport(path) {
@@ -134,38 +137,84 @@ function entryOf(tracked, pkg) {
 
 /**
  * The subjects of one test file (§3.6), each with the changes it can get, and what was dropped and why.
- * @returns {{ pools: Array<{ file: string, text: string, list: object[] }>, support: string[], unreadable: Array<{ file: string, reason: string }>, nothing: string[], followed: number }}
+ * @returns {{ pools: Array<{ file: string, text: string, list: object[] }>, support: string[], unreadable: Array<{ file: string, reason: string }>, nothing: string[], followed: number, readsFiles: boolean }}
  */
 export function subjectsOf({ copy, tracked, packages, changed, testFile, testText }) {
   const found = new Set();
   const support = new Set();
+  // §3.6 (#659): the subjects the test reaches without a helper are found first; then each support file met is followed,
+  // and what it adds is a helper subject, tried after every change to the others (queueOf).
+  const pending = [];
+  const viaHelper = new Set();
+  let helperPhase = false;
   const read = (file) => readFileSync(join(copy, file), 'utf8');
+  // A source file this pull request changed, tracked, and neither a test nor support: a subject the change can reach.
+  const product = (f) => !looksLikeTest(f) && !isSupport(f) && EXTENSIONS.some((e) => f.endsWith(e)) && tracked.has(f);
   const take = (file, depth) => {
     if (!file || found.has(file) || support.has(file) || looksLikeTest(file) && !isSupport(file)) return;
+    // Test support is never a subject, but a path to the product code it imports.
     if (isSupport(file)) {
       support.add(file);
+      if (depth < DEPTH) pending.push([file, depth]);
       return;
     }
     found.add(file);
+    if (helperPhase) viaHelper.add(file);
     if (depth >= DEPTH) return;
     const paths = safely(reExports, file, read(file));
     if (Array.isArray(paths)) for (const spec of paths) take(resolve(tracked, file, spec), depth + 1);
   };
+  // An import of a workspace package by its name: the package's source files this pull request changed, or its entry.
+  function byName(spec, depth) {
+    const pkg = packages.find((p) => p.name && p.dir !== '' && (spec === p.name || spec.startsWith(`${p.name}/`)));
+    if (!pkg) return;
+    const own = changed.filter((f) => f.startsWith(`${pkg.dir}/`) && product(f));
+    for (const f of own.length ? own : [entryOf(tracked, pkg)]) take(f, depth);
+  }
   const specs = safely(imports, testFile, testText);
+  // §5: a test that imports no source file and reads files is told to excuse itself, not to import by a relative path.
+  // Only when nothing else it imports could be source: Node's own modules, vitest, or a dependency its package or the
+  // root names. An alias (`@/lib/x`) is none of these, so a test importing its code that way keeps the import fix.
+  // The root's package.json is read itself: a workspace's package list leaves the root out.
+  const rootJson = (() => {
+    try {
+      return JSON.parse(read('package.json'));
+    } catch {
+      return null;
+    }
+  })();
+  const named = (json) => (json && typeof json === 'object' ? DEP_KEYS.flatMap((k) => (json[k] && typeof json[k] === 'object' ? Object.keys(json[k]) : [])) : []);
+  const deps = new Set([...named(packageOf(packages, testFile)?.json), ...named(rootJson)]);
+  const bare = (s) => (s.startsWith('@') ? s.split('/').slice(0, 2).join('/') : s.split('/')[0]);
+  const outside = (s) => s.startsWith('node:') || builtinModules.includes(s) || bare(s) === 'vitest' || deps.has(bare(s));
+  const readsFiles = Array.isArray(specs) && specs.some((s) => FS.has(s)) && specs.every((s) => !s.startsWith('.') && outside(s));
   // A test file whose imports cannot be read has none followed; it is named, and what is beside it still counts.
   const unreadable = specs.unreadable ? [{ file: testFile, reason: specs.unreadable }] : [];
   for (const spec of Array.isArray(specs) ? specs : []) {
-    if (spec.startsWith('.')) {
-      take(resolve(tracked, testFile, spec), 0);
-      continue;
-    }
-    const pkg = packages.find((p) => p.name && p.dir !== '' && (spec === p.name || spec.startsWith(`${p.name}/`)));
-    if (!pkg) continue;
-    const own = changed.filter((f) => f.startsWith(`${pkg.dir}/`) && !looksLikeTest(f) && !isSupport(f) && EXTENSIONS.some((e) => f.endsWith(e)) && tracked.has(f));
-    for (const f of own.length ? own : [entryOf(tracked, pkg)]) take(f, 0);
+    if (spec.startsWith('.')) take(resolve(tracked, testFile, spec), 0);
+    else byName(spec, 0);
   }
   const beside = testFile.replace(/\.(?:test|spec)(\.[^./]+)$/, '$1');
   if (beside !== testFile) take(resolve(tracked, testFile, `./${posix.basename(beside)}`), 0);
+  helperPhase = true;
+  while (pending.length) {
+    const [file, depth] = pending.shift();
+    const specs = safely(imports, file, read(file));
+    for (const spec of Array.isArray(specs) ? specs : []) {
+      if (!spec.startsWith('.')) {
+        byName(spec, depth + 1);
+        continue;
+      }
+      // Only source a helper imports leads anywhere: a style, data or image file it loads is not product code.
+      const target = resolve(tracked, file, spec);
+      if (!target || !EXTENSIONS.some((e) => target.endsWith(e))) continue;
+      take(target, depth + 1);
+      if (isSupport(target) || looksLikeTest(target)) continue;
+      // A product file a helper imports adds itself, and what this pull request changed in its package.
+      const pkg = packageOf(packages, target);
+      if (pkg) for (const f of changed.filter((x) => product(x) && packageOf(packages, x) === pkg)) take(f, depth + 1);
+    }
+  }
   const pools = [];
   const nothing = [];
   for (const file of found) {
@@ -173,9 +222,9 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
     const list = safely(mutants, file, text);
     if (list.unreadable) unreadable.push({ file, reason: list.unreadable });
     else if (!list.length) nothing.push(file);
-    else pools.push({ file, text, list });
+    else pools.push({ file, text, list, helper: viaHelper.has(file) });
   }
-  return { pools, support: [...support], unreadable, nothing, followed: found.size + support.size + (specs.unreadable ? 1 : 0) };
+  return { pools, support: [...support], unreadable, nothing, followed: found.size + support.size + (specs.unreadable ? 1 : 0), readsFiles };
 }
 
 // Why a test file with no subject left has its new tests not judged (§3.6).
@@ -189,7 +238,8 @@ export function whyNoSubject({ followed, support, unreadable, nothing }) {
 
 /**
  * The changes to try for one test file (§3.9): `body` changes first, then the rest, the pull request's own lines first
- * within each, taking turns across the subjects; at most 30 of each. Also how many of each kind there were.
+ * within each, taking turns across the subjects; at most 30 of each. A helper subject (§3.6) comes after every change to
+ * the subjects the test reaches without a helper, in the turns of each kind they leave. Also how many of each kind there were.
  * @param {(file: string) => Set<number>} ownLines  the lines the change adds to a subject
  */
 export function queueOf(pools, ownLines) {
@@ -197,16 +247,22 @@ export function queueOf(pools, ownLines) {
     const own = ownLines(p.file);
     return { pool: p, list: [...p.list].sort((a, b) => Number(own.has(b.line)) - Number(own.has(a.line))) };
   });
-  const turns = (pick) => {
-    const lists = sorted.map((s) => s.list.filter(pick));
+  const turns = (pick, helper, cap) => {
+    const these = sorted.filter((s) => Boolean(s.pool.helper) === helper);
+    const lists = these.map((s) => s.list.filter(pick));
     const queue = [];
-    for (let i = 0; queue.length < CAP && lists.some((l) => l[i]); i += 1) {
-      for (let k = 0; k < lists.length && queue.length < CAP; k += 1) if (lists[k][i]) queue.push({ pool: sorted[k].pool, change: lists[k][i] });
+    for (let i = 0; queue.length < cap && lists.some((l) => l[i]); i += 1) {
+      for (let k = 0; k < lists.length && queue.length < cap; k += 1) if (lists[k][i]) queue.push({ pool: these[k].pool, change: lists[k][i] });
     }
     return queue;
   };
   const isBody = (c) => c.kind === 'body';
+  const notBody = (c) => !isBody(c);
+  // §3.6 (#659): a helper subject has only the turns the test's own subjects leave, after every one of their changes.
+  const ownBody = turns(isBody, false, CAP);
+  const ownOther = turns(notBody, false, CAP);
+  const queue = [...ownBody, ...ownOther, ...turns(isBody, true, CAP - ownBody.length), ...turns(notBody, true, CAP - ownOther.length)];
   const body = pools.reduce((n, p) => n + p.list.filter(isBody).length, 0);
   const other = pools.reduce((n, p) => n + p.list.length, 0) - body;
-  return { queue: [...turns(isBody), ...turns((c) => !isBody(c))], body, other };
+  return { queue, body, other };
 }

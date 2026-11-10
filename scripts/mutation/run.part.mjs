@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { CART, project, testFile } from './project.mjs';
+import { queueOf, subjectsOf, workspacePackages } from '../../ci/checks/lib/mutation-tests.mjs';
 
 // Every path under the project but .git, so a run that leaves a file there is seen.
 const listing = (root, at = '') => readdirSync(join(root, at), { withFileTypes: true }).flatMap((e) => {
@@ -106,6 +107,149 @@ test('the subjects are the imported code and what it re-exports; types are dropp
   assert.equal(record.tests.filter((x) => x.name !== 'uses all').length, 0);
 });
 
+test('a test helper that imports product code is a path to it: the code a test reaches only through its helpers is a subject, and the test is judged (#659)', (t) => {
+  const p = project({ base: {
+    'pkgs/app/src/cart.ts': CART,
+    'pkgs/app/src/config.ts': 'export const config = { limit: 3 };\nexport function over(n) {\n  return n > config.limit;\n}\n',
+    'pkgs/app/tests/api.ts': "import { add } from '../src/cart';\nexport const start = () => ({ add });\n",
+    'pkgs/app/tests/cart-fixture.ts': "import { start } from './api';\nexport const app = start();\n",
+  } });
+  t.after(() => p.remove());
+  p.config({ tests: { 'through its helper': { failsWhen: [{ file: 'pkgs/app/src/cart.ts', line: 2, has: 'return a + b' }] } } });
+  p.commit({ 'pkgs/app/tests/checkout.test.ts': testFile(['through its helper'], { imports: "import { config } from '../src/config';\nimport { app } from './cart-fixture';\nconst { add } = app;" }) });
+  const { status, record } = p.run();
+  assert.equal(status, 0, record?.stopped);
+  const judged = byName(record, 'through its helper');
+  assert.deepEqual(judged.subjects.sort(), ['pkgs/app/src/cart.ts', 'pkgs/app/src/config.ts']);
+  assert.deepEqual([judged.state, judged.failedOn?.file], ['judged', 'pkgs/app/src/cart.ts']);
+  // The helpers are still support, never changed.
+  assert.deepEqual(record.support.map((f) => f.file).sort(), ['pkgs/app/tests/api.ts', 'pkgs/app/tests/cart-fixture.ts']);
+  assert.deepEqual(record.notJudged, []);
+});
+
+test('a helper that imports product code adds that file and the files the pull request changed in its package; a helper\'s import by package name is followed as the test\'s is (#659)', (t) => {
+  const p = project({ base: {
+    'pkgs/app/src/orders.ts': 'export function check(body) {\n  return body.ok === true;\n}\n',
+    'pkgs/app/src/app.ts': "import { check } from './orders';\nexport function start() {\n  return { check };\n}\n",
+    'pkgs/app/tests/server.ts': "import { start } from '../src/app';\nexport const app = start();\n",
+    'pkgs/lib/package.json': JSON.stringify({ name: 'lib', private: true, main: 'src/index.ts' }),
+    'pkgs/lib/src/index.ts': 'export function l1(n) {\n  return n + 1;\n}\n',
+    'pkgs/app/tests/lib-fixture.ts': "import { l1 } from 'lib';\nexport const one = l1(0);\n",
+  } });
+  t.after(() => p.remove());
+  p.config({ tests: { 'checks the body': { failsWhen: [{ file: 'pkgs/app/src/orders.ts', line: 2, has: 'body.ok === true && body.n > 0' }] } } });
+  p.commit({
+    'pkgs/app/src/orders.ts': 'export function check(body) {\n  return body.ok === true && body.n > 0;\n}\n',
+    'pkgs/app/tests/orders.test.ts': testFile(['checks the body'], { imports: "import { app } from './server';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/lib.test.ts': testFile(['through lib'], { imports: "import { one } from './lib-fixture';\nconst add = (a, b) => a + b;" }),
+  });
+  const { status, record } = p.run();
+  assert.equal(status, 0, record?.stopped);
+  // The changed file is a subject beside app.ts, which the helper imports and which reaches it by a plain import.
+  const checks = byName(record, 'checks the body');
+  assert.deepEqual([...checks.subjects].sort(), ['pkgs/app/src/app.ts', 'pkgs/app/src/orders.ts']);
+  assert.deepEqual([checks.state, checks.failedOn?.file], ['judged', 'pkgs/app/src/orders.ts']);
+  assert.deepEqual(byName(record, 'through lib').subjects, ['pkgs/lib/src/index.ts']);
+});
+
+test('a test with a subject of its own is judged as on main: helper subjects get only the turns its own leave, after them (#659)', (t) => {
+  // The cold review's probe: the test kills the 8th body change to the file it imports, and the pull request changed 8
+  // other files its helper's package holds. Taking turns with them, that change would fall past the cap of 30.
+  // One line each, so a change to one function moves no other line.
+  const fns = Array.from({ length: 8 }, (_, i) => `export function f${i}(x) { return x + ${i}; }\n`).join('');
+  const four = (i) => Array.from({ length: 4 }, (_, k) => `export function b${i}${k}(x) {\n  return x * ${k + 2};\n}\n`).join('');
+  const others = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`pkgs/app/src/b0${i}.ts`, four(i)]));
+  const p = project({ base: {
+    'pkgs/app/src/zz.ts': fns,
+    'pkgs/app/src/App.ts': 'export function render(x) {\n  return x;\n}\n',
+    'pkgs/app/tests/test-utils.ts': "import { render } from '../src/App';\nexport const view = render;\n",
+    ...Object.fromEntries(Object.keys(others).map((f) => [f, 'export const b = 1;\n'])),
+  } });
+  t.after(() => p.remove());
+  p.config({ tests: { 'the eighth': { failsWhen: [{ file: 'pkgs/app/src/zz.ts', line: 8, has: 'return x + 7;' }] } } });
+  p.commit({ ...others, 'pkgs/app/src/zz.test.ts': testFile(['the eighth'], { imports: "import { f7 } from './zz';\nimport { view } from '../tests/test-utils';\nconst add = (a, b) => a + b;" }) });
+  const { status, record } = p.run();
+  assert.equal(status, 0, record?.stopped);
+  const eighth = byName(record, 'the eighth');
+  assert.equal(eighth.subjects.length, 10, 'zz.ts, App.ts and the 8 changed files');
+  assert.deepEqual([eighth.state, eighth.failedOn?.file], ['judged', 'pkgs/app/src/zz.ts']);
+});
+
+test('the product file a helper imports is always a subject, beside what the pull request changed in its package only (#659)', (t) => {
+  const p = project({ base: {
+    'pkgs/app/src/money.ts': 'export function cents(x) {\n  return Math.round(x * 100);\n}\n',
+    'pkgs/app/src/other.ts': 'export const other = 1;\n',
+    'pkgs/app/tests/factories.ts': "import { cents } from '../src/money';\nexport const make = () => cents(1);\n",
+    'pkgs/app/tests/rows.ts': 'export const rows = [1, 2];\n',
+    'pkgs/app/tests/data-fixture.ts': "import { rows } from './rows';\nexport const data = rows;\n",
+    'pkgs/app/src/index.css': 'body { margin: 0; }\n',
+    'pkgs/app/src/later.test.ts': "import { it } from 'vitest';\nit.skip('later', () => {});\n",
+    'pkgs/app/tests/setup.ts': "import '../src/index.css';\nimport '../src/later.test';\nexport const ready = true;\n",
+    'pkgs/lib/package.json': JSON.stringify({ name: 'lib', private: true, main: 'src/index.ts' }),
+    'pkgs/lib/src/index.ts': 'export const l = 1;\n',
+  } });
+  t.after(() => p.remove());
+  p.config({ tests: { 'makes money': { failsWhen: [{ file: 'pkgs/app/src/money.ts', line: 2, has: 'x * 100' }] } } });
+  p.commit({
+    'pkgs/app/src/other.ts': 'export function other(x) {\n  return x - 1;\n}\n',
+    'pkgs/lib/src/index.ts': 'export function l(x) {\n  return x + 1;\n}\n',
+    'pkgs/app/tests/money.test.ts': testFile(['makes money'], { imports: "import { make } from './factories';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/data.test.ts': testFile(['data only'], { imports: "import { data } from './data-fixture';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/styles.test.ts': testFile(['styles only'], { imports: "import { ready } from './setup';\nconst add = (a, b) => a + b;" }),
+  });
+  const { status, record } = p.run();
+  assert.equal(status, 0, record?.stopped);
+  // money.ts stays a subject though the pull request changed only other files; another package's change is not added.
+  const money = byName(record, 'makes money');
+  assert.deepEqual([...money.subjects].sort(), ['pkgs/app/src/money.ts', 'pkgs/app/src/other.ts']);
+  assert.deepEqual([money.state, money.failedOn?.file], ['judged', 'pkgs/app/src/money.ts']);
+  // A helper that reaches only other helpers adds none of the changed files: the test stays support-only.
+  assert.equal(record.notJudged.find((n) => n.name === 'data only')?.why, 'support-only');
+  // A helper that loads only a style file and a test file imports no product code: support-only too, though the
+  // pull request changed a source file in the package.
+  assert.equal(record.notJudged.find((n) => n.name === 'styles only')?.why, 'support-only');
+});
+
+test('a test that imports fs and a dependency only the workspace root names still reads files (#659)', (t) => {
+  const p = project();
+  t.after(() => p.remove());
+  // Written after the install, which is offline: the step only reads it.
+  p.write({ 'package.json': JSON.stringify({ name: 'root', private: true, devDependencies: { yaml: '2.0.0' } }) });
+  const testText = "import { readFileSync } from 'node:fs';\nimport { parse } from 'yaml';\n";
+  const s = subjectsOf({ copy: p.root, tracked: new Set(), packages: workspacePackages(p.root), changed: [], testFile: 'pkgs/app/tests/ci.test.ts', testText });
+  assert.equal(s.readsFiles, true);
+  // A package nothing names may be an alias of source: the test keeps the import fix.
+  assert.equal(subjectsOf({ copy: p.root, tracked: new Set(), packages: workspacePackages(p.root), changed: [], testFile: 'pkgs/app/tests/ci.test.ts', testText: testText.replace("'yaml'", "'@/yaml'") }).readsFiles, false);
+});
+
+test('a test whose helpers import no product code is still support-only, a helper chain is followed 3 levels deep, no further, and a test that reads files is named so (#659)', (t) => {
+  const p = project({ base: {
+    'pkgs/app/src/cart.ts': CART,
+    'pkgs/app/tests/rows.ts': 'export const rows = [1, 2];\n',
+    'pkgs/app/tests/data-fixture.ts': "import { rows } from './rows';\nexport const data = rows;\n",
+    'pkgs/app/tests/h3.ts': "import { add } from '../src/cart';\nexport const h3 = add;\n",
+    'pkgs/app/tests/h2.ts': "export { h3 as h2 } from './h3';\nimport './h3';\n",
+    'pkgs/app/tests/h1.ts': "import { h2 } from './h2';\nexport const h1 = h2;\n",
+    'pkgs/app/tests/h0.ts': "import { h1 } from './h1';\nexport const h0 = h1;\n",
+  } });
+  t.after(() => p.remove());
+  p.commit({
+    'pkgs/app/tests/data.test.ts': testFile(['data only'], { imports: "import { data } from './data-fixture';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/deep.test.ts': testFile(['too deep'], { imports: "import { h0 } from './h0';\nconst add = h0;" }),
+    'pkgs/app/tests/files.test.ts': testFile(['reads files'], { imports: "import { readFileSync } from 'node:fs';\nimport { join } from 'node:path';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/alias.test.ts': testFile(['through an alias'], { imports: "import { readFileSync } from 'node:fs';\nimport { x } from '@/lib/x';\nconst add = (a, b) => a + b;" }),
+  });
+  const { status, record } = p.run();
+  assert.equal(status, 0, record?.stopped);
+  const why = (name) => record.notJudged.find((n) => n.name === name);
+  assert.deepEqual([why('data only')?.why, why('too deep')?.why], ['support-only', 'support-only']);
+  // A test that imports no source file and reads files is no-subject, with the detail its message reads.
+  assert.deepEqual([why('reads files')?.why, why('reads files')?.detail], ['no-subject', 'reads files']);
+  // One that also imports through an alias may import its code that way: it keeps the import fix.
+  assert.deepEqual([why('through an alias')?.why, why('through an alias')?.detail], ['no-subject', null]);
+  assert.equal(record.tests.length, 0);
+});
+
 test('could-not-be-parsed, no-subject, excused and kept-out are named; a file nothing lists is never-run; data and helpers are not tests', (t) => {
   const p = project({ base: { 'pkgs/app/src/broken.ts': 'export function (\n' } });
   t.after(() => p.remove());
@@ -171,4 +315,23 @@ test('the record is printed with a control or format character in a test name as
   const { stdout, record } = p.run();
   assert.equal(/[\u202e\u009b]/.test(stdout), false);
   assert.deepEqual(record.tests.map((x) => x.name), ['a\u202eb\u009bc']);
+});
+
+test('helper subjects get only the turns of each kind the test\'s own leave, after every own change: never past the cap of 30 each (#659)', () => {
+  const pool = (file, body, other, helper) => ({ file, text: '', helper, list: [
+    ...Array.from({ length: body }, (_, i) => ({ kind: 'body', line: i + 1 })),
+    ...Array.from({ length: other }, (_, i) => ({ kind: 'op', line: i + 1 })),
+  ] });
+  const none = () => new Set();
+  const where = (q) => q.queue.map((x) => `${x.pool.helper ? 'helper' : 'own'} ${x.change.kind === 'body' ? 'body' : 'other'}`);
+  const count = (list) => list.reduce((m, k) => ({ ...m, [k]: (m[k] ?? 0) + 1 }), {});
+  // The test's own fill the body cap: no helper body change, and the other kind's 25 turns left go to the helper.
+  const full = queueOf([pool('own.ts', 35, 5, false), pool('helper.ts', 10, 10, true)], none);
+  assert.deepEqual(count(where(full)), { 'own body': 30, 'own other': 5, 'helper other': 10 });
+  // The order: every own change first, body then other, then the helper's, body then other.
+  const small = where(queueOf([pool('own.ts', 2, 2, false), pool('helper.ts', 2, 2, true)], none));
+  assert.deepEqual(small, ['own body', 'own body', 'own other', 'own other', 'helper body', 'helper body', 'helper other', 'helper other']);
+  // A helper with more than the cap still stops at 30 of each kind in all.
+  const big = queueOf([pool('own.ts', 20, 20, false), pool('helper.ts', 40, 40, true)], none);
+  assert.deepEqual(count(where(big)), { 'own body': 20, 'own other': 20, 'helper body': 10, 'helper other': 10 });
 });

@@ -40,17 +40,24 @@ const share = (n, of) => `${n} of ${of}`;
  * The verdict on one record, with nothing printed: what MT1 reports, and what scripts/mt1.test.mjs reads.
  * @param {object} record  ci/mutation.mjs's record (§3.10)
  * @param {{ registry?: object[], today: string, head?: string | null }} o
- * @returns {{ broken: string | null, findings: object[], warnings: object[], summary: string, notes: string[] }}
+ * @returns {{ broken: string | null, findings: object[], warnings: object[], summary: string, notes: string[], after: string[] }}
  */
 export function verdict(record, { registry = [], today, head = null }) {
-  const out = { broken: null, findings: [], warnings: [], summary: '', notes: [] };
+  const out = { broken: null, findings: [], warnings: [], summary: '', notes: [], after: [] };
   const missing = FIELDS.filter((k) => !(record && typeof record === 'object' && k in record) || (LISTS.includes(k) && !Array.isArray(record[k])));
-  if (missing.length) return { ...out, broken: `The record of the run lacks ${missing.map((k) => `\`${k}\``).join(', ')}, so it cannot be judged. Run \`pnpm tests-can-fail\` again.` };
-  if (record.stopped) return { ...out, broken: m.e(record.stopped) };
+  if (missing.length) return { ...out, broken: `The record of the run lacks ${missing.map((k) => `\`${k}\``).join(', ')}, so it cannot be judged. Run \`pnpm tests-can-fail\` again; if it says this again, the step and this check are from different slipway versions: take \`ci/\` from one version with \`/sync-slipway\`.` };
+  // A stop that quotes output (ci/before-verify.sh's lines) holds a line break: the report's BROKEN line is one line, so
+  // the sentence is that line and the output is printed below it, each line escaped (#659).
+  if (record.stopped) {
+    // A stop whose first line is blank is never a pass: the whole message is the BROKEN line then.
+    const [first, ...rest] = String(record.stopped).split('\n');
+    if (first.trim()) return { ...out, broken: m.e(first), after: rest };
+    return { ...out, broken: m.e(record.stopped).trim() ? m.e(record.stopped) : 'The record says the run stopped, and gives no reason. Run `pnpm tests-can-fail` again.' };
+  }
   if (head !== null && record.head !== head) return { ...out, broken: `This record is for commit ${m.e(record.head)}, not the one being checked (${m.e(head)}). Run \`pnpm tests-can-fail\` again.` };
   // §4: a test with nothing tried belongs in notJudged (§3.6), so one judged is a fault in the record (AR-9).
   const empty = record.tests.find((t) => t.state === 'judged' && !t.failedOn && !t.crashes && !t.tried);
-  if (empty) return { ...out, broken: `The record judges ${m.named(empty.file, empty.name)} with no change tried, which the run never does: it belongs in the tests not judged. Run \`pnpm tests-can-fail\` again; if it says this again, the run and its verdict disagree.` };
+  if (empty) return { ...out, broken: `The record judges ${m.named(empty.file, empty.name)} with no change tried, which the run never does: it belongs in the tests not judged. This is a fault in the step, not in your tests: tell the owner, who reports it to slipway without file or test names of the project, and excuse the file in \`ci/exceptions.yaml\` with a date meanwhile.` };
 
   const entries = registry.filter((x) => typeof x.id === 'string' && x.id.startsWith(PREFIX));
   for (const x of entries) {
@@ -97,8 +104,12 @@ export function verdict(record, { registry = [], today, head = null }) {
 
 // Prints the notes and the report; returns the exit code. A note shows `##[` escaped, as report() does every field.
 function print(v) {
-  for (const line of [...(v.broken ? [] : [v.summary]), ...v.notes]) process.stdout.write(escapeOutput(`${ID}: ${escapeControl(line)}`).replace(/##\[/g, '\\u0023\\u0023\\u005b') + '\n');
-  return report({ id: ID, claim: v.summary || 'the record was judged', scanned: 1, unit: 'run record', findings: v.findings, warnings: v.warnings, broken: v.broken });
+  const note = (line) => process.stdout.write(escapeOutput(`${ID}: ${escapeControl(line)}`).replace(/##\[/g, '\\u0023\\u0023\\u005b') + '\n');
+  for (const line of [...(v.broken ? [] : [v.summary]), ...v.notes]) note(line);
+  const exit = report({ id: ID, claim: v.summary || 'the record was judged', scanned: 1, unit: 'run record', findings: v.findings, warnings: v.warnings, broken: v.broken });
+  // Quoted output, marked so it never reads as words of the verdict.
+  for (const line of v.after ?? []) note(`output: ${line}`);
+  return exit;
 }
 
 export const headOf = (root) => trustedGit(root, ['rev-parse', 'HEAD']).trim();

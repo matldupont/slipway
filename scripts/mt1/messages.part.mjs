@@ -161,3 +161,51 @@ test('a note line that quotes a file from the record never prints the CI command
   assert.match(out.stdout, /changed files under a test name or folder are not tests: .*x\.test\.ts/);
   assert.doesNotMatch(out.stdout, /##\[/);
 });
+
+test('a test that imports no source file and reads files is told to excuse itself, not to import by a relative path; one that reads nothing still is (#659)', () => {
+  const v = judge(rec({ changedTestFiles: [FILE], notJudged: [nj('no-subject', { name: 'reads', detail: 'reads files' }), nj('no-subject', { name: 'plain' })] }));
+  const fix = (name) => v.warnings.find((w) => w.where.endsWith(`/no-subject/${name}`));
+  assert.match(fix('reads').detail, /— it imports no source file and reads files instead\.$/);
+  assert.equal(fix('reads').fix, 'Excuse the file in `ci/exceptions.yaml` with a date, since it checks files, not what code does.');
+  assert.doesNotMatch(fix('reads').fix, /relative path/);
+  assert.match(fix('plain').fix, /^Write its import of the code under test as a relative path/);
+});
+
+test('a record that lacks a field, or judges a test with nothing tried, names what to do when a second run says the same (#659)', () => {
+  const r = rec();
+  delete r.capped;
+  assert.match(judge(r).broken, /Run `pnpm tests-can-fail` again; if it says this again, the step and this check are from different slipway versions: take `ci\/` from one version with `\/sync-slipway`\.$/);
+  const empty = judge(rec({ changedTestFiles: [FILE], tests: [judged({ tried: 0, failedOn: null })] }));
+  assert.match(empty.broken, /This is a fault in the step, not in your tests: tell the owner, who reports it to slipway without file or test names of the project, and excuse the file in `ci\/exceptions\.yaml` with a date meanwhile\.$/);
+});
+
+test('ci/before-verify.sh failing on a port in use prints its sentence, then the script\'s output on a line of its own: a real line break between them, not \\u000a (#659)', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'mt1-port-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const stopped = setupMessage('Error: listen EADDRINUSE :5432\n::error::forged');
+  const v = judge(rec({ stopped }));
+  assert.equal(v.exit, 2);
+  assert.match(v.broken, /^`ci\/before-verify\.sh` failed because a port it needs is in use: .*the port is in the lines below\), then run `pnpm tests-can-fail` again\.$/);
+  writeFileSync(join(dir, 'run.json'), JSON.stringify(rec({ stopped })));
+  const out = spawnSync(process.execPath, [MT1, dir], { encoding: 'utf8', env: { ...process.env, CHECK_HEAD: rec().head, CHECK_TODAY: '2026-11-04' } });
+  assert.equal(out.status, 2, out.stdout + out.stderr);
+  const lines = out.stdout.trimEnd().split('\n');
+  const at = lines.findIndex((l) => l.startsWith('BROKEN: `ci/before-verify.sh` failed because a port it needs is in use'));
+  assert.ok(at >= 0, out.stdout);
+  assert.doesNotMatch(lines[at], /\\u000a/);
+  // The output follows on the next line, escaped as setupMessage writes it: the script's text cannot start a line of its own.
+  assert.match(lines[at + 1], /^MT1: output: Error: listen EADDRINUSE :5432\\u000a::error::forged$/);
+  assert.equal(rawCharacters(out.stdout, out.stderr), null);
+});
+
+test('a stop whose first line is blank is the BROKEN line whole, never a pass (#659)', () => {
+  const v = judge(rec({ stopped: '\nThe install failed.' }));
+  assert.deepEqual([v.exit, v.broken, v.after], [2, '\\u000aThe install failed.', []]);
+});
+
+test('a stop with no text at all is BROKEN with its own sentence, never a pass (#659)', () => {
+  for (const stopped of [[], ['']]) {
+    const v = judge(rec({ stopped }));
+    assert.deepEqual([v.exit, v.broken], [2, 'The record says the run stopped, and gives no reason. Run `pnpm tests-can-fail` again.'], JSON.stringify(stopped));
+  }
+});

@@ -1597,6 +1597,35 @@ that day; their words are in F-18's pull request, and each is written into `dev/
 Declined: server-sent events; reusing a GitHub answer across the board's reads (D-050's "no cache" holds: each read
 is files and GitHub together); a second page beside the board. Spec: `dev/features/milestone-board.md`.
 
+## D-056 — A test helper is a path to the product code it imports, and its subjects are tried after the test's own *(decided 2026-11-10)*
+
+Amends: F-13
+
+The owner, 2026-11-09 and 2026-11-10, in #659's build (PR #661). #634's read-only run on a real project found good
+tests failed as `kills-nothing`: they reach the app only through test helpers, which §3.6 dropped as support and never
+followed. The owner chose to follow them (option A), and then to try what they add last (a2), after a review showed a
+test with a subject of its own could lose its tries to the helper's files.
+
+- **The rule** (F-13 §3.6, the owner's approved words): "A support file is a path to the product code it imports
+  (#659, the owner's call of 2026-11-09). A support file the step reaches has its relative imports followed as the test
+  file's are, inside the same 3 levels; another support file is followed in turn and is never a subject. When a support
+  file imports a product file, the subjects it adds are that product file, with what it re-exports, and the source files
+  this pull request changed in that file's workspace package; they are tried after every change to the subjects the
+  test reaches without a helper. A support file's import of a workspace package by its name is followed as the test
+  file's is: that package's source files this pull request changed, or, when it changed none, the package's entry file.
+  The pull request's own lines are tried first (step 9). A test whose helpers import no product code is still
+  `support-only`."
+- **The owner's yes**, 2026-11-10: "I approve those exact words, as an amendment to F-13's Contract, recorded in the new
+  decision entry."
+- **What stays.** Crashes still do not count, and out of time stays red. A test with a subject of its own has the same
+  changes tried, in the same order, as before; a helper subject has only the turns those leave.
+
+Why: a check that fails good tests teaches people to excuse them. The helpers that start an app are how a real
+project's integration tests reach their code.
+
+Known limitation: a test whose helper imports product code can be credited by a helper subject when it kills nothing
+on its own, and a test whose own subjects use up the cap leaves its helper subjects untried (F-13, Known limitations).
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
