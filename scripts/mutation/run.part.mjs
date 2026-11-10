@@ -126,6 +126,31 @@ test('a test helper that imports product code is a path to it: the code a test r
   assert.deepEqual(record.notJudged, []);
 });
 
+test('a helper that imports product code adds the files the pull request changed in that package, its own lines first; a helper\'s import by package name is followed as the test\'s is (#659)', (t) => {
+  const p = project({ base: {
+    'pkgs/app/src/requests.ts': 'export function check(body) {\n  return body.ok === true;\n}\n',
+    'pkgs/app/src/app.ts': "import { check } from './requests';\nexport function start() {\n  return { check };\n}\n",
+    'pkgs/app/tests/api-server.ts': "import { start } from '../src/app';\nexport const app = start();\n",
+    'pkgs/lib/package.json': JSON.stringify({ name: 'lib', private: true, main: 'src/index.ts' }),
+    'pkgs/lib/src/index.ts': 'export function l1(n) {\n  return n + 1;\n}\n',
+    'pkgs/app/tests/lib-fixture.ts': "import { l1 } from 'lib';\nexport const one = l1(0);\n",
+  } });
+  t.after(() => p.remove());
+  p.config({ tests: { 'checks the body': { failsWhen: [{ file: 'pkgs/app/src/requests.ts', line: 2, has: 'body.ok === true && body.n > 0' }] } } });
+  p.commit({
+    'pkgs/app/src/requests.ts': 'export function check(body) {\n  return body.ok === true && body.n > 0;\n}\n',
+    'pkgs/app/tests/requests.test.ts': testFile(['checks the body'], { imports: "import { app } from './api-server';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/lib.test.ts': testFile(['through lib'], { imports: "import { one } from './lib-fixture';\nconst add = (a, b) => a + b;" }),
+  });
+  const { status, record } = p.run();
+  assert.equal(status, 0, record?.stopped);
+  // The changed file is the subject, not app.ts, which the helper imports and which reaches it by a plain import.
+  const checks = byName(record, 'checks the body');
+  assert.deepEqual(checks.subjects, ['pkgs/app/src/requests.ts']);
+  assert.deepEqual([checks.state, checks.failedOn?.file], ['judged', 'pkgs/app/src/requests.ts']);
+  assert.deepEqual(byName(record, 'through lib').subjects, ['pkgs/lib/src/index.ts']);
+});
+
 test('a test whose helpers import no product code is still support-only, a helper chain is followed 3 levels deep, no further, and a test that reads files is named so (#659)', (t) => {
   const p = project({ base: {
     'pkgs/app/src/cart.ts': CART,

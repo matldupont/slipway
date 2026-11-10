@@ -142,15 +142,30 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
   const found = new Set();
   const support = new Set();
   const read = (file) => readFileSync(join(copy, file), 'utf8');
+  // A source file this pull request changed, tracked, and neither a test nor support: a subject the change can reach.
+  const product = (f) => !looksLikeTest(f) && !isSupport(f) && EXTENSIONS.some((e) => f.endsWith(e)) && tracked.has(f);
   const take = (file, depth) => {
     if (!file || found.has(file) || support.has(file) || looksLikeTest(file) && !isSupport(file)) return;
-    // §3.6 (#659): test support is never a subject, but a path to one. A helper's relative imports are followed
-    // like the test's own, inside the same depth, so product code a test reaches only through its helpers is changed.
+    // §3.6 (#659): test support is never a subject, but a path to the product code it imports.
     if (isSupport(file)) {
       support.add(file);
       if (depth >= DEPTH) return;
       const specs = safely(imports, file, read(file));
-      if (Array.isArray(specs)) for (const spec of specs) if (spec.startsWith('.')) take(resolve(tracked, file, spec), depth + 1);
+      for (const spec of Array.isArray(specs) ? specs : []) {
+        if (!spec.startsWith('.')) {
+          byName(spec, depth + 1);
+          continue;
+        }
+        const target = resolve(tracked, file, spec);
+        if (!target || isSupport(target) || looksLikeTest(target)) {
+          take(target, depth + 1);
+          continue;
+        }
+        // A product file a helper imports adds what this pull request changed in its package, else the file itself.
+        const pkg = packageOf(packages, target);
+        const own = pkg ? changed.filter((f) => product(f) && packageOf(packages, f) === pkg) : [];
+        for (const f of own.length ? own : [target]) take(f, depth + 1);
+      }
       return;
     }
     found.add(file);
@@ -158,20 +173,21 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
     const paths = safely(reExports, file, read(file));
     if (Array.isArray(paths)) for (const spec of paths) take(resolve(tracked, file, spec), depth + 1);
   };
+  // An import of a workspace package by its name: the package's source files this pull request changed, or its entry.
+  function byName(spec, depth) {
+    const pkg = packages.find((p) => p.name && p.dir !== '' && (spec === p.name || spec.startsWith(`${p.name}/`)));
+    if (!pkg) return;
+    const own = changed.filter((f) => f.startsWith(`${pkg.dir}/`) && product(f));
+    for (const f of own.length ? own : [entryOf(tracked, pkg)]) take(f, depth);
+  }
   const specs = safely(imports, testFile, testText);
   // §5: a test that imports no source file and reads files is told to excuse itself, not to import by a relative path.
   const readsFiles = Array.isArray(specs) && specs.some((s) => FS.has(s));
   // A test file whose imports cannot be read has none followed; it is named, and what is beside it still counts.
   const unreadable = specs.unreadable ? [{ file: testFile, reason: specs.unreadable }] : [];
   for (const spec of Array.isArray(specs) ? specs : []) {
-    if (spec.startsWith('.')) {
-      take(resolve(tracked, testFile, spec), 0);
-      continue;
-    }
-    const pkg = packages.find((p) => p.name && p.dir !== '' && (spec === p.name || spec.startsWith(`${p.name}/`)));
-    if (!pkg) continue;
-    const own = changed.filter((f) => f.startsWith(`${pkg.dir}/`) && !looksLikeTest(f) && !isSupport(f) && EXTENSIONS.some((e) => f.endsWith(e)) && tracked.has(f));
-    for (const f of own.length ? own : [entryOf(tracked, pkg)]) take(f, 0);
+    if (spec.startsWith('.')) take(resolve(tracked, testFile, spec), 0);
+    else byName(spec, 0);
   }
   const beside = testFile.replace(/\.(?:test|spec)(\.[^./]+)$/, '$1');
   if (beside !== testFile) take(resolve(tracked, testFile, `./${posix.basename(beside)}`), 0);
