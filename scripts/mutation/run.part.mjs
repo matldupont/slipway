@@ -165,7 +165,8 @@ test('a test whose helpers import no product code is still support-only, a helpe
   p.commit({
     'pkgs/app/tests/data.test.ts': testFile(['data only'], { imports: "import { data } from './data-fixture';\nconst add = (a, b) => a + b;" }),
     'pkgs/app/tests/deep.test.ts': testFile(['too deep'], { imports: "import { h0 } from './h0';\nconst add = h0;" }),
-    'pkgs/app/tests/files.test.ts': testFile(['reads files'], { imports: "import { readFileSync } from 'node:fs';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/files.test.ts': testFile(['reads files'], { imports: "import { readFileSync } from 'node:fs';\nimport { join } from 'node:path';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/alias.test.ts': testFile(['through an alias'], { imports: "import { readFileSync } from 'node:fs';\nimport { x } from '@/lib/x';\nconst add = (a, b) => a + b;" }),
   });
   const { status, record } = p.run();
   assert.equal(status, 0, record?.stopped);
@@ -173,6 +174,8 @@ test('a test whose helpers import no product code is still support-only, a helpe
   assert.deepEqual([why('data only')?.why, why('too deep')?.why], ['support-only', 'support-only']);
   // A test that imports no source file and reads files is no-subject, with the detail its message reads.
   assert.deepEqual([why('reads files')?.why, why('reads files')?.detail], ['no-subject', 'reads files']);
+  // One that also imports through an alias may import its code that way: it keeps the import fix.
+  assert.deepEqual([why('through an alias')?.why, why('through an alias')?.detail], ['no-subject', null]);
   assert.equal(record.tests.length, 0);
 });
 

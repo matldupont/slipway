@@ -2,6 +2,7 @@
 // §3.3, §3.5, §3.6, §3.9). Reads the copy of HEAD and the parser's answers; starts nothing.
 
 import { readFileSync } from 'node:fs';
+import { builtinModules } from 'node:module';
 import { join, posix } from 'node:path';
 import { discoverWorkspace } from './workspace.mjs';
 import { imports, mutants, reExports } from './mutants.mjs';
@@ -182,7 +183,12 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
   }
   const specs = safely(imports, testFile, testText);
   // §5: a test that imports no source file and reads files is told to excuse itself, not to import by a relative path.
-  const readsFiles = Array.isArray(specs) && specs.some((s) => FS.has(s));
+  // Only when nothing else it imports could be source: Node's own modules, vitest, or a dependency its package or the
+  // root names. An alias (`@/lib/x`) is none of these, so a test importing its code that way keeps the import fix.
+  const deps = new Set([packageOf(packages, testFile), packages.find((p) => p.dir === '')].flatMap((p) => (p ? DEP_KEYS.flatMap((k) => (p.json[k] && typeof p.json[k] === 'object' ? Object.keys(p.json[k]) : [])) : [])));
+  const bare = (s) => (s.startsWith('@') ? s.split('/').slice(0, 2).join('/') : s.split('/')[0]);
+  const outside = (s) => s.startsWith('node:') || builtinModules.includes(s) || bare(s) === 'vitest' || deps.has(bare(s));
+  const readsFiles = Array.isArray(specs) && specs.some((s) => FS.has(s)) && specs.every((s) => !s.startsWith('.') && outside(s));
   // A test file whose imports cannot be read has none followed; it is named, and what is beside it still counts.
   const unreadable = specs.unreadable ? [{ file: testFile, reason: specs.unreadable }] : [];
   for (const spec of Array.isArray(specs) ? specs : []) {

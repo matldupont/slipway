@@ -392,7 +392,8 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    A subject `mutants()` cannot read is dropped and named. So is one that reads and has no change to make
    (a file of types, of constants, of re-exports past the third level). A test file left with no subject
    has its new tests **not judged**, with the reason: `no-subject` (it imports no source the step follows;
-   its detail is `reads files` when it imports `fs`, `node:fs`, `fs/promises` or `node:fs/promises`, else null),
+   its detail is `reads files` when it imports `fs`, `node:fs`, `fs/promises` or `node:fs/promises` and nothing
+   else but Node's own modules, `vitest` and the dependencies its package or the root names, else null),
    `support-only` (every source file it imports is test support),
    `could-not-be-parsed`, `other-language`, or `no-change-to-make` (its subjects were read and hold nothing
    this step changes), each naming the file. A test every change of which was dropped in step 9 (the file
@@ -534,9 +535,10 @@ puts it there, so the last is a fault in the record and never an ordinary pull r
 What to do when a second run says the same is part of each message (#659). A record that lacks a field: "Run
 `pnpm tests-can-fail` again; if it says this again, the step and this check are from different slipway versions:
 take `ci/` from one version with `/sync-slipway`." A judged test with nothing tried: "This is a fault in the step,
-not in your tests: report it to slipway with the output of the run, and excuse the file in `ci/exceptions.yaml` with a
+not in your tests: tell the owner, who reports it to slipway without file or test names of the project, and excuse the file in `ci/exceptions.yaml` with a
 date meanwhile." A `stopped` message that holds a line break (`ci/before-verify.sh`'s output) has its first line as
-the report's one BROKEN line, and each line after it printed below, escaped, as a note.
+the report's one BROKEN line, and each line after it printed below, escaped, as a note marked `output:`; a
+message whose first line is blank is the BROKEN line whole.
 
 ### 5. What a failure says (D-016)
 

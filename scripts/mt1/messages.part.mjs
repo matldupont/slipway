@@ -176,7 +176,7 @@ test('a record that lacks a field, or judges a test with nothing tried, names wh
   delete r.capped;
   assert.match(judge(r).broken, /Run `pnpm tests-can-fail` again; if it says this again, the step and this check are from different slipway versions: take `ci\/` from one version with `\/sync-slipway`\.$/);
   const empty = judge(rec({ changedTestFiles: [FILE], tests: [judged({ tried: 0, failedOn: null })] }));
-  assert.match(empty.broken, /This is a fault in the step, not in your tests: report it to slipway with the output of the run, and excuse the file in `ci\/exceptions\.yaml` with a date meanwhile\.$/);
+  assert.match(empty.broken, /This is a fault in the step, not in your tests: tell the owner, who reports it to slipway without file or test names of the project, and excuse the file in `ci\/exceptions\.yaml` with a date meanwhile\.$/);
 });
 
 test('ci/before-verify.sh failing on a port in use prints its sentence, then the script\'s output on a line of its own: a real line break between them, not \\u000a (#659)', (t) => {
@@ -194,6 +194,11 @@ test('ci/before-verify.sh failing on a port in use prints its sentence, then the
   assert.ok(at >= 0, out.stdout);
   assert.doesNotMatch(lines[at], /\\u000a/);
   // The output follows on the next line, escaped as setupMessage writes it: the script's text cannot start a line of its own.
-  assert.match(lines[at + 1], /^MT1: Error: listen EADDRINUSE :5432\\u000a::error::forged$/);
+  assert.match(lines[at + 1], /^MT1: output: Error: listen EADDRINUSE :5432\\u000a::error::forged$/);
   assert.equal(rawCharacters(out.stdout, out.stderr), null);
+});
+
+test('a stop whose first line is blank is the BROKEN line whole, never a pass (#659)', () => {
+  const v = judge(rec({ stopped: '\nThe install failed.' }));
+  assert.deepEqual([v.exit, v.broken, v.after], [2, '\\u000aThe install failed.', []]);
 });

@@ -49,13 +49,14 @@ export function verdict(record, { registry = [], today, head = null }) {
   // A stop that quotes output (ci/before-verify.sh's lines) holds a line break: the report's BROKEN line is one line, so
   // the sentence is that line and the output is printed below it, each line escaped (#659).
   if (record.stopped) {
+    // A stop whose first line is blank is never a pass: the whole message is the BROKEN line then.
     const [first, ...rest] = String(record.stopped).split('\n');
-    return { ...out, broken: m.e(first), after: rest };
+    return first.trim() ? { ...out, broken: m.e(first), after: rest } : { ...out, broken: m.e(record.stopped) };
   }
   if (head !== null && record.head !== head) return { ...out, broken: `This record is for commit ${m.e(record.head)}, not the one being checked (${m.e(head)}). Run \`pnpm tests-can-fail\` again.` };
   // §4: a test with nothing tried belongs in notJudged (§3.6), so one judged is a fault in the record (AR-9).
   const empty = record.tests.find((t) => t.state === 'judged' && !t.failedOn && !t.crashes && !t.tried);
-  if (empty) return { ...out, broken: `The record judges ${m.named(empty.file, empty.name)} with no change tried, which the run never does: it belongs in the tests not judged. This is a fault in the step, not in your tests: report it to slipway with the output of the run, and excuse the file in \`ci/exceptions.yaml\` with a date meanwhile.` };
+  if (empty) return { ...out, broken: `The record judges ${m.named(empty.file, empty.name)} with no change tried, which the run never does: it belongs in the tests not judged. This is a fault in the step, not in your tests: tell the owner, who reports it to slipway without file or test names of the project, and excuse the file in \`ci/exceptions.yaml\` with a date meanwhile.` };
 
   const entries = registry.filter((x) => typeof x.id === 'string' && x.id.startsWith(PREFIX));
   for (const x of entries) {
@@ -105,7 +106,8 @@ function print(v) {
   const note = (line) => process.stdout.write(escapeOutput(`${ID}: ${escapeControl(line)}`).replace(/##\[/g, '\\u0023\\u0023\\u005b') + '\n');
   for (const line of [...(v.broken ? [] : [v.summary]), ...v.notes]) note(line);
   const exit = report({ id: ID, claim: v.summary || 'the record was judged', scanned: 1, unit: 'run record', findings: v.findings, warnings: v.warnings, broken: v.broken });
-  for (const line of v.after ?? []) note(line);
+  // Quoted output, marked so it never reads as words of the verdict.
+  for (const line of v.after ?? []) note(`output: ${line}`);
   return exit;
 }
 
