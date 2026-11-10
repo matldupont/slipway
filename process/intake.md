@@ -295,7 +295,7 @@ commit, so uncommitted work is not judged. No CI job runs it: this is the one pl
   `/work-ticket` Phase 4, step 3). That is a test it names not judged, and one added or changed after its run. It is also
   one under a name it does not read as a test: it reads `*.test.*`, `*.spec.*` and files under `__tests__/`. And it is every new
   or changed test in the diff that the step does not name as judged, whatever count it prints. Find them in the diff,
-  never from the step's count. Where `Tests can fail` is none, it is every new test.
+  never from the step's count. A file it reports judging, or a pass count, names no test. Where `Tests can fail` is none, it is every new or changed test.
 
 ## Deferred check
 
