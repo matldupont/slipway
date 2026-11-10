@@ -379,9 +379,17 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    files were left out of the code under test". The list is closed: it changes by an edit to this Contract
    and no other way.
 
+   **A support file is a path to the product code it imports** (#659, the owner's call of 2026-11-09). A
+   support file the step reaches has its relative imports followed as the test file's are, inside the same 3
+   levels: a product file reached that way is a subject, and another support file is followed in turn and
+   never a subject. A test that reaches the app only through its helpers (`tests/x-fixture.ts` →
+   `tests/api-server.ts` → `src/app.ts`) has the app as a subject. A helper's import of a workspace package by
+   its name is not followed. A test whose helpers import no product code is still `support-only`.
+
    A subject `mutants()` cannot read is dropped and named. So is one that reads and has no change to make
    (a file of types, of constants, of re-exports past the third level). A test file left with no subject
-   has its new tests **not judged**, with the reason: `no-subject` (it imports no source the step follows),
+   has its new tests **not judged**, with the reason: `no-subject` (it imports no source the step follows;
+   its detail is `reads files` when it imports `fs`, `node:fs`, `fs/promises` or `node:fs/promises`, else null),
    `support-only` (every source file it imports is test support),
    `could-not-be-parsed`, `other-language`, or `no-change-to-make` (its subjects were read and hold nothing
    this step changes), each naming the file. A test every change of which was dropped in step 9 (the file
@@ -520,6 +528,13 @@ processes left running among them, §1);
 test has `failedOn` null, `crashes` 0 and `tried` 0. A test with nothing tried belongs in `notJudged`, and §3.6
 puts it there, so the last is a fault in the record and never an ordinary pull request.
 
+What to do when a second run says the same is part of each message (#659). A record that lacks a field: "Run
+`pnpm tests-can-fail` again; if it says this again, the step and this check are from different slipway versions:
+take `ci/` from one version with `/sync-slipway`." A judged test with nothing tried: "This is a fault in the step,
+not in your tests: report it to slipway with the run's output, and excuse the file in `ci/exceptions.yaml` with a
+date meanwhile." A `stopped` message that holds a line break (`ci/before-verify.sh`'s output) has its first line as
+the report's one BROKEN line, and each line after it printed below, escaped, as a note.
+
 ### 5. What a failure says (D-016)
 
 Every line names the project's own thing and the next action, and reads without knowing a check id. Test
@@ -560,7 +575,9 @@ The fix is printed on its own `Fix:` line.
   is not a real day}, so it excuses nothing. `` Fix: `` Remove it, or set `expires:` to a real future day with a
   reason. `` (AR-10 of the 0.3 review.)
 - not judged: `` Not judged: `{file}` › "{test}" — {reason}. `` with the reasons: "it imports no source file
-  this step follows"; "every source file it imports is test support (`{file}`)"; "this pull request is
+  this step follows", or, for a test that reads files, "it imports no source file and reads files instead", whose
+  fix is `` Excuse the file in `ci/exceptions.yaml` with a date, since it checks files, not what code does. ``
+  (#659); "every source file it imports is test support (`{file}`)"; "this pull request is
   excused as a mechanical change until {date}: {reason}"; "it was red, then green, in a clean copy with nothing
   changed"; "its subject `{file}` could not be parsed"; "its subject `{file}` is not JavaScript or TypeScript";
   "there is nothing this step can change in `{file}`, which is all it imports"; "every change this step made to
@@ -731,7 +748,9 @@ nothing else; and a result copied into a pull request by hand.
   nothing more: the step judges tests that exist.
 - **Test support is told by name.** A helper under a name off the list of §3.6 is still changed, and a test
   that asserts only on its data is credited. A product file under a name on the list is not changed, and a
-  test of that file alone is named not judged, `support-only`.
+  test of that file alone is named not judged, `support-only`. A helper on the list is followed to the product
+  code it imports (#659), so a test that reaches the app only through its helpers is judged on the app's code; a helper's product code more than 3 levels down, or reached by a
+  package name, is not changed.
 - **A test can avoid being judged by how it imports.** A test whose file imports its subject in a way the
   step does not follow (a path alias, a dynamic import, a package outside the workspace) is listed as not
   judged, not failed, while another new test of the pull request is judged.
@@ -1286,3 +1305,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-04 · MODIFIED · step 3's corrections from #631's worker, built in #632 on the owner's yes: §2 reads more test forms, an `imports()`, and a text with a line break git does not count as unreadable; a test the runner lists in no call `spans()` reads makes its file's tests new (§3.5); the parser's reason is escaped (§5); runner calls get a fixed environment, and env guards are not changed (§2, §3.4); `no-package` and the record's new fields (§3.3, §3.10); four Known limitations lines. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
 - 2026-11-04 · MODIFIED · step 4's corrections, built in #633 on the owner's calls of the same day: a file whose every test is skipped stays `never-run`, and §3.5, §3.8 and §5 say so; a test every change of which was dropped is not judged, `every-change-dropped`, a reason added to the closed list; §5's findings and warnings take report.mjs's shape (one sentence and a fix that starts with a verb, each at most 160 characters), so its wording is rewritten to fit, with the same facts; `flaky` gains its second cause, `excuse-expired` its words, `nothing-judged` a line of fixed length that points to each test's not-judged warning, where its reason's next action is (AR-5 and the Verify line reworded on the owner's call), and the red-twice message of §3.8 its next action; What is reused says the name is outside W1's gated pattern on purpose; a run stopped at its limit before it marked any test fails on the run (§4, §5, §7), and `pnpm tests-can-fail` judges with `ci/exceptions.yaml` as the commit holds it. Version stays 0.5
 - 2026-11-05 · MODIFIED · #652's corrections, on the owner's calls of 2026-11-04 and 2026-11-05: §3.3 does not read a flag whose name, read as the parser writes it, lands outside the runner's options or in its list of file filters, nor a word made only of dashes, nor a negated refused option with a key after it, after any number of dashes; §3.5 reads, where the listing may hide a test, the runner's own report of a clean run from the file it writes, which lists skipped tests with their lines, and stops on a report that is missing, does not parse, lacks a line or holds the file as not loaded, and names a changed test call that holds no reported test; an import covers only the lines it has alone; Known limitations adds that under `tests-can-fail#mechanical` a test written through an alias that the listing leaves out is not named (the owner's call, 2026-11-05); a new test the run skips is `skipped` only when its own call or a `describe` around it says skip, any other not judged, `narrowed`, a reason added to the closed list that the owner did not give (§4, §5); `nothing-judged` names its next action (§5); §3.8 says so. The guarantees are unchanged; Known limitations gains the one line above. Version stays 0.5: the review of 0.5 was the last, and these ride the build as its carried lines do
+- 2026-11-09 · MODIFIED · #659's corrections, on the owner's calls of 2026-11-09, after #634's read-only run on a real project: §3.6 follows a support file's relative imports, inside the same 3 levels, so product code a test reaches only through its helpers is a subject, while the helpers stay support and a test whose helpers import no product code stays `support-only`; a `no-subject` test that imports `fs` has the detail `reads files`, and its message tells it to excuse the file (§5); §4's record messages name what to do when a second run says the same, and a stop message's quoted output prints on its own line instead of as `\u000a`. Known limitations' "told by name" line says what is followed. The guarantees are unchanged. Version stays 0.5, as #652's corrections did
