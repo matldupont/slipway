@@ -1916,7 +1916,7 @@ test('BOOTSTRAP.md §4 tells a project the step, names its open limitation as a 
 // #663: the hand check of L-04 covers every new or changed test the step did not judge, in all three places that say it,
 // and intake names the test names the step reads.
 const HAND_ALL = /every new or changed test in the diff that the step does not name as judged, whatever count it prints/;
-const HAND_DIFF = /find them in the diff, never from the step's count/;
+const HAND_DIFF = /[Ff]ind them in the diff, never from the step's count/;
 const flatText = (s) => s.replace(/\s+/g, ' ');
 const notCovered = () => flatText(/- \*\*What it does not cover\.\*\*[\s\S]*?(?=\n\n|$)/.exec(intake)?.[0] ?? '');
 
