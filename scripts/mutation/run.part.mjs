@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { CART, project, testFile } from './project.mjs';
-import { subjectsOf, workspacePackages } from '../../ci/checks/lib/mutation-tests.mjs';
+import { queueOf, subjectsOf, workspacePackages } from '../../ci/checks/lib/mutation-tests.mjs';
 
 // Every path under the project but .git, so a run that leaves a file there is seen.
 const listing = (root, at = '') => readdirSync(join(root, at), { withFileTypes: true }).flatMap((e) => {
@@ -315,4 +315,23 @@ test('the record is printed with a control or format character in a test name as
   const { stdout, record } = p.run();
   assert.equal(/[\u202e\u009b]/.test(stdout), false);
   assert.deepEqual(record.tests.map((x) => x.name), ['a\u202eb\u009bc']);
+});
+
+test('helper subjects get only the turns of each kind the test\'s own leave, after every own change: never past the cap of 30 each (#659)', () => {
+  const pool = (file, body, other, helper) => ({ file, text: '', helper, list: [
+    ...Array.from({ length: body }, (_, i) => ({ kind: 'body', line: i + 1 })),
+    ...Array.from({ length: other }, (_, i) => ({ kind: 'op', line: i + 1 })),
+  ] });
+  const none = () => new Set();
+  const where = (q) => q.queue.map((x) => `${x.pool.helper ? 'helper' : 'own'} ${x.change.kind === 'body' ? 'body' : 'other'}`);
+  const count = (list) => list.reduce((m, k) => ({ ...m, [k]: (m[k] ?? 0) + 1 }), {});
+  // The test's own fill the body cap: no helper body change, and the other kind's 25 turns left go to the helper.
+  const full = queueOf([pool('own.ts', 35, 5, false), pool('helper.ts', 10, 10, true)], none);
+  assert.deepEqual(count(where(full)), { 'own body': 30, 'own other': 5, 'helper other': 10 });
+  // The order: every own change first, body then other, then the helper's, body then other.
+  const small = where(queueOf([pool('own.ts', 2, 2, false), pool('helper.ts', 2, 2, true)], none));
+  assert.deepEqual(small, ['own body', 'own body', 'own other', 'own other', 'helper body', 'helper body', 'helper other', 'helper other']);
+  // A helper with more than the cap still stops at 30 of each kind in all.
+  const big = queueOf([pool('own.ts', 20, 20, false), pool('helper.ts', 40, 40, true)], none);
+  assert.deepEqual(count(where(big)), { 'own body': 20, 'own other': 20, 'helper body': 10, 'helper other': 10 });
 });

@@ -762,8 +762,8 @@ nothing else; and a result copied into a pull request by hand.
   pull request's changed files it notices. That includes a change that breaks the app's startup or every answer it
   gives: a change that makes startup throw any error other than a plain TypeError, ReferenceError or RangeError
   outside the test's `expect(...)`, in a hook or anywhere else, credits the test (step 9). A test whose own subjects
-  use up the cap of step 9 has its helper subjects tried in part or not at all, and is then judged on its own
-  subjects only, as on main.
+  use up a kind's cap of step 9 has no helper change of that kind tried; its helper subjects still get the turns
+  left in the other kind, and can credit it.
 - **A test can avoid being judged by how it imports.** A test whose file imports its subject in a way the
   step does not follow (a path alias, a dynamic import, a package outside the workspace) is listed as not
   judged, not failed, while another new test of the pull request is judged.
