@@ -145,8 +145,8 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 
 ## Phase 4 — Prove it
 
-1. **Gate.** Run `Quality gate` exactly as written, and `Tests can fail` beside it unless none. Run both at every later
-   gate run (`process/intake.md` → Tests can fail). Every command exits 0, and the output is from this run.
+1. **Gate.** Run `Quality gate` exactly as written, and, on committed work, `Tests can fail` unless none. Run both at
+   every later gate run (`process/intake.md` → Tests can fail). Every command exits 0, and the output is from this run.
 2. **Acceptance → test.** For each acceptance line, the test that fails when the line is broken
    (`{line} → {file}: {test name}`). A line with none gets its test now, before going on.
 3. **Each new test can fail** (L-04). Commit, revert the mechanism, run that test, see it red, restore. A
@@ -235,7 +235,7 @@ the owner the options in the project's terms.
 
 ### Rounds 2 and 3
 
-1. Apply the fixes, run the gate again, commit and push as the draft was. When what ran changed, update it: `gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"`.
+1. Apply the fixes, commit, run the gate again and push as the draft was. When what ran changed, update it: `gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"`.
 2. **Verify the fix, not the PR.** One fresh subagent that saw no earlier round gets round 1's brief, the
    GUARANTEES block, the last round's fixes and `git diff {last reviewed sha}..HEAD`. It answers: is each fix
    done, and does the fix break a guarantee? The security review runs on the fix diff too when it touches

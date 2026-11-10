@@ -1855,7 +1855,7 @@ test('Tests can fail: a work-ticket setting with the default `pnpm tests-can-fai
   assert.equal(rowsOf(read('AGENT.md')).get(TCF), TCF_DEFAULT, 'the template row holds the default');
   assert.ok(reads(read(skillPath('work-ticket'))).includes(TCF), `work-ticket's Reads line must name \`${TCF}\``);
   const phase4 = (section(read(skillPath('work-ticket')), 'Phase 4 — Prove it', 2) ?? '').replace(/\s+/g, ' ');
-  assert.match(phase4, /Run `Quality gate` exactly as written, and `Tests can fail` beside it unless none\. Run both at every later gate run \(`process\/intake\.md` → Tests can fail\)/, 'Phase 4 must run the setting beside the gate, at every gate run, unless none');
+  assert.match(phase4, /Run `Quality gate` exactly as written, and, on committed work, `Tests can fail` unless none\. Run both at every later gate run \(`process\/intake\.md` → Tests can fail\)/, 'Phase 4 must run the setting beside the gate, at every gate run, unless none');
   assert.match(phase4, /tests-can-fail: \{summary line\} → exit 0 \| FAIL \{what\} \| N\/A — none/, 'the PHASE 4 block must report the step');
   assert.match(tcfSection(), /beside `Quality gate`, unless it is none\. It runs at each gate run from Phase 4 on, after the work is committed and before the pull request is marked ready/, 'intake → Tests can fail says when it runs');
   assert.match(tcfSection(), /No CI job runs it/, 'intake → Tests can fail says it is not in CI');
@@ -1891,6 +1891,7 @@ test('/work-ticket starts the step so the harness never ends it first, and a run
   assert.match(s, /A run that ends without the step's own exit \(killed, or the session ended\) is a red gate too\./, 'a run with no exit of its own is red');
   assert.match(s, /run `pgrep -U "\$\(id -u\)" -f "\{folder\}"` on this run's folder\. Never use the bare `tests-can-fail-` prefix/, 'the process check names this user and this run\'s folder');
   assert.doesNotMatch(s, /pgrep[^`]*-f "?tests-can-fail-"?`/, 'never pgrep the bare prefix');
+  assert.match(s, /\*\*Commit first\.\*\* Run it only when `git status --porcelain` prints nothing\. A run on a tree with any change, untracked files included, is not the gate's result/, 'the step judges committed work only, so it never passes on untracked tests');
 });
 
 test('the result goes into ## Verification inside a fenced block: §1\'s list plus both shares, or the one no-tests line', () => {

@@ -276,13 +276,16 @@ commit, so uncommitted work is not judged. No CI job runs it: this is the one pl
 - **No script.** When the branch's root `package.json` has no `tests-can-fail` script, the branch was cut before the
   step reached the project. The gate is red. The skill says: "This branch was cut before tests-can-fail arrived.
   Merge the base branch into this branch (`git merge origin/{base}`), then run the gate again."
+- **Commit first.** Run it only when `git status --porcelain` prints nothing. A run on a tree with any change,
+  untracked files included, is not the gate's result: commit, then run it again.
 - **Start it in the background**, and read its exit when it ends. Never under a timeout of its own: it stops itself at
   10 minutes, and its install and clean-up come on top. Its line `copying {commit} to {folder}` names this run's
   folder.
 - **Exit 1 or 2 is a red gate**, fixed and run again as any red gate is. A run that ends without the step's own exit
   (killed, or the session ended) is a red gate too. Then run `pgrep -U "$(id -u)" -f "{folder}"` on this run's folder.
   Never use the bare `tests-can-fail-` prefix, which matches another session's run. Stop each process it lists, and
-  say so.
+  say so. `pgrep` reads the folder as a pattern: a folder with a character other than letters, digits and `/ . _ -`
+  is checked by hand instead, and said so.
 - **Its result goes into `## Verification`**, inside a fenced code block. There, a test name with an `@name` in it
   notifies nobody. Copy the summary line, each count line that is not zero, each test named not judged, and both shares. A pull
   request that adds or changes no test copies the one line `No tests were added or changed.`, and nothing else.
