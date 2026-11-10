@@ -142,34 +142,24 @@ function entryOf(tracked, pkg) {
 export function subjectsOf({ copy, tracked, packages, changed, testFile, testText }) {
   const found = new Set();
   const support = new Set();
+  // §3.6 (#659): the subjects the test reaches without a helper are found first; then each support file met is followed,
+  // and what it adds is a helper subject, tried after every change to the others (queueOf).
+  const pending = [];
+  const viaHelper = new Set();
+  let helperPhase = false;
   const read = (file) => readFileSync(join(copy, file), 'utf8');
   // A source file this pull request changed, tracked, and neither a test nor support: a subject the change can reach.
   const product = (f) => !looksLikeTest(f) && !isSupport(f) && EXTENSIONS.some((e) => f.endsWith(e)) && tracked.has(f);
   const take = (file, depth) => {
     if (!file || found.has(file) || support.has(file) || looksLikeTest(file) && !isSupport(file)) return;
-    // §3.6 (#659): test support is never a subject, but a path to the product code it imports.
+    // Test support is never a subject, but a path to the product code it imports.
     if (isSupport(file)) {
       support.add(file);
-      if (depth >= DEPTH) return;
-      const specs = safely(imports, file, read(file));
-      for (const spec of Array.isArray(specs) ? specs : []) {
-        if (!spec.startsWith('.')) {
-          byName(spec, depth + 1);
-          continue;
-        }
-        const target = resolve(tracked, file, spec);
-        if (!target || isSupport(target) || looksLikeTest(target)) {
-          take(target, depth + 1);
-          continue;
-        }
-        // A product file a helper imports adds what this pull request changed in its package, else the file itself.
-        const pkg = packageOf(packages, target);
-        const own = pkg ? changed.filter((f) => product(f) && packageOf(packages, f) === pkg) : [];
-        for (const f of own.length ? own : [target]) take(f, depth + 1);
-      }
+      if (depth < DEPTH) pending.push([file, depth]);
       return;
     }
     found.add(file);
+    if (helperPhase) viaHelper.add(file);
     if (depth >= DEPTH) return;
     const paths = safely(reExports, file, read(file));
     if (Array.isArray(paths)) for (const spec of paths) take(resolve(tracked, file, spec), depth + 1);
@@ -197,6 +187,23 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
   }
   const beside = testFile.replace(/\.(?:test|spec)(\.[^./]+)$/, '$1');
   if (beside !== testFile) take(resolve(tracked, testFile, `./${posix.basename(beside)}`), 0);
+  helperPhase = true;
+  while (pending.length) {
+    const [file, depth] = pending.shift();
+    const specs = safely(imports, file, read(file));
+    for (const spec of Array.isArray(specs) ? specs : []) {
+      if (!spec.startsWith('.')) {
+        byName(spec, depth + 1);
+        continue;
+      }
+      const target = resolve(tracked, file, spec);
+      take(target, depth + 1);
+      if (!target || isSupport(target) || looksLikeTest(target)) continue;
+      // A product file a helper imports adds itself, and what this pull request changed in its package.
+      const pkg = packageOf(packages, target);
+      if (pkg) for (const f of changed.filter((x) => product(x) && packageOf(packages, x) === pkg)) take(f, depth + 1);
+    }
+  }
   const pools = [];
   const nothing = [];
   for (const file of found) {
@@ -204,7 +211,7 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
     const list = safely(mutants, file, text);
     if (list.unreadable) unreadable.push({ file, reason: list.unreadable });
     else if (!list.length) nothing.push(file);
-    else pools.push({ file, text, list });
+    else pools.push({ file, text, list, helper: viaHelper.has(file) });
   }
   return { pools, support: [...support], unreadable, nothing, followed: found.size + support.size + (specs.unreadable ? 1 : 0), readsFiles };
 }
@@ -220,7 +227,8 @@ export function whyNoSubject({ followed, support, unreadable, nothing }) {
 
 /**
  * The changes to try for one test file (§3.9): `body` changes first, then the rest, the pull request's own lines first
- * within each, taking turns across the subjects; at most 30 of each. Also how many of each kind there were.
+ * within each, taking turns across the subjects; at most 30 of each. A helper subject (§3.6) comes after every change to
+ * the subjects the test reaches without a helper, in the turns of each kind they leave. Also how many of each kind there were.
  * @param {(file: string) => Set<number>} ownLines  the lines the change adds to a subject
  */
 export function queueOf(pools, ownLines) {
@@ -228,16 +236,22 @@ export function queueOf(pools, ownLines) {
     const own = ownLines(p.file);
     return { pool: p, list: [...p.list].sort((a, b) => Number(own.has(b.line)) - Number(own.has(a.line))) };
   });
-  const turns = (pick) => {
-    const lists = sorted.map((s) => s.list.filter(pick));
+  const turns = (pick, helper, cap) => {
+    const these = sorted.filter((s) => Boolean(s.pool.helper) === helper);
+    const lists = these.map((s) => s.list.filter(pick));
     const queue = [];
-    for (let i = 0; queue.length < CAP && lists.some((l) => l[i]); i += 1) {
-      for (let k = 0; k < lists.length && queue.length < CAP; k += 1) if (lists[k][i]) queue.push({ pool: sorted[k].pool, change: lists[k][i] });
+    for (let i = 0; queue.length < cap && lists.some((l) => l[i]); i += 1) {
+      for (let k = 0; k < lists.length && queue.length < cap; k += 1) if (lists[k][i]) queue.push({ pool: these[k].pool, change: lists[k][i] });
     }
     return queue;
   };
   const isBody = (c) => c.kind === 'body';
+  const notBody = (c) => !isBody(c);
+  // §3.6 (#659): a helper subject has only the turns the test's own subjects leave, after every one of their changes.
+  const ownBody = turns(isBody, false, CAP);
+  const ownOther = turns(notBody, false, CAP);
+  const queue = [...ownBody, ...ownOther, ...turns(isBody, true, CAP - ownBody.length), ...turns(notBody, true, CAP - ownOther.length)];
   const body = pools.reduce((n, p) => n + p.list.filter(isBody).length, 0);
   const other = pools.reduce((n, p) => n + p.list.length, 0) - body;
-  return { queue: [...turns(isBody), ...turns((c) => !isBody(c))], body, other };
+  return { queue, body, other };
 }
