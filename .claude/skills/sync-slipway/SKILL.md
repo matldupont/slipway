@@ -65,6 +65,15 @@ The owner's own `sync` prints the same plan as text, and `--verbose` one row per
   `process/harness/settings.json` (the harness). The `seeded: upstream changed` bucket (`yours — slipway's
   template changed`) mostly settles without them (§3): say that some may bring a question about the
   project. Its diffs are references to apply by hand, not patches.
+- Name each setting `process/intake.md` → Configuration gained with a default since `base`: what it does for
+  this project, and that the default applies with no edit to `AGENT.md`. For `Tests can fail`, say that
+  `/work-ticket` now runs `pnpm tests-can-fail` before it marks a pull request ready, and that `none` turns it off.
+  Say too that a branch cut before this sync has no such script until the base branch is merged into it
+  (`BOOTSTRAP.md` §4).
+- Name each lesson whose review date the sync removes because a check now enforces it (mutating the specific test,
+  now done by `Tests can fail`). A line for it in `process/lesson-reviews.yaml` then has no review to answer, and
+  `pnpm meta` is red until that line is removed. The file is owner-only: ask the owner to remove the line, and never
+  remove it yourself.
 
 Ask for a yes before step 2. A no ends the skill, with nothing written.
 

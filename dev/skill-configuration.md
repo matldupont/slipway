@@ -25,6 +25,7 @@ status` reads it from `AGENT.md`.
 | Testing strategy doc | `CLAUDE.md` → Gates — tests are `*.test.mjs` and `*.test.ts` files and `ci/checks/**`, each run by `pnpm meta`; a new check needs a known-bad fixture under `ci/fixtures/known-bad/` | which test type and path a missing test is filed under |
 | Effort decision-tree | `process/designation.md` | the mode, model and effort line on every issue |
 | Quality gate | `pnpm meta` — `pnpm verify` exits 2 here ("no workspace packages") by design | the commands `/work-ticket` runs before a PR is called done |
+| Tests can fail | none — slipway has no app and no package that uses Vitest, so a changed `scripts/*.test.mjs` is a test file no package runs; `pnpm meta` runs those | the check `/work-ticket` runs beside the gate that each new or changed test can fail |
 | Domain map | `ci/**` → checks · `scripts/**` → new-project and sync · `.claude/skills/**` → skills · `process/**` → rules · `dev/**` → planning · `site/**` → site | how `/work-ticket` splits a change into areas and orders them |
 | Stack constraints | `CLAUDE.md`, then the nearest `AGENT.md` walking up from the working directory | the rules each area's code follows |
 | Project field mapping | none | the board fields set on each new issue; none sets none |

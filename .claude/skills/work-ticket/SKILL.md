@@ -28,8 +28,8 @@ Stop hook, never its gate files; a session started on a branch that changes `.cl
 already: say so, and stop. The reviewers get `{base}`'s copies, and are the definitions in the checkout the session started in (`.claude/agents/`), not a later edit of one. A branch whose diff to `origin/{base}` changes `.claude/agents/**` is reviewed only by a session that started on a commit of `origin/{base}` (`git merge-base --is-ancestor <that commit> origin/{base}` exits 0) with nothing changed or untracked under `.claude/agents/`, both read from its opening git status: any other session, and one that cannot tell either, says so and stops before a reviewer starts. This guard lives in files a branch can change: it holds
 only on work the owner or their agent wrote (Without an issue).
 
-**Reads:** `Product name`, `Issue repo`, `PRD path`, `Feature docs dir`, `Milestone roadmap`, `Change lanes`,
-`Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Domain map`,
+**Reads:** `Product name`, `Issue repo`, `PRD path`, `Feature docs dir`, `Milestone roadmap`, `Change lanes`.
+Also `Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Tests can fail`, `Domain map`,
 `Stack constraints`, `QA plans`, `Cold review`, `Error tracker`.
 
 Then resolve per `process/intake.md` → Configuration, and read before Phase 1, not from memory: `Stack constraints`,
@@ -113,9 +113,8 @@ Read the issue again: Problem, Acceptance, Contract, Verify.
   reported, and write down the search. Put the fix where every site can use it (shared, not private to one
   file), or say why not. A guard or test added for it scans the construct, not only the folder touched.
 - **Manual testing.** With `QA plans` not none: does the change reach anything a person would test — a
-  screen, a journey, an endpoint, an email, a gate, a payment? Name the plan and the journey, or the plan to
-  start when none covers that surface. A change nothing reaches but code (a library call, a refactor,
-  tooling, CI) is N/A, said out loud.
+  screen, a journey, an endpoint, an email, a gate, a payment? Name the plan and the journey, or the plan to start
+  when none covers that surface. A change nothing reaches but code (a library call, a refactor, tooling, CI) is N/A, said out loud.
 
 ```
 PHASE 2: HOLES
@@ -146,11 +145,12 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 
 ## Phase 4 — Prove it
 
-1. **Gate.** Run `Quality gate` exactly as written. Every command exits 0, and the output is from this run.
+1. **Gate.** Run `Quality gate` exactly as written, and, on committed work, `Tests can fail` unless none. Run both at
+   every later gate run (`process/intake.md` → Tests can fail). Every command exits 0, and the output is from this run.
 2. **Acceptance → test.** For each acceptance line, the test that fails when the line is broken
    (`{line} → {file}: {test name}`). A line with none gets its test now, before going on.
-3. **Each new test can fail** (L-04). Commit, revert the mechanism, run that test, see it red, restore. A
-   line already true on `{base}`: break what keeps it true instead, and say so.
+3. **Each new test can fail** (L-04), by hand where `Tests can fail` did not judge it (intake). Commit, revert the
+   mechanism, run it, see it red, restore. A line already true on `{base}`: break what keeps it true, say so.
 4. **Size.** A file this change pushed over 300 lines: split it, or ask.
 5. **Manual testing.** When Phase 2 named a plan, add or amend the journey in `QA plans` now, with an expected
    result that can be wrong, in the plan's environment or in a new plan (`process/intake.md` → Deferred check; README).
@@ -158,7 +158,7 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 
 ```
 PHASE 4: PROVED
-Gate:           {command} → exit 0 | FAIL {what}
+Gate:           {command} → exit 0 | FAIL {what} · tests-can-fail: {summary line} → exit 0 | FAIL {what} | N/A — none
 Acceptance:     {n}/{n} covered
 Can fail:       {tests broken against, each red}
 Manual testing: {plan → journey} | N/A — {why}
@@ -235,7 +235,7 @@ the owner the options in the project's terms.
 
 ### Rounds 2 and 3
 
-1. Apply the fixes, run the gate again, commit and push as the draft was. When what ran changed, update it: `gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"`.
+1. Apply the fixes, commit, run the gate again and push as the draft was. When what ran changed, update it: `gh pr edit {pr} --repo {checkout} --body-file "{prdir}/pr.md"`.
 2. **Verify the fix, not the PR.** One fresh subagent that saw no earlier round gets round 1's brief, the
    GUARANTEES block, the last round's fixes and `git diff {last reviewed sha}..HEAD`. It answers: is each fix
    done, and does the fix break a guarantee? The security review runs on the fix diff too when it touches

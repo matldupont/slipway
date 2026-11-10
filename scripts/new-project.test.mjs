@@ -722,7 +722,7 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   assert.equal(manifest.files['process/lesson-reviews.yaml']?.class, 'seeded', 'the manifest records the file as managed');
   assert.ok(readFileSync(REV).equals(readFileSync(join(SRC, 'process', 'lesson-reviews.yaml'))), "the project starts from slipway's empty copy");
   const l1 = (day) => check(dest, 'l1-lessons.mjs', { CHECK_TODAY: day });
-  const due = (r) => flat(r.stdout).match(/^L1: L-04-mutate-the-specific-test\.md#review\/due: .*$/m)?.[0];
+  const due = (r) => flat(r.stdout).match(/^L1: L-02-title-bounds-the-diff\.md#review\/due: .*$/m)?.[0];
   const answer = (lines) => writeFileSync(REV, `reviews:\n${lines}`);
   const line = (lesson, reviewed, reason = 'still holds') => `  - lesson: ${lesson}\n    reviewed: ${reviewed}\n    reason: ${reason}\n`;
 
@@ -730,11 +730,11 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   assert.equal(due(l1('2026-12-29')), undefined);
   let r = l1('2026-12-30');
   assert.equal(r.status, 1);
-  assert.match(due(r) ?? '', /review was due 2026-12-30: add to process\/lesson-reviews\.yaml an entry with lesson: L-04, reviewed: 2026-12-30 and reason: still holds/, r.stdout);
+  assert.match(due(r) ?? '', /review was due 2026-12-30: add to process\/lesson-reviews\.yaml an entry with lesson: L-02, reviewed: 2026-12-30 and reason: still holds/, r.stdout);
   assert.doesNotMatch(due(r), /mechanise/, "slipway's lesson was offered an edit");
 
   // One line answers it with the lesson untouched, D1 stays green, and the clock restarts from the review day.
-  answer(line('L-04', '2027-01-05'));
+  answer(line('L-02', '2027-01-05'));
   assert.equal(due(l1('2027-01-05')), undefined, l1('2027-01-05').stdout);
   assert.equal(due(l1('2027-04-04')), undefined);
   assert.match(due(l1('2027-04-05')) ?? '', /review was due 2027-04-05 \(last reviewed 2027-01-05\)/);
@@ -742,33 +742,33 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   assert.equal(d1.status, 0, d1.stdout);
 
   // Latest by day, not by place in the file: an earlier day written below it moves nothing back.
-  answer(line('L-04', '2027-01-05') + line('L-04', '2026-12-31', 'backfilled'));
+  answer(line('L-02', '2027-01-05') + line('L-02', '2026-12-31', 'backfilled'));
   assert.equal(due(l1('2027-04-04')), undefined);
 
   // A bad line fails on its line and answers nothing.
   for (const [lines, rule] of [
     [line('L-9999', '2027-01-05'), 'unknown-lesson'],
-    [line('L-04', '2027-02-01'), 'future'],
-    [line('L-04', '2027-02-30'), 'invalid'],
-    [line('L-04', '2027-01-05', '"  "'), 'invalid'],
+    [line('L-02', '2027-02-01'), 'future'],
+    [line('L-02', '2027-02-30'), 'invalid'],
+    [line('L-02', '2027-01-05', '"  "'), 'invalid'],
     [line('L-01', '2027-01-05'), 'invalid'], // L-01 has no review-by: nothing to answer, and not called a fixed date
-    ['  - lesson: L-04\n    reviewd: 2027-01-05\n    reason: still holds\n', 'unreadable'],
+    ['  - lesson: L-02\n    reviewd: 2027-01-05\n    reason: still holds\n', 'unreadable'],
   ]) {
     answer(lines);
     r = l1('2027-01-10');
     assert.equal(r.status, 1, `${rule}: ${r.stdout}`);
     assert.match(flat(r.stdout), new RegExp(`^L1: lesson-reviews\\.yaml#reviews/${rule}: ${rule === 'unreadable' ? '' : 'line 2: '}`, 'm'), r.stdout);
-    assert.ok(due(r), `${rule}: the bad line answered L-04's review`);
+    assert.ok(due(r), `${rule}: the bad line answered L-02's review`);
   }
 
   // A fixed date: on slipway's own lesson (L-71, as a sync may give a +<N>d lesson), the entry stays and counts for
   // nothing; on the project's own lesson, it fails.
-  answer(line('L-04', '2027-01-05') + line('L-71', '2027-01-05'));
+  answer(line('L-02', '2027-01-05') + line('L-71', '2027-01-05'));
   r = l1('2027-01-10');
   assert.doesNotMatch(r.stdout, /lesson-reviews\.yaml#/, 'an entry for slipway\'s fixed-date lesson was called wrong');
   assert.equal(due(r), undefined);
   writeFileSync(join(dest, 'process', 'lessons', 'PL-1-own.md'), '---\nid: PL-1\nrule: x\nenforcement:\n  status: prose\n  pointer: process/writing.md\n  review-by: 2099-01-01\n---\n');
-  answer(line('L-04', '2027-01-05') + line('PL-1', '2027-01-05'));
+  answer(line('L-02', '2027-01-05') + line('PL-1', '2027-01-05'));
   assert.match(flat(l1('2027-01-10').stdout), /^L1: lesson-reviews\.yaml#reviews\/fixed-date: line 5: PL-1's review-by is a fixed date/m);
   rmSync(join(dest, 'process', 'lessons', 'PL-1-own.md'));
 
@@ -783,19 +783,19 @@ test('a project answers slipway\'s +Nd lesson review in process/lesson-reviews.y
   // No file, as in a project made before #554, is no answers, and the line says to create it.
   r = l1('2026-12-30');
   assert.doesNotMatch(r.stdout, /reviews\/unreadable/);
-  assert.match(due(r) ?? '', /create process\/lesson-reviews\.yaml with a "reviews:" line, then add an entry with lesson: L-04,/);
+  assert.match(due(r) ?? '', /create process\/lesson-reviews\.yaml with a "reviews:" line, then add an entry with lesson: L-02,/);
 
   // Status reads the same answer, and says when the file cannot be read.
   const status = (day) => spawnSync(process.execPath, [join(dest, 'ci', 'status.mjs'), dest], { encoding: 'utf8', env: { ...process.env, CHECK_TODAY: day } });
-  assert.match(status('2026-12-20').stdout, /^- \(you\) Review the lesson \(L-04\) by 2026-12-30\./m);
-  answer(line('L-04', '2026-12-20'));
-  assert.doesNotMatch(status('2026-12-20').stdout, /Review the lesson \(L-04\)/);
-  assert.match(status('2027-03-10').stdout, /^- \(you\) Review the lesson \(L-04\) by 2027-03-20\./m);
-  answer('  - lesson: L-04\n    oops\n');
+  assert.match(status('2026-12-20').stdout, /^- \(you\) Review the lesson \(L-02\) by 2026-12-30\./m);
+  answer(line('L-02', '2026-12-20'));
+  assert.doesNotMatch(status('2026-12-20').stdout, /Review the lesson \(L-02\)/);
+  assert.match(status('2027-03-10').stdout, /^- \(you\) Review the lesson \(L-02\) by 2027-03-20\./m);
+  answer('  - lesson: L-02\n    oops\n');
   const s = status('2026-12-20');
   assert.equal(s.status, 0, s.stderr);
   assert.match(s.stdout, /^- \(you\) process\/lesson-reviews\.yaml cannot be read at line 3, so no review in it counts: pnpm meta's L1 names the problem\./m, 'status quoted the project\'s line');
-  assert.match(s.stdout, /^- \(you\) Review the lesson \(L-04\) by 2026-12-30\./m, 'an unreadable file answered the review in status');
+  assert.match(s.stdout, /^- \(you\) Review the lesson \(L-02\) by 2026-12-30\./m, 'an unreadable file answered the review in status');
 });
 
 // #554, round 1: slipway's own copy is the one every project starts from, so in slipway L1 fails any entry in it, and a
@@ -806,11 +806,11 @@ test('in slipway itself, process/lesson-reviews.yaml stays empty: L1 fails an en
   const l1 = (day) => check(src, 'l1-lessons.mjs', { CHECK_TODAY: day });
   assert.equal(readFileSync(join(src, 'process', 'lesson-reviews.yaml'), 'utf8').match(/^reviews:.*$/m)?.[0], 'reviews: []', "slipway's copy holds an entry");
   assert.equal(l1('2026-10-28').status, 0);
-  appendFileSync(join(src, 'process', 'lesson-reviews.yaml'), '  - lesson: L-04\n    reviewed: 2026-10-28\n    reason: still holds\n');
+  appendFileSync(join(src, 'process', 'lesson-reviews.yaml'), '  - lesson: L-02\n    reviewed: 2026-10-28\n    reason: still holds\n');
   const r = l1('2026-12-25');
   assert.equal(r.status, 1);
   assert.match(flat(r.stdout), /^L1: lesson-reviews\.yaml#reviews\/in-slipway: line \d+: slipway's copy ships to every project/m);
-  assert.match(flat(r.stdout), /^L1: L-04-mutate-the-specific-test\.md#review\/due: review was due 2026-12-20: mechanise it, extend it with a reason, or delete it$/m, 'slipway answered its own review with an entry');
+  assert.match(flat(r.stdout), /^L1: L-02-title-bounds-the-diff\.md#review\/due: review was due 2026-12-20: mechanise it, extend it with a reason, or delete it$/m, 'slipway answered its own review with an entry');
 });
 
 // A `vale` that names a version CI does not pin, first on PATH: new-project then records no prose count (#549), on a machine

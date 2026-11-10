@@ -1831,3 +1831,84 @@ test('the question rule refuses a 30-word question, a check id, a count under th
   assert.match(questionFindings(ok, 2).join('\n'), /1 quoted questions, under the floor of 2/);
   assert.match(questionFindings('"Which timezone?"\n', 1).join('\n'), /no line naming process\/writing\.md/);
 });
+
+// #634 (F-13 build step 5): where /work-ticket runs tests-can-fail, and what a project is told. The step is a setting
+// with a default, so a project made before it runs it with no edit; slipway's own value is none.
+const TCF = 'Tests can fail';
+const TCF_DEFAULT = 'pnpm tests-can-fail';
+const tcfSection = () => (section(intake, 'Tests can fail', 2) ?? '').replace(/\s+/g, ' ');
+// The skill's rule as code: the settings row when present, else intake's default; none runs nothing.
+function testsCanFailRun(rows) {
+  const row = intakeRows.get(TCF);
+  const fallback = plain((table(section(intake, 'Configuration', 2))?.rows ?? []).find((r) => plain(r[0]) === TCF)?.[2] ?? '');
+  const value = rows.has(TCF) ? rows.get(TCF) : row?.fallback ? fallback : null;
+  if (value === null) return { error: `no ${TCF} row and no default` };
+  return /^none\b/.test(value) ? { run: null } : { run: value };
+}
+
+test('Tests can fail: a work-ticket setting with the default `pnpm tests-can-fail`, the template row, and none in slipway', () => {
+  const row = intakeRows.get(TCF);
+  assert.ok(row, `process/intake.md → Configuration must list \`${TCF}\``);
+  assert.ok(row.readers.has('work-ticket'), `\`${TCF}\` is read by work-ticket`);
+  assert.ok(row.fallback && !row.question, `\`${TCF}\` has a default and asks nothing, so a project made before it needs no edit`);
+  assert.equal(testsCanFailRun(new Map()).run, TCF_DEFAULT, 'a project with no row runs the default');
+  assert.equal(rowsOf(read('AGENT.md')).get(TCF), TCF_DEFAULT, 'the template row holds the default');
+  assert.ok(reads(read(skillPath('work-ticket'))).includes(TCF), `work-ticket's Reads line must name \`${TCF}\``);
+  const phase4 = (section(read(skillPath('work-ticket')), 'Phase 4 — Prove it', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(phase4, /Run `Quality gate` exactly as written, and, on committed work, `Tests can fail` unless none\. Run both at every later gate run \(`process\/intake\.md` → Tests can fail\)/, 'Phase 4 must run the setting beside the gate, at every gate run, unless none');
+  assert.match(phase4, /tests-can-fail: \{summary line\} → exit 0 \| FAIL \{what\} \| N\/A — none/, 'the PHASE 4 block must report the step');
+  assert.match(tcfSection(), /beside `Quality gate`, unless it is none\. It runs at each gate run from Phase 4 on, after the work is committed and before the pull request is marked ready/, 'intake → Tests can fail says when it runs');
+  assert.match(tcfSection(), /No CI job runs it/, 'intake → Tests can fail says it is not in CI');
+});
+
+test('slipway\'s /work-ticket stays green on a pull request that changes a scripts/*.test.mjs: its setting is none, so the step does not run', () => {
+  const { file, rows } = settingsFor(SRC);
+  assert.equal(file, SETTINGS);
+  assert.deepEqual(testsCanFailRun(rows), { run: null }, `${SETTINGS} must set \`${TCF}\` to none: slipway has no package that uses Vitest`);
+  assert.match(rows.get(TCF), /a changed scripts\/\S*\.test\.mjs is a test file no package runs/, 'the row says why: a changed scripts/*.test.mjs is a test no package runs');
+  // A project that turns it off the same way runs nothing; one that names another command runs that.
+  assert.deepEqual(testsCanFailRun(new Map([[TCF, 'none']])), { run: null });
+  assert.deepEqual(testsCanFailRun(new Map([[TCF, 'pnpm -s tests-can-fail']])), { run: 'pnpm -s tests-can-fail' });
+});
+
+test('a project made before the step is told by its next sync: AGENT.md is its template file, and /sync-slipway names the new setting', () => {
+  assert.equal(classify(parseOwnership(read('dev/ownership.yaml')), 'AGENT.md'), 'seeded', 'a sync shows a project slipway\'s change to the AGENT.md template');
+  const step1 = (section(read(skillPath('sync-slipway')), '1 — Plan and explain', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(step1, /Name each setting `process\/intake\.md` → Configuration gained with a default since `base`: what it does for this project, and that the default applies with no edit to `AGENT\.md`\./, '/sync-slipway must name each setting that arrived with a default');
+  assert.match(step1, /For `Tests can fail`, say that `\/work-ticket` now runs `pnpm tests-can-fail` before it marks a pull request ready, and that `none` turns it off\. Say too that a branch cut before this sync has no such script until the base branch is merged into it/, '/sync-slipway must tell the owner what the step does and the merge a branch cut before it needs');
+});
+
+test('a branch with no tests-can-fail script is a red gate that names the action: merge the base branch into this branch', () => {
+  assert.match(tcfSection(), /When the branch's root `package\.json` has no `tests-can-fail` script, the branch was cut before the step reached the project\. The gate is red\./, 'a missing script is a red gate, never a skip');
+  assert.match(tcfSection(), /"This branch was cut before tests-can-fail arrived\. Merge the base branch into this branch \(`git merge origin\/\{base\}`\), then run the gate again\."/, 'the message names the action');
+  const boot = (section(read('BOOTSTRAP.md'), '4. Tests can fail', 2) ?? '').replace(/\s+/g, ' ');
+  assert.match(boot, /A branch cut before the step arrived\*\* has no `tests-can-fail` script, and `\/work-ticket` says so\. Merge the base branch into it/, 'BOOTSTRAP.md tells the owner too');
+});
+
+test('/work-ticket starts the step so the harness never ends it first, and a run with no exit of its own is red and checked for its processes', () => {
+  const s = tcfSection();
+  assert.match(s, /\*\*Start it in the background\*\*, and read its exit when it ends\. Never under a timeout of its own: it stops itself at 10 minutes, and its install and clean-up come on top\./, 'the step runs in the background, never under a timeout');
+  assert.match(s, /A run that ends without the step's own exit \(killed, or the session ended\) is a red gate too\./, 'a run with no exit of its own is red');
+  assert.match(s, /run `pgrep -U "\$\(id -u\)" -f "\{folder\}"` on the folder its own `copying` line printed; without that line, do not guess, and say so\. Never use the bare `tests-can-fail-` prefix/, 'the process check names this user and this run\'s folder');
+  assert.doesNotMatch(s, /pgrep[^`]*-f "?tests-can-fail-"?`/, 'never pgrep the bare prefix');
+  assert.match(s, /\*\*Commit first\.\*\* Run it only when `git status --porcelain --untracked-files=all` prints nothing\. A run on a tree with any change, untracked files included, is not the gate's result/, 'the step judges committed work only, so it never passes on untracked tests');
+});
+
+test('the result goes into ## Verification inside a fenced block: §1\'s list plus both shares, or the one no-tests line', () => {
+  const s = tcfSection();
+  assert.match(s, /\*\*Its result goes into `## Verification`\*\*, inside a fenced code block\. There, a test name with an `@name` in it notifies nobody\./, 'the result is fenced');
+  assert.match(s, /Copy the summary line, each count line that is not zero, each test named not judged, and both shares\./, 'the copy is §1\'s list plus both shares');
+  assert.match(s, /A pull request that adds or changes no test copies the one line `No tests were added or changed\.`/, 'a pull request with no test copies the one line');
+});
+
+test('BOOTSTRAP.md §4 tells a project the step, names its open limitation as a class only, and cleans up one folder', () => {
+  const boot = section(read('BOOTSTRAP.md'), '4. Tests can fail', 2) ?? '';
+  const flat = boot.replace(/\s+/g, ' ');
+  for (const must of ['Only in `/work-ticket`', 'No CI job runs it', '`ci/exceptions.yaml`', '`ci/tests-can-fail.yaml`', '`tests-can-fail#other-runner`', '`tests-can-fail#mechanical`', 'The entry counts once', 'stops at 10', '`ci/before-verify.sh`', 'is yours to stop', 'stop it by that record', 'leaves it as it found it'])
+    assert.ok(flat.includes(must), `BOOTSTRAP.md §4 must say ${must}`);
+  assert.ok(flat.includes('A test\'s position can be misread, so a weak new test can pass (#658, decided in #657).'), 'the open limitation is named as a class, with its issue');
+  for (const line of boot.split('\n').filter((l) => /\b(pkill|rm -rf)\b/.test(l)))
+    assert.ok(line.includes('"<that folder>"'), `the clean-up names the one folder, never the prefix: ${line.trim()}`);
+  assert.ok(flat.includes('Never use the bare `tests-can-fail-` prefix'), 'the clean-up warns off the bare prefix');
+  assert.match(read(skillPath('bootstrap')), /\| 16 \| on a scratch branch, commit a test in `apps\/web` that asserts only on its own input, then run `pnpm tests-can-fail` once/, '/bootstrap runs the step once');
+});

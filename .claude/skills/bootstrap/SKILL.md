@@ -91,6 +91,7 @@ as not run, never as passed.
 | 10 | the sample commands in `process/harness/TESTING.md` | each hook prints; non-matches print nothing |
 | 12 | two milestone files with `status: active` | MS1 `wip/exceeded` |
 | 13 | M1 `status: active` while FRAME is `status: draft` | K1 `status/draft` |
+| 16 | on a scratch branch, commit a test in `apps/web` that asserts only on its own input, then run `pnpm tests-can-fail` once (in the background; it can take minutes) | exit 1, naming that test (BOOTSTRAP §4) |
 
 **You run on GitHub** (on this private repository; clean up each one):
 

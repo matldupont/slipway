@@ -55,6 +55,7 @@ key's value is its row's second cell, the Value column; the third column only ex
 | Testing strategy doc | log-bug, work-ticket | — | Where is it written which kind of test goes where? |
 | Effort decision-tree | the three `log-` skills | — | How should each issue say which model and effort to use? The file, or none. |
 | Quality gate | work-ticket | — | Which command proves a change is done? |
+| Tests can fail | work-ticket | `pnpm tests-can-fail` | — |
 | Domain map | work-ticket | — | Which folders are which part of the app? |
 | Stack constraints | work-ticket | — | Where are the rules for each part's code? |
 | Labels | the three `log-` skills | `feature: enhancement · bug: bug · docs: documentation` | — |
@@ -265,6 +266,34 @@ repository `git remote get-url origin` names, say so and ask before the first pu
   `--draft` when a review runs before the PR is ready (`/work-ticket`). Every later change is a new commit on the PR: never amend or force-push, so each reviewed head stays
   addressable. With no remote, stop before the push and tell the owner the branch is ready.
 - **Before ready,** a PR opened ready or marked ready by hand has the `pr-body` check run on its final body (saved as `{dir}/body.md`, in a fresh folder) with `node ci/checks/lib/gate-files.mjs "$(git rev-parse origin/{base})" "$(git rev-parse HEAD)" > "{dir}/body.changes.json"` and `node ci/checks/meta/p1-pr-body.mjs "{dir}" .` (the `.` is the root it reads `decisions.md` from), and is not marked ready while that reports a finding.
+
+## Tests can fail
+
+`/work-ticket` runs the `Tests can fail` command beside `Quality gate`, unless it is none. It runs at each gate run from
+Phase 4 on, after the work is committed and before the pull request is marked ready (F-13 §1, D-037). It judges the last
+commit, so uncommitted work is not judged. No CI job runs it: this is the one place it runs.
+
+- **No script.** When the branch's root `package.json` has no `tests-can-fail` script, the branch was cut before the
+  step reached the project. The gate is red. The skill says: "This branch was cut before tests-can-fail arrived.
+  Merge the base branch into this branch (`git merge origin/{base}`), then run the gate again."
+- **Commit first.** Run it only when `git status --porcelain --untracked-files=all` prints nothing. A run on a tree
+  with any change, untracked files included, is not the gate's result: commit, then run it again. An untracked file
+  outside the change is shown to the owner, never committed, deleted or stashed to clear the tree.
+- **Start it in the background**, and read its exit when it ends. Never under a timeout of its own: it stops itself at
+  10 minutes, and its install and clean-up come on top. Its line `copying {commit} to {folder}` names this run's
+  folder.
+- **Exit 1 or 2 is a red gate**, fixed and run again as any red gate is. A run that ends without the step's own exit
+  (killed, or the session ended) is a red gate too. Then run `pgrep -U "$(id -u)" -f "{folder}"` on the folder its own `copying` line printed; without that line,
+  do not guess, and say so.
+  Never use the bare `tests-can-fail-` prefix, which matches another session's run. Stop each process it lists, and
+  say so. `pgrep` reads the folder as a pattern: a folder with a character other than letters, digits and `/ . _ -`
+  is checked by eye in `ps -U "$(id -u)" -o pid,command` instead, and said so.
+- **Its result goes into `## Verification`**, inside a fenced code block. There, a test name with an `@name` in it
+  notifies nobody. Copy the summary line, each count line that is not zero, each test named not judged, and both shares. A pull
+  request that adds or changes no test copies the one line `No tests were added or changed.`, and nothing else.
+- **What it does not cover.** Each new test it did not judge is still reverted by hand (L-04, `/work-ticket` Phase 4,
+  step 3). That is a test it names not judged, one added after its run, or one under a name it does not read as a
+  test. Where `Tests can fail` is none, it is every new test.
 
 ## Deferred check
 

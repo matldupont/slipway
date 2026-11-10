@@ -633,6 +633,10 @@ in that form. The rule above is otherwise as decided.
 
 Amends: F-13
 
+The figures that hold now are in the latest amendment that sets them, of 2026-11-02 (#439): a budget of 2 minutes and
+a stop at 10, on the machine building the pull request. The heading's "within 5 minutes" and the figures below it are
+the ones they replaced.
+
 #51 asks that a product's tests be able to fail, checked on every pull request (F-13,
 `dev/features/tests-can-fail.md`). The owner picked each of these on 2026-10-08, with the measurements below in
 front of them:
@@ -892,6 +896,13 @@ the build, and one review of 0.5, scoped to those fixes. That review is the last
 from it becomes an acceptance line in the matching build issue, and only one that changes the Contract's
 guarantees goes back to the owner. The root script that runs the step is `tests-can-fail`, a name W1 does not
 count as gated, since no workflow runs it.
+
+**Amended 2026-11-09** (#634, answering the review of F-13 at 0.5, AR-5). The amendment of 2026-11-02 says each
+call's process group is killed on exit. That holds for the install and every runner call. The group of
+`ci/before-verify.sh` is kept until the run ends, as F-13 §1 says, since a service it starts is what the tests
+need; every group still alive is killed when the run ends. A service the script starts outside its group is the
+project's to stop (`BOOTSTRAP.md` §4). Also from #634: `/work-ticket` runs `pnpm tests-can-fail` at its quality
+gate, by the `Tests can fail` setting, `none` in slipway itself, which has no package that uses Vitest.
 
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
 
