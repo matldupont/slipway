@@ -1624,7 +1624,8 @@ Why: a check that fails good tests teaches people to excuse them. The helpers th
 project's integration tests reach their code.
 
 Known limitation: a test whose helper imports product code can be credited by a helper subject when it kills nothing
-on its own, and a test whose own subjects use up the cap leaves its helper subjects untried (F-13, Known limitations).
+on its own, and a test whose own subjects use up a kind's cap of step 9 has no helper change of that kind tried; its
+helper subjects still get the turns left in the other kind, and can credit it (F-13, Known limitations).
 
 ## Week 1 — decide before M1 closes
 
