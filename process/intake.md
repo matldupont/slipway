@@ -277,8 +277,8 @@ commit, so uncommitted work is not judged. No CI job runs it: this is the one pl
   step reached the project. The gate is red, and the skill says: "This branch was cut before tests-can-fail arrived:
   merge the base branch into this branch (`git merge origin/{base}`), then run the gate again."
 - **Start it in the background**, and read its exit when it ends. Never under a timeout of its own: it stops itself at
-  10 minutes, and its install and clean-up come on top. Before it starts, list `tests-can-fail-*` in the system's
-  temporary directory (`node -p "require('os').tmpdir()"`); the one that is new after it is this run's folder.
+  10 minutes, and its install and clean-up come on top. Its line `copying {commit} to {folder}` names this run's
+  folder.
 - **Exit 1 or 2 is a red gate**, fixed and run again as any red gate is. A run that ends without the step's own exit
   (killed, or the session ended) is a red gate too: run `pgrep -U "$(id -u)" -f "{folder}"` on this run's folder, never
   the bare `tests-can-fail-` prefix, which matches another session's run. Stop each process it lists, and say so.

@@ -169,8 +169,8 @@ into the pull request's `## Verification`.
 - **A test that uses such a service leaves it as it found it.** One service serves every run of a test file. A test
   that leaves rows or state behind can fail on its next run, and the step then reads it as flaky.
 - **A run that was killed** (SIGKILL, or a machine put to sleep) can leave its copy and the processes started in
-  it. Find that run's folder, the one created when it started:
-  `ls -dt "$(node -p "require('os').tmpdir()")"/tests-can-fail-*`. Then stop and remove that one folder:
+  it. Its line `copying {commit} to {folder}` names that run's folder; without the output, it is the one created when
+  the run started: `ls -dt "$(node -p "require('os').tmpdir()")"/tests-can-fail-*`. Stop and remove that one folder:
 
   ```bash
   pkill -U "$(id -u)" -f "<that folder>"
