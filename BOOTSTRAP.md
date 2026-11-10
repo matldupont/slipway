@@ -133,7 +133,7 @@ into the pull request's `## Verification`.
   the command; `none` turns it off.
 - **What it touches.** Nothing in the project. It judges the last commit, in a copy under the system's temporary
   directory, so commit before it runs. It reads JavaScript and TypeScript tests run by Vitest 4 or 5.
-- **Two files take a test out.** Both are yours and both sit under `ci/`, so the harness asks before an agent edits
+- **Two files take a test out.** Both are yours, and both sit under `ci/`. The harness asks before an agent edits
   either, and a pull request that changes one says so under `## Gate changes`.
   - `ci/exceptions.yaml` excuses a test file with a dated entry, id `tests-can-fail#<test file>`. Use it for a test
     that checks something other than what code does: one that reads source text, or a list of migrations.
@@ -143,11 +143,13 @@ into the pull request's `## Verification`.
 
   ```yaml
   entries:
+    # How a package's tests run.
     - package: api
       run: node --env-file-if-exists=.env.test node_modules/vitest/vitest.mjs run
+    # A folder kept out, with its reason.
     - package: web
       keep-out: e2e/
-      reason: browser tests; test:e2e runs them
+      reason: browser tests, which test:e2e runs.
   ```
 - **Another test runner.** A package that does not use Vitest has its changed tests named, not judged. When no
   package uses Vitest, the step stops; one dated entry `tests-can-fail#other-runner` in `ci/exceptions.yaml` turns

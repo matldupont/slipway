@@ -2,7 +2,7 @@
 id: L-72
 date: 2026-11-09
 rule: Fail a pull request whose new test is not judged because of how it imports its subject, not only list it.
-failure: deferred component, not yet built — a test that imports its subject by a path alias or a dynamic import is named not judged and passes, so a weak test can dodge the check (F-13, Known limitations)
+failure: deferred component, not yet built. A test that imports its subject by a path alias or a dynamic import is named not judged and passes. So a weak test can dodge the check (F-13, Known limitations).
 enforcement:
   status: declined
   review-by: +90d

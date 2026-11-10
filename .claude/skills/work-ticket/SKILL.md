@@ -28,8 +28,8 @@ Stop hook, never its gate files; a session started on a branch that changes `.cl
 already: say so, and stop. The reviewers get `{base}`'s copies, and are the definitions in the checkout the session started in (`.claude/agents/`), not a later edit of one. A branch whose diff to `origin/{base}` changes `.claude/agents/**` is reviewed only by a session that started on a commit of `origin/{base}` (`git merge-base --is-ancestor <that commit> origin/{base}` exits 0) with nothing changed or untracked under `.claude/agents/`, both read from its opening git status: any other session, and one that cannot tell either, says so and stops before a reviewer starts. This guard lives in files a branch can change: it holds
 only on work the owner or their agent wrote (Without an issue).
 
-**Reads:** `Product name`, `Issue repo`, `PRD path`, `Feature docs dir`, `Milestone roadmap`, `Change lanes`,
-`Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Tests can fail`, `Domain map`,
+**Reads:** `Product name`, `Issue repo`, `PRD path`, `Feature docs dir`, `Milestone roadmap`, `Change lanes`.
+Also `Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Tests can fail`, `Domain map`,
 `Stack constraints`, `QA plans`, `Cold review`, `Error tracker`.
 
 Then resolve per `process/intake.md` → Configuration, and read before Phase 1, not from memory: `Stack constraints`,
@@ -145,7 +145,7 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 
 ## Phase 4 — Prove it
 
-1. **Gate.** Run `Quality gate` exactly as written, and `Tests can fail` beside it unless none, here and at every later
+1. **Gate.** Run `Quality gate` exactly as written, and `Tests can fail` beside it unless none. Run both at every later
    gate run (`process/intake.md` → Tests can fail). Every command exits 0, and the output is from this run.
 2. **Acceptance → test.** For each acceptance line, the test that fails when the line is broken
    (`{line} → {file}: {test name}`). A line with none gets its test now, before going on.

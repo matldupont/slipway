@@ -1855,9 +1855,9 @@ test('Tests can fail: a work-ticket setting with the default `pnpm tests-can-fai
   assert.equal(rowsOf(read('AGENT.md')).get(TCF), TCF_DEFAULT, 'the template row holds the default');
   assert.ok(reads(read(skillPath('work-ticket'))).includes(TCF), `work-ticket's Reads line must name \`${TCF}\``);
   const phase4 = (section(read(skillPath('work-ticket')), 'Phase 4 — Prove it', 2) ?? '').replace(/\s+/g, ' ');
-  assert.match(phase4, /Run `Quality gate` exactly as written, and `Tests can fail` beside it unless none, here and at every later gate run \(`process\/intake\.md` → Tests can fail\)/, 'Phase 4 must run the setting beside the gate, at every gate run, unless none');
+  assert.match(phase4, /Run `Quality gate` exactly as written, and `Tests can fail` beside it unless none\. Run both at every later gate run \(`process\/intake\.md` → Tests can fail\)/, 'Phase 4 must run the setting beside the gate, at every gate run, unless none');
   assert.match(phase4, /tests-can-fail: \{summary line\} → exit 0 \| FAIL \{what\} \| N\/A — none/, 'the PHASE 4 block must report the step');
-  assert.match(tcfSection(), /beside `Quality gate`, unless it is none, at each gate run from Phase 4 on, after the work is committed and before the pull request is marked ready/, 'intake → Tests can fail says when it runs');
+  assert.match(tcfSection(), /beside `Quality gate`, unless it is none\. It runs at each gate run from Phase 4 on, after the work is committed and before the pull request is marked ready/, 'intake → Tests can fail says when it runs');
   assert.match(tcfSection(), /No CI job runs it/, 'intake → Tests can fail says it is not in CI');
 });
 
@@ -1875,12 +1875,12 @@ test('a project made before the step is told by its next sync: AGENT.md is its t
   assert.equal(classify(parseOwnership(read('dev/ownership.yaml')), 'AGENT.md'), 'seeded', 'a sync shows a project slipway\'s change to the AGENT.md template');
   const step1 = (section(read(skillPath('sync-slipway')), '1 — Plan and explain', 2) ?? '').replace(/\s+/g, ' ');
   assert.match(step1, /Name each setting `process\/intake\.md` → Configuration gained with a default since `base`: what it does for this project, and that the default applies with no edit to `AGENT\.md`\./, '/sync-slipway must name each setting that arrived with a default');
-  assert.match(step1, /For `Tests can fail`, say that `\/work-ticket` now runs `pnpm tests-can-fail` before it marks a pull request ready, that `none` turns it off, and that a branch cut before this sync has no such script until the base branch is merged into it/, '/sync-slipway must tell the owner what the step does and the merge a branch cut before it needs');
+  assert.match(step1, /For `Tests can fail`, say that `\/work-ticket` now runs `pnpm tests-can-fail` before it marks a pull request ready, and that `none` turns it off\. Say too that a branch cut before this sync has no such script until the base branch is merged into it/, '/sync-slipway must tell the owner what the step does and the merge a branch cut before it needs');
 });
 
 test('a branch with no tests-can-fail script is a red gate that names the action: merge the base branch into this branch', () => {
-  assert.match(tcfSection(), /When the branch's root `package\.json` has no `tests-can-fail` script, the branch was cut before the step reached the project\. The gate is red/, 'a missing script is a red gate, never a skip');
-  assert.match(tcfSection(), /"This branch was cut before tests-can-fail arrived: merge the base branch into this branch \(`git merge origin\/\{base\}`\), then run the gate again\."/, 'the message names the action');
+  assert.match(tcfSection(), /When the branch's root `package\.json` has no `tests-can-fail` script, the branch was cut before the step reached the project\. The gate is red\./, 'a missing script is a red gate, never a skip');
+  assert.match(tcfSection(), /"This branch was cut before tests-can-fail arrived\. Merge the base branch into this branch \(`git merge origin\/\{base\}`\), then run the gate again\."/, 'the message names the action');
   const boot = (section(read('BOOTSTRAP.md'), '4. Tests can fail', 2) ?? '').replace(/\s+/g, ' ');
   assert.match(boot, /A branch cut before the step arrived\*\* has no `tests-can-fail` script, and `\/work-ticket` says so\. Merge the base branch into it/, 'BOOTSTRAP.md tells the owner too');
 });
@@ -1888,14 +1888,14 @@ test('a branch with no tests-can-fail script is a red gate that names the action
 test('/work-ticket starts the step so the harness never ends it first, and a run with no exit of its own is red and checked for its processes', () => {
   const s = tcfSection();
   assert.match(s, /\*\*Start it in the background\*\*, and read its exit when it ends\. Never under a timeout of its own: it stops itself at 10 minutes, and its install and clean-up come on top\./, 'the step runs in the background, never under a timeout');
-  assert.match(s, /A run that ends without the step's own exit \(killed, or the session ended\) is a red gate too/, 'a run with no exit of its own is red');
-  assert.match(s, /run `pgrep -U "\$\(id -u\)" -f "\{folder\}"` on this run's folder, never the bare `tests-can-fail-` prefix/, 'the process check names this user and this run\'s folder');
+  assert.match(s, /A run that ends without the step's own exit \(killed, or the session ended\) is a red gate too\./, 'a run with no exit of its own is red');
+  assert.match(s, /run `pgrep -U "\$\(id -u\)" -f "\{folder\}"` on this run's folder\. Never use the bare `tests-can-fail-` prefix/, 'the process check names this user and this run\'s folder');
   assert.doesNotMatch(s, /pgrep[^`]*-f "?tests-can-fail-"?`/, 'never pgrep the bare prefix');
 });
 
 test('the result goes into ## Verification inside a fenced block: §1\'s list plus both shares, or the one no-tests line', () => {
   const s = tcfSection();
-  assert.match(s, /\*\*Its result goes into `## Verification`\*\*, inside a fenced code block, so a test name with an `@name` in it notifies nobody\./, 'the result is fenced');
+  assert.match(s, /\*\*Its result goes into `## Verification`\*\*, inside a fenced code block\. There, a test name with an `@name` in it notifies nobody\./, 'the result is fenced');
   assert.match(s, /Copy the summary line, each count line that is not zero, each test named not judged, and both shares\./, 'the copy is §1\'s list plus both shares');
   assert.match(s, /A pull request that adds or changes no test copies the one line `No tests were added or changed\.`/, 'a pull request with no test copies the one line');
 });

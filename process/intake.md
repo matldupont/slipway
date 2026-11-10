@@ -269,22 +269,23 @@ repository `git remote get-url origin` names, say so and ask before the first pu
 
 ## Tests can fail
 
-`/work-ticket` runs the `Tests can fail` command beside `Quality gate`, unless it is none, at each gate run from Phase
-4 on, after the work is committed and before the pull request is marked ready (F-13 §1, D-037). It judges the last
+`/work-ticket` runs the `Tests can fail` command beside `Quality gate`, unless it is none. It runs at each gate run from
+Phase 4 on, after the work is committed and before the pull request is marked ready (F-13 §1, D-037). It judges the last
 commit, so uncommitted work is not judged. No CI job runs it: this is the one place it runs.
 
 - **No script.** When the branch's root `package.json` has no `tests-can-fail` script, the branch was cut before the
-  step reached the project. The gate is red, and the skill says: "This branch was cut before tests-can-fail arrived:
-  merge the base branch into this branch (`git merge origin/{base}`), then run the gate again."
+  step reached the project. The gate is red. The skill says: "This branch was cut before tests-can-fail arrived.
+  Merge the base branch into this branch (`git merge origin/{base}`), then run the gate again."
 - **Start it in the background**, and read its exit when it ends. Never under a timeout of its own: it stops itself at
   10 minutes, and its install and clean-up come on top. Its line `copying {commit} to {folder}` names this run's
   folder.
 - **Exit 1 or 2 is a red gate**, fixed and run again as any red gate is. A run that ends without the step's own exit
-  (killed, or the session ended) is a red gate too: run `pgrep -U "$(id -u)" -f "{folder}"` on this run's folder, never
-  the bare `tests-can-fail-` prefix, which matches another session's run. Stop each process it lists, and say so.
-- **Its result goes into `## Verification`**, inside a fenced code block, so a test name with an `@name` in it notifies
-  nobody. Copy the summary line, each count line that is not zero, each test named not judged, and both shares. A pull
-  request that adds or changes no test copies the one line `No tests were added or changed.`
+  (killed, or the session ended) is a red gate too. Then run `pgrep -U "$(id -u)" -f "{folder}"` on this run's folder.
+  Never use the bare `tests-can-fail-` prefix, which matches another session's run. Stop each process it lists, and
+  say so.
+- **Its result goes into `## Verification`**, inside a fenced code block. There, a test name with an `@name` in it
+  notifies nobody. Copy the summary line, each count line that is not zero, each test named not judged, and both shares. A pull
+  request that adds or changes no test copies the one line `No tests were added or changed.`, and nothing else.
 - **What it does not cover.** A test it names not judged, and every test where `Tests can fail` is none, is still
   reverted by hand (L-04, `/work-ticket` Phase 4, step 3).
 
