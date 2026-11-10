@@ -106,6 +106,48 @@ test('the subjects are the imported code and what it re-exports; types are dropp
   assert.equal(record.tests.filter((x) => x.name !== 'uses all').length, 0);
 });
 
+test('a test helper that imports product code is a path to it: the code a test reaches only through its helpers is a subject, and the test is judged (#659)', (t) => {
+  const p = project({ base: {
+    'pkgs/app/src/cart.ts': CART,
+    'pkgs/app/src/config.ts': 'export const config = { limit: 3 };\nexport function over(n) {\n  return n > config.limit;\n}\n',
+    'pkgs/app/tests/api.ts': "import { add } from '../src/cart';\nexport const start = () => ({ add });\n",
+    'pkgs/app/tests/cart-fixture.ts': "import { start } from './api';\nexport const app = start();\n",
+  } });
+  t.after(() => p.remove());
+  p.config({ tests: { 'through its helper': { failsWhen: [{ file: 'pkgs/app/src/cart.ts', line: 2, has: 'return a + b' }] } } });
+  p.commit({ 'pkgs/app/tests/checkout.test.ts': testFile(['through its helper'], { imports: "import { config } from '../src/config';\nimport { app } from './cart-fixture';\nconst { add } = app;" }) });
+  const { status, record } = p.run();
+  assert.equal(status, 0, record?.stopped);
+  const judged = byName(record, 'through its helper');
+  assert.deepEqual(judged.subjects.sort(), ['pkgs/app/src/cart.ts', 'pkgs/app/src/config.ts']);
+  assert.deepEqual([judged.state, judged.failedOn?.file], ['judged', 'pkgs/app/src/cart.ts']);
+  // The helpers are still support, never changed.
+  assert.deepEqual(record.support.map((f) => f.file).sort(), ['pkgs/app/tests/api.ts', 'pkgs/app/tests/cart-fixture.ts']);
+  assert.deepEqual(record.notJudged, []);
+});
+
+test('a test whose helpers import no product code is still support-only, and a helper chain is followed 3 levels deep, no further (#659)', (t) => {
+  const p = project({ base: {
+    'pkgs/app/src/cart.ts': CART,
+    'pkgs/app/tests/rows.ts': 'export const rows = [1, 2];\n',
+    'pkgs/app/tests/data-fixture.ts': "import { rows } from './rows';\nexport const data = rows;\n",
+    'pkgs/app/tests/h3.ts': "import { add } from '../src/cart';\nexport const h3 = add;\n",
+    'pkgs/app/tests/h2.ts': "export { h3 as h2 } from './h3';\nimport './h3';\n",
+    'pkgs/app/tests/h1.ts': "import { h2 } from './h2';\nexport const h1 = h2;\n",
+    'pkgs/app/tests/h0.ts': "import { h1 } from './h1';\nexport const h0 = h1;\n",
+  } });
+  t.after(() => p.remove());
+  p.commit({
+    'pkgs/app/tests/data.test.ts': testFile(['data only'], { imports: "import { data } from './data-fixture';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/deep.test.ts': testFile(['too deep'], { imports: "import { h0 } from './h0';\nconst add = h0;" }),
+  });
+  const { status, record } = p.run();
+  assert.equal(status, 0, record?.stopped);
+  const why = (name) => record.notJudged.find((n) => n.name === name);
+  assert.deepEqual([why('data only')?.why, why('too deep')?.why], ['support-only', 'support-only']);
+  assert.equal(record.tests.length, 0);
+});
+
 test('could-not-be-parsed, no-subject, excused and kept-out are named; a file nothing lists is never-run; data and helpers are not tests', (t) => {
   const p = project({ base: { 'pkgs/app/src/broken.ts': 'export function (\n' } });
   t.after(() => p.remove());

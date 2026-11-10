@@ -14,6 +14,8 @@ const SUPPORT_NAMES = new Set(['test-utils', 'factories', 'setup']);
 const DEPTH = 3;
 const CAP = 30;
 export const NOT_SOURCE = 'not JavaScript or TypeScript';
+export const READS_FILES = 'reads files';
+const FS = new Set(['fs', 'node:fs', 'fs/promises', 'node:fs/promises']);
 
 // Matched on the path inside the repository (AR-10 of the 0.3 review): where the checkout sits never makes a file support.
 export function isSupport(path) {
@@ -134,7 +136,7 @@ function entryOf(tracked, pkg) {
 
 /**
  * The subjects of one test file (§3.6), each with the changes it can get, and what was dropped and why.
- * @returns {{ pools: Array<{ file: string, text: string, list: object[] }>, support: string[], unreadable: Array<{ file: string, reason: string }>, nothing: string[], followed: number }}
+ * @returns {{ pools: Array<{ file: string, text: string, list: object[] }>, support: string[], unreadable: Array<{ file: string, reason: string }>, nothing: string[], followed: number, readsFiles: boolean }}
  */
 export function subjectsOf({ copy, tracked, packages, changed, testFile, testText }) {
   const found = new Set();
@@ -142,8 +144,13 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
   const read = (file) => readFileSync(join(copy, file), 'utf8');
   const take = (file, depth) => {
     if (!file || found.has(file) || support.has(file) || looksLikeTest(file) && !isSupport(file)) return;
+    // §3.6 (#659): test support is never a subject, but a path to one. A helper's relative imports are followed
+    // like the test's own, inside the same depth, so product code a test reaches only through its helpers is changed.
     if (isSupport(file)) {
       support.add(file);
+      if (depth >= DEPTH) return;
+      const specs = safely(imports, file, read(file));
+      if (Array.isArray(specs)) for (const spec of specs) if (spec.startsWith('.')) take(resolve(tracked, file, spec), depth + 1);
       return;
     }
     found.add(file);
@@ -152,6 +159,8 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
     if (Array.isArray(paths)) for (const spec of paths) take(resolve(tracked, file, spec), depth + 1);
   };
   const specs = safely(imports, testFile, testText);
+  // §5: a test that imports no source file and reads files is told to excuse itself, not to import by a relative path.
+  const readsFiles = Array.isArray(specs) && specs.some((s) => FS.has(s));
   // A test file whose imports cannot be read has none followed; it is named, and what is beside it still counts.
   const unreadable = specs.unreadable ? [{ file: testFile, reason: specs.unreadable }] : [];
   for (const spec of Array.isArray(specs) ? specs : []) {
@@ -175,7 +184,7 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
     else if (!list.length) nothing.push(file);
     else pools.push({ file, text, list });
   }
-  return { pools, support: [...support], unreadable, nothing, followed: found.size + support.size + (specs.unreadable ? 1 : 0) };
+  return { pools, support: [...support], unreadable, nothing, followed: found.size + support.size + (specs.unreadable ? 1 : 0), readsFiles };
 }
 
 // Why a test file with no subject left has its new tests not judged (§3.6).

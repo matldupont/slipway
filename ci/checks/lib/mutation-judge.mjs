@@ -6,7 +6,7 @@ import { writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { esc, placed, redMessage, runFile, Stop } from './mutation-calls.mjs';
 import { lastLines } from './mutation-processes.mjs';
-import { queueOf, skippedEntry, subjectsOf, whyNoSubject } from './mutation-tests.mjs';
+import { queueOf, READS_FILES, skippedEntry, subjectsOf, whyNoSubject } from './mutation-tests.mjs';
 import { failure, notRun } from './runner-output.mjs';
 
 export class OutOfTime extends Error {}
@@ -63,7 +63,7 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
       addFiles(record.noChange, s.nothing);
       if (!s.pools.length) {
         const why = whyNoSubject(s);
-        const detail = why === 'support-only' ? s.support[0] : why === 'no-change-to-make' ? s.nothing[0] : s.unreadable[0]?.file ?? null;
+        const detail = why === 'support-only' ? s.support[0] : why === 'no-change-to-make' ? s.nothing[0] : why === 'no-subject' ? (s.readsFiles ? READS_FILES : null) : s.unreadable[0]?.file ?? null;
         for (const g of unit.groups) record.notJudged.push({ file: unit.file, name: g.name, why, detail });
         continue;
       }

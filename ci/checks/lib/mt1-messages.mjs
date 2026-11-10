@@ -19,7 +19,10 @@ export const OWNER_GAVE = ['excused', 'kept-out', 'mechanical'];
 
 // §5's not-judged line for each reason, and what to do about it.
 const REASONS = {
-  'no-subject': () => ['it imports no source file this step follows', `Write its import of the code under test as a relative path, ${EXCUSE}.`],
+  // A test that reads files (#659) checks something other than what code does: its way out is the excuse.
+  'no-subject': (d) => (d === 'reads files'
+    ? ['it imports no source file and reads files instead', 'Excuse the file in `ci/exceptions.yaml` with a date, since it checks files, not what code does.']
+    : ['it imports no source file this step follows', `Write its import of the code under test as a relative path, ${EXCUSE}.`]),
   'support-only': (d) => [`every source file it imports is test support (${file(d)})`, `Write an assertion on product code, not test support, ${EXCUSE}.`],
   'could-not-be-parsed': (d) => [`its subject ${file(d)} could not be parsed`, `Edit the subject so it parses, ${EXCUSE}.`],
   'other-language': (d) => [`its subject ${file(d)} is not JavaScript or TypeScript`, 'Add an excuse for the file in `ci/exceptions.yaml` with a date, since nothing here can change it.'],
