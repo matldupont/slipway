@@ -172,8 +172,8 @@ into the pull request's `## Verification`.
   that leaves rows or state behind can fail on its next run, and the step then reads it as flaky.
 - **A run that was killed** (SIGKILL, or a machine put to sleep) can leave its copy and the processes started in
   it. Its line `copying {commit} to {folder}` names that run's folder. Without that line, do not guess: the newest
-  folder can be another session's live run. Before the commands below, check that the folder is a path under the temp
-  folder whose name starts with `tests-can-fail-`, with only letters, digits and `/ . _ -` in it. Then stop and remove
+  folder can be another session's live run. Before the commands below, check that the folder is the one the run printed:
+  its last part starts with `tests-can-fail-`, it holds only letters, digits and `/ . _ -`, and no `..`. Then stop and remove
   that one folder:
 
   ```bash

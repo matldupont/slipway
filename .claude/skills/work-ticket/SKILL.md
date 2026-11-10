@@ -149,8 +149,8 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
    every later gate run (`process/intake.md` → Tests can fail). Every command exits 0, and the output is from this run.
 2. **Acceptance → test.** For each acceptance line, the test that fails when the line is broken
    (`{line} → {file}: {test name}`). A line with none gets its test now, before going on.
-3. **Each new test can fail** (L-04): each one `Tests can fail` names not judged, or all when it is none. Commit,
-   revert the mechanism, run it, see it red, restore. A line already true on `{base}`: break what keeps it true, say so.
+3. **Each new test can fail** (L-04), by hand where `Tests can fail` did not judge it (intake). Commit, revert the
+   mechanism, run it, see it red, restore. A line already true on `{base}`: break what keeps it true, say so.
 4. **Size.** A file this change pushed over 300 lines: split it, or ask.
 5. **Manual testing.** When Phase 2 named a plan, add or amend the journey in `QA plans` now, with an expected
    result that can be wrong, in the plan's environment or in a new plan (`process/intake.md` → Deferred check; README).

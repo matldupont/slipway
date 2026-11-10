@@ -1889,9 +1889,9 @@ test('/work-ticket starts the step so the harness never ends it first, and a run
   const s = tcfSection();
   assert.match(s, /\*\*Start it in the background\*\*, and read its exit when it ends\. Never under a timeout of its own: it stops itself at 10 minutes, and its install and clean-up come on top\./, 'the step runs in the background, never under a timeout');
   assert.match(s, /A run that ends without the step's own exit \(killed, or the session ended\) is a red gate too\./, 'a run with no exit of its own is red');
-  assert.match(s, /run `pgrep -U "\$\(id -u\)" -f "\{folder\}"` on this run's folder\. Never use the bare `tests-can-fail-` prefix/, 'the process check names this user and this run\'s folder');
+  assert.match(s, /run `pgrep -U "\$\(id -u\)" -f "\{folder\}"` on the folder its own `copying` line printed; without that line, do not guess, and say so\. Never use the bare `tests-can-fail-` prefix/, 'the process check names this user and this run\'s folder');
   assert.doesNotMatch(s, /pgrep[^`]*-f "?tests-can-fail-"?`/, 'never pgrep the bare prefix');
-  assert.match(s, /\*\*Commit first\.\*\* Run it only when `git status --porcelain` prints nothing\. A run on a tree with any change, untracked files included, is not the gate's result/, 'the step judges committed work only, so it never passes on untracked tests');
+  assert.match(s, /\*\*Commit first\.\*\* Run it only when `git status --porcelain --untracked-files=all` prints nothing\. A run on a tree with any change, untracked files included, is not the gate's result/, 'the step judges committed work only, so it never passes on untracked tests');
 });
 
 test('the result goes into ## Verification inside a fenced block: §1\'s list plus both shares, or the one no-tests line', () => {

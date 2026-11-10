@@ -15,7 +15,7 @@ Read by `verify` (it runs `test` in every package), by cold review, and by anyon
 Revert the mechanism and run that file, that case: a red suite proves some test caught it, not yours.
 Commit before mutating — restoring from HEAD eats uncommitted work (L-04).
 `/work-ticket` checks this with `pnpm tests-can-fail` before a pull request is marked ready, on a copy of the last
-commit (`BOOTSTRAP.md` §4). Revert by hand a test it names not judged.
+commit (`BOOTSTRAP.md` §4). Revert by hand each new test it did not judge (`process/intake.md` → Tests can fail).
 
 ## Fixtures
 

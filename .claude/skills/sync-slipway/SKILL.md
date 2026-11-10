@@ -72,6 +72,7 @@ The owner's own `sync` prints the same plan as text, and `--verbose` one row per
   (`BOOTSTRAP.md` §4).
 - Name each lesson whose `review-by` the sync removes because it became a check (L-04 by `Tests can fail`). A line
   for it in `process/lesson-reviews.yaml` then has no review to answer, and L1 is red until that line is removed.
+  The file is owner-only: ask the owner to remove the line, and never remove it yourself.
 
 Ask for a yes before step 2. A no ends the skill, with nothing written.
 
