@@ -531,7 +531,7 @@ puts it there, so the last is a fault in the record and never an ordinary pull r
 What to do when a second run says the same is part of each message (#659). A record that lacks a field: "Run
 `pnpm tests-can-fail` again; if it says this again, the step and this check are from different slipway versions:
 take `ci/` from one version with `/sync-slipway`." A judged test with nothing tried: "This is a fault in the step,
-not in your tests: report it to slipway with the run's output, and excuse the file in `ci/exceptions.yaml` with a
+not in your tests: report it to slipway with the output of the run, and excuse the file in `ci/exceptions.yaml` with a
 date meanwhile." A `stopped` message that holds a line break (`ci/before-verify.sh`'s output) has its first line as
 the report's one BROKEN line, and each line after it printed below, escaped, as a note.
 

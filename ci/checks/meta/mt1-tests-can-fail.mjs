@@ -55,7 +55,7 @@ export function verdict(record, { registry = [], today, head = null }) {
   if (head !== null && record.head !== head) return { ...out, broken: `This record is for commit ${m.e(record.head)}, not the one being checked (${m.e(head)}). Run \`pnpm tests-can-fail\` again.` };
   // §4: a test with nothing tried belongs in notJudged (§3.6), so one judged is a fault in the record (AR-9).
   const empty = record.tests.find((t) => t.state === 'judged' && !t.failedOn && !t.crashes && !t.tried);
-  if (empty) return { ...out, broken: `The record judges ${m.named(empty.file, empty.name)} with no change tried, which the run never does: it belongs in the tests not judged. This is a fault in the step, not in your tests: report it to slipway with the run's output, and excuse the file in \`ci/exceptions.yaml\` with a date meanwhile.` };
+  if (empty) return { ...out, broken: `The record judges ${m.named(empty.file, empty.name)} with no change tried, which the run never does: it belongs in the tests not judged. This is a fault in the step, not in your tests: report it to slipway with the output of the run, and excuse the file in \`ci/exceptions.yaml\` with a date meanwhile.` };
 
   const entries = registry.filter((x) => typeof x.id === 'string' && x.id.startsWith(PREFIX));
   for (const x of entries) {
