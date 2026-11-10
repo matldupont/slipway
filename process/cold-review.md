@@ -51,7 +51,9 @@ I1 catches adjectives. It cannot catch a criterion that passes no matter what, s
 Compare the changed-file list with the title. Split or rename when the diff reaches files the title does not imply.
 
 ### L-04 — Can each new or changed test fail?
-Revert the mechanism and run that file, that case. Commit first.
+Revert the mechanism and run that file, that case. Commit first. `pnpm tests-can-fail` does this for each test it
+judges (`process/intake.md` → Tests can fail): read its result in `## Verification`, and revert by hand each test it names
+not judged.
 
 ### L-05 — Does every absence claim name its command and scope?
 Re-run load-bearing ones unscoped, and search the symbol rather than the module path.

@@ -117,5 +117,67 @@ paste the output into the bootstrap PR:
 14. A new Claude Code session opens with the `pnpm status` state in context (ask it "what's next?").
 15. A failing test makes the Stop hook block the first stop of the turn, and asking the agent to edit `biome.json` or a
     workflow prompts for approval.
+16. A committed test that asserts only on its own input makes `pnpm tests-can-fail` exit 1 and name that test (§4).
 
-Revert each probe. The kit is installed when all fifteen have been seen to fire.
+Revert each probe. The kit is installed when all sixteen have been seen to fire.
+
+## 4. Tests can fail
+
+`/work-ticket` runs `pnpm tests-can-fail` beside the quality gate, before it marks a pull request ready. It checks
+that each test the pull request adds or edits fails on some change to the code it tests (F-13, D-037). A test that
+passes whatever the code does turns the gate red, and the message names the test and what to do. The result goes
+into the pull request's `## Verification`.
+
+- **Where it runs.** Only in `/work-ticket`, on the machine building the pull request. No CI job runs it, and
+  `pnpm verify` does not. A pull request built another way is not checked. `AGENT.md`'s `Tests can fail` row names
+  the command; `none` turns it off.
+- **What it touches.** Nothing in the project. It judges the last commit, in a copy under the system's temporary
+  directory, so commit before it runs. It reads JavaScript and TypeScript tests run by Vitest 4 or 5.
+- **Two files take a test out.** Both are yours and both sit under `ci/`, so the harness asks before an agent edits
+  either, and a pull request that changes one says so under `## Gate changes`.
+  - `ci/exceptions.yaml` excuses a test file with a dated entry, id `tests-can-fail#<test file>`. Use it for a test
+    that checks something other than what code does: one that reads source text, or a list of migrations.
+  - `ci/tests-can-fail.yaml` says how a package's tests run when its `test` script is more than a plain call to
+    Vitest (`run:`), and keeps a file or folder out, with a reason (`keep-out:`). It carries no dates. Slipway ships
+    none.
+
+  ```yaml
+  entries:
+    - package: api
+      run: node --env-file-if-exists=.env.test node_modules/vitest/vitest.mjs run
+    - package: web
+      keep-out: e2e/
+      reason: browser tests; test:e2e runs them
+  ```
+- **Another test runner.** A package that does not use Vitest has its changed tests named, not judged. When no
+  package uses Vitest, the step stops; one dated entry `tests-can-fail#other-runner` in `ci/exceptions.yaml` turns
+  that stop into a warning.
+- **A mechanical change** is a rename or reformat across many test files that changes nothing they check. It takes
+  one dated entry, `tests-can-fail#mechanical`, in `ci/exceptions.yaml`. The entry counts once: in the pull request
+  that adds it, where none of that pull request's tests is judged. In every later pull request it excuses nothing,
+  and the step warns until you remove it.
+- **Out of time.** The step aims for 2 minutes and stops at 10. A test it did not reach is named `out-of-time`, and
+  that is never a pass. Run it again. If it stops at the same place every time, the pull request's tests are too
+  slow for the step: split the pull request, or keep a slow folder out in `ci/tests-can-fail.yaml`, with a reason.
+- **A branch cut before the step arrived** has no `tests-can-fail` script, and `/work-ticket` says so. Merge the
+  base branch into it (`git merge origin/main`), then run the gate again. A sync tells you this once.
+- **Services from `ci/before-verify.sh`.** The step runs that script in its copy, and keeps what the script starts
+  until the run ends. A service that leaves the script's process group (`docker compose up -d`, a server that
+  daemonizes) is yours to stop. Have the script write what it started to a file (a container id, a process id),
+  and stop it by that record after the run. A port already in use when the script runs usually means a service from
+  an earlier run is still up.
+- **A test that uses such a service leaves it as it found it.** One service serves every run of a test file. A test
+  that leaves rows or state behind can fail on its next run, and the step then reads it as flaky.
+- **A run that was killed** (SIGKILL, or a machine put to sleep) can leave its copy and the processes started in
+  it. Find that run's folder, the one created when it started:
+  `ls -dt "$(node -p "require('os').tmpdir()")"/tests-can-fail-*`. Then stop and remove that one folder:
+
+  ```bash
+  pkill -U "$(id -u)" -f "<that folder>"
+  rm -rf "<that folder>"
+  ```
+
+  Never use the bare `tests-can-fail-` prefix: it matches another session's run. The next run removes folders more
+  than a day old by itself.
+- **What it cannot see.** A test that imports its subject by a path alias or a dynamic import is named not judged,
+  not failed. A test's position can be misread, so a weak new test can pass (#658, decided in #657).

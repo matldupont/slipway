@@ -29,7 +29,7 @@ already: say so, and stop. The reviewers get `{base}`'s copies, and are the defi
 only on work the owner or their agent wrote (Without an issue).
 
 **Reads:** `Product name`, `Issue repo`, `PRD path`, `Feature docs dir`, `Milestone roadmap`, `Change lanes`,
-`Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Domain map`,
+`Domain invariants doc`, `Conventions doc`, `Testing strategy doc`, `Quality gate`, `Tests can fail`, `Domain map`,
 `Stack constraints`, `QA plans`, `Cold review`, `Error tracker`.
 
 Then resolve per `process/intake.md` → Configuration, and read before Phase 1, not from memory: `Stack constraints`,
@@ -113,9 +113,8 @@ Read the issue again: Problem, Acceptance, Contract, Verify.
   reported, and write down the search. Put the fix where every site can use it (shared, not private to one
   file), or say why not. A guard or test added for it scans the construct, not only the folder touched.
 - **Manual testing.** With `QA plans` not none: does the change reach anything a person would test — a
-  screen, a journey, an endpoint, an email, a gate, a payment? Name the plan and the journey, or the plan to
-  start when none covers that surface. A change nothing reaches but code (a library call, a refactor,
-  tooling, CI) is N/A, said out loud.
+  screen, a journey, an endpoint, an email, a gate, a payment? Name the plan and the journey, or the plan to start
+  when none covers that surface. A change nothing reaches but code (a library call, a refactor, tooling, CI) is N/A, said out loud.
 
 ```
 PHASE 2: HOLES
@@ -146,7 +145,8 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 
 ## Phase 4 — Prove it
 
-1. **Gate.** Run `Quality gate` exactly as written. Every command exits 0, and the output is from this run.
+1. **Gate.** Run `Quality gate` exactly as written, and `Tests can fail` beside it unless none, here and at every later
+   gate run (`process/intake.md` → Tests can fail). Every command exits 0, and the output is from this run.
 2. **Acceptance → test.** For each acceptance line, the test that fails when the line is broken
    (`{line} → {file}: {test name}`). A line with none gets its test now, before going on.
 3. **Each new test can fail** (L-04). Commit, revert the mechanism, run that test, see it red, restore. A
@@ -158,7 +158,7 @@ STATUS: READY | GAPS — ask: "Cover these while building, or sharpen the issue 
 
 ```
 PHASE 4: PROVED
-Gate:           {command} → exit 0 | FAIL {what}
+Gate:           {command} → exit 0 | FAIL {what} · tests-can-fail: {summary line} → exit 0 | FAIL {what} | N/A — none
 Acceptance:     {n}/{n} covered
 Can fail:       {tests broken against, each red}
 Manual testing: {plan → journey} | N/A — {why}

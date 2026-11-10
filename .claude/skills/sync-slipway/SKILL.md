@@ -65,6 +65,11 @@ The owner's own `sync` prints the same plan as text, and `--verbose` one row per
   `process/harness/settings.json` (the harness). The `seeded: upstream changed` bucket (`yours — slipway's
   template changed`) mostly settles without them (§3): say that some may bring a question about the
   project. Its diffs are references to apply by hand, not patches.
+- Name each setting `process/intake.md` → Configuration gained with a default since `base`: what it does for
+  this project, and that the default applies with no edit to `AGENT.md`. For `Tests can fail`, say that
+  `/work-ticket` now runs `pnpm tests-can-fail` before it marks a pull request ready, that `none` turns it off,
+  and that a branch cut before this sync has no such script until the base branch is merged into it
+  (`BOOTSTRAP.md` §4).
 
 Ask for a yes before step 2. A no ends the skill, with nothing written.
 
