@@ -182,4 +182,6 @@ into the pull request's `## Verification`.
   Never use the bare `tests-can-fail-` prefix: it matches another session's run. The next run removes folders more
   than a day old by itself.
 - **What it cannot see.** A test that imports its subject by a path alias or a dynamic import is named not judged,
-  not failed. A test's position can be misread, so a weak new test can pass (#658, decided in #657).
+  not failed. A test that reaches product code through a test helper is credited by any change there that it notices,
+  not only one on the lines it checks (D-056). A test's position can be misread, so a weak new test can pass (#658,
+  decided in #657).
