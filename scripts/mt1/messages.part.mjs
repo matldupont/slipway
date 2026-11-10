@@ -202,3 +202,10 @@ test('a stop whose first line is blank is the BROKEN line whole, never a pass (#
   const v = judge(rec({ stopped: '\nThe install failed.' }));
   assert.deepEqual([v.exit, v.broken, v.after], [2, '\\u000aThe install failed.', []]);
 });
+
+test('a stop with no text at all is BROKEN with its own sentence, never a pass (#659)', () => {
+  for (const stopped of [[], ['']]) {
+    const v = judge(rec({ stopped }));
+    assert.deepEqual([v.exit, v.broken], [2, 'The record says the run stopped, and gives no reason. Run `pnpm tests-can-fail` again.'], JSON.stringify(stopped));
+  }
+});

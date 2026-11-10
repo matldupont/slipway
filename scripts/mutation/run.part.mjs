@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { CART, project, testFile } from './project.mjs';
+import { subjectsOf, workspacePackages } from '../../ci/checks/lib/mutation-tests.mjs';
 
 // Every path under the project but .git, so a run that leaves a file there is seen.
 const listing = (root, at = '') => readdirSync(join(root, at), { withFileTypes: true }).flatMap((e) => {
@@ -181,6 +182,9 @@ test('the product file a helper imports is always a subject, beside what the pul
     'pkgs/app/tests/factories.ts': "import { cents } from '../src/money';\nexport const make = () => cents(1);\n",
     'pkgs/app/tests/rows.ts': 'export const rows = [1, 2];\n',
     'pkgs/app/tests/data-fixture.ts': "import { rows } from './rows';\nexport const data = rows;\n",
+    'pkgs/app/src/index.css': 'body { margin: 0; }\n',
+    'pkgs/app/src/later.test.ts': "import { it } from 'vitest';\nit.skip('later', () => {});\n",
+    'pkgs/app/tests/setup.ts': "import '../src/index.css';\nimport '../src/later.test';\nexport const ready = true;\n",
     'pkgs/lib/package.json': JSON.stringify({ name: 'lib', private: true, main: 'src/index.ts' }),
     'pkgs/lib/src/index.ts': 'export const l = 1;\n',
   } });
@@ -191,6 +195,7 @@ test('the product file a helper imports is always a subject, beside what the pul
     'pkgs/lib/src/index.ts': 'export function l(x) {\n  return x + 1;\n}\n',
     'pkgs/app/tests/money.test.ts': testFile(['makes money'], { imports: "import { make } from './factories';\nconst add = (a, b) => a + b;" }),
     'pkgs/app/tests/data.test.ts': testFile(['data only'], { imports: "import { data } from './data-fixture';\nconst add = (a, b) => a + b;" }),
+    'pkgs/app/tests/styles.test.ts': testFile(['styles only'], { imports: "import { ready } from './setup';\nconst add = (a, b) => a + b;" }),
   });
   const { status, record } = p.run();
   assert.equal(status, 0, record?.stopped);
@@ -200,6 +205,21 @@ test('the product file a helper imports is always a subject, beside what the pul
   assert.deepEqual([money.state, money.failedOn?.file], ['judged', 'pkgs/app/src/money.ts']);
   // A helper that reaches only other helpers adds none of the changed files: the test stays support-only.
   assert.equal(record.notJudged.find((n) => n.name === 'data only')?.why, 'support-only');
+  // A helper that loads only a style file and a test file imports no product code: support-only too, though the
+  // pull request changed a source file in the package.
+  assert.equal(record.notJudged.find((n) => n.name === 'styles only')?.why, 'support-only');
+});
+
+test('a test that imports fs and a dependency only the workspace root names still reads files (#659)', (t) => {
+  const p = project();
+  t.after(() => p.remove());
+  // Written after the install, which is offline: the step only reads it.
+  p.write({ 'package.json': JSON.stringify({ name: 'root', private: true, devDependencies: { yaml: '2.0.0' } }) });
+  const testText = "import { readFileSync } from 'node:fs';\nimport { parse } from 'yaml';\n";
+  const s = subjectsOf({ copy: p.root, tracked: new Set(), packages: workspacePackages(p.root), changed: [], testFile: 'pkgs/app/tests/ci.test.ts', testText });
+  assert.equal(s.readsFiles, true);
+  // A package nothing names may be an alias of source: the test keeps the import fix.
+  assert.equal(subjectsOf({ copy: p.root, tracked: new Set(), packages: workspacePackages(p.root), changed: [], testFile: 'pkgs/app/tests/ci.test.ts', testText: testText.replace("'yaml'", "'@/yaml'") }).readsFiles, false);
 });
 
 test('a test whose helpers import no product code is still support-only, a helper chain is followed 3 levels deep, no further, and a test that reads files is named so (#659)', (t) => {

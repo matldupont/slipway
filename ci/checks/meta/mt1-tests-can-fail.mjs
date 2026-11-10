@@ -51,7 +51,8 @@ export function verdict(record, { registry = [], today, head = null }) {
   if (record.stopped) {
     // A stop whose first line is blank is never a pass: the whole message is the BROKEN line then.
     const [first, ...rest] = String(record.stopped).split('\n');
-    return first.trim() ? { ...out, broken: m.e(first), after: rest } : { ...out, broken: m.e(record.stopped) };
+    if (first.trim()) return { ...out, broken: m.e(first), after: rest };
+    return { ...out, broken: m.e(record.stopped).trim() ? m.e(record.stopped) : 'The record says the run stopped, and gives no reason. Run `pnpm tests-can-fail` again.' };
   }
   if (head !== null && record.head !== head) return { ...out, broken: `This record is for commit ${m.e(record.head)}, not the one being checked (${m.e(head)}). Run \`pnpm tests-can-fail\` again.` };
   // §4: a test with nothing tried belongs in notJudged (§3.6), so one judged is a fault in the record (AR-9).

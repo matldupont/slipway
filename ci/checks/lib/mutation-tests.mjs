@@ -175,7 +175,16 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
   // §5: a test that imports no source file and reads files is told to excuse itself, not to import by a relative path.
   // Only when nothing else it imports could be source: Node's own modules, vitest, or a dependency its package or the
   // root names. An alias (`@/lib/x`) is none of these, so a test importing its code that way keeps the import fix.
-  const deps = new Set([packageOf(packages, testFile), packages.find((p) => p.dir === '')].flatMap((p) => (p ? DEP_KEYS.flatMap((k) => (p.json[k] && typeof p.json[k] === 'object' ? Object.keys(p.json[k]) : [])) : [])));
+  // The root's package.json is read itself: a workspace's package list leaves the root out.
+  const rootJson = (() => {
+    try {
+      return JSON.parse(read('package.json'));
+    } catch {
+      return null;
+    }
+  })();
+  const named = (json) => (json && typeof json === 'object' ? DEP_KEYS.flatMap((k) => (json[k] && typeof json[k] === 'object' ? Object.keys(json[k]) : [])) : []);
+  const deps = new Set([...named(packageOf(packages, testFile)?.json), ...named(rootJson)]);
   const bare = (s) => (s.startsWith('@') ? s.split('/').slice(0, 2).join('/') : s.split('/')[0]);
   const outside = (s) => s.startsWith('node:') || builtinModules.includes(s) || bare(s) === 'vitest' || deps.has(bare(s));
   const readsFiles = Array.isArray(specs) && specs.some((s) => FS.has(s)) && specs.every((s) => !s.startsWith('.') && outside(s));
@@ -196,9 +205,11 @@ export function subjectsOf({ copy, tracked, packages, changed, testFile, testTex
         byName(spec, depth + 1);
         continue;
       }
+      // Only source a helper imports leads anywhere: a style, data or image file it loads is not product code.
       const target = resolve(tracked, file, spec);
+      if (!target || !EXTENSIONS.some((e) => target.endsWith(e))) continue;
       take(target, depth + 1);
-      if (!target || isSupport(target) || looksLikeTest(target)) continue;
+      if (isSupport(target) || looksLikeTest(target)) continue;
       // A product file a helper imports adds itself, and what this pull request changed in its package.
       const pkg = packageOf(packages, target);
       if (pkg) for (const f of changed.filter((x) => product(x) && packageOf(packages, x) === pkg)) take(f, depth + 1);
