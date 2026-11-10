@@ -13,5 +13,7 @@ A red suite proves some test caught the mutation, not yours. Restoring from HEAD
 MT1 fires the rule (F-13, D-037), run by `pnpm tests-can-fail`. `/work-ticket` runs it with its gate (`process/intake.md`
 → Tests can fail), before a pull request is marked ready. It changes the code in a copy of the last commit, never the
 working tree. It is not in
-CI: a pull request built another way is not checked, and a test the step names not judged is still reverted by
-hand.
+CI: a pull request built another way is not checked. Each new or changed test it did not judge is still reverted by
+hand: the list is `process/intake.md` → Tests can fail, What it does not cover. It includes every new or changed test in
+the diff that the step does not name as judged, whatever count it prints: find them in the diff, never from the step's
+count.

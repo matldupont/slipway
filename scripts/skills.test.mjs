@@ -1912,3 +1912,33 @@ test('BOOTSTRAP.md §4 tells a project the step, names its open limitation as a 
   assert.ok(flat.includes('Never use the bare `tests-can-fail-` prefix'), 'the clean-up warns off the bare prefix');
   assert.match(read(skillPath('bootstrap')), /\| 16 \| on a scratch branch, commit a test in `apps\/web` that asserts only on its own input, then run `pnpm tests-can-fail` once/, '/bootstrap runs the step once');
 });
+
+// #663: the hand check of L-04 covers every new or changed test the step did not judge, in all three places that say it,
+// and intake names the test names the step reads.
+const HAND_ALL = /every new or changed test in the diff that the step does not name as judged, whatever count it prints/;
+const HAND_DIFF = /find them in the diff, never from the step's count/;
+const flatText = (s) => s.replace(/\s+/g, ' ');
+const notCovered = () => flatText(/- \*\*What it does not cover\.\*\*[\s\S]*?(?=\n\n|$)/.exec(intake)?.[0] ?? '');
+
+test('intake → Tests can fail: the hand check covers every test the step did not judge, added or changed after its run, and names the test names it reads', () => {
+  const s = notCovered();
+  assert.ok(s, 'intake has no "What it does not cover"');
+  assert.match(s, /one added or changed after its run/, 'a test changed after its run counts too');
+  assert.match(s, /`\*\.test\.\*`, `\*\.spec\.\*` and files under `__tests__\/`/, 'intake names the test names the step reads');
+  assert.match(s, HAND_ALL, 'every new or changed test the step does not name as judged');
+  assert.match(s, HAND_DIFF, 'found in the diff, never from the count');
+});
+
+test('L-04 names the same tests as intake, found in the diff, never from the step\'s count', () => {
+  const s = flatText(read('process/lessons/L-04-mutate-the-specific-test.md'));
+  assert.match(s, HAND_ALL, 'L-04 names every new or changed test the step does not name as judged');
+  assert.match(s, HAND_DIFF, 'L-04 says to find them in the diff');
+  assert.match(s, /process\/intake\.md` → Tests can fail, What it does not cover/, 'L-04 points at intake for the list');
+});
+
+test('cold-review L-04 line names every new or changed test in the diff the step did not judge', () => {
+  const s = flatText(section(read('process/cold-review.md'), 'L-04 — Can each new or changed test fail?', 3) ?? '');
+  assert.ok(s, 'cold-review has no L-04 section');
+  assert.match(s, HAND_ALL, 'the reviewer reverts every such test');
+  assert.match(s, HAND_DIFF, 'the reviewer finds them in the diff');
+});
