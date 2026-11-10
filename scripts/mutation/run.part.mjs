@@ -154,8 +154,10 @@ test('a helper that imports product code adds that file and the files the pull r
 test('a test with a subject of its own is judged as on main: helper subjects get only the turns its own leave, after them (#659)', (t) => {
   // The cold review's probe: the test kills the 8th body change to the file it imports, and the pull request changed 8
   // other files its helper's package holds. Taking turns with them, that change would fall past the cap of 30.
-  const fns = Array.from({ length: 8 }, (_, i) => `export function f${i}(x) {\n  return x + ${i};\n}\n`).join('');
-  const others = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`pkgs/app/src/b0${i}.ts`, `export function b${i}(x) {\n  return x * ${i + 2};\n}\n`]));
+  // One line each, so a change to one function moves no other line.
+  const fns = Array.from({ length: 8 }, (_, i) => `export function f${i}(x) { return x + ${i}; }\n`).join('');
+  const four = (i) => Array.from({ length: 4 }, (_, k) => `export function b${i}${k}(x) {\n  return x * ${k + 2};\n}\n`).join('');
+  const others = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`pkgs/app/src/b0${i}.ts`, four(i)]));
   const p = project({ base: {
     'pkgs/app/src/zz.ts': fns,
     'pkgs/app/src/App.ts': 'export function render(x) {\n  return x;\n}\n',
@@ -163,7 +165,7 @@ test('a test with a subject of its own is judged as on main: helper subjects get
     ...Object.fromEntries(Object.keys(others).map((f) => [f, 'export const b = 1;\n'])),
   } });
   t.after(() => p.remove());
-  p.config({ tests: { 'the eighth': { failsWhen: [{ file: 'pkgs/app/src/zz.ts', line: 23, has: 'x + 7' }] } } });
+  p.config({ tests: { 'the eighth': { failsWhen: [{ file: 'pkgs/app/src/zz.ts', line: 8, has: 'return x + 7;' }] } } });
   p.commit({ ...others, 'pkgs/app/src/zz.test.ts': testFile(['the eighth'], { imports: "import { f7 } from './zz';\nimport { view } from '../tests/test-utils';\nconst add = (a, b) => a + b;" }) });
   const { status, record } = p.run();
   assert.equal(status, 0, record?.stopped);
