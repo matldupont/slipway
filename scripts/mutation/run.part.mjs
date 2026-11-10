@@ -126,7 +126,7 @@ test('a test helper that imports product code is a path to it: the code a test r
   assert.deepEqual(record.notJudged, []);
 });
 
-test('a test whose helpers import no product code is still support-only, and a helper chain is followed 3 levels deep, no further (#659)', (t) => {
+test('a test whose helpers import no product code is still support-only, a helper chain is followed 3 levels deep, no further, and a test that reads files is named so (#659)', (t) => {
   const p = project({ base: {
     'pkgs/app/src/cart.ts': CART,
     'pkgs/app/tests/rows.ts': 'export const rows = [1, 2];\n',
@@ -140,11 +140,14 @@ test('a test whose helpers import no product code is still support-only, and a h
   p.commit({
     'pkgs/app/tests/data.test.ts': testFile(['data only'], { imports: "import { data } from './data-fixture';\nconst add = (a, b) => a + b;" }),
     'pkgs/app/tests/deep.test.ts': testFile(['too deep'], { imports: "import { h0 } from './h0';\nconst add = h0;" }),
+    'pkgs/app/tests/files.test.ts': testFile(['reads files'], { imports: "import { readFileSync } from 'node:fs';\nconst add = (a, b) => a + b;" }),
   });
   const { status, record } = p.run();
   assert.equal(status, 0, record?.stopped);
   const why = (name) => record.notJudged.find((n) => n.name === name);
   assert.deepEqual([why('data only')?.why, why('too deep')?.why], ['support-only', 'support-only']);
+  // A test that imports no source file and reads files is no-subject, with the detail its message reads.
+  assert.deepEqual([why('reads files')?.why, why('reads files')?.detail], ['no-subject', 'reads files']);
   assert.equal(record.tests.length, 0);
 });
 
