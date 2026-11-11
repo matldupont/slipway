@@ -53,8 +53,8 @@ Compare the changed-file list with the title. Split or rename when the diff reac
 ### L-04 — Can each new or changed test fail?
 Revert the mechanism and run that file, that case. Commit first. `pnpm tests-can-fail` does this for each test it
 judges (`process/intake.md` → Tests can fail). The copy in `## Verification` is the author's and names no commit. Unless
-`Tests can fail` is none, run the step at the pull request's head, as intake says. Then revert by hand each new test it
-did not judge (`process/intake.md` → Tests can fail).
+`Tests can fail` is none, run the step at the pull request's head, as intake says. Then revert by hand each new or changed
+test it did not judge (`process/intake.md` → Tests can fail, What it does not cover). That includes every new or changed test in the diff that the step does not name as judged, whatever count it prints. Find them in the diff, never from the step's count.
 
 ### L-05 — Does every absence claim name its command and scope?
 Re-run load-bearing ones unscoped, and search the symbol rather than the module path.
