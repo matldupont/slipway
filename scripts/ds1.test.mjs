@@ -149,7 +149,7 @@ test('screens/unknown is still reported under Front end: none, and an empty scre
   assert.deepEqual(ids(none), ['screens/unknown:M2']);
   const empty = ds1(files({ milestones: { 'M2.md': milestone({ contents: [DESIGN], fields: ['screens:'] }) } }));
   assert.deepEqual(ids(empty), ['screens/unknown:M2']);
-  assert.match(empty.json.findings[0].detail, /screens: is empty/);
+  assert.match(empty.json.findings[0].detail, /screens: empty/);
 });
 
 test('a design item in an earlier shaping or killed milestone is not design before the screens', () => {
@@ -167,7 +167,7 @@ test('"item 1" is the first item as rendered: a list written 1. 1. counts its se
 test('design: naming an open decision does not answer: an open stub is no decision (0.3 AR-5)', () => {
   const r = ds1(files({ decisions: '# Decisions\n\n## D-005 — Frontend framework *(open — week 1)*\n', milestones: { 'M2.md': milestone({ fields: ['design: D-005'] }) } }));
   assert.deepEqual(ids(r), ['design/unresolved:M2']);
-  assert.match(r.json.findings[0].detail, /D-005 is not marked decided or accepted in decisions\.md/);
+  assert.match(r.json.findings[0].detail, /that decision is not marked decided or accepted in decisions\.md/);
 });
 
 test('entry findings are reported whatever the frame says: under Front end: none, and with the frame unrecorded', () => {

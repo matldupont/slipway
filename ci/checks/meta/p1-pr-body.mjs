@@ -219,7 +219,7 @@ for (const f of bodies) {
     // its base), or `<name>.tree/` beside the body when a fixture brings its own.
     const tree = join(dir, f.replace(/\.md$/, '.tree'));
     const root = existsSync(tree) ? tree : join(dirname(SETTINGS), '..', '..');
-    for (const u of unreviewedSpecs(c, root)) findings.push({ where: `${f}#${shown(u.id)}`, detail: shown(u.detail) });
+    for (const u of unreviewedSpecs(c, root)) findings.push({ where: `${f}#${shown(u.id)}`, detail: shown(u.detail), fix: shown(u.fix) });
     if (rules === 0) {
       broken = 'process/harness/settings.json is missing or lists no Edit(...) gate paths, so no gate file can be recognised';
       continue;

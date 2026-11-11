@@ -5,6 +5,6 @@
     "decisions.md#decision/position/PD-7"
   ],
   "details": {
-    "decisions.md#decision/position/PD-7": "M2 item 2 cites no F-id (docs/milestones/M2-booking.md): in place of \"M2 item 2\", quote the item's words, or cite its feature once it has one"
+    "decisions.md#decision/position/PD-7": "A decision names M2 item 2"
   }
 }

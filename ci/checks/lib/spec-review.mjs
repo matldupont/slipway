@@ -67,26 +67,26 @@ export function unreviewedSpecs(c, root) {
     // A sidecar from a script that predates the list cannot say which versions moved: it is read as unreadable
     // when it changes anything that looks like a feature doc, and says nothing otherwise.
     const looks = c.files.filter((f) => SPEC_PATH.test(f));
-    if (looks.length) findings.push({ id: 'specs/unreadable', detail: `the changed-files list beside the body has no \`specs\` list, and this pull request changes ${looks.length} feature doc(s) (${looks.slice(0, 3).join(', ')}): the workflow must write it with ci/checks/lib/gate-files.mjs` });
+    if (looks.length) findings.push({ id: 'specs/unreadable', detail: `The changed-files list beside the body has no \`specs\` list, and this pull request changes ${looks.length} feature doc(s) (${looks.slice(0, 3).join(', ')}).`, fix: 'Write the list with ci/checks/lib/gate-files.mjs in the workflow that makes the body.' });
     return findings;
   }
   const reviews = readReviews(root);
   for (const s of c.specs) {
     const path = typeof s?.path === 'string' ? posix.normalize(s.path) : '';
     if (!path || path.startsWith('..') || !SPEC_PATH.test(path)) {
-      findings.push({ id: 'specs/unreadable', detail: `an entry of \`specs\` beside the body is not a feature doc path (${JSON.stringify(s?.path ?? null).slice(0, 80)}); the workflow must write it with ci/checks/lib/gate-files.mjs` });
+      findings.push({ id: 'specs/unreadable', detail: `An entry of \`specs\` beside the body is not a feature doc path (${JSON.stringify(s?.path ?? null).slice(0, 80)}).`, fix: 'Write the list with ci/checks/lib/gate-files.mjs in the workflow that makes the body.' });
       continue;
     }
     const why = notPlainFile(root, path);
     if (why !== null) {
-      findings.push({ id: `spec/unreadable:${path}`, detail: `${path} ${why}, so its version cannot be read; a feature doc is a regular file reached through no link` });
+      findings.push({ id: `spec/unreadable:${path}`, detail: `${path} ${why}, so its version cannot be read.`, fix: 'Make the feature doc a regular file reached through no link.' });
       continue;
     }
     const doc = readPlain(root, path);
     const lines = versionLines(doc);
     const shown = lines.length === 1 ? lines[0] : lines.length ? `${lines.length} \`Version:\` lines` : 'no `Version:` line';
     if (!reviewedNow(doc, path, reviews, lines)) {
-      findings.push({ id: `spec/unreviewed:${path}`, detail: `${path} moves to ${shown}, and this pull request is not a draft, with no review in docs/reviews/ of that version in its tree. Keep it a draft until \`/review-doc\` has written the review and it is merged into this branch, then mark it ready` });
+      findings.push({ id: `spec/unreviewed:${path}`, detail: `${path} moves to ${shown}, and this pull request is not a draft, with no review of that version in docs/reviews/.`, fix: 'Keep it a draft until /review-doc has written the review and it is merged into this branch, then mark it ready.' });
     }
   }
   return findings;

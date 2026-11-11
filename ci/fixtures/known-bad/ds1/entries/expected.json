@@ -24,6 +24,6 @@
     "ci/exceptions.yaml#accessibility/entry:M6": "M6 is killed",
     "ci/exceptions.yaml#accessibility/entry:M7": "M7's Gate already says",
     "ci/exceptions.yaml#accessibility/entry:M8": "builds no screens (screens: none)",
-    "ci/exceptions.yaml#accessibility/entry:M2/accesibility": "its id must be docs/milestones#<milestone id>/accessibility"
+    "ci/exceptions.yaml#accessibility/entry:M2/accesibility": "its id is not docs/milestones#<milestone id>/accessibility"
   }
 }
