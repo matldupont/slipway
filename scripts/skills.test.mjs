@@ -1942,3 +1942,10 @@ test('cold-review L-04 line names every new or changed test in the diff the step
   assert.match(s, HAND_ALL, 'the reviewer reverts every such test');
   assert.match(s, HAND_DIFF, 'the reviewer finds them in the diff');
 });
+
+// #665: work-ticket Phase 4 step 3 says what intake, L-04 and the cold review say.
+test('work-ticket Phase 4 step 3 covers each new or changed test, found in the diff, by hand where Tests can fail did not judge it', () => {
+  const s = flatText(read(skillPath('work-ticket')).match(/\n3\. \*\*Each new[\s\S]*?\n4\. /)?.[0] ?? '');
+  assert.match(s, /Each new or changed test, found in the diff, can fail/, 'step 3 names new or changed tests found in the diff');
+  assert.match(s, /by hand where `Tests can fail` did not judge it/, 'step 3 keeps the hand check');
+});
