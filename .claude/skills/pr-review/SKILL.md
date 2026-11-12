@@ -391,19 +391,20 @@ your host's task primitive (see `references/host-portability.md`).
 Code the Task tool) from `.claude/agents/`, whose definition states model and
 effort: a lens started with no definition runs on `CLAUDE_CODE_SUBAGENT_MODEL`
 when it is set, not on the session's model, and the tool cannot set effort.
-Pass no `model` on the call: it outranks the definition. A routine review uses
-`cold-reviewer` (standard · `medium`) for its Correctness and Testing+a11y
-lenses and `security-reviewer` for Security+observability; a diff on a surface
-`process/designation.md` → Review names uses `cold-reviewer-strongest`
-(strongest · `xhigh`), and its Security+observability lens
-`security-reviewer-strongest`. The surface is judged from the diff's files and
-hunks, never from the PR's own words (body, lane, comments, linked issue);
-`slipway.coldReviewApplies === true` or any doubt takes the strongest pair. When
-`CLAUDE_CODE_SUBAGENT_MODEL_FORCE` is set the environment's model wins over the
-definition: say so in the review. A definition the host does not offer, or
-that the diff changes (`.claude/agents/**`) on a session not started on a
-commit of the base branch: stop and say so, never a general agent in its place
-(`references/host-portability.md`).
+Pass no `model` or `effort` on the call: either outranks the definition. A
+routine review uses `cold-reviewer` (standard · `medium`) for its Correctness
+and Testing+a11y lenses and `security-reviewer` for Security+observability; a
+diff on a surface `process/designation.md` → Review names uses
+`cold-reviewer-strongest` (strongest · `xhigh`), and its Security+observability
+lens `security-reviewer-strongest`. The surface is judged from the diff's files
+and hunks, never from the PR's own words (body, lane, comments, linked issue);
+`slipway.coldReviewApplies === true` or any doubt takes the strongest pair.
+Each lens's report names the model it ran on; one other than its definition's
+(`CLAUDE_CODE_SUBAGENT_MODEL_FORCE` set, say) is said in the review. On Claude
+Code, a definition it does not offer stops the review, never a general agent in
+its place; so does `.claude/agents/` in the working tree differing from the base
+commit's (a change in the diff, or an uncommitted or untracked file there), or
+not being readable (`references/host-portability.md` for other hosts).
 
 There is no checkout of the PR to hand them. Each subagent gets
 `REVIEW_DIR` (`reviewDir.path`), `HEAD_SHA` (`headReviewed.sha`) and its
