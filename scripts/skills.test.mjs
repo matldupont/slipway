@@ -622,10 +622,14 @@ test('/pr-review starts each lens by named agent, so its tier and effort are the
   const designation = read('process/designation.md');
   assert.equal(designation.match(/goes below neither/g)?.length, 1, 'designation states the floor once');
   const three = flat(section(read(skillPath(REVIEW)), 'Step 3: Dispatch parallel review subagents', 2) ?? '');
-  assert.match(three, /\*\*Tier and effort\.\*\* Each lens is started by name \(`subagent_type`\) from `\.claude\/agents\/`, whose definition states model and effort: a lens started with no definition runs on `CLAUDE_CODE_SUBAGENT_MODEL` when it is set, not on the session's model/);
+  assert.match(three, /\*\*Tier and effort\.\*\* Each lens is started by name \(`subagent_type`, on Claude Code the Task tool\) from `\.claude\/agents\/`, whose definition states model and effort: a lens started with no definition runs on `CLAUDE_CODE_SUBAGENT_MODEL` when it is set, not on the session's model/);
   assert.match(three, /`cold-reviewer-strongest` \(strongest · `xhigh`\), and its Security\+observability lens `security-reviewer-strongest`/);
+  assert.match(three, /never from the PR's own words/);
   const prompts = flat(read(`.claude/skills/${REVIEW}/references/subagent-prompts.md`));
-  assert.equal(prompts.match(/Agent: `(cold|security)-reviewer`/g)?.length, 3, 'each lens template names its agent');
+  assert.match(prompts, /### Correctness Agent: `cold-reviewer`/);
+  assert.match(prompts, /### Testing \+ a11y Agent: `cold-reviewer`/);
+  assert.match(prompts, /### Security \+ observability Agent: `security-reviewer`/);
+  assert.match(three, /never a general agent in its place/);
   assert.match(read(`.claude/skills/${REVIEW}/references/host-portability.md`), /Claude Code: `Task` with `subagent_type` set to the lens's named agent/);
 });
 
