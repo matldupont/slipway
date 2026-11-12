@@ -32,7 +32,7 @@ release is an edit to this table; a reviewer definition (`.claude/agents/`) says
 | fast | Haiku 4.5 | `claude-haiku-4-5` | volume and speed |
 | standard | Sonnet 5.5 | `claude-sonnet-5-5` | everyday coding: execution |
 | strongest | Opus 5.5 | `claude-opus-5-5` | judgment and risk; the strongest tier that lands code |
-| discovery | Fable 5.1 | `claude-fable-5-1` | work with no oracle; lands no code |
+| discovery | Fable 5.2 | `claude-fable-5-2` | work with no oracle; lands no code |
 
 ## Execution or judgment
 
