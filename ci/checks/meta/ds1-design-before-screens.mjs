@@ -100,7 +100,7 @@ for (const e of registry.filter((e) => e.id.startsWith(MILESTONE_PREFIX))) {
   else if (m.fm.status === 'shaping' || m.fm.status === 'killed') entry(`${id} is ${m.fm.status}, so no screens are being built under it`, 'Remove the entry.');
   else if (hasAccessibilityLine(m.md)) entry(`${id}'s Gate already says how its screens meet WCAG 2.2 AA`, 'Remove the entry.');
   else if (screens) entry(`${id} builds no screens (${fe.state === 'none' ? 'the frame says Front end: none' : 'screens: none'})`, 'Remove the entry.');
-  else if (day === 'expired') add(`${REGISTRY}#accessibility/overdue:${id}`, `The entry excusing ${id}'s accessibility line ended ${e.expires}.`, `Write the line under ${id}'s ## Gate with what holds it and remove the entry, or set a later day with its reason.`);
+  else if (day === 'expired') add(`${REGISTRY}#accessibility/overdue:${id}`, `The entry excusing ${id}'s accessibility line ended ${e.expires}.`, `Write the WCAG 2.2 AA line under that milestone's ## Gate and remove the entry, or set a later day with its reason.`);
   else {
     live.set(m, live.has(m) && live.get(m) > e.expires ? live.get(m) : e.expires);
     if (m.fm.status !== 'active') let_off(`${id}: accessibility excused until ${e.expires}`, REGISTRY);
@@ -126,7 +126,7 @@ for (const m of active) {
   const id = m.fm.id;
   if (Object.hasOwn(m.fm, 'screens') && !buildsNoScreens(m.fm)) {
     const value = typeof m.fm.screens === 'string' && m.fm.screens.trim() ? `"${excerpt(m.fm.screens, 40)}"` : 'empty';
-    add(where(m, 'screens/unknown'), `${id} has screens: ${value}.`, `Write screens: none when ${id} builds no screens, or remove the field.`);
+    add(where(m, 'screens/unknown'), `${id} has screens: ${value}.`, `Write screens: none when that milestone builds no screens, or remove the field.`);
   }
   if (fe.state === 'none') {
     let_off(`${id}: front end: none`, 'the frame');
@@ -153,13 +153,13 @@ for (const m of active) {
     if (item) satisfied.push(`${id} satisfied by the design item in ${item.id === id ? 'its own Contents' : item.id}, item ${item.position}`);
     else if (design) let_off(`${id}: design: ${design}`, 'milestone frontmatter');
     else if (!Object.hasOwn(m.fm, 'design')) {
-      add(where(m, 'design/missing'), `${id} has no design item before its screens.`, `Add a Contents item starting "Design:" before the screens, or record why they are built without one and name it in ${id}'s frontmatter as design:.`);
+      add(where(m, 'design/missing'), `${id} has no design item before its screens.`, `Add a Contents item starting "Design:" as item 1 or below items already started, or record why in decisions.md and name it as design: in the frontmatter.`);
     }
   }
   if (hasAccessibilityLine(m.md)) continue;
   if (live.has(m)) let_off(`${id}: accessibility excused until ${live.get(m)}`, REGISTRY);
   else {
-    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a bullet under ## Gate saying what holds it, or add a dated entry to ${REGISTRY} with a reason and an owner for the owner to approve.`);
+    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a bullet under ## Gate saying its screens meet WCAG 2.2 AA and what holds it, or add a dated entry to ${REGISTRY} for the owner to approve.`);
   }
 }
 

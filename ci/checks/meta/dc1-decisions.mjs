@@ -61,9 +61,9 @@ for (const e of record.entries) {
   const fs = found?.features.map(fid).join(', ');
   // An item with no feature is named by its words (the owner, 2026-10-15): the detail says so, and prints none of them.
   const fix = !found
-    ? `Write \`Amends: F-<n>\` for the feature that item built, since ${at} no longer exists.`
+    ? `Write \`Amends: F-<n>\` for the feature that item built, and name it in place of ${at}.`
     : fs
-      ? `Write \`Amends: ${fs}\` under that decision, naming what ${at} builds today.`
+      ? `Write \`Amends: ${fs}\` under that decision, and name the feature in place of ${at}, which builds it today.`
       : `Say what the item does in place of "${at}", or cite its feature once it has one.`;
   findings.push({ where: `decisions.md#decision/position/${e.id}`, detail: found ? detail : noItem, fix });
 }

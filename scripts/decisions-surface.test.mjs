@@ -81,13 +81,13 @@ test('DC1 fails a position after a span that crossed a line break and closed; it
 test('DC1 reads the item a position names from the milestone: its F-ids, or that it cites none', () => {
   const md = '## PD-3 — t\n\nAs item 2 of M2 says.\n';
   inTree({ 'decisions.md': md, 'docs/milestones/M2-a.md': milestone('M2', 'shaping', ['x (F-01)', 'y (F-07, F-9)']) }, (dir) => {
-    assert.match(dc1(dir).fixes[0], /^Write `Amends: F-07, F-09` under that decision, naming what M2 item 2 builds today\.$/);
+    assert.match(dc1(dir).fixes[0], /^Write `Amends: F-07, F-09` under that decision, and name the feature in place of M2 item 2, which builds it today\.$/);
   });
   inTree({ 'decisions.md': md, 'docs/milestones/M2-a.md': milestone('M2', 'shaping', ['x (F-01)', 'y, no feature']) }, (dir) => {
     assert.match(dc1(dir).fixes[0], /^Say what the item does in place of "M2 item 2", or cite its feature once it has one\.$/);
   });
   inTree({ 'decisions.md': md, 'docs/milestones/M2-a.md': milestone('M2', 'shaping', ['x (F-01)']) }, (dir) => {
-    assert.match(dc1(dir).fixes[0], /^Write `Amends: F-<n>` for the feature that item built, since M2 item 2 no longer exists\.$/);
+    assert.match(dc1(dir).fixes[0], /^Write `Amends: F-<n>` for the feature that item built, and name it in place of M2 item 2\.$/);
   });
 });
 
@@ -99,7 +99,7 @@ test('DC1 skips a position in a closed or killed milestone, whose items never mo
     const r = dc1(dir);
     assert.deepEqual([r.exit, r.findings], [1, ['decisions.md#decision/position/PD-1']]);
     assert.match(r.details[0], /^A decision names M2 item 1 \(line 3\)/);
-    assert.match(r.fixes[0], /naming what M2 item 1 builds today/);
+    assert.match(r.fixes[0], /in place of M2 item 1, which builds it today/);
   });
   // A milestone with no file is not settled: the position still fails.
   inTree({ 'decisions.md': '## PD-1 — t\n\nAs M9 item 1 said.\n', ...ms }, (dir) => assert.equal(dc1(dir).exit, 1));
@@ -112,18 +112,18 @@ test('DC1 reads an M1.1 position from M1.1, not M1; it skips a closed M1.1; M10 
     const r = dc1(dir);
     assert.deepEqual([r.exit, r.findings], [1, ['decisions.md#decision/position/PD-3']]);
     assert.match(r.details[0], /^A decision names M1\.1 item 2 \(line 3\)/);
-    assert.match(r.fixes[0], /^Write `Amends: F-07` under that decision, naming what M1\.1 item 2 builds today\.$/);
+    assert.match(r.fixes[0], /^Write `Amends: F-07` under that decision, and name the feature in place of M1\.1 item 2, which builds it today\.$/);
   });
   const closed = { ...ms, 'docs/milestones/M1.1-b.md': milestone('M1.1', 'closed', ['y (F-02)']) };
   inTree({ 'decisions.md': '## PD-3 — t\n\nAs M1.1 item 1 says.\n', ...closed }, (dir) => assert.deepEqual([dc1(dir).exit, dc1(dir).findings], [0, []]));
   inTree({ 'decisions.md': '## PD-3 — t\n\nAs M10 item 1 says.\n', ...ms, 'docs/milestones/M10-c.md': milestone('M10', 'shaping', ['v (F-10)']) }, (dir) => {
-    assert.match(dc1(dir).fixes[0], /Amends: F-10` under that decision, naming what M10 item 1 builds today/);
+    assert.match(dc1(dir).fixes[0], /Amends: F-10` under that decision, and name the feature in place of M10 item 1/);
   });
 });
 
 test('DC1 reads an id as the readers do: `m1.1` is M1.1; a closed `M01` beside an open M1 settles nothing', () => {
   inTree({ 'decisions.md': '## PD-3 — t\n\nAs M1.1 item 1 says.\n', 'docs/milestones/M1.1-b.md': milestone('m1.1', 'shaping', ['y (F-02)']) }, (dir) => {
-    assert.match(dc1(dir).fixes[0], /Amends: F-02` under that decision, naming what M1\.1 item 1 builds today/);
+    assert.match(dc1(dir).fixes[0], /Amends: F-02` under that decision, and name the feature in place of M1\.1 item 1/);
   });
   const decoy = { 'docs/milestones/0-decoy.md': milestone('M01', 'closed', ['z (F-09)']), 'docs/milestones/M1-a.md': milestone('M1', 'shaping', ['x (F-01)']) };
   inTree({ 'decisions.md': '## PD-3 — t\n\nAs M1 item 1 says.\n', ...decoy }, (dir) => {
