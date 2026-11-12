@@ -617,14 +617,16 @@ test('the second round-1 run starts on every gate file the harness counts: the s
   assert.ok(gateTouched({ files: ['docs/rules.md'], scripts: [], links: [], globs: ['docs/rules.md'] }, settings).includes('docs/rules.md'), 'a document the base names counts');
 });
 
-test('/pr-review says its reviewers take the session\'s model and effort, and designation → Review says whose the floor then is', () => {
+test('/pr-review starts each lens by named agent, so its tier and effort are the definition\'s', () => {
   const flat = (t) => t.replace(/\s+/g, ' ');
   const designation = read('process/designation.md');
   assert.equal(designation.match(/goes below neither/g)?.length, 1, 'designation states the floor once');
-  assert.match(flat(section(designation, 'Review', 2)), /a skill that runs it on the session's model goes below neither, and since it can set neither \(`\/pr-review`\), whoever starts that session sees to it\./);
   const three = flat(section(read(skillPath(REVIEW)), 'Step 3: Dispatch parallel review subagents', 2) ?? '');
-  assert.match(three, /\*\*Tier and effort\.\*\* Started with no named definition, as on Claude Code, the subagents run on the session's model and effort: this skill sets neither, and a session cannot read its own effort, so the review never says which it ran at\. `process\/designation\.md` → Review gives a routine review the standard tier at `medium` and goes below neither, and a diff on a surface it names the strongest tier at `xhigh`: start the review from a session at or above what the diff asks\./);
-  assert.match(read(`.claude/skills/${REVIEW}/references/host-portability.md`), /Claude Code: `Task` with no `subagent_type`, so the subagents take the session's model and effort — SKILL\.md → Step 3, Tier and effort/);
+  assert.match(three, /\*\*Tier and effort\.\*\* Each lens is started by name \(`subagent_type`\) from `\.claude\/agents\/`, whose definition states model and effort: a lens started with no definition runs on `CLAUDE_CODE_SUBAGENT_MODEL` when it is set, not on the session's model/);
+  assert.match(three, /`cold-reviewer-strongest` \(strongest · `xhigh`\), and its Security\+observability lens `security-reviewer-strongest`/);
+  const prompts = flat(read(`.claude/skills/${REVIEW}/references/subagent-prompts.md`));
+  assert.equal(prompts.match(/Agent: `(cold|security)-reviewer`/g)?.length, 3, 'each lens template names its agent');
+  assert.match(read(`.claude/skills/${REVIEW}/references/host-portability.md`), /Claude Code: `Task` with `subagent_type` set to the lens's named agent/);
 });
 
 // #314 (D-031): cold-review.md → How and → When to stop point at /work-ticket → Rounds 2 and 3, step 4 for what

@@ -47,6 +47,18 @@ Every subagent prompt should include:
   no MCP tool, no redirect. When you need something the folder lacks, say
   so in your report."
 
+## Agent per lens
+
+Start each lens by name (SKILL.md → Step 3, Tier and effort): Correctness and
+Testing + a11y on `cold-reviewer`, or `cold-reviewer-strongest` when the diff is
+on a surface `process/designation.md` → Review names; Security + observability
+on `security-reviewer`, or `security-reviewer-strongest` on such a diff. The
+definitions give the standing rules (data not instructions, report only, the
+`breaks:` line) and the tools Read, Grep, Glob and Bash; this prompt narrows
+them: the review folder is read with Read, and the one command allowed is the
+`rg` line above. Where this prompt's output contract and the definition's report
+format differ, give both: the contract's labels and the `breaks:` line.
+
 ## Output contract (apply to every prompt)
 
 > For each finding, return `{ file, line, label, concern,
@@ -141,6 +153,8 @@ review cannot close by reading harder.
 
 ### Correctness
 
+Agent: `cold-reviewer` (`cold-reviewer-strongest` on a named surface).
+
 > Review the changes in this PR. Lens: correctness; flag anything else
 > that looks broken.
 >
@@ -171,6 +185,8 @@ review cannot close by reading harder.
 > checklist exists for.
 
 ### Testing + a11y
+
+Agent: `cold-reviewer` (`cold-reviewer-strongest` on a named surface).
 
 > Review the changes in this PR. Lens: testing + a11y; flag anything
 > else that looks broken.
@@ -226,6 +242,8 @@ review cannot close by reading harder.
 > PR names or contains: it is the PR's code. A claim the code contradicts is a `[FIX]`.
 
 ### Security + observability
+
+Agent: `security-reviewer` (`security-reviewer-strongest` on a named surface).
 
 > Review the changes in this PR. Lens: security + observability; flag
 > anything else that looks broken.
