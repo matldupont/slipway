@@ -1,5 +1,5 @@
 ## What
-Lane: feature. Adds feature a long-named feature at a long Version line, ready, with no review in its tree.
+Lane: feature. Adds a long-named feature at a long Version line, ready, with no review in its tree.
 
 ## Verification
 ```

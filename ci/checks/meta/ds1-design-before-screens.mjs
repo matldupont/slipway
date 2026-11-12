@@ -100,7 +100,7 @@ for (const e of registry.filter((e) => e.id.startsWith(MILESTONE_PREFIX))) {
   else if (m.fm.status === 'shaping' || m.fm.status === 'killed') entry(`${id} is ${m.fm.status}, so no screens are being built under it`, 'Remove the entry.');
   else if (hasAccessibilityLine(m.md)) entry(`${id}'s Gate already says how its screens meet WCAG 2.2 AA`, 'Remove the entry.');
   else if (screens) entry(`${id} builds no screens (${fe.state === 'none' ? 'the frame says Front end: none' : 'screens: none'})`, 'Remove the entry.');
-  else if (day === 'expired') add(`${REGISTRY}#accessibility/overdue:${id}`, `The entry excusing ${id}'s accessibility line ended ${e.expires}.`, `Write the WCAG 2.2 AA line under that milestone's ## Gate and remove the entry, or set a later day with its reason.`);
+  else if (day === 'expired') add(`${REGISTRY}#accessibility/overdue:${id}`, `The entry excusing ${id}'s accessibility line ended ${e.expires}.`, `Write the WCAG 2.2 AA line under that milestone's ## Gate and remove the entry, or ask the owner to approve a later day with its reason.`);
   else {
     live.set(m, live.has(m) && live.get(m) > e.expires ? live.get(m) : e.expires);
     if (m.fm.status !== 'active') let_off(`${id}: accessibility excused until ${e.expires}`, REGISTRY);
@@ -159,7 +159,7 @@ for (const m of active) {
   if (hasAccessibilityLine(m.md)) continue;
   if (live.has(m)) let_off(`${id}: accessibility excused until ${live.get(m)}`, REGISTRY);
   else {
-    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a bullet under ## Gate saying its screens meet WCAG 2.2 AA and what holds it, or ask the owner to approve a dated entry in ${REGISTRY}.`);
+    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a WCAG 2.2 AA bullet under ## Gate saying what holds it, or ask the owner to approve an entry in ${REGISTRY} with a reason, an owner and a day.`);
   }
 }
 
