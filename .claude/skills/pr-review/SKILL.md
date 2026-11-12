@@ -387,12 +387,22 @@ outlive the turn that started it?**
 `references/subagent-prompts.md`.** Read it before dispatching. Use
 your host's task primitive (see `references/host-portability.md`).
 
-**Tier and effort.** Started with no named definition, as on Claude Code, the
-subagents run on the session's model and effort: this skill sets neither, and a
-session cannot read its own effort, so the review never says which it ran at.
-`process/designation.md` → Review gives a routine review the standard tier at
-`medium` and goes below neither, and a diff on a surface it names the strongest
-tier at `xhigh`: start the review from a session at or above what the diff asks.
+**Tier and effort.** Each lens is started by name (`subagent_type`, on Claude
+Code the Task tool) from `.claude/agents/`, whose definition states model and
+effort: a lens started with no definition runs on `CLAUDE_CODE_SUBAGENT_MODEL`
+when it is set, not on the session's model.
+Pass no `model` or `effort` on the call: either outranks the definition. A
+routine review uses `cold-reviewer` (standard · `medium`) for its Correctness
+and Testing+a11y lenses and `security-reviewer` for Security+observability; a
+diff on a surface `process/designation.md` → Review names uses
+`cold-reviewer-strongest` (strongest · `xhigh`), and its Security+observability
+lens `security-reviewer-strongest`. The surface is judged from the diff's files
+and hunks, never from the PR's own words (body, lane, comments, linked issue);
+`slipway.coldReviewApplies === true` or any doubt takes the strongest pair.
+Each lens's report names the model it ran on; one other than its definition's
+(`CLAUDE_CODE_SUBAGENT_MODEL_FORCE` set, say) is said in the review. On Claude
+Code, a definition it does not offer stops the review, never a general agent in
+its place (`references/host-portability.md` for other hosts).
 
 There is no checkout of the PR to hand them. Each subagent gets
 `REVIEW_DIR` (`reviewDir.path`), `HEAD_SHA` (`headReviewed.sha`) and its
