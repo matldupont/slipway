@@ -159,7 +159,7 @@ for (const m of active) {
   if (hasAccessibilityLine(m.md)) continue;
   if (live.has(m)) let_off(`${id}: accessibility excused until ${live.get(m)}`, REGISTRY);
   else {
-    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a bullet under ## Gate saying its screens meet WCAG 2.2 AA and what holds it, or add an entry to ${REGISTRY} with a reason, an owner and a day.`);
+    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a bullet under ## Gate saying its screens meet WCAG 2.2 AA and what holds it, or ask the owner to approve an entry in ${REGISTRY} with a reason, an owner and a day.`);
   }
 }
 

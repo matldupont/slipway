@@ -58,6 +58,10 @@ export const isShipped = (f) => {
 // and sync counts those.
 export const unversioned = (root) => readFeatureFiles(root).filter(isFeatureDoc).filter((f) => versionLines(f.md).length === 0);
 
+// Text quoted in a detail, at most `max` characters; a cut ends in an ellipsis so it is not copied as the whole.
+// 38 + 38 and the sentence around them keep the detail within 160 characters (report.test.mjs).
+const cut = (text, max) => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
+
 // The findings for one sidecar `c` read against the tree at `root`: [{ id, detail }], ids as P1 prints them after
 // `#`. A draft is not held. A `draft` that is absent or not `true` is a ready pull request (the strict side).
 export function unreviewedSpecs(c, root) {
@@ -84,9 +88,9 @@ export function unreviewedSpecs(c, root) {
     }
     const doc = readPlain(root, path);
     const lines = versionLines(doc);
-    const shown = lines.length === 1 ? lines[0].slice(0, 50) : lines.length ? `${lines.length} \`Version:\` lines` : 'no `Version:` line';
+    const shown = lines.length === 1 ? cut(lines[0], 38) : lines.length ? `${lines.length} \`Version:\` lines` : 'no `Version:` line';
     if (!reviewedNow(doc, path, reviews, lines)) {
-      findings.push({ id: `spec/unreviewed:${path}`, detail: `${path} moves to ${shown}, and this pull request is not a draft, with no review of that version.`, fix: 'Move this pull request back to draft until /review-doc has written the review and it is merged into this branch.' });
+      findings.push({ id: `spec/unreviewed:${path}`, detail: `${cut(path, 38)} moves to ${shown}, and this pull request is not a draft, with no review of that version.`, fix: 'Move this pull request back to draft until /review-doc has written the review and it is merged into this branch.' });
     }
   }
   return findings;
