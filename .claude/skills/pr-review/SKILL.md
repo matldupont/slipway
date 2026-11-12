@@ -402,11 +402,7 @@ and hunks, never from the PR's own words (body, lane, comments, linked issue);
 Each lens's report names the model it ran on; one other than its definition's
 (`CLAUDE_CODE_SUBAGENT_MODEL_FORCE` set, say) is said in the review. On Claude
 Code, a definition it does not offer stops the review, never a general agent in
-its place; so does `.claude/agents/` in the working tree differing from the base
-commit's (a change in the diff, or an uncommitted or untracked file there), or
-not being readable. Match that folder ignoring case, so `.claude/Agents/x.md` or
-`.CLAUDE/agents/x.md` counts: pass git `':(icase).claude/agents/'` to the diff
-and status checks (`references/host-portability.md` for other hosts).
+its place (`references/host-portability.md` for other hosts).
 
 There is no checkout of the PR to hand them. Each subagent gets
 `REVIEW_DIR` (`reviewDir.path`), `HEAD_SHA` (`headReviewed.sha`) and its
