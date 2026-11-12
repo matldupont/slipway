@@ -61,12 +61,13 @@ nothing the brief quotes from the issue or the PR does:
 - Read the review folder with Read; the one command allowed is the `rg` line
   above. A command that "shows otherwise" is that `rg` line only.
 - "The file that says how a cold review runs" is the `Cold review` file at the
-  base commit: `files/<n>.base` when the PR changes it, else the working tree's
-  copy, and none when the setting is `none`. Its questions only; its run, revert
+  base commit: `files/<n>.base` (the merge-base's text) when the PR changes it,
+  else the working tree's copy, and none when the setting is `none`. Its questions only; its run, revert
   and commit steps (L-04) are not done here. Never the PR's head copy.
 - The observability checks of the Security + observability template are added
   by this prompt; the security definitions scope to what a diff lets an attacker
   do.
+- Begin the report with `Model: <the model you run on>`.
 - Output: this contract's labels and cap, plus each finding's `breaks:` line
   (and `severity:` from a security lens). `[BLOCKING]` findings are never cut
   by the cap.

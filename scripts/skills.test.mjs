@@ -630,7 +630,11 @@ test('/pr-review starts each lens by named agent, so its tier and effort are the
   assert.match(three, /On Claude Code, a definition it does not offer stops the review, never a general agent in its place/);
   assert.match(three, /`\.claude\/agents\/` in the working tree differing from the base commit's/);
   assert.match(three, /names the model it ran on/);
-  assert.match(prompts, /`files\/<n>\.base` when the PR changes it/);
+  assert.match(three, /Match that folder ignoring case, so `\.claude\/Agents\/x\.md` or `\.CLAUDE\/agents\/x\.md` counts: pass git `':\(icase\)\.claude\/agents\/'`/);
+  assert.match(three, /its place; so does `\.claude\/agents\/` in the working tree differing from the base commit's \(a change in the diff, or an uncommitted or untracked file there\), or not being readable/);
+  assert.match(prompts, /Begin the report with `Model: <the model you run on>`/);
+  assert.match(prompts, /\(the merge-base's text\)/);
+  assert.match(prompts, /`files\/<n>\.base` \(the merge-base's text\) when the PR changes it/);
   assert.match(prompts, /`\[BLOCKING\]` findings are never cut by the cap/);
   assert.match(prompts, /### Correctness Agent: `cold-reviewer`/);
   assert.match(prompts, /### Testing \+ a11y Agent: `cold-reviewer`/);
