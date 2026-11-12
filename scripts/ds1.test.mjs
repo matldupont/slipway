@@ -61,6 +61,7 @@ test('design: PD-4 naming a decision answers design and nothing else: the Gate l
   const r = ds1(files({ decisions: '# Decisions\n\n## PD-4 — Screens built to the vendor kit *(decided 2026-10-01)*\n', milestones: { 'M2.md': milestone({ fields: ['design: PD-4'], gate: ['`pnpm verify` green on main'] }) } }));
   assert.equal(r.status, 1, r.out);
   assert.deepEqual(ids(r), ['gate/accessibility:M2']);
+  assert.match(r.out, /ask the owner to approve an entry in ci\/exceptions\.yaml/, 'the fix says the registry entry is the owner\'s to approve (design-before-screens §3)');
   assert.deepEqual(r.json.exempted, ['M2: design: PD-4']);
   // AR-3: the view is in the output of a red run, not only in a pass's claim.
   assert.match(r.out, /^1 exempted by milestone frontmatter: M2: design: PD-4 \(DS1\)$/m);

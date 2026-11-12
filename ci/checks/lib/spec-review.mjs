@@ -58,6 +58,10 @@ export const isShipped = (f) => {
 // and sync counts those.
 export const unversioned = (root) => readFeatureFiles(root).filter(isFeatureDoc).filter((f) => versionLines(f.md).length === 0);
 
+// Text quoted in a detail, at most `max` characters; a cut ends in an ellipsis so it is not copied as the whole.
+// 38 + 38 and the sentence around them keep the detail within 160 characters (report.test.mjs).
+const cut = (text, max) => (text.length <= max ? text : `${text.slice(0, max - 1)}…`);
+
 // The findings for one sidecar `c` read against the tree at `root`: [{ id, detail }], ids as P1 prints them after
 // `#`. A draft is not held. A `draft` that is absent or not `true` is a ready pull request (the strict side).
 export function unreviewedSpecs(c, root) {
@@ -74,19 +78,19 @@ export function unreviewedSpecs(c, root) {
   for (const s of c.specs) {
     const path = typeof s?.path === 'string' ? posix.normalize(s.path) : '';
     if (!path || path.startsWith('..') || !SPEC_PATH.test(path)) {
-      findings.push({ id: 'specs/unreadable', detail: `An entry of \`specs\` beside the body is not a feature doc path (${JSON.stringify(s?.path ?? null).slice(0, 40)}).`, fix: 'Write the list with ci/checks/lib/gate-files.mjs in the workflow that makes the body.' });
+      findings.push({ id: 'specs/unreadable', detail: `An entry of \`specs\` beside the body is not a feature doc path (${cut(JSON.stringify(s?.path ?? null), 40)}).`, fix: 'Write the list with ci/checks/lib/gate-files.mjs in the workflow that makes the body.' });
       continue;
     }
     const why = notPlainFile(root, path);
     if (why !== null) {
-      findings.push({ id: `spec/unreadable:${path}`, detail: `${path} ${why}, so its version cannot be read.`, fix: 'Put the feature doc in a regular file reached through no link.' });
+      findings.push({ id: `spec/unreadable:${path}`, detail: `${cut(path, 80)} ${why}, so its version cannot be read.`, fix: 'Put the feature doc in a regular file reached through no link.' });
       continue;
     }
     const doc = readPlain(root, path);
     const lines = versionLines(doc);
-    const shown = lines.length === 1 ? lines[0].slice(0, 50) : lines.length ? `${lines.length} \`Version:\` lines` : 'no `Version:` line';
+    const shown = lines.length === 1 ? cut(lines[0], 38) : lines.length ? `${lines.length} \`Version:\` lines` : 'no `Version:` line';
     if (!reviewedNow(doc, path, reviews, lines)) {
-      findings.push({ id: `spec/unreviewed:${path}`, detail: `${path} moves to ${shown}, and this pull request is not a draft, with no review of that version.`, fix: 'Move this pull request back to draft until /review-doc has written the review and it is merged into this branch.' });
+      findings.push({ id: `spec/unreviewed:${path}`, detail: `${cut(path, 38)} moves to ${shown}, and this pull request is not a draft, with no review of that version.`, fix: 'Move this pull request back to draft until /review-doc has written the review and it is merged into this branch.' });
     }
   }
   return findings;
