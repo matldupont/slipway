@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { flat } from './lib/report-form.mjs';
+import { fixes, flat } from './lib/report-form.mjs';
 import { readDecisions } from '../ci/checks/lib/decisions.mjs';
 import { readWorkflow } from '../ci/checks/lib/workflow-yaml.mjs';
 import { gateGlobs, globToRegExp } from '../ci/checks/lib/gate-files.mjs';
@@ -112,7 +112,7 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   appendFileSync(join(dest, 'SLIPWAY.md'), '\nedited\n');
   let r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 1);
-  assert.match(flat(r.stdout), /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
+  assert.match(flat(r.stdout), /D1: drift\/SLIPWAY\.md: A file slipway maintains was edited/);
 
   // A whitespace-only reason is empty: it excuses nothing.
   writeFileSync(join(dest, '.slipway', 'overrides.yaml'), 'overrides:\n  - path: SLIPWAY.md\n    reason: "  "\n');
@@ -125,13 +125,13 @@ test('the manifest lists every shipped path with its class, sha256 and blob as w
   mkdirSync(join(dest, 'BOOTSTRAP.md'));
   r = check(dest, 'd1-drift.mjs');
   assert.equal(r.status, 1, r.stderr);
-  assert.match(flat(r.stdout), /drift\/BOOTSTRAP\.md: BOOTSTRAP\.md is a file slipway maintains, and it was replaced by a non-file/);
+  assert.match(flat(r.stdout), /drift\/BOOTSTRAP\.md: A file slipway maintains was replaced by a non-file/);
   rmSync(join(dest, 'BOOTSTRAP.md'), { recursive: true });
   git(dest, 'checkout', '--', 'BOOTSTRAP.md');
   // A symlink is never followed out of the project.
   rmSync(join(dest, 'BOOTSTRAP.md'));
   symlinkSync(join(SRC, 'BOOTSTRAP.md'), join(dest, 'BOOTSTRAP.md'));
-  assert.match(flat(check(dest, 'd1-drift.mjs').stdout), /drift\/BOOTSTRAP\.md: BOOTSTRAP\.md is a file slipway maintains, and it was replaced by a non-file/);
+  assert.match(flat(check(dest, 'd1-drift.mjs').stdout), /drift\/BOOTSTRAP\.md: A file slipway maintains was replaced by a non-file/);
   rmSync(join(dest, 'BOOTSTRAP.md'));
   git(dest, 'checkout', '--', 'BOOTSTRAP.md');
 
@@ -276,8 +276,10 @@ test('ci/before-verify.sh: the project\'s own (seeded, never shipped), run by th
   appendFileSync(join(dest, '.github', 'workflows', 'ci.yml'), '\n# services: postgres\n');
   appendFileSync(join(dest, 'SLIPWAY.md'), '\nedited\n');
   const out = flat(check(dest, 'd1-drift.mjs').stdout);
-  assert.match(out, /drift\/\.github\/workflows\/ci\.yml: .*put that in ci\/before-verify\.sh.*or keep it by adding it to/);
-  assert.doesNotMatch(out.split('\n').find((l) => l.includes('drift/SLIPWAY.md')), /before-verify/);
+  const [ciFix, otherFix] = fixes(check(dest, 'd1-drift.mjs').stdout);
+  assert.match(out, /drift\/\.github\/workflows\/ci\.yml: A file slipway maintains was edited/);
+  assert.match(ciFix, /ci\/before-verify\.sh.*or keep it by adding it to/);
+  assert.doesNotMatch(otherFix, /before-verify/);
 });
 
 // issue-shape's failure step, as written in the workflow, run under `bash -e` against a fake `gh`. The fake
@@ -576,7 +578,7 @@ test('.gitattributes ships as managed, under a checkout and a packed install; a 
   writeFileSync(join(clone, 'SLIPWAY.md'), readFileSync(join(clone, 'SLIPWAY.md'), 'utf8').replaceAll('\n', '\r\n'));
   const r = check(clone, 'd1-drift.mjs');
   assert.equal(r.status, 1);
-  assert.match(flat(r.stdout), /D1: drift\/SLIPWAY\.md: SLIPWAY\.md is a file slipway maintains, and it was edited/);
+  assert.match(flat(r.stdout), /D1: drift\/SLIPWAY\.md: A file slipway maintains was edited/);
 });
 
 test('the harness note says what the Stop hook does: it blocks the first stop, and a second stop ends the turn red (#299)', () => {

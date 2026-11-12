@@ -72,11 +72,11 @@ const current = (p) => {
 
 for (const o of overrides) {
   if (!hasReason(o)) {
-    findings.push({ where: `override/reason/${o.path}`, detail: `${OVERRIDES}:${o.line} keeps your edit to ${o.path} but gives no reason — add one, or remove the entry` });
+    findings.push({ where: `override/reason/${o.path}`, detail: `${OVERRIDES}:${o.line} keeps your edit to ${o.path} but gives no reason.`, fix: 'Add a reason to that entry, or remove it.' });
   } else if (!hashes.has(o.path)) {
-    findings.push({ where: `override/stale/${o.path}`, detail: `${OVERRIDES}:${o.line} names ${o.path}, which is not a file slipway maintains — remove the entry` });
+    findings.push({ where: `override/stale/${o.path}`, detail: `${OVERRIDES}:${o.line} names ${o.path}, which is not a file slipway maintains.`, fix: 'Remove that entry.' });
   } else if (current(o.path) === hashes.get(o.path)) {
-    findings.push({ where: `override/stale/${o.path}`, detail: `${o.path} is back to slipway's version, so the entry keeping your edit at ${OVERRIDES}:${o.line} is no longer needed — remove it` });
+    findings.push({ where: `override/stale/${o.path}`, detail: `${o.path} is back to slipway's version, so the entry at ${OVERRIDES}:${o.line} keeps nothing.`, fix: 'Remove that entry.' });
   } else {
     excused.add(o.path);
   }
@@ -84,7 +84,7 @@ for (const o of overrides) {
 
 // An edited ci.yml is usually a project adding what its tests need; that has a place that is not an override.
 const CI_YML = '.github/workflows/ci.yml';
-const CI_HINT = `If the edit adds what your tests need before pnpm verify (a database service, an env var), revert it and put that in ci/before-verify.sh, which the verify job runs when the file exists. Otherwise revert it`;
+const CI_FIX = `Revert it and, if it adds what your tests need, put that in ci/before-verify.sh; or keep it by adding it to ${OVERRIDES} with a reason.`;
 
 const exempted = [];
 for (const [p, want] of hashes) {
@@ -96,7 +96,8 @@ for (const [p, want] of hashes) {
   }
   findings.push({
     where: `drift/${p}`,
-    detail: `${p} is a file slipway maintains, and it was ${got === null ? 'deleted' : got === NOT_A_FILE ? 'replaced by a non-file' : 'edited'} here; the next /sync-slipway would undo that. ${p === CI_YML ? CI_HINT : 'Revert it'}, or keep it by adding it to ${OVERRIDES} (path: and reason:)`,
+    detail: `A file slipway maintains was ${got === null ? 'deleted' : got === NOT_A_FILE ? 'replaced by a non-file' : 'edited'} here, which the next /sync-slipway would undo.`,
+    fix: p === CI_YML ? CI_FIX : `Revert it, or keep it by adding it to ${OVERRIDES} with a path: and a reason:.`,
   });
 }
 

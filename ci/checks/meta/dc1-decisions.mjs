@@ -55,21 +55,23 @@ for (const e of record.entries) {
   const p = e.positions.find((x) => !settled(x.milestone));
   if (!p) continue;
   const at = `${p.milestone} item ${p.item}`;
-  const lead = `${e.id} names ${at} (line ${p.line}). Items move when a milestone is reshaped: name the feature instead.`;
+  const detail = `A decision names ${at} (line ${p.line}), and items move when a milestone is reshaped.`;
+  const noItem = `A decision names ${at} (line ${p.line}), but there is no such item to read a feature from.`;
   const found = item(p.milestone, p.item);
   const fs = found?.features.map(fid).join(', ');
   // An item with no feature is named by its words (the owner, 2026-10-15): the detail says so, and prints none of them.
-  const detail = !found
-    ? `${lead} There is no ${at} to read a feature from: write \`Amends: F-<n>\` for the feature the item builds`
+  const fix = !found
+    ? `Write \`Amends: F-<n>\` for the feature that item built, and name it in place of ${at}.`
     : fs
-      ? `${lead} ${at} builds ${fs} today (docs/milestones/${found.file}): write \`Amends: ${fs}\` under ${e.id}`
-      : `${lead} ${at} cites no F-id (docs/milestones/${found.file}): in place of "${at}", quote the item's words, or cite its feature once it has one`;
-  findings.push({ where: `decisions.md#decision/position/${e.id}`, detail });
+      ? `Write \`Amends: ${fs}\` under that decision, and name the feature in place of ${at}, which builds it today.`
+      : `Say what the item does in place of "${at}", or cite its feature once it has one.`;
+  findings.push({ where: `decisions.md#decision/position/${e.id}`, detail: found ? detail : noItem, fix });
 }
 
 const warnings = record.unreadable().map((u) => ({
   where: `decisions.md#decision/unreadable/${u.id}`,
-  detail: `${u.id} (line ${u.line}) has a condition or Amends: line status cannot read: say what brings it back in the form status reads (/clarify), or move a condition no event fits into the entry's prose`,
+  detail: `A decision (line ${u.line}) has a condition or Amends: line that status cannot read.`,
+  fix: "Say what brings it back in the form status reads, or move a condition no event fits into the entry's prose.",
 }));
 
 // The two counts /close-milestone's retro reads, ids only: a prose condition nothing reads, and an issue closed by hand.

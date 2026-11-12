@@ -73,7 +73,7 @@ const exempted = [];
 const by = new Set();
 const satisfied = [];
 const where = (m, rule) => `docs/milestones/${m.file}#${rule}:${m.fm.id}`;
-const add = (at, detail) => findings.push({ where: at, detail });
+const add = (at, text, how) => findings.push({ where: at, detail: text, fix: how });
 const let_off = (line, source) => {
   exempted.push(line);
   by.add(source);
@@ -91,16 +91,16 @@ for (const e of registry.filter((e) => e.id.startsWith(MILESTONE_PREFIX))) {
   const m = id && byId.get(id);
   const day = expiryProblem(e.expires, today);
   const screens = m && (fe.state === 'none' || buildsNoScreens(m.fm));
-  const entry = (why) => add(at, `the entry ${excerpt(e.id, 80)} in ${REGISTRY} excuses nothing: ${why}`);
-  if (!form) entry(`its id must be docs/milestones#<milestone id>/accessibility, one milestone per entry — fix the id, or remove the entry`);
-  else if (!said(e.reason)) entry('it has no reason: — say what is not held yet, and what will hold it');
-  else if (!said(e.owner)) entry('it has no owner: — name who answers for it');
-  else if (day === 'none' || day === 'not-a-day') entry('its expires: is not a real day written yyyy-mm-dd — set the first day it no longer excuses');
-  else if (!m) entry(`no milestone in docs/milestones/ has id ${id} — fix the id, or remove the entry`);
-  else if (m.fm.status === 'shaping' || m.fm.status === 'killed') entry(`${id} is ${m.fm.status}, so no screens are being built under it — remove the entry`);
-  else if (hasAccessibilityLine(m.md)) entry(`${id}'s Gate already says how its screens meet WCAG 2.2 AA — remove the entry`);
-  else if (screens) entry(`${id} builds no screens (${fe.state === 'none' ? 'the frame says Front end: none' : 'screens: none'}) — remove the entry`);
-  else if (day === 'expired') add(`${REGISTRY}#accessibility/overdue:${id}`, `the entry excusing ${id}'s accessibility line ended ${e.expires}: write the line under ${id}'s ## Gate (docs/milestones/${m.file}) with what holds it, and remove the entry; or set a later day, with its reason`);
+  const entry = (why, fix) => add(at, `The entry ${excerpt(e.id, 40)} in ${REGISTRY} excuses nothing, since ${why}.`, fix);
+  if (!form) entry('its id is not docs/milestones#<milestone id>/accessibility', 'Fix the id so it names one milestone, or remove the entry.');
+  else if (!said(e.reason)) entry('it has no reason:', 'Add a reason: saying what is not held yet and what will hold it.');
+  else if (!said(e.owner)) entry('it has no owner:', 'Add an owner: naming who answers for it.');
+  else if (day === 'none' || day === 'not-a-day') entry('its expires: is not a real day written yyyy-mm-dd', 'Set expires: to the first day it no longer excuses, written yyyy-mm-dd.');
+  else if (!m) entry(`no milestone in docs/milestones/ has id ${id}`, 'Fix the id, or remove the entry.');
+  else if (m.fm.status === 'shaping' || m.fm.status === 'killed') entry(`${id} is ${m.fm.status}, so no screens are being built under it`, 'Remove the entry.');
+  else if (hasAccessibilityLine(m.md)) entry(`${id}'s Gate already says how its screens meet WCAG 2.2 AA`, 'Remove the entry.');
+  else if (screens) entry(`${id} builds no screens (${fe.state === 'none' ? 'the frame says Front end: none' : 'screens: none'})`, 'Remove the entry.');
+  else if (day === 'expired') add(`${REGISTRY}#accessibility/overdue:${id}`, `The entry excusing ${id}'s accessibility line ended ${e.expires}.`, `Write the WCAG 2.2 AA line under that milestone's ## Gate and remove the entry, or set a later day with its reason.`);
   else {
     live.set(m, live.has(m) && live.get(m) > e.expires ? live.get(m) : e.expires);
     if (m.fm.status !== 'active') let_off(`${id}: accessibility excused until ${e.expires}`, REGISTRY);
@@ -119,14 +119,14 @@ if (active.length && fe.state === 'unrecorded') {
     empty: 'has a Front end: line with nothing after it',
     placeholder: 'still holds the template placeholder on its Front end: line',
   }[fe.why];
-  add(`${FRAME}#frontend/unrecorded`, `${FRAME} ${why}, and ${active.map((m) => m.fm.id).join(', ')} is active: write one line saying where people use the product — \`Front end: a web app\`, or \`Front end: none\` for an API or a tool with no screens`);
+  add(`${FRAME}#frontend/unrecorded`, `${FRAME} ${why}, and ${active.map((m) => m.fm.id).join(', ')} is active.`, 'Write one line saying where people use the product, such as `Front end: a web app`, or `Front end: none` when there are no screens.');
 }
 
 for (const m of active) {
   const id = m.fm.id;
   if (Object.hasOwn(m.fm, 'screens') && !buildsNoScreens(m.fm)) {
     const value = typeof m.fm.screens === 'string' && m.fm.screens.trim() ? `"${excerpt(m.fm.screens, 40)}"` : 'empty';
-    add(where(m, 'screens/unknown'), `screens: is ${value}: write screens: none when ${id} builds no screens, or remove the field`);
+    add(where(m, 'screens/unknown'), `${id} has screens: ${value}.`, `Write screens: none when that milestone builds no screens, or remove the field.`);
   }
   if (fe.state === 'none') {
     let_off(`${id}: front end: none`, 'the frame');
@@ -138,8 +138,8 @@ for (const m of active) {
     const r = resolveDecision(decisions, value, { decided: true });
     if (r.ok) design = value;
     else {
-      const why = { 'not-an-id': `"${excerpt(value, 40)}" is not a decision id (PD-<n> or D-<n>)`, missing: `${value} is not a heading in decisions.md`, open: `${value} is not marked decided or accepted in decisions.md` }[r.why];
-      add(where(m, 'design/unresolved'), `design: ${why}: record the decision there, or remove the field`);
+      const why = { 'not-an-id': `"${excerpt(value, 40)}" is not a decision id`, missing: 'that decision is not a heading in decisions.md', open: 'that decision is not marked decided or accepted in decisions.md' }[r.why];
+      add(where(m, 'design/unresolved'), `The design: field of ${id} fails, since ${why}.`, 'Record the decision in decisions.md, or remove the field.');
     }
   }
   if (fe.state !== 'screens') continue;
@@ -153,13 +153,13 @@ for (const m of active) {
     if (item) satisfied.push(`${id} satisfied by the design item in ${item.id === id ? 'its own Contents' : item.id}, item ${item.position}`);
     else if (design) let_off(`${id}: design: ${design}`, 'milestone frontmatter');
     else if (!Object.hasOwn(m.fm, 'design')) {
-      add(where(m, 'design/missing'), `no design item before ${id}'s screens: add a Contents item starting "Design:" as ${id}'s item 1, or below the items already started, saying what it delivers and who does it; or record in decisions.md why these screens are built without one, and name it in ${id}'s frontmatter as design: PD-<n>`);
+      add(where(m, 'design/missing'), `${id} has no design item before its screens.`, `Add a Contents item starting "Design:" as item 1 or below started items only, or record why in decisions.md and name it as design: in the frontmatter.`);
     }
   }
   if (hasAccessibilityLine(m.md)) continue;
   if (live.has(m)) let_off(`${id}: accessibility excused until ${live.get(m)}`, REGISTRY);
   else {
-    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA: add a bullet under ## Gate saying so, with what holds it (an automated accessibility check in CI, a keyboard and screen-reader pass in docs/qa/); or, where that cannot be held yet, a dated entry in ${REGISTRY} with id docs/milestones#${id}/accessibility, a reason and an owner, for the owner to approve`);
+    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a bullet under ## Gate saying its screens meet WCAG 2.2 AA and what holds it, or add an entry to ${REGISTRY} with a reason, an owner and a day.`);
   }
 }
 
