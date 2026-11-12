@@ -153,13 +153,13 @@ for (const m of active) {
     if (item) satisfied.push(`${id} satisfied by the design item in ${item.id === id ? 'its own Contents' : item.id}, item ${item.position}`);
     else if (design) let_off(`${id}: design: ${design}`, 'milestone frontmatter');
     else if (!Object.hasOwn(m.fm, 'design')) {
-      add(where(m, 'design/missing'), `${id} has no design item before its screens.`, `Add a Contents item starting "Design:" as item 1 or below items already started, or record why in decisions.md and name it as design: in the frontmatter.`);
+      add(where(m, 'design/missing'), `${id} has no design item before its screens.`, `Add a Contents item starting "Design:" as item 1 or below started items only, or record why in decisions.md and name it as design: in the frontmatter.`);
     }
   }
   if (hasAccessibilityLine(m.md)) continue;
   if (live.has(m)) let_off(`${id}: accessibility excused until ${live.get(m)}`, REGISTRY);
   else {
-    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a bullet under ## Gate saying its screens meet WCAG 2.2 AA and what holds it, or add a dated entry to ${REGISTRY} for the owner to approve.`);
+    add(where(m, 'gate/accessibility'), `${id}'s Gate does not say how its screens meet WCAG 2.2 AA.`, `Add a bullet under ## Gate saying its screens meet WCAG 2.2 AA and what holds it, or add an entry to ${REGISTRY} with a reason, an owner and a day.`);
   }
 }
 

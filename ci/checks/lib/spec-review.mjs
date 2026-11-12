@@ -79,14 +79,14 @@ export function unreviewedSpecs(c, root) {
     }
     const why = notPlainFile(root, path);
     if (why !== null) {
-      findings.push({ id: `spec/unreadable:${path}`, detail: `${path} ${why}, so its version cannot be read.`, fix: 'Keep the feature doc a regular file, reached through no link.' });
+      findings.push({ id: `spec/unreadable:${path}`, detail: `${path} ${why}, so its version cannot be read.`, fix: 'Put the feature doc in a regular file reached through no link.' });
       continue;
     }
     const doc = readPlain(root, path);
     const lines = versionLines(doc);
-    const shown = lines.length === 1 ? lines[0] : lines.length ? `${lines.length} \`Version:\` lines` : 'no `Version:` line';
+    const shown = lines.length === 1 ? lines[0].slice(0, 50) : lines.length ? `${lines.length} \`Version:\` lines` : 'no `Version:` line';
     if (!reviewedNow(doc, path, reviews, lines)) {
-      findings.push({ id: `spec/unreviewed:${path}`, detail: `${path} moves to ${shown}, and this pull request is not a draft, with no review of that version.`, fix: 'Keep it a draft until /review-doc has written the review and it is merged into this branch, then mark it ready.' });
+      findings.push({ id: `spec/unreviewed:${path}`, detail: `${path} moves to ${shown}, and this pull request is not a draft, with no review of that version.`, fix: 'Move this pull request back to draft until /review-doc has written the review and it is merged into this branch.' });
     }
   }
   return findings;

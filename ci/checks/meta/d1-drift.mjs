@@ -84,7 +84,7 @@ for (const o of overrides) {
 
 // An edited ci.yml is usually a project adding what its tests need; that has a place that is not an override.
 const CI_YML = '.github/workflows/ci.yml';
-const CI_FIX = `Revert it and, if it adds what your tests need before pnpm verify, put that in ci/before-verify.sh; or keep it by adding it to ${OVERRIDES} with a reason.`;
+const CI_FIX = `Revert it and, if it adds what your tests need, put that in ci/before-verify.sh; or keep it by adding it to ${OVERRIDES} with a reason.`;
 
 const exempted = [];
 for (const [p, want] of hashes) {
