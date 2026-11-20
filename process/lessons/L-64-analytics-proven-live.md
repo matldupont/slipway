@@ -5,8 +5,10 @@ rule: Every event in docs/product/metrics.md is referenced in code, and a smoke 
 failure: A funnel is redesigned while analytics are silently dead, and the weekly review reads a funnel that records nothing.
 enforcement:
   status: declined
-  review-by: +60d
+  review-by: 2027-01-19
   trigger: the first user-facing surface ships (M1 gate)
 ---
 
 A check (A1) that the event table and the code agree, plus an end-to-end assertion that the analytics request leaves the deployed page. Deferred until there is an app to check.
+
+Reviewed 2026-11-20 (#686): waiting for the M1 gate; extended to 2027-01-19.
