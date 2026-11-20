@@ -1638,6 +1638,10 @@ Known limitation: a test whose helper imports product code can be credited by a 
 on its own, and a test whose own subjects use up a kind's cap of step 9 has no helper change of that kind tried; its
 helper subjects still get the turns left in the other kind, and can credit it (F-13, Known limitations).
 
+## D-057 — Tests-can-fail judges every test in a changed test file as new, and finds new tests outside every test file by comparing runs *(decided 2026-11-20)*
+
+The entry is written in #657's pull request.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
