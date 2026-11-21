@@ -1642,8 +1642,6 @@ helper subjects still get the turns left in the other kind, and can credit it (F
 
 Amends: F-13
 
-Closes when: #684 and #685 are closed by their pull requests.
-
 The owner, 2026-11-20, in #657, after the orchestrator and the Second opinion advised. MT1 tied each test in a changed
 test file to its call by place, to tell new tests from old ones. That tie needed fixes in #652 and #656. 2 high
 findings are open in #658, and a third route is open: a change outside every test file.
