@@ -9,6 +9,7 @@ import test from 'node:test';
 import { allPassed, FILTER_MAX, nameFilter, sameFilter } from '../../ci/checks/lib/mutation-filter.mjs';
 import { Stop } from '../../ci/checks/lib/mutation-calls.mjs';
 import { readTestsCanFail } from '../../ci/checks/lib/runner-call.mjs';
+import { readResult } from '../../ci/checks/lib/runner-output.mjs';
 import { runMutation } from '../../ci/mutation.mjs';
 import { CART, project, testFile } from './project.mjs';
 
@@ -80,6 +81,12 @@ test('nameFilter() matches each name only, in both spellings, and gives up on a 
   assert.equal(nameFilter([]), null);
   assert.equal(nameFilter([{ name: 'a' }, { name: '', fullName: null }]), null);
   assert.equal(nameFilter([{ name: 'x'.repeat(FILTER_MAX) }]), null);
+});
+
+test('readResult() keeps the runner\'s own full name beside the ` > ` name, and null when it gives none', () => {
+  const entry = (fullName) => ({ title: 'leaf', ancestorTitles: ['outer'], fullName, status: 'passed', failureMessages: [] });
+  const [{ tests }] = readResult({ testResults: [{ name: '/f', status: 'passed', assertionResults: [entry('outer leaf'), entry(7)] }] }, 'p', '5.0.0');
+  assert.deepEqual(tests.map((x) => [x.name, x.fullName]), [['outer > leaf', 'outer leaf'], ['outer > leaf', null]]);
 });
 
 test('allPassed() is true only when the file loaded and every open test passed; a skipped or missing one did not', () => {
