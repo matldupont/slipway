@@ -5,8 +5,10 @@ rule: Lint docs for a declared reader, resolving citations, and generated-or-fro
 failure: deferred component, not yet built
 enforcement:
   status: declined
-  review-by: +60d
+  review-by: 2027-01-19
   trigger: the first doc that cites code paths, or the first generated doc
 ---
 
 Every doc declares who reads it or lives in an archive folder; every cited path resolves; a generated doc is regenerated in CI and diffed, or marked frozen at a sha. A doc nobody reads rots, and misleads the agent that does read it.
+
+Reviewed 2026-11-20 (#686): trigger fired (docs cite code paths); built as #689. Extended to 2027-01-19.
