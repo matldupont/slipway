@@ -1638,6 +1638,42 @@ Known limitation: a test whose helper imports product code can be credited by a 
 on its own, and a test whose own subjects use up a kind's cap of step 9 has no helper change of that kind tried; its
 helper subjects still get the turns left in the other kind, and can credit it (F-13, Known limitations).
 
+## D-057 — Tests-can-fail judges every test in a changed test file as new, and finds new tests outside every test file by comparing runs *(decided 2026-11-20)*
+
+Amends: F-13
+
+The owner, 2026-11-20, in #657, after the orchestrator and the Second opinion advised. MT1 tied each test in a changed
+test file to its call by place, to tell new tests from old ones. That tie needed fixes in #652 and #656. 2 high
+findings are open in #658, and a third route is open: a change outside every test file.
+
+- **Every test in a changed test file is new.** The owner's answer: "Every test is new". The option they chose: the
+  step no longer works out where a test sits to decide whether it is new. A test's place stays only in the judge's key,
+  place and name together (#655), so two tests with one name are never merged. Built in #684.
+- **A change outside every test file is compared by runs.** The owner's answer: "Compare runs before/after". The
+  option they chose: when a pull request changes anything outside the test files (code, config or setup), the test
+  files that use it run on the base and on the pull request, and a test the second run has more of is new and judged.
+  When the step cannot tell which test files use the change, or a config or setup file changed, it takes every test
+  file in that package. Built in #685.
+- **The costs** (#656). Old tests that never fail, in a test file the pull request touches, become findings on that
+  pull request: they are fixed, or excused with a dated entry in `ci/exceptions.yaml`. Judging runs every test in the
+  file, not only the changed ones. A change outside every test file adds two clean runs of the test files that use it.
+- **#658.** This closes both of its high findings, through #684. Its 2 low findings stay open in #658.
+- **For #681** (the Second opinion's advice, relayed by the orchestrator, not the owner's words; #681 takes it on).
+  Judging every test in a touched file makes runs longer, so #681's per-test budget and its time-limit
+  setting are required, not optional. A filtered run may narrow only to the new tests still open, and only when its
+  clean run used the same filter; a filtered clean run with any other filter stops the run, never a pass. A per-file
+  run judges each touched test file whole. #685's two clean runs count against the same limit.
+
+Why: the tie by place needed fixes in every review round. Treating the whole file as new needs no tie, and comparing
+two runs reads what the runner itself reports.
+
+Known limitation: comparing runs counts tests by name, so a change outside every test file that alters what an
+existing test does, without adding a test, adds nothing new to judge; that test is old, as an untouched test in an
+untouched file is today.
+
+Known limitation: until #684 and #685 are built, #658's 2 high findings and the route through a change outside every
+test file stay open, as F-13's Known limitations say.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
