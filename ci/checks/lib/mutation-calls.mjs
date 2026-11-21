@@ -78,14 +78,15 @@ export async function listTests(ctx, unit) {
 
 /**
  * One run of one test file (§3.8, §3.9). `hung` when the call passed its limit; `none` when it wrote no result;
- * `copies`, how many times the result holds the file (once per Vitest project that runs it).
+ * `copies`, how many times the result holds the file (once per Vitest project that runs it). `filter`, a name filter
+ * from nameFilter() (mutation-filter.mjs), goes to the runner as one word; a run with none runs the whole file.
  * @returns {Promise<{ hung: boolean, none: boolean, loaded: boolean, copies?: number, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null, column: number | null }>, log: string }>}
  */
-export async function runFile(ctx, unit) {
+export async function runFile(ctx, unit, filter = null) {
   const out = join(ctx.dir, 'result.json');
   const log = join(ctx.dir, 'run.log');
   rmSync(out, { force: true });
-  const argv = [...unit.argv, 'run', within(unit.pkg, unit.file), '--reporter=json', `--outputFile=${out}`, '--includeTaskLocation', ...unit.call.args];
+  const argv = [...unit.argv, 'run', within(unit.pkg, unit.file), '--reporter=json', `--outputFile=${out}`, '--includeTaskLocation', ...unit.call.args, ...(filter === null ? [] : [`--testNamePattern=${filter}`])];
   const r = await ctx.groups.run(argv, { cwd: join(ctx.copy, unit.pkg.dir), env: ctx.env, log, limitMs: ctx.callLimit() });
   ctx.checkpoint(r);
   if (r.timedOut) return { hung: true, none: false, loaded: false, tests: [], log };

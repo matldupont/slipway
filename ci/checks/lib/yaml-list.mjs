@@ -28,10 +28,10 @@ export function scalar(v = '') {
 /**
  * @param {string} src
  * @param {string[]} keys  the first key opens an item; the rest are its fields
- * @param {{ strict?: boolean }} [o]
+ * @param {{ strict?: boolean, openers?: string[] }} [o]  `openers`: other keys that open an item of their own
  * @returns {Array<Record<string, string> & { line: number }>}  `line` is the item's 1-based line
  */
-export function readList(src, [first, ...fields], { strict = false } = {}) {
+export function readList(src, [first, ...fields], { strict = false, openers = [] } = {}) {
   const out = [];
   let cur = null;
   let lists = 0;
@@ -43,8 +43,8 @@ export function readList(src, [first, ...fields], { strict = false } = {}) {
       return;
     }
     const head = line.match(/^\s*-\s*([\w-]+):\s*(.*)$/);
-    if (head && head[1] === first) {
-      cur = { [first]: scalar(head[2]), line: i + 1 };
+    if (head && (head[1] === first || openers.includes(head[1]))) {
+      cur = { [head[1]]: scalar(head[2]), line: i + 1 };
       out.push(cur);
       return;
     }

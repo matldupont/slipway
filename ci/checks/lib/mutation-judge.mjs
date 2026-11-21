@@ -5,6 +5,7 @@
 import { writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { esc, placed, redMessage, runFile, Stop } from './mutation-calls.mjs';
+import { allPassed, keyOf, nameFilter, sameFilter } from './mutation-filter.mjs';
 import { lastLines } from './mutation-processes.mjs';
 import { queueOf, READS_FILES, skippedEntry, subjectsOf, whyNoSubject } from './mutation-tests.mjs';
 import { failure, notRun } from './runner-output.mjs';
@@ -16,8 +17,6 @@ const addFiles = (list, files) => {
   for (const file of files) if (!list.some((x) => x.file === file)) list.push({ file });
 };
 
-// A test of a run is known by its place (line and column) and its name together, never by one alone (#655).
-const keyOf = (t) => `${t.line}:${t.column}\u0000${t.name}`;
 const at = (t, place) => t.line === place.line && t.column === place.column;
 
 // Each new test of a baseline run: red (failed, missing, or its file did not load), skipped (skipped or todo), or green.
@@ -35,7 +34,7 @@ function ownTests(unit, res) {
   return unit.groups.map((g) => {
     const mine = tests.filter((t) => at(t, g.at) && t.name === g.name);
     if (mine.length > 1) throw new Stop(twins(unit, res, mine[0], g.at));
-    return { ...g, key: mine.length ? keyOf(mine[0]) : null };
+    return { ...g, key: mine.length ? keyOf(mine[0]) : null, fullName: mine[0]?.fullName ?? null };
   });
 }
 // Two tests at one place with one name: the same test run by two Vitest projects in one call, or two of one name.
@@ -106,6 +105,8 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
       pending.delete(g);
     }
     for (const unit of ready) {
+      const clean = first.get(unit).loaded ? first.get(unit) : again.get(unit);
+      unit.ran = clean?.loaded ? clean.tests.filter((t) => !notRun(t.status)).length : 0;
       unit.groups = unit.groups.filter((g) => {
         if (!pending.has(g)) return false;
         if (baseline(first.get(unit), g) !== 'skipped') return true;
@@ -128,22 +129,50 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
   }
 }
 
+// §3.9 (#681): the filter for the tests still open, once a clean run with that same filter has them all passing. Null
+// runs the file whole: the filter would hold every test it runs, cannot be built, or its clean run was not green, which
+// ends screening for this file (a test that needs one the filter leaves out).
+async function screenFor(ctx, unit, open, screen) {
+  if (screen.off || open.length >= unit.ran) return null;
+  const filter = nameFilter(open);
+  if (filter === null) return null;
+  if (screen.clean?.filter !== filter) {
+    ctx.checkpoint();
+    screen.clean = { filter, green: allPassed(await runFile(ctx, unit, filter), open) };
+    screen.off = !screen.clean.green;
+  }
+  return screen.clean.green ? filter : null;
+}
+
 async function judgeFile(ctx, record, unit, toRecord, pending) {
   for (const g of unit.groups) g.rec = toRecord(unit, g);
   const recs = unit.groups.map((g) => g.rec);
   const testAbs = join(ctx.copy, unit.file);
   const fromCopy = (file) => (file && file.startsWith(ctx.copy + sep) ? relative(ctx.copy, file).split(sep).join('/') : file);
+  const screen = { clean: null, off: false };
   for (const { pool, change } of unit.queue) {
     const open = unit.groups.filter((g) => !g.rec.failedOn);
     if (!open.length) break;
     ctx.checkpoint();
+    const filter = await screenFor(ctx, unit, open, screen);
+    ctx.checkpoint();
     const path = join(ctx.copy, pool.file);
     writeFileSync(path, pool.text.slice(0, change.start) + change.replacement + pool.text.slice(change.end));
     let res;
+    let survived = false;
     try {
-      res = await runFile(ctx, unit);
+      if (filter !== null) {
+        sameFilter(screen.clean, filter);
+        survived = allPassed(await runFile(ctx, unit, filter), open);
+      }
+      // Only a whole-file run credits a kill: anything but a clean pass under the filter comes here.
+      if (!survived) res = await runFile(ctx, unit);
     } finally {
       writeFileSync(path, pool.text);
+    }
+    if (survived) {
+      for (const g of open) g.rec.tried += 1;
+      continue;
     }
     if (res.none) throw new Stop(`The test runner wrote no result for \`${esc(unit.file)}\`:\n${esc(lastLines(res.log))}`);
     // A change that hangs the file or stops it loading says nothing about a test: dropped, not counted.

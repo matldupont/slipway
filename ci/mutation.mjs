@@ -54,16 +54,22 @@ function sweep(now) {
 export const registryOf = (text) => (text === null ? [] : readList(text, ['id', 'expires', 'reason', 'owner'], { strict: true }));
 
 /**
- * @param {{ root?: string, limitSeconds?: number }} [o]
+ * @param {{ root?: string, limitSeconds?: number }} [o]  `limitSeconds`, when given, wins over ci/tests-can-fail.yaml (§7)
  * @returns {Promise<object>} the record of §3.10, complete on every exit path
  */
-export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_SECONDS, say = () => {} } = {}) {
+export async function runMutation({ root = process.cwd(), limitSeconds, say = () => {} } = {}) {
   const started = Date.now();
-  const deadline = started + limitSeconds * 1000;
-  const record = emptyRecord(limitSeconds);
+  let deadline = started + (limitSeconds ?? LIMIT_SECONDS) * 1000;
+  const record = emptyRecord(limitSeconds ?? LIMIT_SECONDS);
   const groups = new Groups();
   const ctx = { groups, top: null, dir: null, copy: null, env: runnerEnv(), signalled: null, say };
   ctx.callLimit = () => Math.min(CALL_LIMIT_MS, deadline - Date.now());
+  // §7: the commit's own limit, read before the install or any test run; a limit given to this call wins.
+  ctx.setLimit = (seconds) => {
+    if (limitSeconds !== undefined) return;
+    record.limit = seconds;
+    deadline = started + seconds * 1000;
+  };
   ctx.checkpoint = (r) => {
     if (ctx.signalled) throw new Stop(`The run was stopped by ${ctx.signalled}.`);
     if (r?.timedOut && Date.now() >= deadline - 50) throw new OutOfTime();
@@ -82,7 +88,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
   });
   try {
     sweep(started);
-    await body(root, record, ctx, deadline);
+    await body(root, record, ctx);
   } catch (e) {
     if (e instanceof OutOfTime) record.outOfTime = true;
     else record.stopped ??= e instanceof Stop ? e.message : `The step stopped on an error it did not foresee: ${esc(e?.message ?? e)}`;
@@ -108,7 +114,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
   return record;
 }
 
-async function body(root, record, ctx, deadline) {
+async function body(root, record, ctx) {
   const top = trustedGit(root, ['rev-parse', '--show-toplevel']).trim();
   ctx.top = top;
   record.head = revParse(top, 'HEAD');
@@ -156,6 +162,7 @@ async function body(root, record, ctx, deadline) {
     } catch (e) {
       throw new Stop(esc(e.message));
     }
+    if (config.limitSeconds !== null) ctx.setLimit(config.limitSeconds);
   }
 
   // §3.3, §3.7: which changed test files can be judged at all.
@@ -256,13 +263,13 @@ async function body(root, record, ctx, deadline) {
     return;
   }
   const own = (file) => (paths.includes(file) ? changedLines(top, record.base, record.head, { file, from: file }).added : new Set());
-  await judge({ ctx, record, units, tracked, packages, changed: paths, own, deadline });
+  await judge({ ctx, record, units, tracked, packages, changed: paths, own });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const at = process.argv.indexOf('--limit-seconds');
-  const limitSeconds = at > 0 ? Number(process.argv[at + 1]) : LIMIT_SECONDS;
-  if (!Number.isFinite(limitSeconds) || limitSeconds <= 0) {
+  const limitSeconds = at > 0 ? Number(process.argv[at + 1]) : undefined;
+  if (limitSeconds !== undefined && (!Number.isFinite(limitSeconds) || limitSeconds <= 0)) {
     process.stderr.write('--limit-seconds takes a number of seconds above 0\n');
     process.exit(2);
   }

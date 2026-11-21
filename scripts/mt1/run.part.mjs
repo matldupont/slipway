@@ -142,6 +142,15 @@ test('a file stopped at the cap prints the capped line with both counts beside k
   assert.match(r.json.findings[0].detail, /passed on all 60 changes/);
 });
 
+test('MT1 --run reads the time limit of ci/tests-can-fail.yaml: a value out of range stops it, naming the line', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  removeAll(t, p);
+  p.commit({ [FILE]: testFile(['a']), 'ci/tests-can-fail.yaml': 'entries:\n  - time-limit-seconds: 5\n' });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /ci\/tests-can-fail\.yaml: line 2: time-limit-seconds takes a whole number of seconds from 60 to 7200/);
+});
+
 test('MT1 --run reads ci/exceptions.yaml as HEAD holds it: an uncommitted edit neither excuses nor hides an expiry', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
   removeAll(t, p);
