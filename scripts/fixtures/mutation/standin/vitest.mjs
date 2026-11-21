@@ -6,7 +6,7 @@
 // config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, tagsFilter, tags,
 //   sleepMs, runSleepMs, changedRunSleepMs, noReportColumn, noColumnWhen, copies,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
-//   noFailureMessages, callLog }
+//   noFailureMessages, callLog, noResultAfterFiltered }
 // A rule is keyed by a test's name (a row's own, or its call's with %i), or by `<name>@<line>` for that line only.
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
@@ -138,11 +138,12 @@ const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
   return { ancestorTitles: [], fullName: t.name, status, title: t.name, failureMessages: status === 'failed' && !config.noFailureMessages ? [failureOf(rule)] : [], ...where(t) };
 });
 if (!untouched) state.sawChange = true;
+const afterFiltered = state.lastFiltered && given === null;
 state.lastFiltered = given !== null;
 state.sawFiltered = state.sawFiltered || given !== null;
 state.filteredRuns = (state.filteredRuns ?? 0) + (given !== null ? 1 : 0);
 writeFileSync(statePath, JSON.stringify(state));
-if (config.noResult) process.exit(1);
+if (config.noResult || (config.noResultAfterFiltered && afterFiltered)) process.exit(1);
 // copies: n reports the file n times, as Vitest does when n projects of one call run it.
 const one = { assertionResults, status: loadFails || assertionResults.some((a) => a.status === 'failed') ? 'failed' : 'passed', message: '', name: file };
 const result = { testResults: Array.from({ length: config.copies ?? 1 }, () => one) };

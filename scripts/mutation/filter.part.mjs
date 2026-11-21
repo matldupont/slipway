@@ -19,10 +19,10 @@ const OLD = Array.from({ length: 9 }, (_, i) => `old${i}`);
 const byName = (record, name) => record.tests.find((t) => t.name === name);
 
 // A project whose test file holds `old` before the change and `old` plus `fresh` after it, and the log of its runs.
-function screened(t, tests, fresh = ['fresh'], old = OLD) {
+function screened(t, tests, fresh = ['fresh'], old = OLD, more = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'mutation-calls-'));
   const callLog = join(dir, 'calls.jsonl');
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: testFile(old) }, config: { callLog, tests } });
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: testFile(old) }, config: { callLog, tests, ...more } });
   t.after(() => {
     p.remove();
     rmSync(dir, { recursive: true, force: true });
@@ -90,6 +90,11 @@ test('a filtered run of a change after the state was settled needs settling agai
 test('a file that stays red with nothing changed after a filtered run stops the run, never a pass', (t) => {
   const { record } = screened(t, { fresh: { failsWhen: CHANGED, failsOnlyFiltered: true, redAfterFiltered: true } });
   assert.match(record.stopped, /^`pkgs\/app\/src\/cart\.test\.ts` fails with nothing changed after this step ran only some of its tests, twice in a row\./);
+});
+
+test('a run that settles the state and writes no result stops the run with that reason', (t) => {
+  const { record } = screened(t, {}, ['fresh'], OLD, { noResultAfterFiltered: true });
+  assert.match(record.stopped, /^The test runner wrote no result for `pkgs\/app\/src\/cart\.test\.ts`/);
 });
 
 test('when every test in the file is new, no filter is built and the file runs whole', (t) => {

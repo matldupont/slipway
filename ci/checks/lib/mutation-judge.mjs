@@ -145,6 +145,8 @@ async function screenFor(ctx, unit, open, screen) {
   return screen.clean.green ? filter : null;
 }
 
+const noResult = (unit, res) => new Stop(`The test runner wrote no result for \`${esc(unit.file)}\`:\n${esc(lastLines(res.log))}`);
+
 // §3.9 (#681): a filtered run skips the hooks of the tests it leaves out, so what it leaves behind (a row in a database)
 // could fail the next whole-file run and read as a kill. Before a whole-file run counts, the file runs whole and
 // untouched until it is green: at most twice, then the run stops, since nothing it shows after that can be attributed.
@@ -152,7 +154,10 @@ async function settle(ctx, unit, screen) {
   if (!screen.dirty) return;
   for (let tries = 0; tries < 2; tries += 1) {
     ctx.checkpoint();
-    if (allPassed(await runFile(ctx, unit), unit.groups)) {
+    const res = await runFile(ctx, unit);
+    if (res.none) throw noResult(unit, res);
+    if (!res.hung && res.loaded) placed(unit, res);
+    if (allPassed(res, unit.groups)) {
       screen.dirty = false;
       return;
     }
@@ -193,7 +198,7 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
     // Only a whole-file run credits a kill, and only from the state a whole-file run leaves.
     await settle(ctx, unit, screen);
     const res = await withChange(() => runFile(ctx, unit));
-    if (res.none) throw new Stop(`The test runner wrote no result for \`${esc(unit.file)}\`:\n${esc(lastLines(res.log))}`);
+    if (res.none) throw noResult(unit, res);
     // A change that hangs the file or stops it loading says nothing about a test: dropped, not counted.
     if (res.hung || !res.loaded) continue;
     placed(unit, res);
