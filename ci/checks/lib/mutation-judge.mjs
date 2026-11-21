@@ -138,10 +138,27 @@ async function screenFor(ctx, unit, open, screen) {
   if (filter === null) return null;
   if (screen.clean?.filter !== filter) {
     ctx.checkpoint();
+    screen.dirty = true;
     screen.clean = { filter, green: allPassed(await runFile(ctx, unit, filter), open) };
     screen.off = !screen.clean.green;
   }
   return screen.clean.green ? filter : null;
+}
+
+// §3.9 (#681): a filtered run skips the hooks of the tests it leaves out, so what it leaves behind (a row in a database)
+// could fail the next whole-file run and read as a kill. Before a whole-file run counts, the file runs whole and
+// untouched until it is green: at most twice, then the run stops, since nothing it shows after that can be attributed.
+async function settle(ctx, unit, screen) {
+  if (!screen.dirty) return;
+  for (let tries = 0; tries < 2; tries += 1) {
+    ctx.checkpoint();
+    if (allPassed(await runFile(ctx, unit), unit.groups)) {
+      screen.dirty = false;
+      return;
+    }
+    screen.off = true;
+  }
+  throw new Stop(`\`${esc(unit.file)}\` fails with nothing changed after this step ran only some of its tests, twice in a row. A test in it needs a test or a clean-up the filtered run left out. Make each test set up and clean up its own state, or excuse the file in \`ci/exceptions.yaml\` with a date, then run \`pnpm tests-can-fail\` again.`);
 }
 
 async function judgeFile(ctx, record, unit, toRecord, pending) {
@@ -149,7 +166,7 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
   const recs = unit.groups.map((g) => g.rec);
   const testAbs = join(ctx.copy, unit.file);
   const fromCopy = (file) => (file && file.startsWith(ctx.copy + sep) ? relative(ctx.copy, file).split(sep).join('/') : file);
-  const screen = { clean: null, off: false };
+  const screen = { clean: null, off: false, dirty: false };
   for (const { pool, change } of unit.queue) {
     const open = unit.groups.filter((g) => !g.rec.failedOn);
     if (!open.length) break;
@@ -157,23 +174,25 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
     const filter = await screenFor(ctx, unit, open, screen);
     ctx.checkpoint();
     const path = join(ctx.copy, pool.file);
-    writeFileSync(path, pool.text.slice(0, change.start) + change.replacement + pool.text.slice(change.end));
-    let res;
-    let survived = false;
-    try {
-      if (filter !== null) {
-        sameFilter(screen.clean, filter);
-        survived = allPassed(await runFile(ctx, unit, filter), open);
+    const withChange = async (run) => {
+      writeFileSync(path, pool.text.slice(0, change.start) + change.replacement + pool.text.slice(change.end));
+      try {
+        return await run();
+      } finally {
+        writeFileSync(path, pool.text);
       }
-      // Only a whole-file run credits a kill: anything but a clean pass under the filter comes here.
-      if (!survived) res = await runFile(ctx, unit);
-    } finally {
-      writeFileSync(path, pool.text);
+    };
+    if (filter !== null) {
+      sameFilter(screen.clean, filter);
+      screen.dirty = true;
+      if (allPassed(await withChange(() => runFile(ctx, unit, filter)), open)) {
+        for (const g of open) g.rec.tried += 1;
+        continue;
+      }
     }
-    if (survived) {
-      for (const g of open) g.rec.tried += 1;
-      continue;
-    }
+    // Only a whole-file run credits a kill, and only from the state a whole-file run leaves.
+    await settle(ctx, unit, screen);
+    const res = await withChange(() => runFile(ctx, unit));
     if (res.none) throw new Stop(`The test runner wrote no result for \`${esc(unit.file)}\`:\n${esc(lastLines(res.log))}`);
     // A change that hangs the file or stops it loading says nothing about a test: dropped, not counted.
     if (res.hung || !res.loaded) continue;
@@ -193,6 +212,7 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
       }
     }
   }
+  await settle(ctx, unit, screen);
   if (recs.some((r) => !r.failedOn) && (unit.body > CAP || unit.other > CAP)) {
     record.capped.push({ file: unit.file, untriedBody: Math.max(0, unit.body - CAP), untriedOther: Math.max(0, unit.other - CAP) });
   }

@@ -37,14 +37,14 @@ test('one new test beside nine old ones: each change runs a filter naming only t
   const f = byName(record, 'fresh');
   assert.ok(f.tried > 0);
   assert.equal(calls.filter((c) => c.filter === '^(?:fresh)$').length, f.tried + 1, 'one clean run with the filter, and one run per change');
-  assert.equal(calls.filter((c) => c.filter === null).length, 2, 'only the clean report and the untouched run after judging run the whole file');
+  assert.equal(calls.filter((c) => c.filter === null).length, 3, 'only the clean report, the run that settles the state and the untouched run after judging run the whole file');
 });
 
 test('a failure under the filter goes to a whole-file run of the same change, which credits the kill', (t) => {
   const { record, calls } = screened(t, { fresh: { failsWhen: CHANGED } });
   assert.equal(byName(record, 'fresh').failedOn.file, 'pkgs/app/src/cart.ts');
   const at = calls.findIndex((c) => c.changed && c.filter !== null);
-  assert.deepEqual(calls[at + 1], { filter: null, changed: true });
+  assert.deepEqual(calls.slice(at + 1, at + 3), [{ filter: null, changed: false }, { filter: null, changed: true }], 'the file runs whole and untouched first, then with the change');
 });
 
 test('a test that fails only when filtered is never credited: a whole-file run decides, and it kills nothing', (t) => {
@@ -61,6 +61,31 @@ test('a filtered clean run that is not green ends screening for the file, and a 
   const { record, calls } = screened(t, { fresh: { failsWhen: CHANGED, redWhenFiltered: true } });
   assert.equal(byName(record, 'fresh').failedOn.file, 'pkgs/app/src/cart.ts');
   assert.deepEqual(calls.filter((c) => c.filter !== null), [{ filter: '^(?:fresh)$', changed: false }], 'the clean run, and no filtered run of a change');
+});
+
+test('state a filtered run leaves never reads as a kill: the file runs whole and untouched before a whole-file run counts', (t) => {
+  const { record, calls } = screened(t, { fresh: { failsWhen: CHANGED, failsOnlyFiltered: true, failsAfterFiltered: true } });
+  const f = byName(record, 'fresh');
+  assert.deepEqual([f.state, f.failedOn], ['judged', null], 'the row a filtered run left is not credited as a kill');
+  const at = calls.findIndex((c) => c.changed && c.filter !== null);
+  assert.deepEqual(calls.slice(at + 1, at + 4), [{ filter: null, changed: false }, { filter: null, changed: false }, { filter: null, changed: true }], 'red once from the state, green, then the change');
+  assert.equal(calls.slice(at + 1).filter((c) => c.filter !== null).length, 0, 'a file whose filtered runs leave state is not screened again');
+});
+
+test('state left after the last filtered run is settled too, so a test nothing kills is not called flaky', (t) => {
+  const { record } = screened(t, { fresh: { failsAfterFiltered: true } });
+  assert.deepEqual([byName(record, 'fresh').state, byName(record, 'fresh').failedOn], ['judged', null]);
+});
+
+test('a file that stays red with nothing changed after a filtered run stops the run, never a pass', (t) => {
+  const { record } = screened(t, { fresh: { failsWhen: CHANGED, failsOnlyFiltered: true, redAfterFiltered: true } });
+  assert.match(record.stopped, /^`pkgs\/app\/src\/cart\.test\.ts` fails with nothing changed after this step ran only some of its tests, twice in a row\./);
+});
+
+test('when every test in the file is new, no filter is built and the file runs whole', (t) => {
+  const { record, calls } = screened(t, {}, ['a', 'b'], []);
+  assert.ok(byName(record, 'a').tried > 0);
+  assert.deepEqual(calls.filter((c) => c.filter !== null), []);
 });
 
 test('when a kill shrinks the open tests, the new filter gets its own clean run first', (t) => {
@@ -81,6 +106,8 @@ test('nameFilter() matches each name only, in both spellings, and gives up on a 
   assert.equal(nameFilter([]), null);
   assert.equal(nameFilter([{ name: 'a' }, { name: '', fullName: null }]), null);
   assert.equal(nameFilter([{ name: 'x'.repeat(FILTER_MAX) }]), null);
+  assert.equal(nameFilter([{ name: '\u6f22'.repeat(30_000) }]), null, 'the limit is in bytes');
+  assert.equal(nameFilter([{ name: 'a\0b' }]), null, 'no process can be passed a NUL');
 });
 
 test('readResult() keeps the runner\'s own full name beside the ` > ` name, and null when it gives none', () => {
@@ -119,6 +146,15 @@ test('ci/tests-can-fail.yaml: time-limit-seconds is a whole number from 60 to 72
   assert.throws(() => read('  - time-limit-seconds: 900\n  - time-limit-seconds: 1800\n'), /line 3: a second time-limit-seconds/);
   assert.throws(() => read('  - time-limit-seconds: 900\n    reason: slow\n'), /line 2: a time-limit-seconds entry holds nothing else/);
   assert.throws(() => read('  - package: api\n    time-limit-seconds: 900\n'), /cannot read/);
+});
+
+test('a bad time limit stops a pull request that changes no test, naming the line', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  p.commit({ 'ci/tests-can-fail.yaml': 'entries:\n  - time-limit-seconds: abc\n' });
+  const { status, record } = p.run();
+  assert.equal(status, 2);
+  assert.match(record.stopped, /ci\/tests-can-fail\.yaml: line 2: time-limit-seconds takes a whole number/);
 });
 
 const limited = (t, yaml) => {

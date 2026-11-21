@@ -469,6 +469,11 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    it. Anything else (a failure, a skip, a hang, no result) runs the same change on the whole file, and only that
    run credits a failure. It is not a second tried change, and it counts against the limit of §7.
 
+   A filtered run skips the hooks of the tests it leaves out, so what it leaves behind (a row in a database) could
+   fail the next whole-file run and read as a kill. So before a whole-file run counts, and before the file ends, the
+   file runs whole and untouched until it is green. A red run there ends the screen for that file. Red twice stops the
+   run, never a pass.
+
    **Then the file is run once more, untouched.** A new test that fails there failed with nothing changed:
    its state is `flaky`, whatever it was credited with, and that is a finding (decision-defaults §4: a
    failure the step cannot attribute to a change proves nothing).
@@ -816,6 +821,9 @@ nothing else; and a result copied into a pull request by hand.
   failed (§3.8); one that flakes in the run after judging is a `flaky` finding (§3.9).
 - **The filtered screen can miss a kill.** A test that fails on a change only when an earlier test ran first passes
   under the filter, so that change counts as survived. The test can then end red, never green (§3.9, #681).
+- **A file a filtered run leaves broken stops the run.** When the file stays red with nothing changed after a filtered
+  run, its tests need a test or a clean-up the filter left out. They set up their own state, or the file takes a dated
+  entry in `ci/exceptions.yaml` (§3.9, #681).
 - **A capped file is judged on part of its changes.** Past the caps of §3.9 the rest are not tried; the
   verdict names the file and the counts, and a test that failed on none of the tried ones is still
   `kills-nothing`.

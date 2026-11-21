@@ -10,7 +10,7 @@
 // A rule is keyed by a test's name (a row's own, or its call's with %i), or by `<name>@<line>` for that line only.
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
-//   connection: true, redWhenFiltered: true, failsOnlyFiltered: true,
+//   connection: true, redWhenFiltered: true, failsOnlyFiltered: true, failsAfterFiltered: true, redAfterFiltered: true,
 //   needsFile: "<path from the copy's root>" }
 // What Vitest leaves out of `list`, each standing for its own: namePattern, a name filter in the package's Vitest config;
 // tagsFilter: [tag], its tags filter (a test is kept when its line holds `tags: ['<tag>']`); tags: [{ name, skip }], a
@@ -23,7 +23,9 @@
 // leaves out with unlistedAliases, as Vitest 5's listing, read from the file without running it, does.
 // A run is a changed one when a `failsWhen` or `loadFailsWhen` entry holds; the sleeps and the marker read that.
 // A run given `--testNamePattern=` reports each test it does not match as skipped. callLog: a file each run appends
-// `{ filter, changed }` to. redWhenFiltered: red in any filtered run; failsOnlyFiltered: its failsWhen holds only in one.
+// `{ filter, changed }` to. redWhenFiltered: red in any filtered run; failsOnlyFiltered: its failsWhen holds only in one;
+// failsAfterFiltered: red in the whole-file run right after a filtered one (state it left, which that run clears);
+// redAfterFiltered: red in every whole-file run once a filtered run has happened (state nothing clears).
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
 import { execFileSync, spawn } from 'node:child_process';
@@ -129,11 +131,13 @@ const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
   if (!kept(file, t)) return { ancestorTitles: [], fullName: t.name, status: t.out === 'todo' ? 'todo' : 'skipped', title: t.name, failureMessages: [], ...where(t) };
   const rule = [`${t.name}@${t.line}`, t.name, `${t.rule}@${t.line}`, t.rule].map((k) => config.tests?.[k]).find(Boolean) ?? {};
   const missing = rule.needsFile && !existsSync(join(copy, rule.needsFile));
-  const fails = rule.always || missing || (rule.redOnce && run === 1) || (rule.redTwice && run <= 2) || (rule.redWhenFiltered && given !== null) || (changed(rule.failsWhen) && (!rule.failsOnlyFiltered || given !== null)) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
+  const fails = rule.always || missing || (rule.redOnce && run === 1) || (rule.redTwice && run <= 2) || (rule.redWhenFiltered && given !== null) || (rule.failsAfterFiltered && given === null && state.lastFiltered) || (rule.redAfterFiltered && given === null && state.sawFiltered) || (changed(rule.failsWhen) && (!rule.failsOnlyFiltered || given !== null)) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
   const status = rule.skipped || changed(rule.skipsWhen) ? 'skipped' : fails ? 'failed' : 'passed';
   return { ancestorTitles: [], fullName: t.name, status, title: t.name, failureMessages: status === 'failed' && !config.noFailureMessages ? [failureOf(rule)] : [], ...where(t) };
 });
 if (!untouched) state.sawChange = true;
+state.lastFiltered = given !== null;
+state.sawFiltered = state.sawFiltered || given !== null;
 writeFileSync(statePath, JSON.stringify(state));
 if (config.noResult) process.exit(1);
 // copies: n reports the file n times, as Vitest does when n projects of one call run it.

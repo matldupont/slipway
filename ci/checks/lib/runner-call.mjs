@@ -112,6 +112,25 @@ export const unreadableScript = (pkg, script) =>
 
 export const LIMIT_KEY = 'time-limit-seconds';
 export const LIMIT_RANGE = { min: 60, max: 7200 };
+const CONFIG_KEYS = ['package', 'run', 'keep-out', 'reason'];
+
+// The one time-limit entry of a list, or null. Throws, naming the line, on a second one, another key in it, or a value
+// that is not a whole number of seconds in range.
+function limitIn(entries) {
+  let seconds = null;
+  for (const entry of entries.filter((e) => LIMIT_KEY in e)) {
+    const where = `ci/tests-can-fail.yaml: line ${entry.line}`;
+    if (seconds !== null) throw new Error(`${where}: a second ${LIMIT_KEY}; the file holds at most one`);
+    if (Object.keys(entry).some((k) => k !== LIMIT_KEY && k !== 'line')) throw new Error(`${where}: a ${LIMIT_KEY} entry holds nothing else`);
+    const value = entry[LIMIT_KEY];
+    if (!/^[1-9]\d*$/.test(value) || Number(value) < LIMIT_RANGE.min || Number(value) > LIMIT_RANGE.max) throw new Error(`${where}: ${LIMIT_KEY} takes a whole number of seconds from ${LIMIT_RANGE.min} to ${LIMIT_RANGE.max}`);
+    seconds = Number(value);
+  }
+  return seconds;
+}
+
+/** The time limit alone (§7), read before the step knows whether any test changed, so a bad value never passes unseen. */
+export const readTimeLimit = (text) => limitIn(readList(text, CONFIG_KEYS, { openers: [LIMIT_KEY] }));
 
 /**
  * ci/tests-can-fail.yaml (§3.3, §6, §7), read strictly: one list of entries, each a `run:`, a `keep-out:` with a
@@ -125,23 +144,16 @@ export const LIMIT_RANGE = { min: 60, max: 7200 };
 export function readTestsCanFail(text, names) {
   let entries;
   try {
-    entries = readList(text, ['package', 'run', 'keep-out', 'reason'], { strict: true, openers: [LIMIT_KEY] });
+    entries = readList(text, CONFIG_KEYS, { strict: true, openers: [LIMIT_KEY] });
   } catch (e) {
     throw new Error(`ci/tests-can-fail.yaml: ${e.message}`);
   }
   const runs = new Map();
   const keepOut = [];
-  let limitSeconds = null;
+  const limitSeconds = limitIn(entries);
   for (const entry of entries) {
     const where = `ci/tests-can-fail.yaml: line ${entry.line}`;
-    if (LIMIT_KEY in entry) {
-      if (limitSeconds !== null) throw new Error(`${where}: a second ${LIMIT_KEY}; the file holds at most one`);
-      if (Object.keys(entry).some((k) => k !== LIMIT_KEY && k !== 'line')) throw new Error(`${where}: a ${LIMIT_KEY} entry holds nothing else`);
-      const value = entry[LIMIT_KEY];
-      if (!/^[1-9]\d*$/.test(value) || Number(value) < LIMIT_RANGE.min || Number(value) > LIMIT_RANGE.max) throw new Error(`${where}: ${LIMIT_KEY} takes a whole number of seconds from ${LIMIT_RANGE.min} to ${LIMIT_RANGE.max}`);
-      limitSeconds = Number(value);
-      continue;
-    }
+    if (LIMIT_KEY in entry) continue;
     if (!names.has(entry.package)) throw new Error(`${where}: no package here is named ${entry.package}`);
     const hasRun = 'run' in entry;
     const hasKeepOut = 'keep-out' in entry;

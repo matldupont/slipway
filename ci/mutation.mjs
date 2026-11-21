@@ -3,7 +3,8 @@
 // default branch, copies HEAD outside the project, changes the code a new test imports, runs that test there, stops
 // every process it starts, and returns the record of §3.10. The verdict (ci/checks/meta/mt1-tests-can-fail.mjs) reads
 // it in the same process. No file of the project is changed or written. Run as a script, it prints the record as JSON
-// and exits 2 when the run stopped. Its one argument is `--limit-seconds <n>` (600 when not given).
+// and exits 2 when the run stopped. Its one argument is `--limit-seconds <n>`; when not given, the limit is the
+// `time-limit-seconds` entry of ci/tests-can-fail.yaml, else 600.
 
 import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -19,7 +20,7 @@ import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, N
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
 import { newTests, packageOf, safely, skippedEntry, unreportedEntry, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
-import { readTestsCanFail, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
+import { readTestsCanFail, readTimeLimit, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
 import { isRecordedMajor } from './checks/lib/runner-output.mjs';
 import { readList } from './checks/lib/yaml-list.mjs';
 
@@ -122,6 +123,14 @@ async function body(root, record, ctx) {
   if (!from) throw new Stop(NO_DEFAULT);
   record.base = mergeBase(top, from, record.head);
   record.uncommitted = uncommitted(top);
+  // §7: the commit's limit, read first, so a bad value stops a pull request that changes no test too.
+  try {
+    const text = showFile(top, record.head, 'ci/tests-can-fail.yaml');
+    const seconds = text === null ? null : readTimeLimit(text);
+    if (seconds !== null) ctx.setLimit(seconds);
+  } catch (e) {
+    throw new Stop(esc(e.message));
+  }
   const { tests: changed, paths, removed } = changedFiles(top, record.base, record.head);
   record.removedTestFiles = removed;
   record.changedTestFiles = changed.map((c) => c.file);
@@ -162,7 +171,6 @@ async function body(root, record, ctx) {
     } catch (e) {
       throw new Stop(esc(e.message));
     }
-    if (config.limitSeconds !== null) ctx.setLimit(config.limitSeconds);
   }
 
   // §3.3, §3.7: which changed test files can be judged at all.
