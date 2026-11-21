@@ -77,6 +77,16 @@ test('state left after the last filtered run is settled too, so a test nothing k
   assert.deepEqual([byName(record, 'fresh').state, byName(record, 'fresh').failedOn], ['judged', null]);
 });
 
+test('state a red filtered clean run leaves is settled before the first whole-file run of a change', (t) => {
+  const { record } = screened(t, { fresh: { redWhenFiltered: true, failsAfterFiltered: true } });
+  assert.deepEqual([byName(record, 'fresh').state, byName(record, 'fresh').failedOn], ['judged', null]);
+});
+
+test('a filtered run of a change after the state was settled needs settling again', (t) => {
+  const { record } = screened(t, { fresh: { failsWhen: CHANGED, failsOnlyFiltered: true, failsAfterFilteredFrom: 3 } });
+  assert.deepEqual([byName(record, 'fresh').state, byName(record, 'fresh').failedOn], ['judged', null]);
+});
+
 test('a file that stays red with nothing changed after a filtered run stops the run, never a pass', (t) => {
   const { record } = screened(t, { fresh: { failsWhen: CHANGED, failsOnlyFiltered: true, redAfterFiltered: true } });
   assert.match(record.stopped, /^`pkgs\/app\/src\/cart\.test\.ts` fails with nothing changed after this step ran only some of its tests, twice in a row\./);
