@@ -16,7 +16,7 @@ import { trustedGit } from './checks/lib/manifest.mjs';
 import { escapeOutput } from './checks/lib/report.mjs';
 import { spans } from './checks/lib/mutants.mjs';
 import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, reportOf, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
-import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
+import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showBlob, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
 import { newTests, packageOf, safely, skippedEntry, unreportedEntry, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
@@ -124,9 +124,10 @@ async function body(root, record, ctx) {
   record.base = mergeBase(top, from, record.head);
   record.uncommitted = uncommitted(top);
   // §7: the commit's limit, read first, so a bad value stops a pull request that changes no test too.
+  // Only a regular file the commit tracks is read, as the full read below does: a symlink or a folder sets nothing.
+  const tracked = trackedFiles(top, record.head);
   try {
-    const text = showFile(top, record.head, 'ci/tests-can-fail.yaml');
-    const seconds = text === null ? null : readTimeLimit(text);
+    const seconds = tracked.has('ci/tests-can-fail.yaml') ? readTimeLimit(showBlob(top, record.head, 'ci/tests-can-fail.yaml')) : null;
     if (seconds !== null) ctx.setLimit(seconds);
   } catch (e) {
     throw new Stop(esc(e.message));
@@ -162,7 +163,6 @@ async function body(root, record, ctx) {
   ctx.copy = join(ctx.dir, 'copy');
   ctx.say(`copying ${record.head.slice(0, 12)} to ${ctx.dir}`);
   writeCopy(top, record.head, ctx.dir, ctx.copy);
-  const tracked = trackedFiles(top, record.head);
   const packages = workspacePackages(ctx.copy);
   let config = { runs: new Map(), keepOut: [] };
   if (tracked.has('ci/tests-can-fail.yaml')) {

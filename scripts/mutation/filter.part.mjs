@@ -2,7 +2,7 @@
 // run credits a kill; the time limit of ci/tests-can-fail.yaml (§6, §7); and a test at the cap leaving the next file judged.
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -170,6 +170,38 @@ test('a bad time limit stops a pull request that changes no test, naming the lin
   const { status, record } = p.run();
   assert.equal(status, 2);
   assert.match(record.stopped, /ci\/tests-can-fail\.yaml: line 2: time-limit-seconds takes a whole number/);
+});
+
+test('with no test changed, every shape of a bad limit stops the run, and the line named is the file\'s own', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  for (const [text, says] of [
+    ['entries:\n  - package: app\n    time-limit-seconds: 5\n', /cannot read/],
+    ['time-limit-seconds: 5\n', /cannot read/],
+    ['entries:\n  - time-limit-second: 900\n', /cannot read/],
+    ['entries:\n  - time-limit-seconds: abc\u2028\n', /line 2/],
+    ['entries:\n  - time-limit-seconds: abc\rx\n', /line 2/],
+    ['\n\n\nentries:\n  - time-limit-seconds: 5\n', /line 5: time-limit-seconds takes a whole number/],
+  ]) {
+    p.commit({ 'ci/tests-can-fail.yaml': text });
+    const { status, record } = p.run();
+    assert.equal(status, 2, JSON.stringify(text));
+    assert.match(record.stopped, /^ci\/tests-can-fail\.yaml: /, JSON.stringify(text));
+    assert.match(record.stopped, says, JSON.stringify(text));
+  }
+});
+
+test('a symlink or a folder at the config\'s path sets no limit', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  mkdirSync(join(p.root, 'ci'), { recursive: true });
+  symlinkSync('- time-limit-seconds: 7200', join(p.root, 'ci/tests-can-fail.yaml'));
+  p.commit({});
+  assert.equal(p.run().record.limit, 600, 'a symlink');
+  const folder = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => folder.remove());
+  folder.commit({ 'ci/tests-can-fail.yaml/- time-limit-seconds: 7200': 'x\n' });
+  assert.equal(folder.run().record.limit, 600, 'a folder');
 });
 
 const limited = (t, yaml) => {

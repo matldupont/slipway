@@ -129,8 +129,16 @@ function limitIn(entries) {
   return seconds;
 }
 
-/** The time limit alone (§7), read before the step knows whether any test changed, so a bad value never passes unseen. */
-export const readTimeLimit = (text) => limitIn(readList(text, CONFIG_KEYS, { openers: [LIMIT_KEY] }));
+function entriesOf(text) {
+  try {
+    return readList(text, CONFIG_KEYS, { strict: true, openers: [LIMIT_KEY] });
+  } catch (e) {
+    throw new Error(`ci/tests-can-fail.yaml: ${e.message}`);
+  }
+}
+
+/** The time limit alone (§7), read strictly before the step knows whether any test changed, so a bad file never passes unseen. */
+export const readTimeLimit = (text) => limitIn(entriesOf(text));
 
 /**
  * ci/tests-can-fail.yaml (§3.3, §6, §7), read strictly: one list of entries, each a `run:`, a `keep-out:` with a
@@ -142,12 +150,7 @@ export const readTimeLimit = (text) => limitIn(readList(text, CONFIG_KEYS, { ope
  * @returns {{ runs: Map<string, string[]>, keepOut: Array<{ package: string, path: string, reason: string }>, limitSeconds: number | null }}
  */
 export function readTestsCanFail(text, names) {
-  let entries;
-  try {
-    entries = readList(text, CONFIG_KEYS, { strict: true, openers: [LIMIT_KEY] });
-  } catch (e) {
-    throw new Error(`ci/tests-can-fail.yaml: ${e.message}`);
-  }
+  const entries = entriesOf(text);
   const runs = new Map();
   const keepOut = [];
   const limitSeconds = limitIn(entries);

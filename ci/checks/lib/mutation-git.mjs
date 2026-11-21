@@ -107,6 +107,8 @@ export function trackedFiles(root, head) {
 }
 
 export const showFile = (root, rev, path) => tryGit(root, ['show', `${rev}:${path}`]);
+// A tracked file's text exactly as committed, so a line number read from it is the file's own.
+export const showBlob = (root, rev, path) => git(root, ['show', `${rev}:${path}`]);
 
 // How many tracked files hold a change not committed: the step judges the last commit, and says what it leaves out.
 export const uncommitted = (root) => git(root, ['--no-optional-locks', 'status', '--porcelain', '-z', '--untracked-files=no']).split('\0').filter((e) => /^[ MADRCTU?!]{2} /.test(e)).length;
