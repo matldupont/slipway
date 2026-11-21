@@ -460,7 +460,14 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    - The runner writes no result: exit 2 with its last lines.
 
    The file stops as soon as every new test in it has a failure that counts. A test that cannot fail costs
-   the whole list.
+   the whole list, up to the caps above, and the next file is then judged.
+
+   **The filtered screen** (D-057, #681). When the new tests still open are fewer than the tests the file runs,
+   each change is first run with a name filter naming only them, after a clean run with that same filter has them
+   all passing. A clean run that does not stops the screen for that file, and a filter with no clean run of its own
+   stops the run. A change that leaves every open test passing under the filter is tried, and nothing more runs for
+   it. Anything else (a failure, a skip, a hang, no result) runs the same change on the whole file, and only that
+   run credits a failure. It is not a second tried change, and it counts against the limit of §7.
 
    **Then the file is run once more, untouched.** A new test that fails there failed with nothing changed:
    its state is `flaky`, whatever it was credited with, and that is a finding (decision-defaults §4: a
@@ -611,8 +618,8 @@ The fix is printed on its own `Fix:` line.
 
 Nothing new is installed. A project may hold `ci/tests-can-fail.yaml` (§3.3), its own file: slipway ships
 none, and `dev/ownership.yaml` gives the path the class `ci/before-verify.sh` has. It says how a package's
-tests are run when its `test` script cannot be read, and which test files are kept out, and carries no
-dates. `ci/exceptions.yaml` is the one place a test is excused, with a date. Both are under `ci/`, so the
+tests are run when its `test` script cannot be read, and which test files are kept out, and may set the run's
+time limit (`time-limit-seconds`, a whole number from 60 to 7200, at most one entry). It carries no dates. `ci/exceptions.yaml` is the one place a test is excused, with a date. Both are under `ci/`, so the
 harness asks before an agent edits either and a pull request that changes one says so under
 `## Gate changes`. Taking a test out of the judged set is then a change the owner sees.
 
@@ -627,9 +634,9 @@ too. The stop is the figure of
 Past the budget the verdict warns with both numbers. At the limit the run stops, marks every new test it has
 not finished `out-of-time`, and the verdict fails naming each: it is never a pass. A run that stops before it
 marks any (in the install, `ci/before-verify.sh` or a listing) fails on the run itself. The limit is
-`--limit-seconds`, 600 when not given, and `tests-can-fail` gives none; `scripts/mutation.test.mjs` passes a
-small one to prove the stop. So the limit changes only by editing a root script, a file the harness asks
-about, or D-037.
+`--limit-seconds` when given, else the `time-limit-seconds` entry of `ci/tests-can-fail.yaml`, else 600.
+`scripts/mutation.test.mjs` passes a small one to prove the stop. So the limit changes only by editing a file the
+harness asks about, or D-037.
 
 ### 8. What ties it to the test runner
 
@@ -684,8 +691,8 @@ this step (Known limitations).
 
 - There is no record to forge in a file: the run hands it to the verdict inside one process (§1). The
   verdict still refuses a record that is not for `HEAD`, which is what a fixture's is held to.
-- The files that can take a test out (`ci/tests-can-fail.yaml`, `ci/exceptions.yaml`) and the root script
-  that sets the limit are files the harness asks about.
+- The files that can take a test out (`ci/tests-can-fail.yaml`, which also sets the limit, and
+  `ci/exceptions.yaml`) are files the harness asks about.
 - A test left unjudged is named in every run, with its reason and a count. A test file under a test name that
   nothing runs is a finding, not a name on that list.
 - A pull request can excuse its own new tests by adding `tests-can-fail#mechanical` (§3.7), the owner's pick.
@@ -807,6 +814,8 @@ nothing else; and a result copied into a pull request by hand.
   this session's reading).
 - **Whether a flaky test fails the pull request is chance.** One that flakes in the baseline is named, not
   failed (§3.8); one that flakes in the run after judging is a `flaky` finding (§3.9).
+- **The filtered screen can miss a kill.** A test that fails on a change only when an earlier test ran first passes
+  under the filter, so that change counts as survived. The test can then end red, never green (§3.9, #681).
 - **A capped file is judged on part of its changes.** Past the caps of §3.9 the rest are not tried; the
   verdict names the file and the counts, and a test that failed on none of the tried ones is still
   `kills-nothing`.
@@ -1325,3 +1334,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-09 · MODIFIED · #659's corrections, on the owner's calls of 2026-11-09, after #634's read-only run on a real project: §3.6 follows a support file's imports, inside the same 3 levels (D-056): a product file a helper imports adds itself and the source files the pull request changed in its workspace package, tried after every change to the test's own subjects (§3.9), and a helper's import of a package by its name is followed as a test's is, while the helpers stay support and a test whose helpers import no product code stays `support-only`; a `no-subject` test that imports `fs` has the detail `reads files`, and its message tells it to excuse the file (§5); §4's record messages name what to do when a second run says the same, and a stop message's quoted output prints on its own line instead of as `\u000a`. Known limitations' "told by name" line says what is followed, and a new line says a test whose helper imports product code is credited by any change to a helper subject it notices, and that a full cap leaves helper subjects untried. The guarantees are unchanged. Version stays 0.5, as #652's corrections did
 - 2026-11-09 · MODIFIED · build step 5 (#634). `/work-ticket` runs `pnpm tests-can-fail` by its new `Tests can fail` setting, which is `none` in slipway. `BOOTSTRAP.md` §4 tells a project. L-04 is a check, and L-72 holds the stricter rule. The Threat model reads "a test file under a test name that nothing runs" (0.3 review AR-6). Version stays 0.5: no Contract, Acceptance or Verify text changed
 - 2026-11-20 · MODIFIED · D-057, the owner's decision in #657: Known limitations names the two open routes, and the issues that build the decision (#684, #685). The Contract's text changes in those builds. Version stays 0.5
+- 2026-11-21 · MODIFIED · #681, on the owner's yes: §6 and §7 let a project set the time limit in `ci/tests-can-fail.yaml`; §3.9 adds the filtered screen, where only a whole-file run credits a failure. The owner kept §3.9's caps as the per-test budget. A limit that scales with the tests judged was declined.

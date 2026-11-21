@@ -904,6 +904,9 @@ need; every group still alive is killed when the run ends. A service the script 
 project's to stop (`BOOTSTRAP.md` §4). Also from #634: `/work-ticket` runs `pnpm tests-can-fail` at its quality
 gate, by the `Tests can fail` setting, `none` in slipway itself, which has no package that uses Vitest.
 
+**Amended 2026-11-21** (#681, the owner's yes). The stop stays 600 seconds by default; a project may set its own in
+`ci/tests-can-fail.yaml`, from 60 to 7200. The owner kept the caps of F-13 §3.9.
+
 ## D-038 — Every journey in a QA plan runs in the environment its check names *(decided 2026-10-08)*
 
 A deferred check's recorded run has one row per journey, and any `not run` keeps the check owed
