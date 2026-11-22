@@ -209,9 +209,6 @@ const sites = () => SOURCES.map((file) => {
   return { file, total: pushes.length, owed: Math.max(unfixedPush, detailKeys - fixKeys) };
 });
 const OWED = {
-  'ci/checks/meta/f1-feature-coverage.mjs': 5,
-  'ci/checks/meta/f2-feature-fit.mjs': 4,
-  'ci/checks/meta/fo1-fail-open.mjs': 7,
   'ci/checks/meta/i1-issue-shape.mjs': 13,
   'ci/checks/meta/id1-ids.mjs': 9,
   'ci/checks/meta/id2-open-prs.mjs': 2,
