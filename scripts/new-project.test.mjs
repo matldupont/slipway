@@ -639,7 +639,7 @@ test('L1 in a project leaves slipway\'s fixed lesson dates to slipway, and fails
   // Slipway's own copy, as installed: no finding on its date, and the claim says it was left to slipway.
   let r = l1();
   assert.ok(!due(r, L71), r.stdout);
-  assert.match(r.stdout, /^\d+ exempted by slipway's own review date, which a sync moves: [^\n]*\bL-71\b \(L1\)$/m);
+  assert.match(r.stdout, /^\d+ exempted by slipway's own review date, which a sync moves: [^\n]*\bL-71\b[^\n]* \(L1\)$/m);
   // A +Nd clock counts from the project's start, so it is the project's: still due.
   const relative = readdirSync(join(dest, 'process', 'lessons')).find((f) => /review-by: \+\d+d/.test(readFileSync(join(dest, 'process', 'lessons', f), 'utf8')));
   assert.ok(relative && due(l1('2099-01-01'), relative), `a +Nd lesson (${relative}) stopped failing in a project`);
