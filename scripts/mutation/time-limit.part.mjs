@@ -13,6 +13,19 @@ const FILE = 'pkgs/app/src/cart.test.ts';
 const CHANGED = [{ file: 'pkgs/app/src/cart.ts', line: 2, has: 'return a + b' }];
 const byName = (record, name) => record.tests.find((t) => t.name === name);
 
+test('the config is read as the commit holds it, whatever the checkout makes of the copy', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
+  t.after(() => p.remove());
+  p.commit({ '.gitattributes': 'ci/tests-can-fail.yaml working-tree-encoding=UTF-16LE\n' });
+  p.commit({
+    'ci/tests-can-fail.yaml': Buffer.from('entries:\n  - package: app\n    keep-out: src\n    reason: slow\n', 'utf16le'),
+    [FILE]: testFile(['a']),
+  });
+  const { status, record } = p.run();
+  assert.deepEqual([status, record.stopped], [0, null]);
+  assert.deepEqual(record.notJudged.map((n) => n.why), ['kept-out']);
+});
+
 const limited = (t, yaml) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, config: { tests: { a: { failsWhen: CHANGED } } } });
   t.after(() => p.remove());
@@ -48,7 +61,9 @@ test('with no test changed, every shape of a bad limit stops the run, and the li
   t.after(() => p.remove());
   for (const [text, says] of [
     ['entries:\n  - package: app\n    time-limit-seconds: 5\n', /cannot read/],
-    ['time-limit-seconds: 5\n', /cannot read/],
+    ['time-limit-seconds: 5\n', /line 1: time-limit-seconds goes in an entry/],
+    ['time-limit-seconds:\n', /line 1: time-limit-seconds goes in an entry/],
+    ['entries:\ntime-limit-seconds: []\n', /line 2: time-limit-seconds goes in an entry/],
     ['entries:\n  - time-limit-second: 900\n', /cannot read/],
     ['entries:\n  - time-limit-seconds: abc\u2028\n', /line 2/],
     ['entries:\n  - time-limit-seconds: abc\rx\n', /line 2/],

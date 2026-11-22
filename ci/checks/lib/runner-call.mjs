@@ -130,6 +130,9 @@ function limitIn(entries) {
 }
 
 function entriesOf(text) {
+  // The strict reader takes a bare top-level key for the list's own name, so a limit written there would do nothing.
+  const top = text.split(/\r?\n/).findIndex((line) => line.startsWith(`${LIMIT_KEY}:`));
+  if (top >= 0) throw new Error(`ci/tests-can-fail.yaml: line ${top + 1}: ${LIMIT_KEY} goes in an entry, as \`  - ${LIMIT_KEY}: 1800\``);
   try {
     return readList(text, CONFIG_KEYS, { strict: true, openers: [LIMIT_KEY] });
   } catch (e) {

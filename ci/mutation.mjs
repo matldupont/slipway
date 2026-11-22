@@ -126,8 +126,10 @@ async function body(root, record, ctx) {
   // §7: the commit's limit, read first, so a bad value stops a pull request that changes no test too.
   // Only a regular file the commit tracks is read, as the full read below does: a symlink or a folder sets nothing.
   const tracked = trackedFiles(top, record.head);
+  let configText = null;
   try {
-    const seconds = tracked.has('ci/tests-can-fail.yaml') ? readTimeLimit(showBlob(top, record.head, 'ci/tests-can-fail.yaml')) : null;
+    if (tracked.has('ci/tests-can-fail.yaml')) configText = showBlob(top, record.head, 'ci/tests-can-fail.yaml');
+    const seconds = configText === null ? null : readTimeLimit(configText);
     if (seconds !== null) ctx.setLimit(seconds);
   } catch (e) {
     throw new Stop(esc(e.message));
@@ -165,9 +167,9 @@ async function body(root, record, ctx) {
   writeCopy(top, record.head, ctx.dir, ctx.copy);
   const packages = workspacePackages(ctx.copy);
   let config = { runs: new Map(), keepOut: [] };
-  if (tracked.has('ci/tests-can-fail.yaml')) {
+  if (configText !== null) {
     try {
-      config = readTestsCanFail(readFileSync(join(ctx.copy, 'ci/tests-can-fail.yaml'), 'utf8'), new Set(packages.map((p) => p.name)));
+      config = readTestsCanFail(configText, new Set(packages.map((p) => p.name)));
     } catch (e) {
       throw new Stop(esc(e.message));
     }

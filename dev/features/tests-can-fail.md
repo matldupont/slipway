@@ -292,7 +292,8 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    A `run:` is held to the same two forms and the same characters. A package with one or more `run:` entries
    is run by those and its `test` script is not read: this is how a package with a `test` and a
    `test:integration` script has both judged. A `keep-out:` names a file or a folder of that package, with a
-   `reason:`. An entry with both or neither, an unknown package, or a key not named here is exit 2.
+   `reason:`. A package's entry with both or neither, an unknown package, or a key not named here is exit 2. The
+   file is read as the commit holds it.
 
    A changed test file in a package that does not depend on `vitest` is **not judged**: `other-runner`; one under
    `__tests__/` there whose name is not `*.test.*` or `*.spec.*` is not a test. A changed test file in no
@@ -630,7 +631,7 @@ not finished `out-of-time`, and the verdict fails naming each: it is never a pas
 marks any (in the install, `ci/before-verify.sh` or a listing) fails on the run itself. The limit is
 `--limit-seconds` when given, else the `time-limit-seconds` entry of `ci/tests-can-fail.yaml`, else 600.
 `scripts/mutation.test.mjs` passes a small one to prove the stop. So the limit changes only by editing a file the
-harness asks about, or D-037.
+harness asks about, or by amending the decision that set it (D-037).
 
 ### 8. What ties it to the test runner
 
@@ -1248,7 +1249,7 @@ with an uncommitted change (it says so, and `git status` is the same before and 
 
    Carried from the 0.4 review:
    - AR-4, `/work-ticket` starts the step so the harness never ends it first: in the background with its exit
-     read when it ends, or with a timeout above the 10-minute stop plus the install and the clean-up. A run
+     read when it ends, or with a timeout above the run's time limit (§7) plus the install and the clean-up. A run
      that ends without the step's own exit is a red gate, and `/work-ticket` then checks for the copy's
      processes. Pin both in `scripts/skills.test.mjs`.
    - AR-5, the real project's run is made from this step's branch, with the owner asked first, and recorded
