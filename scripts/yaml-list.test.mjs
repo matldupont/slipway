@@ -78,3 +78,10 @@ test('loadRegistry names the file and the line, and reads a missing or empty reg
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('openers: a named key opens an item of its own in that call only, and is refused in any other', () => {
+  const src = 'exceptions:\n  - limit: 5\n  - id: a\n    expires: 2099-01-01\n';
+  const got = readList(src, KEYS, { strict: true, openers: ['limit'] });
+  assert.deepEqual(got.map((e) => [e.limit, e.id, e.line]), [['5', undefined, 2], [undefined, 'a', 3]]);
+  assert.throws(() => readList(src, KEYS, { strict: true }), /cannot read/);
+});

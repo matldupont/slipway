@@ -110,25 +110,56 @@ export function runnerCall(script) {
 export const unreadableScript = (pkg, script) =>
   `\`${pkg}\`'s \`test\` script is not a plain call to the test runner, so this step cannot tell which tests it runs: ${script}. Write the call in \`ci/tests-can-fail.yaml\`: \`- package: ${pkg}\` and \`run: vitest run …\` or \`run: node … node_modules/vitest/vitest.mjs run …\`.`;
 
-/**
- * ci/tests-can-fail.yaml (§3.3, §6), read strictly: one list of entries, each a `run:` or a `keep-out:` with a
- * `reason:`. Throws, naming the line, on an entry with both or neither, a package not in `names`, a key not
- * named here, or a `run:` runnerCall() cannot read.
- * @param {string} text
- * @param {Set<string>} names  the workspace's package names
- * @returns {{ runs: Map<string, string[]>, keepOut: Array<{ package: string, path: string, reason: string }> }}
- */
-export function readTestsCanFail(text, names) {
-  let entries;
+export const LIMIT_KEY = 'time-limit-seconds';
+export const LIMIT_RANGE = { min: 60, max: 7200 };
+const CONFIG_KEYS = ['package', 'run', 'keep-out', 'reason'];
+
+// The one time-limit entry of a list, or null. Throws, naming the line, on a second one, another key in it, or a value
+// that is not a whole number of seconds in range.
+function limitIn(entries) {
+  let seconds = null;
+  for (const entry of entries.filter((e) => LIMIT_KEY in e)) {
+    const where = `ci/tests-can-fail.yaml: line ${entry.line}`;
+    if (seconds !== null) throw new Error(`${where}: a second ${LIMIT_KEY}; the file holds at most one`);
+    if (Object.keys(entry).some((k) => k !== LIMIT_KEY && k !== 'line')) throw new Error(`${where}: a ${LIMIT_KEY} entry holds nothing else`);
+    const value = entry[LIMIT_KEY];
+    if (!/^[1-9]\d*$/.test(value) || Number(value) < LIMIT_RANGE.min || Number(value) > LIMIT_RANGE.max) throw new Error(`${where}: ${LIMIT_KEY} takes a whole number of seconds from ${LIMIT_RANGE.min} to ${LIMIT_RANGE.max}`);
+    seconds = Number(value);
+  }
+  return seconds;
+}
+
+function entriesOf(text) {
+  // The strict reader takes a bare top-level key for the list's own name, so a limit written there would do nothing.
+  const top = text.split(/\r?\n/).findIndex((line) => line.startsWith(`${LIMIT_KEY}:`));
+  if (top >= 0) throw new Error(`ci/tests-can-fail.yaml: line ${top + 1}: ${LIMIT_KEY} goes in an entry, as \`  - ${LIMIT_KEY}: 1800\``);
   try {
-    entries = readList(text, ['package', 'run', 'keep-out', 'reason'], { strict: true });
+    return readList(text, CONFIG_KEYS, { strict: true, openers: [LIMIT_KEY] });
   } catch (e) {
     throw new Error(`ci/tests-can-fail.yaml: ${e.message}`);
   }
+}
+
+/** The time limit alone (§7), read strictly before the step knows whether any test changed, so a bad file never passes unseen. */
+export const readTimeLimit = (text) => limitIn(entriesOf(text));
+
+/**
+ * ci/tests-can-fail.yaml (§3.3, §6, §7), read strictly: one list of entries, each a `run:`, a `keep-out:` with a
+ * `reason:`, or at most one `time-limit-seconds:`. Throws, naming the line, on a package's entry with both `run:` and
+ * `keep-out:` or neither, a package not in `names`, a key not named here, a `run:` runnerCall() cannot read, or a time limit that is not a whole number
+ * of seconds in range.
+ * @param {string} text
+ * @param {Set<string>} names  the workspace's package names
+ * @returns {{ runs: Map<string, string[]>, keepOut: Array<{ package: string, path: string, reason: string }>, limitSeconds: number | null }}
+ */
+export function readTestsCanFail(text, names) {
+  const entries = entriesOf(text);
   const runs = new Map();
   const keepOut = [];
+  const limitSeconds = limitIn(entries);
   for (const entry of entries) {
     const where = `ci/tests-can-fail.yaml: line ${entry.line}`;
+    if (LIMIT_KEY in entry) continue;
     if (!names.has(entry.package)) throw new Error(`${where}: no package here is named ${entry.package}`);
     const hasRun = 'run' in entry;
     const hasKeepOut = 'keep-out' in entry;
@@ -144,5 +175,5 @@ export function readTestsCanFail(text, names) {
       keepOut.push({ package: entry.package, path, reason: entry.reason });
     }
   }
-  return { runs, keepOut };
+  return { runs, keepOut, limitSeconds };
 }

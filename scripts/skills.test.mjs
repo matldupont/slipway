@@ -1899,7 +1899,7 @@ test('a branch with no tests-can-fail script is a red gate that names the action
 
 test('/work-ticket starts the step so the harness never ends it first, and a run with no exit of its own is red and checked for its processes', () => {
   const s = tcfSection();
-  assert.match(s, /\*\*Start it in the background\*\*, and read its exit when it ends\. Never under a timeout of its own: it stops itself at 10 minutes, and its install and clean-up come on top\./, 'the step runs in the background, never under a timeout');
+  assert.match(s, /\*\*Start it in the background\*\*, and read its exit when it ends\. Never under a timeout of its own: it stops itself at its time limit \(10 minutes unless `ci\/tests-can-fail\.yaml` sets one\), and its install and clean-up come on top\./, 'the step runs in the background, never under a timeout');
   assert.match(s, /A run that ends without the step's own exit \(killed, or the session ended\) is a red gate too\./, 'a run with no exit of its own is red');
   assert.match(s, /run `pgrep -U "\$\(id -u\)" -f "\{folder\}"` on the folder its own `copying` line printed; without that line, do not guess, and say so\. Never use the bare `tests-can-fail-` prefix/, 'the process check names this user and this run\'s folder');
   assert.doesNotMatch(s, /pgrep[^`]*-f "?tests-can-fail-"?`/, 'never pgrep the bare prefix');

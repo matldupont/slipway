@@ -280,7 +280,7 @@ commit, so uncommitted work is not judged. No CI job runs it: this is the one pl
   with any change, untracked files included, is not the gate's result: commit, then run it again. An untracked file
   outside the change is shown to the owner, never committed, deleted or stashed to clear the tree.
 - **Start it in the background**, and read its exit when it ends. Never under a timeout of its own: it stops itself at
-  10 minutes, and its install and clean-up come on top. Its line `copying {commit} to {folder}` names this run's
+  its time limit (10 minutes unless `ci/tests-can-fail.yaml` sets one), and its install and clean-up come on top. Its line `copying {commit} to {folder}` names this run's
   folder.
 - **Exit 1 or 2 is a red gate**, fixed and run again as any red gate is. A run that ends without the step's own exit
   (killed, or the session ended) is a red gate too. Then run `pgrep -U "$(id -u)" -f "{folder}"` on the folder its own `copying` line printed; without that line,

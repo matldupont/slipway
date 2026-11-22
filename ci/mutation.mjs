@@ -3,7 +3,8 @@
 // default branch, copies HEAD outside the project, changes the code a new test imports, runs that test there, stops
 // every process it starts, and returns the record of §3.10. The verdict (ci/checks/meta/mt1-tests-can-fail.mjs) reads
 // it in the same process. No file of the project is changed or written. Run as a script, it prints the record as JSON
-// and exits 2 when the run stopped. Its one argument is `--limit-seconds <n>` (600 when not given).
+// and exits 2 when the run stopped. Its one argument is `--limit-seconds <n>`; when not given, the limit is the
+// `time-limit-seconds` entry of ci/tests-can-fail.yaml, else 600.
 
 import { mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,11 +16,11 @@ import { trustedGit } from './checks/lib/manifest.mjs';
 import { escapeOutput } from './checks/lib/report.mjs';
 import { spans } from './checks/lib/mutants.mjs';
 import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, reportOf, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
-import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
+import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showBlob, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
 import { newTests, packageOf, safely, skippedEntry, unreportedEntry, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
-import { readTestsCanFail, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
+import { readTestsCanFail, readTimeLimit, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
 import { isRecordedMajor } from './checks/lib/runner-output.mjs';
 import { readList } from './checks/lib/yaml-list.mjs';
 
@@ -54,16 +55,22 @@ function sweep(now) {
 export const registryOf = (text) => (text === null ? [] : readList(text, ['id', 'expires', 'reason', 'owner'], { strict: true }));
 
 /**
- * @param {{ root?: string, limitSeconds?: number }} [o]
+ * @param {{ root?: string, limitSeconds?: number }} [o]  `limitSeconds`, when given, wins over ci/tests-can-fail.yaml (§7)
  * @returns {Promise<object>} the record of §3.10, complete on every exit path
  */
-export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_SECONDS, say = () => {} } = {}) {
+export async function runMutation({ root = process.cwd(), limitSeconds, say = () => {} } = {}) {
   const started = Date.now();
-  const deadline = started + limitSeconds * 1000;
-  const record = emptyRecord(limitSeconds);
+  let deadline = started + (limitSeconds ?? LIMIT_SECONDS) * 1000;
+  const record = emptyRecord(limitSeconds ?? LIMIT_SECONDS);
   const groups = new Groups();
   const ctx = { groups, top: null, dir: null, copy: null, env: runnerEnv(), signalled: null, say };
   ctx.callLimit = () => Math.min(CALL_LIMIT_MS, deadline - Date.now());
+  // §7: the commit's own limit, read before the install or any test run; a limit given to this call wins.
+  ctx.setLimit = (seconds) => {
+    if (limitSeconds !== undefined) return;
+    record.limit = seconds;
+    deadline = started + seconds * 1000;
+  };
   ctx.checkpoint = (r) => {
     if (ctx.signalled) throw new Stop(`The run was stopped by ${ctx.signalled}.`);
     if (r?.timedOut && Date.now() >= deadline - 50) throw new OutOfTime();
@@ -82,7 +89,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
   });
   try {
     sweep(started);
-    await body(root, record, ctx, deadline);
+    await body(root, record, ctx);
   } catch (e) {
     if (e instanceof OutOfTime) record.outOfTime = true;
     else record.stopped ??= e instanceof Stop ? e.message : `The step stopped on an error it did not foresee: ${esc(e?.message ?? e)}`;
@@ -108,7 +115,7 @@ export async function runMutation({ root = process.cwd(), limitSeconds = LIMIT_S
   return record;
 }
 
-async function body(root, record, ctx, deadline) {
+async function body(root, record, ctx) {
   const top = trustedGit(root, ['rev-parse', '--show-toplevel']).trim();
   ctx.top = top;
   record.head = revParse(top, 'HEAD');
@@ -116,6 +123,17 @@ async function body(root, record, ctx, deadline) {
   if (!from) throw new Stop(NO_DEFAULT);
   record.base = mergeBase(top, from, record.head);
   record.uncommitted = uncommitted(top);
+  // §7: the commit's limit, read first, so a bad value stops a pull request that changes no test too.
+  // Only a regular file the commit tracks is read, as the full read below does: a symlink or a folder sets nothing.
+  const tracked = trackedFiles(top, record.head);
+  let configText = null;
+  try {
+    if (tracked.has('ci/tests-can-fail.yaml')) configText = showBlob(top, record.head, 'ci/tests-can-fail.yaml');
+    const seconds = configText === null ? null : readTimeLimit(configText);
+    if (seconds !== null) ctx.setLimit(seconds);
+  } catch (e) {
+    throw new Stop(esc(e.message));
+  }
   const { tests: changed, paths, removed } = changedFiles(top, record.base, record.head);
   record.removedTestFiles = removed;
   record.changedTestFiles = changed.map((c) => c.file);
@@ -147,12 +165,11 @@ async function body(root, record, ctx, deadline) {
   ctx.copy = join(ctx.dir, 'copy');
   ctx.say(`copying ${record.head.slice(0, 12)} to ${ctx.dir}`);
   writeCopy(top, record.head, ctx.dir, ctx.copy);
-  const tracked = trackedFiles(top, record.head);
   const packages = workspacePackages(ctx.copy);
   let config = { runs: new Map(), keepOut: [] };
-  if (tracked.has('ci/tests-can-fail.yaml')) {
+  if (configText !== null) {
     try {
-      config = readTestsCanFail(readFileSync(join(ctx.copy, 'ci/tests-can-fail.yaml'), 'utf8'), new Set(packages.map((p) => p.name)));
+      config = readTestsCanFail(configText, new Set(packages.map((p) => p.name)));
     } catch (e) {
       throw new Stop(esc(e.message));
     }
@@ -256,13 +273,13 @@ async function body(root, record, ctx, deadline) {
     return;
   }
   const own = (file) => (paths.includes(file) ? changedLines(top, record.base, record.head, { file, from: file }).added : new Set());
-  await judge({ ctx, record, units, tracked, packages, changed: paths, own, deadline });
+  await judge({ ctx, record, units, tracked, packages, changed: paths, own });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   const at = process.argv.indexOf('--limit-seconds');
-  const limitSeconds = at > 0 ? Number(process.argv[at + 1]) : LIMIT_SECONDS;
-  if (!Number.isFinite(limitSeconds) || limitSeconds <= 0) {
+  const limitSeconds = at > 0 ? Number(process.argv[at + 1]) : undefined;
+  if (limitSeconds !== undefined && (!Number.isFinite(limitSeconds) || limitSeconds <= 0)) {
     process.stderr.write('--limit-seconds takes a number of seconds above 0\n');
     process.exit(2);
   }
