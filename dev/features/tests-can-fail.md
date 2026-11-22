@@ -827,6 +827,7 @@ nothing else; and a result copied into a pull request by hand.
   are narrowed (§3.4).
 - **The copy costs an install.** Offline and from the store the project's own install filled, but on a large
   workspace it is tens of seconds of the budget. A pull request that changes no test pays none of it.
+- **Open security findings.** 3 security findings (2 medium, 1 low) are open in #695; they were on main before #681.
 
 ## Acceptance
 
@@ -1115,8 +1116,9 @@ with an uncommitted change (it says so, and `git status` is the same before and 
      `--shard`, `--changed`, `--bail`, `-t`): each is dropped with its value, or is exit 2 with "Write the
      call"; pin each with a test.
    - AR-13, check each of these against the code and pin it with a test: every `NAME=value` line of
-     `GITHUB_ENV` reaches every runner call (§3.4); a `ci/tests-can-fail.yaml` entry with both keys or
-     neither, an unknown package or an unknown key is exit 2, and two `run:` entries for one package are
+     `GITHUB_ENV` reaches every runner call (§3.4); a `ci/tests-can-fail.yaml` package entry with both
+     `run:` and `keep-out:` or neither, an unknown package or an unknown key is exit 2, one
+     `time-limit-seconds` entry of its own is valid (§6), and two `run:` entries for one package are
      both judged (§3.3); a test file `spans()` cannot read has every test new (§3.5); a skipped or `todo`
      new test is `skipped`, and `other-language` is reached (§3.8, §3.6); the order of changes and the two
      caps (§3.9).
@@ -1328,3 +1330,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-09 · MODIFIED · build step 5 (#634). `/work-ticket` runs `pnpm tests-can-fail` by its new `Tests can fail` setting, which is `none` in slipway. `BOOTSTRAP.md` §4 tells a project. L-04 is a check, and L-72 holds the stricter rule. The Threat model reads "a test file under a test name that nothing runs" (0.3 review AR-6). Version stays 0.5: no Contract, Acceptance or Verify text changed
 - 2026-11-20 · MODIFIED · D-057, the owner's decision in #657: Known limitations names the two open routes, and the issues that build the decision (#684, #685). The Contract's text changes in those builds. Version stays 0.5
 - 2026-11-21 · MODIFIED · #681, on the owner's yes: §6 and §7 let a project set the time limit in `ci/tests-can-fail.yaml`. The owner kept §3.9's caps as the per-test budget, and cut the issue's line on a filtered run (L-73). A limit that scales with the tests judged was declined.
+- 2026-11-22 · MODIFIED · #681, on the owner's yes: Known limitations names the 3 security findings open in #695, and AR-13 says what the config reader now accepts.

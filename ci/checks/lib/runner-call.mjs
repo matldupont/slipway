@@ -145,8 +145,8 @@ export const readTimeLimit = (text) => limitIn(entriesOf(text));
 
 /**
  * ci/tests-can-fail.yaml (§3.3, §6, §7), read strictly: one list of entries, each a `run:`, a `keep-out:` with a
- * `reason:`, or at most one `time-limit-seconds:`. Throws, naming the line, on an entry with both or neither, a package
- * not in `names`, a key not named here, a `run:` runnerCall() cannot read, or a time limit that is not a whole number
+ * `reason:`, or at most one `time-limit-seconds:`. Throws, naming the line, on a package's entry with both `run:` and
+ * `keep-out:` or neither, a package not in `names`, a key not named here, a `run:` runnerCall() cannot read, or a time limit that is not a whole number
  * of seconds in range.
  * @param {string} text
  * @param {Set<string>} names  the workspace's package names
