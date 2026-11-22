@@ -113,7 +113,7 @@ test('a false written as quoted text or as a block is reported, and the finding 
     const r = flag(written);
     assert.equal(r.status, 1, `${JSON.stringify(written)}: ${r.out}`);
     assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/ci.yml#a/s'], written);
-    assert.match(r.json.findings[0].detail, /write it as plain false/, written);
+    assert.match(r.json.findings[0].fix, /^Write it as plain false/, written);
   }
 });
 
@@ -123,16 +123,16 @@ test('every other value is reported, and its finding does not call it a false', 
     const r = flag(open);
     assert.equal(r.status, 1, `${JSON.stringify(open)}: ${r.out}`);
     assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/ci.yml#a/s'], open);
-    assert.doesNotMatch(r.json.findings[0].detail, /plain false/, open);
+    assert.doesNotMatch(r.json.findings[0].fix, /plain false/, open);
   }
 });
 
 test('a flag that is not a line of text is reported without a line number', () => {
   const r = fo1(wrap('      - id: s\n        run: echo\n        continue-on-error: [false]\n'));
   assert.equal(r.status, 1, r.out);
-  assert.doesNotMatch(r.json.findings[0].detail, /currently line/);
+  assert.doesNotMatch(r.json.findings[0].detail, /at line/);
   const text = fo1(wrap('      - id: s\n        run: echo\n        continue-on-error: true\n'));
-  assert.match(text.json.findings[0].detail, /currently line 9\)/);
+  assert.match(text.json.findings[0].detail, /at line 9\)\.$/);
 });
 
 test('a name over several lines is no name; a folded block that folds to one line is its text', () => {
