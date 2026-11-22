@@ -1663,9 +1663,8 @@ findings are open in #658, and a third route is open: a change outside every tes
 - **#658.** This closes both of its high findings, through #684. Its 2 low findings stay open in #658.
 - **For #681** (the Second opinion's advice, relayed by the orchestrator, not the owner's words; #681 takes it on).
   Judging every test in a touched file makes runs longer, so #681's per-test budget and its time-limit
-  setting are required, not optional. A filtered run may narrow only to the new tests still open, and only when its
-  clean run used the same filter; a filtered clean run with any other filter stops the run, never a pass. A per-file
-  run judges each touched test file whole. #685's two clean runs count against the same limit.
+  setting are required, not optional. A run judges each touched test file whole. #685's two clean runs count against
+  the same limit. #691 removed a filter from this line, on the owner's word of 2026-11-21; L-73 says why.
 
 Why: the tie by place needed fixes in every review round. Treating the whole file as new needs no tie, and comparing
 two runs reads what the runner itself reports.

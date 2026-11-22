@@ -6,12 +6,11 @@
 // config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, tagsFilter, tags,
 //   sleepMs, runSleepMs, changedRunSleepMs, noReportColumn, noColumnWhen, copies,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
-//   noFailureMessages, callLog, noResultAfterFiltered }
+//   noFailureMessages }
 // A rule is keyed by a test's name (a row's own, or its call's with %i), or by `<name>@<line>` for that line only.
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
-//   connection: true, redWhenFiltered: true, failsOnlyFiltered: true, failsAfterFiltered: true, redAfterFiltered: true,
-//   failsAfterFilteredFrom: n,
+//   connection: true,
 //   needsFile: "<path from the copy's root>" }
 // What Vitest leaves out of `list`, each standing for its own: namePattern, a name filter in the package's Vitest config;
 // tagsFilter: [tag], its tags filter (a test is kept when its line holds `tags: ['<tag>']`); tags: [{ name, skip }], a
@@ -23,11 +22,6 @@
 // noReportColumn; badReport writes one that does not parse); `aliases: [name]` are test calls too, which `list`
 // leaves out with unlistedAliases, as Vitest 5's listing, read from the file without running it, does.
 // A run is a changed one when a `failsWhen` or `loadFailsWhen` entry holds; the sleeps and the marker read that.
-// A run given `--testNamePattern=` reports each test it does not match as skipped. callLog: a file each run appends
-// `{ filter, changed }` to. redWhenFiltered: red in any filtered run; failsOnlyFiltered: its failsWhen holds only in one;
-// failsAfterFiltered: red in the whole-file run right after a filtered one (state it left, which that run clears);
-// redAfterFiltered: red in every whole-file run once a filtered run has happened (state nothing clears);
-// failsAfterFilteredFrom: n, as failsAfterFiltered, from the nth filtered run on.
 // A `failsWhen` entry holds when line `line` of `file` (from the copy's root) no longer holds `has`: a change was made.
 
 import { execFileSync, spawn } from 'node:child_process';
@@ -85,8 +79,7 @@ function files(dir) {
 const changed = (rules = []) => rules.some((r) => !(readFileSync(join(copy, r.file), 'utf8').split('\n')[r.line - 1] ?? '').includes(r.has));
 
 // Whether the run keeps a test: the config's filters and a file:line filter on the command line.
-const given = args.find((a) => a.startsWith('--testNamePattern='))?.slice('--testNamePattern='.length) ?? null;
-const named = (t) => (config.namePattern === undefined || new RegExp(config.namePattern).test(t.name)) && (given === null || new RegExp(given).test(t.name));
+const named = (t) => config.namePattern === undefined || new RegExp(config.namePattern).test(t.name);
 const tagged = (t) => (config.tagsFilter === undefined || config.tagsFilter.some((g) => t.tags.includes(g))) && !(config.tags ?? []).some((g) => g.skip && t.tags.includes(g.name));
 const filters = args.flatMap((a) => /^--(?:passWithNoTests|globals)=(.+):(\d+)$/.exec(a)?.slice(1) ?? []);
 const kept = (file, t) => !t.out && named(t) && tagged(t) && (!filters.length || (relative(process.cwd(), file) === filters[0] && t.line === Number(filters[1])));
@@ -111,7 +104,6 @@ const failureOf = (rule) => {
   if (rule.frame) message = message.replace(/\n {4}at [^\n]*/, `\n    at ${join(copy, rule.frame.file)}:${rule.frame.line}:5`);
   return message;
 };
-if (config.callLog) appendFileSync(config.callLog, `${JSON.stringify({ filter: given, changed: !untouched })}\n`);
 const key = relative(copy, file);
 const run = (state.runs[key] = (state.runs[key] ?? 0) + 1);
 const loadFails = rules.some((r) => changed(r.loadFailsWhen));
@@ -133,17 +125,13 @@ const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
   if (!kept(file, t)) return { ancestorTitles: [], fullName: t.name, status: t.out === 'todo' ? 'todo' : 'skipped', title: t.name, failureMessages: [], ...where(t) };
   const rule = [`${t.name}@${t.line}`, t.name, `${t.rule}@${t.line}`, t.rule].map((k) => config.tests?.[k]).find(Boolean) ?? {};
   const missing = rule.needsFile && !existsSync(join(copy, rule.needsFile));
-  const fails = rule.always || missing || (rule.redOnce && run === 1) || (rule.redTwice && run <= 2) || (rule.redWhenFiltered && given !== null) || (rule.failsAfterFiltered && given === null && state.lastFiltered) || (rule.redAfterFiltered && given === null && state.sawFiltered) || (rule.failsAfterFilteredFrom && given === null && state.lastFiltered && (state.filteredRuns ?? 0) >= rule.failsAfterFilteredFrom) || (changed(rule.failsWhen) && (!rule.failsOnlyFiltered || given !== null)) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
+  const fails = rule.always || missing || (rule.redOnce && run === 1) || (rule.redTwice && run <= 2) || changed(rule.failsWhen) || (rule.failsUntouchedAfterChange && untouched && state.sawChange);
   const status = rule.skipped || changed(rule.skipsWhen) ? 'skipped' : fails ? 'failed' : 'passed';
   return { ancestorTitles: [], fullName: t.name, status, title: t.name, failureMessages: status === 'failed' && !config.noFailureMessages ? [failureOf(rule)] : [], ...where(t) };
 });
 if (!untouched) state.sawChange = true;
-const afterFiltered = state.lastFiltered && given === null;
-state.lastFiltered = given !== null;
-state.sawFiltered = state.sawFiltered || given !== null;
-state.filteredRuns = (state.filteredRuns ?? 0) + (given !== null ? 1 : 0);
 writeFileSync(statePath, JSON.stringify(state));
-if (config.noResult || (config.noResultAfterFiltered && afterFiltered)) process.exit(1);
+if (config.noResult) process.exit(1);
 // copies: n reports the file n times, as Vitest does when n projects of one call run it.
 const one = { assertionResults, status: loadFails || assertionResults.some((a) => a.status === 'failed') ? 'failed' : 'passed', message: '', name: file };
 const result = { testResults: Array.from({ length: config.copies ?? 1 }, () => one) };

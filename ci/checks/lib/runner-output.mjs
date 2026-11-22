@@ -44,7 +44,7 @@ export function readListing(value, pkg, version) {
  * A result: for each test file, whether it loaded, and each test's name, status, failure messages, and the line and
  * column of its call (each null when the result gives none). A result not of the recorded shape, or a failed test
  * with no failureMessages, throws RunnerShape.
- * @returns {Array<{ file: string, loaded: boolean, tests: Array<{ name: string, fullName: string | null, status: string, failureMessages: string[], line: number | null, column: number | null }> }>}
+ * @returns {Array<{ file: string, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null, column: number | null }> }>}
  */
 export function readResult(value, pkg, version) {
   if (!isObject(value) || !Array.isArray(value.testResults)) throw shape(RESULT, pkg, version);
@@ -55,7 +55,7 @@ export function readResult(value, pkg, version) {
       const messages = a.failureMessages ?? [];
       if (a.status === 'failed' && (!Array.isArray(messages) || !messages.length || messages.some((m) => typeof m !== 'string'))) throw shape(RESULT, pkg, version);
       const where = (v) => (Number.isInteger(v) && v >= 1 ? v : null);
-      return { name: titleOf(a), fullName: typeof a.fullName === 'string' ? a.fullName : null, status: a.status, failureMessages: messages, line: where(a.location?.line), column: where(a.location?.column) };
+      return { name: titleOf(a), status: a.status, failureMessages: messages, line: where(a.location?.line), column: where(a.location?.column) };
     });
     // A file that failed with no test in it did not load: a change broke it, or it never could load.
     return { file: file.name, loaded: !(file.status === 'failed' && tests.length === 0), tests };
