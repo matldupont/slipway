@@ -612,8 +612,8 @@ The fix is printed on its own `Fix:` line.
 
 Nothing new is installed. A project may hold `ci/tests-can-fail.yaml` (§3.3), its own file: slipway ships
 none, and `dev/ownership.yaml` gives the path the class `ci/before-verify.sh` has. It says how a package's
-tests are run when its `test` script cannot be read, and which test files are kept out, and may set the run's
-time limit (`time-limit-seconds`, a whole number from 60 to 7200, at most one entry). It carries no dates.
+tests are run when its `test` script cannot be read, and which test files are kept out. It may also set the
+run's time limit (`time-limit-seconds`, a whole number from 60 to 7200, at most one entry). It carries no dates.
 `ci/exceptions.yaml` is the one place a test is excused, with a date. Both are under `ci/`, so the
 harness asks before an agent edits either and a pull request that changes one says so under
 `## Gate changes`. Taking a test out of the judged set is then a change the owner sees.

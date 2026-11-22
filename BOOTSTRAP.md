@@ -160,8 +160,8 @@ into the pull request's `## Verification`.
   and the step warns until you remove it.
 - **Out of time.** The step aims for 2 minutes and stops at 10, unless the project sets its own limit. A test it did
   not reach is named `out-of-time`, and that is never a pass. Run it again. If it stops at the same place every time,
-  raise the limit with one `- time-limit-seconds: 1800` entry in `ci/tests-can-fail.yaml` (60 to 7200), or keep a slow
-  folder out in that file, with a reason. At 7200, split the pull request and report it to slipway, without the
+  raise the limit with one `- time-limit-seconds: 1800` entry in `ci/tests-can-fail.yaml` (60 to 7200). You can also
+  keep a slow folder out in that file, with a reason. At 7200, split the pull request and report it to slipway, without the
   project's names or figures.
 - **A branch cut before the step arrived** has no `tests-can-fail` script, and `/work-ticket` says so. Merge the
   base branch into it (`git merge origin/main`), then run the gate again. A sync tells you this once.
