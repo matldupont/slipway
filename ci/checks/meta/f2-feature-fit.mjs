@@ -76,7 +76,7 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 if (update) {
   if (outcome === 'above') {
-    process.exit(report({ id: 'F2', claim: '', scanned, unit: UNIT, findings: [{ where: FIT_KEY, detail: `--update refuses to raise the count (${base} → ${fit.count}); fill in the Fit section of the docs the check names instead` }] }));
+    process.exit(report({ id: 'F2', claim: '', scanned, unit: UNIT, findings: [{ where: FIT_KEY, detail: `--update refuses to raise the count (${base} → ${fit.count}).`, fix: 'Fill in the Fit section of the docs the check names instead.' }] }));
   }
   writeBaselines(root, { ...baselines, [FIT_KEY]: fit.count });
   process.exit(report({ id: 'F2', claim: `${FIT_KEY} recorded at ${fit.count} in ${BASELINES}`, scanned, unit: UNIT }));
@@ -89,32 +89,38 @@ function held(doc) {
   const named = (files) => `${files[0]}${files.length > 1 ? ` and ${files.length - 1} more` : ''}`;
   const why = [];
   for (const status of by('status')) why.push(status === 'shipped' ? 'is shipped' : `has the status "${excerpt(status, 30)}", which is not draft`);
-  if (by('unreadable').includes('unreadable header')) why.push('has a header line holding a carriage return with no line feed after it, which readers split two ways');
+  if (by('unreadable').includes('unreadable header')) why.push('has a header line with a lone carriage return');
   else if (by('unreadable').length) why.push('has no readable status line');
   if (by('review').length) why.push(`is reviewed (${named(by('review'))})`);
   if (by('milestone').length) why.push(`is scheduled (${named(by('milestone'))})`);
   return why.join(', ');
 }
+// What is wrong with a held doc, and what to do about it, per reason: [problem, fix], either a text or a function of the doc.
 const NEXT = {
-  'fit/missing': 'has no `## Fit` section — add it after `## Problem`, with `Reuses:`, `Numbers:` and `New:` filled in',
-  'fit/unfilled/unreadable': (d) => `line ${d.commentLine} holds a \`<!--\`, in its Fit section or above it, so what GitHub shows of its Fit cannot be told — remove the comment, or move the text that quotes \`<!--\` below the Fit section`,
-  'fit/unfilled/reuses': 'its Fit has no filled `Reuses:` line — name each pattern or helper it reuses and where it lives, or `nothing` with what was searched',
-  'fit/unfilled/numbers': 'its Fit has no filled `Numbers:` line — say where each number it shows is calculated, or `none shown`',
-  'fit/unfilled/new': 'its Fit has no filled `New:` line — say what it adds that nothing existing does and why, or `none` (not beside `nothing` under `Reuses:`: such a doc describes no feature)',
-  'frontmatter/unreadable': (d) => (d.heldBy.some((h) => h.by === 'unreadable header')
-    ? 'nothing says it is a draft, so it is counted whatever its Fit says — save the file with LF or CRLF line endings, so its header reads one way'
-    : 'nothing says it is a draft, so it is counted whatever its Fit says — give its frontmatter a `status:` line with its status after it (`draft`, `shipped`)'),
+  'fit/missing': ['has no `## Fit` section', 'Add it after `## Problem`, with `Reuses:`, `Numbers:` and `New:` filled in.'],
+  'fit/unfilled/unreadable': [(d) => `has a \`<!--\` on line ${d.commentLine}, in its Fit section or above it, so what GitHub shows of its Fit cannot be told`, 'Remove the comment, or move the text that quotes `<!--` below the Fit section.'],
+  'fit/unfilled/reuses': ['has no filled `Reuses:` line in its Fit', 'Name each pattern or helper it reuses and where it lives, or `nothing` with what was searched.'],
+  'fit/unfilled/numbers': ['has no filled `Numbers:` line in its Fit', 'Say where each number it shows is calculated, or `none shown`.'],
+  'fit/unfilled/new': ['has no filled `New:` line in its Fit', 'Say what it adds that nothing existing does and why, or `none` when `Reuses:` is not `nothing`.'],
+  'frontmatter/unreadable': [
+    'nothing says it is a draft, so it is counted whatever its Fit says',
+    (d) => (d.heldBy.some((h) => h.by === 'unreadable header')
+      ? 'Save the file with LF or CRLF line endings, so its header reads one way.'
+      : 'Give its frontmatter a `status:` line with its status after it (`draft` or `shipped`).'),
+  ],
 };
+const say = (t, d) => (typeof t === 'function' ? t(d) : t);
 const counted = fit.docs
   .filter((d) => d.reasons.length)
-  .flatMap((d) => d.reasons.map((reason) => ({ where: `${d.path}#${reason}`, detail: `${codeSpan(d.path)} ${held(d)} and ${typeof NEXT[reason] === 'function' ? NEXT[reason](d) : NEXT[reason]}` })));
+  .flatMap((d) => d.reasons.map((reason) => ({ where: `${d.path}#${reason}`, detail: `${codeSpan(d.path)} ${held(d)} and ${say(NEXT[reason][0], d)}.`, fix: say(NEXT[reason][1], d) })));
 
 const warnings = [
   ...fit.others.map((o) => ({
     where: `${o.path}#not-a-feature-doc`,
-    detail: o.why === 'no-id' ? `${codeSpan(o.path)} is not a feature doc (no \`F-<n>\` title), so its Fit is not checked` : `${codeSpan(o.path)} is a link or a folder, not a file, so it is not read and its Fit is not checked`,
+    detail: o.why === 'no-id' ? `${codeSpan(o.path)} is not a feature doc (no \`F-<n>\` title), so its Fit is not checked.` : `${codeSpan(o.path)} is a link or a folder, not a file, so it is not read and its Fit is not checked.`,
+    fix: o.why === 'no-id' ? 'Give it an `F-<n>` title, or move it out of the feature docs folder.' : 'Make it a plain file, or remove it.',
   })),
-  ...fit.drafts.map((path) => ({ where: `${path}#fit/draft`, detail: `${codeSpan(path)} is a draft nothing holds yet and has no filled Fit: not counted until it is reviewed, scheduled or shipped` })),
+  ...fit.drafts.map((path) => ({ where: `${path}#fit/draft`, detail: `${codeSpan(path)} is a draft nothing holds yet and has no filled Fit, so it is not counted yet.`, fix: 'Fill in its Fit before it is reviewed, scheduled or shipped.' })),
   ...(outcome === 'above' ? [] : counted),
 ];
 

@@ -135,7 +135,7 @@ const node = (args, env = {}) => spawnSync(process.execPath, args, { cwd: SRC, e
 const ran = (check, dir, env = {}) => {
   const r = node([`ci/checks/meta/${check}.mjs`, dir], { ...env, CHECK_JSON: '1' });
   const json = JSON.parse((r.stdout.split('\n').findLast((l) => l.startsWith('@@json ')) ?? '@@json null').slice(7));
-  return { exit: r.status, findings: (json?.findings ?? []).map((f) => f.where), details: (json?.findings ?? []).map((f) => f.detail).join('\n') };
+  return { exit: r.status, findings: (json?.findings ?? []).map((f) => f.where), details: (json?.findings ?? []).map((f) => `${f.detail} ${f.fix ?? ''}`).join('\n') };
 };
 
 test('in CRLF, status prints what it prints in LF, for the two cases and their controls', () => {

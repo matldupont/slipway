@@ -68,7 +68,8 @@ test('a draft with no Fit, no review and no milestone citing it: exit 0, not cou
   const r = f2({ [A]: doc('draft'), [BASELINES]: baseline(0) });
   assert.equal(r.status, 0);
   assert.deepEqual(ids(r.json.warnings), [`${A}#fit/draft`]);
-  assert.equal(r.lines[1], `F2: warning: ${A}#fit/draft: \`${A}\` is a draft nothing holds yet and has no filled Fit: not counted until it is reviewed, scheduled or shipped`);
+  assert.equal(r.lines[1], `F2: warning: ${A}#fit/draft: \`${A}\` is a draft nothing holds yet and has no filled Fit, so it is not counted yet.`);
+  assert.equal(r.json.warnings[0].fix, 'Fill in its Fit before it is reviewed, scheduled or shipped.');
   assert.match(last(r), /no feature doc is held yet \(1 feature doc, each a draft nothing holds; the count is 0 against 0; /);
 });
 
@@ -86,7 +87,8 @@ test('2 counted docs against a count of 2: exit 0, each of the 2 a warning line 
   const r = f2({ [A]: doc('shipped'), [B]: doc('shipped', FILLED.replace('Numbers:\n- the invoice total, in lib/money.ts\n\n', ''), 2), [BASELINES]: baseline(2) });
   assert.equal(r.status, 0);
   assert.deepEqual(ids(r.json.warnings), [`${A}#fit/missing`, `${B}#fit/unfilled/numbers`]);
-  assert.equal(r.json.warnings[1].detail, `\`${B}\` is shipped and its Fit has no filled \`Numbers:\` line — say where each number it shows is calculated, or \`none shown\``);
+  assert.equal(r.json.warnings[1].detail, `\`${B}\` is shipped and has no filled \`Numbers:\` line in its Fit.`);
+  assert.equal(r.json.warnings[1].fix, 'Say where each number it shows is calculated, or `none shown`.');
   for (const w of r.json.warnings) assert.doesNotMatch(w.detail, /\bF2\b|fit\/|\.md#/,'a detail is in the project\'s words');
   assert.equal(r.lines.some((l) => l.includes('improved')), false);
   assert.match(last(r), /2 feature docs held .*, 2 with no filled Fit, not above the recorded 2; of the other 0, .* \(F2\)$/);
@@ -113,7 +115,8 @@ test('a third counted doc against a count of 2: exit 1 with findings for all 3; 
   assert.deepEqual(r.json.warnings, [], 'a counted doc is a finding or a warning, never both');
   const u = f2(files, '--update');
   assert.equal(u.status, 1);
-  assert.equal(u.lines[1], 'F2: feature-fit: --update refuses to raise the count (2 → 3); fill in the Fit section of the docs the check names instead');
+  assert.equal(u.lines[1], 'F2: feature-fit: --update refuses to raise the count (2 → 3).');
+  assert.equal(u.json.findings[0].fix, 'Fill in the Fit section of the docs the check names instead.');
   assert.equal(u.file, baseline(2));
 });
 
@@ -130,7 +133,7 @@ test('a file that is not a feature doc is a warning and in the claim, never coun
     [BASELINES]: baseline(0),
   });
   assert.equal(r.status, 0);
-  assert.deepEqual(r.json.warnings, [{ where: 'docs/features/notes.md#not-a-feature-doc', detail: '`docs/features/notes.md` is not a feature doc (no `F-<n>` title), so its Fit is not checked' }]);
+  assert.deepEqual(r.json.warnings, [{ where: 'docs/features/notes.md#not-a-feature-doc', detail: '`docs/features/notes.md` is not a feature doc (no `F-<n>` title), so its Fit is not checked.', fix: 'Give it an `F-<n>` title, or move it out of the feature docs folder.' }]);
   assert.match(last(r), /1 feature doc held .*; 1 file not a feature doc; /);
   assert.equal(r.json.scanned, 4, 'the baseline file and the three *.md');
 });
@@ -177,7 +180,8 @@ test('held by a review: one of another doc holds nothing; one whose version line
 
 test('a finding says every reason a doc is held, and names one review with how many more there are', () => {
   const r = f2({ [A]: doc('shipped'), 'docs/reviews/r1.md': review(A), 'docs/reviews/r2.md': review(A), 'docs/milestones/M1.md': milestone('active', 'the export (F-1)'), [BASELINES]: baseline(0) });
-  assert.equal(r.json.findings[0].detail, `\`${A}\` is shipped, is reviewed (docs/reviews/r1.md and 1 more), is scheduled (docs/milestones/M1.md) and has no \`## Fit\` section — add it after \`## Problem\`, with \`Reuses:\`, \`Numbers:\` and \`New:\` filled in`);
+  assert.equal(r.json.findings[0].detail, `\`${A}\` is shipped, is reviewed (docs/reviews/r1.md and 1 more), is scheduled (docs/milestones/M1.md) and has no \`## Fit\` section.`);
+  assert.equal(r.json.findings[0].fix, 'Add it after `## Problem`, with `Reuses:`, `Numbers:` and `New:` filled in.');
 });
 
 // What a BROKEN run prints (0.2 review, AR-8): its two lines, and none of the warnings a run that could compare prints.
@@ -306,7 +310,7 @@ test('a status word is quoted cut to 30 characters, and a folder or a link among
   assert.equal(r.status, 1);
   assert.ok(excerpt(long, 30).length <= 30 && excerpt(long, 30) !== long);
   assert.ok(r.json.findings[0].detail.startsWith(`\`${A}\` has the status "${excerpt(long, 30)}", which is not draft and has no`), r.json.findings[0].detail);
-  assert.deepEqual(r.json.warnings, [{ where: 'docs/features/folder.md#not-a-feature-doc', detail: '`docs/features/folder.md` is a link or a folder, not a file, so it is not read and its Fit is not checked' }]);
+  assert.deepEqual(r.json.warnings, [{ where: 'docs/features/folder.md#not-a-feature-doc', detail: '`docs/features/folder.md` is a link or a folder, not a file, so it is not read and its Fit is not checked.', fix: 'Make it a plain file, or remove it.' }]);
 });
 
 // #430: F2's --update goes through the one writer, and refuses a file whose rewrite would lose an entry with its
@@ -356,14 +360,16 @@ test('a doc whose name holds backticks is printed in a code span they cannot clo
 test('a held doc whose status line is empty: the warning says it has no readable status line, and how to give it one', () => {
   const r = f2({ [A]: `---\nstatus:\n---\n\n# F-1 — x\n\n${FILLED}`, [BASELINES]: baseline(1) });
   assert.equal(r.status, 0, r.out);
-  assert.ok(r.lines.includes(`F2: warning: ${A}#frontmatter/unreadable: \`${A}\` has no readable status line and nothing says it is a draft, so it is counted whatever its Fit says — give its frontmatter a \`status:\` line with its status after it (\`draft\`, \`shipped\`)`), r.out);
+  assert.ok(r.lines.includes(`F2: warning: ${A}#frontmatter/unreadable: \`${A}\` has no readable status line and nothing says it is a draft, so it is counted whatever its Fit says.`), r.out);
+  assert.equal(r.json.warnings[0].fix, 'Give its frontmatter a `status:` line with its status after it (`draft` or `shipped`).');
 });
 
 test('a held doc with a `<!--` in its Fit: counted, naming the line and the way out; a draft with one is not counted', () => {
   const body = (status) => `---\nstatus: ${status}\n---\n\n# F-1 — x\n\n${FILLED.replace('New: ', 'New: `<!--` ')}\n## Problem\n\nThe \`-->\` x\n`;
   const r = f2({ [A]: body('shipped'), [BASELINES]: baseline(1) });
   assert.equal(r.status, 0, r.out);
-  assert.ok(r.lines.includes(`F2: warning: ${A}#fit/unfilled/unreadable: \`${A}\` is shipped and line 15 holds a \`<!--\`, in its Fit section or above it, so what GitHub shows of its Fit cannot be told — remove the comment, or move the text that quotes \`<!--\` below the Fit section`), r.out);
+  assert.ok(r.lines.includes(`F2: warning: ${A}#fit/unfilled/unreadable: \`${A}\` is shipped and has a \`<!--\` on line 15, in its Fit section or above it, so what GitHub shows of its Fit cannot be told.`), r.out);
+  assert.equal(r.json.warnings[0].fix, 'Remove the comment, or move the text that quotes `<!--` below the Fit section.');
   const draft = f2({ [A]: body('draft'), [BASELINES]: baseline(0) });
   assert.equal(draft.status, 0, draft.out);
   assert.ok(!draft.lines.some((l) => l.includes('#fit/unfilled/unreadable')), draft.out);
