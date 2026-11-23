@@ -1655,12 +1655,16 @@ findings are open in #658, and a third route is open: a change outside every tes
 - **A whitespace-only edit counts as a change.** The owner, 2026-11-22, in #684, asked "should a test file count as
   changed when its only edit is whitespace?": "Yes, count it (Second opinion's pick)". A test file is changed when it is
   added, when its blob differs from the base's (at its old path for a rename), or when it takes a test name it did not
-  have. A pull request that only reformats uses `tests-can-fail#mechanical`, with the owner's yes each time.
+  have. A pull request that only reformats uses `tests-can-fail#mechanical`, with the owner's yes each time. An
+  identical rename is judged too when its old path was kept out, at the base or in the pull request, or when it moves
+  into another package. The owner, 2026-11-23, in #684: "Yes, judge it (Second opinion's pick)".
 - **A test the run leaves out fails the pull request by itself.** The owner, 2026-11-23, in #684, asked "should every
   test the run leaves out, for a reason you did not give, fail the PR by itself?": "Yes, fail it (Second opinion's
   pick)". Old tests are judged now, so they would otherwise hide a new test the run left out. `nothing-judged` stays
   for the file-level reasons. The ways out are to make it run, keep it out in `ci/tests-can-fail.yaml`, or excuse its
-  file with a date.
+  file with a date. That covers every test call in a changed file the report places no test in, changed or not,
+  unless its own call or a `describe` around it says skip, `skipIf` or `runIf`. The owner, 2026-11-23, in #684: "Yes,
+  name them (Second opinion's pick)". Relief for a call already out at the base waits for #685.
 - **A change outside every test file is compared by runs.** The owner's answer: "Compare runs before/after". The
   option they chose: when a pull request changes anything outside the test files (code, config or setup), the test
   files that use it run on the base and on the pull request, and a test the second run has more of is new and judged.

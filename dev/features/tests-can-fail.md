@@ -246,14 +246,15 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    Added and changed lines per file come from `git diff -U0 -M -w base...head` through `trustedGit`, so a
    line whose only change is whitespace is not a changed line. The same diff gives the place of each hunk
    that only removes lines (`@@ -12,2 +11,0 @@` sits after line 11 of the new file). This diff no longer decides
-   what is judged (D-057). It names a changed call the report places no test in (§3.5), and the test files
+   what is judged (D-057). It names the changed calls of a file whose places are not trusted (§3.5), and the test files
    changed only in whitespace, for the summary's "{n} test files changed only in whitespace, and their tests
    were judged".
 2. **Which test files changed.** A changed file that looks like a test (`*.test.*`, `*.spec.*`, under
    `__tests__/`), in any language. A test file is *changed* when the pull request adds it, when its blob at head
    differs from its blob at the base (at its old path for a rename), when its type changes (a link to a file), or
    when it takes a name a runner runs that it did not have. No diff and no place decides that (D-057). A mode-only change or an identical rename judges nothing, and
-   such a file is still `never-run` when no run picks it up. A file under `__snapshots__/`, or whose name ends `.snap`, is never one:
+   such a file is still `never-run` when no run picks it up. An identical rename is judged when its old path was kept
+   out, in the base's `ci/tests-can-fail.yaml` or the pull request's, or when it moves into another package. A file under `__snapshots__/`, or whose name ends `.snap`, is never one:
    the runner writes it. A test file the pull request deletes, or renames to a name outside the pattern, is
    not a changed test file either: the record counts them, for the summary's "{n} test files were removed or
    renamed away" (§4). **None: the run ends here**, the record says so, and the verdict passes
@@ -341,9 +342,9 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    every test the runner collects, a skipped one included, with its line and column, and that run is the file's
    baseline too (§3.8). A report that is missing, does not parse, gives a test no line and column, or holds the
    file as not loaded stops the run: it is never a pass. Every test the report lists is new, by the rule below.
-   A changed test call the report places no test in (behind a condition, over an empty table, never called) is
-   named by its line, by the rule below; under `tests-can-fail#mechanical` (§3.7), which reads only the
-   listing, a changed call the listing places no test in is named `mechanical`. One the clean run skips is
+   A test call the report places no test in (behind a condition, over an empty table, never called), changed or not,
+   is named by its line, by the rule below; under `tests-can-fail#mechanical` (§3.7), which reads only the
+   listing, a call the listing places no test in is named `mechanical`. One the clean run skips is
    `skipped` only when its own call, or a `describe` whose function it sits in, carries `.skip`, `.todo`,
    `skipIf` or `runIf`; a `.only` on the same call, and a condition whose text skips nothing (`skipIf(false)`,
    `runIf(1)`), skip nothing, as in Vitest. Any other was skipped by something its text does not hold (a
@@ -368,7 +369,9 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    lands on it.
 
    The place decides nothing about what is new. It is read for the line a test is named by, for whether its own
-   call says skip (§3.8), and to name a changed test call the report places no test in. A place that is no point
+   call says skip (§3.8), and to name a test call the report places no test in, changed or not. That call is
+   `left-out` unless its own call, or a `describe` around it, says skip, `skipIf` or `runIf` (the owner's answer,
+   2026-11-23). A place that is no point
    of a call `spans()` reads belongs to none. A file with a tagged template anywhere in it (an `` it.each`…` ``
    table's rows can be placed lines away) or a source map comment (it moves every place) trusts none of its
    places, so every changed call in it is named, since the step cannot tell one whose tests did not run. A test
@@ -514,7 +517,7 @@ is what `/work-ticket` runs.
 | a test `out-of-time` | **finding** `out-of-time` |
 | `outOfTime` true and no test `out-of-time` | **finding** `out-of-time`, on the run |
 | a file in `neverRun` | **finding** `never-run` |
-| a test or changed call the run is known to have left out for a reason the owner did not give (`narrowed`), or a test `flaky` in its baseline (§3.8) | **finding** `left-out`, whatever else was judged |
+| a test or test call the run is known to have left out for a reason the owner did not give (`narrowed`), or a test `flaky` in its baseline (§3.8) | **finding** `left-out`, whatever else was judged |
 | anything else in `notJudged` | warning, by name, with its reason |
 | at least one new test, none in `tests`, and one in `notJudged` for a reason the owner did not give | **finding** `nothing-judged` |
 
@@ -979,6 +982,7 @@ Given a test file renamed with one line changed inside one test
 When  ci/mutation.mjs lists the new tests
 Then  every test in the file is listed
 And   a rename with identical content lists none, and is never-run when no run picks it up
+And   an identical rename whose old path was kept out, at the base or at head, or that moves into another package, has every test listed
 ```
 
 ```
@@ -1352,3 +1356,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-22 · MODIFIED · #681, on the owner's yes: Known limitations names the 3 security findings open in #695, and AR-13 says what the config reader now accepts.
 - 2026-11-23 · MODIFIED · #684 builds D-057's first part: §3.1, §3.2 and §3.5 say every test in a changed test file is new, a whitespace-only edit counts (the owner's answer, 2026-11-22), and a later run that moves a judged test's name stops the run. The record's `outsideAnyTest` becomes `whitespaceOnly`. §4, §5, Known limitations and the scenarios that said a test stays old follow. Version stays 0.5.
 - 2026-11-23 · MODIFIED · #684, the owner's answer of 2026-11-23 in D-057: a test the run is known to have left out for a reason the owner did not give, or one flaky in its baseline, is a `left-out` finding by itself. §4, §5, the Threat model and Known limitations say so. Version stays 0.5.
+- 2026-11-23 · MODIFIED · #684, the owner's two answers of 2026-11-23 in D-057: §3.5 names every test call the report places no test in, changed or not, and §3.2 judges an identical rename whose old path was kept out or that moves into another package. Version stays 0.5.

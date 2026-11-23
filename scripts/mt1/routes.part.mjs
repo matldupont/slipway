@@ -134,6 +134,25 @@ test('a new test call the runner reports no test in is narrowed, never a silent 
   assert.ok(w.detail.replace(`\`${FILE}\``, '').length + 1 + w.fix.length <= 160, w.detail);
 });
 
+test('an untouched test call the runner reports no test in fails the pull request, named by its line (D-057)', (t) => {
+  const base = `${testFile(['old'])}\n${gated()}`;
+  const p = routed({ base });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${base}// touched\n` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [1, [`${FILE}#left-out`], []], r.out);
+  assert.match(r.json.findings[0].detail, /the runner reports no test in the call at line 8\.$/);
+});
+
+test('an untouched test call that says skip, reported or not, stays the owner\'s skip (D-057)', (t) => {
+  const base = `${testFile(['old'])}\n${gated('.skip')}`;
+  const p = routed({ base });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${base}// touched\n` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#not-judged/skipped`]], r.out);
+});
+
 test('one the runner reports no test in, whose own call says skip, is the owner\'s skip (#652)', (t) => {
   const p = routed({});
   removeAll(t, p);

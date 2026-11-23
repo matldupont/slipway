@@ -19,7 +19,7 @@ import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, reportOf, runnerEnv
 import { changedFiles, changedLines, defaultBranch, isRunnableName, mergeBase, NO_DEFAULT, revParse, showBlob, showFile, trackedFiles, uncommitted, writeCopy } from './checks/lib/mutation-git.mjs';
 import { judge, OutOfTime } from './checks/lib/mutation-judge.mjs';
 import { Groups, killPids, lastLines, namingFolder } from './checks/lib/mutation-processes.mjs';
-import { newTests, packageOf, safely, skippedEntry, unreportedEntry, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
+import { cameFromOutside, keptOutAtBase, newTests, packageOf, safely, skippedEntry, unreportedEntry, within, workspacePackages } from './checks/lib/mutation-tests.mjs';
 import { readTestsCanFail, readTimeLimit, runnerCall, unreadableScript } from './checks/lib/runner-call.mjs';
 import { isRecordedMajor } from './checks/lib/runner-output.mjs';
 import { readList } from './checks/lib/yaml-list.mjs';
@@ -175,6 +175,7 @@ async function body(root, record, ctx) {
     }
   }
 
+  const baseKeepOut = keptOutAtBase(showFile(top, record.base, 'ci/tests-can-fail.yaml'));
   // §3.3, §3.7: which changed test files can be judged at all.
   const anyVitest = packages.some((p) => p.vitest);
   const byPackage = new Map();
@@ -248,8 +249,9 @@ async function body(root, record, ctx) {
         (isRunnableName(entry.file) ? record.neverRun : record.notTests).push({ file: entry.file });
         continue;
       }
-      // §3.2: a mode-only change or an identical rename has nothing to judge, once a run is known to pick it up.
-      if (entry.same) continue;
+      // §3.2: a mode-only change or an identical rename has nothing to judge, once a run is known to pick it up, unless
+      // the rename comes from where the step did not judge it.
+      if (entry.same && !cameFromOutside(entry, pkg, packages, config.keepOut, baseKeepOut)) continue;
       const text = readFileSync(join(ctx.copy, entry.file), 'utf8');
       const read = safely(spans, entry.file, text);
       if (read.unreadable) record.unreadable.push({ file: entry.file, reason: esc(read.unreadable) });

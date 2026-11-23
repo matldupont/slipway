@@ -85,6 +85,30 @@ for (const from of ['pkgs/app/src/cart.tst.ts', 'pkgs/app/src/cart.test.ts.off',
   });
 }
 
+const KEPT = 'entries:\n  - package: app\n    keep-out: src/e2e\n    reason: browser tests\n';
+const E2E = 'pkgs/app/src/e2e/cart.test.ts';
+for (const [what, after] of [['stays in the config', KEPT], ['is deleted in the same pull request', null]]) {
+  test(`an identical rename out of a kept-out folder whose entry ${what} has every test judged (D-057)`, (t) => {
+    const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [E2E]: three(), 'ci/tests-can-fail.yaml': KEPT } });
+    t.after(() => p.remove());
+    p.git(['mv', E2E, FILE]);
+    p.commit({ 'ci/tests-can-fail.yaml': after });
+    const { record } = p.run();
+    assert.deepEqual(newNames(record), ['a', 'b', 'c']);
+  });
+}
+
+test('an identical rename into another package has every test judged (D-057)', (t) => {
+  const other = { name: 'other', private: true, scripts: { test: 'vitest run' }, devDependencies: { vitest: 'link:../../standin' } };
+  const moved = 'pkgs/other/src/cart.test.ts';
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, 'pkgs/other/src/cart.ts': CART, 'pkgs/other/package.json': JSON.stringify(other), [FILE]: three() } });
+  t.after(() => p.remove());
+  p.git(['mv', FILE, moved]);
+  p.commit({});
+  const { record } = p.run();
+  assert.deepEqual(newNames(record), ['a', 'b', 'c']);
+});
+
 test('a link replaced by a file holding the same bytes is a change of type, and its tests are judged (D-057)', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
   t.after(() => p.remove());
