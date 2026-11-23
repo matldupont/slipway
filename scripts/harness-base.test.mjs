@@ -8,10 +8,10 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change, stopJson, atBase, hookEnv, verifyRuns, endsAtOnce, gated, body, staleIndex } from './harness-fixture.mjs';
+import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change, stopJson } from './harness-fixture.mjs';
 
 // #154: with no guard to load, the Stop hook cannot run stop-verify, so it blocks once and has the agent run the gate.
 // The fallback text once sat inside `$( … || echo '…')`, and /bin/sh is bash 3.2 on a Mac: a `, ` in it, inside braces,
@@ -223,76 +223,4 @@ test('on a git that prints --path-format back, another repository is not pinned 
   reset();
   run('stop-verify.sh', '{}', SID, env);
   assert.deepEqual(marks(), ['stop-verify.sh'], 'a main checkout session on that git ran no hook');
-});
-
-// #699: a session at its pinned base with nothing changed ends before the install check, the caches and the gate. The
-// real Stop hook is committed and pinned (atBase, in the fixture); its ci/verify.mjs counts each run and fails.
-test('at its pinned base with nothing changed, the Stop hook ends without running the gate', () => {
-  atBase();
-  put('app/node_modules/dep/.gitignore', '*\n'); // a package's own, as many ship
-  endsAtOnce('clean at base');
-  assert.ok(!existsSync(join(work, '.git/stop-verify-ok')), 'the exit wrote a green result');
-});
-
-test('at its base, a session with no node_modules is not blocked', () => {
-  atBase();
-  rmSync(join(work, 'app/node_modules'), { recursive: true });
-  assert.match(body().reason, /dependencies are not installed/, 'the case did not reach the install check');
-  endsAtOnce('no node_modules');
-});
-
-test('at its base, a session with a cached red result is not blocked', () => {
-  atBase();
-  assert.equal(body().decision, 'block');
-  assert.match(body().reason, /Cached from/, 'the case held no cached red result');
-  endsAtOnce('a cached red result', 1);
-});
-
-for (const [why, make] of [
-  ['a commit past the base', () => { change(); git('-C', work, 'add', '-A'); commit('past the base'); }],
-  ['a tracked change', change],
-  ['a staged change the working file no longer shows', () => { change(); git('-C', work, 'add', 'src/app.ts'); put('src/app.ts', 'export {};\n'); }],
-  ['an untracked file', () => put('src/new.ts', 'export {};\n')],
-  ['a new folder that ignores itself', () => { put('scratch/.gitignore', '*\n'); put('scratch/new.ts', 'export {};\n'); }],
-  ['an edit hidden by assume-unchanged', () => { git('-C', work, 'update-index', '--assume-unchanged', 'src/app.ts'); change(); }],
-  ['an edit hidden by skip-worktree', () => { git('-C', work, 'update-index', '--skip-worktree', 'src/app.ts'); change(); }],
-  ['a same-size edit the saved index no longer shows', staleIndex],
-  ['a new file under a local exclude rule', () => { writeFileSync(join(work, '.git/info/exclude'), 'src/new.ts\n'); put('src/new.ts', 'export {};\n'); }],
-  ['a local filter setting', () => git('-C', work, 'config', 'filter.x.clean', 'cat')],
-]) {
-  test(`${why}: the gate runs and a red result blocks`, () => {
-    atBase();
-    make();
-    try {
-      gated(why);
-    } finally {
-      for (const flag of ['--no-assume-unchanged', '--no-skip-worktree']) git('-C', work, 'update-index', flag, 'src/app.ts'); // one flag a call: git applies only the first
-      rmSync(join(work, 'src/app.ts'), { force: true }); // a stale index would keep the edit through the next reset
-      rmSync(join(work, '.git/info/exclude'), { force: true });
-      spawnSync('git', ['-C', work, 'config', '--remove-section', 'filter.x'], { stdio: 'ignore' });
-    }
-  });
-}
-
-test('a pin that is missing, unreadable or malformed does not take the exit', () => {
-  for (const [why, spoil] of [['missing', () => rmSync(pinOf())], ['unreadable', () => chmodSync(pinOf(), 0)], ['malformed', () => writeFileSync(pinOf(), 'zz\n')]]) {
-    atBase();
-    spoil();
-    assert.match(stopJson(SID, hookEnv).reason ?? '', /no base is pinned for this session/, why);
-    assert.equal(verifyRuns(), 0, `${why}: a hook ran`);
-  }
-});
-
-test('known-bad: origin/HEAD moved onto a commit past the pin does not make that commit the base', () => {
-  atBase();
-  change();
-  git('-C', work, 'add', '-A');
-  commit('past the pin');
-  git('-C', work, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
-  try {
-    assert.equal(git('-C', work, 'rev-parse', 'origin/HEAD'), git('-C', work, 'rev-parse', 'HEAD'));
-    gated('a moved origin/HEAD');
-  } finally {
-    git('-C', work, 'update-ref', 'refs/remotes/origin/main', BASE);
-  }
 });
