@@ -266,6 +266,7 @@ for (const [why, make] of [
       gated(why);
     } finally {
       for (const flag of ['--no-assume-unchanged', '--no-skip-worktree']) git('-C', work, 'update-index', flag, 'src/app.ts'); // one flag a call: git applies only the first
+      rmSync(join(work, 'src/app.ts'), { force: true }); // a stale index would keep the edit through the next reset
       rmSync(join(work, '.git/info/exclude'), { force: true });
       spawnSync('git', ['-C', work, 'config', '--remove-section', 'filter.x'], { stdio: 'ignore' });
     }

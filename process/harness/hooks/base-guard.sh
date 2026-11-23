@@ -175,8 +175,7 @@ unchanged() {
   case "$nl$l" in *"${nl}local"*|*"${nl}worktree"*) return 1 ;; esac
   no_rules info/exclude && no_rules info/attributes || return 1
   x=$(g -c core.fsmonitor=false ls-files -o -i --exclude-standard -- ':(glob)**/.gitignore' ':(exclude,glob)**/node_modules/**' 2>/dev/null) && [ -z "$x" ] || return 1
-  i=$state/at-base-index.$$
-  x=$(GIT_INDEX_FILE=$i; export GIT_INDEX_FILE; g read-tree "$base" && g -c core.fsmonitor=false -c core.fileMode=true status --porcelain --untracked-files=all --ignore-submodules=none) 2>/dev/null; r=$?
+  i=$state/at-base-index.$$; x=$(GIT_INDEX_FILE=$i; export GIT_INDEX_FILE; g read-tree "$base" && g -c core.fsmonitor=false -c core.fileMode=true status --porcelain --untracked-files=all --ignore-submodules=none) 2>/dev/null; r=$?
   rm -f "$i" "$i.lock"
   [ "$r" -eq 0 ] && [ -z "$x" ]
 }
