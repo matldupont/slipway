@@ -1652,6 +1652,10 @@ findings are open in #658, and a third route is open: a change outside every tes
 - **Every test in a changed test file is new.** The owner's answer: "Every test is new". The option they chose: the
   step no longer works out where a test sits to decide whether it is new. A test's place stays only in the judge's key,
   place and name together (#655), so two tests with one name are never merged. Built in #684.
+- **A whitespace-only edit counts as a change.** The owner, 2026-11-22, in #684, asked "should a test file count as
+  changed when its only edit is whitespace?": "Yes, count it (Second opinion's pick)". A test file is changed when it is
+  added, when its blob differs from the base's (at its old path for a rename), or when it takes a test name it did not
+  have. A pull request that only reformats uses `tests-can-fail#mechanical`, with the owner's yes each time.
 - **A change outside every test file is compared by runs.** The owner's answer: "Compare runs before/after". The
   option they chose: when a pull request changes anything outside the test files (code, config or setup), the test
   files that use it run on the base and on the pull request, and a test the second run has more of is new and judged.

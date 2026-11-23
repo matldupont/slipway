@@ -7,6 +7,8 @@ status: draft
 
 Version: 0.5 (2026-11-02)
 
+Amends: D-057 changes §3.1, §3.2 and §3.5: every test in a changed test file is new (#684).
+
 ## Problem
 
 **Job:** when a pull request adds tests, I want each new test shown to fail when the code it covers is
@@ -243,9 +245,15 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    `/work-ticket` before it runs the step) to `HEAD`. One commit is diffed, copied and held to: `HEAD`.
    Added and changed lines per file come from `git diff -U0 -M -w base...head` through `trustedGit`, so a
    line whose only change is whitespace is not a changed line. The same diff gives the place of each hunk
-   that only removes lines (`@@ -12,2 +11,0 @@` sits after line 11 of the new file), which §3.5 uses.
+   that only removes lines (`@@ -12,2 +11,0 @@` sits after line 11 of the new file). This diff no longer decides
+   what is judged (D-057). It names a changed call the report places no test in (§3.5), and the test files
+   changed only in whitespace, for the summary's "{n} test files changed only in whitespace, and their tests
+   were judged".
 2. **Which test files changed.** A changed file that looks like a test (`*.test.*`, `*.spec.*`, under
-   `__tests__/`), in any language. A file under `__snapshots__/`, or whose name ends `.snap`, is never one:
+   `__tests__/`), in any language. A test file is *changed* when the pull request adds it, when its blob at head
+   differs from its blob at the base (at its old path for a rename), or when it takes a test name it did not
+   have. No diff and no place decides that (D-057). A mode-only change or an identical rename judges nothing, and
+   such a file is still `never-run` when no run picks it up. A file under `__snapshots__/`, or whose name ends `.snap`, is never one:
    the runner writes it. A test file the pull request deletes, or renames to a name outside the pattern, is
    not a changed test file either: the record counts them, for the summary's "{n} test files were removed or
    renamed away" (§4). **None: the run ends here**, the record says so, and the verdict passes
@@ -332,7 +340,7 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    file and never from what the run prints, since a test can print text shaped like a report. The report lists
    every test the runner collects, a skipped one included, with its line and column, and that run is the file's
    baseline too (§3.8). A report that is missing, does not parse, gives a test no line and column, or holds the
-   file as not loaded stops the run: it is never a pass. A new test is one the report places in a changed call, by the rule above.
+   file as not loaded stops the run: it is never a pass. Every test the report lists is new, by the rule below.
    A changed test call the report places no test in (behind a condition, over an empty table, never called) is
    named by its line, by the rule below; under `tests-can-fail#mechanical` (§3.7), which reads only the
    listing, a changed call the listing places no test in is named `mechanical`. One the clean run skips is
@@ -346,24 +354,25 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    finding, and the record names it for the summary's "{n} changed files under a test name or folder are not
    tests".
 
-   A test is *new* when a changed line falls inside its own call, from `spans()`, or when lines were removed
-   from inside it: a hunk that only removes lines marks the test whose call holds both the line the hunk
-   sits after and the line below it (D-037: removed lines edit a test as changed lines do). A test removed
-   whole lies inside no call, and marks none. So a changed import, hook,
-   helper or `describe` line marks no test new, and neither does a line between two tests; a test file with
-   such a change is named in the record, for the summary's "{n} test files changed outside any test" (Known
-   limitations). A test belongs to the call whose point is the place the runner gives it (its line and column),
-   never to a call it only shares a line with or sits inside; it is known by that place and its name together,
-   never by one alone (#655). Tests one call makes (`it.each`, a loop that calls `it`, a `describe.each`) share a
-   place: new when a changed line falls inside that call, each judged on its own, and named by the call's line.
-   Two tests at one place with one name, or a result that gives a test no place, stop the run. A place that is
-   no point of a call `spans()` reads belongs to none, and a file with a tagged template anywhere in it (an
-   `` it.each`…` `` table's rows can be placed lines away) or a source map comment (it moves every place) trusts none
-   of its places: in both, every test is new, old ones too, and in the second every changed call is named, since
-   the step cannot tell one whose tests did not run. A test file `spans()`
-   cannot read has every test in it treated as new, and so does one where a test the runner lists falls inside no
-   test call `spans()` reads (an alias of `it`, a `test.extend` fixture; #632). A test the pull request did not
-   touch is never judged.
+   Every test in a changed test file is *new* (D-057). The step does not work out where a test sits to decide
+   that. An old test is judged with the others, so one that no change kills is a finding on this pull request:
+   fix it, or excuse its file with a dated entry in `ci/exceptions.yaml`. A whitespace-only edit counts as a
+   change.
+
+   A test is known by the place the runner gives it (its line and column) and its name together, never by one
+   alone (#655). Tests one call makes (`it.each`, a loop that calls `it`, a `describe.each`) share a place, are
+   each judged on their own, and are named by the call's line. Two tests at one place with one name, or a result
+   that gives a test no place, stop the run. So does a later run that reports a judged test's name at other
+   places, or in another order, than the clean run did, since a result could then land on the wrong test. A later
+   run that does not report the name at all stops nothing: a change can remove a generated row, and no result
+   lands on it.
+
+   The place decides nothing about what is new. It is read for the line a test is named by, for whether its own
+   call says skip (§3.8), and to name a changed test call the report places no test in. A place that is no point
+   of a call `spans()` reads belongs to none. A file with a tagged template anywhere in it (an `` it.each`…` ``
+   table's rows can be placed lines away) or a source map comment (it moves every place) trusts none of its
+   places, so every changed call in it is named, since the step cannot tell one whose tests did not run. A test
+   file `spans()` cannot read still has every test judged, and the record names it.
 6. **Its subjects**, the source files that may be changed for a test file:
    - each file it imports by relative path, and the file beside it with the same name (`cart.test.ts` →
      `cart.ts`), when that file is tracked, inside the repository and not itself a test;
@@ -473,7 +482,7 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
     `crashes` a count, `lastCrash` null or `{ type, file, line }`, `unreadFailures` and `lastUnread`, the count
     of failures whose first word is not an error's name and the last such word, `state` one of `judged`, `flaky`,
     `out-of-time`), `neverRun` (`{ file }`), `notJudged` (`{ file, name, why, detail }`), `unreadable`
-    (`{ file, reason }`, the reason escaped), `support`, `noChange`, `notTests` and `outsideAnyTest` (`{ file }`
+    (`{ file, reason }`, the reason escaped), `support`, `noChange`, `notTests` and `whitespaceOnly` (`{ file }`
     each), `removedTestFiles` (a count), `uncommitted` (the tracked files with a change not committed),
     `mechanical` (true when the entry of step 7 counted), `mechanicalSpent` (true when it is there and did not
     count), `excuseProblems` (`{ file, problem }`, an expired or undated `tests-can-fail#` entry), `capped`
@@ -525,8 +534,8 @@ it is zero (D-037, amended 2026-11-02): the share of new tests not judged for a 
 `every-change-dropped`, and `other-runner` with no unexpired entry), and the share not judged for any reason. The reasons the owner
 gave, `skipped`, `narrowed`, and `flaky` (a test red in the copy, as the owner set it) count in the second only. After them comes one line for each of these that is not
 zero, in the words of §3: test files stopped at a cap, each with the changes not tried; test files removed or
-renamed away; changed files that are not tests; test files changed outside any test; test support files left
-out.
+renamed away; changed files that are not tests; test files changed only in whitespace, whose tests were judged;
+test support files left out.
 
 Exit 2, each with its own message (decision-defaults §4): the run stopped (`stopped`, with its message,
 processes left running among them, §1);
@@ -553,7 +562,8 @@ starts with a verb, each at most 160 characters (`scripts/report.test.mjs`; the 
 The fix is printed on its own `Fix:` line.
 
 - `kills-nothing`: `` `{file}` › "{test}" passed on all {n} changes made to the code it imports ({subjects}). ``
-  Fix: `` Write an assertion on what the code returns or does, then run `pnpm tests-can-fail`. ``
+  Fix: `` Write an assertion on what the code returns or does, then run `pnpm tests-can-fail`, or excuse the file
+  in `ci/exceptions.yaml` with a date. ``
 - `only-crashes`: `` `{file}` › "{test}" only crashed, last a {type} at `{file}:{line}`; a result read on the line
   before `expect` is no check. `` Fix: `` Put the check inside an `expect(...)`, or excuse the file in
   `ci/exceptions.yaml` with a date. `` A crash counts only on a line inside an `expect(...)` of the test's own
@@ -723,11 +733,13 @@ nothing else; and a result copied into a pull request by hand.
   line of one stack and stays that small (the owner's pick).
 - **A failure in a setup hook is read by the same rule.** The runner's output does not mark it apart, so a
   hook that fails by an error that counts credits every test of the file that ran after it.
-- **A mechanical edit makes a test new.** A rename applied across a test file, or a codemod, changes lines
-  inside old tests, and each is then judged; one that never could fail turns the pull request red. Only
-  whitespace is ignored. In a few files: fix the test, or excuse the file with a date. Across many, every
-  touched test is new and the run reaches its limit, so the pull request takes the one dated line of §3.7
-  (the owner's pick, D-037), and none of its tests is judged.
+- **A mechanical edit makes every test in the file new.** A rename applied across a test file, a codemod or a
+  reformat changes the file, and each of its tests is then judged; one that never could fail turns the pull
+  request red. A whitespace-only edit counts (the owner's answer, 2026-11-22, D-057). In a few files: fix the
+  test, or excuse the file with a date. A pull request that only reformats, or one whose edit across many files
+  reaches the limit, takes the one dated line of §3.7 with the owner's yes each time (the owner's pick, D-037),
+  and none of its tests is judged. In a pull request that also changes code, that line is the wrong tool: revert
+  the stray touch, or let the file be judged.
 - **It fires only where `/work-ticket` runs** (D-037, amended 2026-10-14: the owner's pick). A pull request
   built another way, or by hand, is not checked by it, and no CI job catches it later. The owner chose this
   over spending Actions minutes on every pull request that changes a test.
@@ -785,10 +797,9 @@ nothing else; and a result copied into a pull request by hand.
   on a change is one of those is named `kills-nothing`.
 - **Tests one call makes need their own names.** The rows of an `it.each`, a loop or a `describe.each` share one
   place, so each is told apart by its name; two with the same name stop the run (#655).
-- **Two routes stay open until D-057 is built.** 2 high findings are open in #658, and a route through a change
-  outside every test file is open. The owner decided both on 2026-11-20 (D-057): every test in a changed test file is
-  new (#684), and a change outside every test file is found by comparing a run on the base with a run on the pull
-  request (#685).
+- **A change outside every test file stays open until #685.** The owner decided it on 2026-11-20 (D-057): it is found
+  by comparing a run on the base with a run on the pull request. #684 answers the 2 high findings in #658, which
+  keeps its 2 low findings.
 - **Fewer kinds of change than a mutation tool makes.** Enough for "can this test fail"; not a measure of how
   good the tests are.
 - **The time is the building machine's.** §7's figures were measured on one laptop with the probe, which
@@ -816,7 +827,7 @@ nothing else; and a result copied into a pull request by hand.
   that starts a service on a fixed port fails there when the developer's own is up. A test that needs a file neither git nor that script provides is red in the copy, and the step stops
   and names it.
 - **A test written through an alias of `it` or a `test.extend` fixture has no call of its own** that §2 reads.
-  When the runner lists one, its file is read as one `spans()` cannot read, so every test in it is judged (#632).
+  When the runner lists one, it is judged with the rest of its file (#632, D-057).
   Under `tests-can-fail#mechanical`, which reads only the listing (§3.5), one the listing leaves out is not named (the
   owner's call, 2026-11-05, #652).
 - **A file holding a line break git does not count is not read.** A lone CR, U+2028 or U+2029, in a test file or a
@@ -920,9 +931,9 @@ And   with a changed __snapshots__/cart.test.tsx.snap, __tests__/fixtures/order.
 ```
 
 ```
-Given a commit that changes no test file; then one whose test file changes only in a describe line, a beforeEach and whitespace inside a test; then one that changes one row of an it.each of three
+Given a commit that changes no test file; then one whose test file changes only in a describe line and a beforeEach; then one whose test file changes only in whitespace; then one that changes one row of an it.each of three
 When  ci/mutation.mjs runs on each
-Then  the first ends with no changed test file, the stand-in runner is never called and no copy is made; the second has no new test and the file in outsideAnyTest; the third has one new test, the group, named by the call's line
+Then  the first ends with no changed test file, the stand-in runner is never called and no copy is made; the second has every test in the file new; the third has every test in the file new and the file in whitespaceOnly; the fourth has each row new, judged on its own and named by the call's line
 ```
 
 ```
@@ -959,19 +970,20 @@ And   the next run removes a tests-can-fail-* folder in the temporary directory 
 ```
 Given a test file renamed with one line changed inside one test
 When  ci/mutation.mjs lists the new tests
-Then  only that test is listed
+Then  every test in the file is listed
+And   a rename with identical content lists none, and is never-run when no run picks it up
 ```
 
 ```
 Given a temporary repository with a default branch that changed a test file after a branch was cut, and the branch, which changed one test of the same file, checked out
 When  ci/mutation.mjs runs
-Then  the diff is from the merge base to HEAD: the one test the branch changed is the one judged, the default branch's change marks no test new, and the record's head is HEAD
+Then  the diff is from the merge base to HEAD: every test in the file the branch changed is judged, and the record's head is HEAD
 ```
 
 ```
 Given a commit that only deletes the one expect line of an existing test; one that deletes a whole test from a file of three; one that deletes a test file; and one that renames cart.test.ts to cart.tst.ts
 When  ci/mutation.mjs runs on each, the stand-in runner never failing the first's test, and MT1 on each record
-Then  the first has one new test, that one, judged with failedOn null, and MT1 exits 1 with kills-nothing; the second has no new test
+Then  the first has every test in its file new, that one judged with failedOn null, and MT1 exits 1 with kills-nothing; the second has the other two tests new
 And   the third and the fourth end with no changed test file and removedTestFiles 1, and MT1 exits 0 with "No tests were added or changed." and "1 test files were removed or renamed away"
 ```
 
@@ -1331,3 +1343,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-20 · MODIFIED · D-057, the owner's decision in #657: Known limitations names the two open routes, and the issues that build the decision (#684, #685). The Contract's text changes in those builds. Version stays 0.5
 - 2026-11-21 · MODIFIED · #681, on the owner's yes: §6 and §7 let a project set the time limit in `ci/tests-can-fail.yaml`. The owner kept §3.9's caps as the per-test budget, and cut the issue's line on a filtered run (L-73). A limit that scales with the tests judged was declined.
 - 2026-11-22 · MODIFIED · #681, on the owner's yes: Known limitations names the 3 security findings open in #695, and AR-13 says what the config reader now accepts.
+- 2026-11-23 · MODIFIED · #684 builds D-057's first part: §3.1, §3.2 and §3.5 say every test in a changed test file is new, a whitespace-only edit counts (the owner's answer, 2026-11-22), and a later run that moves a judged test's name stops the run. The record's `outsideAnyTest` becomes `whitespaceOnly`. §4, §5, Known limitations and the scenarios that said a test stays old follow. Version stays 0.5.
