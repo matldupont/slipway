@@ -6,7 +6,7 @@
 // config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, tagsFilter, tags,
 //   sleepMs, runSleepMs, changedRunSleepMs, noReportColumn, noColumnWhen, copies,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
-//   noFailureMessages }
+//   noFailureMessages, placeAt, goneOnChange }
 // A rule is keyed by a test's name (a row's own, or its call's with %i), or by `<name>@<line>` for that line only.
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
@@ -120,17 +120,18 @@ if (!untouched && config.changedSleepMs) {
 const located = args.includes('--includeTaskLocation') && !config.noReportLine;
 // noColumnWhen: 'changed' leaves the column out of a run with a change, 'after' out of an untouched run after one.
 const columnless = config.noReportColumn || (config.noColumnWhen === 'changed' && !untouched) || (config.noColumnWhen === 'after' && untouched && state.sawChange);
-// placeAt: { "<name>": { line, column, changed } } reports that test at that place, on every run or, with changed, only
-// on a run with a change. Nothing else about the test moves.
+// placeAt: { "<name>" or "<name>@<line>": { line, column, changed } } reports that test at that place, on every run or,
+// with changed, only on a run with a change. Nothing else about the test moves.
 const placeFor = (t) => {
-  const p = config.placeAt?.[t.name];
+  const p = config.placeAt?.[`${t.name}@${t.line}`] ?? config.placeAt?.[t.name];
   return p && (!p.changed || !untouched) ? p : t;
 };
 const where = (t) => {
   const p = placeFor(t);
   return located ? { location: columnless ? { line: p.line } : { line: p.line, column: p.column } } : {};
 };
-const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
+// goneOnChange: [name] leaves those tests out of a run with a change, as a row generated from the changed code would be.
+const assertionResults = loadFails ? [] : testsOf(file).filter((t) => untouched || !config.goneOnChange?.includes(t.name)).map((t) => {
   if (!kept(file, t)) return { ancestorTitles: [], fullName: t.name, status: t.out === 'todo' ? 'todo' : 'skipped', title: t.name, failureMessages: [], ...where(t) };
   const rule = [`${t.name}@${t.line}`, t.name, `${t.rule}@${t.line}`, t.rule].map((k) => config.tests?.[k]).find(Boolean) ?? {};
   const missing = rule.needsFile && !existsSync(join(copy, rule.needsFile));

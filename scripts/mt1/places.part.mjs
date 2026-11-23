@@ -9,7 +9,7 @@ import { CHANGED, FILE, mt1, removeAll } from './run.part.mjs';
 
 const HEAD = "import { describe, it, expect } from 'vitest';\nimport { add } from './cart';\n\n";
 const it = (name) => `it('${name}', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`;
-const at = (o) => project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: o.base ?? testFile(['old']) }, config: { tests: { adds: { failsWhen: CHANGED } }, ...o.config } });
+const at = (o) => project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: o.base ?? testFile(['old']) }, config: { tests: { old: { failsWhen: CHANGED }, adds: { failsWhen: CHANGED } }, ...o.config } });
 
 test('a new test with the name of an old one is judged on its own, never by the old one failing (#655)', (t) => {
   // The old `adds` at line 4 fails on a change; the new one, at line 8, asserts nothing.
@@ -106,7 +106,54 @@ test('in a file whose places are not trusted, a new test is judged and each chan
   const w = r.json.warnings.find((x) => x.where === `${FILE}#not-judged/narrowed`);
   assert.match(w?.detail ?? '', /cannot tell whether the runner ran a test in the call at line \d+, since a source map comment in the file moves/, r.out);
   assert.match(w.fix, /^Take off any condition or empty table/);
-  const u = r.json.warnings.find((x) => x.where === `${FILE}#unreadable`);
-  assert.match(u?.detail ?? '', /has every test in it judged, old ones too: a source map comment in it moves where the runner says a test is/, r.out);
-  assert.match(u.fix, /^Put new tests in a file with no tagged template or source map comment/);
+  assert.equal(r.json.warnings.some((x) => x.where === `${FILE}#unreadable`), false, r.out);
+});
+
+test('an untouched old test no change kills is a finding, naming it and the dated excuse (D-057)', (t) => {
+  const p = at({ base: testFile(['old', 'adds']), config: { tests: { adds: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: testFile(['old', 'adds']).replace("it('adds', () => {\n  expect(add(1, 2)).toBe(3);", "it('adds', () => {\n  expect(add(2, 2)).toBe(4);") });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids], [1, [`${FILE}:4#kills-nothing`]], r.out);
+  assert.match(r.json.findings[0].detail, /› "old" passed on all/);
+  assert.match(r.json.findings[0].fix, /excuse the file in `ci\/exceptions\.yaml` with a date/);
+});
+
+test('two tests the runner places at one unchanged call, one not in the base, are each judged (#658)', (t) => {
+  const each = `${HEAD}it.each([[1, 2]])('adds %i', (a, b) => {\n  expect(add(a, 1)).toBe(b);\n});\n`;
+  const p = at({ base: each, config: { rows: { 'adds %i': 1 }, tests: { 'adds 1': { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.config({ rows: { 'adds %i': 2 }, tests: { 'adds 1': { failsWhen: CHANGED } } });
+  p.commit({ [FILE]: `${each}// touched\n` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids], [1, [`${FILE}:4#kills-nothing`]], r.out);
+  assert.match(r.json.findings[0].detail, /› "adds 2" passed on all/);
+});
+
+test('a new test the runner places at an old test\'s place is judged, never passed as the old one (#658)', (t) => {
+  const p = at({ config: { tests: { old: { failsWhen: CHANGED } }, placeAt: { adds: { line: 4, column: 1 } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: testFile(['old', 'adds']) });
+  const r = mt1(p);
+  assert.equal(r.status, 1, r.out);
+  assert.ok(r.json.findings.some((f) => /› "adds" passed on all/.test(f.detail)), r.out);
+});
+
+test('a judged name the runner reports at other places on a later run stops the run, so no result lands on the wrong test (#684)', (t) => {
+  const two = `${HEAD}${it('adds')}\n${it('adds')}`;
+  const p = at({ config: { tests: { 'adds@4': { failsWhen: CHANGED } }, placeAt: { 'adds@4': { line: 8, column: 1, changed: true }, 'adds@8': { line: 4, column: 1, changed: true } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: two });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /reports "adds" at other places on a later run than on its clean run/);
+});
+
+test('a later run that no longer reports a judged name stops nothing, and that test earns no kill (#684)', (t) => {
+  const p = at({ base: testFile(['old', 'adds']), config: { goneOnChange: ['adds'] } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}// touched\n` });
+  const r = mt1(p);
+  assert.equal(r.status, 1, r.out);
+  assert.deepEqual(r.json.findings.map((f) => /› "adds" passed on all/.test(f.detail)), [true], r.out);
 });

@@ -125,7 +125,7 @@ test('no text of the record prints raw: C0, C1 and bidi characters in every fiel
     tests: [judged({ file: f, name: bad('n'), tried: 2, failedOn: null, subjects: [bad('s.ts')] }), judged({ file: f, name: bad('c'), tried: 2, failedOn: null, crashes: 1, lastCrash: { type: bad('TypeError'), file: bad('x.ts'), line: bad('3') } })],
     neverRun: [{ file: f }], notJudged: REASONS.map((why) => ({ file: f, name: bad(why), why, detail: bad('d') })),
     unreadable: [{ file: f, reason: 'already \\u001b escaped' }], capped: [{ file: f, untriedBody: 1, untriedOther: 2 }],
-    notTests: [{ file: f }], outsideAnyTest: [{ file: f }], support: [{ file: f }], noChange: [{ file: f }],
+    notTests: [{ file: f }], whitespaceOnly: [{ file: f }], support: [{ file: f }], noChange: [{ file: f }],
   });
   // The verdict escapes each string itself, before report() does it again: none of its text holds one raw.
   const v = judge(r, { head: null, registry: [entry('tests-can-fail#mechanical', '2026-01-01')] });

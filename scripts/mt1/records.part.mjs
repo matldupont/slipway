@@ -42,6 +42,14 @@ test('in a temporary git repository, a record whose head is its HEAD is accepted
   assert.equal(judge(rec({ head: '9'.repeat(40) }), { head: null }).exit, 0);
 });
 
+test('a record from a step before D-057, which holds outsideAnyTest and no whitespaceOnly, is exit 2 and names the version mismatch', () => {
+  const old = rec({ outsideAnyTest: [{ file: FILE }] });
+  delete old.whitespaceOnly;
+  const v = judge(old);
+  assert.equal(v.exit, 2);
+  assert.match(v.broken, /lacks `whitespaceOnly`.*different slipway versions/);
+});
+
 test('a record that stopped, lacks a field, or judges a test with nothing tried is exit 2 with its own message', () => {
   assert.deepEqual([judge(rec({ stopped: 'The run was stopped by SIGINT.' })).exit, judge(rec({ stopped: 'The run was stopped by SIGINT.' })).broken], [2, 'The run was stopped by SIGINT.']);
   for (const field of Object.keys(emptyRecord(0))) {
@@ -125,14 +133,14 @@ test('the summary prints both shares, 2 of 8 rule-caused and 4 of 8 in all (its 
 test('the findings of §4\'s table, the spent mechanical entry, and the count lines with the names the record holds', () => {
   const v = judge(rec({
     changedTestFiles: [FILE], tests: [judged({ tried: 3, failedOn: null }), judged({ name: 'c', tried: 3, failedOn: null, crashes: 1, lastCrash: { type: 'TypeError', file: FILE, line: 12 } })],
-    capped: [{ file: FILE, untriedBody: 10, untriedOther: 5 }], notTests: [{ file: 'pkgs/app/src/__tests__/h.ts' }], outsideAnyTest: [{ file: FILE }], support: [{ file: 'pkgs/app/src/factories.ts' }], uncommitted: 2,
+    capped: [{ file: FILE, untriedBody: 10, untriedOther: 5 }], notTests: [{ file: 'pkgs/app/src/__tests__/h.ts' }], whitespaceOnly: [{ file: FILE }], support: [{ file: 'pkgs/app/src/factories.ts' }], uncommitted: 2,
   }), { registry: [entry('tests-can-fail#mechanical')] });
   assert.deepEqual(v.ids, [`${FILE}:3#kills-nothing`, `${FILE}:3#only-crashes`]);
   assert.deepEqual(v.warned, ['ci/exceptions.yaml:tests-can-fail#mechanical#spent']);
   assert.deepEqual(v.notes.slice(1), [
     '`pkgs/app/src/cart.test.ts` stopped at the cap of 30 changes: 10 body changes and 5 others were not tried, so it is not fully checked.',
     '1 changed files under a test name or folder are not tests: `pkgs/app/src/__tests__/h.ts`.',
-    '1 test files changed outside any test: `pkgs/app/src/cart.test.ts`.',
+    '1 test files changed only in whitespace, and their tests were judged: `pkgs/app/src/cart.test.ts`.',
     '1 test support files were left out of the code under test: `pkgs/app/src/factories.ts`.',
     '2 tracked files have changes not committed, and were not judged: this step judges the last commit.',
   ]);

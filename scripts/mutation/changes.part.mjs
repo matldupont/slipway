@@ -3,7 +3,7 @@
 // packages and runner calls it can or cannot read (§3.3).
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -29,18 +29,59 @@ test('a commit that changes no test file ends there: no copy, no runner call', (
   assert.deepEqual(readdirSync(tmp), [], 'a copy was made');
 });
 
-test('a describe line, a hook and whitespace mark no test new; a blank line or whitespace alone is no change outside a test', (t) => {
+test('a describe line or a hook makes every test in the file new; a whitespace-only edit does too, and the record names it (D-057)', (t) => {
   const body = (describe, hook, line) => `import { it, expect, describe, beforeEach } from 'vitest';\nimport { add } from './cart';\ndescribe('${describe}', () => {\n  beforeEach(() => {${hook}});\n  it('adds', () => {\n${line}\n  });\n});\n`;
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: body('cart', '', '    expect(add(1, 2)).toBe(3);') } });
   t.after(() => p.remove());
   p.commit({ [FILE]: body('the cart', ' void 0; ', '    expect(add(1,  2)).toBe(3);') });
   let { record } = p.run();
-  assert.deepEqual(newNames(record), []);
-  assert.deepEqual(record.outsideAnyTest, [{ file: FILE }]);
+  assert.deepEqual([newNames(record), record.whitespaceOnly], [['adds'], []]);
   reset(p);
   p.commit({ [FILE]: body('cart', '', '\n      expect(add(1, 2)).toBe(3);\n') });
   ({ record } = p.run());
-  assert.deepEqual([newNames(record), record.outsideAnyTest], [[], []]);
+  assert.deepEqual([newNames(record), record.whitespaceOnly], [['adds'], [{ file: FILE }]]);
+});
+
+test('one changed and one untouched test in a changed file are both judged (D-057)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: testFile(['changed', 'untouched']) } });
+  t.after(() => p.remove());
+  p.commit({ [FILE]: testFile(['changed', 'untouched']).replace("it('changed', () => {\n  expect(add(1, 2)).toBe(3);", "it('changed', () => {\n  expect(add(2, 2)).toBe(4);") });
+  const { record } = p.run();
+  assert.deepEqual(record.tests.map((x) => [x.name, x.state]).sort(), [['changed', 'judged'], ['untouched', 'judged']]);
+});
+
+test('content decides what changed: a mode-only change and an identical rename judge nothing (D-057)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: three() } });
+  t.after(() => p.remove());
+  chmodSync(join(p.root, FILE), 0o755);
+  p.commit({});
+  let { record } = p.run();
+  assert.deepEqual([record.changedTestFiles, newNames(record), record.whitespaceOnly], [[FILE], [], []]);
+  reset(p);
+  p.git(['mv', FILE, 'pkgs/app/src/basket.test.ts']);
+  p.commit({});
+  ({ record } = p.run());
+  assert.deepEqual([record.changedTestFiles, newNames(record), record.whitespaceOnly], [['pkgs/app/src/basket.test.ts'], [], []]);
+});
+
+test('an identical rename to where no run picks it up is still never-run (D-057)', (t) => {
+  const moved = 'pkgs/app/src/basket.test.ts';
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: three() }, config: { unlisted: [moved] } });
+  t.after(() => p.remove());
+  p.git(['mv', FILE, moved]);
+  p.commit({});
+  const { record } = p.run();
+  assert.deepEqual([record.neverRun, newNames(record)], [[{ file: moved }], []]);
+});
+
+test('a file renamed into a test name with its content unchanged has every test judged (D-057)', (t) => {
+  const from = 'pkgs/app/src/cart.tst.ts';
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [from]: three() } });
+  t.after(() => p.remove());
+  p.git(['mv', from, FILE]);
+  p.commit({});
+  const { record } = p.run();
+  assert.deepEqual([newNames(record), record.whitespaceOnly], [['a', 'b', 'c'], []]);
 });
 
 test('a changed row of an it.each of three makes each row a new test, judged on its own and named by the call\'s line (#655)', (t) => {
@@ -52,24 +93,25 @@ test('a changed row of an it.each of three makes each row a new test, judged on 
   assert.deepEqual(record.tests.map((x) => [x.name, x.line]), [['adds 1', 4], ['adds 2', 4], ['adds 3', 4]]);
 });
 
-test('a renamed test file with one line changed inside one test lists only that test', (t) => {
+test('a renamed test file with one line changed inside one test has every test in it judged', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: three() } });
   t.after(() => p.remove());
   p.git(['mv', FILE, 'pkgs/app/src/basket.test.ts']);
   p.commit({ 'pkgs/app/src/basket.test.ts': three().replace("it('b', () => {\n  expect(add(1, 2)).toBe(3);", "it('b', () => {\n  expect(add(2, 2)).toBe(4);") });
   const { record } = p.run();
-  assert.deepEqual(newNames(record), ['b']);
+  assert.deepEqual(newNames(record), ['a', 'b', 'c']);
 });
 
-test('the diff is from the merge base: the default branch\'s later change marks no test new; with no default branch it stops', (t) => {
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: three() } });
+test('the diff is from the merge base: a file only the default branch changed later is not judged; with no default branch it stops', (t) => {
+  const other = 'pkgs/app/src/other.test.ts';
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: three(), [other]: testFile(['z']) } });
   t.after(() => p.remove());
   p.commit({ [FILE]: three().replace("it('b', () => {\n  expect(add(1, 2))", "it('b', () => {\n  expect(add(0, 3))") });
   p.git(['checkout', '-q', 'main']);
-  p.commit({ [FILE]: three().replace("it('a', () => {\n  expect(add(1, 2))", "it('a', () => {\n  expect(add(2, 1))") });
+  p.commit({ [other]: testFile(['z']).replace('add(1, 2)).toBe(3)', 'add(2, 1)).toBe(3)') });
   p.git(['checkout', '-q', 'work']);
   let { status, record } = p.run();
-  assert.deepEqual(newNames(record), ['b']);
+  assert.deepEqual(newNames(record), ['a', 'b', 'c']);
   assert.equal(record.head, p.git(['rev-parse', 'HEAD']).trim());
   assert.equal(record.base, p.git(['merge-base', 'main', 'HEAD']).trim());
   p.git(['branch', '-m', 'main', 'trunk']);
@@ -78,23 +120,23 @@ test('the diff is from the merge base: the default branch\'s later change marks 
   assert.match(record.stopped, /found none: no origin\/main, origin\/master, main or master\. Fetch it/);
 });
 
-test('a deleted expect makes its test new; a deleted test, a hook that loses a line, a deleted or renamed-away file mark none', (t) => {
+test('a deleted expect, a deleted test or a hook that loses a line has every test left in the file judged; a deleted or renamed-away file has none', (t) => {
   const hooked = (hook) => `import { it, expect, beforeEach } from 'vitest';\nimport { add } from './cart';\nlet n;\nbeforeEach(() => {\n${hook}});\n\nit('a', () => {\n  n;\n  expect(add(1, 2)).toBe(3);\n});\n\nit('b', () => {\n  expect(add(1, 2)).toBe(3);\n});\n\nit('c', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`;
   const base = hooked('  n = 1;\n  n += 1;\n');
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: base } });
   t.after(() => p.remove());
   p.commit({ [FILE]: base.replace('  n;\n  expect(add(1, 2)).toBe(3);\n', '  n;\n') });
   let { record } = p.run();
-  assert.deepEqual(newNames(record), ['a']);
-  assert.equal(record.tests[0].failedOn, null);
+  assert.deepEqual(newNames(record), ['a', 'b', 'c']);
+  assert.equal(record.tests.find((x) => x.name === 'a').failedOn, null);
   reset(p);
   p.commit({ [FILE]: base.replace("\nit('b', () => {\n  expect(add(1, 2)).toBe(3);\n});\n", '') });
   ({ record } = p.run());
-  assert.deepEqual([newNames(record), record.outsideAnyTest], [[], [{ file: FILE }]]);
+  assert.deepEqual([newNames(record), record.whitespaceOnly], [['a', 'c'], []]);
   reset(p);
   p.commit({ [FILE]: hooked('  n = 1;\n') });
   ({ record } = p.run());
-  assert.deepEqual([newNames(record), record.outsideAnyTest], [[], [{ file: FILE }]]);
+  assert.deepEqual([newNames(record), record.whitespaceOnly], [['a', 'b', 'c'], []]);
   for (const change of [() => p.git(['rm', '-q', FILE]), () => p.git(['mv', FILE, 'pkgs/app/src/cart.tst.ts'])]) {
     reset(p);
     change();
@@ -137,7 +179,7 @@ test('the registry is read from the commit: an uncommitted mechanical entry excu
   p.commit({ [FILE]: three().replace("it('c', () => {\n  expect(add(1, 2))", "it('c', () => {\n  expect(add(0, 3))") });
   p.write({ 'ci/exceptions.yaml': EXCEPTION('tests-can-fail#mechanical') });
   const { record } = p.run();
-  assert.deepEqual([record.mechanical, record.uncommitted, newNames(record)], [false, 1, ['c']]);
+  assert.deepEqual([record.mechanical, record.uncommitted, newNames(record)], [false, 1, ['a', 'b', 'c']]);
 });
 
 test('the lines a change adds are read whatever git calls the file, and a path that reads as a pathspec is a path', (t) => {
@@ -161,11 +203,11 @@ test('the lines a change adds are read whatever git calls the file, and a path t
   assert.deepEqual(lines(magic, { [magic]: 'one\n' }), [1]);
 });
 
-test('a test file the change adds names no change outside a test: its imports are new, as is every test in it', (t) => {
+test('a test file the change adds is no whitespace-only change, and every test in it is new', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
   t.after(() => p.remove());
   p.commit({ [FILE]: testFile(['n']) });
   const { record } = p.run();
   assert.deepEqual(newNames(record), ['n']);
-  assert.deepEqual(record.outsideAnyTest, []);
+  assert.deepEqual(record.whitespaceOnly, []);
 });
