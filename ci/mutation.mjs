@@ -236,9 +236,10 @@ async function body(root, record, ctx) {
     }
     for (const entry of entries) {
       const by = listed.find((l) => l.tests.some((t) => t.file === entry.file));
-      // Only a regular file the commit tracks is read. A symlink or a submodule the runner runs is named, not read.
+      // Only a regular file the commit tracks is read. A symlink or a submodule with a test name, or that a run lists, is
+      // a finding (§4); any other is not a test.
       if (!tracked.has(entry.file)) {
-        if (by) notJudged(entry.file, 'could-not-be-parsed', 'a symlink or a submodule, which this step does not read');
+        if (by || isRunnableName(entry.file)) record.unreadable.push({ file: entry.file, reason: 'a symlink or a submodule, which this step does not read', test: true, link: true });
         else record.notTests.push({ file: entry.file });
         continue;
       }

@@ -187,6 +187,14 @@ test('a clean run that fails outside any test stops the run, naming a hook, a se
   assert.doesNotMatch(r.out, /left-out/);
 });
 
+test('a file that failed with every test passed is judged, since no test was kept from running (#684)', (t) => {
+  const p = at({ base: testFile(['old', 'adds']), config: { hookFails: true } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}// touched\n` });
+  const r = mt1(p);
+  assert.deepEqual([r.status, r.ids], [0, []], r.out);
+});
+
 test('a file that failed with a test of its own failed is that test\'s red, never a failure outside any test (#684)', (t) => {
   const p = at({ base: testFile(['old', 'adds']), config: { hookFails: true, tests: { old: { always: true }, adds: { skipped: true } } } });
   removeAll(t, p);

@@ -65,7 +65,7 @@ export const leftOut = (n) => ({
   detail: `${named(n.file, n.name)} is left out: ${REASONS[n.why](n.detail)[0]}.`,
   fix: n.why === 'flaky'
     ? 'Keep it passing every time, set `keep-out:` in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.'
-    : 'Set a missing env value, use `skipIf`, keep out in `ci/tests-can-fail.yaml`, or date an excuse.',
+    : 'Set the env value it needs, remove the filter, `.only` or hook skipping it, keep out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.',
 });
 
 const at = (t, id) => e(`${t.file}:${t.line}#${id}`);
@@ -149,16 +149,22 @@ export const spentMechanical = () => ({
 });
 
 // §4: a changed test file the parser cannot read is a finding, since a test the run leaves out of it cannot be seen.
-export const unreadableTest = (u) => ({
-  where: e(`${u.file}#unreadable`),
-  detail: `${file(u.file)} could not be read as tests, so a test the run leaves out of it cannot be seen: ${e(u.reason)}.`,
-  fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
-});
+export const unreadableTest = (u) => (u.link
+  ? {
+    where: e(`${u.file}#unreadable`),
+    detail: `${file(u.file)} is a symlink or a submodule, so this step cannot read the tests in it.`,
+    fix: `Save it as a regular file, ${EXCUSE}.`,
+  }
+  : {
+    where: e(`${u.file}#unreadable`),
+    detail: `${file(u.file)} could not be read as tests, so a test the run leaves out of it cannot be seen: ${e(u.reason)}.`,
+    fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
+  });
 // A file a test imports that the parser cannot read: nothing in it is changed, and the test is judged on the rest.
 export const unreadable = (u) => ({
   where: e(`${u.file}#unreadable`),
   detail: `${file(u.file)} could not be read, so this step changes nothing in it: ${e(u.reason)}.`,
-  fix: `Keep the code under test in a file this step can read, ${EXCUSE}.`,
+  fix: 'Rename or move the code under test into a file this step can read.',
 });
 
 export const overBudget = (seconds, budget) => ({

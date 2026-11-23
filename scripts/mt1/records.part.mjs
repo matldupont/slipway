@@ -42,6 +42,19 @@ test('in a temporary git repository, a record whose head is its HEAD is accepted
   assert.equal(judge(rec({ head: '9'.repeat(40) }), { head: null }).exit, 0);
 });
 
+test('a changed test file that is a symlink is a finding of its own, with a way out that fits it (#684)', () => {
+  const v = judge(rec({ changedTestFiles: [FILE], tests: [judged()], unreadable: [{ file: FILE, reason: 'a symlink or a submodule, which this step does not read', test: true, link: true }] }));
+  assert.deepEqual([v.exit, v.ids, v.warned], [1, [`${FILE}#unreadable`], []]);
+  assert.match(v.findings[0].detail, /is a symlink or a submodule, so this step cannot read the tests in it\.$/);
+  assert.match(v.findings[0].fix, /^Save it as a regular file, or excuse the file in `ci\/exceptions\.yaml` with a date\.$/);
+});
+
+test('a file a test imports that cannot be read stays a warning, and offers no excuse that would do nothing (#684)', () => {
+  const v = judge(rec({ changedTestFiles: [FILE], tests: [judged()], unreadable: [{ file: 'pkgs/app/src/data.json', reason: 'not JavaScript or TypeScript' }] }));
+  assert.deepEqual([v.exit, v.ids], [0, []]);
+  assert.equal(v.warnings[0].fix, 'Rename or move the code under test into a file this step can read.');
+});
+
 test('the whitespace line counts only files with a test judged: a file excused as mechanical is not said to be judged (D-057)', () => {
   const line = (r) => judge(r).notes.find((n) => n.includes('changed only in whitespace'));
   assert.equal(line(rec({ changedTestFiles: [FILE], whitespaceOnly: [{ file: FILE }], mechanical: true, notJudged: [nj('mechanical', { file: FILE, detail: 'a reformat (until 2099-12-31)' })] })), undefined);
@@ -110,11 +123,11 @@ test('a test the runner leaves out with no skip in its text is a left-out findin
   const alone = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed] }));
   assert.deepEqual([alone.exit, alone.ids, alone.warned], [1, [id], []]);
   assert.match(alone.findings[0].detail, /is left out: the run skips it; its call has no skip\.$/);
-  assert.equal(alone.findings[0].fix, 'Set a missing env value, use `skipIf`, keep out in `ci/tests-can-fail.yaml`, or date an excuse.');
+  assert.equal(alone.findings[0].fix, 'Set the env value it needs, remove the filter, `.only` or hook skipping it, keep out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.');
   const unread = judge(rec({ changedTestFiles: [FILE], notJudged: [{ ...narrowed, detail: 'the run skips it, in a call this step cannot read for a skip' }] }));
   assert.match(unread.findings[0].detail, /is left out: the run skips it; the step cannot read its call\.$/);
-  // Past the file and the test it names, each finding is 160 characters at most.
-  for (const f of [alone.findings[0], unread.findings[0]]) assert.ok(f.detail.replace(`\`${narrowed.file}\` › "adds"`, '').length + 1 + f.fix.length <= 160, f.detail);
+  // The report prints the detail and the fix on lines of their own: past the file and the test, each is 160 at most.
+  for (const f of [alone.findings[0], unread.findings[0]]) assert.ok(f.detail.replace(`\`${narrowed.file}\` › "adds"`, '').length <= 160 && f.fix.length <= 160, f.detail);
   const beside = judge(rec({ changedTestFiles: [FILE], tests: [judged()], notJudged: [narrowed] }));
   assert.deepEqual([beside.exit, beside.ids], [1, [id]]);
   const unsure = nj('narrowed', { name: null, detail: 'this step cannot tell whether the runner ran a test in the call at line 4, since a tagged template in the file moves where the runner says a test is' });

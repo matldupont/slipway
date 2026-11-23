@@ -34,7 +34,7 @@ for (const [what, script] of [
 }
 
 const NARROWED = [1, [`${FILE}#left-out/adds`], []];
-const THREE_WAYS = /^Set a missing env value, use `skipIf`, keep out in `ci\/tests-can-fail\.yaml`, or date an excuse\.$/;
+const THREE_WAYS = /^Set the env value it needs, remove the filter, `\.only` or hook skipping it, keep out in `ci\/tests-can-fail\.yaml`, or add a dated excuse to `ci\/exceptions\.yaml`\.$/;
 for (const [what, o, adds] of [
   ['a name filter in the Vitest config', { config: { namePattern: '^old$' } }, it('adds')],
   ['a value on a true/false flag (the runner keeps it as a file:line filter)', { test: 'vitest run --passWithNoTests=src/cart.test.ts:4' }, it('adds')],
@@ -131,7 +131,8 @@ test('a new test call the runner reports no test in is narrowed, never a silent 
   const w = r.json.findings[0];
   assert.match(w.detail, /the runner reports no test in the call at line \d+\.$/);
   assert.match(w.fix, THREE_WAYS);
-  assert.ok(w.detail.replace(`\`${FILE}\``, '').length + 1 + w.fix.length <= 160, w.detail);
+  // The report prints the detail and the fix on lines of their own, each at most 160 characters.
+  assert.ok(w.detail.replace(`\`${FILE}\``, '').length <= 160 && w.fix.length <= 160, w.detail);
 });
 
 test('an untouched test call the runner reports no test in fails the pull request, named by its line (D-057)', (t) => {

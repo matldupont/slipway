@@ -425,7 +425,7 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    counts only in the pull request that adds it: when this pull request's diff adds the line holding that
    id to `ci/exceptions.yaml`, and the entry is unexpired, every new test of the pull request is **not
    judged**, `mechanical`, with the entry's reason and date, and steps 8 and 9 do not run. Step 5 has run,
-   so each test is named as the runner lists it and a `never-run` file is still a finding. In any other
+   so each test is named as the runner lists it, and a `never-run` file or an `unreadable` test file is still a finding. In any other
    pull request the entry excuses nothing, and the verdict warns that it is spent (§5) until it is removed
    or its date makes it `excuse-expired`.
 8. **The baseline.** Each test file with new tests is run once in the copy, untouched. When a new test is
@@ -487,7 +487,8 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
     `crashes` a count, `lastCrash` null or `{ type, file, line }`, `unreadFailures` and `lastUnread`, the count
     of failures whose first word is not an error's name and the last such word, `state` one of `judged`, `flaky`,
     `out-of-time`), `neverRun` (`{ file }`), `notJudged` (`{ file, name, why, detail }`), `unreadable`
-    (`{ file, reason }`, the reason escaped), `support`, `noChange`, `notTests` and `whitespaceOnly` (`{ file }`
+    (`{ file, reason, test?, link? }`, the reason escaped; `test` when it is a changed test file, which makes it a
+    finding, and `link` when that file is a symlink or a submodule), `support`, `noChange`, `notTests` and `whitespaceOnly` (`{ file }`
     each), `removedTestFiles` (a count), `uncommitted` (the tracked files with a change not committed),
     `mechanical` (true when the entry of step 7 counted), `mechanicalSpent` (true when it is there and did not
     count), `excuseProblems` (`{ file, problem }`, an expired or undated `tests-can-fail#` entry), `capped`
@@ -520,7 +521,7 @@ is what `/work-ticket` runs.
 | `outOfTime` true and no test `out-of-time` | **finding** `out-of-time`, on the run |
 | a file in `neverRun` | **finding** `never-run` |
 | a test or test call the run is known to have left out for a reason the owner did not give (`narrowed`), or a test `flaky` in its baseline (§3.8) | **finding** `left-out`, whatever else was judged |
-| a changed test file `spans()` cannot read | **finding** `unreadable` |
+| a changed test file `spans()` cannot read, or a symlink or submodule with a test name or that a run lists | **finding** `unreadable` |
 | anything else in `notJudged` | warning, by name, with its reason |
 | at least one new test, none in `tests`, and one in `notJudged` for a reason the owner did not give | **finding** `nothing-judged` |
 
@@ -598,9 +599,11 @@ The fix is printed on its own `Fix:` line.
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
 - `unreadable`, for a changed test file: `` `{file}` could not be read as tests, so a test the run leaves out of it
   cannot be seen: {reason}. `` Fix: `` Write each test as `it(...)` or `test(...)` from `vitest`, or excuse the file in
-  `ci/exceptions.yaml` with a date. ``
-- `left-out`: `` `{file}` › "{test}" is left out: {reason}. `` Fix: `` Set a missing env value, use `skipIf`, keep out in
-  `ci/tests-can-fail.yaml`, or date an excuse. `` For a test flaky in its baseline, the
+  `ci/exceptions.yaml` with a date. `` For a symlink or a submodule: `` `{file}` is a symlink or a submodule, so this
+  step cannot read the tests in it. `` Fix: `` Save it as a regular file, or excuse the file in `ci/exceptions.yaml`
+  with a date. ``
+- `left-out`: `` `{file}` › "{test}" is left out: {reason}. `` Fix: `` Set the env value it needs, remove the filter, `.only` or hook
+  skipping it, keep out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`. `` For a test flaky in its baseline, the
   fix is `` Keep it passing every time, set `keep-out:` in `ci/tests-can-fail.yaml`, or add a dated excuse to
   `ci/exceptions.yaml`. ``
 - `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
@@ -1369,3 +1372,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-23 · MODIFIED · #684, the owner's answer of 2026-11-23 in D-057: a test the run is known to have left out for a reason the owner did not give, or one flaky in its baseline, is a `left-out` finding by itself. §4, §5, the Threat model and Known limitations say so. Version stays 0.5.
 - 2026-11-23 · MODIFIED · #684, the owner's two answers of 2026-11-23 in D-057: §3.5 names every test call the report places no test in, changed or not, and §3.2 judges an identical rename whose old path was kept out or that moves into another package. Version stays 0.5.
 - 2026-11-23 · MODIFIED · #684, the owner's answers of 2026-11-23 in D-057, and decision-defaults §4: §3.2 judges every identical rename; §3.5 stops a clean run that fails outside any test, seen on Vitest 5.0.1; §4 makes a changed test file the step cannot read a finding. Known limitations name a local helper called `it` or `test`, and files whose places are not trusted. Version stays 0.5.
+- 2026-11-23 · MODIFIED · #684, on the owner's yes for one last round: a changed test file that is a symlink or a submodule is an `unreadable` finding, with its own message; the `left-out` fix names the env value, the filter, `.only` or hook, the keep-out and the dated excuse. Version stays 0.5.
