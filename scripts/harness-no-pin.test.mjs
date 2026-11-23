@@ -197,6 +197,7 @@ const newFile = 'export {};\n';
 const exclude = (rule) => writeFileSync(join(work, '.git/info/exclude'), rule);
 for (const [why, make] of [
   ['a commit past the base', () => { change(); git('-C', work, 'add', '-A'); commit('past the base'); }],
+  ['an empty commit past the base', () => git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '--allow-empty', '-m', 'empty')],
   ['a tracked change', change],
   ['a staged change the working file no longer shows', () => { change(); git('-C', work, 'add', 'src/app.ts'); put('src/app.ts', newFile); }],
   ['an untracked file', () => put('src/new.ts', newFile)],
