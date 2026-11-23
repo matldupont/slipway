@@ -160,12 +160,21 @@ export const unreadableTest = (u) => (u.link
     detail: `${file(u.file)} could not be read as tests, so a test the run leaves out of it cannot be seen: ${e(u.reason)}.`,
     fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
   });
-// A file a test imports that the parser cannot read: nothing in it is changed, and the test is judged on the rest.
-export const unreadable = (u) => ({
-  where: e(`${u.file}#unreadable`),
-  detail: `${file(u.file)} could not be read, so this step changes nothing in it: ${e(u.reason)}.`,
-  fix: 'Rename or move the code under test into a file this step can read.',
-});
+// A changed test file holding a test the runner reports in no call this step reads: its tests are judged, and a warning
+// names the file (#632).
+export const IN_NO_CALL = 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)';
+// Otherwise a file a test imports that the parser cannot read: nothing in it is changed, and the test is judged on the rest.
+export const unreadable = (u) => (u.reason === IN_NO_CALL
+  ? {
+    where: e(`${u.file}#unreadable`),
+    detail: `${file(u.file)} holds a test in no call this step reads: an alias of \`it\` or \`test\`, or \`test.extend\`.`,
+    fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
+  }
+  : {
+    where: e(`${u.file}#unreadable`),
+    detail: `${file(u.file)} could not be read, so this step changes nothing in it: ${e(u.reason)}.`,
+    fix: 'Rename or move the code under test into a file this step can read.',
+  });
 
 export const overBudget = (seconds, budget) => ({
   where: 'run#over-budget',

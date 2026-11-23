@@ -40,8 +40,8 @@ for (const [what, o, adds] of [
   ['a value on a true/false flag (the runner keeps it as a file:line filter)', { test: 'vitest run --passWithNoTests=src/cart.test.ts:4' }, it('adds')],
   ['a tags filter in the Vitest config', { config: { tagsFilter: ['old'] }, base: HEAD + it('old', "{ tags: ['old'] }, ") }, it('adds')],
   ['a tag the Vitest config skips', { config: { tags: [{ name: 'slow', skip: true }] } }, it('adds', "{ tags: ['slow'] }, ")],
-  ['an alias of it.skip the step cannot read', { config: { aliases: ['later'], tests: { old: OLD, adds: { skipped: true } } }, says: /the step cannot read its call/ }, `const later = it.skip;\nlater('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
-  ['a test called through a namespace import', { config: { namePattern: '^old$', aliases: ['v'] }, says: /the step cannot read its call/ }, `import * as v from 'vitest';\nv.it('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['an alias of it.skip the step cannot read', { config: { aliases: ['later'], tests: { old: OLD, adds: { skipped: true } } }, says: /the step cannot read its call/, warned: [`${FILE}#unreadable`] }, `const later = it.skip;\nlater('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
+  ['a test called through a namespace import', { config: { namePattern: '^old$', aliases: ['v'] }, says: /the step cannot read its call/, warned: [`${FILE}#unreadable`] }, `import * as v from 'vitest';\nv.it('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
   ['an optional call of it', { config: { namePattern: '^old$' } }, `it?.('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
   ['a .only on the test the base has', { base: HEAD + `it.only('old', () => {\n  expect(add(1, 2)).toBe(3);\n});\n` }, it('adds')],
   ['a skipIf(false), which skips nothing', { config: { namePattern: '^old$' } }, `it.skipIf(false)('adds', () => {\n  expect(add(1, 2)).toBe(3);\n});\n`],
@@ -51,7 +51,7 @@ for (const [what, o, adds] of [
     removeAll(t, p);
     p.commit({ [FILE]: `${o.base ?? testFile(['old'])}\n${adds}` });
     const r = mt1(p);
-    assert.deepEqual([r.status, r.ids, r.warned.sort()], NARROWED, r.out);
+    assert.deepEqual([r.status, r.ids, r.warned.sort()], [NARROWED[0], NARROWED[1], o.warned ?? NARROWED[2]], r.out);
     assert.match(r.json.findings[0].detail, o.says ?? /the run skips it; its call has no skip/);
     assert.match(r.json.findings[0].fix, THREE_WAYS);
   });
@@ -197,7 +197,7 @@ test('beside an alias test, a new call the runner reports no test in is still na
   removeAll(t, p);
   p.commit({ [FILE]: `${aliased}\n${gated()}` });
   const r = mt1(p);
-  assert.deepEqual([r.status, r.ids, r.warned], [1, [`${FILE}#left-out`], []], r.out);
+  assert.deepEqual([r.status, r.ids, r.warned], [1, [`${FILE}#left-out`], [`${FILE}#unreadable`]], r.out);
 });
 
 test('beside an alias test, under the mechanical excuse, a new test the listing hides is still named (#652)', (t) => {

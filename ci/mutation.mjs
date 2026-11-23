@@ -13,6 +13,7 @@ import { pathToFileURL } from 'node:url';
 import { today } from './checks/lib/clock.mjs';
 import { expiryProblem } from './checks/lib/exceptions.mjs';
 import { trustedGit } from './checks/lib/manifest.mjs';
+import { IN_NO_CALL } from './checks/lib/mt1-messages.mjs';
 import { escapeOutput } from './checks/lib/report.mjs';
 import { spans } from './checks/lib/mutants.mjs';
 import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, reportOf, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
@@ -261,6 +262,8 @@ async function body(root, record, ctx) {
       // them, any it calls by another name), so the clean run's report says which tests the file has (§3.5, #655).
       const report = excused ? null : await reportOf(ctx, { ...by.unit, file: entry.file });
       const found = newTests(report ? report.tests : listedHere, read, lines, text);
+      // A test in no call the step reads, from the report or, under the mechanical excuse, the listing: a warning (§4).
+      if (!read.unreadable && !found.untrusted && found.groups.some((g) => !g.read)) record.unreadable.push({ file: entry.file, reason: IN_NO_CALL });
       // §3.1: the content changed and the whitespace-blind diff shows nothing. Its tests are judged, and the summary says so.
       if (!entry.identical && !lines.added.size && !lines.removedAfter.length) record.whitespaceOnly.push({ file: entry.file });
       // A new test the clean run skips is not judged (§3.8).

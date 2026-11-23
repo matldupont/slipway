@@ -326,7 +326,7 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    project of D-037.
 5. **Which tests are judged.** For each runner call, `list --json --includeTaskLocation` gives the tests it
    runs, each with its file, name, line and column; a listed test with no line or column is exit 2 ("the test
-   runner did not say where each test is": §8). A changed test file no call lists, whose name is `*.test.<ext>` or
+   runner did not say where each test is": §8). A changed regular test file no call lists, whose name is `*.test.<ext>` or
    `*.spec.<ext>` with one of §2's eight extensions, is a **finding**, `never-run`, unless
    a `keep-out:` entry names it or a folder above it, in which case it is **not judged**: `kept-out`, with
    the entry's reason. The listing names no test that is skipped or `todo` before it runs, so a file whose
@@ -521,7 +521,7 @@ is what `/work-ticket` runs.
 | `outOfTime` true and no test `out-of-time` | **finding** `out-of-time`, on the run |
 | a file in `neverRun` | **finding** `never-run` |
 | a test or test call the run is known to have left out for a reason the owner did not give (`narrowed`), or a test `flaky` in its baseline (§3.8) | **finding** `left-out`, whatever else was judged |
-| a changed test file `spans()` cannot read, or a symlink or submodule with a test name or that a run lists | **finding** `unreadable` |
+| in a package that uses Vitest, a changed test file `spans()` cannot read, or a symlink or submodule with a test name or that a run lists | **finding** `unreadable` |
 | anything else in `notJudged` | warning, by name, with its reason |
 | at least one new test, none in `tests`, and one in `notJudged` for a reason the owner did not give | **finding** `nothing-judged` |
 
@@ -536,7 +536,8 @@ its file with a date. Any other unjudged test beside a judged one stays a warnin
 judge nothing of is not a pass (D-037).
 
 Also a finding: an entry `tests-can-fail#…` in `ci/exceptions.yaml` that is expired or undated
-(`excuse-expired`). Warnings, which never change the exit code: each `unreadable` file a test imports; `seconds` over
+(`excuse-expired`). Warnings, which never change the exit code: each `unreadable` file a test imports; a changed test
+file holding a test the runner reports in no call §2 reads; `seconds` over
 `budget`; a `tests-can-fail#mechanical` entry in a run whose record has `mechanical` not true. The summary
 line gives the counts: new tests, passed, failed, not judged. Then two shares, always, the second even when
 it is zero (D-037, amended 2026-11-02): the share of new tests not judged for a reason the rule causes
@@ -601,7 +602,9 @@ The fix is printed on its own `Fix:` line.
   cannot be seen: {reason}. `` Fix: `` Write each test as `it(...)` or `test(...)` from `vitest`, or excuse the file in
   `ci/exceptions.yaml` with a date. `` For a symlink or a submodule: `` `{file}` is a symlink or a submodule, so this
   step cannot read the tests in it. `` Fix: `` Save it as a regular file, or excuse the file in `ci/exceptions.yaml`
-  with a date. ``
+  with a date. `` A warning, for a test in no call §2 reads: `` `{file}` holds a test in no call this step reads: an
+  alias of `it` or `test`, or `test.extend`. `` Fix: `` Write each test as `it(...)` or `test(...)` from `vitest`, or
+  excuse the file in `ci/exceptions.yaml` with a date. ``
 - `left-out`: `` `{file}` › "{test}" is left out: {reason}. `` Fix: `` Set the env value it needs, remove the filter, `.only` or hook
   skipping it, keep out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`. `` For a test flaky in its baseline, the
   fix is `` Keep it passing every time, set `keep-out:` in `ci/tests-can-fail.yaml`, or add a dated excuse to
@@ -718,8 +721,8 @@ this step (Known limitations).
   verdict still refuses a record that is not for `HEAD`, which is what a fixture's is held to.
 - The files that can take a test out (`ci/tests-can-fail.yaml`, which also sets the limit, and
   `ci/exceptions.yaml`) are files the harness asks about.
-- A test left unjudged is named in every run, with its reason and a count. A test file under a test name that
-  nothing runs is a finding, not a name on that list.
+- A test the step knows it left unjudged is named in every run, with its reason and a count. In a package that uses
+  Vitest, a test file under a test name that nothing runs is a finding, not a name on that list.
 - A pull request can excuse its own new tests by adding `tests-can-fail#mechanical` (§3.7), the owner's pick.
   What holds it: `ci/exceptions.yaml` asks the owner before it changes, the pull request lists it under
   `## Gate changes`, and the run names and counts every test it let through.
@@ -847,7 +850,7 @@ nothing else; and a result copied into a pull request by hand.
   that starts a service on a fixed port fails there when the developer's own is up. A test that needs a file neither git nor that script provides is red in the copy, and the step stops
   and names it.
 - **A test written through an alias of `it` or a `test.extend` fixture has no call of its own** that §2 reads.
-  When the runner lists one, it is judged with the rest of its file (#632, D-057).
+  When the run reports one, it is judged with the rest of its file, and a warning names the file (#632, D-057).
   Under `tests-can-fail#mechanical`, which reads only the listing (§3.5), one the listing leaves out is not named (the
   owner's call, 2026-11-05, #652).
 - **A file holding a line break git does not count is not read.** A lone CR, U+2028 or U+2029, in a test file or a
@@ -1372,4 +1375,5 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-23 · MODIFIED · #684, the owner's answer of 2026-11-23 in D-057: a test the run is known to have left out for a reason the owner did not give, or one flaky in its baseline, is a `left-out` finding by itself. §4, §5, the Threat model and Known limitations say so. Version stays 0.5.
 - 2026-11-23 · MODIFIED · #684, the owner's two answers of 2026-11-23 in D-057: §3.5 names every test call the report places no test in, changed or not, and §3.2 judges an identical rename whose old path was kept out or that moves into another package. Version stays 0.5.
 - 2026-11-23 · MODIFIED · #684, the owner's answers of 2026-11-23 in D-057, and decision-defaults §4: §3.2 judges every identical rename; §3.5 stops a clean run that fails outside any test, seen on Vitest 5.0.1; §4 makes a changed test file the step cannot read a finding. Known limitations name a local helper called `it` or `test`, and files whose places are not trusted. Version stays 0.5.
-- 2026-11-23 · MODIFIED · #684, on the owner's yes for one last round: a changed test file that is a symlink or a submodule is an `unreadable` finding, with its own message; the `left-out` fix names the env value, the filter, `.only` or hook, the keep-out and the dated excuse. Version stays 0.5.
+- 2026-11-23 · MODIFIED · #684, on the owner's yes for one last round: in a package that uses Vitest, a changed test file that is a symlink or a submodule is an `unreadable` finding, with its own message; the `left-out` fix names the env value, the filter, `.only` or hook, the keep-out and the dated excuse. Version stays 0.5.
+- 2026-11-23 · MODIFIED · #684, on the owner's yes: a test in no call §2 reads keeps its warning, as before #684, in its own words. §3.5, §4 and the Threat model state the scope these rules hold in. Version stays 0.5.

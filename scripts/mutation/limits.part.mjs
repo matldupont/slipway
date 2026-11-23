@@ -135,14 +135,16 @@ test('a new test the run skips with no skip on its own call is narrowed (#652); 
   assert.match(record.unreadable.find((u) => u.file === FILE).reason, /line break git does not count/);
 });
 
-test('a test the runner lists in no call spans() reads (an alias, test.extend) is judged with its file, with no warning of its own', (t) => {
+test('a test the runner lists in no call spans() reads (an alias, test.extend) is judged with its file, which a warning names', (t) => {
   const file = (line) => `import { test, expect } from 'vitest';\nimport { add } from './cart';\nconst fixtureTest = test.extend({});\n\nfixtureTest('one', () => {\n  expect(add(1, 2)).toBe(3);\n});\n\ntest('two', () => {\n${line}\n});\n`;
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: file('  expect(add(1, 2)).toBe(3);') } });
   t.after(() => p.remove());
   p.commit({ [FILE]: file('  expect(add(2, 2)).toBe(4);') });
   const { record } = p.run();
   assert.deepEqual(record.tests.map((x) => x.name).sort(), ['one', 'two']);
-  assert.equal(record.unreadable.some((u) => u.file === FILE), false);
+  const entry = record.unreadable.find((u) => u.file === FILE);
+  assert.match(entry.reason, /an alias of it or test, or test\.extend/);
+  assert.equal(entry.test, undefined, 'a warning, not a finding');
 });
 
 test('a new test skipped or todo before it runs, which the runner does not list, is not judged, skipped, and named from the runner\'s report (#652)', (t) => {

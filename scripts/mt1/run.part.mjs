@@ -123,6 +123,28 @@ test('the mechanical entry: its change passes naming each test; the next change 
   assert.match(r.out, /Remove it\./);
 });
 
+test('a test in no call the step reads is a warning naming its file, from the report and, under the mechanical excuse, the listing', (t) => {
+  const aliased = (n) => `import { it, expect } from 'vitest';\nimport { add } from './cart';\nconst fixtureTest = it;\n\nfixtureTest('one', () => {\n  expect(add(${n}, 2)).toBe(${n + 2});\n});\n`;
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: aliased(1) }, config: { tests: { one: { failsWhen: CHANGED } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: aliased(2) });
+  let r = mt1(p);
+  assert.deepEqual([r.status, r.ids, r.warned], [0, [], [`${FILE}#unreadable`]], r.out);
+  assert.match(r.out, /holds a test in no call this step reads/);
+  assert.doesNotMatch(r.out, /changes nothing in it/);
+  // A file the parser cannot read has its own finding, and no second line as a warning.
+  p.commit({ [FILE]: `${aliased(2)}// a\rb\n` });
+  r = mt1(p);
+  assert.ok(r.ids.includes(`${FILE}#unreadable`), r.out);
+  assert.equal(r.warned.includes(`${FILE}#unreadable`), false, r.out);
+  p.commit({ [FILE]: aliased(2) });
+  p.git(['branch', '-f', 'main', 'HEAD']);
+  p.commit({ [FILE]: aliased(3), 'ci/exceptions.yaml': EXCEPTION('tests-can-fail#mechanical') });
+  r = mt1(p);
+  assert.equal(r.status, 0, r.out);
+  assert.ok(r.warned.includes(`${FILE}#unreadable`), r.out);
+});
+
 test('a new test red then green in the baseline is a left-out finding', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, config: { tests: { once: { redOnce: true } } } });
   removeAll(t, p);
