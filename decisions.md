@@ -1676,6 +1676,32 @@ untouched file is today.
 Known limitation: until #684 and #685 are built, #658's 2 high findings and the route through a change outside every
 test file stay open, as F-13's Known limitations say.
 
+## D-058 — A pinned session at its base with nothing changed ends its turn before the gate *(decided 2026-11-23)*
+
+The owner, 2026-11-23, in #699. Every session waited for `verify --fast` at each turn end, even one that had changed
+nothing. The owner's answer to the change as described: "yes". A session ends its turn at once when its `HEAD` is its
+pinned commit, nothing is staged and no gate file differs. A status read from a throwaway git dir must also find no
+difference. That read uses none of the repository's own config, hooks, `info` files or index. The owner chose this
+design on 2026-11-23, with a second yes to the limits below. A pin that holds a submodule never takes the exit.
+
+- **This loosens a gate, inside that bound.** A state that ran the gate, and could block on a missing install or a
+  cached red result, now passes. Any commit, tracked change or untracked file still runs the gate as before.
+- **The pin decides, never a ref.** The guard compares `HEAD` with the commit the session pinned at its start. Moving
+  `origin/HEAD` or a branch during the session does not make a commit the base. A pin that is missing or cannot be
+  used never reaches this exit.
+- **What still runs.** `STATE.md` is refreshed (#374). No check leaves `pnpm verify` or CI.
+
+Why: a tree that is exactly the pinned commit holds nothing of the session's to check.
+
+This exit catches a session's ordinary changes; a session that sets out to hide one is stopped by CI and the ask rules.
+
+Known limitation: a path ignored by a rule the pin holds is not read, so a change to a local env file does not run the
+gate in this state. Global git settings and the global ignore file can hide a change. A line-ending-only edit is not
+seen. The session's state folder is trusted as the pin is.
+
+Known limitation: the pin is only as sound as `origin/HEAD` was when the session started. The harness's ask rules are
+what guard a move of it before then.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
