@@ -13,7 +13,7 @@ import { pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { gitignoreText } from './lib/install.mjs';
 import test from 'node:test';
-import { SRC, SID, T, commands, work, git, put, reset, run, commit, unpin, pinOf, pinTo, marks } from './harness-fixture.mjs';
+import { SRC, SID, T, commands, work, git, put, reset, run, commit, unpin, pinOf, marks } from './harness-fixture.mjs';
 
 // A hook PATH holds node and a pnpm that answers `-v`, as the gate's runner does: the Stop hook says so and prints otherwise.
 // Asked to run a task, it fails in a folder that holds a file named RED, and says which folder (#481).
@@ -76,25 +76,6 @@ test('the end of a turn rewrites STATE.md from the repository as it is then, and
   start();
   const out = stop();
   assert.equal(`${out.status} ${out.out}`, '0 ', 'a clean checkout was blocked or printed');
-  assert.equal(git('-C', work, 'status', '--porcelain'), '');
-});
-
-test('at its base the Stop hook still rewrites STATE.md, and the refresh does not stop a second stop taking the same exit (#699)', () => {
-  fresh();
-  const ran = join(T, 'stop-body-ran');
-  rmSync(ran, { force: true });
-  git('-C', work, 'checkout', '-q', '-B', 'at-base');
-  writeFileSync(join(work, 'process/harness/hooks/stop-verify.mjs'), `import { writeFileSync } from 'node:fs';\nwriteFileSync(${JSON.stringify(ran)}, 'x');\n`);
-  git('-C', work, 'add', '-A');
-  commit('a Stop body that leaves a mark');
-  pinTo(git('-C', work, 'rev-parse', 'HEAD'));
-  for (const round of ['first', 'second']) {
-    writeFileSync(state, 'stale\n');
-    const r = stop();
-    assert.equal(`${r.status} ${r.out}`, '0 ', `${round} stop`);
-    assert.match(readFileSync(state, 'utf8'), /^# STATE — generated/, `${round} stop did not rewrite STATE.md`);
-    assert.ok(!existsSync(ran), `${round} stop ran the gate's body`);
-  }
   assert.equal(git('-C', work, 'status', '--porcelain'), '');
 });
 

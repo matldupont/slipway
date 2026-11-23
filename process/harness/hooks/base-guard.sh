@@ -163,23 +163,6 @@ run() {
   exit 0
 }
 
-# A session that changed nothing (#699): the Stop hook refreshes STATE.md and ends before the install check, caches and gate.
-# Git is asked from a throwaway git dir in the session's folder, so no config, hook, .git/info file or index of the
-# repository counts. Only the pin's root .gitignore, read from the object store, can ignore a path. Any error or output runs the gate.
-at() { GIT_DIR=$y GIT_WORK_TREE=$d GIT_OBJECT_DIRECTORY=$o GIT_INDEX_FILE=$y/index git -C "$d" --no-replace-objects -c core.hooksPath=/dev/null -c core.attributesFile=/dev/null -c core.fsmonitor=false -c core.fileMode=true -c core.quotepath=on "$@"; }
-fresh() {
-  g cat-file blob "$base:.gitignore" >"$y/root-ignore" 2>/dev/null || return 1
-  x=$(at read-tree "$base" 2>&1) && [ -z "$x" ] || return 1
-  x=$(at status --porcelain --untracked-files=no --ignore-submodules=none 2>&1) && [ -z "$x" ] || return 1
-  x=$(at ls-files -o --directory --no-empty-directory -X "$y/root-ignore" 2>&1) && [ -z "$x" ]
-}
-unchanged() {
-  [ "$(g rev-parse -q --verify 'HEAD^{commit}')" = "$base" ] && g -c core.fsmonitor=false diff-index --cached --quiet --ignore-submodules=none "$base" -- 2>/dev/null || return 1
-  x=$(g ls-tree -r "$base") || return 1; printf '%s\n' "$x" | LC_ALL=C grep -q '^160000 '; [ $? -eq 1 ] || return 1 # a submodule keeps its own state
-  o=$(common "$d")/objects y=$state/at-base.$$; [ -d "$o" ] && (umask 077 && mkdir "$y" "$y/objects" "$y/refs" && printf '%s\n' "$base" >"$y/HEAD") 2>/dev/null || { rm -rf "$y"; return 1; }
-  fresh; r=$?; rm -rf "$y"; return "$r"
-}
-
 # The gate paths as pathspecs, from the base's settings (one list); a rule outside the repository (/tmp, ~/) is skipped.
 globs=$(g cat-file blob "$base:process/harness/settings.json" | sed -n 's/^[[:space:]]*"Edit(\([^/~][^)]*\))",\{0,1\}[[:space:]]*$/\1/p')
 [ -n "$globs" ] || fail 'no gate paths in the pinned process/harness/settings.json'
@@ -238,7 +221,6 @@ changed=$(printf '%s\n%s\n' "$changed" "$links" | sed '/^$/d' | grep -v '^"' | L
 odd=$(printf '%s\n%s\n' "$all" "$others" | grep '^"' | sort -u)
 if [ -z "$changed" ] && [ -z "$odd" ]; then
   [ "$hook" = trust-gates ] && fail 'no gate file differs from the base pinned for this session'
-  [ "$hook" = stop-verify.sh ] && unchanged && { CLAUDE_PROJECT_DIR=$d; export CLAUDE_PROJECT_DIR; exec sh "$d/process/harness/hooks/$hook" at-base; }
   run
 fi
 
