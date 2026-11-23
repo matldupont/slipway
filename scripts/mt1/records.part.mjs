@@ -42,6 +42,12 @@ test('in a temporary git repository, a record whose head is its HEAD is accepted
   assert.equal(judge(rec({ head: '9'.repeat(40) }), { head: null }).exit, 0);
 });
 
+test('the whitespace line counts only files with a test judged: a file excused as mechanical is not said to be judged (D-057)', () => {
+  const line = (r) => judge(r).notes.find((n) => n.includes('changed only in whitespace'));
+  assert.equal(line(rec({ changedTestFiles: [FILE], whitespaceOnly: [{ file: FILE }], mechanical: true, notJudged: [nj('mechanical', { file: FILE, detail: 'a reformat (until 2099-12-31)' })] })), undefined);
+  assert.match(line(rec({ changedTestFiles: [FILE], whitespaceOnly: [{ file: FILE }], tests: [judged()] })), /^1 test files changed only in whitespace, and their tests were judged/);
+});
+
 test('a record from a step before D-057, which holds outsideAnyTest and no whitespaceOnly, is exit 2 and names the version mismatch', () => {
   const old = rec({ outsideAnyTest: [{ file: FILE }] });
   delete old.whitespaceOnly;

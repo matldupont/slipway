@@ -251,8 +251,8 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    were judged".
 2. **Which test files changed.** A changed file that looks like a test (`*.test.*`, `*.spec.*`, under
    `__tests__/`), in any language. A test file is *changed* when the pull request adds it, when its blob at head
-   differs from its blob at the base (at its old path for a rename), or when it takes a test name it did not
-   have. No diff and no place decides that (D-057). A mode-only change or an identical rename judges nothing, and
+   differs from its blob at the base (at its old path for a rename), when its type changes (a link to a file), or
+   when it takes a name a runner runs that it did not have. No diff and no place decides that (D-057). A mode-only change or an identical rename judges nothing, and
    such a file is still `never-run` when no run picks it up. A file under `__snapshots__/`, or whose name ends `.snap`, is never one:
    the runner writes it. A test file the pull request deletes, or renames to a name outside the pattern, is
    not a changed test file either: the record counts them, for the summary's "{n} test files were removed or
@@ -535,9 +535,9 @@ line gives the counts: new tests, passed, failed, not judged. Then two shares, a
 it is zero (D-037, amended 2026-11-02): the share of new tests not judged for a reason the rule causes
 (`no-subject`, `support-only`, `could-not-be-parsed`, `other-language`, `no-change-to-make`,
 `every-change-dropped`, and `other-runner` with no unexpired entry), and the share not judged for any reason. The reasons the owner
-gave, `skipped`, `narrowed`, and `flaky` (a test red in the copy, as the owner set it) count in the second only. After them comes one line for each of these that is not
+gave, `skipped`, and the `left-out` reasons `narrowed` and `flaky` count in the second only. After them comes one line for each of these that is not
 zero, in the words of §3: test files stopped at a cap, each with the changes not tried; test files removed or
-renamed away; changed files that are not tests; test files changed only in whitespace, whose tests were judged;
+renamed away; changed files that are not tests; test files changed only in whitespace with a test judged;
 test support files left out.
 
 Exit 2, each with its own message (decision-defaults §4): the run stopped (`stopped`, with its message,
@@ -591,7 +591,8 @@ The fix is printed on its own `Fix:` line.
   it fits whatever the record holds; each reason's next action is on the not-judged warning of each test it counts, and only
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
 - `left-out`: `` `{file}` › "{test}" is left out: {reason}. `` Fix: `` Run it, keep it out in
-  `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`. ``
+  `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`. `` For a test flaky in its baseline, the
+  fix opens `` Make it pass every time ``.
 - `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
   off Vitest) | nothing, for a test file's id} {expired {date} | has no `expires:` date | has an `expires:` that
   is not a real day}, so it excuses nothing. `` Fix: `` Remove it, or set `expires:` to a real future day with a
@@ -754,8 +755,8 @@ nothing else; and a result copied into a pull request by hand.
   files that take tests out (`ci/exceptions.yaml`, `ci/tests-can-fail.yaml`), are read from the branch: a
   branch cut before a project took the step has no `tests-can-fail` script until the base branch is merged
   in.
-- **A change outside every test marks none new.** A helper, a hook, a mock or an import line in a test file
-  changes what every test there can notice, and none of them is judged. Such files are counted in every run.
+- **A change to a helper, hook, mock or import line judges the whole test file** (D-057). Every test in that file is
+  new, so an old test no change kills becomes a finding on the pull request that touched the file.
 - **An updated snapshot marks no test new.** A snapshot file changes what a test asserts without a line of
   the test changing, and it is not counted.
 - **A pull request whose only new tests are of code this step has no change for fails until each is
@@ -805,7 +806,7 @@ nothing else; and a result copied into a pull request by hand.
   place, so each is told apart by its name; two with the same name stop the run (#655).
 - **A change outside every test file stays open until #685.** The owner decided it on 2026-11-20 (D-057): it is found
   by comparing a run on the base with a run on the pull request. #684 answers the 2 high findings in #658, which
-  keeps its 2 low findings.
+  keeps its 3 other findings.
 - **Fewer kinds of change than a mutation tool makes.** Enough for "can this test fail"; not a measure of how
   good the tests are.
 - **The time is the building machine's.** §7's figures were measured on one laptop with the probe, which
@@ -1039,7 +1040,7 @@ And   with the killing of the group removed from ci/mutation.mjs, the same case 
 Given a new test red in the first baseline run and green in the second; and one red in both
 When  ci/mutation.mjs runs on each
 Then  the first is in notJudged as flaky, no change of step 9 was run against it, and the other tests of the pull request are judged; the second exits 2 with the message of §3.8
-And   MT1 on the first record, where that test is the only new one, exits 1 with nothing-judged
+And   MT1 on the first record exits 1 with left-out, naming that test
 ```
 
 ```

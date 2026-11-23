@@ -120,11 +120,14 @@ if (!untouched && config.changedSleepMs) {
 const located = args.includes('--includeTaskLocation') && !config.noReportLine;
 // noColumnWhen: 'changed' leaves the column out of a run with a change, 'after' out of an untouched run after one.
 const columnless = config.noReportColumn || (config.noColumnWhen === 'changed' && !untouched) || (config.noColumnWhen === 'after' && untouched && state.sawChange);
-// placeAt: { "<name>" or "<name>@<line>": { line, column, changed } } reports that test at that place, on every run or,
-// with changed, only on a run with a change. Nothing else about the test moves.
+// placeAt: { "<name>" or "<name>@<line>": { line, column, changed, after, onRun } } reports that test at that place: on
+// every run, or only on a run with a change (changed), an untouched run after one (after), or the file's nth run (onRun).
+// Nothing else about the test moves.
 const placeFor = (t) => {
   const p = config.placeAt?.[`${t.name}@${t.line}`] ?? config.placeAt?.[t.name];
-  return p && (!p.changed || !untouched) ? p : t;
+  if (!p) return t;
+  const applies = p.changed ? !untouched : p.after ? untouched && state.sawChange : p.onRun ? run === p.onRun : true;
+  return applies ? p : t;
 };
 const where = (t) => {
   const p = placeFor(t);

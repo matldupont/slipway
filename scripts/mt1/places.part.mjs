@@ -149,6 +149,34 @@ test('a judged name the runner reports at other places on a later run stops the 
   assert.match(r.out, /reports "adds" at other places on a later run than on its clean run/);
 });
 
+test('a judged name at another place on the untouched run after the changes stops the run (#684)', (t) => {
+  const p = at({ base: testFile(['old', 'adds']), config: { placeAt: { adds: { line: 4, column: 1, after: true } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}// touched\n` });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /reports "adds" at other places on a later run/);
+});
+
+test('a judged name at another place on the second clean run stops the run (#684)', (t) => {
+  const p = at({ base: testFile(['old', 'adds']), config: { tests: { old: { failsWhen: CHANGED }, adds: { redOnce: true, failsWhen: CHANGED } }, placeAt: { old: { line: 8, column: 1, onRun: 2 } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}// touched\n` });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /reports "old" at other places on a later run/);
+});
+
+test('an owner\'s own skip stays a skip in a file whose places are not trusted (#684)', (t) => {
+  const base = `${testFile(['old'])}const raw = String.raw\`x\`;\n`;
+  const p = at({ base });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${base}\nit.skip('later', () => {});\n` });
+  const r = mt1(p);
+  assert.equal(r.status, 0, r.out);
+  assert.ok(r.warned.includes(`${FILE}#not-judged/skipped/later`), r.out);
+});
+
 test('a later run that no longer reports a judged name stops nothing, and that test earns no kill (#684)', (t) => {
   const p = at({ base: testFile(['old', 'adds']), config: { goneOnChange: ['adds'] } });
   removeAll(t, p);

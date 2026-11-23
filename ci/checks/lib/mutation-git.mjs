@@ -49,18 +49,20 @@ export const mergeBase = (root, a, b) => git(root, ['merge-base', a, b]).trim();
 /**
  * The files the change touches (§3.2): each changed test file by its path at head (and whether the change adds it),
  * the count removed or renamed away from a test name, and every path changed at head. Blob ids decide what changed
- * (D-057): `identical` is a file whose content is the base's, and `same` is one of those that already had a test name,
- * so it judges nothing. It stays listed, so a test file moved where no run picks it up is still never-run.
+ * (D-057): `identical` is a file of the same type (a file, a link) whose content is the base's, and `same` is one of
+ * those whose old name a runner already ran, so it judges nothing. It stays listed, so a test file moved where no run
+ * picks it up is still never-run.
  */
 export function changedFiles(root, base, head) {
   const words = git(root, ['diff', '--raw', '-z', '-M', '--no-abbrev', '--no-ext-diff', base, head]).split('\0');
   const tests = [];
   const paths = [];
   let removed = 0;
-  const entry = (file, from, added, identical) => ({ file, from, added, identical, same: identical && looksLikeTest(from) });
+  const entry = (file, from, added, identical) => ({ file, from, added, identical, same: identical && isRunnableName(from) });
   for (let i = 0; i < words.length - 1; ) {
-    const [, , before, after, status] = words[i++].split(' ');
-    const identical = before === after;
+    const [modeBefore, modeAfter, before, after, status] = words[i++].split(' ');
+    // A mode's first two digits are its type: 10 a file, 12 a link, 16 a submodule. Its last digits are only permissions.
+    const identical = before === after && modeBefore.slice(1, 3) === modeAfter.slice(0, 2);
     if (status.startsWith('R') || status.startsWith('C')) {
       const from = words[i++];
       const to = words[i++];

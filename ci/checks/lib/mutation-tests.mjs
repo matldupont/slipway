@@ -84,7 +84,9 @@ export function newTests(reported, read, { added, removedAfter }, text) {
   const marks = (call) => [...added].some((n) => n >= call.first && n <= call.last) || removedAfter.some((n) => n >= call.first && n + 1 <= call.last);
   const groups = reported.map((t, i) => {
     const found = owner[i];
-    return { name: t.name, line: found?.first ?? t.line, at: { line: t.line, column: t.column }, run: t.status === undefined || !notRun(t.status), skip: found?.skip === true, read: Boolean(found) };
+    // A skip is read at the test's place even in an untrusted file: a moved place gains nothing a written `.skip` does not.
+    const skip = callAt(calls, place(t))?.skip === true;
+    return { name: t.name, line: found?.first ?? t.line, at: { line: t.line, column: t.column }, run: t.status === undefined || !notRun(t.status), skip, read: Boolean(found) };
   });
   // A changed call the runner places no test in: gated by a condition, an empty table, or never called (§3.5).
   // In a file whose places are not trusted, the step cannot tell such a call from one whose tests ran: it names each.

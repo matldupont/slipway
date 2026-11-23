@@ -3,7 +3,7 @@
 // packages and runner calls it can or cannot read (§3.3).
 
 import assert from 'node:assert/strict';
-import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -74,14 +74,29 @@ test('an identical rename to where no run picks it up is still never-run (D-057)
   assert.deepEqual([record.neverRun, newNames(record)], [[{ file: moved }], []]);
 });
 
-test('a file renamed into a test name with its content unchanged has every test judged (D-057)', (t) => {
-  const from = 'pkgs/app/src/cart.tst.ts';
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [from]: three() } });
+for (const from of ['pkgs/app/src/cart.tst.ts', 'pkgs/app/src/cart.test.ts.off', 'pkgs/app/src/__tests__/cart.ts']) {
+  test(`a file renamed from ${from} to a name a runner runs, its content unchanged, has every test judged (D-057)`, (t) => {
+    const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [from]: three() } });
+    t.after(() => p.remove());
+    p.git(['mv', from, FILE]);
+    p.commit({});
+    const { record } = p.run();
+    assert.deepEqual([newNames(record), record.whitespaceOnly], [['a', 'b', 'c'], []]);
+  });
+}
+
+test('a link replaced by a file holding the same bytes is a change of type, and its tests are judged (D-057)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART } });
   t.after(() => p.remove());
-  p.git(['mv', from, FILE]);
+  const text = testFile(['a']);
+  p.git(['checkout', '-q', 'main']);
+  symlinkSync(text, join(p.root, FILE));
   p.commit({});
+  p.git(['checkout', '-q', '-B', 'work', 'main']);
+  p.git(['rm', '-q', FILE]);
+  p.commit({ [FILE]: text });
   const { record } = p.run();
-  assert.deepEqual([newNames(record), record.whitespaceOnly], [['a', 'b', 'c'], []]);
+  assert.deepEqual(newNames(record), ['a']);
 });
 
 test('a changed row of an it.each of three makes each row a new test, judged on its own and named by the call\'s line (#655)', (t) => {

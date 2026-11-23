@@ -46,7 +46,7 @@ function samePlaces(unit, res) {
   for (const name of new Set(unit.groups.map((g) => g.name))) {
     const now = placesIn(res, name);
     if (now.length && now.join() !== unit.places.get(name)?.join()) {
-      throw new Stop(`\`${esc(unit.file)}\` reports "${esc(name)}" at other places on a later run than on its clean run, so this step cannot tell which test a result belongs to. Give each test its own name and one place on every run, then run \`pnpm tests-can-fail\` again.`);
+      throw new Stop(`\`${esc(unit.file)}\` reports "${esc(name)}" at other places on a later run than on its clean run, so this step cannot tell which test a result belongs to. Make the file create each test once, at one place, on every run, then run \`pnpm tests-can-fail\` again.`);
     }
   }
 }

@@ -63,7 +63,7 @@ export const isLeftOut = (n) => n.why === 'flaky' || (n.why === 'narrowed' && !S
 export const leftOut = (n) => ({
   where: e(`${n.file}#left-out${n.name == null ? '' : `/${n.name}`}`),
   detail: `${named(n.file, n.name)} is left out: ${REASONS[n.why](n.detail)[0]}.`,
-  fix: 'Run it, keep it out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.',
+  fix: `${n.why === 'flaky' ? 'Make it pass every time' : 'Run it'}, keep it out in \`ci/tests-can-fail.yaml\`, or add a dated excuse to \`ci/exceptions.yaml\`.`,
 });
 
 const at = (t, id) => e(`${t.file}:${t.line}#${id}`);
@@ -146,11 +146,11 @@ export const spentMechanical = () => ({
   fix: 'Remove it.',
 });
 
-// A file the parser cannot read: every test in a changed file is judged anyway (D-057), so what is lost is its skips
-// and its `expect` lines.
+// A file the parser cannot read: the tests the runner reports are judged anyway (D-057), so what is lost is its skips,
+// its `expect` lines and any test call the runner did not report.
 export const unreadable = (u) => ({
   where: e(`${u.file}#unreadable`),
-  detail: `${file(u.file)} could not be read as tests. Its tests are still judged, but this step cannot read their skips or their \`expect\` lines: ${e(u.reason)}.`,
+  detail: `${file(u.file)} could not be read as tests. The tests the runner reports are judged, but this step cannot read their skips or \`expect\` lines, or see a test behind a condition: ${e(u.reason)}.`,
   fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
 });
 
@@ -168,7 +168,9 @@ export function countLines(r) {
   for (const c of r.capped) lines.push(`${file(c.file)} stopped at the cap of 30 changes: ${e(c.untriedBody)} body changes and ${e(c.untriedOther)} others were not tried, so it is not fully checked.`);
   if (r.removedTestFiles) lines.push(`${e(r.removedTestFiles)} test files were removed or renamed away.`);
   if (r.notTests.length) lines.push(`${r.notTests.length} changed files under a test name or folder are not tests: ${names(r.notTests)}.`);
-  if (r.whitespaceOnly.length) lines.push(`${r.whitespaceOnly.length} test files changed only in whitespace, and their tests were judged: ${names(r.whitespaceOnly)}.`);
+  // Only a file with a test in `tests`: under the mechanical excuse, or with no subject, its tests were not judged.
+  const reformatted = r.whitespaceOnly.filter((x) => r.tests.some((t) => t.file === x.file));
+  if (reformatted.length) lines.push(`${reformatted.length} test files changed only in whitespace, and their tests were judged: ${names(reformatted)}.`);
   if (r.support.length) lines.push(`${r.support.length} test support files were left out of the code under test: ${names(r.support)}.`);
   if (r.uncommitted) lines.push(`${e(r.uncommitted)} tracked files have changes not committed, and were not judged: this step judges the last commit.`);
   return lines;

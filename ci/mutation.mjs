@@ -260,7 +260,7 @@ async function body(root, record, ctx) {
       const report = excused ? null : await reportOf(ctx, { ...by.unit, file: entry.file });
       const found = newTests(report ? report.tests : listedHere, read, lines, text);
       // §3.1: the content changed and the whitespace-blind diff shows nothing. Its tests are judged, and the summary says so.
-      if (!entry.added && !entry.identical && !lines.added.size && !lines.removedAfter.length) record.whitespaceOnly.push({ file: entry.file });
+      if (!entry.identical && !lines.added.size && !lines.removedAfter.length) record.whitespaceOnly.push({ file: entry.file });
       // A new test the clean run skips is not judged (§3.8).
       for (const g of found.groups.filter((x) => !x.run)) record.notJudged.push(skippedEntry(entry.file, g));
       for (const c of found.unreported) record.notJudged.push(excused ? { file: entry.file, name: null, why: 'mechanical', detail: mechanicalWhy } : unreportedEntry(entry.file, c));
