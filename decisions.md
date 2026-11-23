@@ -1684,16 +1684,19 @@ pinned commit, `git status` is empty, and no index entry is flagged assume-uncha
 
 - **This loosens a gate, inside that bound.** A state that ran the gate, and could block on a missing install or a
   cached red result, now passes. Any commit, tracked change or untracked file still runs the gate as before.
-- **The pin decides, never a ref.** The guard compares `HEAD` with the commit the session pinned at its start, so
-  moving `origin/HEAD` or a branch does not make a commit the base. A pin that is missing or cannot be used never
-  reaches this exit.
+- **The pin decides, never a ref.** The guard compares `HEAD` with the commit the session pinned at its start. Moving
+  `origin/HEAD` or a branch during the session does not make a commit the base. A pin that is missing or cannot be
+  used never reaches this exit.
 - **What still runs.** `STATE.md` is refreshed (#374). No check leaves `pnpm verify` or CI.
 
-Why: a tree that is exactly the pinned commit holds nothing of the session's to check, and CI ran the gate on that code.
+Why: a tree that is exactly the pinned commit holds nothing of the session's to check.
 
 Known limitation: a gitignored file is not read, so a change to a local env file does not run the gate in this state.
-A local git setting that empties a status (a filter, an ignore rule, `core.worktree`) hides a change, as D-034 says of
-the no-pin exit.
+A local git setting that empties a status (a filter, an ignore rule, `core.worktree`) hides a change, and so does a
+submodule's own index flag, as the no-pin exit's decision says.
+
+Known limitation: the pin is only as sound as `origin/HEAD` was when the session started. The harness's ask rules are
+what guard a move of it before then.
 
 ## Week 1 — decide before M1 closes
 

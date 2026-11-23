@@ -164,11 +164,13 @@ run() {
 }
 
 # A session that changed nothing (#699): HEAD is the pinned commit itself, compared with the pin and never with a ref;
-# status is empty; and no index entry is flagged assume-unchanged or skip-worktree, which would hide an edit from it.
-# The Stop hook then refreshes STATE.md and ends before the install check, the caches and the gate. Only grep's "no
-# line" (1) counts as no flag; a git or grep failure falls through to the path below.
+# status is empty; no untracked .gitignore is itself ignored, which would hide a new folder from status (node_modules
+# aside, whose packages ship them); and no index entry is flagged assume-unchanged or skip-worktree, which would hide
+# an edit. The Stop hook then refreshes STATE.md and ends before the install check, the caches and the gate. Only grep's
+# "no line" (1) counts as no flag; a git or grep failure falls through to the path below.
 if [ "$hook" = stop-verify.sh ] && h=$(g rev-parse -q --verify 'HEAD^{commit}') && [ "$h" = "$base" ] &&
-  c=$(g -c core.fsmonitor=false -c core.fileMode=true status --porcelain --untracked-files=all --ignore-submodules=none 2>/dev/null) && [ -z "$c" ] &&
+  c=$(g -c core.fsmonitor=false -c core.fileMode=true -c core.trustctime=true -c core.checkStat=default status --porcelain --untracked-files=all --ignore-submodules=none 2>/dev/null) && [ -z "$c" ] &&
+  i=$(g -c core.fsmonitor=false ls-files -o -i --exclude-standard -- ':(glob)**/.gitignore' ':(exclude,glob)**/node_modules/**' 2>/dev/null) && [ -z "$i" ] &&
   f=$(g -c core.fsmonitor=false ls-files -v 2>/dev/null) && [ -n "$f" ] &&
   { printf '%s\n' "$f" | LC_ALL=C grep -qv '^H '; [ $? -eq 1 ]; }; then
   CLAUDE_PROJECT_DIR=$d; export CLAUDE_PROJECT_DIR

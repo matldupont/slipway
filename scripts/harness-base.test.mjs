@@ -241,6 +241,7 @@ const body = () => JSON.parse(spawnSync(process.execPath, [join(work, 'process/h
 
 test('at its pinned base with nothing changed, the Stop hook ends without running the gate', () => {
   atBase();
+  put('app/node_modules/dep/.gitignore', '*\n'); // a package's own, as many ship
   endsAtOnce('clean at base');
   assert.ok(!existsSync(join(work, '.git/stop-verify-ok')), 'the exit wrote a green result');
 });
@@ -260,6 +261,7 @@ for (const [why, make] of [
   ['a commit past the base', () => { change(); git('-C', work, 'add', '-A'); commit('past the base'); }],
   ['a tracked change', change],
   ['an untracked file', () => put('src/new.ts', 'export {};\n')],
+  ['a new folder that ignores itself', () => { put('scratch/.gitignore', '*\n'); put('scratch/new.ts', 'export {};\n'); }],
   ['an edit hidden by assume-unchanged', () => { git('-C', work, 'update-index', '--assume-unchanged', 'src/app.ts'); change(); }],
   ['an edit hidden by skip-worktree', () => { git('-C', work, 'update-index', '--skip-worktree', 'src/app.ts'); change(); }],
 ]) {
