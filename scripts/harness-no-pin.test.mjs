@@ -144,16 +144,8 @@ test('a pinned session is untouched: with nothing changed at origin/HEAD its Sto
 test('at its pinned base with nothing changed, the Stop hook ends without running the gate', () => {
   atBase();
   put('app/node_modules/dep/.gitignore', '*\n'); // a package's own, as many ship
-  put('.env', 'LOCAL=1\n');
-  writeFileSync(join(work, '.git/info/exclude'), '.env\n'); // the guard reads no rule from here, so this one is no help
-  try {
-    assert.equal(stopJson(SID, hookEnv).decision, 'block', 'a file only info/exclude ignores took the exit');
-  } finally {
-    rmSync(join(work, '.git/info/exclude'), { force: true });
-    rmSync(join(work, '.env'), { force: true });
-  }
-  atBase();
-  put('app/node_modules/dep/.gitignore', '*\n');
+  put('.env', 'LOCAL=1\n'); // ignored by the pin's root rules, as build output and logs are
+  put('logs/x.log', 'a log\n');
   endsAtOnce('clean at base');
   assert.ok(!existsSync(join(work, '.git/stop-verify-ok')), 'the exit wrote a green result');
 });
@@ -204,6 +196,8 @@ for (const [why, make] of [
   ['a new folder that ignores itself', () => { put('scratch/.gitignore', '*\n'); put('scratch/new.ts', newFile); }],
   ['a new folder whose ignore file is named in another case', () => { put('scratch/.GITIGNORE', '*\n'); put('scratch/new.ts', newFile); }],
   ['a new nested node_modules that ignores itself', () => { put('src/node_modules/.gitignore', '*\n'); put('src/node_modules/dep/index.js', newFile); }],
+  ['a new folder named ~ that ignores itself', () => { put('~/.cache/x/.gitignore', '*\n'); put('~/.cache/x/new.ts', newFile); }],
+  ['a new folder with a space and a colon that ignores itself', () => { put('a b:c/.gitignore', '*\n'); put('a b:c/new.ts', newFile); }],
   ['an edit hidden by assume-unchanged', () => { git('-C', work, 'update-index', '--assume-unchanged', 'src/app.ts'); change(); }],
   ['an edit hidden by skip-worktree', () => { git('-C', work, 'update-index', '--skip-worktree', 'src/app.ts'); change(); }],
   ['a same-size edit the saved index no longer shows', staleIndex],
@@ -245,6 +239,35 @@ test('a pin that holds a submodule does not take the exit', () => {
   pinTo(git('-C', work, 'rev-parse', 'HEAD'));
   mkdirSync(join(work, 'vendor/sub'), { recursive: true });
   gated('a pin with a submodule');
+});
+
+test('only the pin\'s root .gitignore counts: a path a nested or global rule ignores runs the gate', () => {
+  atBase();
+  put('docs/.gitignore', '*.tmp\n');
+  git('-C', work, 'add', 'docs/.gitignore');
+  commit('a nested rule');
+  pinTo(git('-C', work, 'rev-parse', 'HEAD'));
+  put('docs/x.tmp', 'ignored by the nested rule\n');
+  gated('a path a pinned nested rule ignores');
+  atBase();
+  const global = join(T, '.config/git/ignore');
+  mkdirSync(dirname(global), { recursive: true });
+  writeFileSync(global, 'only-global.txt\n');
+  put('only-global.txt', 'x\n');
+  try {
+    gated('a path only the global ignore file ignores');
+  } finally {
+    rmSync(global);
+  }
+});
+
+test('a pin with no root .gitignore does not take the exit', () => {
+  atBase();
+  git('-C', work, 'rm', '-q', '.gitignore');
+  commit('no root rules');
+  pinTo(git('-C', work, 'rev-parse', 'HEAD'));
+  rmSync(join(work, 'app/node_modules'), { recursive: true });
+  assert.match(stopJson(SID, hookEnv).reason ?? '', /dependencies are not installed/, 'the exit was taken');
 });
 
 test('a pin that is missing, unreadable or malformed does not take the exit', () => {

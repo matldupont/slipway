@@ -181,7 +181,7 @@ export const atBase = () => {
   put('ci/verify.mjs', `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(RUNS)}, 'x');\nconsole.log('FAIL at-base');\nprocess.exit(1);\n`);
   put('pnpm-workspace.yaml', 'packages:\n  - app\n');
   put('app/package.json', '{ "name": "app", "dependencies": { "x": "1.0.0" } }\n');
-  put('.gitignore', '/node_modules\n/app/node_modules\n.claude/worktrees/\n');
+  put('.gitignore', '/node_modules\n/app/node_modules\n.claude/worktrees/\n.env\n*.log\n');
   git('-C', work, 'add', '-A');
   commit('the real Stop hook');
   pinTo(git('-C', work, 'rev-parse', 'HEAD'));

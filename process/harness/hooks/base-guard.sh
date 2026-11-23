@@ -164,16 +164,14 @@ run() {
 }
 
 # A session that changed nothing (#699): the Stop hook refreshes STATE.md and ends before the install check, caches and gate.
-# Git is asked from a throwaway git dir in the session's folder, so no config, hook, info file or index of the repository
-# counts; an ignored path must be ignored by a rule the pin holds or a global one. Any error or output runs the gate.
+# Git is asked from a throwaway git dir in the session's folder, so no config, hook, .git/info file or index of the
+# repository counts. Only the pin's root .gitignore, read from the object store, can ignore a path. Any error or output runs the gate.
 at() { GIT_DIR=$y GIT_WORK_TREE=$d GIT_OBJECT_DIRECTORY=$o GIT_INDEX_FILE=$y/index git -C "$d" --no-replace-objects -c core.hooksPath=/dev/null -c core.attributesFile=/dev/null -c core.fsmonitor=false -c core.fileMode=true -c core.quotepath=on "$@"; }
 fresh() {
+  g cat-file blob "$base:.gitignore" >"$y/root-ignore" 2>/dev/null || return 1
   x=$(at read-tree "$base" 2>&1) && [ -z "$x" ] || return 1
-  x=$(at status --porcelain --untracked-files=all --ignore-submodules=none 2>&1) && [ -z "$x" ] || return 1
-  x=$(at ls-files -o -i --exclude-standard --directory 2>&1) || return 1; [ -n "$x" ] || return 0
-  x=$(printf '%s\n' "$x" | at check-ignore -v -n --stdin 2>&1); [ $? -le 1 ] || return 1
-  printf '%s\n' "$x" | LC_ALL=C grep '^::' | LC_ALL=C grep -qv '/"\{0,1\}$'; [ $? -eq 1 ] || return 1 # a folder with no rule of its own lists its files too
-  for f in $(printf '%s\n' "$x" | sed -n 's/^\([^:][^:]*\):.*/\1/p' | LC_ALL=C sort -u); do case "$f" in /*|'~'*) ;; *) g cat-file -e "$base:$f" 2>/dev/null || return 1 ;; esac; done
+  x=$(at status --porcelain --untracked-files=no --ignore-submodules=none 2>&1) && [ -z "$x" ] || return 1
+  x=$(at ls-files -o --directory --no-empty-directory -X "$y/root-ignore" 2>&1) && [ -z "$x" ]
 }
 unchanged() {
   [ "$(g rev-parse -q --verify 'HEAD^{commit}')" = "$base" ] && g -c core.fsmonitor=false diff-index --cached --quiet --ignore-submodules=none "$base" -- 2>/dev/null || return 1

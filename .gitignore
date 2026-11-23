@@ -6,3 +6,4 @@ STATE.md
 .serena/
 .claude/skills/pr-review/features/.test-tmp
 .claude/worktrees/
+.claude/settings.local.json
