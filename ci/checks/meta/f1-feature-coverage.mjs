@@ -55,9 +55,9 @@ const scheduled = new Set();
 
 if (status !== 'draft') {
   const unclosed = unclosedComment(prd);
-  if (unclosed) findings.push({ where: 'docs/PRD.md#comment/unclosed', detail: `line ${unclosed} holds a <!-- that no --> closes, so every reader that skips comments skips the rest of the PRD, this check too: close it, or remove it` });
+  if (unclosed) findings.push({ where: 'docs/PRD.md#comment/unclosed', detail: `Line ${unclosed} of docs/PRD.md holds a <!-- that no --> closes, so every reader that skips comments skips the rest of the PRD.`, fix: 'Remove that comment, or add the --> that closes it.' });
   const open = placeholderLines(placeholderText(prd));
-  if (open.length) findings.push({ where: 'docs/PRD.md#placeholder/present', detail: `line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/PRD.md still hold${open.length > 1 ? '' : 's'} a placeholder or [NEEDS CLARIFICATION], and its Status is past draft: answer or park each (/clarify)` });
+  if (open.length) findings.push({ where: 'docs/PRD.md#placeholder/present', detail: `Line${open.length > 1 ? 's' : ''} ${open.join(', ')} of docs/PRD.md still hold${open.length > 1 ? '' : 's'} a placeholder or [NEEDS CLARIFICATION], and its Status is past draft.`, fix: 'Answer or park each one with /clarify.' });
   for (const { file, md, fm } of milestones) {
     if (!fm?.status || fm.status === 'killed') continue;
     for (const item of contents(md)) {
@@ -66,15 +66,15 @@ if (status !== 'draft') {
       if (fm.status === 'shaping') continue;
       slices++;
       for (const n of cited) {
-        if (!features.has(n)) findings.push({ where: `${file}#contents/unknown/F-${String(n).padStart(2, '0')}`, detail: `Contents item ${item.n} cites F-${String(n).padStart(2, '0')}, which the PRD's Features section (§5) does not define` });
+        if (!features.has(n)) findings.push({ where: `${file}#contents/unknown/F-${String(n).padStart(2, '0')}`, detail: `Contents item ${item.n} cites F-${String(n).padStart(2, '0')}, which the PRD's Features section (§5) does not define.`, fix: 'Name a feature the PRD defines, or add that one to its Features section.' });
       }
       if (!cited.length && !/\(no feature:\s*\S[^)]*\)/i.test(item.text)) {
-        findings.push({ where: `${file}#contents/uncited/${item.n}`, detail: `Contents item ${item.n} "${item.text.trim().slice(0, 50)}" cites no feature (F-nn) and gives no "(no feature: <reason>)"` });
+        findings.push({ where: `${file}#contents/uncited/${item.n}`, detail: `Contents item ${item.n} "${item.text.trim().slice(0, 50)}" cites no feature and gives no reason for having none.`, fix: 'Add its F-nn, or write "(no feature: <reason>)" after it.' });
       }
     }
   }
   for (const [n, id] of features) {
-    if (!scheduled.has(n)) findings.push({ where: `${id}#feature/unscheduled`, detail: `${id} is in the PRD's Features (§5) but no live milestone builds it — add it to a milestone's Contents, or move it to the PRD's Out, explicitly (§4)` });
+    if (!scheduled.has(n)) findings.push({ where: `${id}#feature/unscheduled`, detail: `${id} is in the PRD's Features section (§5), but no live milestone builds it.`, fix: "Add it to a milestone's Contents, or move it to the PRD's Out list (§4)." });
   }
 }
 
