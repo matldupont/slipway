@@ -1676,6 +1676,25 @@ untouched file is today.
 Known limitation: until #684 and #685 are built, #658's 2 high findings and the route through a change outside every
 test file stay open, as F-13's Known limitations say.
 
+## D-058 — A pinned session at its base with nothing changed ends its turn before the gate *(decided 2026-11-23)*
+
+The owner, 2026-11-23, in #699. Every session waited for `verify --fast` at each turn end, even one that had changed
+nothing. The owner's answer to the change as described: "yes". A session ends its turn at once when its `HEAD` is its
+pinned commit, `git status` is empty, and no index entry is flagged assume-unchanged or skip-worktree.
+
+- **This loosens a gate, inside that bound.** A state that ran the gate, and could block on a missing install or a
+  cached red result, now passes. Any commit, tracked change or untracked file still runs the gate as before.
+- **The pin decides, never a ref.** The guard compares `HEAD` with the commit the session pinned at its start, so
+  moving `origin/HEAD` or a branch does not make a commit the base. A pin that is missing or cannot be used never
+  reaches this exit.
+- **What still runs.** `STATE.md` is refreshed (#374). No check leaves `pnpm verify` or CI.
+
+Why: a tree that is exactly the pinned commit holds nothing of the session's to check, and CI ran the gate on that code.
+
+Known limitation: a gitignored file is not read, so a change to a local env file does not run the gate in this state.
+A local git setting that empties a status (a filter, an ignore rule, `core.worktree`) hides a change, as D-034 says of
+the no-pin exit.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
