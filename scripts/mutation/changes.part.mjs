@@ -64,6 +64,15 @@ test('content decides what changed: a mode change at one path judges nothing, an
   assert.deepEqual([record.changedTestFiles, newNames(record), record.whitespaceOnly], [['pkgs/app/src/basket.test.ts'], ['a', 'b', 'c'], []]);
 });
 
+test('a change of mode alone to a file no run picks up is still never-run (D-057)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: three() }, config: { unlisted: [FILE] } });
+  t.after(() => p.remove());
+  chmodSync(join(p.root, FILE), 0o755);
+  p.commit({});
+  const { record } = p.run();
+  assert.deepEqual([record.neverRun, newNames(record)], [[{ file: FILE }], []]);
+});
+
 test('an identical rename to where no run picks it up is still never-run (D-057)', (t) => {
   const moved = 'pkgs/app/src/basket.test.ts';
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: three() }, config: { unlisted: [moved] } });
