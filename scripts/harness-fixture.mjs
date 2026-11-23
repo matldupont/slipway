@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -164,5 +164,41 @@ export const commitAll = (branch, msg) => {
   git('-C', work, 'add', '-A');
   git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', msg);
 };
+
+// #699: a session pinned to a commit that holds the real Stop hook, in a workspace with a dependency that is installed.
+// Its ci/verify.mjs counts each run and fails, so a quiet end is the exit and not a gate with nothing to do.
+const RUNS = join(T, 'verify-runs');
+const BIN = join(T, 'at-base-bin');
+export const hookEnv = { PATH: `${BIN}:/usr/bin:/bin:${dirname(process.execPath)}` };
+export const verifyRuns = () => (existsSync(RUNS) ? readFileSync(RUNS, 'utf8').length : 0);
+export const atBase = () => {
+  clean();
+  mkdirSync(BIN, { recursive: true });
+  writeFileSync(join(BIN, 'pnpm'), '#!/bin/sh\necho 0.0.0\n', { mode: 0o755 });
+  git('-C', work, 'checkout', '-q', '-B', 'real-stop');
+  for (const h of ['stop-verify.sh', 'stop-verify.mjs', 'find-node.sh']) cpSync(join(SRC, 'process/harness/hooks', h), join(work, 'process/harness/hooks', h));
+  cpSync(join(SRC, 'ci/checks/lib/workspace.mjs'), join(work, 'ci/checks/lib/workspace.mjs'));
+  put('ci/verify.mjs', `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(RUNS)}, 'x');\nconsole.log('FAIL at-base');\nprocess.exit(1);\n`);
+  put('pnpm-workspace.yaml', 'packages:\n  - app\n');
+  put('app/package.json', '{ "name": "app", "dependencies": { "x": "1.0.0" } }\n');
+  put('.gitignore', 'node_modules/\n.env\n.claude/worktrees/\n');
+  git('-C', work, 'add', '-A');
+  commit('the real Stop hook');
+  pinTo(git('-C', work, 'rev-parse', 'HEAD'));
+  mkdirSync(join(work, 'app/node_modules'));
+  for (const f of [RUNS, join(work, '.git/stop-verify-red'), join(work, '.git/stop-verify-ok')]) rmSync(f, { force: true });
+  reset();
+};
+export const endsAtOnce = (why, runs = 0) => {
+  const r = run('stop-verify.sh', '{}', SID, hookEnv);
+  assert.equal(`${r.status} ${r.out}`, '0 ', `${why}: the turn did not end quietly`);
+  assert.equal(verifyRuns(), runs, `${why}: ci/verify.mjs ran`);
+};
+export const gated = (why) => {
+  assert.equal(stopJson(SID, hookEnv).decision, 'block', `${why}: a red gate did not block`);
+  assert.equal(verifyRuns(), 1, `${why}: the gate did not run once`);
+};
+// The Stop body alone, with no guard in front: what the session would meet without the new exit.
+export const body = () => JSON.parse(spawnSync(process.execPath, [join(work, 'process/harness/hooks/stop-verify.mjs')], { input: '{}', encoding: 'utf8', cwd: work, env: { ...hookEnv, HOME: T, CLAUDE_PROJECT_DIR: work } }).stdout);
 
 test.after(() => rmSync(T, { recursive: true, force: true }));

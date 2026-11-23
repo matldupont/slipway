@@ -5,10 +5,10 @@
 // give itself a pin. Fixture: harness-fixture.mjs. Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { SETTINGS, HOOKS, TRUST, T, SID, work, git, put, marks, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change, stopJson } from './harness-fixture.mjs';
+import { SETTINGS, HOOKS, TRUST, T, SID, work, git, put, marks, run, BASE, start, pinOf, pinTo, unpin, clean, say, commit, quiet, change, stopJson, atBase, hookEnv, verifyRuns, endsAtOnce, gated, body } from './harness-fixture.mjs';
 
 // Nothing runs, so a gate that is red for a reason outside the session blocks nothing.
 test('no pin at all, nothing changed, HEAD at origin/HEAD: the turn ends with no hand run, and nothing runs or pins', () => {
@@ -135,4 +135,95 @@ test('a pinned session is untouched: with nothing changed at origin/HEAD its Sto
   clean();
   assert.equal(run('stop-verify.sh').out, '');
   assert.deepEqual(marks(), ['stop-verify.sh']);
+});
+
+// #699, D-058: a session at its pinned base with nothing changed ends before the install check, the caches and the
+// gate. The real Stop hook is committed and pinned (atBase, in the fixture), and its ci/verify.mjs counts each run.
+test('at its pinned base with nothing changed, the Stop hook ends without running the gate', () => {
+  atBase();
+  put('.env', 'LOCAL=1\n'); // ignored, as build output is
+  endsAtOnce('clean at base');
+  assert.ok(!existsSync(join(work, '.git/stop-verify-ok')), 'the exit wrote a green result');
+});
+
+test('at its base, a session with no node_modules is not blocked', () => {
+  atBase();
+  rmSync(join(work, 'app/node_modules'), { recursive: true });
+  assert.match(body().reason, /dependencies are not installed/, 'the case did not reach the install check');
+  endsAtOnce('no node_modules');
+});
+
+test('at its base, a session with a cached red result is not blocked', () => {
+  atBase();
+  assert.equal(body().decision, 'block');
+  assert.match(body().reason, /Cached from/, 'the case held no cached red result');
+  endsAtOnce('a cached red result', 1);
+});
+
+test('a linked worktree at its pin takes the exit, a change in it runs the gate, and the main checkout beside it takes the exit', () => {
+  atBase();
+  const head = git('-C', work, 'rev-parse', 'HEAD');
+  const tree = join(work, '.claude/worktrees/w');
+  git('-C', work, 'worktree', 'add', '-q', '--detach', tree, head);
+  try {
+    mkdirSync(join(tree, 'app/node_modules'));
+    pinTo(head, tree);
+    endsAtOnce('a linked worktree');
+    writeFileSync(join(tree, 'src/new.ts'), 'export {};\n');
+    gated('a new file in the linked worktree');
+    rmSync(join(tree, 'src/new.ts'));
+    pinTo(head);
+    endsAtOnce('the main checkout beside it', 1);
+  } finally {
+    git('-C', work, 'worktree', 'remove', '--force', tree);
+  }
+});
+
+for (const [why, make] of [
+  ['a commit past the base', () => { change(); git('-C', work, 'add', '-A'); commit('past the base'); }],
+  ['an empty commit past the base', () => git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '--allow-empty', '-m', 'empty')],
+  ['a tracked change', change],
+  ['a staged change the working file no longer shows', () => { change(); git('-C', work, 'add', 'src/app.ts'); put('src/app.ts', 'export {};\n'); }],
+  ['an untracked file', () => put('src/new.ts', 'export {};\n')],
+]) {
+  test(`${why}: the gate runs and a red result blocks`, () => {
+    atBase();
+    make();
+    gated(why);
+  });
+}
+
+test('a folder git cannot read does not take the exit', () => {
+  atBase();
+  put('unread/new.ts', 'export {};\n');
+  chmodSync(join(work, 'unread'), 0);
+  try {
+    const r = run('stop-verify.sh', '{}', SID, hookEnv);
+    assert.notEqual(`${r.status} ${r.out}`, '0 ', 'an unreadable folder ended the turn quietly');
+  } finally {
+    chmodSync(join(work, 'unread'), 0o755);
+  }
+});
+
+test('a pin that is missing, unreadable or malformed does not take the exit', () => {
+  for (const [why, spoil] of [['missing', () => rmSync(pinOf())], ['unreadable', () => chmodSync(pinOf(), 0)], ['malformed', () => writeFileSync(pinOf(), 'zz\n')]]) {
+    atBase();
+    spoil();
+    assert.match(stopJson(SID, hookEnv).reason ?? '', /no base is pinned for this session/, why);
+    assert.equal(verifyRuns(), 0, `${why}: a hook ran`);
+  }
+});
+
+test('known-bad: origin/HEAD moved onto a commit past the pin does not make that commit the base', () => {
+  atBase();
+  change();
+  git('-C', work, 'add', '-A');
+  commit('past the pin');
+  git('-C', work, 'update-ref', 'refs/remotes/origin/main', 'HEAD');
+  try {
+    assert.equal(git('-C', work, 'rev-parse', 'origin/HEAD'), git('-C', work, 'rev-parse', 'HEAD'));
+    gated('a moved origin/HEAD');
+  } finally {
+    git('-C', work, 'update-ref', 'refs/remotes/origin/main', BASE);
+  }
 });
