@@ -1961,3 +1961,16 @@ test('work-ticket Phase 4 step 3 covers each new or changed test, found in the d
   assert.match(s, /Each new or changed test, found in the diff, can fail/, 'step 3 names new or changed tests found in the diff');
   assert.match(s, /by hand where `Tests can fail` did not judge it/, 'step 3 keeps the hand check');
 });
+
+// #678: a named definition sets a reviewer's tier and effort, and /pr-review's runner says what it does when it cannot start the lenses.
+test('designation → Review says a named definition sets the tier and effort, and pr-review says what a runner that cannot start the lenses does', () => {
+  const review = flatText(section(read('process/designation.md'), 'Review', 2));
+  assert.match(review, /A reviewer started by a named definition \(`\.claude\/agents\/`, as `\/work-ticket` and `\/pr-review` do\) takes that definition's tier and effort/, 'designation → Review says a named definition sets the tier and effort');
+  assert.doesNotMatch(review, /can set neither/, 'no line says /pr-review can set neither');
+  const skill = flatText(read(skillPath('pr-review')));
+  const own = skill.match(/\*\*The runner starts the lenses\.\*\* .*?\(`process\/decision-defaults\.md` §4\)\./)?.[0] ?? '';
+  assert.match(own, /returns `cannot start the named lenses` as its whole result/, 'the own-PR runner returns the stop');
+  assert.match(own, /A review by the runner alone, on its own model, in the lenses' place, is never the fallback/, 'the runner is never the fallback');
+  const called = skill.match(/### Called by another skill.*?(?=### |## )/)?.[0] ?? '';
+  assert.match(called, /returns `cannot start the named lenses`.*?That result means no review ran: the parent fails or blocks on it, never passes/, 'the called-by-another-skill mode says the stop is no review');
+});

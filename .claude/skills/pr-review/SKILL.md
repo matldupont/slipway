@@ -104,11 +104,13 @@ output back verbatim.
 **The runner starts the lenses.** The runner is a fresh subagent with no
 definition of its own, so it runs on `CLAUDE_CODE_SUBAGENT_MODEL` when that is
 set, else the session's model. It starts each lens by its named definition
-(Step 3, Tier and effort). A subagent that cannot start subagents cannot do
-that: it runs no lens, never reads the diff itself in their place, and returns
-`cannot start the named lenses` as its whole result. The caller says so to the
-user and stops, or runs the skill from a fresh conversation. A review on the
-runner's own model, with no tier or effort set, is never the fallback
+(Step 3, Tier and effort), with the Task tool. It checks for that tool before
+Configuration. A subagent with no Task tool cannot start the lenses: it runs
+no lens, never reads the diff itself in their place, and returns
+`cannot start the named lenses` as its whole result, after Step 7's clean-up
+of any review folder it wrote. The caller says so to the user and stops, or
+asks the user to run the skill from a fresh conversation. A review by the
+runner alone, on its own model, in the lenses' place, is never the fallback
 (`process/decision-defaults.md` §4).
 
 If the user is in a brand-new conversation reviewing their own PR, you
@@ -122,6 +124,8 @@ validation) can invoke this skill. The parent **must**:
 1. Dispatch in a fresh subagent (same fresh-context rule as own-PR).
 2. Pass the PR URL or number. The runner starts the lenses by name, or
    returns `cannot start the named lenses` (see "Reviewing the user's own PR").
+   That result means no review ran: the parent fails or blocks on it, never
+   passes, and never treats it as a review with no findings.
 3. **Signal the desired output mode** by including a literal
    `output_mode: structured` (or `output_mode: human`, the default, or
    `output_mode: cold-review` on a slipway repo) line in the subagent's
