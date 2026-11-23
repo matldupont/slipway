@@ -188,7 +188,7 @@ for (const s of filterSites.values()) {
   findings.push({
     where: s.id,
     detail: `This workflow runs ${s.commands.join(', ')} on ${s.event} with a ${s.filter} filter${others}.`,
-    fix: `Remove the filter from ${s.event}, run the gate unfiltered elsewhere, or add a dated entry with id: ${s.id}.`,
+    fix: `Remove the filter from ${s.event}, add an unfiltered run of it on ${s.event}, or add an entry with id: ${s.id}.`,
   });
 }
 
