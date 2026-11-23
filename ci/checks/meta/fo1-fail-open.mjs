@@ -164,22 +164,22 @@ for (const e of registry) {
   if (e.id.startsWith(TESTS_CAN_FAIL_PREFIX)) continue; // a test the tests-can-fail step leaves out: MT1 judges it
   const where = `registry:${e.id}`;
   const date = expiryProblem(e.expires, today);
-  if (date === 'none') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has no expires: date — every excuse must end' });
-  else if (date === 'not-a-day') findings.push({ where, detail: 'the entry in ci/exceptions.yaml has an expires: that is not a real day written yyyy-mm-dd, which cannot be compared as ending — set it to a real future day, e.g. 2099-12-31' });
-  else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'the entry names its step by position, which moves on any edit — give the step an id: and key the entry to it' });
-  else if (date === 'expired') findings.push({ where, detail: `the entry in ci/exceptions.yaml expired ${e.expires} (today or earlier ends an excuse) — fix the job or step, or set expires: to a real future day with a reason` });
-  else if (!siteIds.has(e.id)) findings.push({ where, detail: 'the entry in ci/exceptions.yaml matches no continue-on-error step or job, and no workflow event whose path filter keeps a gate from running — remove it' });
+  if (date === 'none') findings.push({ where, detail: 'The entry in ci/exceptions.yaml has no expires: date, and every excuse must end.', fix: 'Set expires: to a real future day.' });
+  else if (date === 'not-a-day') findings.push({ where, detail: 'The entry in ci/exceptions.yaml has an expires: that is not a real day written yyyy-mm-dd.', fix: 'Set it to a real future day, such as 2099-12-31.' });
+  else if (/\/step\[\d+\]$|\[dup\d+\]$/.test(e.id)) findings.push({ where, detail: 'The entry names its step by position, which moves on any edit.', fix: 'Give the step an id: and key the entry to it.' });
+  else if (date === 'expired') findings.push({ where, detail: `The entry in ci/exceptions.yaml expired ${e.expires}, and today or earlier ends an excuse.`, fix: 'Fix the job or step, or set expires: to a real future day with a reason.' });
+  else if (!siteIds.has(e.id)) findings.push({ where, detail: 'The entry in ci/exceptions.yaml matches no continue-on-error step or job, and no workflow event whose path filter keeps a gate from running.', fix: 'Remove that entry.' });
   else live.add(e.id);
 }
 
 for (const s of sites) {
   if (live.has(s.id)) { exempted.push(s.id); continue; }
   const why = s.writtenFalse ? 'a false written as quoted text or as a block is not plain false'
-    : s.duplicate ? 'step name is not unique in its job — give it an id: before it can be excused'
-    : s.positional ? 'step has no id or name — give it an id: before it can be excused'
+    : s.duplicate ? 'the step name is not unique in its job'
+    : s.positional ? 'the step has no id or name'
     : 'a failure here would not fail CI';
-  const next = s.duplicate || s.positional ? 'give the step an id: and add a dated entry for it' : `add a dated entry with id: ${s.id}`;
-  findings.push({ where: s.id, detail: `continue-on-error with no entry in ci/exceptions.yaml (${why}${s.line === null ? '' : `; currently line ${s.line}`}) — ${s.writtenFalse ? 'write it as plain false, or ' : ''}remove it, or ${next}` });
+  const fix = s.duplicate || s.positional ? `${s.writtenFalse ? 'Write it as plain false, remove it' : 'Remove it'}, or give the step an id: and add a dated entry for it.` : `${s.writtenFalse ? 'Write it as plain false, or remove' : 'Remove'} it, or add a dated entry with id: ${s.id}.`;
+  findings.push({ where: s.id, detail: `A continue-on-error has no entry in ci/exceptions.yaml (${why}${s.line === null ? '' : `, at line ${s.line}`}).`, fix });
 }
 
 for (const s of filterSites.values()) {
@@ -187,7 +187,8 @@ for (const s of filterSites.values()) {
   const others = s.with.length ? `, and so ${s.with.length === 1 ? 'does' : 'do'} ${s.with.join(', ')}` : '';
   findings.push({
     where: s.id,
-    detail: `${s.workflow} runs ${s.commands.join(', ')} on ${s.event} with a ${s.filter} filter${others}, and no workflow runs ${s.commands.length === 1 ? 'it' : 'them'} on ${s.event} without one: a change that touches no matching path runs no copy of the gate and still goes green — remove the filter from ${s.event}, or have a workflow run the gate on every ${s.event} with no filter, or add a dated entry with id: ${s.id}`,
+    detail: `This workflow runs ${s.commands.join(', ')} on ${s.event} with a ${s.filter} filter${others}.`,
+    fix: `Remove the filter from ${s.event}, add an unfiltered run of it on ${s.event}, or add an entry with id: ${s.id}.`,
   });
 }
 
