@@ -514,16 +514,19 @@ is what `/work-ticket` runs.
 | a test `out-of-time` | **finding** `out-of-time` |
 | `outOfTime` true and no test `out-of-time` | **finding** `out-of-time`, on the run |
 | a file in `neverRun` | **finding** `never-run` |
-| in `notJudged` | warning, by name, with its reason |
+| a test or changed call the run is known to have left out for a reason the owner did not give (`narrowed`), or a test `flaky` in its baseline (§3.8) | **finding** `left-out`, whatever else was judged |
+| anything else in `notJudged` | warning, by name, with its reason |
 | at least one new test, none in `tests`, and one in `notJudged` for a reason the owner did not give | **finding** `nothing-judged` |
 
 A new test is one in `tests` or in `notJudged`. The reasons the owner gave never make `nothing-judged`:
 `excused`, `kept-out`, `mechanical`, and `other-runner` while `tests-can-fail#other-runner` is unexpired in
 `ci/exceptions.yaml`, which the verdict reads as it does for `excuse-expired`. Neither does `skipped`, which
-is the test's own text. `narrowed` does (§3.5): what left it out is not the test's own text, so a pull
-request whose only new tests the runner leaves out with no skip in their text is not a pass (#652). `flaky` from §3.8 does: a pull request whose only new tests are flaky in the copy is
-not a pass. So one unjudged test beside a judged one stays a warning, and
-a pull request the step could judge nothing of is not a pass (D-037).
+is the test's own text. A `left-out` finding is per test (the owner's answer, 2026-11-23, D-057). Every test in a
+changed file is judged, so old tests would otherwise hide a new test the run left out. What left a `narrowed` test
+out is not its own text (#652), and a test `flaky` in its baseline was not judged. Either fails the pull request by
+itself, whatever else was judged. The ways out are to make it run, keep it out in `ci/tests-can-fail.yaml`, or excuse
+its file with a date. Any other unjudged test beside a judged one stays a warning, and a pull request the step could
+judge nothing of is not a pass (D-037).
 
 Also a finding: an entry `tests-can-fail#…` in `ci/exceptions.yaml` that is expired or undated
 (`excuse-expired`). Warnings, which never change the exit code: each `unreadable` file; `seconds` over
@@ -587,6 +590,8 @@ The fix is printed on its own `Fix:` line.
   runs or is skipped by its own call, or excuse its file in `ci/exceptions.yaml` with a date. `` (#652). Its length is fixed, so
   it fits whatever the record holds; each reason's next action is on the not-judged warning of each test it counts, and only
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
+- `left-out`: `` `{file}` › "{test}" was left out of the run for a reason you did not give: {reason}. `` Fix: `` Make
+  it run, keep it out in `ci/tests-can-fail.yaml`, or excuse its file in `ci/exceptions.yaml` with a date. ``
 - `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
   off Vitest) | nothing, for a test file's id} {expired {date} | has no `expires:` date | has an `expires:` that
   is not a real day}, so it excuses nothing. `` Fix: `` Remove it, or set `expires:` to a real future day with a
@@ -686,8 +691,9 @@ person and no new channel. Slipway takes on a second third-party file to keep cu
 The step runs a pull request's own tests and source on the machine building it, as `pnpm verify` already
 does there, from a copy outside the project. Beyond the baseline it promises one thing: **a pull request
 cannot make the step pass by changing a file the owner is not shown. A test it does not judge is named, with
-the reason, in every run; naming is all it promises for those, but for one case: a pull request with new
-tests and none judged fails (§4).**
+the reason, in every run; naming is all it promises for those, but for two cases: a test the run is known to have
+left out for a reason the owner did not give fails the pull request by itself, and a pull request with new tests
+and none judged fails (§4).**
 
 What carries the result is the session that ran it: `/work-ticket` copies it into `## Verification`, as it
 does `Quality gate`'s, and no workflow runs it again. The step defends the run, not the report of it: a
@@ -818,8 +824,8 @@ nothing else; and a result copied into a pull request by hand.
   child, and a `tests-can-fail#mechanical` line the parent adds counts in the child. Taking the pull
   request's base branch from `/work-ticket` would be a Contract change (AR-9 of the 0.4 review, arguing with
   this session's reading).
-- **Whether a flaky test fails the pull request is chance.** One that flakes in the baseline is named, not
-  failed (§3.8); one that flakes in the run after judging is a `flaky` finding (§3.9).
+- **Whether a flaky test fails the pull request is chance.** One seen to flake fails it: in the baseline as
+  `left-out` (§3.8), in the run after judging as `flaky` (§3.9). One that does not flake in those runs passes.
 - **A capped file is judged on part of its changes.** Past the caps of §3.9 the rest are not tried; the
   verdict names the file and the counts, and a test that failed on none of the tried ones is still
   `kills-nothing`.
@@ -1344,3 +1350,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-21 · MODIFIED · #681, on the owner's yes: §6 and §7 let a project set the time limit in `ci/tests-can-fail.yaml`. The owner kept §3.9's caps as the per-test budget, and cut the issue's line on a filtered run (L-73). A limit that scales with the tests judged was declined.
 - 2026-11-22 · MODIFIED · #681, on the owner's yes: Known limitations names the 3 security findings open in #695, and AR-13 says what the config reader now accepts.
 - 2026-11-23 · MODIFIED · #684 builds D-057's first part: §3.1, §3.2 and §3.5 say every test in a changed test file is new, a whitespace-only edit counts (the owner's answer, 2026-11-22), and a later run that moves a judged test's name stops the run. The record's `outsideAnyTest` becomes `whitespaceOnly`. §4, §5, Known limitations and the scenarios that said a test stays old follow. Version stays 0.5.
+- 2026-11-23 · MODIFIED · #684, the owner's answer of 2026-11-23 in D-057: a test the run is known to have left out for a reason the owner did not give, or one flaky in its baseline, is a `left-out` finding by itself. §4, §5, the Threat model and Known limitations say so. Version stays 0.5.
