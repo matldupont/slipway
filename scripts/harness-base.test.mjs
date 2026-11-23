@@ -251,6 +251,7 @@ test('at its base, a session with a cached red result is not blocked', () => {
 for (const [why, make] of [
   ['a commit past the base', () => { change(); git('-C', work, 'add', '-A'); commit('past the base'); }],
   ['a tracked change', change],
+  ['a staged change the working file no longer shows', () => { change(); git('-C', work, 'add', 'src/app.ts'); put('src/app.ts', 'export {};\n'); }],
   ['an untracked file', () => put('src/new.ts', 'export {};\n')],
   ['a new folder that ignores itself', () => { put('scratch/.gitignore', '*\n'); put('scratch/new.ts', 'export {};\n'); }],
   ['an edit hidden by assume-unchanged', () => { git('-C', work, 'update-index', '--assume-unchanged', 'src/app.ts'); change(); }],
