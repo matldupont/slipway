@@ -194,26 +194,38 @@ for (const [why, make] of [
   });
 }
 
-test('a folder git cannot read does not take the exit', () => {
+test('a folder git cannot read runs the gate', () => {
   atBase();
   put('unread/new.ts', 'export {};\n');
   chmodSync(join(work, 'unread'), 0);
   try {
-    const r = run('stop-verify.sh', '{}', SID, hookEnv);
-    assert.notEqual(`${r.status} ${r.out}`, '0 ', 'an unreadable folder ended the turn quietly');
+    gated('an unreadable folder');
   } finally {
     chmodSync(join(work, 'unread'), 0o755);
   }
 });
 
-test('a warning from git status runs the gate', () => {
+for (const [why, act] of [['a warning from', "echo 'warning: a path was skipped' >&2"], ['a failure of', 'exit 3']]) {
+  test(`${why} git status runs the gate`, () => {
+    atBase();
+    const bin = join(T, 'status-git');
+    const real = spawnSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } }).stdout.trim();
+    mkdirSync(bin, { recursive: true });
+    writeFileSync(join(bin, 'git'), `#!/bin/sh\nfor a; do [ "$a" = status ] && { ${act}; }; done\nexec '${real}' "$@"\n`, { mode: 0o755 });
+    assert.equal(stopJson(SID, { PATH: `${bin}:${hookEnv.PATH}` }).decision, 'block', `${why} git status took the exit`);
+    assert.equal(verifyRuns(), 1, 'the gate did not run');
+  });
+}
+
+test('an untracked file runs the gate under a local setting that hides untracked files from status', () => {
   atBase();
-  const bin = join(T, 'warn-git');
-  const real = spawnSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } }).stdout.trim();
-  mkdirSync(bin, { recursive: true });
-  writeFileSync(join(bin, 'git'), `#!/bin/sh\nfor a; do [ "$a" = status ] && echo 'warning: a path was skipped' >&2; done\nexec '${real}' "$@"\n`, { mode: 0o755 });
-  assert.equal(stopJson(SID, { PATH: `${bin}:${hookEnv.PATH}` }).decision, 'block', 'a warning took the exit');
-  assert.equal(verifyRuns(), 1, 'the gate did not run');
+  git('-C', work, 'config', 'status.showUntrackedFiles', 'no');
+  put('src/new.ts', 'export {};\n');
+  try {
+    gated('status.showUntrackedFiles=no');
+  } finally {
+    git('-C', work, 'config', '--unset', 'status.showUntrackedFiles');
+  }
 });
 
 test('a pin that is missing, unreadable or malformed does not take the exit', () => {

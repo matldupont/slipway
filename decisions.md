@@ -1678,9 +1678,9 @@ test file stay open, as F-13's Known limitations say.
 
 ## D-058 — A pinned session at its base with nothing changed ends its turn before the gate *(decided 2026-11-23)*
 
-The owner, 2026-11-23, in #699: "take the trade. that's why I have CI". Every session waited for `verify --fast` at
-each turn end, even one that had changed nothing. A session now ends its turn at once when its `HEAD` is its pinned
-commit, no gate file differs, and `git status` reports nothing.
+The owner, 2026-11-23, in #699: "take the trade. that's why I have CI". A session ran `verify --fast` at turn end until
+its exact tree had a green result, even one that had changed nothing. A session now ends its turn at once when its
+`HEAD` is its pinned commit, no gate file differs, and `git status` reports nothing.
 
 - **This loosens a gate, inside that bound.** A state that ran the gate, and could block on a missing install or a
   cached red result, now passes. Any commit, and any change `git status` reports, still runs the gate.

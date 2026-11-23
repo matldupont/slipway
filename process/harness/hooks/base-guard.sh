@@ -224,7 +224,7 @@ if [ -z "$changed" ] && [ -z "$odd" ]; then
   # A session that changed nothing (#699, D-058): HEAD is the pinned commit and git status reports nothing, so the Stop
   # hook refreshes STATE.md and ends before the install check, the caches and the gate. A warning from git is a change.
   if [ "$hook" = stop-verify.sh ] && [ "$(g rev-parse -q --verify 'HEAD^{commit}')" = "$base" ] &&
-    s=$(g -c core.fsmonitor=false status --porcelain --untracked-files=all --ignore-submodules=none 2>&1) && [ -z "$s" ]; then
+    s=$(g --no-optional-locks -c core.fsmonitor=false status --porcelain --untracked-files=all --ignore-submodules=none 2>&1) && [ -z "$s" ]; then
     CLAUDE_PROJECT_DIR=$d; export CLAUDE_PROJECT_DIR
     exec sh "$d/process/harness/hooks/$hook" at-base
   fi

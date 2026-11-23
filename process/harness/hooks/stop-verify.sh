@@ -10,5 +10,4 @@ if command -v node >/dev/null 2>&1; then
   [ "$1" = at-base ] && exit 0
   exec node "$CLAUDE_PROJECT_DIR/process/harness/hooks/stop-verify.mjs"
 fi
-[ "$1" = at-base ] && exit 0
 printf '%s\n' '{"systemMessage":"stop-verify: node is not on the hook PATH, so the gate did not run. Run pnpm verify:fast yourself."}'
