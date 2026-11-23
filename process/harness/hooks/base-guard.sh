@@ -163,6 +163,18 @@ run() {
   exit 0
 }
 
+# A session that changed nothing (#699): HEAD is the pinned commit itself, compared with the pin and never with a ref;
+# status is empty; and no index entry is flagged assume-unchanged or skip-worktree, which would hide an edit from it.
+# The Stop hook then refreshes STATE.md and ends before the install check, the caches and the gate. Only grep's "no
+# line" (1) counts as no flag; a git or grep failure falls through to the path below.
+if [ "$hook" = stop-verify.sh ] && h=$(g rev-parse -q --verify 'HEAD^{commit}') && [ "$h" = "$base" ] &&
+  c=$(g -c core.fsmonitor=false -c core.fileMode=true status --porcelain --untracked-files=all --ignore-submodules=none 2>/dev/null) && [ -z "$c" ] &&
+  f=$(g -c core.fsmonitor=false ls-files -v 2>/dev/null) && [ -n "$f" ] &&
+  { printf '%s\n' "$f" | LC_ALL=C grep -qv '^H '; [ $? -eq 1 ]; }; then
+  CLAUDE_PROJECT_DIR=$d; export CLAUDE_PROJECT_DIR
+  exec sh "$d/process/harness/hooks/$hook" at-base
+fi
+
 # The gate paths as pathspecs, from the base's settings (one list); a rule outside the repository (/tmp, ~/) is skipped.
 globs=$(g cat-file blob "$base:process/harness/settings.json" | sed -n 's/^[[:space:]]*"Edit(\([^/~][^)]*\))",\{0,1\}[[:space:]]*$/\1/p')
 [ -n "$globs" ] || fail 'no gate paths in the pinned process/harness/settings.json'

@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -163,6 +163,31 @@ export const commitAll = (branch, msg) => {
   git('-C', work, 'checkout', '-q', '-b', branch);
   git('-C', work, 'add', '-A');
   git('-C', work, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', msg);
+};
+
+// #699: a session pinned to a commit that holds the real Stop hook, in a workspace with a dependency that is installed.
+// Its ci/verify.mjs counts each run and fails. A pnpm that answers `-v` comes first on the hook PATH.
+const RUNS = join(T, 'verify-runs');
+const BIN = join(T, 'at-base-bin');
+export const hookEnv = { PATH: `${BIN}:/usr/bin:/bin:${dirname(process.execPath)}` };
+export const verifyRuns = () => (existsSync(RUNS) ? readFileSync(RUNS, 'utf8').length : 0);
+export const atBase = () => {
+  clean();
+  mkdirSync(BIN, { recursive: true });
+  writeFileSync(join(BIN, 'pnpm'), '#!/bin/sh\necho 0.0.0\n', { mode: 0o755 });
+  git('-C', work, 'checkout', '-q', '-B', 'real-stop');
+  for (const h of ['stop-verify.sh', 'stop-verify.mjs', 'find-node.sh']) cpSync(join(SRC, 'process/harness/hooks', h), join(work, 'process/harness/hooks', h));
+  cpSync(join(SRC, 'ci/checks/lib/workspace.mjs'), join(work, 'ci/checks/lib/workspace.mjs'));
+  put('ci/verify.mjs', `import { appendFileSync } from 'node:fs';\nappendFileSync(${JSON.stringify(RUNS)}, 'x');\nconsole.log('FAIL at-base');\nprocess.exit(1);\n`);
+  put('pnpm-workspace.yaml', 'packages:\n  - app\n');
+  put('app/package.json', '{ "name": "app", "dependencies": { "x": "1.0.0" } }\n');
+  put('.gitignore', 'node_modules\n');
+  git('-C', work, 'add', '-A');
+  commit('the real Stop hook');
+  pinTo(git('-C', work, 'rev-parse', 'HEAD'));
+  mkdirSync(join(work, 'app/node_modules'));
+  for (const f of [RUNS, join(work, '.git/stop-verify-red'), join(work, '.git/stop-verify-ok')]) rmSync(f, { force: true });
+  reset();
 };
 
 test.after(() => rmSync(T, { recursive: true, force: true }));
