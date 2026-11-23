@@ -77,8 +77,13 @@ test('none judged for a reason the owner did not give is nothing-judged; one jud
   assert.deepEqual(judge(rec({ changedTestFiles: [FILE], notJudged: three })).ids, ['nothing-judged']);
   const beside = judge(rec({ changedTestFiles: [FILE], notJudged: three, tests: [judged()] }));
   assert.deepEqual([beside.exit, beside.ids, beside.warned.length], [0, [], 3]);
-  // §3.8's flaky makes it: a pull request whose only new tests are flaky in the copy is not a pass.
-  assert.deepEqual(judge(rec({ changedTestFiles: [FILE], notJudged: [nj('flaky')] })).ids, ['nothing-judged']);
+  // A test flaky in the copy, or narrowed, is its own finding, alone or beside a judged test, and is not counted twice.
+  for (const why of ['flaky', 'narrowed']) {
+    const n = nj(why, { name: 'x' });
+    assert.deepEqual(judge(rec({ changedTestFiles: [FILE], notJudged: [n] })).ids, [`${n.file}#left-out/x`], why);
+    const v = judge(rec({ changedTestFiles: [FILE], notJudged: [n], tests: [judged()] }));
+    assert.deepEqual([v.exit, v.ids, v.warned], [1, [`${n.file}#left-out/x`], []], why);
+  }
 });
 
 test('new tests all excused, kept out, skipped or mechanical pass, each named; all other-runner passes beside an unexpired entry and fails without it', () => {
@@ -92,23 +97,27 @@ test('new tests all excused, kept out, skipped or mechanical pass, each named; a
   assert.deepEqual(judge(other, { registry: [entry('tests-can-fail#other-runner', '2026-01-01')] }).ids, ['ci/exceptions.yaml:tests-can-fail#other-runner#excuse-expired', 'nothing-judged']);
 });
 
-test('a new test the runner leaves out with no skip in its text is narrowed, which the owner did not give: nothing-judged alone, a warning beside a judged test (#652)', () => {
+test('a test the runner leaves out with no skip in its text is a left-out finding, alone or beside a judged test (#652, D-057)', () => {
   const narrowed = nj('narrowed', { name: 'adds', detail: 'the run skips it, and its call holds no skip' });
+  const id = `${narrowed.file}#left-out/adds`;
   const alone = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed] }));
-  assert.deepEqual([alone.exit, alone.ids, alone.warned], [1, ['nothing-judged'], [`${narrowed.file}#not-judged/narrowed/adds`]]);
-  assert.match(alone.warnings[0].detail, /the run skips it; its call has no skip\.$/);
+  assert.deepEqual([alone.exit, alone.ids, alone.warned], [1, [id], []]);
+  assert.match(alone.findings[0].detail, /is left out: the run skips it; its call has no skip\.$/);
+  assert.equal(alone.findings[0].fix, 'Run it, keep it out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.');
   const unread = judge(rec({ changedTestFiles: [FILE], notJudged: [{ ...narrowed, detail: 'the run skips it, in a call this step cannot read for a skip' }] }));
-  assert.match(unread.warnings[0].detail, /the run skips it; the step cannot read its call\.$/);
-  assert.match(unread.warnings[0].fix, /^Write it as `it\(…\)` or `test\(…\)`, any `\.skip` on that call/);
-  // Its warning, past the file it names, is 160 characters at most, and says what to do; nothing-judged names it too.
-  // Past the file and the test it names, each warning is 160 characters at most.
-  for (const w of [alone.warnings[0], unread.warnings[0]]) assert.ok(w.detail.replace(`\`${narrowed.file}\` › "adds"`, '').length + 1 + w.fix.length <= 160, w.detail);
-  assert.match(alone.findings[0].fix, /^Read each new test's not-judged warning and do what it says, so it runs or is skipped by its own call/);
-  const mixed = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed, nj('no-subject')] }));
-  assert.match(mixed.findings[0].fix, /^Read each not-judged warning and do what it says, so each new test runs or is skipped by its own call, or excuse/);
-  for (const f of [alone.findings[0], mixed.findings[0]]) assert.ok(f.fix.length <= 160, f.fix);
+  assert.match(unread.findings[0].detail, /is left out: the run skips it; the step cannot read its call\.$/);
+  // Past the file and the test it names, each finding is 160 characters at most.
+  for (const f of [alone.findings[0], unread.findings[0]]) assert.ok(f.detail.replace(`\`${narrowed.file}\` › "adds"`, '').length + 1 + f.fix.length <= 160, f.detail);
   const beside = judge(rec({ changedTestFiles: [FILE], tests: [judged()], notJudged: [narrowed] }));
-  assert.deepEqual([beside.exit, beside.ids], [0, []]);
+  assert.deepEqual([beside.exit, beside.ids], [1, [id]]);
+  const unsure = nj('narrowed', { name: null, detail: 'this step cannot tell whether the runner ran a test in the call at line 4, since a tagged template in the file moves where the runner says a test is' });
+  const only = judge(rec({ changedTestFiles: [FILE], notJudged: [unsure] }));
+  assert.deepEqual([only.exit, only.ids, only.warned], [1, ['nothing-judged'], [`${unsure.file}#not-judged/narrowed`]]);
+  assert.match(only.findings[0].fix, /^Read each new test's not-judged warning and do what it says, so it runs or is skipped by its own call/);
+  const mixed = judge(rec({ changedTestFiles: [FILE], notJudged: [unsure, nj('no-subject')] }));
+  assert.match(mixed.findings[0].fix, /^Read each not-judged warning and do what it says, so each new test runs or is skipped by its own call, or excuse/);
+  for (const f of [only.findings[0], mixed.findings[0]]) assert.ok(f.fix.length <= 160, f.fix);
+  assert.equal(judge(rec({ changedTestFiles: [FILE], tests: [judged()], notJudged: [unsure] })).exit, 0);
   assert.deepEqual(judge(rec({ changedTestFiles: [FILE], notJudged: [nj('skipped')] })).exit, 0);
 });
 

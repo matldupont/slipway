@@ -123,12 +123,12 @@ test('the mechanical entry: its change passes naming each test; the next change 
   assert.match(r.out, /Remove it\./);
 });
 
-test('a new test red then green in the baseline, the only new one, is nothing-judged', (t) => {
+test('a new test red then green in the baseline is a left-out finding', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART }, config: { tests: { once: { redOnce: true } } } });
   removeAll(t, p);
   p.commit({ [FILE]: testFile(['once']) });
   const r = mt1(p);
-  assert.deepEqual([r.status, r.ids, r.warned], [1, ['nothing-judged'], [`${FILE}#not-judged/flaky/once`]], r.out);
+  assert.deepEqual([r.status, r.ids, r.warned], [1, [`${FILE}#left-out/once`], []], r.out);
 });
 
 test('a file stopped at the cap prints the capped line with both counts beside kills-nothing', (t) => {

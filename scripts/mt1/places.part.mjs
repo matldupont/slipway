@@ -72,7 +72,7 @@ test('a row the run skips, beside one it runs, is named once (#655)', (t) => {
   removeAll(t, p);
   p.commit({ [FILE]: each('const later = 1;\n').replace('[2, 3]]', '[2, 3], ]') });
   const r = mt1(p);
-  assert.equal(r.warned.filter((w) => w.endsWith('/loop 1')).length, 1, r.out);
+  assert.equal(r.ids.filter((id) => id.endsWith('/loop 1')).length, 1, r.out);
 });
 
 test('two Vitest projects that run one file stop the run, naming the projects, not the test names (#655)', (t) => {

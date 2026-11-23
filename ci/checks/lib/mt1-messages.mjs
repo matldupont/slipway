@@ -57,6 +57,15 @@ export function notJudged(n, live) {
   return { where: e(`${n.file}#not-judged/${n.why}${n.name == null ? '' : `/${n.name}`}`), detail: `Not judged: ${named(n.file, n.name)} — ${reason}.`, fix };
 }
 
+// §4: a test or call the run is known to have left out for a reason the owner did not give, or one flaky in its
+// baseline. Old tests are judged now (D-057), so each of these fails the pull request by itself.
+export const isLeftOut = (n) => n.why === 'flaky' || (n.why === 'narrowed' && !String(n.detail ?? '').startsWith('this step cannot tell whether'));
+export const leftOut = (n) => ({
+  where: e(`${n.file}#left-out${n.name == null ? '' : `/${n.name}`}`),
+  detail: `${named(n.file, n.name)} is left out: ${REASONS[n.why](n.detail)[0]}.`,
+  fix: 'Run it, keep it out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.',
+});
+
 const at = (t, id) => e(`${t.file}:${t.line}#${id}`);
 const subjects = (t) => (t.subjects?.length ? t.subjects.map(file).join(', ') : 'none named');
 
