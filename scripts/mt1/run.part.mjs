@@ -89,7 +89,7 @@ test('at the limit during the clean runs, before judging, the verdict is out of 
 
 test('a deleted expect is kills-nothing; a deleted test file or one renamed away passes, naming the file removed', (t) => {
   const base = testFile(['a', 'b']);
-  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: base } });
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: base }, config: { tests: { b: { failsWhen: CHANGED } } } });
   removeAll(t, p);
   p.commit({ [FILE]: base.replace("it('a', () => {\n  expect(add(1, 2)).toBe(3);\n", "it('a', () => {\n") });
   let r = mt1(p);
