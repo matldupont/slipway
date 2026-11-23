@@ -5,6 +5,7 @@
 // give itself a pin. Fixture: harness-fixture.mjs. Internal: `pnpm meta` runs it in slipway, never in a project.
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -203,6 +204,16 @@ test('a folder git cannot read does not take the exit', () => {
   } finally {
     chmodSync(join(work, 'unread'), 0o755);
   }
+});
+
+test('a warning from git status runs the gate', () => {
+  atBase();
+  const bin = join(T, 'warn-git');
+  const real = spawnSync('/bin/sh', ['-c', 'command -v git'], { encoding: 'utf8', env: { PATH: '/usr/bin:/bin' } }).stdout.trim();
+  mkdirSync(bin, { recursive: true });
+  writeFileSync(join(bin, 'git'), `#!/bin/sh\nfor a; do [ "$a" = status ] && echo 'warning: a path was skipped' >&2; done\nexec '${real}' "$@"\n`, { mode: 0o755 });
+  assert.equal(stopJson(SID, { PATH: `${bin}:${hookEnv.PATH}` }).decision, 'block', 'a warning took the exit');
+  assert.equal(verifyRuns(), 1, 'the gate did not run');
 });
 
 test('a pin that is missing, unreadable or malformed does not take the exit', () => {
