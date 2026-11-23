@@ -1676,6 +1676,27 @@ untouched file is today.
 Known limitation: until #684 and #685 are built, #658's 2 high findings and the route through a change outside every
 test file stay open, as F-13's Known limitations say.
 
+## D-058 — A pinned session at its base with nothing changed ends its turn before the gate *(decided 2026-11-23)*
+
+The owner, 2026-11-23, in #699: "take the trade. that's why I have CI". Every session waited for `verify --fast` at
+each turn end, even one that had changed nothing. A session now ends its turn at once when its `HEAD` is its pinned
+commit, no gate file differs, and `git status` reports nothing.
+
+- **This loosens a gate, inside that bound.** A state that ran the gate, and could block on a missing install or a
+  cached red result, now passes. Any commit, and any change `git status` reports, still runs the gate.
+- **The pin decides, never a ref.** The guard compares `HEAD` with the commit the session pinned at its start. A pin
+  that is missing or cannot be used never reaches this exit.
+- **What still runs.** `STATE.md` is refreshed (#374). No check leaves `pnpm verify` or CI.
+
+Why: a session with nothing changed has nothing of its own to check, and CI gates everything that is committed.
+
+Known limitation: the exit believes `git status`. A gitignored file, a local git setting, an ignore rule or an index
+flag can keep a change out of it, and that session ends its turn unchecked. The owner accepted this, with CI as the
+backstop for anything committed.
+
+Known limitation: work in a stash or on another branch is not in the tree, so neither this exit nor the gate reads it.
+The pin is only as sound as `origin/HEAD` was when the session started.
+
 ## Week 1 — decide before M1 closes
 
 The choices that are expensive to reverse. Each one changed after data and code depend on it — framework,
