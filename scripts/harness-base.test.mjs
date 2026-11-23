@@ -11,7 +11,7 @@ import { spawnSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change, stopJson, atBase, hookEnv, verifyRuns } from './harness-fixture.mjs';
+import { SRC, SETTINGS, HOOKS, TRUST, T, SID, MARK, origin, work, git, put, stub, marks, reset, run, BASE, start, pinOf, unpin, clean, say, commit, quiet, change, stopJson, atBase, hookEnv, verifyRuns, endsAtOnce, gated, body, staleIndex } from './harness-fixture.mjs';
 
 // #154: with no guard to load, the Stop hook cannot run stop-verify, so it blocks once and has the agent run the gate.
 // The fallback text once sat inside `$( … || echo '…')`, and /bin/sh is bash 3.2 on a Mac: a `, ` in it, inside braces,
@@ -227,18 +227,6 @@ test('on a git that prints --path-format back, another repository is not pinned 
 
 // #699: a session at its pinned base with nothing changed ends before the install check, the caches and the gate. The
 // real Stop hook is committed and pinned (atBase, in the fixture); its ci/verify.mjs counts each run and fails.
-const endsAtOnce = (why, runs = 0) => {
-  const r = run('stop-verify.sh', '{}', SID, hookEnv);
-  assert.equal(`${r.status} ${r.out}`, '0 ', `${why}: the turn did not end quietly`);
-  assert.equal(verifyRuns(), runs, `${why}: ci/verify.mjs ran`);
-};
-const gated = (why) => {
-  assert.equal(stopJson(SID, hookEnv).decision, 'block', `${why}: a red gate did not block`);
-  assert.equal(verifyRuns(), 1, `${why}: the gate did not run once`);
-};
-// The Stop body alone, with no guard in front: what the session would meet without the new exit.
-const body = () => JSON.parse(spawnSync(process.execPath, [join(work, 'process/harness/hooks/stop-verify.mjs')], { input: '{}', encoding: 'utf8', cwd: work, env: { ...hookEnv, HOME: T, CLAUDE_PROJECT_DIR: work } }).stdout);
-
 test('at its pinned base with nothing changed, the Stop hook ends without running the gate', () => {
   atBase();
   put('app/node_modules/dep/.gitignore', '*\n'); // a package's own, as many ship
@@ -246,11 +234,14 @@ test('at its pinned base with nothing changed, the Stop hook ends without runnin
   assert.ok(!existsSync(join(work, '.git/stop-verify-ok')), 'the exit wrote a green result');
 });
 
-test('at its base, a session with no node_modules or a cached red result is not blocked', () => {
+test('at its base, a session with no node_modules is not blocked', () => {
   atBase();
   rmSync(join(work, 'app/node_modules'), { recursive: true });
   assert.match(body().reason, /dependencies are not installed/, 'the case did not reach the install check');
   endsAtOnce('no node_modules');
+});
+
+test('at its base, a session with a cached red result is not blocked', () => {
   atBase();
   assert.equal(body().decision, 'block');
   assert.match(body().reason, /Cached from/, 'the case held no cached red result');
@@ -264,6 +255,9 @@ for (const [why, make] of [
   ['a new folder that ignores itself', () => { put('scratch/.gitignore', '*\n'); put('scratch/new.ts', 'export {};\n'); }],
   ['an edit hidden by assume-unchanged', () => { git('-C', work, 'update-index', '--assume-unchanged', 'src/app.ts'); change(); }],
   ['an edit hidden by skip-worktree', () => { git('-C', work, 'update-index', '--skip-worktree', 'src/app.ts'); change(); }],
+  ['a same-size edit the saved index no longer shows', staleIndex],
+  ['a new file under a local exclude rule', () => { writeFileSync(join(work, '.git/info/exclude'), 'src/new.ts\n'); put('src/new.ts', 'export {};\n'); }],
+  ['a local filter setting', () => git('-C', work, 'config', 'filter.x.clean', 'cat')],
 ]) {
   test(`${why}: the gate runs and a red result blocks`, () => {
     atBase();
@@ -272,6 +266,8 @@ for (const [why, make] of [
       gated(why);
     } finally {
       for (const flag of ['--no-assume-unchanged', '--no-skip-worktree']) git('-C', work, 'update-index', flag, 'src/app.ts'); // one flag a call: git applies only the first
+      rmSync(join(work, '.git/info/exclude'), { force: true });
+      spawnSync('git', ['-C', work, 'config', '--remove-section', 'filter.x'], { stdio: 'ignore' });
     }
   });
 }

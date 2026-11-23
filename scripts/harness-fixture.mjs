@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
@@ -188,6 +188,28 @@ export const atBase = () => {
   mkdirSync(join(work, 'app/node_modules'));
   for (const f of [RUNS, join(work, '.git/stop-verify-red'), join(work, '.git/stop-verify-ok')]) rmSync(f, { force: true });
   reset();
+};
+export const endsAtOnce = (why, runs = 0) => {
+  const r = run('stop-verify.sh', '{}', SID, hookEnv);
+  assert.equal(`${r.status} ${r.out}`, '0 ', `${why}: the turn did not end quietly`);
+  assert.equal(verifyRuns(), runs, `${why}: ci/verify.mjs ran`);
+};
+export const gated = (why) => {
+  assert.equal(stopJson(SID, hookEnv).decision, 'block', `${why}: a red gate did not block`);
+  assert.equal(verifyRuns(), 1, `${why}: the gate did not run once`);
+};
+// The Stop body alone, with no guard in front: what the session would meet without the new exit.
+export const body = () => JSON.parse(spawnSync(process.execPath, [join(work, 'process/harness/hooks/stop-verify.mjs')], { input: '{}', encoding: 'utf8', cwd: work, env: { ...hookEnv, HOME: T, CLAUDE_PROJECT_DIR: work } }).stdout);
+// A same-size edit whose new file times the saved index records against the old content, so `git status` reads clean.
+export const staleIndex = () => {
+  const f = join(work, 'src/app.ts');
+  const attrs = join(T, 'at-base-attrs');
+  writeFileSync(f, 'export {1;\n');
+  const past = new Date(Date.now() - 60_000);
+  utimesSync(f, past, past);
+  writeFileSync(attrs, 'src/app.ts filter=h\n');
+  git('-C', work, '-c', `core.attributesFile=${attrs}`, '-c', 'filter.h.clean=git show HEAD:src/app.ts', 'update-index', '--refresh');
+  assert.equal(git('-C', work, 'status', '--porcelain'), '', 'the case left a change that status shows');
 };
 
 test.after(() => rmSync(T, { recursive: true, force: true }));

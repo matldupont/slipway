@@ -1680,7 +1680,8 @@ test file stay open, as F-13's Known limitations say.
 
 The owner, 2026-11-23, in #699. Every session waited for `verify --fast` at each turn end, even one that had changed
 nothing. The owner's answer to the change as described: "yes". A session ends its turn at once when its `HEAD` is its
-pinned commit, `git status` is empty, and no index entry is flagged assume-unchanged or skip-worktree.
+pinned commit, nothing is staged, and every tracked file matches that commit when read afresh. No untracked file may
+show, and no ignore or filter rule local to the repository may be set.
 
 - **This loosens a gate, inside that bound.** A state that ran the gate, and could block on a missing install or a
   cached red result, now passes. Any commit, tracked change or untracked file still runs the gate as before.
@@ -1692,8 +1693,7 @@ pinned commit, `git status` is empty, and no index entry is flagged assume-uncha
 Why: a tree that is exactly the pinned commit holds nothing of the session's to check.
 
 Known limitation: a gitignored file is not read, so a change to a local env file does not run the gate in this state.
-A local git setting that empties a status (a filter, an ignore rule, `core.worktree`) hides a change, and so does a
-submodule's own index flag, as the no-pin exit's decision says.
+A rule in the user's global git settings can still hide a change. So can a submodule's own index or settings.
 
 Known limitation: the pin is only as sound as `origin/HEAD` was when the session started. The harness's ask rules are
 what guard a move of it before then.
