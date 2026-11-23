@@ -89,7 +89,7 @@ function held(doc) {
   const named = (files) => `${files[0]}${files.length > 1 ? ` and ${files.length - 1} more` : ''}`;
   const why = [];
   for (const status of by('status')) why.push(status === 'shipped' ? 'is shipped' : `has the status "${excerpt(status, 30)}", which is not draft`);
-  if (by('unreadable').includes('unreadable header')) why.push('has a header line holding a carriage return with no line feed after it, which readers split two ways');
+  if (by('unreadable').includes('unreadable header')) why.push('has a header line with a lone carriage return, which readers split two ways');
   else if (by('unreadable').length) why.push('has no readable status line');
   if (by('review').length) why.push(`is reviewed (${named(by('review'))})`);
   if (by('milestone').length) why.push(`is scheduled (${named(by('milestone'))})`);

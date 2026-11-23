@@ -129,7 +129,7 @@ test('every other value is reported, and its finding does not call it a false', 
     const r = flag(open);
     assert.equal(r.status, 1, `${JSON.stringify(open)}: ${r.out}`);
     assert.deepEqual(r.json.findings.map((f) => f.where), ['.github/workflows/ci.yml#a/s'], open);
-    assert.doesNotMatch(r.json.findings[0].fix, /plain false/, open);
+    assert.doesNotMatch(`${r.json.findings[0].detail} ${r.json.findings[0].fix}`, /plain false/, open);
   }
 });
 

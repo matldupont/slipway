@@ -239,7 +239,7 @@ test('every findings.push and warnings.push passes a fix key, or is named as owe
 // Over every finding every check emits on every known-bad fixture: `detail` and `fix` are each one sentence of at
 // most 160 characters ending with a period, with no check, decision or lesson id; `fix` starts with a verb from the
 // list. PC1 already runs each check on each case, so its run is the one read (scripts/lib/dump-report.mjs).
-const VERBS = ['write', 'add', 'copy', 'remove', 'name', 'set', 'run', 'move', 'answer', 'record', 'rename', 'delete', 'keep', 'edit', 'list', 'file', 'say', 'cut', 'fill', 'put', 'read', 'give', 'revert', 'fix'];
+const VERBS = ['write', 'add', 'copy', 'remove', 'name', 'set', 'run', 'move', 'answer', 'record', 'rename', 'delete', 'keep', 'edit', 'list', 'file', 'say', 'cut', 'fill', 'put', 'read', 'give', 'revert', 'fix', 'save'];
 const CHECK_IDS = readdirSync(join(ROOT, 'ci', 'checks', 'meta')).filter((f) => f.endsWith('.mjs') && !f.startsWith('pc1-')).map((f) => f.split('-')[0].toUpperCase());
 const ID_IN_TEXT = new RegExp(`\\b(?:${CHECK_IDS.join('|')}|P?D-\\d+|P?L-\\d+)\\b`);
 const sentenceProblem = (text) => {
