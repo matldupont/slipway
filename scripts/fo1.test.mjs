@@ -117,6 +117,12 @@ test('a false written as quoted text or as a block is reported, and the finding 
   }
 });
 
+test('a quoted false on a step with no id still offers writing it plain or removing it, beside giving the step an id', () => {
+  const r = fo1(wrap('      - run: echo\n        continue-on-error: "false"\n'));
+  assert.equal(r.status, 1, r.out);
+  assert.equal(r.json.findings[0].fix, 'Write it as plain false, remove it, or give the step an id: and add a dated entry for it.');
+});
+
 test('every other value is reported, and its finding does not call it a false', () => {
   const flag = (value) => fo1(wrap(`      - id: s\n        run: echo\n        continue-on-error: ${value}\n`));
   for (const open of ['true', '[false]', '{a: false}', 'no', '0', '${{ matrix.x }}']) {

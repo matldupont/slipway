@@ -178,7 +178,7 @@ for (const s of sites) {
     : s.duplicate ? 'the step name is not unique in its job'
     : s.positional ? 'the step has no id or name'
     : 'a failure here would not fail CI';
-  const fix = s.duplicate || s.positional ? 'Give the step an id: and add a dated entry for it.' : `${s.writtenFalse ? 'Write it as plain false, or remove' : 'Remove'} it, or add a dated entry with id: ${s.id}.`;
+  const fix = s.duplicate || s.positional ? `${s.writtenFalse ? 'Write it as plain false, remove it' : 'Remove it'}, or give the step an id: and add a dated entry for it.` : `${s.writtenFalse ? 'Write it as plain false, or remove' : 'Remove'} it, or add a dated entry with id: ${s.id}.`;
   findings.push({ where: s.id, detail: `A continue-on-error has no entry in ci/exceptions.yaml (${why}${s.line === null ? '' : `, at line ${s.line}`}).`, fix });
 }
 
@@ -188,7 +188,7 @@ for (const s of filterSites.values()) {
   findings.push({
     where: s.id,
     detail: `This workflow runs ${s.commands.join(', ')} on ${s.event} with a ${s.filter} filter${others}.`,
-    fix: `Remove the filter from ${s.event}, or add a dated entry with id: ${s.id}.`,
+    fix: `Remove the filter from ${s.event}, run the gate unfiltered elsewhere, or add a dated entry with id: ${s.id}.`,
   });
 }
 

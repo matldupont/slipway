@@ -69,6 +69,7 @@ test('a draft with no Fit, no review and no milestone citing it: exit 0, not cou
   assert.equal(r.status, 0);
   assert.deepEqual(ids(r.json.warnings), [`${A}#fit/draft`]);
   assert.equal(r.lines[1], `F2: warning: ${A}#fit/draft: \`${A}\` is a draft nothing holds yet and has no filled Fit, so it is not counted yet.`);
+  assert.equal(r.json.warnings[0].fix, 'Fill in its Fit before it is reviewed, scheduled or shipped.');
   assert.match(last(r), /no feature doc is held yet \(1 feature doc, each a draft nothing holds; the count is 0 against 0; /);
 });
 
@@ -115,6 +116,7 @@ test('a third counted doc against a count of 2: exit 1 with findings for all 3; 
   const u = f2(files, '--update');
   assert.equal(u.status, 1);
   assert.equal(u.lines[1], 'F2: feature-fit: --update refuses to raise the count (2 → 3).');
+  assert.equal(u.json.findings[0].fix, 'Fill in the Fit section of the docs the check names instead.');
   assert.equal(u.file, baseline(2));
 });
 
