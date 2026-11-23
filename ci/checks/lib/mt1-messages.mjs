@@ -63,7 +63,7 @@ export const isLeftOut = (n) => n.why === 'flaky' || (n.why === 'narrowed' && !S
 export const leftOut = (n) => ({
   where: e(`${n.file}#left-out${n.name == null ? '' : `/${n.name}`}`),
   detail: `${named(n.file, n.name)} is left out: ${REASONS[n.why](n.detail)[0]}.`,
-  fix: `${n.why === 'flaky' ? 'Make it pass every time' : 'Run it'}, keep it out in \`ci/tests-can-fail.yaml\`, or add a dated excuse to \`ci/exceptions.yaml\`.`,
+  fix: `${n.why === 'flaky' ? 'Keep it passing every time, set `keep-out:` in' : 'Run it, keep it out in'} \`ci/tests-can-fail.yaml\`, or add a dated excuse to \`ci/exceptions.yaml\`.`,
 });
 
 const at = (t, id) => e(`${t.file}:${t.line}#${id}`);

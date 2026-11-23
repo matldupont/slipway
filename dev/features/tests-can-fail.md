@@ -595,7 +595,8 @@ The fix is printed on its own `Fix:` line.
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
 - `left-out`: `` `{file}` › "{test}" is left out: {reason}. `` Fix: `` Run it, keep it out in
   `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`. `` For a test flaky in its baseline, the
-  fix opens `` Make it pass every time ``.
+  fix is `` Keep it passing every time, set `keep-out:` in `ci/tests-can-fail.yaml`, or add a dated excuse to
+  `ci/exceptions.yaml`. ``
 - `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
   off Vitest) | nothing, for a test file's id} {expired {date} | has no `expires:` date | has an `expires:` that
   is not a real day}, so it excuses nothing. `` Fix: `` Remove it, or set `expires:` to a real future day with a

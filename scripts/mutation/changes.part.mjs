@@ -98,6 +98,15 @@ for (const [what, after] of [['stays in the config', KEPT], ['is deleted in the 
   });
 }
 
+test('an identical rename out of a folder the pull request itself keeps out has every test judged (D-057)', (t) => {
+  const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [E2E]: three() } });
+  t.after(() => p.remove());
+  p.git(['mv', E2E, FILE]);
+  p.commit({ 'ci/tests-can-fail.yaml': KEPT });
+  const { record } = p.run();
+  assert.deepEqual(newNames(record), ['a', 'b', 'c']);
+});
+
 test('an identical rename into another package has every test judged (D-057)', (t) => {
   const other = { name: 'other', private: true, scripts: { test: 'vitest run' }, devDependencies: { vitest: 'link:../../standin' } };
   const moved = 'pkgs/other/src/cart.test.ts';
