@@ -48,20 +48,24 @@ export const mergeBase = (root, a, b) => git(root, ['merge-base', a, b]).trim();
 
 /**
  * The files the change touches (§3.2): each changed test file by its path at head (and whether the change adds it),
- * the count removed or renamed away from a test name, and every path changed at head.
+ * the count removed or renamed away from a test name, and every path changed at head. Blob ids decide what changed
+ * (D-057): `identical` is a file whose content is the base's, and `same` is one of those that already had a test name,
+ * so it judges nothing. It stays listed, so a test file moved where no run picks it up is still never-run.
  */
 export function changedFiles(root, base, head) {
-  const words = git(root, ['diff', '--name-status', '-z', '-M', '--no-ext-diff', base, head]).split('\0');
+  const words = git(root, ['diff', '--raw', '-z', '-M', '--no-abbrev', '--no-ext-diff', base, head]).split('\0');
   const tests = [];
   const paths = [];
   let removed = 0;
+  const entry = (file, from, added, identical) => ({ file, from, added, identical, same: identical && looksLikeTest(from) });
   for (let i = 0; i < words.length - 1; ) {
-    const status = words[i++];
+    const [, , before, after, status] = words[i++].split(' ');
+    const identical = before === after;
     if (status.startsWith('R') || status.startsWith('C')) {
       const from = words[i++];
       const to = words[i++];
       paths.push(to);
-      if (looksLikeTest(to)) tests.push({ file: to, from, added: false });
+      if (looksLikeTest(to)) tests.push(entry(to, from, false, identical));
       else if (looksLikeTest(from) && status.startsWith('R')) removed += 1;
     } else {
       const path = words[i++];
@@ -70,7 +74,7 @@ export function changedFiles(root, base, head) {
         continue;
       }
       paths.push(path);
-      if (looksLikeTest(path)) tests.push({ file: path, from: path, added: status === 'A' });
+      if (looksLikeTest(path)) tests.push(entry(path, path, status === 'A', identical));
     }
   }
   return { tests, paths, removed };

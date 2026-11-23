@@ -35,7 +35,7 @@ const SIGNALS = { SIGINT: 2, SIGTERM: 15, SIGHUP: 1 };
 export const emptyRecord = (limit) => ({
   head: null, base: null, seconds: 0, budget: BUDGET_SECONDS, limit, outOfTime: false, stopped: null, signal: null,
   uncommitted: 0, changedTestFiles: [], runs: [], order: [], tests: [], neverRun: [], notJudged: [], unreadable: [],
-  support: [], noChange: [], notTests: [], outsideAnyTest: [], removedTestFiles: 0, mechanical: false, mechanicalSpent: false,
+  support: [], noChange: [], notTests: [], whitespaceOnly: [], removedTestFiles: 0, mechanical: false, mechanicalSpent: false,
   excuseProblems: [], capped: [], leftProcesses: 0,
 });
 
@@ -248,6 +248,8 @@ async function body(root, record, ctx) {
         (isRunnableName(entry.file) ? record.neverRun : record.notTests).push({ file: entry.file });
         continue;
       }
+      // §3.2: a mode-only change or an identical rename has nothing to judge, once a run is known to pick it up.
+      if (entry.same) continue;
       const text = readFileSync(join(ctx.copy, entry.file), 'utf8');
       const read = safely(spans, entry.file, text);
       if (read.unreadable) record.unreadable.push({ file: entry.file, reason: esc(read.unreadable) });
@@ -257,11 +259,11 @@ async function body(root, record, ctx) {
       // them, any it calls by another name), so the clean run's report says which tests the file has (§3.5, #655).
       const report = excused ? null : await reportOf(ctx, { ...by.unit, file: entry.file });
       const found = newTests(report ? report.tests : listedHere, read, lines, text);
-      if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: found.untrusted ? `${found.untrusted} in it moves where the runner says a test is` : 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)' });
+      // §3.1: the content changed and the whitespace-blind diff shows nothing. Its tests are judged, and the summary says so.
+      if (!entry.added && !entry.identical && !lines.added.size && !lines.removedAfter.length) record.whitespaceOnly.push({ file: entry.file });
       // A new test the clean run skips is not judged (§3.8).
       for (const g of found.groups.filter((x) => !x.run)) record.notJudged.push(skippedEntry(entry.file, g));
       for (const c of found.unreported) record.notJudged.push(excused ? { file: entry.file, name: null, why: 'mechanical', detail: mechanicalWhy } : unreportedEntry(entry.file, c));
-      if (found.outside && !entry.added) record.outsideAnyTest.push({ file: entry.file });
       const run = found.groups.filter((g) => g.run);
       if (run.length) units.push({ ...by.unit, file: entry.file, text, expects: read.unreadable ? [] : read.expects, groups: run, first: report ?? undefined });
     }

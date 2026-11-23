@@ -24,7 +24,7 @@
  "support": [],
  "noChange": [],
  "notTests": [],
- "outsideAnyTest": [],
+ "whitespaceOnly": [],
  "removedTestFiles": 0,
  "mechanical": false,
  "mechanicalSpent": false,

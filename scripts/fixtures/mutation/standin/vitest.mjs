@@ -120,7 +120,16 @@ if (!untouched && config.changedSleepMs) {
 const located = args.includes('--includeTaskLocation') && !config.noReportLine;
 // noColumnWhen: 'changed' leaves the column out of a run with a change, 'after' out of an untouched run after one.
 const columnless = config.noReportColumn || (config.noColumnWhen === 'changed' && !untouched) || (config.noColumnWhen === 'after' && untouched && state.sawChange);
-const where = (t) => (located ? { location: columnless ? { line: t.line } : { line: t.line, column: t.column } } : {});
+// placeAt: { "<name>": { line, column, changed } } reports that test at that place, on every run or, with changed, only
+// on a run with a change. Nothing else about the test moves.
+const placeFor = (t) => {
+  const p = config.placeAt?.[t.name];
+  return p && (!p.changed || !untouched) ? p : t;
+};
+const where = (t) => {
+  const p = placeFor(t);
+  return located ? { location: columnless ? { line: p.line } : { line: p.line, column: p.column } } : {};
+};
 const assertionResults = loadFails ? [] : testsOf(file).map((t) => {
   if (!kept(file, t)) return { ancestorTitles: [], fullName: t.name, status: t.out === 'todo' ? 'todo' : 'skipped', title: t.name, failureMessages: [], ...where(t) };
   const rule = [`${t.name}@${t.line}`, t.name, `${t.rule}@${t.line}`, t.rule].map((k) => config.tests?.[k]).find(Boolean) ?? {};

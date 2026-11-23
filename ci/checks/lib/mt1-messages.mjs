@@ -63,7 +63,7 @@ const subjects = (t) => (t.subjects?.length ? t.subjects.map(file).join(', ') : 
 export const killsNothing = (t) => ({
   where: at(t, 'kills-nothing'),
   detail: `${named(t.file, t.name)} passed on all ${t.tried} changes made to the code it imports (${subjects(t)}).`,
-  fix: `Write an assertion on what the code returns or does, then ${AGAIN}.`,
+  fix: `Write an assertion on what the code returns or does, then ${AGAIN}, ${EXCUSE}.`,
 });
 
 // A crash counts only inside an `expect(...)` of the test's own file (§3.9).
@@ -137,20 +137,13 @@ export const spentMechanical = () => ({
   fix: 'Remove it.',
 });
 
-// A file whose places the step does not trust (a tagged template, a source map comment) reads fine: its tests are all
-// judged, old ones too, and the fix is where to put new tests, not how to write them (#655).
-const MOVES = 'moves where the runner says a test is';
-export const unreadable = (u) => (String(u.reason ?? '').includes(MOVES)
-  ? {
-    where: e(`${u.file}#unreadable`),
-    detail: `${file(u.file)} has every test in it judged, old ones too: ${e(u.reason)}.`,
-    fix: `Put new tests in a file with no tagged template or source map comment to have only them judged, ${EXCUSE}.`,
-  }
-  : {
-    where: e(`${u.file}#unreadable`),
-    detail: `${file(u.file)} could not be read as tests, so every test in it was treated as new: ${e(u.reason)}.`,
-    fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
-  });
+// A file the parser cannot read: every test in a changed file is judged anyway (D-057), so what is lost is its skips
+// and its `expect` lines.
+export const unreadable = (u) => ({
+  where: e(`${u.file}#unreadable`),
+  detail: `${file(u.file)} could not be read as tests. Its tests are still judged, but this step cannot read their skips or their \`expect\` lines: ${e(u.reason)}.`,
+  fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
+});
 
 export const overBudget = (seconds, budget) => ({
   where: 'run#over-budget',
@@ -166,7 +159,7 @@ export function countLines(r) {
   for (const c of r.capped) lines.push(`${file(c.file)} stopped at the cap of 30 changes: ${e(c.untriedBody)} body changes and ${e(c.untriedOther)} others were not tried, so it is not fully checked.`);
   if (r.removedTestFiles) lines.push(`${e(r.removedTestFiles)} test files were removed or renamed away.`);
   if (r.notTests.length) lines.push(`${r.notTests.length} changed files under a test name or folder are not tests: ${names(r.notTests)}.`);
-  if (r.outsideAnyTest.length) lines.push(`${r.outsideAnyTest.length} test files changed outside any test: ${names(r.outsideAnyTest)}.`);
+  if (r.whitespaceOnly.length) lines.push(`${r.whitespaceOnly.length} test files changed only in whitespace, and their tests were judged: ${names(r.whitespaceOnly)}.`);
   if (r.support.length) lines.push(`${r.support.length} test support files were left out of the code under test: ${names(r.support)}.`);
   if (r.uncommitted) lines.push(`${e(r.uncommitted)} tracked files have changes not committed, and were not judged: this step judges the last commit.`);
   return lines;
