@@ -6,7 +6,7 @@
 // config.json: { tests: { "<name>": rule }, rows: { "<name with %i>": n }, unlisted: [file], namePattern, tagsFilter, tags,
 //   sleepMs, runSleepMs, changedRunSleepMs, noReportColumn, noColumnWhen, copies,
 //   changedSleepMs, marker, slowStop, worker, detachedWorker, record, project, envDump, noResult, noLine,
-//   noFailureMessages, placeAt, goneOnChange }
+//   noFailureMessages, placeAt, goneOnChange, hookFails }
 // A rule is keyed by a test's name (a row's own, or its call's with %i), or by `<name>@<line>` for that line only.
 // rule: { failsWhen: [{ file, line, has }], loadFailsWhen: [...], failure: "<recording>", message, frame: { file, line },
 //   always: true, redOnce: true, redTwice: true, failsUntouchedAfterChange: true, skipped: true, skipsWhen: [...],
@@ -146,8 +146,9 @@ if (!untouched) state.sawChange = true;
 writeFileSync(statePath, JSON.stringify(state));
 if (config.noResult) process.exit(1);
 // copies: n reports the file n times, as Vitest does when n projects of one call run it.
-const one = { assertionResults, status: loadFails || assertionResults.some((a) => a.status === 'failed') ? 'failed' : 'passed', message: '', name: file };
+// hookFails: the file fails with none of its tests failed, as Vitest 5 reports a beforeAll that throws.
+const one = { assertionResults, status: config.hookFails || loadFails || assertionResults.some((a) => a.status === 'failed') ? 'failed' : 'passed', message: '', name: file };
 const result = { testResults: Array.from({ length: config.copies ?? 1 }, () => one) };
 // badReport writes a report that does not parse, as a runner cut off mid-write would.
 writeFileSync(out, config.badReport ? '{"testResults": [' : JSON.stringify(result));
-process.exit(assertionResults.some((a) => a.status === 'failed') || loadFails ? 1 : 0);
+process.exit(config.hookFails || assertionResults.some((a) => a.status === 'failed') || loadFails ? 1 : 0);

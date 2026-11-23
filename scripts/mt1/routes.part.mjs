@@ -34,7 +34,7 @@ for (const [what, script] of [
 }
 
 const NARROWED = [1, [`${FILE}#left-out/adds`], []];
-const THREE_WAYS = /^Run it, keep it out in `ci\/tests-can-fail\.yaml`, or add a dated excuse to `ci\/exceptions\.yaml`\.$/;
+const THREE_WAYS = /^Set a missing env value, use `skipIf`, keep out in `ci\/tests-can-fail\.yaml`, or date an excuse\.$/;
 for (const [what, o, adds] of [
   ['a name filter in the Vitest config', { config: { namePattern: '^old$' } }, it('adds')],
   ['a value on a true/false flag (the runner keeps it as a file:line filter)', { test: 'vitest run --passWithNoTests=src/cart.test.ts:4' }, it('adds')],

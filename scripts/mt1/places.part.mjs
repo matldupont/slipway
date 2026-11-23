@@ -167,14 +167,45 @@ test('a judged name at another place on the second clean run stops the run (#684
   assert.match(r.out, /reports "old" at other places on a later run/);
 });
 
-test('an owner\'s own skip stays a skip in a file whose places are not trusted (#684)', (t) => {
+test('a skipped test in a file whose places are not trusted stays a warning, as such a file did before D-057 (#684)', (t) => {
   const base = `${testFile(['old'])}const raw = String.raw\`x\`;\n`;
   const p = at({ base });
   removeAll(t, p);
   p.commit({ [FILE]: `${base}\nit.skip('later', () => {});\n` });
   const r = mt1(p);
   assert.equal(r.status, 0, r.out);
-  assert.ok(r.warned.includes(`${FILE}#not-judged/skipped/later`), r.out);
+  assert.ok(r.warned.includes(`${FILE}#not-judged/narrowed/later`), r.out);
+});
+
+test('a clean run that fails outside any test stops the run, naming a hook, a setup file or a missing env value (#684)', (t) => {
+  const p = at({ base: testFile(['old', 'adds']), config: { hookFails: true, tests: { old: { skipped: true }, adds: { skipped: true } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}// touched\n` });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /failed outside any test, in a hook, a setup file or on a missing env value/);
+  assert.doesNotMatch(r.out, /left-out/);
+});
+
+test('a file that failed with a test of its own failed is that test\'s red, never a failure outside any test (#684)', (t) => {
+  const p = at({ base: testFile(['old', 'adds']), config: { hookFails: true, tests: { old: { always: true }, adds: { skipped: true } } } });
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old', 'adds'])}// touched\n` });
+  const r = mt1(p);
+  assert.equal(r.status, 2, r.out);
+  assert.match(r.out, /is red in a clean copy/);
+});
+
+test('a changed test file the step cannot read is a finding with a dated way out (#684)', (t) => {
+  const p = at({});
+  removeAll(t, p);
+  p.commit({ [FILE]: `${testFile(['old'])}// a lone \r carriage return\n` });
+  const r = mt1(p);
+  assert.equal(r.status, 1, r.out);
+  assert.ok(r.ids.includes(`${FILE}#unreadable`), r.out);
+  const f = r.json.findings.find((x) => x.where === `${FILE}#unreadable`);
+  assert.match(f.detail, /could not be read as tests, so a test the run leaves out of it cannot be seen/);
+  assert.match(f.fix, /excuse the file in `ci\/exceptions\.yaml` with a date/);
 });
 
 test('a later run that no longer reports a judged name stops nothing, and that test earns no kill (#684)', (t) => {

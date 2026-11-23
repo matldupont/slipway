@@ -46,6 +46,7 @@ test('the whitespace line counts only files with a test judged: a file excused a
   const line = (r) => judge(r).notes.find((n) => n.includes('changed only in whitespace'));
   assert.equal(line(rec({ changedTestFiles: [FILE], whitespaceOnly: [{ file: FILE }], mechanical: true, notJudged: [nj('mechanical', { file: FILE, detail: 'a reformat (until 2099-12-31)' })] })), undefined);
   assert.match(line(rec({ changedTestFiles: [FILE], whitespaceOnly: [{ file: FILE }], tests: [judged()] })), /^1 test files changed only in whitespace, and their tests were judged/);
+  assert.equal(line(rec({ changedTestFiles: [FILE], whitespaceOnly: [{ file: FILE }], tests: [judged({ state: 'out-of-time' })] })), undefined);
 });
 
 test('a record from a step before D-057, which holds outsideAnyTest and no whitespaceOnly, is exit 2 and names the version mismatch', () => {
@@ -109,7 +110,7 @@ test('a test the runner leaves out with no skip in its text is a left-out findin
   const alone = judge(rec({ changedTestFiles: [FILE], notJudged: [narrowed] }));
   assert.deepEqual([alone.exit, alone.ids, alone.warned], [1, [id], []]);
   assert.match(alone.findings[0].detail, /is left out: the run skips it; its call has no skip\.$/);
-  assert.equal(alone.findings[0].fix, 'Run it, keep it out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.');
+  assert.equal(alone.findings[0].fix, 'Set a missing env value, use `skipIf`, keep out in `ci/tests-can-fail.yaml`, or date an excuse.');
   const unread = judge(rec({ changedTestFiles: [FILE], notJudged: [{ ...narrowed, detail: 'the run skips it, in a call this step cannot read for a skip' }] }));
   assert.match(unread.findings[0].detail, /is left out: the run skips it; the step cannot read its call\.$/);
   // Past the file and the test it names, each finding is 160 characters at most.

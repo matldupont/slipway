@@ -7,7 +7,6 @@ import { join, posix } from 'node:path';
 import { discoverWorkspace } from './workspace.mjs';
 import { imports, mutants, reExports } from './mutants.mjs';
 import { EXTENSIONS, looksLikeTest } from './mutation-git.mjs';
-import { readTestsCanFail } from './runner-call.mjs';
 import { notRun } from './runner-output.mjs';
 
 // §3.6: code written for the tests, never a subject. The list is closed: it changes by an edit to the Contract.
@@ -70,7 +69,8 @@ const callAt = (calls, offset) => (offset === null ? null : calls.find((c) => c.
  * The tests of one changed test file (§3.5), from the runner's report of a clean run (or its listing, under the
  * mechanical excuse). Every one is new, each its own entry (D-057). Its place decides nothing about that: it is read
  * for the call the test belongs to, the one whose point it is, which gives the line it is named by and whether it says
- * skip. A changed call with no test placed in it is still named. An entry is `run` when the clean run ran it, and
+ * skip. A call with no test placed in it is named, changed or not; in a file whose places are not trusted, only a
+ * changed one. An entry is `run` when the clean run ran it, and
  * `skip` when its call, or a describe around it, says skip; `read` when the step found its call; `line` is its call's
  * first line, or the reported line with no call.
  * @param {Array<{ name: string, line: number, column: number, status?: string }>} reported
@@ -85,51 +85,24 @@ export function newTests(reported, read, { added, removedAfter }, text) {
   const marks = (call) => [...added].some((n) => n >= call.first && n <= call.last) || removedAfter.some((n) => n >= call.first && n + 1 <= call.last);
   const groups = reported.map((t, i) => {
     const found = owner[i];
-    // A skip is read at the test's place even in an untrusted file: a moved place gains nothing a written `.skip` does not.
-    const skip = callAt(calls, place(t))?.skip === true;
-    return { name: t.name, line: found?.first ?? t.line, at: { line: t.line, column: t.column }, run: t.status === undefined || !notRun(t.status), skip, read: Boolean(found) };
+    return { name: t.name, line: found?.first ?? t.line, at: { line: t.line, column: t.column }, run: t.status === undefined || !notRun(t.status), skip: found?.skip === true, read: Boolean(found), untrusted };
   });
-  // A changed call the runner places no test in: gated by a condition, an empty table, or never called (§3.5).
-  // In a file whose places are not trusted, the step cannot tell such a call from one whose tests ran: it names each.
+  // A test call the runner places no test in, changed or not: gated by a condition, an empty table, or never called
+  // (§3.5). In a file whose places are not trusted, the step cannot tell such a call from one whose tests ran, so it
+  // names only the changed ones.
   const unreported = calls.filter((c) => (!untrusted || marks(c)) && !owner.includes(c)).map((c) => ({ line: c.first, skip: c.skip === true, untrusted }));
   return { groups, untrusted, unreported };
 }
 
-/**
- * The keep-out entries of the base's `ci/tests-can-fail.yaml`, or null when it cannot be read. Its packages are not
- * checked against today's: a package the pull request renamed still has its entry read.
- * @param {string | null} text
- */
-export function keptOutAtBase(text) {
-  if (text === null) return [];
-  try {
-    return readTestsCanFail(text, { has: () => true }).keepOut;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * §3.2: whether an identical rename comes from where the step did not judge it, so it is judged now: its old path was
- * kept out at the base or at head, it moves into another package, or the base's entries cannot be read.
- */
-export function cameFromOutside(entry, pkg, packages, keepOut, baseKeepOut) {
-  if (entry.from === entry.file) return false;
-  if (packageOf(packages, entry.from) !== pkg) return true;
-  if (baseKeepOut === null) return true;
-  const path = within(pkg, entry.from);
-  const holds = (k) => path === k.path || path.startsWith(`${k.path}/`);
-  return keepOut.some((k) => k.package === pkg.name && holds(k))
-    || baseKeepOut.some((k) => (k.package === pkg.name || !packages.some((p) => p.name === k.package)) && holds(k));
-}
-
 // §3.8: a new test the clean run skips is the owner's skip only when its own call, or a describe around it, says so;
-// any other is narrowed, a reason the owner did not give.
-export const skippedEntry = (file, g) => (g.skip
+// any other is narrowed, a reason the owner did not give. In a file whose places are not trusted, its call is unknown.
+export const skippedEntry = (file, g) => (g.untrusted
+  ? { file, name: g.name, why: 'narrowed', detail: `this step cannot tell whether its call says skip, since ${g.untrusted} in the file moves where the runner says a test is` }
+  : g.skip
   ? { file, name: g.name, why: 'skipped', detail: null }
   : { file, name: g.name, why: 'narrowed', detail: g.read ? 'the run skips it, and its call holds no skip' : 'the run skips it, in a call this step cannot read for a skip' });
-// §3.5: a changed call the runner reports no test in is named by its line, by the same rule; in a file whose places are
-// not trusted, every changed call is, since the step cannot tell.
+// §3.5: a call the runner reports no test in is named by its line, by the same rule; in a file whose places are not
+// trusted, every changed call is, since the step cannot tell.
 export const unreportedEntry = (file, c) => (c.untrusted
   ? { file, name: null, why: 'narrowed', detail: `this step cannot tell whether the runner ran a test in the call at line ${c.line}, since ${c.untrusted} in the file moves where the runner says a test is` }
   : c.skip

@@ -50,7 +50,7 @@ test('one changed and one untouched test in a changed file are both judged (D-05
   assert.deepEqual(record.tests.map((x) => [x.name, x.state]).sort(), [['changed', 'judged'], ['untouched', 'judged']]);
 });
 
-test('content decides what changed: a mode-only change and an identical rename judge nothing (D-057)', (t) => {
+test('content decides what changed: a mode change at one path judges nothing, and an identical rename is judged (D-057)', (t) => {
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: three() } });
   t.after(() => p.remove());
   chmodSync(join(p.root, FILE), 0o755);
@@ -61,7 +61,7 @@ test('content decides what changed: a mode-only change and an identical rename j
   p.git(['mv', FILE, 'pkgs/app/src/basket.test.ts']);
   p.commit({});
   ({ record } = p.run());
-  assert.deepEqual([record.changedTestFiles, newNames(record), record.whitespaceOnly], [['pkgs/app/src/basket.test.ts'], [], []]);
+  assert.deepEqual([record.changedTestFiles, newNames(record), record.whitespaceOnly], [['pkgs/app/src/basket.test.ts'], ['a', 'b', 'c'], []]);
 });
 
 test('an identical rename to where no run picks it up is still never-run (D-057)', (t) => {

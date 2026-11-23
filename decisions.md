@@ -1655,9 +1655,9 @@ findings are open in #658, and a third route is open: a change outside every tes
 - **A whitespace-only edit counts as a change.** The owner, 2026-11-22, in #684, asked "should a test file count as
   changed when its only edit is whitespace?": "Yes, count it (Second opinion's pick)". A test file is changed when it is
   added, when its blob differs from the base's (at its old path for a rename), or when it takes a test name it did not
-  have. A pull request that only reformats uses `tests-can-fail#mechanical`, with the owner's yes each time. An
-  identical rename is judged too when its old path was kept out, at the base or in the pull request, or when it moves
-  into another package. The owner, 2026-11-23, in #684: "Yes, judge it (Second opinion's pick)".
+  have. A pull request that only reformats uses `tests-can-fail#mechanical`, with the owner's yes each time. Every
+  identical rename or copy is judged, and only a change of mode at one path judges nothing. The owner, 2026-11-23, in
+  #684: "Judge all (Second opinion's pick)". A folder move uses `tests-can-fail#mechanical`, with the owner's yes.
 - **A test the run leaves out fails the pull request by itself.** The owner, 2026-11-23, in #684, asked "should every
   test the run leaves out, for a reason you did not give, fail the PR by itself?": "Yes, fail it (Second opinion's
   pick)". Old tests are judged now, so they would otherwise hide a new test the run left out. `nothing-judged` stays
@@ -1665,6 +1665,9 @@ findings are open in #658, and a third route is open: a change outside every tes
   file with a date. That covers every test call in a changed file the report places no test in, changed or not,
   unless its own call or a `describe` around it says skip, `skipIf` or `runIf`. The owner, 2026-11-23, in #684: "Yes,
   name them (Second opinion's pick)". Relief for a call already out at the base waits for #685.
+- **A run the step cannot read stops or is a finding** (decision-defaults §4, #684). A clean run that fails outside any
+  test (a hook, a setup file or a missing env value) stops the run. A changed test file the step cannot read is a
+  finding, fixed or excused with a date.
 - **A change outside every test file is compared by runs.** The owner's answer: "Compare runs before/after". The
   option they chose: when a pull request changes anything outside the test files (code, config or setup), the test
   files that use it run on the base and on the pull request, and a test the second run has more of is new and judged.
@@ -1673,7 +1676,7 @@ findings are open in #658, and a third route is open: a change outside every tes
 - **The costs** (#656). Old tests that never fail, in a test file the pull request touches, become findings on that
   pull request: they are fixed, or excused with a dated entry in `ci/exceptions.yaml`. Judging runs every test in the
   file, not only the changed ones. A change outside every test file adds two clean runs of the test files that use it.
-- **#658.** This closes both of its high findings, through #684. Its 2 low findings stay open in #658.
+- **#658.** This closes both of its high findings, through #684. Its 3 other findings stay open in #658.
 - **For #681** (the Second opinion's advice, relayed by the orchestrator, not the owner's words; #681 takes it on).
   Judging every test in a touched file makes runs longer, so #681's per-test budget and its time-limit
   setting are required, not optional. A run judges each touched test file whole. #685's two clean runs count against

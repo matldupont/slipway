@@ -7,7 +7,7 @@ import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { escapeControl } from './report.mjs';
 import { lastLines } from './mutation-processes.mjs';
-import { LISTING, readListing, readResult, RESULT, RunnerShape } from './runner-output.mjs';
+import { LISTING, notRun, readListing, readResult, RESULT, RunnerShape } from './runner-output.mjs';
 import { within } from './mutation-tests.mjs';
 
 // One runner call may take this long before it counts as hung, and never past the run's own limit.
@@ -99,7 +99,7 @@ export async function runFile(ctx, unit) {
     throw e;
   }
   const mine = files.filter((f) => f.file === join(ctx.copy, unit.file));
-  return { hung: false, none: false, loaded: mine.length > 0 && mine.every((f) => f.loaded), tests: mine.flatMap((f) => f.tests), copies: mine.length, log };
+  return { hung: false, none: false, failed: mine.some((f) => f.failed), loaded: mine.length > 0 && mine.every((f) => f.loaded), tests: mine.flatMap((f) => f.tests), copies: mine.length, log };
 }
 
 /**
@@ -115,6 +115,10 @@ export async function reportOf(ctx, unit) {
   if (r.hung) throw new Stop(`The clean run of \`${esc(unit.file)}\` did not finish in its limit, so this step cannot tell which of its tests ran. Make it finish, ${again}.`);
   if (r.none) throw new Stop(`The test runner wrote no report of \`${esc(unit.file)}\` at the path this step gave it that parses, so this step cannot tell which of its tests ran. Check that \`${esc(unit.pkg.name)}\`'s Vitest config does not send a reporter's output elsewhere and that the run ends, ${again}.\n${esc(lastLines(r.log))}`);
   if (!r.loaded) throw new Stop(`The clean run of \`${esc(unit.file)}\` did not load it, so this step cannot tell which of its tests are new. Make it load, ${again}.\n${esc(lastLines(r.log))}`);
+  // §3.5: the file failed, none of its tests did, and some did not run: what failed is outside them.
+  if (r.failed && !r.tests.some((t) => t.status === 'failed') && r.tests.some((t) => notRun(t.status))) {
+    throw new Stop(`The clean run of \`${esc(unit.file)}\` failed outside any test, in a hook, a setup file or on a missing env value, so some of its tests did not run. Make it pass, ${again}.\n${esc(lastLines(r.log))}`);
+  }
   return placed(unit, r);
 }
 

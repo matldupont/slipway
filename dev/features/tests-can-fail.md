@@ -251,10 +251,9 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    were judged".
 2. **Which test files changed.** A changed file that looks like a test (`*.test.*`, `*.spec.*`, under
    `__tests__/`), in any language. A test file is *changed* when the pull request adds it, when its blob at head
-   differs from its blob at the base (at its old path for a rename), when its type changes (a link to a file), or
-   when it takes a name a runner runs that it did not have. No diff and no place decides that (D-057). A mode-only change or an identical rename judges nothing, and
-   such a file is still `never-run` when no run picks it up. An identical rename is judged when its old path was kept
-   out, in the base's `ci/tests-can-fail.yaml` or the pull request's, or when it moves into another package. A file under `__snapshots__/`, or whose name ends `.snap`, is never one:
+   differs from its blob at the base, when its type changes (a link to a file), or when it is renamed or copied, even
+   with identical content. No diff and no place decides that (D-057). A change of mode at one path judges nothing, and
+   such a file is still `never-run` when no run picks it up. A folder move takes `tests-can-fail#mechanical` (§3.7). A file under `__snapshots__/`, or whose name ends `.snap`, is never one:
    the runner writes it. A test file the pull request deletes, or renames to a name outside the pattern, is
    not a changed test file either: the record counts them, for the summary's "{n} test files were removed or
    renamed away" (§4). **None: the run ends here**, the record says so, and the verdict passes
@@ -341,7 +340,9 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    file and never from what the run prints, since a test can print text shaped like a report. The report lists
    every test the runner collects, a skipped one included, with its line and column, and that run is the file's
    baseline too (§3.8). A report that is missing, does not parse, gives a test no line and column, or holds the
-   file as not loaded stops the run: it is never a pass. Every test the report lists is new, by the rule below.
+   file as not loaded stops the run: it is never a pass. So does a clean run where the file failed, none of its tests
+   failed and some did not run: a hook, a setup file or a missing env value failed outside any test, and the stop says
+   so and prints the runner's last lines (#684). Every test the report lists is new, by the rule below.
    A test call the report places no test in (behind a condition, over an empty table, never called), changed or not,
    is named by its line, by the rule below; under `tests-can-fail#mechanical` (§3.7), which reads only the
    listing, a call the listing places no test in is named `mechanical`. One the clean run skips is
@@ -374,8 +375,9 @@ which is how `scripts/mutation.test.mjs` reads it. Its one argument is `--limit-
    2026-11-23). A place that is no point
    of a call `spans()` reads belongs to none. A file with a tagged template anywhere in it (an `` it.each`…` ``
    table's rows can be placed lines away) or a source map comment (it moves every place) trusts none of its
-   places, so every changed call in it is named, since the step cannot tell one whose tests did not run. A test
-   file `spans()` cannot read still has every test judged, and the record names it.
+   places, so every changed call in it is named, since the step cannot tell one whose tests did not run, and a test it
+   skips stays a warning. A test file `spans()` cannot read has the tests the runner reports judged, and is a finding:
+   the step cannot see a test the run leaves out of it, so it is fixed or excused with a date (the owner's call, #684).
 6. **Its subjects**, the source files that may be changed for a test file:
    - each file it imports by relative path, and the file beside it with the same name (`cart.test.ts` →
      `cart.ts`), when that file is tracked, inside the repository and not itself a test;
@@ -518,6 +520,7 @@ is what `/work-ticket` runs.
 | `outOfTime` true and no test `out-of-time` | **finding** `out-of-time`, on the run |
 | a file in `neverRun` | **finding** `never-run` |
 | a test or test call the run is known to have left out for a reason the owner did not give (`narrowed`), or a test `flaky` in its baseline (§3.8) | **finding** `left-out`, whatever else was judged |
+| a changed test file `spans()` cannot read | **finding** `unreadable` |
 | anything else in `notJudged` | warning, by name, with its reason |
 | at least one new test, none in `tests`, and one in `notJudged` for a reason the owner did not give | **finding** `nothing-judged` |
 
@@ -532,7 +535,7 @@ its file with a date. Any other unjudged test beside a judged one stays a warnin
 judge nothing of is not a pass (D-037).
 
 Also a finding: an entry `tests-can-fail#…` in `ci/exceptions.yaml` that is expired or undated
-(`excuse-expired`). Warnings, which never change the exit code: each `unreadable` file; `seconds` over
+(`excuse-expired`). Warnings, which never change the exit code: each `unreadable` file a test imports; `seconds` over
 `budget`; a `tests-can-fail#mechanical` entry in a run whose record has `mechanical` not true. The summary
 line gives the counts: new tests, passed, failed, not judged. Then two shares, always, the second even when
 it is zero (D-037, amended 2026-11-02): the share of new tests not judged for a reason the rule causes
@@ -593,8 +596,11 @@ The fix is printed on its own `Fix:` line.
   runs or is skipped by its own call, or excuse its file in `ci/exceptions.yaml` with a date. `` (#652). Its length is fixed, so
   it fits whatever the record holds; each reason's next action is on the not-judged warning of each test it counts, and only
   `no-subject`'s is to import by a relative path (AR-5 of the 0.3 review).
-- `left-out`: `` `{file}` › "{test}" is left out: {reason}. `` Fix: `` Run it, keep it out in
-  `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`. `` For a test flaky in its baseline, the
+- `unreadable`, for a changed test file: `` `{file}` could not be read as tests, so a test the run leaves out of it
+  cannot be seen: {reason}. `` Fix: `` Write each test as `it(...)` or `test(...)` from `vitest`, or excuse the file in
+  `ci/exceptions.yaml` with a date. ``
+- `left-out`: `` `{file}` › "{test}" is left out: {reason}. `` Fix: `` Set a missing env value, use `skipIf`, keep out in
+  `ci/tests-can-fail.yaml`, or date an excuse. `` For a test flaky in its baseline, the
   fix is `` Keep it passing every time, set `keep-out:` in `ci/tests-can-fail.yaml`, or add a dated excuse to
   `ci/exceptions.yaml`. ``
 - `excuse-expired`: `` `{id}` in `ci/exceptions.yaml`{ (the mechanical-change excuse) | (the excuse for a package
@@ -685,7 +691,7 @@ runner release that moves a field is named as that and not as a fault in the pul
 ## Seams
 
 A promise, and a cost. Every project that takes this slipway promises its contributors one more thing a pull
-request built by `/work-ticket` must pass: a test it adds has to be able to fail, and has to be run by
+request built by `/work-ticket` must pass: every test in a test file it adds or changes has to be able to fail, and has to be run by
 something. Who pays: the machine building the pull request, once before it is marked ready, at most the limit
 of §7; a project's Actions minutes are not spent on it (D-037, amended 2026-10-14). Who is told: the session
 building the pull request, by test name, and the pull request's reader, in its `## Verification`. No new
@@ -842,7 +848,12 @@ nothing else; and a result copied into a pull request by hand.
   Under `tests-can-fail#mechanical`, which reads only the listing (§3.5), one the listing leaves out is not named (the
   owner's call, 2026-11-05, #652).
 - **A file holding a line break git does not count is not read.** A lone CR, U+2028 or U+2029, in a test file or a
-  subject, makes it `could-not-be-parsed` (a test file: every test new), not a file whose lines may drift.
+  subject, makes it `could-not-be-parsed` (a changed test file: an `unreadable` finding), not a file whose lines may drift.
+- **A local helper named `it` or `test` reads as a test call.** The runner reports no test in it, so a pull request
+  that touches its file fails with `left-out`. Rename the helper, or excuse the file with a date.
+- **A file whose places are not trusted is judged, but its left-out tests are not all seen.** A tagged template or a
+  source map comment puts a file in this class: a test it skips is a warning, and only a changed call with no test in
+  it is named. The open findings on this class are in #658.
 - **Runner calls keep the real `HOME`**, so files under it stay readable to the tests the step runs. The rest of
   the step's environment does not reach them (§3.4).
 - **The install and `ci/before-verify.sh` run with the full environment**, as your own install does. Only test runs
@@ -982,8 +993,7 @@ And   the next run removes a tests-can-fail-* folder in the temporary directory 
 Given a test file renamed with one line changed inside one test
 When  ci/mutation.mjs lists the new tests
 Then  every test in the file is listed
-And   a rename with identical content lists none, and is never-run when no run picks it up
-And   an identical rename whose old path was kept out, at the base or at head, or that moves into another package, has every test listed
+And   a rename with identical content has every test listed, and is never-run when no run picks it up; a change of mode at one path lists none
 ```
 
 ```
@@ -1358,3 +1368,4 @@ and the owner set the budget, the limit, the caps and the not-judged share from 
 - 2026-11-23 · MODIFIED · #684 builds D-057's first part: §3.1, §3.2 and §3.5 say every test in a changed test file is new, a whitespace-only edit counts (the owner's answer, 2026-11-22), and a later run that moves a judged test's name stops the run. The record's `outsideAnyTest` becomes `whitespaceOnly`. §4, §5, Known limitations and the scenarios that said a test stays old follow. Version stays 0.5.
 - 2026-11-23 · MODIFIED · #684, the owner's answer of 2026-11-23 in D-057: a test the run is known to have left out for a reason the owner did not give, or one flaky in its baseline, is a `left-out` finding by itself. §4, §5, the Threat model and Known limitations say so. Version stays 0.5.
 - 2026-11-23 · MODIFIED · #684, the owner's two answers of 2026-11-23 in D-057: §3.5 names every test call the report places no test in, changed or not, and §3.2 judges an identical rename whose old path was kept out or that moves into another package. Version stays 0.5.
+- 2026-11-23 · MODIFIED · #684, the owner's answers of 2026-11-23 in D-057, and decision-defaults §4: §3.2 judges every identical rename; §3.5 stops a clean run that fails outside any test, seen on Vitest 5.0.1; §4 makes a changed test file the step cannot read a finding. Known limitations name a local helper called `it` or `test`, and files whose places are not trusted. Version stays 0.5.

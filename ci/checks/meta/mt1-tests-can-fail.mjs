@@ -81,7 +81,10 @@ export function verdict(record, { registry = [], today, head = null }) {
     if (m.isLeftOut(n)) out.findings.push(m.leftOut(n));
     else out.warnings.push(m.notJudged(n, otherRunner));
   }
-  for (const u of record.unreadable) out.warnings.push(m.unreadable(u));
+  for (const u of record.unreadable) {
+    if (u.test === true) out.findings.push(m.unreadableTest(u));
+    else out.warnings.push(m.unreadable(u));
+  }
   if (record.seconds > record.budget) out.warnings.push(m.overBudget(record.seconds, record.budget));
 
   // §4: none of the new tests judged, and one of them not judged for a reason the owner did not give. A left-out test
