@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { contents, marker, owing, readMilestoneModel, readMilestones, started } from '../ci/checks/lib/milestones.mjs';
+import { contents, marker, moved, owing, readMilestoneModel, readMilestones, started } from '../ci/checks/lib/milestones.mjs';
 import { readDeadlines, readRisks } from '../ci/checks/lib/risks.mjs';
 import { excerpt } from '../ci/checks/lib/report.mjs';
 import { flat } from './lib/report-form.mjs';
@@ -415,4 +415,18 @@ test('the milestone model and the PRD deadline table read a long line of placeho
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+// #683: a Contents item moved to another milestone ends ` · moved to M<n>#<item>`; it is read, and it owes nothing.
+test('a moved item is read by moved() and owes no check, an Owed: line under it included; an unmoved item is unchanged', () => {
+  const [bare, gone] = contents(doc('2. A client books a walk (F-02) · moved to M2.1#2', '   Owed: docs/qa/booking.md — staging'));
+  assert.equal(moved(gone.text), true);
+  assert.equal(moved('A client books a walk (F-02) · moved to M10#12  '), true);
+  assert.equal(moved('A client books a walk (F-02) · moved to M2.1'), false);
+  assert.equal(moved('A client books a walk (F-02) · #13'), false);
+  assert.equal(moved('moved to M2.1#2 is the plan for this walk (F-02)'), false);
+  assert.equal(gone.checks.length, 1);
+  assert.deepEqual(owing(gone), []);
+  assert.equal(owing(contents(doc('2. A client books a walk (F-02) · #13', '   Owed: docs/qa/booking.md — staging'))[1]).length, 1);
+  assert.deepEqual(owing(bare), []);
 });

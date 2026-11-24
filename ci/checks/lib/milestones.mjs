@@ -177,6 +177,7 @@ function readCheck(line, at) {
 // never a pass), and every failed run with no bug named and no pass for the same check text on a later line.
 // Read from the last line up, in one pass, so a long list costs no more per line than a short one.
 export function owing(item) {
+  if (moved(item.text)) return [];
   const passed = new Set();
   const owes = [];
   for (const c of (item.checks ?? []).toReversed()) {
@@ -195,6 +196,14 @@ export function owing(item) {
 const MARKER = /(?:^|\s)·\s*(?:([\w.-]+\/[\w.-]+))?#(\d+)$/;
 export function started(text) {
   return MARKER.test(text.trimEnd().slice(-200));
+}
+
+// A Contents item moved to another milestone ends with ` · moved to M4.1#2` (the milestone's id, then the item's
+// number there), where the started marker would go. The line stays as a record. Status never offers it to start, and
+// the milestone's close does not count it as owed (#683). Read from the line's last 200 characters, anchored at the end.
+const MOVED = /(?:^|\s)·\s*moved to M\d+(?:\.\d+)?#\d+$/;
+export function moved(text) {
+  return MOVED.test(text.trimEnd().slice(-200));
 }
 
 // The marker's issue: `{ repo, issue, before }`, `repo` null for a bare ` · #12` and `before` the item's text

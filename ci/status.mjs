@@ -30,7 +30,7 @@ import { frontmatter } from './checks/lib/frontmatter.mjs';
 import { dueDate, latestReviews, readLessonReviews, REVIEWS, slipwayLessons, slipwaysDate } from './checks/lib/lessons.mjs';
 import { MANIFEST, NOT_A_FILE, OVERRIDES, readManifest, readProjectFile, sha256 } from './checks/lib/manifest.mjs';
 import { commentLines, replaceComments, section } from './checks/lib/markdown.mjs';
-import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
+import { appetiteClock, compareMilestones, contents, marker, MILESTONE_ID, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, moved, owing, parseAppetite, readMilestones, started } from './checks/lib/milestones.mjs';
 import { KINDS, line as lineOf, thing } from './checks/lib/owed.mjs';
 import { plan } from './checks/lib/plan.mjs';
 import { readRegister, milestonesNamed } from './checks/lib/register.mjs';
@@ -512,7 +512,7 @@ const testTheRisk = () => {
     ? `Finish testing ${text}. Its test is already scheduled. Nothing past the skeleton can start until every value risk has a result in docs/product/evidence/. ${whoLine(2)}`
     : `Test ${text} with real people. Nothing past the skeleton can start until every value risk has a result in docs/product/evidence/. An agent prepares the materials. ${whoLine(2)}`, STEPS[2].who, ['docs/product/evidence/**', 'docs/product/FRAME.md']);
 };
-// The first Contents item of the active milestone no issue has started, when the milestone has a numbered id: the item the
+// The first Contents item of the active milestone no issue has started and that was not moved to another milestone, when the milestone has a numbered id: the item the
 // Next line offers to shape, and the one the planner may offer beside another main step.
 let shapeItem = null;
 function next() {
@@ -538,7 +538,7 @@ function next() {
     // skill accepts (process/intake.md → Milestone item): this line enters every session through the hook.
     const items = contents(cur.md).filter((i) => !i.text.trim().startsWith('<'));
     if (items.length && MID.test(String(cur.id))) {
-      const item = items.find((i) => !started(i.text));
+      const item = items.find((i) => !started(i.text) && !moved(i.text));
       if (item && itemNumber(item) === null) return main(`Pick the next slice from ${cur.id}'s Contents. Its next item's number is too long to read. ${whoLine(stepN)}`, STEPS[stepN].who, null);
       if (!item) return main(`Finish ${cur.id}'s open issues, then run /close-milestone once its gate is green. Status did not read GitHub, so it cannot name the next issue. ${whoLine(5)}`, STEPS[5].who, null);
       shapeItem = { id: cur.id, n: itemNumber(item) };
