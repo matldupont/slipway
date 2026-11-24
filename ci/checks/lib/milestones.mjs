@@ -198,8 +198,8 @@ export function started(text) {
 }
 
 // A Contents item moved to another milestone ends with ` · moved to M4.1#2` (the milestone's id, then the item's
-// number there), where the started marker would go. The line stays as a record. Status never offers it to start, and
-// the milestone's close does not count it as owed (#683). Read from the line's last 200 characters, anchored at the end.
+// number there), where the started marker would go. The line stays as a record. Status never offers it to start (#683).
+// The item owes nothing itself. A check line left under it stays unreadable, so the close stays blocked until the line moves. Read from the line's last 200 characters, anchored at the end.
 const MOVED = /(?:^|\s)·\s*moved to M\d+(?:\.\d+)?#\d+$/;
 export function moved(text) {
   return MOVED.test(text.trimEnd().slice(-200));

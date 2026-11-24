@@ -417,8 +417,8 @@ test('the milestone model and the PRD deadline table read a long line of placeho
   }
 });
 
-// #683: a Contents item moved to another milestone ends ` · moved to M<n>#<item>`; it is read, and it owes nothing.
-test('a moved item is read by moved() and owes no check, an Owed: line under it included; an unmoved item is unchanged', () => {
+// #683: a Contents item moved to another milestone ends ` · moved to M<n>#<item>`; it is read; the item owes nothing, and a check line left under it stays unreadable.
+test('a moved item is read by moved(); a check line left under it stays owed as unreadable, and an item with none owes nothing', () => {
   const [bare, gone] = contents(doc('2. A client books a walk (F-02) · moved to M2.1#2', '   Owed: docs/qa/booking.md — staging'));
   assert.equal(moved(gone.text), true);
   assert.equal(moved('A client books a walk (F-02) · moved to M10#12  '), true);
@@ -426,7 +426,7 @@ test('a moved item is read by moved() and owes no check, an Owed: line under it 
   assert.equal(moved('A client books a walk (F-02) · #13'), false);
   assert.equal(moved('moved to M2.1#2 is the plan for this walk (F-02)'), false);
   assert.deepEqual(gone.checks.map((c) => c.kind), ['unreadable'], 'a check line left under a moved item stays unreadable, so the close gate holds');
-  assert.deepEqual(owing(bare), []);
+  assert.deepEqual(owing(gone).map((c) => c.kind), ['unreadable'], 'the close stays blocked while the line is under the moved item');
   assert.equal(owing(contents(doc('2. A client books a walk (F-02) · #13', '   Owed: docs/qa/booking.md — staging'))[1]).length, 1);
   assert.deepEqual(owing(bare), []);
 });
