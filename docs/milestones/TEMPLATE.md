@@ -46,9 +46,9 @@ The problem this milestone solves, citing FRAME and PRD IDs (F-01, RISK-2, OD-3)
 
 Vertical slices — each touches every layer it needs and can be demonstrated on its own. In
 order. Each becomes one feature doc or one issue, and cites the PRD feature it builds (`F-01`)
-or says `(no feature: <reason>)` — F1 checks this for active and closed milestones. An item moved to another
-milestone keeps its line and ends it ` · moved to M<n>#<item>` (` · moved to M4.1#2`); status never offers it to start
-and the close does not count it as owed. Move its `Owed:` and `Ran:` lines to the item at the destination: MS1 flags any left under it.
+or says `(no feature: <reason>)` — F1 checks this for active and closed milestones.
+
+An item moved to another milestone keeps its line and ends it ` · moved to M<n>#<item>`, for example ` · moved to M4.1#2`. Status never offers it to start, and the close does not count it as owed. Move its `Owed:` and `Ran:` lines to the item at the destination; a check on this milestone flags any left under it.
 
 1. <…> (F-<…>)
 
