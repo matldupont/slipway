@@ -48,7 +48,7 @@ Vertical slices — each touches every layer it needs and can be demonstrated on
 order. Each becomes one feature doc or one issue, and cites the PRD feature it builds (`F-01`)
 or says `(no feature: <reason>)` — F1 checks this for active and closed milestones. An item moved to another
 milestone keeps its line and ends it ` · moved to M<n>#<item>` (` · moved to M4.1#2`); status never offers it to start
-and the close does not count it as owed.
+and the close does not count it as owed. Its `Owed:` and `Ran:` lines move to the item at the destination.
 
 1. <…> (F-<…>)
 

@@ -129,6 +129,8 @@ export function contents(md) {
   }
   return items.map(({ n, text, lines }) => {
     const at = marker(text);
+    // A moved item holds no checks: its check lines move with it, so none is read, owed or unreadable here (#683).
+    if (moved(text)) return { n, text, checks: [] };
     return { n, text, checks: lines.map((l) => (l.indented && at ? readCheck(l.line, at) : null) ?? { kind: 'unreadable', line: l.line }) };
   });
 }
@@ -177,7 +179,6 @@ function readCheck(line, at) {
 // never a pass), and every failed run with no bug named and no pass for the same check text on a later line.
 // Read from the last line up, in one pass, so a long list costs no more per line than a short one.
 export function owing(item) {
-  if (moved(item.text)) return [];
   const passed = new Set();
   const owes = [];
   for (const c of (item.checks ?? []).toReversed()) {

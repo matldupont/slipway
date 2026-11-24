@@ -425,7 +425,7 @@ test('a moved item is read by moved() and owes no check, an Owed: line under it 
   assert.equal(moved('A client books a walk (F-02) · moved to M2.1'), false);
   assert.equal(moved('A client books a walk (F-02) · #13'), false);
   assert.equal(moved('moved to M2.1#2 is the plan for this walk (F-02)'), false);
-  assert.equal(gone.checks.length, 1);
+  assert.deepEqual(gone.checks, [], 'its check lines are neither owed nor unreadable: they move with the item');
   assert.deepEqual(owing(gone), []);
   assert.equal(owing(contents(doc('2. A client books a walk (F-02) · #13', '   Owed: docs/qa/booking.md — staging'))[1]).length, 1);
   assert.deepEqual(owing(bare), []);
