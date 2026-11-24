@@ -129,8 +129,6 @@ export function contents(md) {
   }
   return items.map(({ n, text, lines }) => {
     const at = marker(text);
-    // A moved item holds no checks: its check lines move with it, so none is read, owed or unreadable here (#683).
-    if (moved(text)) return { n, text, checks: [] };
     return { n, text, checks: lines.map((l) => (l.indented && at ? readCheck(l.line, at) : null) ?? { kind: 'unreadable', line: l.line }) };
   });
 }

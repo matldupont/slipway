@@ -425,8 +425,21 @@ test('a moved item is read by moved() and owes no check, an Owed: line under it 
   assert.equal(moved('A client books a walk (F-02) · moved to M2.1'), false);
   assert.equal(moved('A client books a walk (F-02) · #13'), false);
   assert.equal(moved('moved to M2.1#2 is the plan for this walk (F-02)'), false);
-  assert.deepEqual(gone.checks, [], 'its check lines are neither owed nor unreadable: they move with the item');
-  assert.deepEqual(owing(gone), []);
+  assert.deepEqual(gone.checks.map((c) => c.kind), ['unreadable'], 'a check line left under a moved item stays unreadable, so the close gate holds');
+  assert.deepEqual(owing(bare), []);
   assert.equal(owing(contents(doc('2. A client books a walk (F-02) · #13', '   Owed: docs/qa/booking.md — staging'))[1]).length, 1);
   assert.deepEqual(owing(bare), []);
+});
+
+// #683: a check line left under a moved item still blocks, and MS1's message says where it goes, not that the item has no issue.
+test('MS1 still reports a check line under a moved item and says to move it to the item it moved to', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ms-'));
+  try {
+    mkdirSync(join(dir, 'docs/milestones'), { recursive: true });
+    writeFileSync(join(dir, 'docs/milestones/m1.md'), '---\nid: M1\nstatus: shaping\n---\n\n# M1 — x\n\n## Contents\n\n1. Only (F-01) · moved to M2#1\n   Owed: inert-one — staging\n');
+    const r = spawnSync(process.execPath, [join(SRC, 'ci/checks/meta/ms1-milestones.mjs'), dir], { encoding: 'utf8' });
+    assert.equal(r.status, 1, r.stdout + r.stderr);
+    assert.match(flat(r.stdout), /checks\/unreadable:M1#1.*moved to another milestone.*move this line.*to the item it moved to/);
+    assert.doesNotMatch(flat(r.stdout), /has no issue yet/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

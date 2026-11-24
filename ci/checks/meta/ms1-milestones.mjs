@@ -71,7 +71,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { frontmatter, hasPlaceholder, isUnreadable } from '../lib/frontmatter.mjs';
 import { plain, section, table } from '../lib/markdown.mjs';
-import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
+import { contents, marker, MILESTONE_KINDS, MILESTONE_STATUSES, milestoneId, milestoneKey, moved, owing, parseAppetite, readMilestones } from '../lib/milestones.mjs';
 import { today as localToday } from '../lib/clock.mjs';
 import { codeSpan, excerpt, report } from '../lib/report.mjs';
 import { resolveDecision } from '../lib/decision-ref.mjs';
@@ -129,7 +129,7 @@ for (const { file: f, md, fm } of milestones) {
   for (const item of contents(md)) {
     const at = marker(item.text);
     for (const c of item.checks.filter((c) => c.kind === 'unreadable')) {
-      add(`checks/unreadable:${fm.id}#${item.n}`, `"${excerpt(c.line, 120)}" is not a check line anything can read: ${at ? `write it, indented under its item, as "Owed: {check} — {environment}" or "Ran: {check} — {environment} {yyyy-mm-dd} pass|fail {link to the comment on ${at.repo ? "the item's issue, which is in another repository" : `#${at.issue}`}}"` : `item ${item.n} has no issue yet (its line does not end with · #n), so nothing can owe a check for it`}`);
+      add(`checks/unreadable:${fm.id}#${item.n}`, `"${excerpt(c.line, 120)}" is not a check line anything can read: ${at ? `write it, indented under its item, as "Owed: {check} — {environment}" or "Ran: {check} — {environment} {yyyy-mm-dd} pass|fail {link to the comment on ${at.repo ? "the item's issue, which is in another repository" : `#${at.issue}`}}"` : moved(item.text) ? `item ${item.n} was moved to another milestone, so it owes nothing here: move this line, indented under its item, to the item it moved to`  : `item ${item.n} has no issue yet (its line does not end with · #n), so nothing can owe a check for it`}`);
     }
     const owes = owing(item).filter((c) => c.kind !== 'unreadable');
     if (fm.status === 'closed' && owes.length) {
