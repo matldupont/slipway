@@ -426,7 +426,8 @@ test('a moved item is read by moved(); a check line left under it stays owed as 
   assert.equal(moved('A client books a walk (F-02) · #13'), false);
   assert.equal(moved('moved to M2.1#2 is the plan for this walk (F-02)'), false);
   assert.deepEqual(gone.checks.map((c) => c.kind), ['unreadable'], 'a check line left under a moved item stays unreadable, so the close gate holds');
-  assert.deepEqual(owing(gone).map((c) => c.kind), ['unreadable'], 'the close stays blocked while the line is under the moved item');
+  assert.deepEqual(owing(contents(doc('2. A client books a walk (F-02) · moved to M2.1#2'))[1]), [], 'a moved item with no check lines owes nothing');
+  assert.deepEqual(owing(gone).map((c) => c.kind), ['unreadable'], 'the line under the moved item reads as unreadable, so status and the work order still list it');
   assert.equal(owing(contents(doc('2. A client books a walk (F-02) · #13', '   Owed: docs/qa/booking.md — staging'))[1]).length, 1);
   assert.deepEqual(owing(bare), []);
 });
