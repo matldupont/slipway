@@ -77,14 +77,21 @@ export function verdict(record, { registry = [], today, head = null }) {
   // §7: a run stopped at its limit is never a pass, also when it stopped before any test was marked.
   if (record.outOfTime && !record.tests.some((t) => t.state === 'out-of-time')) out.findings.push(m.outOfTimeRun(record.limit));
   for (const n of record.neverRun) out.findings.push(m.neverRun(n, record.runs));
-  for (const n of record.notJudged) out.warnings.push(m.notJudged(n, otherRunner));
-  for (const u of record.unreadable) out.warnings.push(m.unreadable(u));
+  for (const n of record.notJudged) {
+    if (m.isLeftOut(n)) out.findings.push(m.leftOut(n));
+    else out.warnings.push(m.notJudged(n, otherRunner));
+  }
+  for (const u of record.unreadable) {
+    if (u.test === true) out.findings.push(m.unreadableTest(u));
+    else out.warnings.push(m.unreadable(u));
+  }
   if (record.seconds > record.budget) out.warnings.push(m.overBudget(record.seconds, record.budget));
 
-  // §4: none of the new tests judged, and one of them left out for a reason the owner did not give.
+  // §4: none of the new tests judged, and one of them not judged for a reason the owner did not give. A left-out test
+  // is its own finding above, so it is not counted twice.
   const total = record.tests.length + record.notJudged.length;
   const given = (n) => m.OWNER_GAVE.includes(n.why) || n.why === 'skipped' || (n.why === 'other-runner' && otherRunner);
-  const notGiven = record.notJudged.filter((n) => !given(n));
+  const notGiven = record.notJudged.filter((n) => !given(n) && !m.isLeftOut(n));
   if (total > 0 && record.tests.length === 0 && notGiven.length) {
     const counted = {};
     for (const n of notGiven) counted[n.why] = (counted[n.why] ?? 0) + 1;

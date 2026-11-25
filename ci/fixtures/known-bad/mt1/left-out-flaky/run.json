@@ -1,0 +1,66 @@
+{
+ "head": "1111111111111111111111111111111111111111",
+ "base": "2222222222222222222222222222222222222222",
+ "seconds": 40,
+ "budget": 120,
+ "limit": 600,
+ "outOfTime": false,
+ "stopped": null,
+ "signal": null,
+ "uncommitted": 0,
+ "changedTestFiles": [
+  "pkgs/app/src/cart.test.ts",
+  "pkgs/app/src/f.test.ts"
+ ],
+ "runs": [
+  {
+   "package": "app",
+   "call": "vitest run",
+   "version": "5.0.3"
+  }
+ ],
+ "order": [],
+ "tests": [
+  {
+   "package": "app",
+   "file": "pkgs/app/src/cart.test.ts",
+   "name": "adds",
+   "line": 3,
+   "subjects": [
+    "pkgs/app/src/cart.ts"
+   ],
+   "tried": 1,
+   "failedOn": {
+    "file": "pkgs/app/src/cart.ts",
+    "line": 2,
+    "kind": "body",
+    "by": "assertion"
+   },
+   "crashes": 0,
+   "lastCrash": null,
+   "unreadFailures": 0,
+   "lastUnread": null,
+   "state": "judged"
+  }
+ ],
+ "neverRun": [],
+ "notJudged": [
+  {
+   "file": "pkgs/app/src/f.test.ts",
+   "name": "sometimes",
+   "why": "flaky",
+   "detail": null
+  }
+ ],
+ "unreadable": [],
+ "support": [],
+ "noChange": [],
+ "notTests": [],
+ "whitespaceOnly": [],
+ "removedTestFiles": 0,
+ "mechanical": false,
+ "mechanicalSpent": false,
+ "excuseProblems": [],
+ "capped": [],
+ "leftProcesses": 0
+}

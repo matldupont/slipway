@@ -66,16 +66,15 @@ export function placeIn(text) {
 const callAt = (calls, offset) => (offset === null ? null : calls.find((c) => c.points.includes(offset)) ?? null);
 
 /**
- * The new tests of one test file (§3.5), from the runner's report of a clean run (or its listing, under the
- * mechanical excuse). Each test belongs to the call its place (its line and column) is a
- * point of, never to a call it only shares a line with or sits inside, and each is its own entry. A test is new when a changed line
- * falls inside its own call, or a hunk that only removes lines sits inside it. When `read` is unreadable, or a test
- * is at no point of a call spans() knows (an alias, test.extend), or spans() trusts no place in the file (a tagged
- * template, a source map comment), every test of the file is new, each judged on its own; a changed call it reads
- * with no test in it is still named. An entry is `run` when the clean run ran it, and `skip` when its call, or a
- * describe around it, says skip; `read` when the step found its call; `line` is its call's first line.
+ * The tests of one changed test file (§3.5), from the runner's report of a clean run (or its listing, under the
+ * mechanical excuse). Every one is new, each its own entry (D-057). Its place decides nothing about that: it is read
+ * for the call the test belongs to, the one whose point it is, which gives the line it is named by and whether it says
+ * skip. A call with no test placed in it is named, changed or not; in a file whose places are not trusted, only a
+ * changed one. An entry is `run` when the clean run ran it, and
+ * `skip` when its call, or a describe around it, says skip; `read` when the step found its call; `line` is its call's
+ * first line, or the reported line with no call.
  * @param {Array<{ name: string, line: number, column: number, status?: string }>} reported
- * @returns {{ groups: Array<{ name: string, line: number, at: { line: number, column: number }, run: boolean, skip: boolean, read: boolean }>, outside: boolean, every: boolean, untrusted: string | null, unreported: Array<{ line: number, skip: boolean, untrusted: string | null }> }}
+ * @returns {{ groups: Array<{ name: string, line: number, at: { line: number, column: number }, run: boolean, skip: boolean, read: boolean }>, untrusted: string | null, unreported: Array<{ line: number, skip: boolean, untrusted: string | null }> }}
  */
 export function newTests(reported, read, { added, removedAfter }, text) {
   const calls = read.unreadable ? [] : read.tests;
@@ -83,28 +82,27 @@ export function newTests(reported, read, { added, removedAfter }, text) {
   // A file spans() trusts no place in: no test is tied to a call by its place.
   const untrusted = read.unreadable ? null : read.untrusted;
   const owner = reported.map((t) => (untrusted ? null : callAt(calls, place(t))));
-  const every = Boolean(read.unreadable) || Boolean(untrusted) || owner.some((c) => !c);
   const marks = (call) => [...added].some((n) => n >= call.first && n <= call.last) || removedAfter.some((n) => n >= call.first && n + 1 <= call.last);
   const groups = reported.map((t, i) => {
     const found = owner[i];
-    return { name: t.name, line: every || !found ? t.line : found.first, at: { line: t.line, column: t.column }, call: found, run: t.status === undefined || !notRun(t.status), skip: found?.skip === true, read: Boolean(found) };
+    return { name: t.name, line: found?.first ?? t.line, at: { line: t.line, column: t.column }, run: t.status === undefined || !notRun(t.status), skip: found?.skip === true, read: Boolean(found), untrusted };
   });
-  const fresh = groups.filter((g) => every || marks(g.call));
-  const inAnyCall = (n) => calls.some((c) => n >= c.first && n <= c.last);
-  const outside = !every && ([...added].some((n) => !inAnyCall(n)) || removedAfter.some((n) => !calls.some((c) => n >= c.first && n + 1 <= c.last)));
-  // A changed call the runner places no test in: gated by a condition, an empty table, or never called (§3.5).
-  // In a file whose places are not trusted, the step cannot tell such a call from one whose tests ran: it names each.
-  const unreported = calls.filter((c) => marks(c) && !owner.includes(c)).map((c) => ({ line: c.first, skip: c.skip === true, untrusted }));
-  return { groups: fresh.map(({ call, ...g }) => g), outside, every, untrusted, unreported };
+  // A test call the runner places no test in, changed or not: gated by a condition, an empty table, or never called
+  // (§3.5). In a file whose places are not trusted, the step cannot tell such a call from one whose tests ran, so it
+  // names only the changed ones.
+  const unreported = calls.filter((c) => (!untrusted || marks(c)) && !owner.includes(c)).map((c) => ({ line: c.first, skip: c.skip === true, untrusted }));
+  return { groups, untrusted, unreported };
 }
 
 // §3.8: a new test the clean run skips is the owner's skip only when its own call, or a describe around it, says so;
-// any other is narrowed, a reason the owner did not give.
-export const skippedEntry = (file, g) => (g.skip
+// any other is narrowed, a reason the owner did not give. In a file whose places are not trusted, its call is unknown.
+export const skippedEntry = (file, g) => (g.untrusted
+  ? { file, name: g.name, why: 'narrowed', detail: `this step cannot tell whether its call says skip, since ${g.untrusted} in the file moves where the runner says a test is` }
+  : g.skip
   ? { file, name: g.name, why: 'skipped', detail: null }
   : { file, name: g.name, why: 'narrowed', detail: g.read ? 'the run skips it, and its call holds no skip' : 'the run skips it, in a call this step cannot read for a skip' });
-// §3.5: a changed call the runner reports no test in is named by its line, by the same rule; in a file whose places are
-// not trusted, every changed call is, since the step cannot tell.
+// §3.5: a call the runner reports no test in is named by its line, by the same rule; in a file whose places are not
+// trusted, every changed call is, since the step cannot tell.
 export const unreportedEntry = (file, c) => (c.untrusted
   ? { file, name: null, why: 'narrowed', detail: `this step cannot tell whether the runner ran a test in the call at line ${c.line}, since ${c.untrusted} in the file moves where the runner says a test is` }
   : c.skip

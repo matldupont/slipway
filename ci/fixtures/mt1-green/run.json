@@ -14,7 +14,6 @@
   "pkgs/app/src/o.test.ts",
   "pkgs/app/src/x.test.ts",
   "pkgs/app/src/k.test.ts",
-  "pkgs/app/src/f.test.ts",
   "pkgs/other/src/r.test.ts"
  ],
  "runs": [
@@ -75,12 +74,6 @@
    "detail": null
   },
   {
-   "file": "pkgs/app/src/f.test.ts",
-   "name": "sometimes",
-   "why": "flaky",
-   "detail": null
-  },
-  {
    "file": "pkgs/other/src/r.test.ts",
    "name": null,
    "why": "other-runner",
@@ -91,7 +84,7 @@
  "support": [],
  "noChange": [],
  "notTests": [],
- "outsideAnyTest": [],
+ "whitespaceOnly": [],
  "removedTestFiles": 0,
  "mechanical": false,
  "mechanicalSpent": false,

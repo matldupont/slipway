@@ -44,7 +44,7 @@ export function readListing(value, pkg, version) {
  * A result: for each test file, whether it loaded, and each test's name, status, failure messages, and the line and
  * column of its call (each null when the result gives none). A result not of the recorded shape, or a failed test
  * with no failureMessages, throws RunnerShape.
- * @returns {Array<{ file: string, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null, column: number | null }> }>}
+ * @returns {Array<{ file: string, failed: boolean, loaded: boolean, tests: Array<{ name: string, status: string, failureMessages: string[], line: number | null, column: number | null }> }>}
  */
 export function readResult(value, pkg, version) {
   if (!isObject(value) || !Array.isArray(value.testResults)) throw shape(RESULT, pkg, version);
@@ -58,7 +58,7 @@ export function readResult(value, pkg, version) {
       return { name: titleOf(a), status: a.status, failureMessages: messages, line: where(a.location?.line), column: where(a.location?.column) };
     });
     // A file that failed with no test in it did not load: a change broke it, or it never could load.
-    return { file: file.name, loaded: !(file.status === 'failed' && tests.length === 0), tests };
+    return { file: file.name, failed: file.status === 'failed', loaded: !(file.status === 'failed' && tests.length === 0), tests };
   });
 }
 

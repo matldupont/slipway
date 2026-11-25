@@ -135,26 +135,28 @@ test('a new test the run skips with no skip on its own call is narrowed (#652); 
   assert.match(record.unreadable.find((u) => u.file === FILE).reason, /line break git does not count/);
 });
 
-test('a test the runner lists in no call spans() reads (an alias, test.extend) makes every test of its file new', (t) => {
+test('a test the runner lists in no call spans() reads (an alias, test.extend) is judged with its file, which a warning names', (t) => {
   const file = (line) => `import { test, expect } from 'vitest';\nimport { add } from './cart';\nconst fixtureTest = test.extend({});\n\nfixtureTest('one', () => {\n  expect(add(1, 2)).toBe(3);\n});\n\ntest('two', () => {\n${line}\n});\n`;
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: file('  expect(add(1, 2)).toBe(3);') } });
   t.after(() => p.remove());
   p.commit({ [FILE]: file('  expect(add(2, 2)).toBe(4);') });
   const { record } = p.run();
   assert.deepEqual(record.tests.map((x) => x.name).sort(), ['one', 'two']);
-  assert.match(record.unreadable.find((u) => u.file === FILE).reason, /an alias of it or test, or test\.extend/);
+  const entry = record.unreadable.find((u) => u.file === FILE);
+  assert.match(entry.reason, /an alias of it or test, or test\.extend/);
+  assert.equal(entry.test, undefined, 'a warning, not a finding');
 });
 
 test('a new test skipped or todo before it runs, which the runner does not list, is not judged, skipped, and named from the runner\'s report (#652)', (t) => {
-  // An old skipped test the change does not touch is not named.
+  // Every test in a changed file is new (D-057), so an old skipped test is named too.
   const old = "\nit.skip('old', () => {});\n";
   const p = project({ base: { 'pkgs/app/src/cart.ts': CART, [FILE]: `${testFile(['kept'])}${old}` } });
   t.after(() => p.remove());
   p.commit({ [FILE]: `${testFile(['kept', 'new'])}${old}\nit.skip('later', () => {\n  expect(add(1, 2)).toBe(3);\n});\n\nit.todo('one day');\n` });
   let { record } = p.run();
   const named = (r) => r.notJudged.map((n) => [n.file, n.name, n.why]);
-  assert.deepEqual(record.tests.map((x) => x.name), ['new']);
-  assert.deepEqual(named(record), [[FILE, 'later', 'skipped'], [FILE, 'one day', 'skipped']]);
+  assert.deepEqual(record.tests.map((x) => x.name), ['kept', 'new']);
+  assert.deepEqual(named(record), [[FILE, 'old', 'skipped'], [FILE, 'later', 'skipped'], [FILE, 'one day', 'skipped']]);
   // A file whose every test is skipped or todo is listed by no run: never-run, as a file no run picks up is.
   const later = 'pkgs/app/src/later.test.ts';
   p.commit({ [later]: "import { it } from 'vitest';\n\nit.skip('a', () => {});\nit.todo('b');\n" });

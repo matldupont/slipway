@@ -65,7 +65,7 @@ test('every finding, warning and exit 2 names a file of the project, the test wh
 test('the two flaky outcomes are told apart: a test red then green before any change, and one red on the untouched run after its changes', () => {
   const v = every();
   const finding = v.findings.find((f) => f.where.endsWith('#flaky'));
-  const warning = v.warnings.find((w) => w.where.includes('#not-judged/flaky'));
+  const warning = v.findings.find((f) => f.where.includes('flaky.test.ts#left-out'));
   assert.match(finding.detail, /failed with nothing changed after passing in the same copy/);
   assert.match(warning.detail, /red, then green, in a clean copy with nothing changed\.$/);
   // AR-4 of the 0.5 review: chance is not the only cause it names.
@@ -73,7 +73,7 @@ test('the two flaky outcomes are told apart: a test red then green before any ch
 });
 
 test('nothing-judged is one line of fixed length; each test it counts has its not-judged warning with its own next action, and only no-subject is told to import by a relative path', () => {
-  const counts = REASONS.filter((w) => !['excused', 'kept-out', 'skipped', 'mechanical'].includes(w));
+  const counts = REASONS.filter((w) => !['excused', 'kept-out', 'skipped', 'mechanical', 'narrowed', 'flaky'].includes(w));
   const v = judge(rec({ changedTestFiles: [FILE], notJudged: counts.map((why, i) => nj(why, { name: `t${i}`, detail: 'pkgs/app/src/s.ts' })) }));
   const found = v.findings.find((f) => f.where === 'nothing-judged');
   assert.equal(found.detail, `None of the ${counts.length} new or edited tests was judged, so this is not a pass, for ${counts.length} reasons: each test's not-judged warning says why and what to do.`);
@@ -125,7 +125,7 @@ test('no text of the record prints raw: C0, C1 and bidi characters in every fiel
     tests: [judged({ file: f, name: bad('n'), tried: 2, failedOn: null, subjects: [bad('s.ts')] }), judged({ file: f, name: bad('c'), tried: 2, failedOn: null, crashes: 1, lastCrash: { type: bad('TypeError'), file: bad('x.ts'), line: bad('3') } })],
     neverRun: [{ file: f }], notJudged: REASONS.map((why) => ({ file: f, name: bad(why), why, detail: bad('d') })),
     unreadable: [{ file: f, reason: 'already \\u001b escaped' }], capped: [{ file: f, untriedBody: 1, untriedOther: 2 }],
-    notTests: [{ file: f }], outsideAnyTest: [{ file: f }], support: [{ file: f }], noChange: [{ file: f }],
+    notTests: [{ file: f }], whitespaceOnly: [{ file: f }], support: [{ file: f }], noChange: [{ file: f }],
   });
   // The verdict escapes each string itself, before report() does it again: none of its text holds one raw.
   const v = judge(r, { head: null, registry: [entry('tests-can-fail#mechanical', '2026-01-01')] });
@@ -144,7 +144,7 @@ test('no text of the record prints raw: C0, C1 and bidi characters in every fiel
 });
 
 test('each known-bad fixture of MT1 is one PC1 runs, and every reason a record can give has its wording', () => {
-  assert.deepEqual(readdirSync(KNOWN_BAD).sort(), ['findings', 'lacks-field', 'narrowed', 'no-record', 'not-json', 'nothing-judged', 'other-head', 'out-of-time-early', 'stopped', 'tried-zero']);
+  assert.deepEqual(readdirSync(KNOWN_BAD).sort(), ['findings', 'lacks-field', 'left-out-flaky', 'narrowed', 'no-record', 'not-json', 'nothing-judged', 'other-head', 'out-of-time-early', 'stopped', 'tried-zero']);
   const judge = readFileSync(fileURLToPath(new URL('../../ci/checks/lib/mutation-judge.mjs', import.meta.url)), 'utf8') + readFileSync(fileURLToPath(new URL('../../ci/mutation.mjs', import.meta.url)), 'utf8') + readFileSync(fileURLToPath(new URL('../../ci/checks/lib/mutation-tests.mjs', import.meta.url)), 'utf8');
   const given = new Set([...judge.matchAll(/why: '([a-z-]+)'/g), ...judge.matchAll(/notJudged\([^,]+, '([a-z-]+)'/g), ...judge.matchAll(/'(other-runner|kept-out|excused|no-package|mechanical|skipped|flaky|no-subject|support-only|could-not-be-parsed|other-language|no-change-to-make|every-change-dropped)'/g)].map((x) => x[1]));
   for (const why of given) assert.ok(REASONS.includes(why), `the run gives ${why}, which this test does not word`);

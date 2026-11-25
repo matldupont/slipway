@@ -13,6 +13,7 @@ import { pathToFileURL } from 'node:url';
 import { today } from './checks/lib/clock.mjs';
 import { expiryProblem } from './checks/lib/exceptions.mjs';
 import { trustedGit } from './checks/lib/manifest.mjs';
+import { IN_NO_CALL } from './checks/lib/mt1-messages.mjs';
 import { escapeOutput } from './checks/lib/report.mjs';
 import { spans } from './checks/lib/mutants.mjs';
 import { argvOf, CALL_LIMIT_MS, esc, leftMessage, listTests, reportOf, runnerEnv, setupMessage, Stop, vitestVersion } from './checks/lib/mutation-calls.mjs';
@@ -35,7 +36,7 @@ const SIGNALS = { SIGINT: 2, SIGTERM: 15, SIGHUP: 1 };
 export const emptyRecord = (limit) => ({
   head: null, base: null, seconds: 0, budget: BUDGET_SECONDS, limit, outOfTime: false, stopped: null, signal: null,
   uncommitted: 0, changedTestFiles: [], runs: [], order: [], tests: [], neverRun: [], notJudged: [], unreadable: [],
-  support: [], noChange: [], notTests: [], outsideAnyTest: [], removedTestFiles: 0, mechanical: false, mechanicalSpent: false,
+  support: [], noChange: [], notTests: [], whitespaceOnly: [], removedTestFiles: 0, mechanical: false, mechanicalSpent: false,
   excuseProblems: [], capped: [], leftProcesses: 0,
 });
 
@@ -236,9 +237,10 @@ async function body(root, record, ctx) {
     }
     for (const entry of entries) {
       const by = listed.find((l) => l.tests.some((t) => t.file === entry.file));
-      // Only a regular file the commit tracks is read. A symlink or a submodule the runner runs is named, not read.
+      // Only a regular file the commit tracks is read. A symlink or a submodule with a test name, or that a run lists, is
+      // a finding (§4); any other is not a test.
       if (!tracked.has(entry.file)) {
-        if (by) notJudged(entry.file, 'could-not-be-parsed', 'a symlink or a submodule, which this step does not read');
+        if (by || isRunnableName(entry.file)) record.unreadable.push({ file: entry.file, reason: 'a symlink or a submodule, which this step does not read', test: true, link: true });
         else record.notTests.push({ file: entry.file });
         continue;
       }
@@ -248,20 +250,25 @@ async function body(root, record, ctx) {
         (isRunnableName(entry.file) ? record.neverRun : record.notTests).push({ file: entry.file });
         continue;
       }
+      // §3.2: a change of mode alone has nothing to judge, once a run is known to pick the file up.
+      if (entry.same) continue;
       const text = readFileSync(join(ctx.copy, entry.file), 'utf8');
       const read = safely(spans, entry.file, text);
-      if (read.unreadable) record.unreadable.push({ file: entry.file, reason: esc(read.unreadable) });
+      // §4: a changed test file the step cannot read is a finding: it cannot see a test the run leaves out of it.
+      if (read.unreadable) record.unreadable.push({ file: entry.file, reason: esc(read.unreadable), test: true });
       const lines = changedLines(top, record.base, record.head, entry);
       const listedHere = by.tests.filter((t) => t.file === entry.file);
       // The listing can leave a test out (one skipped before it runs; on Vitest 5, which reads files without running
       // them, any it calls by another name), so the clean run's report says which tests the file has (§3.5, #655).
       const report = excused ? null : await reportOf(ctx, { ...by.unit, file: entry.file });
       const found = newTests(report ? report.tests : listedHere, read, lines, text);
-      if (found.every && !read.unreadable) record.unreadable.push({ file: entry.file, reason: found.untrusted ? `${found.untrusted} in it moves where the runner says a test is` : 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)' });
+      // A test in no call the step reads, from the report or, under the mechanical excuse, the listing: a warning (§4).
+      if (!read.unreadable && !found.untrusted && found.groups.some((g) => !g.read)) record.unreadable.push({ file: entry.file, reason: IN_NO_CALL });
+      // §3.1: the content changed and the whitespace-blind diff shows nothing. Its tests are judged, and the summary says so.
+      if (!entry.identical && !lines.added.size && !lines.removedAfter.length) record.whitespaceOnly.push({ file: entry.file });
       // A new test the clean run skips is not judged (§3.8).
       for (const g of found.groups.filter((x) => !x.run)) record.notJudged.push(skippedEntry(entry.file, g));
       for (const c of found.unreported) record.notJudged.push(excused ? { file: entry.file, name: null, why: 'mechanical', detail: mechanicalWhy } : unreportedEntry(entry.file, c));
-      if (found.outside && !entry.added) record.outsideAnyTest.push({ file: entry.file });
       const run = found.groups.filter((g) => g.run);
       if (run.length) units.push({ ...by.unit, file: entry.file, text, expects: read.unreadable ? [] : read.expects, groups: run, first: report ?? undefined });
     }

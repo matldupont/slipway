@@ -124,7 +124,8 @@ Revert each probe. The kit is installed when all sixteen have been seen to fire.
 ## 4. Tests can fail
 
 `/work-ticket` runs `pnpm tests-can-fail` beside the quality gate, before it marks a pull request ready. It checks
-that each test the pull request adds or edits fails on some change to the code it tests (F-13, D-037). A test that
+that every test in a test file the pull request adds or changes fails on some change to the code it tests (F-13,
+D-037, D-057), old tests in that file included. A test that
 passes whatever the code does turns the gate red, and the message names the test and what to do. The result goes
 into the pull request's `## Verification`.
 

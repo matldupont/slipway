@@ -38,6 +38,18 @@ function ownTests(unit, res) {
     return { ...g, key: mine.length ? keyOf(mine[0]) : null };
   });
 }
+// §3.5: a result lands on a test by place and name, so each judged name must keep the clean run's places, in order, on
+// every later run. A run that does not report the name at all credits nothing, and a change can remove a generated row.
+const placeOf = (t) => `${t.line}:${t.column}`;
+const placesIn = (res, name) => res.tests.filter((t) => t.name === name).map(placeOf);
+function samePlaces(unit, res) {
+  for (const name of new Set(unit.groups.map((g) => g.name))) {
+    const now = placesIn(res, name);
+    if (now.length && now.join() !== unit.places.get(name)?.join()) {
+      throw new Stop(`\`${esc(unit.file)}\` reports "${esc(name)}" at other places on a later run than on its clean run, so this step cannot tell which test a result belongs to. Make the file create each test once, at one place, on every run, then run \`pnpm tests-can-fail\` again.`);
+    }
+  }
+}
 // Two tests at one place with one name: the same test run by two Vitest projects in one call, or two of one name.
 const twins = (unit, res, t, place) => (res.copies > 1
   ? `\`${esc(unit.file)}\` is run by more than one Vitest project in \`${esc(unit.pkg.name)}\`'s call, so this step cannot tell "${esc(t.name)}" in one from the other. Name one project with \`--project\` in the call this step runs, then run \`pnpm tests-can-fail\` again.`
@@ -81,6 +93,7 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
     const regroup = (unit, res) => {
       for (const g of unit.groups) pending.delete(g);
       unit.groups = ownTests(unit, res);
+      unit.places = new Map(unit.groups.map((g) => [g.name, placesIn(res, g.name)]));
       for (const g of unit.groups) pending.set(g, unit);
     };
     const first = new Map();
@@ -98,6 +111,7 @@ export async function judge({ ctx, record, units, tracked, packages, changed, ow
       const res = await runFile(ctx, unit);
       again.set(unit, res.loaded ? placed(unit, res) : res);
       if (!first.get(unit).loaded && res.loaded) regroup(unit, res);
+      else if (res.loaded) samePlaces(unit, res);
     }
     const red = ready.flatMap((unit) => redIn(unit).map((g) => ({ unit, g })));
     for (const { unit, g } of red) {
@@ -149,6 +163,7 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
     // A change that hangs the file or stops it loading says nothing about a test: dropped, not counted.
     if (res.hung || !res.loaded) continue;
     placed(unit, res);
+    samePlaces(unit, res);
     for (const g of open) g.rec.tried += 1;
     for (const t of res.tests) {
       const g = t.status === 'failed' && open.find((x) => x.key === keyOf(t) && !x.rec.failedOn);
@@ -179,7 +194,7 @@ async function judgeFile(ctx, record, unit, toRecord, pending) {
   // Then the file once more, untouched: a new test that fails there failed with nothing changed.
   ctx.checkpoint();
   const again = await runFile(ctx, unit);
-  if (!again.hung && again.loaded) placed(unit, again);
+  if (!again.hung && again.loaded) samePlaces(unit, placed(unit, again));
   const redAgain = new Set(again.tests.filter((t) => t.status === 'failed').map(keyOf));
   for (const g of unit.groups) {
     const flaky = again.hung || again.none || !again.loaded || redAgain.has(g.key);

@@ -57,13 +57,24 @@ export function notJudged(n, live) {
   return { where: e(`${n.file}#not-judged/${n.why}${n.name == null ? '' : `/${n.name}`}`), detail: `Not judged: ${named(n.file, n.name)} — ${reason}.`, fix };
 }
 
+// §4: a test or call the run is known to have left out for a reason the owner did not give, or one flaky in its
+// baseline. Old tests are judged now (D-057), so each of these fails the pull request by itself.
+export const isLeftOut = (n) => n.why === 'flaky' || (n.why === 'narrowed' && !String(n.detail ?? '').startsWith('this step cannot tell whether'));
+export const leftOut = (n) => ({
+  where: e(`${n.file}#left-out${n.name == null ? '' : `/${n.name}`}`),
+  detail: `${named(n.file, n.name)} is left out: ${REASONS[n.why](n.detail)[0]}.`,
+  fix: n.why === 'flaky'
+    ? 'Keep it passing every time, set `keep-out:` in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.'
+    : 'Set the env value it needs, remove the filter, `.only` or hook skipping it, keep out in `ci/tests-can-fail.yaml`, or add a dated excuse to `ci/exceptions.yaml`.',
+});
+
 const at = (t, id) => e(`${t.file}:${t.line}#${id}`);
 const subjects = (t) => (t.subjects?.length ? t.subjects.map(file).join(', ') : 'none named');
 
 export const killsNothing = (t) => ({
   where: at(t, 'kills-nothing'),
   detail: `${named(t.file, t.name)} passed on all ${t.tried} changes made to the code it imports (${subjects(t)}).`,
-  fix: `Write an assertion on what the code returns or does, then ${AGAIN}.`,
+  fix: `Write an assertion on what the code returns or does, then ${AGAIN}, ${EXCUSE}.`,
 });
 
 // A crash counts only inside an `expect(...)` of the test's own file (§3.9).
@@ -137,19 +148,32 @@ export const spentMechanical = () => ({
   fix: 'Remove it.',
 });
 
-// A file whose places the step does not trust (a tagged template, a source map comment) reads fine: its tests are all
-// judged, old ones too, and the fix is where to put new tests, not how to write them (#655).
-const MOVES = 'moves where the runner says a test is';
-export const unreadable = (u) => (String(u.reason ?? '').includes(MOVES)
+// §4: a changed test file the parser cannot read is a finding, since a test the run leaves out of it cannot be seen.
+export const unreadableTest = (u) => (u.link
   ? {
     where: e(`${u.file}#unreadable`),
-    detail: `${file(u.file)} has every test in it judged, old ones too: ${e(u.reason)}.`,
-    fix: `Put new tests in a file with no tagged template or source map comment to have only them judged, ${EXCUSE}.`,
+    detail: `${file(u.file)} is a symlink or a submodule, so this step cannot read the tests in it.`,
+    fix: `Save it as a regular file, ${EXCUSE}.`,
   }
   : {
     where: e(`${u.file}#unreadable`),
-    detail: `${file(u.file)} could not be read as tests, so every test in it was treated as new: ${e(u.reason)}.`,
+    detail: `${file(u.file)} could not be read as tests, so a test the run leaves out of it cannot be seen: ${e(u.reason)}.`,
     fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
+  });
+// A changed test file holding a test the runner reports in no call this step reads: its tests are judged, and a warning
+// names the file (#632).
+export const IN_NO_CALL = 'a test the runner reports is in no test call this step reads (an alias of it or test, or test.extend)';
+// Otherwise a file a test imports that the parser cannot read: nothing in it is changed, and the test is judged on the rest.
+export const unreadable = (u) => (u.reason === IN_NO_CALL
+  ? {
+    where: e(`${u.file}#unreadable`),
+    detail: `${file(u.file)} holds a test in no call this step reads: an alias of \`it\` or \`test\`, or \`test.extend\`.`,
+    fix: `Write each test as \`it(...)\` or \`test(...)\` from \`vitest\`, ${EXCUSE}.`,
+  }
+  : {
+    where: e(`${u.file}#unreadable`),
+    detail: `${file(u.file)} could not be read, so this step changes nothing in it: ${e(u.reason)}.`,
+    fix: 'Rename or move the code under test into a file this step can read.',
   });
 
 export const overBudget = (seconds, budget) => ({
@@ -166,7 +190,9 @@ export function countLines(r) {
   for (const c of r.capped) lines.push(`${file(c.file)} stopped at the cap of 30 changes: ${e(c.untriedBody)} body changes and ${e(c.untriedOther)} others were not tried, so it is not fully checked.`);
   if (r.removedTestFiles) lines.push(`${e(r.removedTestFiles)} test files were removed or renamed away.`);
   if (r.notTests.length) lines.push(`${r.notTests.length} changed files under a test name or folder are not tests: ${names(r.notTests)}.`);
-  if (r.outsideAnyTest.length) lines.push(`${r.outsideAnyTest.length} test files changed outside any test: ${names(r.outsideAnyTest)}.`);
+  // Only a file with a test in `tests`: under the mechanical excuse, or with no subject, its tests were not judged.
+  const reformatted = r.whitespaceOnly.filter((x) => r.tests.some((t) => t.file === x.file && t.state === 'judged'));
+  if (reformatted.length) lines.push(`${reformatted.length} test files changed only in whitespace, and their tests were judged: ${names(reformatted)}.`);
   if (r.support.length) lines.push(`${r.support.length} test support files were left out of the code under test: ${names(r.support)}.`);
   if (r.uncommitted) lines.push(`${e(r.uncommitted)} tracked files have changes not committed, and were not judged: this step judges the last commit.`);
   return lines;

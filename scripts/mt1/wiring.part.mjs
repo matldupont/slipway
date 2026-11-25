@@ -45,7 +45,7 @@ test('the root script runs MT1 --run; the meta script runs MT1 on ci/fixtures/mt
   assert.match(r.stdout, /^PASS: \d+ new tests: \d+ passed, 0 failed, \d+ not judged\. \(MT1\)$/m);
   // AR-13: the green record holds a not-judged test for each of these reasons, so each one's warning is read on a pass.
   const why = JSON.parse(readFileSync(join(SRC, 'ci', 'fixtures', 'mt1-green', 'run.json'), 'utf8')).notJudged.map((n) => n.why);
-  for (const reason of ['support-only', 'other-language', 'excused', 'skipped', 'flaky', 'other-runner']) assert.ok(why.includes(reason), reason);
+  for (const reason of ['support-only', 'other-language', 'excused', 'skipped', 'other-runner']) assert.ok(why.includes(reason), reason);
 });
 
 test('no workflow runs the step: run lines are read for the root script and MT1 --run, not the words anywhere', (t) => {

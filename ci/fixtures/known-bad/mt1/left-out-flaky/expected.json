@@ -1,0 +1,15 @@
+{
+ "_note": "A test red then green in the clean copy fails by itself, beside a test that was judged and passed.",
+ "env": {
+  "CHECK_TODAY": "2026-11-04",
+  "CHECK_HEAD": "1111111111111111111111111111111111111111"
+ },
+ "exit": 1,
+ "findings": [
+  "pkgs/app/src/f.test.ts#left-out/sometimes"
+ ],
+ "warnings": [],
+ "details": {
+  "pkgs/app/src/f.test.ts#left-out/sometimes": "is left out: it was red, then green, in a clean copy with nothing changed"
+ }
+}
