@@ -1,0 +1,6 @@
+{
+  "_note": "Every unmarked item is moved to another milestone, so Next offers none of them to start and points at /close-milestone (#683).",
+  "today": "2026-03-10",
+  "next": "Finish M2's open issues, then run /close-milestone once its gate is green. Status did not read GitHub, so it cannot name the next issue. Agent, one issue per session.",
+  "frame": "framed · risks: RISK-1 tested"
+}

@@ -197,6 +197,14 @@ export function started(text) {
   return MARKER.test(text.trimEnd().slice(-200));
 }
 
+// A Contents item moved to another milestone ends with ` · moved to M4.1#2` (the milestone's id, then the item's
+// number there), where the started marker would go. The line stays as a record. Status never offers it to start (#683).
+// The item owes nothing itself. A check line left under it stays unreadable, so the close stays blocked until the line moves. Read from the line's last 200 characters, anchored at the end.
+const MOVED = /(?:^|\s)·\s*moved to M\d+(?:\.\d+)?#\d+$/;
+export function moved(text) {
+  return MOVED.test(text.trimEnd().slice(-200));
+}
+
 // The marker's issue: `{ repo, issue, before }`, `repo` null for a bare ` · #12` and `before` the item's text
 // without the marker. Null when the item has none, or when its number is 0 or too long to be an issue's.
 export function marker(text) {
